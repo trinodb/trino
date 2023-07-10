@@ -13,10 +13,9 @@
  */
 package io.trino.execution.scheduler.policy;
 
+import com.google.inject.Inject;
 import io.trino.execution.scheduler.StageExecution;
 import io.trino.server.DynamicFilterService;
-
-import javax.inject.Inject;
 
 import java.util.Collection;
 

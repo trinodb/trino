@@ -14,14 +14,15 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
@@ -31,12 +32,11 @@ import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Expression;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
@@ -44,7 +44,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
-import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -91,7 +90,8 @@ public class AddColumnTask
         TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
 
-        accessControl.checkCanAddColumns(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
+        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName);
+        accessControl.checkCanAddColumns(session.toSecurityContext(), qualifiedTableName);
 
         Map<String, ColumnHandle> columnHandles = plannerContext.getMetadata().getColumnHandles(session, tableHandle);
 
@@ -122,7 +122,7 @@ public class AddColumnTask
                 session,
                 plannerContext,
                 accessControl,
-                parameterExtractor(statement, parameters),
+                bindParameters(statement, parameters),
                 true);
 
         ColumnMetadata column = ColumnMetadata.builder()
@@ -133,7 +133,7 @@ public class AddColumnTask
                 .setProperties(columnProperties)
                 .build();
 
-        plannerContext.getMetadata().addColumn(session, tableHandle, column);
+        plannerContext.getMetadata().addColumn(session, tableHandle, qualifiedTableName.asCatalogSchemaTableName(), column);
 
         return immediateVoidFuture();
     }

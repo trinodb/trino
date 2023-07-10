@@ -14,16 +14,15 @@
 package io.trino.operator.join;
 
 import com.google.common.io.Closer;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.exchange.LocalPartitionGenerator;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -69,16 +68,14 @@ public class PartitionedLookupSource
                 }
             };
         }
-        else {
-            return TrackingLookupSourceSupplier.nonTracking(
-                    () -> new PartitionedLookupSource(
-                            partitions.stream()
-                                    .map(Supplier::get)
-                                    .collect(toImmutableList()),
-                            hashChannelTypes,
-                            Optional.empty(),
-                            blockTypeOperators));
-        }
+        return TrackingLookupSourceSupplier.nonTracking(
+                () -> new PartitionedLookupSource(
+                        partitions.stream()
+                                .map(Supplier::get)
+                                .collect(toImmutableList()),
+                        hashChannelTypes,
+                        Optional.empty(),
+                        blockTypeOperators));
     }
 
     private final LookupSource[] lookupSources;

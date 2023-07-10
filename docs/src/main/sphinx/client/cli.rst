@@ -13,9 +13,14 @@ Requirements
 The CLI requires a Java virtual machine available on the path.
 It can be used with Java version 8 and higher.
 
-The CLI uses the :doc:`Trino client REST API
-</develop/client-protocol>` over HTTP/HTTPS to communicate with the
-coordinator on the cluster.
+The CLI uses the :doc:`Trino client REST API </develop/client-protocol>` over
+HTTP/HTTPS to communicate with the coordinator on the cluster.
+
+The CLI version should be identical to the version of the Trino cluster, or
+newer. Older versions typically work, but only a subset is regularly tested.
+Versions before 350 are not supported.
+
+.. _cli-installation:
 
 Installation
 ------------
@@ -37,7 +42,11 @@ the version:
 
     java -jar trino-cli-*-executable.jar --version
 
-The syntax can be used for the examples in the following sections.
+The syntax can be used for the examples in the following sections. In addition,
+using the ``java`` command allows you to add configuration options for the Java
+runtime with the ``-D`` syntax. You can use this for debugging and
+troubleshooting, such as when :ref:`specifying additional Kerberos debug options
+<cli-kerberos-debug>`.
 
 Running the CLI
 ---------------
@@ -152,10 +161,19 @@ mode:
       EMACS editors. Defaults to ``EMACS``.
   * - ``--http-proxy``
     - Configures the URL of the HTTP proxy to connect to Trino.
+  * - ``--history-file``
+    - Path to the :ref:`history file <cli-history>`. Defaults to ``~/.trino_history``.
   * - ``--network-logging``
     - Configures the level of detail provided for network logging of the CLI.
       Defaults to ``NONE``, other options are ``BASIC``, ``HEADERS``, or
       ``BODY``.
+  * - ``--output-format-interactive=<format>``
+    - Specify the :ref:`format <cli-output-format>` to use
+      for printing query results. Defaults to ``ALIGNED``.
+  * - ``--pager=<pager>``
+    - Path to the pager program used to display the query results. Set to
+      an empty value to completely disable pagination. Defaults to ``less``
+      with a carefully selected set of options.
   * - ``--no-progress``
     - Do not show query processing progress.
   * - ``--password``
@@ -181,7 +199,7 @@ mode:
       :doc:`/admin/resource-groups`.
   * - ``--timezone``
     - Sets the time zone for the session using the `time zone name
-      <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_. Defaults
+      <https://wikipedia.org/wiki/List_of_tz_database_time_zones>`_. Defaults
       to the timezone set on your workstation.
   * - ``--user``
     - Sets the username for :ref:`cli-username-password-auth`. Defaults to your
@@ -227,14 +245,18 @@ certificate usage:
     - The password for the keystore. This must match the password you specified
       when creating the keystore.
   * - ``--keystore-type``
-    - Keystore type.
+    - Determined by the keystore file format. The default keystore type is JKS.
+      This advanced option is only necessary if you use a custom Java
+      Cryptography Architecture (JCA) provider implementation.
   * - ``--truststore-password``
     - The password for the truststore. This must match the password you
       specified when creating the truststore.
   * - ``--truststore-path``
     - The location of the Java truststore file that will be used to secure TLS.
   * - ``--truststore-type``
-    - Truststore type.
+    - Determined by the truststore file format. The default keystore type is
+      JKS. This advanced option is only necessary if you use a custom Java
+      Cryptography Architecture (JCA) provider implementation.
   * - ``--use-system-truststore``
     - Verify the server certificate using the system truststore of the
       operating system. Windows and macOS are supported. For other operating
@@ -263,7 +285,22 @@ and prompts the CLI for your password:
 
 .. code-block:: text
 
-  ./trino --server https://trino.example.com --user=myusername --password
+  ./trino --server https://trino.example.com --user=exampleusername --password
+
+Alternatively, set the password as the value of the ``TRINO_PASSWORD``
+environment variable. Typically use single quotes to avoid problems with
+special characters such as ``$``:
+
+.. code-block:: text
+
+  export TRINO_PASSWORD='LongSecurePassword123!@#'
+
+If the ``TRINO_PASSWORD`` environment variable is set, you are not prompted
+to provide a password to connect with the CLI.
+
+.. code-block:: text
+
+  ./trino --server https://trino.example.com --user=exampleusername --password
 
 .. _cli-external-sso-auth:
 
@@ -328,27 +365,29 @@ To access a Trino cluster configured to use :doc:`/security/jwt`, use the
 Kerberos authentication
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-In addition to the options that are required when connecting to an unauthorized
-Trino coordinator, invoking the CLI with Kerberos support enabled requires a
-number of additional command line options. The simplest way to invoke the CLI is
-with a wrapper script.
+The Trino CLI can connect to a Trino cluster that has :doc:`/security/kerberos`
+enabled.
+
+Invoking the CLI with Kerberos support enabled requires a number of additional
+command line options. You also need the :ref:`Kerberos configuration files
+<server-kerberos-principals>` for your user on the machine running the CLI. The
+simplest way to invoke the CLI is with a wrapper script:
 
 .. code-block:: text
 
     #!/bin/bash
 
     ./trino \
-      --server https://trino-coordinator.example.com:7778 \
+      --server https://trino.example.com \
       --krb5-config-path /etc/krb5.conf \
       --krb5-principal someuser@EXAMPLE.COM \
       --krb5-keytab-path /home/someuser/someuser.keytab \
-      --krb5-remote-service-name trino \
-      --keystore-path /tmp/trino.jks \
-      --keystore-password password \
-      --catalog <catalog> \
-      --schema <schema>
+      --krb5-remote-service-name trino
 
-The following table list the available options for Kerberos authentication:
+When using Kerberos authentication, access to the Trino coordinator must be
+through :doc:`TLS and HTTPS </security/tls>`.
+
+The following table lists the available options for Kerberos authentication:
 
 .. list-table:: CLI options for Kerberos authentication
   :widths: 40, 60
@@ -373,17 +412,44 @@ The following table list the available options for Kerberos authentication:
     - Remote kerberos service principal pattern. Defaults to
       ``${SERVICE}@${HOST}``.
 
-See :doc:`/security/cli` for more information on configuring and using Kerberos
-with the CLI.
+.. _cli-kerberos-debug:
+
+Additional Kerberos debugging information
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can enable additional Kerberos debugging information for the Trino CLI
+process by passing ``-Dsun.security.krb5.debug=true``,
+``-Dtrino.client.debugKerberos=true``, and
+``-Djava.security.debug=gssloginconfig,configfile,configparser,logincontext``
+as a JVM argument when :ref:`starting the CLI process <cli-installation>`:
+
+.. code-block:: text
+
+    java \
+      -Dsun.security.krb5.debug=true \
+      -Djava.security.debug=gssloginconfig,configfile,configparser,logincontext \
+      -Dtrino.client.debugKerberos=true \
+      -jar trino-cli-*-executable.jar \
+      --server https://trino.example.com \
+      --krb5-config-path /etc/krb5.conf \
+      --krb5-principal someuser@EXAMPLE.COM \
+      --krb5-keytab-path /home/someuser/someuser.keytab \
+      --krb5-remote-service-name trino
+
+For help with interpreting Kerberos debugging messages, see :ref:`additional
+resources <kerberos-debug>`.
 
 Pagination
 ----------
 
 By default, the results of queries are paginated using the ``less`` program
 which is configured with a carefully selected set of options. This behavior
-can be overridden by setting the environment variable ``TRINO_PAGER`` to the
-name of a different program such as ``more`` or `pspg <https://github.com/okbob/pspg>`_,
+can be overridden by setting the ``--pager`` option or
+the ``TRINO_PAGER`` environment variable to the name of a different program
+such as ``more`` or `pspg <https://github.com/okbob/pspg>`_,
 or it can be set to an empty value to completely disable pagination.
+
+.. _cli-history:
 
 History
 -------
@@ -394,7 +460,8 @@ history by scrolling or searching. Use the up and down arrows to scroll and
 press :kbd:`Enter`.
 
 By default, you can locate the Trino history file in ``~/.trino_history``.
-Use the ``TRINO_HISTORY_FILE`` environment variable to change the default.
+Use the ``--history-file`` option or the ```TRINO_HISTORY_FILE`` environment variable
+to change the default.
 
 Auto suggestion
 ^^^^^^^^^^^^^^^
@@ -404,6 +471,41 @@ The CLI generates autocomplete suggestions based on command history.
 Press :kbd:`→` to accept the suggestion and replace the current command line
 buffer. Press :kbd:`Ctrl+→` (:kbd:`Option+→` on Mac) to accept only the next
 keyword. Continue typing to reject the suggestion.
+
+Configuration file
+------------------
+
+The CLI can read default values for all options from a file. It uses the first
+file found from the ordered list of locations:
+
+* File path set as value of the ``TRINO_CONFIG`` environment variable.
+* ``.trino_config`` in the current users home directory.
+* ``$XDG_CONFIG_HOME/trino/config``.
+
+For example, you could create separate configuration files with different
+authentication options, like ``kerberos-cli.properties`` and ``ldap-cli.properties``.
+Assuming they're located in the current directory, you can set the
+``TRINO_CONFIG`` environment variable for a single invocation of the CLI by
+adding it before the ``trino`` command:
+
+.. code-block:: text
+
+    TRINO_CONFIG=kerberos-cli.properties trino --server https://first-cluster.example.com:8443
+    TRINO_CONFIG=ldap-cli.properties trino --server https://second-cluster.example.com:8443
+
+In the preceding example, the default configuration files are not used.
+
+You can use all supported options without the ``--`` prefix in the configuration
+properties file. Options that normally don't take an argument are boolean, so
+set them to either ``true`` or ``false``. For example:
+
+.. code-block:: properties
+
+    output-format-interactive=AUTO
+    timezone=Europe/Warsaw
+    user=trino-client
+    network-logging=BASIC
+    krb5-disable-remote-service-hostname-canonicalization=true
 
 Batch mode
 ----------
@@ -432,49 +534,10 @@ mode:
       exit immediately.
   * - ``--output-format=<format>``
     - Specify the :ref:`format <cli-output-format>` to use
-      for printing query results.
+      for printing query results. Defaults to ``CSV``.
   * - ``--progress``
     - Show query progress in batch mode. It does not affect the output,
       which, for example can be safely redirected to a file.
-
-.. _cli-output-format:
-
-Output formats
-^^^^^^^^^^^^^^
-
-The Trino CLI provides the option ``--output-format`` to control how the output
-is displayed when running in non-interactive mode. The available options
-shown in the following table must be entered in uppercase. The default value
-is ``CSV``.
-
-.. list-table:: Output format options
-  :widths: 25, 75
-  :header-rows: 1
-
-  * - Option
-    - Description
-  * - ``CSV``
-    - Comma-separated values, each value quoted. No header row.
-  * - ``CSV_HEADER``
-    - Comma-separated values, quoted with header row.
-  * - ``CSV_UNQUOTED``
-    - Comma-separated values without quotes.
-  * - ``CSV_HEADER_UNQUOTED``
-    - Comma-separated values with header row but no quotes.
-  * - ``TSV``
-    - Tab-separated values.
-  * - ``TSV_HEADER``
-    - Tab-separated values with header row.
-  * - ``JSON``
-    - Output rows emitted as JSON objects with name-value pairs.
-  * - ``ALIGNED``
-    - Output emitted as an ASCII character table with values.
-  * - ``VERTICAL``
-    - Output emitted as record-oriented top-down lines, one per value.
-  * - ``NULL``
-    - Suppresses normal query results. This can be useful during development
-      to test a query's shell return code or to see whether it results in
-      error messages.
 
 Examples
 ^^^^^^^^
@@ -539,6 +602,49 @@ and displays an error message (which is unaffected by the output format):
 
     Query 20200707_170726_00030_2iup9 failed: line 1:25: Column 'region' cannot be resolved
     SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
+
+.. _cli-output-format:
+
+Output formats
+--------------
+
+The Trino CLI provides the options ``--output-format``
+and ``--output-format-interactive`` to control how the output is displayed.
+The available options shown in the following table must be entered
+in uppercase. The default value is ``ALIGNED`` in interactive mode,
+and ``CSV`` in non-interactive mode.
+
+.. list-table:: Output format options
+  :widths: 25, 75
+  :header-rows: 1
+
+  * - Option
+    - Description
+  * - ``CSV``
+    - Comma-separated values, each value quoted. No header row.
+  * - ``CSV_HEADER``
+    - Comma-separated values, quoted with header row.
+  * - ``CSV_UNQUOTED``
+    - Comma-separated values without quotes.
+  * - ``CSV_HEADER_UNQUOTED``
+    - Comma-separated values with header row but no quotes.
+  * - ``TSV``
+    - Tab-separated values.
+  * - ``TSV_HEADER``
+    - Tab-separated values with header row.
+  * - ``JSON``
+    - Output rows emitted as JSON objects with name-value pairs.
+  * - ``ALIGNED``
+    - Output emitted as an ASCII character table with values.
+  * - ``VERTICAL``
+    - Output emitted as record-oriented top-down lines, one per value.
+  * - ``AUTO``
+    - Same as ``ALIGNED`` if output would fit the current terminal width,
+      and ``VERTICAL`` otherwise.
+  * - ``NULL``
+    - Suppresses normal query results. This can be useful during development
+      to test a query's shell return code or to see whether it results in
+      error messages.
 
 .. _cli-troubleshooting:
 

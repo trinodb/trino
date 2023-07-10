@@ -14,8 +14,6 @@
 package io.trino.cli;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
@@ -35,6 +33,7 @@ import java.io.PrintStream;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -69,6 +68,7 @@ public class TestQueryRunner
             throws IOException
     {
         server.close();
+        server = null;
     }
 
     @Test
@@ -89,10 +89,10 @@ public class TestQueryRunner
         QueryRunner queryRunner = createQueryRunner(createClientSession(server), false);
 
         try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
-            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, false, false);
+            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false);
         }
         try (Query query = queryRunner.startQuery("second query should carry the cookie")) {
-            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, false, false);
+            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false);
         }
 
         assertNull(server.takeRequest().getHeader("Cookie"));
@@ -102,27 +102,19 @@ public class TestQueryRunner
 
     static ClientSession createClientSession(MockWebServer server)
     {
-        return new ClientSession(
-                server.url("/").uri(),
-                Optional.of("user"),
-                Optional.empty(),
-                "source",
-                Optional.empty(),
-                ImmutableSet.of(),
-                "clientInfo",
-                "catalog",
-                "schema",
-                null,
-                ZoneId.of("America/Los_Angeles"),
-                Locale.ENGLISH,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                null,
-                new Duration(2, MINUTES),
-                true);
+        return ClientSession.builder()
+                .server(server.url("/").uri())
+                .principal(Optional.of("user"))
+                .source("source")
+                .clientInfo("clientInfo")
+                .catalog("catalog")
+                .schema("schema")
+                .timeZone(ZoneId.of("America/Los_Angeles"))
+                .locale(Locale.ENGLISH)
+                .transactionId(null)
+                .clientRequestTimeout(new Duration(2, MINUTES))
+                .compressionDisabled(true)
+                .build();
     }
 
     static String createResults(MockWebServer server)
@@ -134,7 +126,11 @@ public class TestQueryRunner
                 null,
                 ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT))),
                 ImmutableList.of(ImmutableList.of(123)),
-                StatementStats.builder().setState("FINISHED").build(),
+                StatementStats.builder()
+                        .setState("FINISHED")
+                        .setProgressPercentage(OptionalDouble.empty())
+                        .setRunningPercentage(OptionalDouble.empty())
+                        .build(),
                 //new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 ImmutableList.of(),

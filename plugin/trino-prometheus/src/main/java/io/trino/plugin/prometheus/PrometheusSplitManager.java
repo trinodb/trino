@@ -15,6 +15,7 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
@@ -32,8 +33,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
-
-import javax.inject.Inject;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -69,8 +68,6 @@ public class PrometheusSplitManager
     {
         this.prometheusClient = requireNonNull(prometheusClient, "prometheusClient is null");
         this.prometheusClock = requireNonNull(prometheusClock, "prometheusClock is null");
-
-        requireNonNull(config, "config is null");
         this.prometheusURI = config.getPrometheusURI();
         this.maxQueryRangeDuration = config.getMaxQueryRangeDuration();
         this.queryChunkSizeDuration = config.getQueryChunkSizeDuration();

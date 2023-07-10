@@ -23,11 +23,10 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.trino.sql.analyzer.RegexLibrary;
-
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -35,6 +34,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 
 @DefunctConfig({
@@ -47,8 +47,10 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "deprecated.legacy-map-subscript",
         "deprecated.legacy-order-by",
         "deprecated.legacy-row-field-ordinal-access",
+        "deprecated.legacy-row-to-json-cast",
         "deprecated.legacy-timestamp",
         "deprecated.legacy-unnest-array-rows",
+        "deprecated.legacy-update-delete-implementation",
         "experimental-syntax-enabled",
         "experimental.resource-groups-enabled",
         "fast-inequality-joins",
@@ -61,19 +63,21 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "experimental.spill-order-by",
         "spill-window-operator",
         "experimental.spill-window-operator",
+        "legacy.allow-set-view-authorization",
 })
 public class FeaturesConfig
 {
     @VisibleForTesting
-    static final String SPILL_ENABLED = "spill-enabled";
     public static final String SPILLER_SPILL_PATH = "spiller-spill-path";
 
     private boolean redistributeWrites = true;
     private boolean scaleWriters = true;
-    private DataSize writerMinSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
+    private DataSize writerScalingMinDataProcessed = DataSize.of(120, DataSize.Unit.MEGABYTE);
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
+    /**
+     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
+     */
     private boolean exchangeCompressionEnabled;
-    private boolean legacyRowToJsonCast;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean omitDateTimeTypePrecision;
     private int maxRecursionDepth = 10;
@@ -97,10 +101,12 @@ public class FeaturesConfig
 
     private boolean legacyCatalogRoles;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
-    private boolean allowSetViewAuthorization;
 
+    private boolean legacyMaterializedViewGracePeriod;
     private boolean hideInaccessibleColumns;
     private boolean forceSpillingJoin;
+
+    private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
 
     public enum DataIntegrityVerification
     {
@@ -120,18 +126,6 @@ public class FeaturesConfig
     public FeaturesConfig setOmitDateTimeTypePrecision(boolean value)
     {
         this.omitDateTimeTypePrecision = value;
-        return this;
-    }
-
-    public boolean isLegacyRowToJsonCast()
-    {
-        return legacyRowToJsonCast;
-    }
-
-    @Config("deprecated.legacy-row-to-json-cast")
-    public FeaturesConfig setLegacyRowToJsonCast(boolean legacyRowToJsonCast)
-    {
-        this.legacyRowToJsonCast = legacyRowToJsonCast;
         return this;
     }
 
@@ -160,16 +154,25 @@ public class FeaturesConfig
     }
 
     @NotNull
-    public DataSize getWriterMinSize()
+    public DataSize getWriterScalingMinDataProcessed()
     {
-        return writerMinSize;
+        return writerScalingMinDataProcessed;
     }
 
-    @Config("writer-min-size")
+    @Config("writer-scaling-min-data-processed")
+    @ConfigDescription("Minimum amount of uncompressed output data processed by writers before writer scaling can happen")
+    public FeaturesConfig setWriterScalingMinDataProcessed(DataSize writerScalingMinDataProcessed)
+    {
+        this.writerScalingMinDataProcessed = writerScalingMinDataProcessed;
+        return this;
+    }
+
+    @Deprecated
+    @LegacyConfig(value = "writer-min-size", replacedBy = "writer-scaling-min-data-processed")
     @ConfigDescription("Target minimum size of writer output when scaling writers")
     public FeaturesConfig setWriterMinSize(DataSize writerMinSize)
     {
-        this.writerMinSize = writerMinSize;
+        this.writerScalingMinDataProcessed = succinctBytes(writerMinSize.toBytes() * 2);
         return this;
     }
 
@@ -216,7 +219,7 @@ public class FeaturesConfig
         return spillEnabled;
     }
 
-    @Config(SPILL_ENABLED)
+    @Config("spill-enabled")
     @LegacyConfig("experimental.spill-enabled")
     public FeaturesConfig setSpillEnabled(boolean spillEnabled)
     {
@@ -242,7 +245,7 @@ public class FeaturesConfig
         return spillerSpillPaths;
     }
 
-    @Config(SPILLER_SPILL_PATH)
+    @Config("spiller-spill-path")
     @LegacyConfig("experimental.spiller-spill-path")
     public FeaturesConfig setSpillerSpillPaths(String spillPaths)
     {
@@ -452,6 +455,21 @@ public class FeaturesConfig
         return this;
     }
 
+    @Deprecated
+    public boolean isLegacyMaterializedViewGracePeriod()
+    {
+        return legacyMaterializedViewGracePeriod;
+    }
+
+    @Deprecated
+    @Config("legacy.materialized-view-grace-period")
+    @ConfigDescription("Enable legacy handling of stale materialized views")
+    public FeaturesConfig setLegacyMaterializedViewGracePeriod(boolean legacyMaterializedViewGracePeriod)
+    {
+        this.legacyMaterializedViewGracePeriod = legacyMaterializedViewGracePeriod;
+        return this;
+    }
+
     public boolean isHideInaccessibleColumns()
     {
         return hideInaccessibleColumns;
@@ -462,20 +480,6 @@ public class FeaturesConfig
     public FeaturesConfig setHideInaccessibleColumns(boolean hideInaccessibleColumns)
     {
         this.hideInaccessibleColumns = hideInaccessibleColumns;
-        return this;
-    }
-
-    public boolean isAllowSetViewAuthorization()
-    {
-        return allowSetViewAuthorization;
-    }
-
-    @Config("legacy.allow-set-view-authorization")
-    @ConfigDescription("For security reasons ALTER VIEW SET AUTHORIZATION is disabled for SECURITY DEFINER; " +
-            "setting this option to true will re-enable this functionality")
-    public FeaturesConfig setAllowSetViewAuthorization(boolean allowSetViewAuthorization)
-    {
-        this.allowSetViewAuthorization = allowSetViewAuthorization;
         return this;
     }
 
@@ -490,5 +494,22 @@ public class FeaturesConfig
     {
         this.forceSpillingJoin = forceSpillingJoin;
         return this;
+    }
+
+    public boolean isFaultTolerantExecutionExchangeEncryptionEnabled()
+    {
+        return faultTolerantExecutionExchangeEncryptionEnabled;
+    }
+
+    @Config("fault-tolerant-execution.exchange-encryption-enabled")
+    public FeaturesConfig setFaultTolerantExecutionExchangeEncryptionEnabled(boolean faultTolerantExecutionExchangeEncryptionEnabled)
+    {
+        this.faultTolerantExecutionExchangeEncryptionEnabled = faultTolerantExecutionExchangeEncryptionEnabled;
+        return this;
+    }
+
+    public void applyFaultTolerantExecutionDefaults()
+    {
+        exchangeCompressionEnabled = true;
     }
 }

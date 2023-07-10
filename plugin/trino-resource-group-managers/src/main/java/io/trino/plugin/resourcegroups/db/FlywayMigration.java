@@ -32,10 +32,10 @@ public class FlywayMigration
         if (configDbUrl.startsWith("jdbc:postgresql")) {
             return "/db/migration/postgresql";
         }
-        else if (configDbUrl.startsWith("jdbc:oracle")) {
+        if (configDbUrl.startsWith("jdbc:oracle")) {
             return "/db/migration/oracle";
         }
-        else if (configDbUrl.startsWith("jdbc:mysql")) {
+        if (configDbUrl.startsWith("jdbc:mysql")) {
             return "/db/migration/mysql";
         }
         // validation is not performed in DbResourceGroupConfig because DB backed

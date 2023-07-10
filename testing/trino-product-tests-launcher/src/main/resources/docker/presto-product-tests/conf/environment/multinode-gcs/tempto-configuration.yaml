@@ -1,0 +1,19 @@
+databases:
+    hive:
+        host: hadoop-master
+        jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
+        jdbc_url: jdbc:hive2://${databases.hive.host}:10000
+        jdbc_user: hive
+        jdbc_password: na
+        jdbc_pooling: false
+        schema: default
+        prepare_statement:
+            - USE ${databases.hive.schema}
+        table_manager_type: hive
+        warehouse_directory_path: gs://${GCP_STORAGE_BUCKET}/${GCP_TEST_DIRECTORY}
+        inject_stats_for_immutable_tables: true
+        inject_stats_for_mutable_tables: true
+        enforce_non_transactional_tables: false
+        metastore:
+            host: ${databases.hive.host}
+            port: 9083

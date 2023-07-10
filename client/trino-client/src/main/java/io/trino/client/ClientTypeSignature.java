@@ -16,9 +16,8 @@ package io.trino.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.client.ClientTypeSignatureParameter.ParameterKind;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +30,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.client.ClientStandardTypes.ROW;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -104,20 +102,18 @@ public class ClientTypeSignature
     @Deprecated
     private String rowToString()
     {
-        String fields = arguments.stream()
+        if (arguments.isEmpty()) {
+            return "row";
+        }
+        return arguments.stream()
                 .map(ClientTypeSignatureParameter::getNamedTypeSignature)
                 .map(parameter -> {
                     if (parameter.getName().isPresent()) {
-                        return format("%s %s", parameter.getName().get(), parameter.getTypeSignature());
+                        return parameter.getName().get() + " " + parameter.getTypeSignature();
                     }
                     return parameter.getTypeSignature().toString();
                 })
-                .collect(joining(","));
-
-        if (fields.isEmpty()) {
-            return "row";
-        }
-        return format("row(%s)", fields);
+                .collect(joining(",", "row(", ")"));
     }
 
     @Override

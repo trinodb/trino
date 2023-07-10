@@ -13,10 +13,11 @@
  */
 package io.trino.plugin.jdbc.expression;
 
-import io.airlift.slice.Slice;
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
+import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.type.VarcharType;
 
@@ -26,7 +27,7 @@ import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.consta
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
 
 public class RewriteVarcharConstant
-        implements ConnectorExpressionRule<Constant, String>
+        implements ConnectorExpressionRule<Constant, ParameterizedExpression>
 {
     private static final Pattern<Constant> PATTERN = constant().with(type().matching(VarcharType.class::isInstance));
 
@@ -37,15 +38,13 @@ public class RewriteVarcharConstant
     }
 
     @Override
-    public Optional<String> rewrite(Constant constant, Captures captures, RewriteContext<String> context)
+    public Optional<ParameterizedExpression> rewrite(Constant constant, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
-        if (constant.getValue() == null) {
+        Object value = constant.getValue();
+        if (value == null) {
+            // TODO we could handle NULL values too
             return Optional.empty();
         }
-        Slice slice = (Slice) constant.getValue();
-        if (slice == null) {
-            return Optional.empty();
-        }
-        return Optional.of("'" + slice.toStringUtf8().replace("'", "''") + "'");
+        return Optional.of(new ParameterizedExpression("?", ImmutableList.of(new QueryParameter(constant.getType(), Optional.of(value)))));
     }
 }

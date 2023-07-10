@@ -47,6 +47,7 @@ public final class KafkaWithConfluentSchemaRegistryQueryRunner
             Map<String, String> properties = new HashMap<>(extraKafkaProperties);
             properties.putIfAbsent("kafka.table-description-supplier", "confluent");
             properties.putIfAbsent("kafka.confluent-schema-registry-url", testingKafka.getSchemaRegistryConnectString());
+            properties.putIfAbsent("kafka.protobuf-any-support-enabled", "true");
             setExtraKafkaProperties(properties);
         }
     }

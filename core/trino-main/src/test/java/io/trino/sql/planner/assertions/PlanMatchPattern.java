@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -34,6 +35,7 @@ import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
@@ -44,10 +46,10 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.JoinNode.Type;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -97,7 +99,6 @@ import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static io.trino.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
@@ -127,8 +128,8 @@ public final class PlanMatchPattern
      * Matches to any tree of nodes with children matching to given source matchers.
      * anyTree(tableScan("nation")) - will match to any plan which all leafs contain
      * any node containing table scan from nation table.
-     *
-     * @note anyTree does not match zero nodes. E.g. output(anyTree(tableScan)) will NOT match TableScan node followed by OutputNode.
+     * <p>
+     * Note: anyTree does not match zero nodes. E.g. output(anyTree(tableScan)) will NOT match TableScan node followed by OutputNode.
      */
     public static PlanMatchPattern anyTree(PlanMatchPattern... sources)
     {
@@ -413,6 +414,13 @@ public final class PlanMatchPattern
         return builder.build();
     }
 
+    public static PlanMatchPattern join(JoinNode.Type type, Consumer<JoinMatcher.Builder> handler)
+    {
+        JoinMatcher.Builder builder = new JoinMatcher.Builder(type);
+        handler.accept(builder);
+        return builder.build();
+    }
+
     public static PlanMatchPattern sort(PlanMatchPattern source)
     {
         return node(SortNode.class, source);
@@ -500,93 +508,23 @@ public final class PlanMatchPattern
         return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, hasDynamicFilter));
     }
 
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)
-    {
-        return join(joinType, expectedEquiCriteria, Optional.empty(), left, right);
-    }
-
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
-    {
-        return join(joinType, expectedEquiCriteria, expectedFilter, Optional.empty(), Optional.empty(), left, right);
-    }
-
-    public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, Optional<JoinNode.DistributionType> expectedDistributionType, PlanMatchPattern left, PlanMatchPattern right)
-    {
-        return join(joinType, expectedEquiCriteria, expectedFilter, expectedDistributionType, Optional.empty(), left, right);
-    }
-
-    public static PlanMatchPattern join(
-            JoinNode.Type joinType,
-            List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria,
-            Optional<String> expectedFilter,
-            Optional<JoinNode.DistributionType> expectedDistributionType,
-            Optional<Boolean> expectedSpillable,
-            PlanMatchPattern left,
-            PlanMatchPattern right)
-    {
-        return join(joinType, expectedEquiCriteria, expectedFilter, Optional.empty(), expectedDistributionType, expectedSpillable, left, right);
-    }
-
-    public static PlanMatchPattern join(
-            Type joinType,
-            List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria,
-            Map<String, String> expectedDynamicFilter,
-            PlanMatchPattern left,
-            PlanMatchPattern right)
-    {
-        List<DynamicFilterPattern> pattern = expectedDynamicFilter.entrySet().stream()
-                .map(entry -> new DynamicFilterPattern(entry.getKey(), EQUAL, entry.getValue()))
-                .collect(toImmutableList());
-        return join(joinType, expectedEquiCriteria, Optional.empty(), Optional.of(pattern), Optional.empty(), Optional.empty(), left, right);
-    }
-
-    public static PlanMatchPattern join(
-            Type joinType,
-            List<ExpectedValueProvider<EquiJoinClause>> expectedEquiCriteria,
-            List<DynamicFilterPattern> expectedDynamicFilter,
-            PlanMatchPattern left,
-            PlanMatchPattern right)
-    {
-        return join(joinType, expectedEquiCriteria, Optional.empty(), Optional.of(expectedDynamicFilter), Optional.empty(), Optional.empty(), left, right);
-    }
-
-    public static PlanMatchPattern join(
-            JoinNode.Type joinType,
-            List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria,
-            Optional<String> expectedFilter,
-            Optional<List<DynamicFilterPattern>> expectedDynamicFilter,
-            Optional<JoinNode.DistributionType> expectedDistributionType,
-            Optional<Boolean> expectedSpillable,
-            PlanMatchPattern left,
-            PlanMatchPattern right)
-    {
-        return node(JoinNode.class, left, right).with(
-                new JoinMatcher(
-                        joinType,
-                        expectedEquiCriteria,
-                        expectedFilter.map(predicate -> PlanBuilder.expression(predicate)),
-                        expectedDistributionType,
-                        expectedSpillable,
-                        expectedDynamicFilter));
-    }
-
-    public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(@Language("SQL") String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
         return spatialJoin(expectedFilter, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern spatialJoin(String expectedFilter, Optional<String> kdbTree, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(@Language("SQL") String expectedFilter, Optional<String> kdbTree, PlanMatchPattern left, PlanMatchPattern right)
     {
         return spatialJoin(expectedFilter, kdbTree, Optional.empty(), left, right);
     }
 
-    public static PlanMatchPattern spatialJoin(String expectedFilter, Optional<String> kdbTree, Optional<List<String>> outputSymbols, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialJoin(@Language("SQL") String expectedFilter, Optional<String> kdbTree, Optional<List<String>> outputSymbols, PlanMatchPattern left, PlanMatchPattern right)
     {
         return node(SpatialJoinNode.class, left, right).with(
                 new SpatialJoinMatcher(SpatialJoinNode.Type.INNER, PlanBuilder.expression(expectedFilter), kdbTree, outputSymbols));
     }
 
-    public static PlanMatchPattern spatialLeftJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
+    public static PlanMatchPattern spatialLeftJoin(@Language("SQL") String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
         return node(SpatialJoinNode.class, left, right).with(
                 new SpatialJoinMatcher(SpatialJoinNode.Type.LEFT, PlanBuilder.expression(expectedFilter), Optional.empty(), Optional.empty()));
@@ -636,12 +574,17 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, PlanMatchPattern... sources)
     {
-        return exchange(scope, Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), sources);
+        return exchange(scope, Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), sources);
     }
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PlanMatchPattern... sources)
     {
         return exchange(scope, type, ImmutableList.of(), sources);
+    }
+
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, PartitioningHandle partitioningHandle, PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.of(type), Optional.of(partitioningHandle), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), sources);
     }
 
     public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy, PlanMatchPattern... sources)
@@ -662,31 +605,49 @@ public final class PlanMatchPattern
             Optional<List<List<String>>> inputs,
             PlanMatchPattern... sources)
     {
-        return exchange(scope, Optional.of(type), orderBy, partitionedBy, inputs, sources);
+        return exchange(scope, Optional.of(type), Optional.empty(), orderBy, partitionedBy, inputs, sources);
     }
 
     public static PlanMatchPattern exchange(
             ExchangeNode.Scope scope,
             Optional<ExchangeNode.Type> type,
+            Optional<PartitioningHandle> partitioningHandle,
             List<Ordering> orderBy,
             Set<String> partitionedBy,
             Optional<List<List<String>>> inputs,
             PlanMatchPattern... sources)
     {
-        return exchange(scope, type, orderBy, partitionedBy, inputs, ImmutableList.of(), sources);
+        return exchange(scope, type, partitioningHandle, orderBy, partitionedBy, inputs, ImmutableList.of(), Optional.empty(), sources);
+    }
+
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, Optional<Integer> partitionCount, PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
+    }
+
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, ExchangeNode.Type type, Optional<Integer> partitionCount, PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.of(type), Optional.empty(), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
+    }
+
+    public static PlanMatchPattern exchange(ExchangeNode.Scope scope, PartitioningHandle partitioningHandle, Optional<Integer> partitionCount, PlanMatchPattern... sources)
+    {
+        return exchange(scope, Optional.empty(), Optional.of(partitioningHandle), ImmutableList.of(), ImmutableSet.of(), Optional.empty(), ImmutableList.of(), Optional.of(partitionCount), sources);
     }
 
     public static PlanMatchPattern exchange(
             ExchangeNode.Scope scope,
             Optional<ExchangeNode.Type> type,
+            Optional<PartitioningHandle> partitioningHandle,
             List<Ordering> orderBy,
             Set<String> partitionedBy,
             Optional<List<List<String>>> inputs,
             List<String> outputSymbolAliases,
+            Optional<Optional<Integer>> partitionCount,
             PlanMatchPattern... sources)
     {
         PlanMatchPattern result = node(ExchangeNode.class, sources)
-                .with(new ExchangeMatcher(scope, type, orderBy, partitionedBy, inputs));
+                .with(new ExchangeMatcher(scope, type, partitioningHandle, orderBy, partitionedBy, inputs, partitionCount));
 
         for (int i = 0; i < outputSymbolAliases.size(); i++) {
             String outputSymbol = outputSymbolAliases.get(i);
@@ -744,7 +705,7 @@ public final class PlanMatchPattern
         return new SymbolAlias(alias);
     }
 
-    public static PlanMatchPattern filter(String expectedPredicate, PlanMatchPattern source)
+    public static PlanMatchPattern filter(@Language("SQL") String expectedPredicate, PlanMatchPattern source)
     {
         return filter(PlanBuilder.expression(expectedPredicate), source);
     }
@@ -772,6 +733,12 @@ public final class PlanMatchPattern
     {
         return node(CorrelatedJoinNode.class, inputPattern, subqueryPattern)
                 .with(new CorrelationMatcher(correlationSymbolAliases));
+    }
+
+    public static PlanMatchPattern correlatedJoin(List<String> correlationSymbolAliases, @Language("SQL") String filter, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)
+    {
+        return correlatedJoin(correlationSymbolAliases, inputPattern, subqueryPattern)
+                .with(new CorrelatedJoinMatcher(PlanBuilder.expression(filter)));
     }
 
     public static PlanMatchPattern groupId(List<List<String>> groupingSets, String groupIdSymbol, PlanMatchPattern source)
@@ -875,6 +842,11 @@ public final class PlanMatchPattern
         return node(EnforceSingleRowNode.class, source);
     }
 
+    public static PlanMatchPattern mergeWriter(PlanMatchPattern source)
+    {
+        return node(MergeWriterNode.class, source);
+    }
+
     public static PlanMatchPattern tableWriter(List<String> columns, List<String> columnNames, PlanMatchPattern source)
     {
         return node(TableWriterNode.class, source).with(new TableWriterMatcher(columns, columnNames));
@@ -883,6 +855,27 @@ public final class PlanMatchPattern
     public static PlanMatchPattern tableExecute(List<String> columns, List<String> columnNames, PlanMatchPattern source)
     {
         return node(TableExecuteNode.class, source).with(new TableExecuteMatcher(columns, columnNames));
+    }
+
+    public static PlanMatchPattern tableFunction(Consumer<TableFunctionMatcher.Builder> handler, PlanMatchPattern... sources)
+    {
+        TableFunctionMatcher.Builder builder = new TableFunctionMatcher.Builder(sources);
+        handler.accept(builder);
+        return builder.build();
+    }
+
+    public static PlanMatchPattern tableFunctionProcessor(Consumer<TableFunctionProcessorMatcher.Builder> handler, PlanMatchPattern source)
+    {
+        TableFunctionProcessorMatcher.Builder builder = new TableFunctionProcessorMatcher.Builder(source);
+        handler.accept(builder);
+        return builder.build();
+    }
+
+    public static PlanMatchPattern tableFunctionProcessor(Consumer<TableFunctionProcessorMatcher.Builder> handler)
+    {
+        TableFunctionProcessorMatcher.Builder builder = new TableFunctionProcessorMatcher.Builder();
+        handler.accept(builder);
+        return builder.build();
     }
 
     public PlanMatchPattern(List<PlanMatchPattern> sourcePatterns)
@@ -948,7 +941,7 @@ public final class PlanMatchPattern
             @Override
             public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
             {
-                if (predicate.test((T) node)) {
+                if (predicate.test(clazz.cast(node))) {
                     return match();
                 }
 
@@ -1061,7 +1054,7 @@ public final class PlanMatchPattern
         return this;
     }
 
-    public PlanMatchPattern matchToAnyNodeTree()
+    PlanMatchPattern matchToAnyNodeTree()
     {
         anyTree = true;
         return this;
@@ -1124,7 +1117,7 @@ public final class PlanMatchPattern
                 .collect(toImmutableList());
     }
 
-    public static ExpectedValueProvider<WindowNode.Specification> specification(
+    public static ExpectedValueProvider<DataOrganizationSpecification> specification(
             List<String> partitionBy,
             List<String> orderBy,
             Map<String, SortOrder> orderings)
@@ -1381,19 +1374,13 @@ public final class PlanMatchPattern
                 if (nullOrdering == FIRST) {
                     return ASC_NULLS_FIRST;
                 }
-                else {
-                    return ASC_NULLS_LAST;
-                }
+                return ASC_NULLS_LAST;
             }
-            else {
-                checkState(ordering == DESCENDING);
-                if (nullOrdering == FIRST) {
-                    return DESC_NULLS_FIRST;
-                }
-                else {
-                    return DESC_NULLS_LAST;
-                }
+            checkState(ordering == DESCENDING);
+            if (nullOrdering == FIRST) {
+                return DESC_NULLS_FIRST;
             }
+            return DESC_NULLS_LAST;
         }
 
         @Override

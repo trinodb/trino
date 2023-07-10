@@ -15,11 +15,10 @@ package io.trino.plugin.base;
 
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import com.google.inject.Inject;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.util.function.Function;
 
@@ -34,7 +33,7 @@ public final class TypeDeserializer
     @Inject
     public TypeDeserializer(TypeManager typeManager)
     {
-        this(requireNonNull(typeManager, "typeManager is null")::getType);
+        this(typeManager::getType);
     }
 
     public TypeDeserializer(Function<TypeId, Type> typeLoader)

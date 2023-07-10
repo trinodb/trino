@@ -2,13 +2,32 @@
 "tests:hive":
   - lib/trino-orc/**
   - lib/trino-parquet/**
-  - lib/trino-rcfile/**
+  - lib/trino-hive-formats/**
   - plugin/trino-hive-hadoop2/**
   - plugin/trino-hive/**
   - testing/trino-product-tests/**
 
 jdbc:
   - client/trino-jdbc/**
+
+bigquery:
+  - plugin/trino-bigquery/**
+
+delta-lake:
+  - plugin/trino-delta-lake/**
+
+hive:
+  - plugin/trino-hive/**
+  - plugin/trino-hive-hadoop2/**
+
+hudi:
+  - plugin/trino-hudi/**
+
+iceberg:
+  - plugin/trino-iceberg/**
+
+mongodb:
+  - plugin/trino-mongodb/**
 
 docs:
   - docs/**

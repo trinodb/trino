@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.StandardErrorCode;
@@ -25,8 +26,6 @@ import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

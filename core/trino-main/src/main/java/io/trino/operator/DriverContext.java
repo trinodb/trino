@@ -181,13 +181,14 @@ public class DriverContext
 
     public void failed(Throwable cause)
     {
-        pipelineContext.failed(cause);
-        finished.set(true);
+        if (finished.compareAndSet(false, true)) {
+            pipelineContext.driverFailed(cause);
+        }
     }
 
-    public boolean isDone()
+    public boolean isTerminatingOrDone()
     {
-        return finished.get() || pipelineContext.isDone();
+        return finished.get() || pipelineContext.isTerminatingOrDone();
     }
 
     public ListenableFuture<Void> reserveSpill(long bytes)
@@ -235,9 +236,7 @@ public class DriverContext
         if (inputOperator != null) {
             return inputOperator.getInputDataSize();
         }
-        else {
-            return new CounterStat();
-        }
+        return new CounterStat();
     }
 
     public CounterStat getInputPositions()
@@ -246,9 +245,7 @@ public class DriverContext
         if (inputOperator != null) {
             return inputOperator.getInputPositions();
         }
-        else {
-            return new CounterStat();
-        }
+        return new CounterStat();
     }
 
     public CounterStat getOutputDataSize()
@@ -257,9 +254,7 @@ public class DriverContext
         if (inputOperator != null) {
             return inputOperator.getOutputDataSize();
         }
-        else {
-            return new CounterStat();
-        }
+        return new CounterStat();
     }
 
     public CounterStat getOutputPositions()
@@ -268,16 +263,27 @@ public class DriverContext
         if (inputOperator != null) {
             return inputOperator.getOutputPositions();
         }
-        else {
-            return new CounterStat();
+        return new CounterStat();
+    }
+
+    public long getWriterInputDataSize()
+    {
+        // Avoid using stream api for performance reasons
+        long writerInputDataSize = 0;
+        for (OperatorContext context : operatorContexts) {
+            writerInputDataSize += context.getWriterInputDataSize();
         }
+        return writerInputDataSize;
     }
 
     public long getPhysicalWrittenDataSize()
     {
-        return operatorContexts.stream()
-                .mapToLong(OperatorContext::getPhysicalWrittenDataSize)
-                .sum();
+        // Avoid using stream api for performance reasons
+        long physicalWrittenBytes = 0;
+        for (OperatorContext context : operatorContexts) {
+            physicalWrittenBytes += context.getPhysicalWrittenDataSize();
+        }
+        return physicalWrittenBytes;
     }
 
     public boolean isExecutionStarted()

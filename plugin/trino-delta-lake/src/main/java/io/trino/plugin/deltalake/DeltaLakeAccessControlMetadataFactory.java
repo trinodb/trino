@@ -25,6 +25,7 @@ public interface DeltaLakeAccessControlMetadataFactory
             return true;
         }
     };
+    DeltaLakeAccessControlMetadataFactory DEFAULT = metastore -> new AccessControlMetadata() {};
 
     AccessControlMetadata create(HiveMetastore metastore);
 }

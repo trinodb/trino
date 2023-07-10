@@ -13,10 +13,18 @@
  */
 package io.trino.plugin.hive.parquet;
 
+import com.google.inject.Inject;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.HiveSessionProperties;
@@ -28,27 +36,26 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.parquet.hadoop.ParquetOutputFormat;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.joda.time.DateTimeZone;
+import org.weakref.jmx.Flatten;
+import org.weakref.jmx.Managed;
 
-import javax.inject.Inject;
-
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING;
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
+import static io.trino.plugin.hive.HiveSessionProperties.isParquetOptimizedReaderEnabled;
+import static io.trino.plugin.hive.HiveSessionProperties.isParquetOptimizedWriterValidate;
+import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static java.util.Objects.requireNonNull;
@@ -57,31 +64,34 @@ import static java.util.stream.Collectors.toList;
 public class ParquetFileWriterFactory
         implements HiveFileWriterFactory
 {
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final NodeVersion nodeVersion;
     private final TypeManager typeManager;
     private final DateTimeZone parquetTimeZone;
+    private final FileFormatDataSourceStats readStats;
 
     @Inject
     public ParquetFileWriterFactory(
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             NodeVersion nodeVersion,
             TypeManager typeManager,
-            HiveConfig hiveConfig)
+            HiveConfig hiveConfig,
+            FileFormatDataSourceStats readStats)
     {
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.parquetTimeZone = requireNonNull(hiveConfig, "hiveConfig is null").getParquetDateTimeZone();
+        this.parquetTimeZone = hiveConfig.getParquetDateTimeZone();
+        this.readStats = requireNonNull(readStats, "readStats is null");
     }
 
     @Override
     public Optional<FileWriter> createFileWriter(
-            Path path,
+            Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
+            HiveCompressionCodec compressionCodec,
             Properties schema,
-            JobConf conf,
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,
@@ -92,7 +102,7 @@ public class ParquetFileWriterFactory
             return Optional.empty();
         }
 
-        if (!MapredParquetOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
+        if (!MAPRED_PARQUET_OUTPUT_FORMAT_CLASS.equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
         }
 
@@ -101,8 +111,6 @@ public class ParquetFileWriterFactory
                 .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session))
                 .setBatchSize(HiveSessionProperties.getParquetBatchSize(session))
                 .build();
-
-        CompressionCodecName compressionCodecName = getCompression(conf);
 
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
@@ -114,12 +122,9 @@ public class ParquetFileWriterFactory
                 .toArray();
 
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, conf);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
 
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(path, false);
-                return null;
-            };
+            Closeable rollbackAction = () -> fileSystem.deleteFile(location);
 
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
                     fileColumnTypes,
@@ -127,29 +132,43 @@ public class ParquetFileWriterFactory
                     HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING,
                     HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING);
 
+            Optional<Supplier<ParquetDataSource>> validationInputFactory = Optional.empty();
+            if (isParquetOptimizedWriterValidate(session)) {
+                validationInputFactory = Optional.of(() -> {
+                    try {
+                        TrinoInputFile inputFile = fileSystem.newInputFile(location);
+                        return new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), readStats);
+                    }
+                    catch (IOException e) {
+                        throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
+                    }
+                });
+            }
+
             return Optional.of(new ParquetFileWriter(
-                    fileSystem.create(path, false),
+                    fileSystem.newOutputFile(location),
                     rollbackAction,
                     fileColumnTypes,
+                    fileColumnNames,
                     schemaConverter.getMessageType(),
                     schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     fileInputColumnIndexes,
-                    compressionCodecName,
+                    compressionCodec.getParquetCompressionCodec(),
                     nodeVersion.toString(),
-                    Optional.of(parquetTimeZone)));
+                    isParquetOptimizedReaderEnabled(session),
+                    Optional.of(parquetTimeZone),
+                    validationInputFactory));
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITER_OPEN_ERROR, "Error creating Parquet file", e);
         }
     }
 
-    private static CompressionCodecName getCompression(JobConf configuration)
+    @Managed
+    @Flatten
+    public FileFormatDataSourceStats getReadStats()
     {
-        String compressionName = configuration.get(ParquetOutputFormat.COMPRESSION);
-        if (compressionName == null) {
-            return CompressionCodecName.GZIP;
-        }
-        return CompressionCodecName.valueOf(compressionName);
+        return readStats;
     }
 }

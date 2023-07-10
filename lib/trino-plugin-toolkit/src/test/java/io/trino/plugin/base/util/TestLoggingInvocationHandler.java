@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.base.util;
 
-import io.trino.plugin.base.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.InvocationHandler;
@@ -34,15 +33,16 @@ public class TestLoggingInvocationHandler
         SomeInterface delegate = new SomeInterface()
         {
             @Override
-            public void run(boolean ok, String s)
+            public String run(boolean ok, String s)
             {
                 if (!ok) {
                     throw new ArrayStoreException(s);
                 }
+                return null;
             }
         };
         List<String> messages = new ArrayList<>();
-        InvocationHandler handler = new LoggingInvocationHandler(delegate, new ReflectiveParameterNamesProvider(), messages::add);
+        InvocationHandler handler = new LoggingInvocationHandler(delegate, messages::add);
         SomeInterface proxy = newProxy(SomeInterface.class, handler);
 
         proxy.run(true, "xyz");
@@ -60,8 +60,44 @@ public class TestLoggingInvocationHandler
                 });
     }
 
+    @Test
+    public void testLoggingResult()
+    {
+        SomeInterface delegate = new SomeInterface()
+        {
+            @Override
+            public String run(boolean ok, String s)
+            {
+                if (!ok) {
+                    throw new ArrayStoreException(s);
+                }
+                return "result=" + s;
+            }
+        };
+        List<String> messages = new ArrayList<>();
+        InvocationHandler handler = new LoggingInvocationHandler(delegate, messages::add, true);
+        SomeInterface proxy = newProxy(SomeInterface.class, handler);
+
+        proxy.run(true, "xyz");
+
+        assertThatThrownBy(() -> proxy.run(false, "bad"))
+                .isInstanceOf(ArrayStoreException.class)
+                .hasMessage("bad");
+
+        assertThat(messages)
+                .hasSize(2)
+                .satisfies(list -> {
+                    assertThat(list.get(0)).matches("\\QInvocation of run(ok=true, s='xyz') succeeded in\\E " + DURATION_PATTERN + " and returned 'result=xyz'");
+                    assertThat(list.get(1)).matches("\\QInvocation of run(ok=false, s='bad') took\\E " + DURATION_PATTERN +
+                            " \\Qand failed with java.lang.ArrayStoreException: bad\\E");
+                });
+    }
+
     private interface SomeInterface
     {
-        default void run(boolean ok, String s) {}
+        default String run(boolean ok, String s)
+        {
+            return null;
+        }
     }
 }

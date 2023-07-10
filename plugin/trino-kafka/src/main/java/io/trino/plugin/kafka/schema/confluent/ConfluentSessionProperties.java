@@ -14,17 +14,15 @@
 package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
 
-import javax.inject.Inject;
-
 import java.util.List;
 
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
-import static java.util.Objects.requireNonNull;
 
 public class ConfluentSessionProperties
         implements SessionPropertiesProvider
@@ -36,7 +34,6 @@ public class ConfluentSessionProperties
     @Inject
     public ConfluentSessionProperties(ConfluentSchemaRegistryConfig config)
     {
-        requireNonNull(config, "config is null");
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(enumProperty(
                         EMPTY_FIELD_STRATEGY,

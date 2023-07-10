@@ -34,10 +34,8 @@ public class InjectedProjection
     @Override
     public List<String> getProjectedValues(Optional<Domain> partitionValueFilter)
     {
-        if (partitionValueFilter.isEmpty()) {
-            throw invalidProjectionException(getColumnName(), "Injected projection requires single predicate for it's column in where clause");
-        }
-        Domain domain = partitionValueFilter.get();
+        Domain domain = partitionValueFilter
+                .orElseThrow(() -> invalidProjectionException(getColumnName(), "Injected projection requires single predicate for it's column in where clause"));
         Type type = domain.getType();
         if (!domain.isNullableSingleValue() || !canConvertSqlTypeToStringForParts(type, true)) {
             throw invalidProjectionException(getColumnName(), "Injected projection requires single predicate for it's column in where clause. Currently provided can't be converted to single partition.");

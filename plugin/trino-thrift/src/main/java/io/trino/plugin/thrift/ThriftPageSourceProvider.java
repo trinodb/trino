@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.thrift;
 
+import com.google.inject.Inject;
 import io.airlift.drift.client.DriftClient;
 import io.trino.plugin.thrift.api.TrinoThriftService;
 import io.trino.spi.connector.ColumnHandle;
@@ -23,8 +24,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -43,7 +42,7 @@ public class ThriftPageSourceProvider
     {
         this.client = requireNonNull(client, "client is null");
         this.thriftHeaderProvider = requireNonNull(thriftHeaderProvider, "thriftHeaderProvider is null");
-        this.maxBytesPerResponse = requireNonNull(config, "config is null").getMaxResponseSize().toBytes();
+        this.maxBytesPerResponse = config.getMaxResponseSize().toBytes();
         this.stats = requireNonNull(stats, "stats is null");
     }
 

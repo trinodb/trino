@@ -14,19 +14,20 @@
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -50,7 +51,8 @@ public class CheckpointWriterManager
 {
     private final TypeManager typeManager;
     private final CheckpointSchemaManager checkpointSchemaManager;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
+    private final String trinoVersion;
     private final TransactionLogAccess transactionLogAccess;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final JsonCodec<LastCheckpoint> lastCheckpointCodec;
@@ -59,14 +61,16 @@ public class CheckpointWriterManager
     public CheckpointWriterManager(
             TypeManager typeManager,
             CheckpointSchemaManager checkpointSchemaManager,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
+            NodeVersion nodeVersion,
             TransactionLogAccess transactionLogAccess,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             JsonCodec<LastCheckpoint> lastCheckpointCodec)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.trinoVersion = nodeVersion.toString();
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.lastCheckpointCodec = requireNonNull(lastCheckpointCodec, "lastCheckpointCodec is null");
@@ -87,21 +91,22 @@ public class CheckpointWriterManager
 
             CheckpointBuilder checkpointBuilder = new CheckpointBuilder();
 
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), snapshot.getTableLocation());
-            Optional<DeltaLakeTransactionLogEntry> checkpointMetadataLogEntry = snapshot.getCheckpointTransactionLogEntries(
-                    session,
-                    ImmutableSet.of(METADATA),
-                    checkpointSchemaManager,
-                    typeManager,
-                    fileSystem,
-                    hdfsEnvironment, fileFormatDataSourceStats)
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            Optional<DeltaLakeTransactionLogEntry> checkpointMetadataLogEntry = snapshot
+                    .getCheckpointTransactionLogEntries(
+                            session,
+                            ImmutableSet.of(METADATA),
+                            checkpointSchemaManager,
+                            typeManager,
+                            fileSystem,
+                            fileFormatDataSourceStats)
                     .collect(toOptional());
             if (checkpointMetadataLogEntry.isPresent()) {
                 // TODO HACK: this call is required only to ensure that cachedMetadataEntry is set in snapshot (https://github.com/trinodb/trino/issues/12032),
                 // so we can read add entries below this should be reworked so we pass metadata entry explicitly to getCheckpointTransactionLogEntries,
                 // and we should get rid of `setCachedMetadata` in TableSnapshot to make it immutable.
                 // Also more proper would be to use metadata entry obtained above in snapshot.getCheckpointTransactionLogEntries to read other checkpoint entries, but using newer one should not do harm.
-                checkState(transactionLogAccess.getMetadataEntry(snapshot, session).isPresent(), "metadata entry in snapshot null");
+                transactionLogAccess.getMetadataEntry(snapshot, session);
 
                 // register metadata entry in writer
                 checkState(checkpointMetadataLogEntry.get().getMetaData() != null, "metaData not present in log entry");
@@ -109,28 +114,30 @@ public class CheckpointWriterManager
 
                 // read remaining entries from checkpoint register them in writer
                 snapshot.getCheckpointTransactionLogEntries(
-                        session,
-                        ImmutableSet.of(PROTOCOL, TRANSACTION, ADD, REMOVE, COMMIT),
-                        checkpointSchemaManager,
-                        typeManager,
-                        fileSystem,
-                        hdfsEnvironment,
-                        fileFormatDataSourceStats)
+                                session,
+                                ImmutableSet.of(PROTOCOL, TRANSACTION, ADD, REMOVE, COMMIT),
+                                checkpointSchemaManager,
+                                typeManager,
+                                fileSystem,
+                                fileFormatDataSourceStats)
                         .forEach(checkpointBuilder::addLogEntry);
             }
 
             snapshot.getJsonTransactionLogEntries()
                     .forEach(checkpointBuilder::addLogEntry);
 
-            Path transactionLogDirectory = getTransactionLogDir(snapshot.getTableLocation());
-            Path targetFile = new Path(transactionLogDirectory, String.format("%020d.checkpoint.parquet", newCheckpointVersion));
-            CheckpointWriter checkpointWriter = new CheckpointWriter(typeManager, checkpointSchemaManager, hdfsEnvironment);
+            Location transactionLogDir = Location.of(getTransactionLogDir(snapshot.getTableLocation()));
+            Location targetFile = transactionLogDir.appendPath("%020d.checkpoint.parquet".formatted(newCheckpointVersion));
+            CheckpointWriter checkpointWriter = new CheckpointWriter(typeManager, checkpointSchemaManager, trinoVersion);
             CheckpointEntries checkpointEntries = checkpointBuilder.build();
-            checkpointWriter.write(session, checkpointEntries, targetFile);
+            TrinoOutputFile checkpointFile = fileSystemFactory.create(session).newOutputFile(targetFile);
+            checkpointWriter.write(checkpointEntries, checkpointFile);
 
             // update last checkpoint file
             LastCheckpoint newLastCheckpoint = new LastCheckpoint(newCheckpointVersion, checkpointEntries.size(), Optional.empty());
-            try (OutputStream outputStream = fileSystem.create(new Path(transactionLogDirectory, LAST_CHECKPOINT_FILENAME), true)) {
+            Location checkpointPath = transactionLogDir.appendPath(LAST_CHECKPOINT_FILENAME);
+            TrinoOutputFile outputFile = fileSystem.newOutputFile(checkpointPath);
+            try (OutputStream outputStream = outputFile.createOrOverwrite()) {
                 outputStream.write(lastCheckpointCodec.toJsonBytes(newLastCheckpoint));
             }
         }

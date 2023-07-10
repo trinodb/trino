@@ -81,7 +81,7 @@ public final class DomainCoercer
                 Domain domain,
                 Type coercedValueType)
         {
-            this.connectorSession = requireNonNull(session, "session is null").toConnectorSession();
+            this.connectorSession = session.toConnectorSession();
             this.functionInvoker = new InterpretedFunctionInvoker(functionManager);
             this.domain = requireNonNull(domain, "domain is null");
             this.coercedValueType = requireNonNull(coercedValueType, "coercedValueType is null");
@@ -211,9 +211,7 @@ public final class DomainCoercer
             if (originalComparedToCoerced == 0) {
                 return Optional.of(coercedFloorValue);
             }
-            else {
-                return Optional.empty();
-            }
+            return Optional.empty();
         }
 
         private int compareOriginalValueToCoerced(ResolvedFunction castToOriginalTypeOperator, MethodHandle comparisonOperator, Object originalValue, Object coercedValue)

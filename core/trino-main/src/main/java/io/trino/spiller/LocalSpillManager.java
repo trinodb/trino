@@ -15,8 +15,6 @@ package io.trino.spiller;
 
 import com.google.inject.Inject;
 
-import static java.util.Objects.requireNonNull;
-
 public final class LocalSpillManager
 {
     private final SpillSpaceTracker spillSpaceTracker;
@@ -24,7 +22,6 @@ public final class LocalSpillManager
     @Inject
     public LocalSpillManager(NodeSpillConfig config)
     {
-        requireNonNull(config, "config is null");
         spillSpaceTracker = new SpillSpaceTracker(config.getMaxSpillPerNode());
     }
 

@@ -51,9 +51,10 @@ public final class DateTimes
 {
     public static final Pattern DATETIME_PATTERN = Pattern.compile("" +
             "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
-            "(?: (?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
-            "\\s*(?<timezone>.+)?");
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
+            "( (?:(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
+            "\\s*(?<timezone>.+)?)?");
+    private static final String TIMESTAMP_FORMATTER_PATTERN = "uuuu-MM-dd HH:mm:ss";
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern(TIMESTAMP_FORMATTER_PATTERN);
 
     public static final Pattern TIME_PATTERN = Pattern.compile("" +
             "(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?" +
@@ -211,7 +212,7 @@ public final class DateTimes
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
-            throw new IllegalArgumentException(format("Invalid timestamp '%s'", value));
+            throw new IllegalArgumentException(format("Invalid TIMESTAMP '%s'", value));
         }
 
         return matcher.group("timezone") != null;
@@ -221,7 +222,7 @@ public final class DateTimes
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
-            throw new IllegalArgumentException(format("Invalid timestamp '%s'", value));
+            throw new IllegalArgumentException(format("Invalid TIMESTAMP '%s'", value));
         }
 
         String fraction = matcher.group("fraction");
@@ -300,7 +301,9 @@ public final class DateTimes
         LocalDateTime dateTime = LocalDateTime.ofInstant(instant, zoneId);
         long picoFraction = ((long) getMicrosOfSecond(epochMicros)) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
 
-        return formatTimestamp(precision, dateTime, picoFraction, yearToSecondFormatter, builder -> {});
+        StringBuilder builder = new StringBuilder(estimateTimestampFormatLength(precision));
+        formatTimestampIntoBuilder(builder, precision, dateTime, picoFraction, yearToSecondFormatter);
+        return builder.toString();
     }
 
     public static String formatTimestampWithTimeZone(int precision, long epochMillis, int picosOfMilli, ZoneId zoneId)
@@ -309,21 +312,41 @@ public final class DateTimes
         LocalDateTime dateTime = LocalDateTime.ofInstant(instant, zoneId);
         long picoFraction = ((long) getMillisOfSecond(epochMillis)) * PICOSECONDS_PER_MILLISECOND + picosOfMilli;
 
-        return formatTimestamp(precision, dateTime, picoFraction, TIMESTAMP_FORMATTER, builder -> builder.append(" ").append(zoneId));
+        String zoneIdString = zoneId.getId();
+        StringBuilder builder = new StringBuilder(estimateTimestampFormatLength(precision) + zoneIdString.length() + 1);
+        formatTimestampIntoBuilder(builder, precision, dateTime, picoFraction, TIMESTAMP_FORMATTER);
+        return builder.append(' ').append(zoneIdString).toString();
+    }
+
+    private static int estimateTimestampFormatLength(int precision)
+    {
+        return TIMESTAMP_FORMATTER_PATTERN.length() + (precision == 0 ? 0 : precision + 1);
     }
 
     public static String formatTimestamp(int precision, LocalDateTime dateTime, long picoFraction, DateTimeFormatter yearToSecondFormatter, Consumer<StringBuilder> zoneIdFormatter)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(yearToSecondFormatter.format(dateTime));
-        if (precision > 0) {
-            builder.append(".");
-            builder.append(format("%0" + precision + "d", rescale(picoFraction, 12, precision)));
-        }
-
+        formatTimestampIntoBuilder(builder, precision, dateTime, picoFraction, yearToSecondFormatter);
         zoneIdFormatter.accept(builder);
-
         return builder.toString();
+    }
+
+    private static void formatTimestampIntoBuilder(StringBuilder builder, int precision, LocalDateTime dateTime, long picoFraction, DateTimeFormatter yearToSecondFormatter)
+    {
+        yearToSecondFormatter.formatTo(dateTime, builder);
+        if (precision > 0) {
+            long scalePrecision = rescale(picoFraction, 12, precision);
+            builder.append('.');
+            int decimalOffset = builder.length();
+            builder.setLength(decimalOffset + precision);
+
+            for (int index = builder.length() - 1; index >= decimalOffset; index--) {
+                long temp = scalePrecision / 10;
+                int digit = (int) (scalePrecision - (temp * 10));
+                scalePrecision = temp;
+                builder.setCharAt(index, (char) ('0' + digit));
+            }
+        }
     }
 
     public static Object parseTimestamp(int precision, String value)
@@ -348,7 +371,7 @@ public final class DateTimes
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches() || matcher.group("timezone") != null) {
-            throw new IllegalArgumentException("Invalid timestamp: " + value);
+            throw new IllegalArgumentException("Invalid TIMESTAMP: " + value);
         }
 
         String year = matcher.group("year");
@@ -380,7 +403,7 @@ public final class DateTimes
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches() || matcher.group("timezone") != null) {
-            throw new IllegalArgumentException("Invalid timestamp: " + value);
+            throw new IllegalArgumentException("Invalid TIMESTAMP: " + value);
         }
 
         String year = matcher.group("year");
@@ -406,7 +429,7 @@ public final class DateTimes
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches() || matcher.group("timezone") == null) {
-            throw new IllegalArgumentException("Invalid timestamp with time zone: " + value);
+            throw new IllegalArgumentException("Invalid TIMESTAMP WITH TIME ZONE: " + value);
         }
 
         String year = matcher.group("year");
@@ -441,7 +464,7 @@ public final class DateTimes
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches() || matcher.group("timezone") == null) {
-            throw new IllegalArgumentException("Invalid timestamp: " + value);
+            throw new IllegalArgumentException("Invalid TIMESTAMP: " + value);
         }
 
         String year = matcher.group("year");
@@ -476,7 +499,7 @@ public final class DateTimes
 
         List<ZoneOffset> offsets = zoneId.getRules().getValidOffsets(timestamp);
         if (offsets.isEmpty()) {
-            throw new IllegalArgumentException("Invalid timestamp due to daylight savings transition");
+            throw new IllegalArgumentException("Invalid TIMESTAMP due to daylight savings transition");
         }
 
         return timestamp.toEpochSecond(offsets.get(0));
@@ -486,7 +509,7 @@ public final class DateTimes
     {
         Matcher matcher = TIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
-            throw new IllegalArgumentException(format("Invalid time '%s'", value));
+            throw new IllegalArgumentException(format("Invalid TIME '%s'", value));
         }
 
         return matcher.group("offsetHour") != null && matcher.group("offsetMinute") != null;
@@ -496,7 +519,7 @@ public final class DateTimes
     {
         Matcher matcher = TIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
-            throw new IllegalArgumentException(format("Invalid time '%s'", value));
+            throw new IllegalArgumentException(format("Invalid TIME '%s'", value));
         }
 
         String fraction = matcher.group("fraction");
@@ -511,7 +534,7 @@ public final class DateTimes
     {
         Matcher matcher = TIME_PATTERN.matcher(value);
         if (!matcher.matches() || matcher.group("offsetHour") != null || matcher.group("offsetMinute") != null) {
-            throw new IllegalArgumentException("Invalid time: " + value);
+            throw new IllegalArgumentException("Invalid TIME: " + value);
         }
 
         int hour = Integer.parseInt(matcher.group("hour"));
@@ -519,7 +542,7 @@ public final class DateTimes
         int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
 
         if (hour > 23 || minute > 59 || second > 59) {
-            throw new IllegalArgumentException("Invalid time: " + value);
+            throw new IllegalArgumentException("Invalid TIME: " + value);
         }
 
         int precision = 0;
@@ -531,10 +554,10 @@ public final class DateTimes
         }
 
         if (precision > TimeType.MAX_PRECISION) {
-            throw new IllegalArgumentException("Invalid time: " + value);
+            throw new IllegalArgumentException("Invalid TIME: " + value);
         }
 
-        return (((hour * 60) + minute) * 60 + second) * PICOSECONDS_PER_SECOND + rescale(fractionValue, precision, 12);
+        return (((hour * 60L) + minute) * 60 + second) * PICOSECONDS_PER_SECOND + rescale(fractionValue, precision, 12);
     }
 
     public static Object parseTimeWithTimeZone(int precision, String value)
@@ -550,7 +573,7 @@ public final class DateTimes
     {
         Matcher matcher = TIME_PATTERN.matcher(value);
         if (!matcher.matches() || matcher.group("offsetHour") == null || matcher.group("offsetMinute") == null) {
-            throw new IllegalArgumentException("Invalid time with time zone: " + value);
+            throw new IllegalArgumentException("Invalid TIME WITH TIME ZONE: " + value);
         }
 
         int hour = Integer.parseInt(matcher.group("hour"));
@@ -561,7 +584,7 @@ public final class DateTimes
         int offsetMinute = Integer.parseInt((matcher.group("offsetMinute")));
 
         if (hour > 23 || minute > 59 || second > 59 || !isValidOffset(offsetHour, offsetMinute)) {
-            throw new IllegalArgumentException("Invalid time with time zone: " + value);
+            throw new IllegalArgumentException("Invalid TIME WITH TIME ZONE: " + value);
         }
 
         int precision = 0;
@@ -572,7 +595,7 @@ public final class DateTimes
             fractionValue = Long.parseLong(fraction);
         }
 
-        long nanos = (((hour * 60) + minute) * 60 + second) * NANOSECONDS_PER_SECOND + rescale(fractionValue, precision, 9);
+        long nanos = (((hour * 60L) + minute) * 60 + second) * NANOSECONDS_PER_SECOND + rescale(fractionValue, precision, 9);
         return packTimeWithTimeZone(nanos, calculateOffsetMinutes(offsetSign, offsetHour, offsetMinute));
     }
 
@@ -580,7 +603,7 @@ public final class DateTimes
     {
         Matcher matcher = TIME_PATTERN.matcher(value);
         if (!matcher.matches() || matcher.group("offsetHour") == null || matcher.group("offsetMinute") == null) {
-            throw new IllegalArgumentException("Invalid time with time zone: " + value);
+            throw new IllegalArgumentException("Invalid TIME WITH TIME ZONE: " + value);
         }
 
         int hour = Integer.parseInt(matcher.group("hour"));
@@ -591,7 +614,7 @@ public final class DateTimes
         int offsetMinute = Integer.parseInt((matcher.group("offsetMinute")));
 
         if (hour > 23 || minute > 59 || second > 59 || !isValidOffset(offsetHour, offsetMinute)) {
-            throw new IllegalArgumentException("Invalid time with time zone: " + value);
+            throw new IllegalArgumentException("Invalid TIME WITH TIME ZONE: " + value);
         }
 
         int precision = 0;
@@ -625,10 +648,13 @@ public final class DateTimes
     {
         checkArgument(precision <= TimestampWithTimeZoneType.MAX_PRECISION, "Precision is out of range");
 
-        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(
-                start.toEpochMilli(),
-                (int) round((start.getNano() % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND, (int) (TimestampWithTimeZoneType.MAX_PRECISION - precision)),
-                timeZoneKey);
+        long epochMilli = start.toEpochMilli();
+        int picosOfMilli = (int) round((start.getNano() % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND, (int) (TimestampWithTimeZoneType.MAX_PRECISION - precision));
+        if (picosOfMilli == PICOSECONDS_PER_MILLISECOND) {
+            epochMilli++;
+            picosOfMilli = 0;
+        }
+        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMilli, picosOfMilli, timeZoneKey);
     }
 
     public static LongTimestampWithTimeZone longTimestampWithTimeZone(long epochSecond, long fractionInPicos, ZoneId zoneId)

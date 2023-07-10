@@ -325,7 +325,7 @@ public abstract class AbstractOrcDataSource
 
         public DiskOrcDataReader(DiskRange diskRange)
         {
-            super(id, requireNonNull(diskRange, "diskRange is null").getLength(), toIntExact(options.getStreamBufferSize().toBytes()));
+            super(id, diskRange.getLength(), toIntExact(options.getStreamBufferSize().toBytes()));
             this.diskRange = diskRange;
         }
 

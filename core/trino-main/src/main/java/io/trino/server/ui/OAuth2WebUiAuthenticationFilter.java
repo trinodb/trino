@@ -14,6 +14,7 @@
 package io.trino.server.ui;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
@@ -26,13 +27,12 @@ import io.trino.server.security.oauth2.TokenPairSerializer;
 import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Response;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,8 +46,8 @@ import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
+import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
 public class OAuth2WebUiAuthenticationFilter
         implements WebUiAuthenticationFilter
@@ -69,7 +69,6 @@ public class OAuth2WebUiAuthenticationFilter
         this.client = requireNonNull(client, "client is null");
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
-        requireNonNull(oauth2Config, "oauth2Config is null");
         this.userMapping = UserMapping.createUserMapping(oauth2Config.getUserMappingPattern(), oauth2Config.getUserMappingFile());
         this.principalField = oauth2Config.getPrincipalField();
         groupsField = requireNonNull(oauth2Config.getGroupsField(), "groupsField is null");
@@ -94,9 +93,10 @@ public class OAuth2WebUiAuthenticationFilter
             request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
             return;
         }
-        Optional<Map<String, Object>> claims;
         Optional<TokenPair> tokenPair = getTokenPair(request);
-        claims = tokenPair.flatMap(this::getAccessTokenClaims);
+        Optional<Map<String, Object>> claims = tokenPair
+                .filter(this::tokenNotExpired)
+                .flatMap(this::getAccessTokenClaims);
         if (claims.isEmpty()) {
             needAuthentication(request, tokenPair);
             return;
@@ -133,31 +133,46 @@ public class OAuth2WebUiAuthenticationFilter
         }
     }
 
+    private boolean tokenNotExpired(TokenPair tokenPair)
+    {
+        return tokenPair.expiration().after(Date.from(Instant.now()));
+    }
+
     private Optional<Map<String, Object>> getAccessTokenClaims(TokenPair tokenPair)
     {
-        return client.getClaims(tokenPair.getAccessToken());
+        return client.getClaims(tokenPair.accessToken());
     }
 
     private void needAuthentication(ContainerRequestContext request, Optional<TokenPair> tokenPair)
     {
+        Optional<String> refreshToken = tokenPair.flatMap(TokenPair::refreshToken);
+        if (refreshToken.isPresent()) {
+            try {
+                redirectForNewToken(request, refreshToken.get());
+                return;
+            }
+            catch (Exception e) {
+                LOG.debug(e, "Tokens refresh challenge has failed");
+            }
+        }
+        handleAuthenticationFailure(request);
+    }
+
+    private void redirectForNewToken(ContainerRequestContext request, String refreshToken)
+            throws ChallengeFailedException
+    {
+        OAuth2Client.Response response = client.refreshTokens(refreshToken);
+        String serializedToken = tokenPairSerializer.serialize(TokenPair.fromOAuth2Response(response));
+        request.abortWith(Response.temporaryRedirect(request.getUriInfo().getRequestUri())
+                .cookie(OAuthWebUiCookie.create(serializedToken, tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration())))
+                .build());
+    }
+
+    private void handleAuthenticationFailure(ContainerRequestContext request)
+    {
         // send 401 to REST api calls and redirect to others
         if (request.getUriInfo().getRequestUri().getPath().startsWith("/ui/api/")) {
             sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
-            return;
-        }
-        Optional<String> refreshToken = tokenPair.flatMap(TokenPair::getRefreshToken);
-        if (refreshToken.isPresent()) {
-            try {
-                OAuth2Client.Response response = client.refreshTokens(refreshToken.get());
-                String serializedToken = tokenPairSerializer.serialize(TokenPair.fromOAuth2Response(response));
-                request.abortWith(Response.seeOther(request.getUriInfo().getRequestUri())
-                        .cookie(OAuthWebUiCookie.create(serializedToken, tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration())))
-                        .build());
-            }
-            catch (ChallengeFailedException e) {
-                LOG.debug(e, "Tokens refresh challenge has failed");
-                startOAuth2Challenge(request);
-            }
         }
         else {
             startOAuth2Challenge(request);

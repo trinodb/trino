@@ -23,6 +23,7 @@ import io.trino.decoder.RowDecoder;
 import io.trino.decoder.avro.AvroBytesDeserializer;
 import io.trino.decoder.avro.AvroRowDecoderFactory;
 import io.trino.plugin.kafka.KafkaColumnHandle;
+import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -110,9 +111,7 @@ public class TestAvroConfluentRowDecoder
         MockSchemaRegistryClient mockSchemaRegistryClient = new MockSchemaRegistryClient();
         Schema schema = Schema.create(Schema.Type.LONG);
         mockSchemaRegistryClient.register(format("%s-key", TOPIC), schema);
-        Set<DecoderColumnHandle> columnHandles = ImmutableSet.<DecoderColumnHandle>builder()
-                .add(new KafkaColumnHandle("col1", BIGINT, "col1", null, null, false, false, false))
-                .build();
+        Set<DecoderColumnHandle> columnHandles = ImmutableSet.of(new KafkaColumnHandle("col1", BIGINT, "col1", null, null, false, false, false));
         RowDecoder rowDecoder = getRowDecoder(mockSchemaRegistryClient, columnHandles, schema);
         testSingleValueRow(rowDecoder, 3L, schema, 1);
     }
@@ -154,9 +153,7 @@ public class TestAvroConfluentRowDecoder
 
     private static RowDecoder getRowDecoder(SchemaRegistryClient schemaRegistryClient, Set<DecoderColumnHandle> columnHandles, Schema schema)
     {
-        ImmutableMap<String, String> decoderParams = ImmutableMap.<String, String>builder()
-                .put(DATA_SCHEMA, schema.toString())
-                .buildOrThrow();
+        ImmutableMap<String, String> decoderParams = ImmutableMap.of(DATA_SCHEMA, schema.toString());
         return getAvroRowDecoderyFactory(schemaRegistryClient).create(decoderParams, columnHandles);
     }
 
@@ -170,13 +167,27 @@ public class TestAvroConfluentRowDecoder
         checkState(decodedRow.isPresent(), "decoded row is not present");
         for (Map.Entry<DecoderColumnHandle, FieldValueProvider> entry : decodedRow.get().entrySet()) {
             String columnName = entry.getKey().getName();
-            if (expected.get(columnName) == null) {
+            if (getValue(expected, columnName) == null) {
                 // The record uses the old schema and does not contain the new field.
                 assertTrue(entry.getValue().isNull());
             }
             else {
                 assertValuesAreEqual(entry.getValue(), expected.get(columnName), expected.getSchema().getField(columnName).schema());
             }
+        }
+    }
+
+    public static Object getValue(GenericRecord record, String columnName)
+    {
+        try {
+            return record.get(columnName);
+        }
+        catch (AvroRuntimeException e) {
+            if (e.getMessage().contains("Not a valid schema field")) {
+                return null;
+            }
+
+            throw e;
         }
     }
 

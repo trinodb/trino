@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
@@ -23,9 +24,9 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -39,14 +40,12 @@ import java.io.IOException;
 import java.math.BigDecimal;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -62,10 +61,12 @@ import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
+import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.currentTokenAsLongDecimal;
 import static io.trino.util.JsonUtil.currentTokenAsShortDecimal;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -92,6 +93,8 @@ public final class DecimalCasts
     public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeSignature(), "shortDecimalToJson", "longDecimalToJson");
     public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(JSON.getTypeSignature(), true, "jsonToShortDecimal", "jsonToLongDecimal");
 
+    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+
     private static SqlScalarFunction castFunctionFromDecimalTo(TypeSignature to, String... methodNames)
     {
         Signature signature = Signature.builder()
@@ -109,7 +112,7 @@ public final class DecimalCasts
                                     long precision = context.getLiteral("precision");
                                     long scale = context.getLiteral("scale");
                                     Object tenToScale;
-                                    if (isShortDecimal(context.getParameterTypes().get(0))) {
+                                    if (((DecimalType) context.getParameterTypes().get(0)).isShort()) {
                                         tenToScale = longTenToNth(DecimalConversions.intScale(scale));
                                     }
                                     else {
@@ -143,7 +146,7 @@ public final class DecimalCasts
                                 .withExtraParameters(context -> {
                                     DecimalType resultType = (DecimalType) context.getReturnType();
                                     Object tenToScale;
-                                    if (isShortDecimal(resultType)) {
+                                    if (resultType.isShort()) {
                                         tenToScale = longTenToNth(resultType.getScale());
                                     }
                                     else {
@@ -468,13 +471,15 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long realToShortDecimal(long value, long precision, long scale, long tenToScale)
     {
-        return DecimalConversions.realToShortDecimal(value, precision, scale);
+        float floatValue = intBitsToFloat((int) value);
+        return DecimalConversions.realToShortDecimal(floatValue, precision, scale);
     }
 
     @UsedByGeneratedCode
     public static Int128 realToLongDecimal(long value, long precision, long scale, Int128 tenToScale)
     {
-        return DecimalConversions.realToLongDecimal(value, precision, scale);
+        float floatValue = intBitsToFloat((int) value);
+        return DecimalConversions.realToLongDecimal(floatValue, precision, scale);
     }
 
     @UsedByGeneratedCode

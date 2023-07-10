@@ -14,8 +14,7 @@
 package io.trino.sql.gen;
 
 import io.trino.spi.block.Block;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,7 +23,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 
-// This methods are statically bound by the compiler
+// These methods are statically bound by the compiler
 @SuppressWarnings("UnusedDeclaration")
 public final class CompilerOperations
 {

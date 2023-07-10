@@ -22,9 +22,8 @@ import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
-import okhttp3.OkHttpClient;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
+import okhttp3.Call;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
@@ -110,10 +109,10 @@ public class TrinoConnection
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
     private final Map<String, ClientSelectedRole> roles = new ConcurrentHashMap<>();
     private final AtomicReference<String> transactionId = new AtomicReference<>();
-    private final OkHttpClient httpClient;
+    private final Call.Factory httpCallFactory;
     private final Set<TrinoStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
 
-    TrinoConnection(TrinoDriverUri uri, OkHttpClient httpClient)
+    TrinoConnection(TrinoDriverUri uri, Call.Factory httpCallFactory)
             throws SQLException
     {
         requireNonNull(uri, "uri is null");
@@ -136,7 +135,7 @@ public class TrinoConnection
 
         this.assumeLiteralUnderscoreInMetadataCallsForNonConformingClients = uri.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients();
 
-        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.httpCallFactory = requireNonNull(httpCallFactory, "httpCallFactory is null");
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
         uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, tags));
         uri.getTraceToken().ifPresent(tags -> clientInfo.put(TRACE_TOKEN, tags));
@@ -733,29 +732,29 @@ public class TrinoConnection
         int millis = networkTimeoutMillis.get();
         Duration timeout = (millis > 0) ? new Duration(millis, MILLISECONDS) : new Duration(999, DAYS);
 
-        ClientSession session = new ClientSession(
-                httpUri,
-                user,
-                sessionUser,
-                source,
-                Optional.ofNullable(clientInfo.get(TRACE_TOKEN)),
-                ImmutableSet.copyOf(clientTags),
-                clientInfo.get(CLIENT_INFO),
-                catalog.get(),
-                schema.get(),
-                path.get(),
-                timeZoneId.get(),
-                locale.get(),
-                ImmutableMap.of(),
-                ImmutableMap.copyOf(allProperties),
-                ImmutableMap.copyOf(preparedStatements),
-                ImmutableMap.copyOf(roles),
-                extraCredentials,
-                transactionId.get(),
-                timeout,
-                compressionDisabled);
+        ClientSession session = ClientSession.builder()
+                .server(httpUri)
+                .principal(user)
+                .user(sessionUser)
+                .source(source)
+                .traceToken(Optional.ofNullable(clientInfo.get(TRACE_TOKEN)))
+                .clientTags(ImmutableSet.copyOf(clientTags))
+                .clientInfo(clientInfo.get(CLIENT_INFO))
+                .catalog(catalog.get())
+                .schema(schema.get())
+                .path(path.get())
+                .timeZone(timeZoneId.get())
+                .locale(locale.get())
+                .properties(ImmutableMap.copyOf(allProperties))
+                .preparedStatements(ImmutableMap.copyOf(preparedStatements))
+                .roles(ImmutableMap.copyOf(roles))
+                .credentials(extraCredentials)
+                .transactionId(transactionId.get())
+                .clientRequestTimeout(timeout)
+                .compressionDisabled(compressionDisabled)
+                .build();
 
-        return newStatementClient(httpClient, session, sql);
+        return newStatementClient(httpCallFactory, session, sql);
     }
 
     void updateSession(StatementClient client)

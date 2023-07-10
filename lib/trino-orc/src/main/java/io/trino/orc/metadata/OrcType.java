@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -187,8 +188,12 @@ public class OrcType
                 .toString();
     }
 
-    private static List<OrcType> toOrcType(int nextFieldTypeIndex, Type type)
+    private static List<OrcType> toOrcType(int nextFieldTypeIndex, Type type, Optional<Function<Type, Optional<OrcType>>> additionalTypeMapping)
     {
+        Optional<List<OrcType>> orcType = additionalTypeMapping.flatMap(mapping -> mapping.apply(type)).map(ImmutableList::of);
+        if (orcType.isPresent()) {
+            return orcType.get();
+        }
         if (BOOLEAN.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.BOOLEAN));
         }
@@ -210,15 +215,14 @@ public class OrcType
         if (REAL.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.FLOAT));
         }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             if (varcharType.isUnbounded()) {
                 return ImmutableList.of(new OrcType(OrcTypeKind.STRING));
             }
             return ImmutableList.of(new OrcType(OrcTypeKind.VARCHAR, varcharType.getBoundedLength()));
         }
-        if (type instanceof CharType) {
-            return ImmutableList.of(new OrcType(OrcTypeKind.CHAR, ((CharType) type).getLength()));
+        if (type instanceof CharType charType) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.CHAR, charType.getLength()));
         }
         if (VARBINARY.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.BINARY));
@@ -232,15 +236,14 @@ public class OrcType
         if (TIMESTAMP_TZ_MILLIS.equals(type) || TIMESTAMP_TZ_MICROS.equals(type) || TIMESTAMP_TZ_NANOS.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.TIMESTAMP_INSTANT));
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return ImmutableList.of(new OrcType(OrcTypeKind.DECIMAL, decimalType.getPrecision(), decimalType.getScale()));
         }
         if (type instanceof ArrayType) {
-            return createOrcArrayType(nextFieldTypeIndex, type.getTypeParameters().get(0));
+            return createOrcArrayType(nextFieldTypeIndex, type.getTypeParameters().get(0), additionalTypeMapping);
         }
         if (type instanceof MapType) {
-            return createOrcMapType(nextFieldTypeIndex, type.getTypeParameters().get(0), type.getTypeParameters().get(1));
+            return createOrcMapType(nextFieldTypeIndex, type.getTypeParameters().get(0), type.getTypeParameters().get(1), additionalTypeMapping);
         }
         if (type instanceof RowType) {
             List<String> fieldNames = new ArrayList<>();
@@ -250,15 +253,15 @@ public class OrcType
             }
             List<Type> fieldTypes = type.getTypeParameters();
 
-            return createOrcRowType(nextFieldTypeIndex, fieldNames, fieldTypes);
+            return createOrcRowType(nextFieldTypeIndex, fieldNames, fieldTypes, additionalTypeMapping);
         }
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
     }
 
-    private static List<OrcType> createOrcArrayType(int nextFieldTypeIndex, Type itemType)
+    private static List<OrcType> createOrcArrayType(int nextFieldTypeIndex, Type itemType, Optional<Function<Type, Optional<OrcType>>> additionalTypeMapping)
     {
         nextFieldTypeIndex++;
-        List<OrcType> itemTypes = toOrcType(nextFieldTypeIndex, itemType);
+        List<OrcType> itemTypes = toOrcType(nextFieldTypeIndex, itemType, additionalTypeMapping);
 
         List<OrcType> orcTypes = new ArrayList<>();
         orcTypes.add(new OrcType(OrcTypeKind.LIST, ImmutableList.of(new OrcColumnId(nextFieldTypeIndex)), ImmutableList.of("item")));
@@ -266,11 +269,11 @@ public class OrcType
         return orcTypes;
     }
 
-    private static List<OrcType> createOrcMapType(int nextFieldTypeIndex, Type keyType, Type valueType)
+    private static List<OrcType> createOrcMapType(int nextFieldTypeIndex, Type keyType, Type valueType, Optional<Function<Type, Optional<OrcType>>> additionalTypeMapping)
     {
         nextFieldTypeIndex++;
-        List<OrcType> keyTypes = toOrcType(nextFieldTypeIndex, keyType);
-        List<OrcType> valueTypes = toOrcType(nextFieldTypeIndex + keyTypes.size(), valueType);
+        List<OrcType> keyTypes = toOrcType(nextFieldTypeIndex, keyType, additionalTypeMapping);
+        List<OrcType> valueTypes = toOrcType(nextFieldTypeIndex + keyTypes.size(), valueType, additionalTypeMapping);
 
         List<OrcType> orcTypes = new ArrayList<>();
         orcTypes.add(new OrcType(
@@ -284,17 +287,22 @@ public class OrcType
 
     public static ColumnMetadata<OrcType> createRootOrcType(List<String> fieldNames, List<Type> fieldTypes)
     {
-        return new ColumnMetadata<>(createOrcRowType(0, fieldNames, fieldTypes));
+        return createRootOrcType(fieldNames, fieldTypes, Optional.empty());
     }
 
-    private static List<OrcType> createOrcRowType(int nextFieldTypeIndex, List<String> fieldNames, List<Type> fieldTypes)
+    public static ColumnMetadata<OrcType> createRootOrcType(List<String> fieldNames, List<Type> fieldTypes, Optional<Function<Type, Optional<OrcType>>> additionalTypeMapping)
+    {
+        return new ColumnMetadata<>(createOrcRowType(0, fieldNames, fieldTypes, additionalTypeMapping));
+    }
+
+    private static List<OrcType> createOrcRowType(int nextFieldTypeIndex, List<String> fieldNames, List<Type> fieldTypes, Optional<Function<Type, Optional<OrcType>>> additionalTypeMapping)
     {
         nextFieldTypeIndex++;
         List<OrcColumnId> fieldTypeIndexes = new ArrayList<>();
         List<List<OrcType>> fieldTypesList = new ArrayList<>();
         for (Type fieldType : fieldTypes) {
             fieldTypeIndexes.add(new OrcColumnId(nextFieldTypeIndex));
-            List<OrcType> fieldOrcTypes = toOrcType(nextFieldTypeIndex, fieldType);
+            List<OrcType> fieldOrcTypes = toOrcType(nextFieldTypeIndex, fieldType, additionalTypeMapping);
             fieldTypesList.add(fieldOrcTypes);
             nextFieldTypeIndex += fieldOrcTypes.size();
         }

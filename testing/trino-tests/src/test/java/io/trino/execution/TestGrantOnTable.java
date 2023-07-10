@@ -33,9 +33,12 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.EnumSet;
+import java.util.Optional;
+import java.util.OptionalLong;
 
 import static io.trino.common.Randoms.randomUsername;
 import static io.trino.spi.security.PrincipalType.USER;
+import static io.trino.testing.QueryAssertions.assertUpdate;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,7 +59,7 @@ public class TestGrantOnTable
         queryRunner = DistributedQueryRunner.builder(admin).build();
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.of("default"))
-                .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName) ? ImmutableList.of(table) : ImmutableList.of())
+                .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName) ? ImmutableList.of(table.getTableName()) : ImmutableList.of())
                 .withGetTableHandle((session, tableName) -> tableName.equals(table) ? new MockConnectorTableHandle(tableName) : null)
                 .withSchemaGrants(new MutableGrants<>())
                 .withTableGrants(tableGrants)
@@ -72,6 +75,7 @@ public class TestGrantOnTable
     {
         assertions.close();
         assertions = null;
+        queryRunner = null; // closed by assertions.close
     }
 
     @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
@@ -105,8 +109,8 @@ public class TestGrantOnTable
         queryRunner.execute(admin, format("GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION", privilege, username));
 
         assertThat(assertions.query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
-        assertThat(assertions.query(user, format("GRANT %s ON TABLE table_one TO %s", privilege, randomUsername()))).matches("VALUES (BOOLEAN 'TRUE')");
-        assertThat(assertions.query(user, format("GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION", privilege, randomUsername()))).matches("VALUES (BOOLEAN 'TRUE')");
+        assertUpdate(queryRunner, user, format("GRANT %s ON TABLE table_one TO %s", privilege, randomUsername()), OptionalLong.empty(), Optional.empty());
+        assertUpdate(queryRunner, user, format("GRANT %s ON TABLE table_one TO %s WITH GRANT OPTION", privilege, randomUsername()), OptionalLong.empty(), Optional.empty());
     }
 
     @Test(dataProvider = "privileges")

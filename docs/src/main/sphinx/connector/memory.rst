@@ -5,12 +5,11 @@ Memory connector
 The Memory connector stores all data and metadata in RAM on workers
 and both are discarded when Trino restarts.
 
-
 Configuration
 -------------
 
 To configure the Memory connector, create a catalog properties file
-``etc/catalog/memory.properties`` with the following contents:
+``etc/catalog/example.properties`` with the following contents:
 
 .. code-block:: text
 
@@ -25,21 +24,29 @@ Examples
 
 Create a table using the Memory connector::
 
-    CREATE TABLE memory.default.nation AS
+    CREATE TABLE example.default.nation AS
     SELECT * from tpch.tiny.nation;
 
 Insert data into a table in the Memory connector::
 
-    INSERT INTO memory.default.nation
+    INSERT INTO example.default.nation
     SELECT * FROM tpch.tiny.nation;
 
 Select from the Memory connector::
 
-    SELECT * FROM memory.default.nation;
+    SELECT * FROM example.default.nation;
 
 Drop table::
 
-    DROP TABLE memory.default.nation;
+    DROP TABLE example.default.nation;
+
+.. _memory-type-mapping:
+
+Type mapping
+------------
+
+Trino supports all data types used within the Memory schemas so no mapping is
+required.
 
 .. _memory-sql-support:
 
@@ -57,6 +64,7 @@ statements, the connector supports the following features:
 * :doc:`/sql/drop-table`
 * :doc:`/sql/create-schema`
 * :doc:`/sql/drop-schema`
+* :doc:`/sql/comment`
 
 DROP TABLE
 ^^^^^^^^^^
@@ -65,7 +73,7 @@ Upon execution of a ``DROP TABLE`` operation, memory is not released
 immediately. It is instead released after the next write operation to the
 catalog.
 
-.. _memory_dynamic_filtering:
+.. _memory-dynamic-filtering:
 
 Dynamic filtering
 -----------------
@@ -79,8 +87,6 @@ Delayed execution for dynamic filters
 For the Memory connector, a table scan is delayed until the collection of dynamic filters.
 This can be disabled by using the configuration property ``memory.enable-lazy-dynamic-filtering``
 in the catalog file.
-
-
 
 Limitations
 -----------

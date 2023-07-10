@@ -14,9 +14,10 @@
 package io.trino.spiller;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import io.trino.FeaturesConfig;
 import io.trino.RowPagesBuilder;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
@@ -34,6 +35,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -44,7 +46,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.Double.doubleToLongBits;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -56,7 +57,7 @@ public class TestBinaryFileSpiller
     private SpillerStats spillerStats;
     private FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private SpillerFactory factory;
-    private PagesSerde pagesSerde;
+    private PageSerializer serializer;
     private AggregatedMemoryContext memoryContext;
 
     @BeforeClass(alwaysRun = true)
@@ -78,7 +79,7 @@ public class TestBinaryFileSpiller
         singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig, nodeSpillConfig);
         factory = new GenericSpillerFactory(singleStreamSpillerFactory);
         PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, nodeSpillConfig.isSpillCompressionEnabled());
-        pagesSerde = pagesSerdeFactory.createPagesSerde();
+        serializer = pagesSerdeFactory.createSerializer(Optional.empty());
         memoryContext = newSimpleAggregatedMemoryContext();
     }
 
@@ -109,9 +110,9 @@ public class TestBinaryFileSpiller
         BlockBuilder col2 = DOUBLE.createBlockBuilder(null, 1);
         BlockBuilder col3 = VARBINARY.createBlockBuilder(null, 1);
 
-        col1.writeLong(42).closeEntry();
-        col2.writeLong(doubleToLongBits(43.0)).closeEntry();
-        col3.writeLong(doubleToLongBits(43.0)).writeLong(1).closeEntry();
+        BIGINT.writeLong(col1, 42);
+        DOUBLE.writeDouble(col2, 43.0);
+        VARBINARY.writeSlice(col3, Slices.allocate(16).getOutput().appendDouble(43.0).appendLong(1).slice());
 
         Page page = new Page(col1.build(), col2.build(), col3.build());
 
@@ -146,13 +147,11 @@ public class TestBinaryFileSpiller
         long spilledBytes = 0;
 
         assertEquals(memoryContext.getBytes(), 0);
-        try (PagesSerde.PagesSerdeContext context = pagesSerde.newContext()) {
-            for (List<Page> spill : spills) {
-                spilledBytes += spill.stream()
-                        .mapToLong(page -> pagesSerde.serialize(context, page).length())
-                        .sum();
-                spiller.spill(spill.iterator()).get();
-            }
+        for (List<Page> spill : spills) {
+            spilledBytes += spill.stream()
+                    .mapToLong(page -> serializer.serialize(page).length())
+                    .sum();
+            spiller.spill(spill.iterator()).get();
         }
         assertEquals(spillerStats.getTotalSpilledBytes() - spilledBytesBefore, spilledBytes);
         // At this point, the buffers should still be accounted for in the memory context, because

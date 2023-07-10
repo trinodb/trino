@@ -14,18 +14,19 @@
 package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hive.thrift.metastore.DataOperationType;
+import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.hive.metastore.api.DataOperationType;
 
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
+
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface HiveMetastore
 {
@@ -42,7 +45,7 @@ public interface HiveMetastore
 
     Optional<Table> getTable(String databaseName, String tableName);
 
-    Set<ColumnStatisticType> getSupportedColumnStatistics(Type type);
+    Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type);
 
     PartitionStatistics getTableStatistics(Table table);
 
@@ -59,9 +62,19 @@ public interface HiveMetastore
 
     List<String> getAllTables(String databaseName);
 
+    /**
+     * @return List of tables, views and materialized views names from all schemas or Optional.empty if operation is not supported
+     */
+    Optional<List<SchemaTableName>> getAllTables();
+
     List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
 
     List<String> getAllViews(String databaseName);
+
+    /**
+     * @return List of views including materialized views names from all schemas or Optional.empty if operation is not supported
+     */
+    Optional<List<SchemaTableName>> getAllViews();
 
     void createDatabase(Database database);
 
@@ -137,10 +150,14 @@ public interface HiveMetastore
     void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
 
     /**
-     * @param tableOwner
      * @param principal when empty, all table privileges are returned
      */
     Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal);
+
+    default void checkSupportsTransactions()
+    {
+        throw new TrinoException(NOT_SUPPORTED, getClass().getSimpleName() + " does not support ACID tables");
+    }
 
     default long openTransaction(AcidTransactionOwner transactionOwner)
     {

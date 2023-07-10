@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseRedisConnectorTest
         extends BaseConnectorTest
 {
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -34,25 +35,30 @@ public abstract class BaseRedisConnectorTest
                 return false;
 
             case SUPPORTS_CREATE_TABLE:
+            case SUPPORTS_RENAME_TABLE:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE:
+            case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
-            case SUPPORTS_INSERT:
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
+            case SUPPORTS_INSERT:
             case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             default:

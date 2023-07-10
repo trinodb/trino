@@ -27,9 +27,10 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Queue;
 import java.util.Set;
 
@@ -37,6 +38,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
+import static java.util.Collections.synchronizedMap;
 import static java.util.Collections.synchronizedSet;
 
 class TestingSystemSecurityMetadata
@@ -44,11 +46,13 @@ class TestingSystemSecurityMetadata
 {
     private final Set<String> roles = synchronizedSet(new HashSet<>());
     private final Set<RoleGrant> roleGrants = synchronizedSet(new HashSet<>());
+    private final Map<CatalogSchemaTableName, Identity> viewOwners = synchronizedMap(new HashMap<>());
 
     public void reset()
     {
         roles.clear();
         roleGrants.clear();
+        viewOwners.clear();
     }
 
     @Override
@@ -74,12 +78,6 @@ class TestingSystemSecurityMetadata
     public Set<String> listRoles(Session session)
     {
         return ImmutableSet.copyOf(roles);
-    }
-
-    @Override
-    public Set<RoleGrant> listAllRoleGrants(Session session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
-    {
-        return ImmutableSet.copyOf(roleGrants);
     }
 
     @Override
@@ -228,13 +226,20 @@ class TestingSystemSecurityMetadata
     @Override
     public Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName viewName)
     {
-        return Optional.empty();
+        return Optional.ofNullable(viewOwners.get(viewName))
+                .map(identity -> Identity.from(identity)
+                        .withEnabledRoles(getRoleGrantsRecursively(new TrinoPrincipal(USER, identity.getUser()))
+                                .stream()
+                                .map(RoleGrant::getRoleName)
+                                .collect(toImmutableSet()))
+                        .build());
     }
 
     @Override
     public void setViewOwner(Session session, CatalogSchemaTableName view, TrinoPrincipal principal)
     {
-        throw new UnsupportedOperationException();
+        checkArgument(principal.getType() == USER, "Only a user can be a view owner");
+        viewOwners.put(view, Identity.ofUser(principal.getName()));
     }
 
     @Override
@@ -254,4 +259,22 @@ class TestingSystemSecurityMetadata
 
     @Override
     public void tableDropped(Session session, CatalogSchemaTableName table) {}
+
+    @Override
+    public void columnCreated(Session session, CatalogSchemaTableName table, String column)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void columnRenamed(Session session, CatalogSchemaTableName table, String oldName, String newName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void columnDropped(Session session, CatalogSchemaTableName table, String column)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

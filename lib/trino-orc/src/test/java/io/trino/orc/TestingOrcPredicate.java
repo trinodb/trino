@@ -59,6 +59,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -88,7 +89,7 @@ public final class TestingOrcPredicate
         if (REAL.equals(type) || DOUBLE.equals(type)) {
             return new DoubleOrcPredicate(transform(expectedValues, value -> ((Number) value).doubleValue()));
         }
-        if (type instanceof VarbinaryType) {
+        if (type instanceof VarbinaryType || type.equals(UUID)) {
             // binary does not have stats
             return new BasicOrcPredicate<>(expectedValues, Object.class);
         }

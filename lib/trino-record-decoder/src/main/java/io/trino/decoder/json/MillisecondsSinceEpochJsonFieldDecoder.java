@@ -25,10 +25,10 @@ import java.util.Set;
 
 import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.trino.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
-import static io.trino.spi.type.TimeType.TIME;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 public class MillisecondsSinceEpochJsonFieldDecoder
         implements JsonFieldDecoder
 {
-    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE);
+    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(TIME_MILLIS, TIME_TZ_MILLIS, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS);
 
     private final DecoderColumnHandle columnHandle;
 

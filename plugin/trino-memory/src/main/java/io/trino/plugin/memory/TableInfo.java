@@ -22,8 +22,11 @@ import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class TableInfo
@@ -34,13 +37,16 @@ public class TableInfo
     private final List<ColumnInfo> columns;
     private final Map<HostAddress, MemoryDataFragment> dataFragments;
 
-    public TableInfo(long id, String schemaName, String tableName, List<ColumnInfo> columns, Map<HostAddress, MemoryDataFragment> dataFragments)
+    private final Optional<String> comment;
+
+    public TableInfo(long id, String schemaName, String tableName, List<ColumnInfo> columns, Map<HostAddress, MemoryDataFragment> dataFragments, Optional<String> comment)
     {
         this.id = id;
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.columns = ImmutableList.copyOf(columns);
         this.dataFragments = ImmutableMap.copyOf(dataFragments);
+        this.comment = requireNonNull(comment, "comment is null");
     }
 
     public long getId()
@@ -69,7 +75,9 @@ public class TableInfo
                 new SchemaTableName(schemaName, tableName),
                 columns.stream()
                         .map(ColumnInfo::getMetadata)
-                        .collect(Collectors.toList()));
+                        .collect(Collectors.toList()),
+                emptyMap(),
+                comment);
     }
 
     public List<ColumnInfo> getColumns()
@@ -81,12 +89,16 @@ public class TableInfo
     {
         return columns.stream()
                 .filter(column -> column.getHandle().equals(handle))
-                .findFirst()
-                .get();
+                .collect(onlyElement());
     }
 
     public Map<HostAddress, MemoryDataFragment> getDataFragments()
     {
         return dataFragments;
+    }
+
+    public Optional<String> getComment()
+    {
+        return comment;
     }
 }

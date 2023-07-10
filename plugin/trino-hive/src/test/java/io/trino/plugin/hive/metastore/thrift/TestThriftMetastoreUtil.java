@@ -16,6 +16,15 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import io.trino.hive.thrift.metastore.BinaryColumnStatsData;
+import io.trino.hive.thrift.metastore.BooleanColumnStatsData;
+import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
+import io.trino.hive.thrift.metastore.Date;
+import io.trino.hive.thrift.metastore.DateColumnStatsData;
+import io.trino.hive.thrift.metastore.DecimalColumnStatsData;
+import io.trino.hive.thrift.metastore.DoubleColumnStatsData;
+import io.trino.hive.thrift.metastore.LongColumnStatsData;
+import io.trino.hive.thrift.metastore.StringColumnStatsData;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.metastore.BooleanStatistics;
 import io.trino.plugin.hive.metastore.DateStatistics;
@@ -26,37 +35,30 @@ import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.IntegerStatistics;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
-import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
-import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
-import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
-import org.apache.hadoop.hive.metastore.api.Date;
-import org.apache.hadoop.hive.metastore.api.DateColumnStatsData;
-import org.apache.hadoop.hive.metastore.api.DecimalColumnStatsData;
-import org.apache.hadoop.hive.metastore.api.DoubleColumnStatsData;
-import org.apache.hadoop.hive.metastore.api.LongColumnStatsData;
-import org.apache.hadoop.hive.metastore.api.StringColumnStatsData;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.hive.thrift.metastore.ColumnStatisticsData.binaryStats;
+import static io.trino.hive.thrift.metastore.ColumnStatisticsData.booleanStats;
+import static io.trino.hive.thrift.metastore.ColumnStatisticsData.dateStats;
+import static io.trino.hive.thrift.metastore.ColumnStatisticsData.decimalStats;
+import static io.trino.hive.thrift.metastore.ColumnStatisticsData.doubleStats;
+import static io.trino.hive.thrift.metastore.ColumnStatisticsData.longStats;
+import static io.trino.hive.thrift.metastore.ColumnStatisticsData.stringStats;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getBasicStatisticsWithSparkFallback;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreDecimal;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
-import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.binaryStats;
-import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.booleanStats;
-import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.dateStats;
-import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.decimalStats;
-import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.doubleStats;
-import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.longStats;
-import static org.apache.hadoop.hive.metastore.api.ColumnStatisticsData.stringStats;
 import static org.apache.hadoop.hive.serde.serdeConstants.BIGINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.BINARY_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.BOOLEAN_TYPE_NAME;
@@ -80,15 +82,13 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BIGINT_TYPE_NAME, longStats(longColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(1000));
 
-        assertEquals(actual.getIntegerStatistics(), Optional.of(new IntegerStatistics(OptionalLong.of(0), OptionalLong.of(100))));
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.of(1));
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.of(19));
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setIntegerStatistics(new IntegerStatistics(OptionalLong.of(0), OptionalLong.of(100)))
+                        .setNullsCount(1)
+                        .setDistinctValuesCount(19)
+                        .build());
     }
 
     @Test
@@ -98,15 +98,11 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BIGINT_TYPE_NAME, longStats(emptyLongColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
 
-        assertEquals(actual.getIntegerStatistics(), Optional.of(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty())));
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.empty());
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.empty());
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()))
+                        .build());
     }
 
     @Test
@@ -120,15 +116,13 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DOUBLE_TYPE_NAME, doubleStats(doubleColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(1000));
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.of(new DoubleStatistics(OptionalDouble.of(0), OptionalDouble.of(100))));
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.of(1));
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.of(19));
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setDoubleStatistics(new DoubleStatistics(OptionalDouble.of(0), OptionalDouble.of(100)))
+                        .setNullsCount(1)
+                        .setDistinctValuesCount(19)
+                        .build());
     }
 
     @Test
@@ -138,15 +132,11 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DOUBLE_TYPE_NAME, doubleStats(emptyDoubleColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.of(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty())));
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.empty());
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.empty());
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setDoubleStatistics(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty()))
+                        .build());
     }
 
     @Test
@@ -162,15 +152,13 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DECIMAL_TYPE_NAME, decimalStats(decimalColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(1000));
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.of(new DecimalStatistics(Optional.of(low), Optional.of(high))));
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.of(1));
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.of(19));
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setDecimalStatistics(new DecimalStatistics(Optional.of(low), Optional.of(high)))
+                        .setNullsCount(1)
+                        .setDistinctValuesCount(19)
+                        .build());
     }
 
     @Test
@@ -180,15 +168,11 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DECIMAL_TYPE_NAME, decimalStats(emptyDecimalColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.of(new DecimalStatistics(Optional.empty(), Optional.empty())));
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.empty());
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.empty());
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setDecimalStatistics(new DecimalStatistics(Optional.empty(), Optional.empty()))
+                        .build());
     }
 
     @Test
@@ -201,15 +185,12 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BOOLEAN_TYPE_NAME, booleanStats(booleanColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.of(new BooleanStatistics(OptionalLong.of(100), OptionalLong.of(10))));
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.of(0));
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.empty());
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setBooleanStatistics(new BooleanStatistics(OptionalLong.of(100), OptionalLong.of(10)))
+                        .setNullsCount(0)
+                        .build());
     }
 
     @Test
@@ -219,15 +200,12 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BOOLEAN_TYPE_NAME, booleanStats(statsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.of(2));
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.of(new BooleanStatistics(OptionalLong.empty(), OptionalLong.empty())));
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setBooleanStatistics(new BooleanStatistics(OptionalLong.empty(), OptionalLong.empty()))
+                        .setNullsCount(2)
+                        .build());
     }
 
     @Test
@@ -237,15 +215,11 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BOOLEAN_TYPE_NAME, booleanStats(emptyBooleanColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.of(new BooleanStatistics(OptionalLong.empty(), OptionalLong.empty())));
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.empty());
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.empty());
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setBooleanStatistics(new BooleanStatistics(OptionalLong.empty(), OptionalLong.empty()))
+                        .build());
     }
 
     @Test
@@ -259,15 +233,13 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DATE_TYPE_NAME, dateStats(dateColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(1000));
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.of(new DateStatistics(Optional.of(LocalDate.ofEpochDay(1000)), Optional.of(LocalDate.ofEpochDay(2000)))));
-        assertEquals(actual.getBooleanStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.of(1));
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.of(19));
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setDateStatistics(new DateStatistics(Optional.of(LocalDate.ofEpochDay(1000)), Optional.of(LocalDate.ofEpochDay(2000))))
+                        .setNullsCount(1)
+                        .setDistinctValuesCount(19)
+                        .build());
     }
 
     @Test
@@ -277,15 +249,11 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", DATE_TYPE_NAME, dateStats(emptyDateColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.of(new DateStatistics(Optional.empty(), Optional.empty())));
-        assertEquals(actual.getBooleanStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.empty());
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.empty());
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()))
+                        .build());
     }
 
     @Test
@@ -299,15 +267,14 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", STRING_TYPE_NAME, stringStats(stringColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(2));
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.of(100));
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.of(23));
-        assertEquals(actual.getNullsCount(), OptionalLong.of(1));
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.of(1));
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setMaxValueSizeInBytes(100)
+                        .setTotalSizeInBytes(23)
+                        .setNullsCount(1)
+                        .setDistinctValuesCount(1)
+                        .build());
     }
 
     @Test
@@ -317,15 +284,7 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", STRING_TYPE_NAME, stringStats(emptyStringColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.empty());
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.empty());
+        assertEquals(actual, HiveColumnStatistics.builder().build());
     }
 
     @Test
@@ -338,15 +297,13 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BINARY_TYPE_NAME, binaryStats(binaryColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.of(4));
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.of(100));
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.of(44));
-        assertEquals(actual.getNullsCount(), OptionalLong.of(2));
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.empty());
+        assertEquals(
+                actual,
+                HiveColumnStatistics.builder()
+                        .setMaxValueSizeInBytes(100)
+                        .setTotalSizeInBytes(44)
+                        .setNullsCount(2)
+                        .build());
     }
 
     @Test
@@ -356,15 +313,7 @@ public class TestThriftMetastoreUtil
         ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BINARY_TYPE_NAME, binaryStats(emptyBinaryColumnStatsData));
         HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
 
-        assertEquals(actual.getIntegerStatistics(), Optional.empty());
-        assertEquals(actual.getDoubleStatistics(), Optional.empty());
-        assertEquals(actual.getDecimalStatistics(), Optional.empty());
-        assertEquals(actual.getDateStatistics(), Optional.empty());
-        assertEquals(actual.getBooleanStatistics(), Optional.empty());
-        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(actual.getNullsCount(), OptionalLong.empty());
-        assertEquals(actual.getDistinctValuesCount(), OptionalLong.empty());
+        assertEquals(actual, HiveColumnStatistics.builder().build());
     }
 
     @Test
@@ -387,6 +336,47 @@ public class TestThriftMetastoreUtil
 
         assertEquals(actual.getNullsCount(), OptionalLong.of(10));
         assertEquals(actual.getDistinctValuesCount(), OptionalLong.of(1));
+    }
+
+    @Test
+    public void testSparkFallbackGetBasicStatistics()
+    {
+        // only spark stats
+        Map<String, String> tableParameters = Map.of(
+                "spark.sql.statistics.numFiles", "1",
+                "spark.sql.statistics.numRows", "2",
+                "spark.sql.statistics.rawDataSize", "3",
+                "spark.sql.statistics.totalSize", "4");
+        HiveBasicStatistics actual = getBasicStatisticsWithSparkFallback(tableParameters);
+        assertEquals(actual, new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)));
+        actual = getHiveBasicStatistics(tableParameters);
+        assertEquals(actual, new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
+        // empty hive and not empty spark stats
+        tableParameters = Map.of(
+                "numFiles", "0",
+                "numRows", "0",
+                "rawDataSize", "0",
+                "totalSize", "0",
+                "spark.sql.statistics.numFiles", "1",
+                "spark.sql.statistics.numRows", "2",
+                "spark.sql.statistics.rawDataSize", "3",
+                "spark.sql.statistics.totalSize", "4");
+        actual = getBasicStatisticsWithSparkFallback(tableParameters);
+        assertEquals(actual, new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)));
+        actual = getHiveBasicStatistics(tableParameters);
+        assertEquals(actual, new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0)));
+        //  not empty hive and not empty spark stats
+        tableParameters = Map.of(
+                "numFiles", "10",
+                "numRows", "20",
+                "rawDataSize", "30",
+                "totalSize", "40",
+                "spark.sql.statistics.numFiles", "1",
+                "spark.sql.statistics.numRows", "2",
+                "spark.sql.statistics.rawDataSize", "3",
+                "spark.sql.statistics.totalSize", "4");
+        actual = getBasicStatisticsWithSparkFallback(tableParameters);
+        assertEquals(actual, new HiveBasicStatistics(OptionalLong.of(10), OptionalLong.of(20), OptionalLong.of(30), OptionalLong.of(40)));
     }
 
     @Test

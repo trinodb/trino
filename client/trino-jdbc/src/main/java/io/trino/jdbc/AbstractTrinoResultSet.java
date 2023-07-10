@@ -80,7 +80,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.jdbc.ColumnInfo.setTypeInfo;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.math.BigDecimal.ROUND_HALF_UP;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;
@@ -92,8 +92,8 @@ abstract class AbstractTrinoResultSet
 {
     private static final Pattern DATETIME_PATTERN = Pattern.compile("" +
             "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
-            "(?: (?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
-            "\\s*(?<timezone>.+)?");
+            "( (?:(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
+            "(?:\\s*(?<timezone>.+))?)?");
 
     private static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
     private static final Pattern TIME_WITH_TIME_ZONE_PATTERN = Pattern.compile("" +
@@ -150,15 +150,8 @@ abstract class AbstractTrinoResultSet
             TypeConversions.builder()
                     .add("decimal", String.class, BigDecimal.class, AbstractTrinoResultSet::parseBigDecimal)
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
-                    .add("date", String.class, Date.class, string -> {
-                        try {
-                            return parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId()));
-                        }
-                        // TODO (https://github.com/trinodb/trino/issues/6242) this should never fail
-                        catch (IllegalArgumentException e) {
-                            throw new SQLException("Expected value to be a date but is: " + string, e);
-                        }
-                    })
+                    .add("date", String.class, Date.class, string -> parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId())))
+                    .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId())).toLocalDate())
                     .add("time", String.class, Time.class, string -> parseTime(string, ZoneId.systemDefault()))
                     .add("time with time zone", String.class, Time.class, AbstractTrinoResultSet::parseTimeWithTimeZone)
                     .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, ZoneId.systemDefault()))
@@ -260,7 +253,13 @@ abstract class AbstractTrinoResultSet
             throws SQLException
     {
         Object value = column(columnIndex);
-        return (value != null) ? (Boolean) value : false;
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        throw new SQLException("Value is not a boolean: " + value);
     }
 
     @Override
@@ -311,7 +310,7 @@ abstract class AbstractTrinoResultSet
     {
         BigDecimal bigDecimal = getBigDecimal(columnIndex);
         if (bigDecimal != null) {
-            bigDecimal = bigDecimal.setScale(scale, ROUND_HALF_UP);
+            bigDecimal = bigDecimal.setScale(scale, HALF_UP);
         }
         return bigDecimal;
     }
@@ -355,7 +354,8 @@ abstract class AbstractTrinoResultSet
 
     private static Date parseDate(String value, DateTimeZone localTimeZone)
     {
-        long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
+        LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
+        long millis = localDate.toDateTimeAtStartOfDay(localTimeZone).getMillis();
         if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
             return new Date(millis);
         }
@@ -367,8 +367,8 @@ abstract class AbstractTrinoResultSet
         // expensive GregorianCalendar; note that Joda also has a chronology that works for
         // older dates, but it uses a slightly different algorithm and yields results that
         // are not compatible with java.sql.Date.
-        LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
-        Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
+        LocalDate preGregorianDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
+        Calendar calendar = new GregorianCalendar(preGregorianDate.getYear(), preGregorianDate.getMonthOfYear() - 1, preGregorianDate.getDayOfMonth());
         calendar.setTimeZone(TimeZone.getTimeZone(ZoneId.of(localTimeZone.getID())));
 
         return new Date(calendar.getTimeInMillis());
@@ -651,8 +651,8 @@ abstract class AbstractTrinoResultSet
         return column(columnIndex);
     }
 
-    @javax.annotation.Nullable
-    private static Object convertFromClientRepresentation(ClientTypeSignature columnType, @javax.annotation.Nullable Object value)
+    @jakarta.annotation.Nullable
+    private static Object convertFromClientRepresentation(ClientTypeSignature columnType, @jakarta.annotation.Nullable Object value)
             throws SQLException
     {
         requireNonNull(columnType, "columnType is null");

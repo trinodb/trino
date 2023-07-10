@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -81,15 +81,15 @@ public class TestTransformCorrelatedDistinctAggregationWithoutProjection
                                         ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,
-                                        join(
-                                                LEFT,
-                                                ImmutableList.of(),
-                                                Optional.of("b > corr"),
-                                                assignUniqueId(
-                                                        "unique",
-                                                        values("corr")),
-                                                filter(
-                                                        "true",
-                                                        values("a", "b"))))));
+                                        join(LEFT, builder -> builder
+                                                .filter("b > corr")
+                                                .left(
+                                                        assignUniqueId(
+                                                                "unique",
+                                                                values("corr")))
+                                                .right(
+                                                        filter(
+                                                                "true",
+                                                                values("a", "b")))))));
     }
 }

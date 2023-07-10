@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -41,6 +42,7 @@ import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.QueryUtil.identifier;
@@ -117,7 +119,10 @@ public class TestPrepareTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                createPlanOptimizersStatsCollector(),
+                Optional.empty(),
+                true,
+                new NodeVersion("test"));
         Prepare prepare = new Prepare(identifier(statementName), statement);
         new PrepareTask(new SqlParser()).execute(prepare, stateMachine, emptyList(), WarningCollector.NOOP);
         return stateMachine.getAddedPreparedStatements();

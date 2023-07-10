@@ -17,8 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 // This is separate from MemoryManagerConfig because it's difficult to test the default value of maxQueryMemoryPerNode
 @DefunctConfig({
@@ -31,8 +30,6 @@ import javax.validation.constraints.NotNull;
 public class NodeMemoryConfig
 {
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
-    public static final String QUERY_MAX_MEMORY_PER_NODE_CONFIG = "query.max-memory-per-node";
-
     private DataSize maxQueryMemoryPerNode = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
 
     private DataSize heapHeadroom = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
@@ -43,7 +40,7 @@ public class NodeMemoryConfig
         return maxQueryMemoryPerNode;
     }
 
-    @Config(QUERY_MAX_MEMORY_PER_NODE_CONFIG)
+    @Config("query.max-memory-per-node")
     public NodeMemoryConfig setMaxQueryMemoryPerNode(DataSize maxQueryMemoryPerNode)
     {
         this.maxQueryMemoryPerNode = maxQueryMemoryPerNode;

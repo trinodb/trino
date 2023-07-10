@@ -58,7 +58,7 @@ public class StreamPreferredProperties
             boolean orderSensitive)
     {
         this.distribution = requireNonNull(distribution, "distribution is null");
-        this.partitioningColumns = requireNonNull(partitioningColumns, "partitioningColumns is null").map(ImmutableList::copyOf);
+        this.partitioningColumns = partitioningColumns.map(ImmutableList::copyOf);
         this.exactColumnOrder = exactColumnOrder;
         this.orderSensitive = orderSensitive;
 
@@ -183,10 +183,10 @@ public class StreamPreferredProperties
             if (distribution.get() == SINGLE && actualDistribution != SINGLE) {
                 return false;
             }
-            else if (distribution.get() == FIXED && actualDistribution != FIXED) {
+            if (distribution.get() == FIXED && actualDistribution != FIXED) {
                 return false;
             }
-            else if (distribution.get() == MULTIPLE && actualDistribution != FIXED && actualDistribution != MULTIPLE) {
+            if (distribution.get() == MULTIPLE && actualDistribution != FIXED && actualDistribution != MULTIPLE) {
                 return false;
             }
         }

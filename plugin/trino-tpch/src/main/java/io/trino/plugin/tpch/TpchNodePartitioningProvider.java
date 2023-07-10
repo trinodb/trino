@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.ToIntFunction;
 
@@ -50,7 +51,7 @@ public class TpchNodePartitioningProvider
     }
 
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
         checkState(!nodes.isEmpty(), "No TPCH nodes available");
@@ -64,7 +65,7 @@ public class TpchNodePartitioningProvider
                 bucketToNode.add(node);
             }
         }
-        return createBucketNodeMap(bucketToNode.build());
+        return Optional.of(createBucketNodeMap(bucketToNode.build()));
     }
 
     @Override

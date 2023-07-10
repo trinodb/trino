@@ -15,8 +15,9 @@
 package io.trino.memory;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.trino.execution.TaskId;
-import io.trino.operator.RetryPolicy;
+import io.trino.execution.TaskInfo;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolInfo;
 
@@ -25,8 +26,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.operator.RetryPolicy.TASK;
 
 public class TotalReservationOnBlockedNodesTaskLowMemoryKiller
         implements LowMemoryKiller
@@ -35,13 +38,15 @@ public class TotalReservationOnBlockedNodesTaskLowMemoryKiller
     public Optional<KillTarget> chooseTargetToKill(List<RunningQueryInfo> runningQueries, List<MemoryInfo> nodes)
     {
         Set<QueryId> queriesWithTaskRetryPolicy = runningQueries.stream()
-                                                          .filter(query -> query.getRetryPolicy() == RetryPolicy.TASK)
+                                                          .filter(query -> query.getRetryPolicy() == TASK)
                                                           .map(RunningQueryInfo::getQueryId)
                                                           .collect(toImmutableSet());
 
         if (queriesWithTaskRetryPolicy.isEmpty()) {
             return Optional.empty();
         }
+
+        Map<QueryId, RunningQueryInfo> runningQueriesById = Maps.uniqueIndex(runningQueries, RunningQueryInfo::getQueryId);
 
         ImmutableSet.Builder<TaskId> tasksToKillBuilder = ImmutableSet.builder();
         for (MemoryInfo node : nodes) {
@@ -53,12 +58,8 @@ public class TotalReservationOnBlockedNodesTaskLowMemoryKiller
                 continue;
             }
 
-            memoryPool.getTaskMemoryReservations().entrySet().stream()
-                    // consider only tasks from queries with task retries enabled
-                    .map(entry -> new SimpleEntry<>(TaskId.valueOf(entry.getKey()), entry.getValue()))
-                    .filter(entry -> queriesWithTaskRetryPolicy.contains(entry.getKey().getQueryId()))
-                    .max(Map.Entry.comparingByValue())
-                    .map(SimpleEntry::getKey)
+            findBiggestTask(runningQueriesById, memoryPool, true) // try just speculative
+                    .or(() -> findBiggestTask(runningQueriesById, memoryPool, false)) // fallback to any task
                     .ifPresent(tasksToKillBuilder::add);
         }
         Set<TaskId> tasksToKill = tasksToKillBuilder.build();
@@ -66,5 +67,28 @@ public class TotalReservationOnBlockedNodesTaskLowMemoryKiller
             return Optional.empty();
         }
         return Optional.of(KillTarget.selectedTasks(tasksToKill));
+    }
+
+    private static Optional<TaskId> findBiggestTask(Map<QueryId, RunningQueryInfo> runningQueries, MemoryPoolInfo memoryPool, boolean onlySpeculative)
+    {
+        Stream<SimpleEntry<TaskId, Long>> stream = memoryPool.getTaskMemoryReservations().entrySet().stream()
+                // consider only tasks from queries with task retries enabled
+                .map(entry -> new SimpleEntry<>(TaskId.valueOf(entry.getKey()), entry.getValue()))
+                .filter(entry -> runningQueries.containsKey(entry.getKey().getQueryId()))
+                .filter(entry -> runningQueries.get(entry.getKey().getQueryId()).getRetryPolicy() == TASK);
+
+        if (onlySpeculative) {
+            stream = stream.filter(entry -> {
+                TaskInfo taskInfo = runningQueries.get(entry.getKey().getQueryId()).getTaskInfos().get(entry.getKey());
+                if (taskInfo == null) {
+                    return false;
+                }
+                return taskInfo.getTaskStatus().isSpeculative();
+            });
+        }
+
+        return stream
+                .max(Map.Entry.comparingByValue())
+                .map(SimpleEntry::getKey);
     }
 }

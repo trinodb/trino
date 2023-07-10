@@ -16,6 +16,8 @@ package io.trino.sql.planner.planprinter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.FormatMethod;
+import io.trino.cost.LocalCostEstimate;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
@@ -78,6 +80,7 @@ public class NodeRepresentation
         checkArgument(estimatedCost.size() == estimatedStats.size(), "size of cost and stats list does not match");
     }
 
+    @FormatMethod
     public void appendDetails(String string, Object... args)
     {
         if (args.length == 0) {
@@ -151,14 +154,14 @@ public class NodeRepresentation
     public List<PlanNodeStatsAndCostSummary> getEstimates(TypeProvider typeProvider)
     {
         if (getEstimatedStats().stream().allMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown) &&
-                getEstimatedCost().stream().allMatch(c -> c.equals(PlanCostEstimate.unknown()))) {
+                getEstimatedCost().stream().allMatch(c -> c.getRootNodeLocalCostEstimate().equals(LocalCostEstimate.unknown()))) {
             return ImmutableList.of();
         }
 
         ImmutableList.Builder<PlanNodeStatsAndCostSummary> estimates = ImmutableList.builder();
         for (int i = 0; i < getEstimatedStats().size(); i++) {
             PlanNodeStatsEstimate stats = getEstimatedStats().get(i);
-            PlanCostEstimate cost = getEstimatedCost().get(i);
+            LocalCostEstimate cost = getEstimatedCost().get(i).getRootNodeLocalCostEstimate();
 
             List<Symbol> outputSymbols = getOutputs().stream()
                     .map(NodeRepresentation.TypedSymbol::getSymbol)

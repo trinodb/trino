@@ -13,10 +13,10 @@
  */
 package io.trino.connector;
 
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -40,13 +40,13 @@ public class LazyCatalogFactory
     }
 
     @Override
-    public CatalogConnector createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public CatalogConnector createCatalog(CatalogProperties catalogProperties)
     {
-        return getDelegate().createCatalog(catalogName, connectorName, properties);
+        return getDelegate().createCatalog(catalogProperties);
     }
 
     @Override
-    public CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector)
+    public CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector)
     {
         return getDelegate().createCatalog(catalogHandle, connectorName, connector);
     }

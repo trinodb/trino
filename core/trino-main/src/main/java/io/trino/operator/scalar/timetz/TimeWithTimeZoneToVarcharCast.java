@@ -13,8 +13,8 @@
  */
 package io.trino.operator.scalar.timetz;
 
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
@@ -33,8 +33,6 @@ import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.SECONDS_PER_MINUTE;
 import static io.trino.type.DateTimes.scaleFactor;
 import static java.lang.Math.abs;
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 @ScalarOperator(CAST)
 public final class TimeWithTimeZoneToVarcharCast
@@ -48,40 +46,61 @@ public final class TimeWithTimeZoneToVarcharCast
         long nanos = unpackTimeNanos(packedTime);
         int offsetMinutes = unpackOffsetMinutes(packedTime);
 
-        return formatAsString((int) precision, nanos * PICOSECONDS_PER_NANOSECOND, offsetMinutes);
+        return format((int) precision, nanos * PICOSECONDS_PER_NANOSECOND, offsetMinutes);
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
     public static Slice cast(@LiteralParameter("p") long precision, @SqlType("time(p) with time zone") LongTimeWithTimeZone time)
     {
-        return formatAsString((int) precision, time.getPicoseconds(), time.getOffsetMinutes());
+        return format((int) precision, time.getPicoseconds(), time.getOffsetMinutes());
     }
 
-    // Can't name this format() because we can't have a qualified reference to String.format() below
-    private static Slice formatAsString(int precision, long picos, int offsetMinutes)
+    private static Slice format(int precision, long picos, int offsetMinutes)
     {
         int size = 8 + // hour:minute:second
                 (precision > 0 ? 1 : 0) + // period
                 precision + // fraction
                 6; // +hh:mm offset
 
-        DynamicSliceOutput output = new DynamicSliceOutput(size);
+        int hours = (int) (picos / PICOSECONDS_PER_HOUR);
+        int minutes = (int) ((picos / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR);
+        int seconds = (int) ((picos / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE);
+        int zoneOffsetHours = abs(offsetMinutes / 60);
+        int zoneOffsetMinutes = abs(offsetMinutes % 60);
 
-        String formatted = format(
-                "%02d:%02d:%02d",
-                picos / PICOSECONDS_PER_HOUR,
-                (picos / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR,
-                (picos / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE);
-        output.appendBytes(formatted.getBytes(UTF_8));
+        byte[] bytes = new byte[size];
+        appendTwoDecimalDigits(0, bytes, hours);
+        bytes[2] = ':';
+        appendTwoDecimalDigits(3, bytes, minutes);
+        bytes[5] = ':';
+        appendTwoDecimalDigits(6, bytes, seconds);
 
+        int offsetStartAt = 8;
         if (precision > 0) {
+            bytes[8] = '.';
             long scaledFraction = (picos % PICOSECONDS_PER_SECOND) / scaleFactor(precision, MAX_PRECISION);
-            output.appendByte('.');
-            output.appendBytes(format("%0" + precision + "d", scaledFraction).getBytes(UTF_8));
+            for (int index = 8 + precision; index > 8; index--) {
+                long temp = scaledFraction / 10;
+                int digit = (int) (scaledFraction - (temp * 10));
+                scaledFraction = temp;
+                bytes[index] = (byte) ('0' + digit);
+            }
+            offsetStartAt += (precision + 1);
         }
-        output.appendBytes(format("%s%02d:%02d", offsetMinutes >= 0 ? '+' : '-', abs(offsetMinutes / 60), abs(offsetMinutes % 60)).getBytes(UTF_8));
+        bytes[offsetStartAt] = offsetMinutes >= 0 ? (byte) '+' : (byte) '-';
+        appendTwoDecimalDigits(offsetStartAt + 1, bytes, zoneOffsetHours);
+        bytes[offsetStartAt + 3] = ':';
+        appendTwoDecimalDigits(offsetStartAt + 4, bytes, zoneOffsetMinutes);
 
-        return output.slice();
+        return Slices.wrappedBuffer(bytes);
+    }
+
+    private static void appendTwoDecimalDigits(int index, byte[] bytes, int value)
+    {
+        int tens = value / 10;
+        int ones = value - (tens * 10);
+        bytes[index] = (byte) ('0' + tens);
+        bytes[index + 1] = (byte) ('0' + ones);
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
@@ -26,7 +27,7 @@ import org.testng.annotations.Test;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,7 +54,8 @@ public class TestBigQueryCaseInsensitiveMapping
     {
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
-                ImmutableMap.of("bigquery.case-insensitive-name-matching", "true"));
+                ImmutableMap.of("bigquery.case-insensitive-name-matching", "true"),
+                ImmutableList.of());
     }
 
     @Test
@@ -61,7 +63,7 @@ public class TestBigQueryCaseInsensitiveMapping
             throws Exception
     {
         // Ensure schema name starts with a letter and is prefixed with a random string to make sure LIKE 'schema%' returns a single result
-        String fixedRandom = "a" + randomTableSuffix();
+        String fixedRandom = "a" + randomNameSuffix();
         String bigQuerySchema = fixedRandom + "_NonLowerCaseSchema";
         String trinoSchema = bigQuerySchema.toLowerCase(ENGLISH);
         try (AutoCloseable ignore1 = withSchema(bigQuerySchema);
@@ -84,7 +86,7 @@ public class TestBigQueryCaseInsensitiveMapping
     public void testNonLowerCaseTableName()
             throws Exception
     {
-        String bigQuerySchema = "SomeSchema_" + randomTableSuffix();
+        String bigQuerySchema = "SomeSchema_" + randomNameSuffix();
         String trinoSchema = bigQuerySchema.toLowerCase(ENGLISH);
         try (AutoCloseable ignore1 = withSchema(bigQuerySchema);
                 AutoCloseable ignore2 = withTable(
@@ -107,7 +109,19 @@ public class TestBigQueryCaseInsensitiveMapping
             assertQuery("SELECT upper_case_name FROM " + trinoSchema + ".nonlowercasetable", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM " + bigQuerySchema + ".NonLowerCaseTable", "VALUES 'c'");
             assertQuery("SELECT upper_case_name FROM \"" + bigQuerySchema + "\".\"NonLowerCaseTable\"", "VALUES 'c'");
-            // TODO: test with INSERT and CTAS https://github.com/trinodb/trino/issues/6868, https://github.com/trinodb/trino/issues/6869
+
+            assertUpdate("INSERT INTO " + trinoSchema + ".nonlowercasetable (lower_case_name) VALUES ('l')", 1);
+            assertUpdate("INSERT INTO " + trinoSchema + ".nonlowercasetable (mixed_case_name) VALUES ('m')", 1);
+            assertUpdate("INSERT INTO " + trinoSchema + ".nonlowercasetable (upper_case_name) VALUES ('u')", 1);
+            assertQuery(
+                    "SELECT * FROM " + trinoSchema + ".nonlowercasetable",
+                    "VALUES ('a', 'b', 'c')," +
+                            "('l', NULL, NULL)," +
+                            "(NULL, 'm', NULL)," +
+                            "(NULL, NULL, 'u')");
+
+            assertUpdate("CREATE TABLE " + trinoSchema + ".test_ctas_in_nonlowercase_schema AS SELECT 1 x", 1);
+            assertQuery("SELECt * FROM " + trinoSchema + ".test_ctas_in_nonlowercase_schema", "VALUES 1");
         }
     }
 
@@ -115,7 +129,7 @@ public class TestBigQueryCaseInsensitiveMapping
     public void testNonLowerCaseViewName()
             throws Exception
     {
-        String bigQuerySchema = "SomeSchema_" + randomTableSuffix();
+        String bigQuerySchema = "SomeSchema_" + randomNameSuffix();
         String trinoSchema = bigQuerySchema.toLowerCase(ENGLISH);
         String namePrefix = format("%s.Test_Case", bigQuerySchema);
 
@@ -150,7 +164,7 @@ public class TestBigQueryCaseInsensitiveMapping
             throws Exception
     {
         // Ensure schema names start with a letter
-        String random = "a" + randomTableSuffix();
+        String random = "a" + randomNameSuffix();
         String[] nameVariants = {random + "_casesensitivename", random + "_CaseSensitiveName", random + "_CASESENSITIVENAME"};
         assertThat(Stream.of(nameVariants)
                 .map(name -> name.toLowerCase(ENGLISH))
@@ -187,7 +201,7 @@ public class TestBigQueryCaseInsensitiveMapping
             throws Exception
     {
         // Ensure schema name starts with a letter and is lowercase to only test table name code path
-        String schema = ("a" + randomTableSuffix() + "_tpch").toLowerCase(ENGLISH);
+        String schema = ("a" + randomNameSuffix() + "_tpch").toLowerCase(ENGLISH);
         String[] nameVariants = {"casesensitivename", "CaseSensitiveName", "CASESENSITIVENAME"};
         assertThat(Stream.of(nameVariants)
                 .map(name -> name.toLowerCase(ENGLISH))
@@ -215,10 +229,29 @@ public class TestBigQueryCaseInsensitiveMapping
     }
 
     @Test
+    public void testCreateSchema()
+    {
+        String schemaName = "Test_Create_Case_Sensitive_" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName.toLowerCase(ENGLISH));
+        assertQuery(format("SELECT schema_name FROM information_schema.schemata WHERE schema_name = '%s'", schemaName.toLowerCase(ENGLISH)), format("VALUES '%s'", schemaName.toLowerCase(ENGLISH)));
+        assertUpdate("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH));
+    }
+
+    @Test
+    public void testCreateSchemaNameClash()
+            throws Exception
+    {
+        String schemaName = "Test_Create_Case_Sensitive_Clash_" + randomNameSuffix();
+        try (AutoCloseable schema = withSchema(schemaName)) {
+            assertQueryFails("CREATE SCHEMA " + schemaName.toLowerCase(ENGLISH), ".*Schema 'bigquery\\.\\Q" + schemaName.toLowerCase(ENGLISH) + "\\E' already exists");
+        }
+    }
+
+    @Test
     public void testDropSchema()
             throws Exception
     {
-        String schemaName = "Test_Drop_Case_Sensitive_" + randomTableSuffix();
+        String schemaName = "Test_Drop_Case_Sensitive_" + randomNameSuffix();
         try (AutoCloseable schema = withSchema(schemaName)) {
             assertUpdate("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH));
         }
@@ -228,7 +261,7 @@ public class TestBigQueryCaseInsensitiveMapping
     public void testDropSchemaNameClash()
             throws Exception
     {
-        String schemaName = "Test_Drop_Case_Sensitive_Clash_" + randomTableSuffix();
+        String schemaName = "Test_Drop_Case_Sensitive_Clash_" + randomNameSuffix();
         try (AutoCloseable schema = withSchema(schemaName);
                 AutoCloseable secondSchema = withSchema(schemaName.toLowerCase(ENGLISH))) {
             assertQueryFails("DROP SCHEMA " + schemaName.toLowerCase(ENGLISH), "Found ambiguous names in BigQuery.*");

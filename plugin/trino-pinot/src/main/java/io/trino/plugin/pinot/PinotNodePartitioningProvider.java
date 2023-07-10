@@ -23,18 +23,21 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
+
+import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 
 public class PinotNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle)
     {
-        return ConnectorBucketNodeMap.createBucketNodeMap(1);
+        return Optional.of(createBucketNodeMap(1));
     }
 
     @Override

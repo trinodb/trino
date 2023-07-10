@@ -48,8 +48,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -112,7 +114,17 @@ public final class TypeConverter
         throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
     }
 
-    public static org.apache.iceberg.types.Type toIcebergType(Type type)
+    public static org.apache.iceberg.types.Type toIcebergTypeForNewColumn(Type type, AtomicInteger nextFieldId)
+    {
+        return toIcebergTypeInternal(type, Optional.empty(), Optional.of(nextFieldId));
+    }
+
+    public static org.apache.iceberg.types.Type toIcebergType(Type type, ColumnIdentity columnIdentity)
+    {
+        return toIcebergTypeInternal(type, Optional.of(columnIdentity), Optional.empty());
+    }
+
+    private static org.apache.iceberg.types.Type toIcebergTypeInternal(Type type, Optional<ColumnIdentity> columnIdentity, Optional<AtomicInteger> nextFieldId)
     {
         if (type instanceof BooleanType) {
             return Types.BooleanType.get();
@@ -154,13 +166,13 @@ public final class TypeConverter
             return Types.UUIDType.get();
         }
         if (type instanceof RowType) {
-            return fromRow((RowType) type);
+            return fromRow((RowType) type, columnIdentity, nextFieldId);
         }
         if (type instanceof ArrayType) {
-            return fromArray((ArrayType) type);
+            return fromArray((ArrayType) type, columnIdentity, nextFieldId);
         }
         if (type instanceof MapType) {
-            return fromMap((MapType) type);
+            return fromMap((MapType) type, columnIdentity, nextFieldId);
         }
         if (type instanceof TimeType) {
             throw new TrinoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", ((TimeType) type).getPrecision()));
@@ -179,25 +191,60 @@ public final class TypeConverter
         return Types.DecimalType.of(type.getPrecision(), type.getScale());
     }
 
-    private static org.apache.iceberg.types.Type fromRow(RowType type)
+    private static org.apache.iceberg.types.Type fromRow(RowType type, Optional<ColumnIdentity> columnIdentity, Optional<AtomicInteger> nextFieldId)
     {
+        checkExactlyOne(columnIdentity, nextFieldId);
+
         List<Types.NestedField> fields = new ArrayList<>();
-        for (RowType.Field field : type.getFields()) {
+        for (int i = 0; i < type.getFields().size(); i++) {
+            int fieldIndex = i;
+            Optional<ColumnIdentity> childColumnIdentity = columnIdentity.map(column -> column.getChildren().get(fieldIndex));
+            int id = childColumnIdentity
+                    .map(ColumnIdentity::getId)
+                    .orElseGet(() -> nextFieldId.get().getAndIncrement());
+
+            RowType.Field field = type.getFields().get(fieldIndex);
             String name = field.getName().orElseThrow(() ->
                     new TrinoException(NOT_SUPPORTED, "Row type field does not have a name: " + type.getDisplayName()));
-            fields.add(Types.NestedField.optional(fields.size() + 1, name, toIcebergType(field.getType())));
+            fields.add(Types.NestedField.optional(id, name, toIcebergTypeInternal(field.getType(), childColumnIdentity, nextFieldId)));
         }
         return Types.StructType.of(fields);
     }
 
-    private static org.apache.iceberg.types.Type fromArray(ArrayType type)
+    private static org.apache.iceberg.types.Type fromArray(ArrayType type, Optional<ColumnIdentity> columnIdentity, Optional<AtomicInteger> nextFieldId)
     {
-        return Types.ListType.ofOptional(1, toIcebergType(type.getElementType()));
+        checkExactlyOne(columnIdentity, nextFieldId);
+        Optional<ColumnIdentity> childColumnIdentity = columnIdentity.map(identity -> getOnlyElement(identity.getChildren()));
+        int id = childColumnIdentity
+                .map(ColumnIdentity::getId)
+                .orElseGet(() -> nextFieldId.get().getAndIncrement());
+        return Types.ListType.ofOptional(id, toIcebergTypeInternal(type.getElementType(), childColumnIdentity, nextFieldId));
     }
 
-    private static org.apache.iceberg.types.Type fromMap(MapType type)
+    private static org.apache.iceberg.types.Type fromMap(MapType type, Optional<ColumnIdentity> columnIdentity, Optional<AtomicInteger> nextFieldId)
     {
-        return Types.MapType.ofOptional(1, 2, toIcebergType(type.getKeyType()), toIcebergType(type.getValueType()));
+        checkExactlyOne(columnIdentity, nextFieldId);
+        Optional<ColumnIdentity> keyColumnIdentity = columnIdentity.map(column -> column.getChildren().get(0));
+        Optional<ColumnIdentity> valueColumnIdentity = columnIdentity.map(column -> column.getChildren().get(1));
+        int keyId = keyColumnIdentity
+                .map(ColumnIdentity::getId)
+                .orElseGet(() -> nextFieldId.get().getAndIncrement());
+        int valueId = valueColumnIdentity
+                .map(ColumnIdentity::getId)
+                .orElseGet(() -> nextFieldId.get().getAndIncrement());
+        return Types.MapType.ofOptional(
+                keyId,
+                valueId,
+                toIcebergTypeInternal(type.getKeyType(), keyColumnIdentity, nextFieldId),
+                toIcebergTypeInternal(type.getValueType(), valueColumnIdentity, nextFieldId));
+    }
+
+    private static void checkExactlyOne(Optional<ColumnIdentity> columnIdentity, Optional<AtomicInteger> nextFieldId)
+    {
+        if ((columnIdentity.isPresent() && nextFieldId.isEmpty()) || (columnIdentity.isEmpty() && nextFieldId.isPresent())) {
+            return;
+        }
+        throw new IllegalArgumentException("Either a column identity or nextFieldId is expected");
     }
 
     public static ColumnMetadata<OrcType> toOrcType(Schema schema)

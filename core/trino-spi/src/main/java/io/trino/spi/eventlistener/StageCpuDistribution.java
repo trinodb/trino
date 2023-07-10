@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 /**
  * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
@@ -35,6 +36,7 @@ public class StageCpuDistribution
     private final double average;
 
     @JsonCreator
+    @Unstable
     public StageCpuDistribution(
             @JsonProperty("stageId") int stageId,
             @JsonProperty("tasks") int tasks,

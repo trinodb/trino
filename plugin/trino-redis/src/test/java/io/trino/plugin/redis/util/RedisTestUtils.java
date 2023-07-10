@@ -40,6 +40,7 @@ public final class RedisTestUtils
     {
         queryRunner.installPlugin(new TestingRedisPlugin(tableDescriptions));
 
+        // note: additional copy via ImmutableList so that if fails on nulls
         connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
         connectorProperties.putIfAbsent("redis.nodes", redisServer.getHostAndPort().toString());
         connectorProperties.putIfAbsent("redis.table-names", Joiner.on(",").join(tableDescriptions.keySet()));

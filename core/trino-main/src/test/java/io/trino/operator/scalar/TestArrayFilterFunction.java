@@ -13,73 +13,142 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.type.ArrayType;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimestampType.createTimestampType;
-import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.type.UnknownType.UNKNOWN;
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestArrayFilterFunction
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testBasic()
     {
-        assertFunction("filter(ARRAY [5, 6], x -> x = 5)", new ArrayType(INTEGER), ImmutableList.of(5));
-        assertFunction("filter(ARRAY [5 + RANDOM(1), 6 + RANDOM(1)], x -> x = 5)", new ArrayType(INTEGER), ImmutableList.of(5));
-        assertFunction("filter(ARRAY [true, false, true, false], x -> nullif(x, false))", new ArrayType(BOOLEAN), ImmutableList.of(true, true));
-        assertFunction("filter(ARRAY [true, false, null, true, false, null], x -> not x)", new ArrayType(BOOLEAN), ImmutableList.of(false, false));
-        assertFunction(
-                "filter(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], t -> year(t) = 1111)",
-                new ArrayType(createTimestampType(9)),
-                ImmutableList.of(timestamp(9, "1111-05-10 12:34:56.123456789")));
+        assertThat(assertions.expression("filter(a, x -> x = 5)")
+                .binding("a", "ARRAY[5, 6]"))
+                .matches("ARRAY[5]");
+
+        assertThat(assertions.expression("filter(a, x -> x = 5)")
+                .binding("a", "ARRAY[5 + random(1), 6 + random(1)]"))
+                .matches("ARRAY[5]");
+
+        assertThat(assertions.expression("filter(a, x -> nullif(x, false))")
+                .binding("a", "ARRAY[true, false, true, false]"))
+                .matches("ARRAY[true, true]");
+
+        assertThat(assertions.expression("filter(a, x -> not x)")
+                .binding("a", "ARRAY[true, false, null, true, false, null]"))
+                .matches("ARRAY[false, false]");
+
+        assertThat(assertions.expression("filter(a, t -> year(t) = 1111)")
+                .binding("a", "ARRAY[TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789']"))
+                .matches("ARRAY[TIMESTAMP '1111-05-10 12:34:56.123456789']");
     }
 
     @Test
     public void testEmpty()
     {
-        assertFunction("filter(ARRAY [], x -> true)", new ArrayType(UNKNOWN), ImmutableList.of());
-        assertFunction("filter(ARRAY [], x -> false)", new ArrayType(UNKNOWN), ImmutableList.of());
-        assertFunction("filter(ARRAY [], x -> CAST (null AS BOOLEAN))", new ArrayType(UNKNOWN), ImmutableList.of());
-        assertFunction("filter(CAST (ARRAY [] AS ARRAY(INTEGER)), x -> true)", new ArrayType(INTEGER), ImmutableList.of());
+        assertThat(assertions.expression("filter(a, x -> true)")
+                .binding("a", "ARRAY[]"))
+                .matches("ARRAY[]");
+
+        assertThat(assertions.expression("filter(a, x -> false)")
+                .binding("a", "ARRAY[]"))
+                .matches("ARRAY[]");
+
+        assertThat(assertions.expression("filter(a, x -> CAST(null AS boolean))")
+                .binding("a", "ARRAY[]"))
+                .matches("ARRAY[]");
+
+        assertThat(assertions.expression("filter(a, x -> true)")
+                .binding("a", "CAST(ARRAY[] AS array(integer))"))
+                .matches("CAST(ARRAY[] AS array(integer))");
     }
 
     @Test
     public void testNull()
     {
-        assertFunction("filter(ARRAY [NULL], x -> x IS NULL)", new ArrayType(UNKNOWN), singletonList(null));
-        assertFunction("filter(ARRAY [NULL], x -> x IS NOT NULL)", new ArrayType(UNKNOWN), ImmutableList.of());
-        assertFunction("filter(ARRAY [CAST (NULL AS INTEGER)], x -> x IS NULL)", new ArrayType(INTEGER), singletonList(null));
-        assertFunction("filter(ARRAY [NULL, NULL, NULL], x -> x IS NULL)", new ArrayType(UNKNOWN), asList(null, null, null));
-        assertFunction("filter(ARRAY [NULL, NULL, NULL], x -> x IS NOT NULL)", new ArrayType(UNKNOWN), ImmutableList.of());
+        assertThat(assertions.expression("filter(a, x -> x IS NULL)")
+                .binding("a", "ARRAY[NULL]"))
+                .matches("ARRAY[NULL]");
 
-        assertFunction("filter(ARRAY [25, 26, NULL], x -> x % 2 = 1 OR x IS NULL)", new ArrayType(INTEGER), asList(25, null));
-        assertFunction("filter(ARRAY [25.6E0, 37.3E0, NULL], x -> x < 30.0E0 OR x IS NULL)", new ArrayType(DOUBLE), asList(25.6, null));
-        assertFunction("filter(ARRAY [true, false, NULL], x -> not x OR x IS NULL)", new ArrayType(BOOLEAN), asList(false, null));
-        assertFunction("filter(ARRAY ['abc', 'def', NULL], x -> substr(x, 1, 1) = 'a' OR x IS NULL)", new ArrayType(createVarcharType(3)), asList("abc", null));
-        assertFunction(
-                "filter(ARRAY [ARRAY ['abc', null, '123'], NULL], x -> x[2] IS NULL OR x IS NULL)",
-                new ArrayType(new ArrayType(createVarcharType(3))),
-                asList(asList("abc", null, "123"), null));
+        assertThat(assertions.expression("filter(a, x -> x IS NOT NULL)")
+                .binding("a", "ARRAY[NULL]"))
+                .matches("ARRAY[]");
+
+        assertThat(assertions.expression("filter(a, x -> x IS NULL)")
+                .binding("a", "ARRAY[CAST(NULL AS integer)]"))
+                .matches("CAST(ARRAY[NULL] AS array(integer))");
+
+        assertThat(assertions.expression("filter(a, x -> x IS NULL)")
+                .binding("a", "ARRAY[NULL, NULL, NULL]"))
+                .matches("ARRAY[NULL, NULL, NULL]");
+
+        assertThat(assertions.expression("filter(a, x -> x IS NOT NULL)")
+                .binding("a", "ARRAY[NULL, NULL, NULL]"))
+                .matches("ARRAY[]");
+
+        assertThat(assertions.expression("filter(a, x -> x % 2 = 1 OR x IS NULL)")
+                .binding("a", "ARRAY[25, 26, NULL]"))
+                .matches("ARRAY[25, NULL]");
+
+        assertThat(assertions.expression("filter(a, x -> x < 30.0E0 OR x IS NULL)")
+                .binding("a", "ARRAY[25.6E0, 37.3E0, NULL]"))
+                .matches("ARRAY[25.6E0, NULL]");
+
+        assertThat(assertions.expression("filter(a, x -> NOT x OR x IS NULL)")
+                .binding("a", "ARRAY[true, false, NULL]"))
+                .matches("ARRAY[false, NULL]");
+
+        assertThat(assertions.expression("filter(a, x -> substr(x, 1, 1) = 'a' OR x IS NULL)")
+                .binding("a", "ARRAY['abc', 'def', NULL]"))
+                .matches("ARRAY['abc', NULL]");
+
+        assertThat(assertions.expression("filter(a, x -> x[2] IS NULL OR x IS NULL)")
+                .binding("a", "ARRAY[ARRAY['abc', NULL, '123']]"))
+                .matches("ARRAY[ARRAY['abc', NULL, '123']]");
     }
 
     @Test
     public void testTypeCombinations()
     {
-        assertFunction("filter(ARRAY [25, 26, 27], x -> x % 2 = 1)", new ArrayType(INTEGER), ImmutableList.of(25, 27));
-        assertFunction("filter(ARRAY [25.6E0, 37.3E0, 28.6E0], x -> x < 30.0E0)", new ArrayType(DOUBLE), ImmutableList.of(25.6, 28.6));
-        assertFunction("filter(ARRAY [true, false, true], x -> not x)", new ArrayType(BOOLEAN), ImmutableList.of(false));
-        assertFunction("filter(ARRAY ['abc', 'def', 'ayz'], x -> substr(x, 1, 1) = 'a')", new ArrayType(createVarcharType(3)), ImmutableList.of("abc", "ayz"));
-        assertFunction(
-                "filter(ARRAY [ARRAY ['abc', null, '123'], ARRAY ['def', 'x', '456']], x -> x[2] IS NULL)",
-                new ArrayType(new ArrayType(createVarcharType(3))),
-                ImmutableList.of(asList("abc", null, "123")));
+        assertThat(assertions.expression("filter(a, x -> x % 2 = 1)")
+                .binding("a", "ARRAY[25, 26, 27]"))
+                .matches("ARRAY[25, 27]");
+
+        assertThat(assertions.expression("filter(a, x -> x < 30.0E0)")
+                .binding("a", "ARRAY[25.6E0, 37.3E0, 28.6E0]"))
+                .matches("ARRAY[25.6E0, 28.6E0]");
+
+        assertThat(assertions.expression("filter(a, x -> NOT x)")
+                .binding("a", "ARRAY[true, false, true]"))
+                .matches("ARRAY[false]");
+
+        assertThat(assertions.expression("filter(a, x -> substr(x, 1, 1) = 'a' OR x IS NULL)")
+                .binding("a", "ARRAY['abc', 'def', 'ayz']"))
+                .matches("ARRAY['abc', 'ayz']");
+
+        assertThat(assertions.expression("filter(a, x -> x[2] IS NULL)")
+                .binding("a", "ARRAY[ARRAY['abc', NULL, '123'], ARRAY ['def', 'x', '456']]"))
+                .matches("ARRAY[ARRAY['abc', NULL, '123']]");
     }
 }

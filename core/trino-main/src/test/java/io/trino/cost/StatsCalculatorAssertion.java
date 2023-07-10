@@ -45,6 +45,8 @@ public class StatsCalculatorAssertion
 
     private final Map<PlanNode, PlanNodeStatsEstimate> sourcesStats;
 
+    private Optional<TableStatsProvider> tableStatsProvider = Optional.empty();
+
     public StatsCalculatorAssertion(Metadata metadata, StatsCalculator statsCalculator, Session session, PlanNode planNode, TypeProvider types)
     {
         this.metadata = requireNonNull(metadata, "metadata cannot be null");
@@ -83,11 +85,23 @@ public class StatsCalculatorAssertion
         return this;
     }
 
+    public StatsCalculatorAssertion withTableStatisticsProvider(TableStatsProvider tableStatsProvider)
+    {
+        this.tableStatsProvider = Optional.of(tableStatsProvider);
+        return this;
+    }
+
     public StatsCalculatorAssertion check(Consumer<PlanNodeStatsAssertion> statisticsAssertionConsumer)
     {
         PlanNodeStatsEstimate statsEstimate = transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .execute(session, transactionSession -> {
-                    return statsCalculator.calculateStats(planNode, this::getSourceStats, noLookup(), transactionSession, types, new CachingTableStatsProvider(metadata, session));
+                    return statsCalculator.calculateStats(
+                            planNode,
+                            this::getSourceStats,
+                            noLookup(),
+                            transactionSession,
+                            types,
+                            tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(metadata, session)));
                 });
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate));
         return this;
@@ -95,7 +109,14 @@ public class StatsCalculatorAssertion
 
     public StatsCalculatorAssertion check(Rule<?> rule, Consumer<PlanNodeStatsAssertion> statisticsAssertionConsumer)
     {
-        Optional<PlanNodeStatsEstimate> statsEstimate = calculatedStats(rule, planNode, this::getSourceStats, noLookup(), session, types, new CachingTableStatsProvider(metadata, session));
+        Optional<PlanNodeStatsEstimate> statsEstimate = calculatedStats(
+                rule,
+                planNode,
+                this::getSourceStats,
+                noLookup(),
+                session,
+                types,
+                tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(metadata, session)));
         checkState(statsEstimate.isPresent(), "Expected stats estimates to be present");
         statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate.get()));
         return this;

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.clickhouse;
 
-import com.clickhouse.client.ClickHouseVersion;
+import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.ClickHouseContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -31,12 +31,7 @@ public class TestingClickHouseServer
 {
     private static final DockerImageName CLICKHOUSE_IMAGE = DockerImageName.parse("yandex/clickhouse-server");
     public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("21.11.10.1");
-    public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("21.3.2.5"); // EOL is 30 Mar 2022
-
-    private static final String CLICKHOUSE_LATEST_DRIVER_CLASS_NAME = "com.clickhouse.jdbc.ClickHouseDriver";
-    // TODO: This Driver will not be available when clickhouse-jdbc is upgraded to 0.4.0 or above
-    private static final String CLICKHOUSE_DEPRECATED_DRIVER_CLASS_NAME = "ru.yandex.clickhouse.ClickHouseDriver";
-    private static final String CLICKHOUSE_LATEST_DRIVER_MINIMUM_SUPPORTED_VERSION = "20.7";
+    public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("21.8.14.5"); // EOL is 31 Aug 2022
 
     // Altinity Stable Builds Life-Cycle Table https://docs.altinity.com/altinitystablebuilds/#altinity-stable-builds-life-cycle-table
     private static final DockerImageName ALTINITY_IMAGE = DockerImageName.parse("altinity/clickhouse-server").asCompatibleSubstituteFor("yandex/clickhouse-server");
@@ -52,32 +47,11 @@ public class TestingClickHouseServer
 
     public TestingClickHouseServer(DockerImageName image)
     {
-        dockerContainer = (ClickHouseContainer) createContainer(image)
+        dockerContainer = new ClickHouseContainer(image)
                 .withCopyFileToContainer(forClasspathResource("custom.xml"), "/etc/clickhouse-server/config.d/custom.xml")
                 .withStartupAttempts(10);
 
         dockerContainer.start();
-    }
-
-    private static ClickHouseContainer createContainer(DockerImageName image)
-    {
-        return new ClickHouseContainer(image)
-        {
-            @Override
-            public String getDriverClassName()
-            {
-                return getClickhouseDriverClassName(image);
-            }
-        };
-    }
-
-    private static String getClickhouseDriverClassName(DockerImageName image)
-    {
-        if (ClickHouseVersion.of(image.getVersionPart()).isNewerOrEqualTo(CLICKHOUSE_LATEST_DRIVER_MINIMUM_SUPPORTED_VERSION)) {
-            return CLICKHOUSE_LATEST_DRIVER_CLASS_NAME;
-        }
-
-        return CLICKHOUSE_DEPRECATED_DRIVER_CLASS_NAME;
     }
 
     public void execute(String sql)
@@ -93,7 +67,7 @@ public class TestingClickHouseServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:clickhouse://%s:%s/", dockerContainer.getContainerIpAddress(),
+        return format("jdbc:clickhouse://%s:%s/", dockerContainer.getHost(),
                 dockerContainer.getMappedPort(HTTP_PORT));
     }
 
@@ -101,5 +75,11 @@ public class TestingClickHouseServer
     public void close()
     {
         dockerContainer.stop();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return dockerContainer.getContainerId() != null;
     }
 }

@@ -47,17 +47,21 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
+import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotUpdate;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
-import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StructType;
 
@@ -76,19 +80,23 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Lists.reverse;
+import static com.google.common.collect.Maps.immutableEntry;
+import static com.google.common.collect.Streams.mapWithIndex;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -97,15 +105,19 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterFpp;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
-import static io.trino.plugin.iceberg.TrinoTypes.getNextValue;
-import static io.trino.plugin.iceberg.TrinoTypes.getPreviousValue;
+import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
+import static io.trino.plugin.iceberg.SortFieldUtils.toSortFields;
+import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
+import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -118,8 +130,6 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -131,13 +141,16 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
+import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.LocationProviders.locationsFor;
+import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
@@ -150,7 +163,15 @@ import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
 public final class IcebergUtil
 {
+    public static final String METADATA_FOLDER_NAME = "metadata";
+    public static final String METADATA_FILE_EXTENSION = ".metadata.json";
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
+    static final String TRINO_QUERY_ID_NAME = "trino_query_id";
+    // Metadata file name examples
+    //  - 00001-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json
+    //  - 00001-409702ba-4735-4645-8f14-09537cc0b2c8.gz.metadata.json (https://github.com/apache/iceberg/blob/ab398a0d5ff195f763f8c7a4358ac98fa38a8de7/core/src/main/java/org/apache/iceberg/TableMetadataParser.java#L141)
+    //  - 00001-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json.gz (https://github.com/apache/iceberg/blob/ab398a0d5ff195f763f8c7a4358ac98fa38a8de7/core/src/main/java/org/apache/iceberg/TableMetadataParser.java#L146)
+    private static final Pattern METADATA_FILE_NAME_PATTERN = Pattern.compile("(?<version>\\d+)-(?<uuid>[-a-fA-F0-9]*)(?<compression>\\.[a-zA-Z0-9]+)?" + Pattern.quote(METADATA_FILE_EXTENSION) + "(?<compression2>\\.[a-zA-Z0-9]+)?");
 
     private IcebergUtil() {}
 
@@ -168,7 +189,7 @@ public final class IcebergUtil
                 table.getTableName(),
                 Optional.empty(),
                 Optional.empty());
-        return new BaseTable(operations, quotedTableName(table));
+        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
     public static Table getIcebergTableWithMetadata(
@@ -186,7 +207,7 @@ public final class IcebergUtil
                 Optional.empty(),
                 Optional.empty());
         operations.initializeFromMetadata(tableMetadata);
-        return new BaseTable(operations, quotedTableName(table));
+        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
     public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
@@ -195,6 +216,13 @@ public final class IcebergUtil
         properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
         if (!icebergTable.spec().fields().isEmpty()) {
             properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
+        }
+
+        SortOrder sortOrder = icebergTable.sortOrder();
+        // TODO: Support sort column transforms (https://github.com/trinodb/trino/issues/15088)
+        if (sortOrder.isSorted() && sortOrder.fields().stream().allMatch(sortField -> sortField.transform().isIdentity())) {
+            List<String> sortColumnNames = toSortFields(sortOrder);
+            properties.put(SORTED_BY_PROPERTY, sortColumnNames);
         }
 
         if (!icebergTable.location().isEmpty()) {
@@ -215,31 +243,6 @@ public final class IcebergUtil
         }
 
         return properties.buildOrThrow();
-    }
-
-    @Deprecated
-    public static long resolveSnapshotId(Table table, long snapshotId, boolean allowLegacySnapshotSyntax)
-    {
-        if (!allowLegacySnapshotSyntax) {
-            throw new TrinoException(
-                    NOT_SUPPORTED,
-                    format(
-                            "Failed to access snapshot %s for table %s. This syntax for accessing Iceberg tables is not "
-                                    + "supported. Use the AS OF syntax OR set the catalog session property "
-                                    + "allow_legacy_snapshot_syntax=true for temporarily restoring previous behavior.",
-                            snapshotId,
-                            table.name()));
-        }
-
-        if (table.snapshot(snapshotId) != null) {
-            return snapshotId;
-        }
-
-        return reverse(table.history()).stream()
-                .filter(entry -> entry.timestampMillis() <= snapshotId)
-                .map(HistoryEntry::snapshotId)
-                .findFirst()
-                .orElseThrow(() -> new TrinoException(ICEBERG_INVALID_SNAPSHOT_ID, format("Invalid snapshot [%s] for table: %s", snapshotId, table)));
     }
 
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
@@ -263,7 +266,7 @@ public final class IcebergUtil
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
     {
         List<NestedField> icebergColumns = columns.stream()
-                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType())))
+                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType(), column.getColumnIdentity())))
                 .collect(toImmutableList());
         return new Schema(StructType.of(icebergColumns).asStructType().fields());
     }
@@ -361,7 +364,7 @@ public final class IcebergUtil
 
     private static boolean canEnforceConstraintWithPartitionField(TypeOperators typeOperators, PartitionField field, IcebergColumnHandle column, Domain domain)
     {
-        if (field.transform().toString().equals("void")) {
+        if (field.transform().isVoid()) {
             // Useless for filtering.
             return false;
         }
@@ -409,14 +412,14 @@ public final class IcebergUtil
         }
         if (!range.isLowUnbounded()) {
             Object boundedValue = range.getLowBoundedValue();
-            Optional<Object> adjacentValue = range.isLowInclusive() ? getPreviousValue(type, boundedValue) : getNextValue(type, boundedValue);
+            Optional<Object> adjacentValue = range.isLowInclusive() ? type.getPreviousValue(boundedValue) : type.getNextValue(boundedValue);
             if (adjacentValue.isEmpty() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), targetTypeEqualOperator)) {
                 return false;
             }
         }
         if (!range.isHighUnbounded()) {
             Object boundedValue = range.getHighBoundedValue();
-            Optional<Object> adjacentValue = range.isHighInclusive() ? getNextValue(type, boundedValue) : getPreviousValue(type, boundedValue);
+            Optional<Object> adjacentValue = range.isHighInclusive() ? type.getNextValue(boundedValue) : type.getPreviousValue(boundedValue);
             if (adjacentValue.isEmpty() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), targetTypeEqualOperator)) {
                 return false;
             }
@@ -486,9 +489,8 @@ public final class IcebergUtil
             if (type.equals(TIMESTAMP_TZ_MICROS)) {
                 return timestampTzFromMicros(parseLong(valueString));
             }
-            if (type instanceof VarcharType) {
+            if (type instanceof VarcharType varcharType) {
                 Slice value = utf8Slice(valueString);
-                VarcharType varcharType = (VarcharType) type;
                 if (!varcharType.isUnbounded() && SliceUtf8.countCodePoints(value) > varcharType.getBoundedLength()) {
                     throw new IllegalArgumentException();
                 }
@@ -500,15 +502,14 @@ public final class IcebergUtil
             if (type.equals(UuidType.UUID)) {
                 return javaUuidToTrinoUuid(UUID.fromString(valueString));
             }
-            if (isShortDecimal(type) || isLongDecimal(type)) {
-                DecimalType decimalType = (DecimalType) type;
+            if (type instanceof DecimalType decimalType) {
                 BigDecimal decimal = new BigDecimal(valueString);
-                decimal = decimal.setScale(decimalType.getScale(), BigDecimal.ROUND_UNNECESSARY);
+                decimal = decimal.setScale(decimalType.getScale(), UNNECESSARY);
                 if (decimal.precision() > decimalType.getPrecision()) {
                     throw new IllegalArgumentException();
                 }
                 BigInteger unscaledValue = decimal.unscaledValue();
-                return isShortDecimal(type) ? unscaledValue.longValue() : Int128.valueOf(unscaledValue);
+                return decimalType.isShort() ? unscaledValue.longValue() : Int128.valueOf(unscaledValue);
             }
         }
         catch (IllegalArgumentException e) {
@@ -519,7 +520,7 @@ public final class IcebergUtil
                     name));
         }
         // Iceberg tables don't partition by non-primitive-type columns.
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type);
     }
 
     /**
@@ -549,7 +550,7 @@ public final class IcebergUtil
                 String partitionValue;
                 if (type.typeId() == FIXED || type.typeId() == BINARY) {
                     // this is safe because Iceberg PartitionData directly wraps the byte array
-                    partitionValue = Base64.getEncoder().encodeToString(((ByteBuffer) value).array());
+                    partitionValue = Base64.getEncoder().encodeToString(getWrappedBytes(((ByteBuffer) value)));
                 }
                 else {
                     partitionValue = value.toString();
@@ -573,17 +574,17 @@ public final class IcebergUtil
     public static Schema schemaFromMetadata(List<ColumnMetadata> columns)
     {
         List<NestedField> icebergColumns = new ArrayList<>();
+        int visibleColumnCount = (int) columns.stream().filter(column -> !column.isHidden()).count();
+        AtomicInteger nextFieldId = new AtomicInteger(visibleColumnCount + 1);
         for (ColumnMetadata column : columns) {
             if (!column.isHidden()) {
-                int index = icebergColumns.size();
-                org.apache.iceberg.types.Type type = toIcebergType(column.getType());
+                int index = icebergColumns.size() + 1;
+                org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(column.getType(), nextFieldId);
                 NestedField field = NestedField.of(index, column.isNullable(), column.getName(), type, column.getComment());
                 icebergColumns.add(field);
             }
         }
         org.apache.iceberg.types.Type icebergSchema = StructType.of(icebergColumns);
-        AtomicInteger nextFieldId = new AtomicInteger(1);
-        icebergSchema = TypeUtil.assignFreshIds(icebergSchema, nextFieldId::getAndIncrement);
         return new Schema(icebergSchema.asStructType().fields());
     }
 
@@ -592,6 +593,7 @@ public final class IcebergUtil
         SchemaTableName schemaTableName = tableMetadata.getTable();
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+        SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
         String targetPath = getTableLocation(tableMetadata.getProperties())
                 .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
 
@@ -613,7 +615,59 @@ public final class IcebergUtil
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
 
-        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, targetPath, propertiesBuilder.buildOrThrow());
+        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, targetPath, propertiesBuilder.buildOrThrow());
+    }
+
+    /**
+     * Find the first snapshot in the table. First snapshot is the last snapshot
+     * in snapshot parents chain starting at {@link Table#currentSnapshot()}.
+     *
+     * @return First (oldest) Snapshot reachable from {@link Table#currentSnapshot()} or empty if table history
+     * expiration makes it impossible to find the snapshot.
+     * @throws IllegalArgumentException when table has no snapshot.
+     */
+    public static Optional<Snapshot> firstSnapshot(Table table)
+    {
+        Snapshot current = table.currentSnapshot();
+        checkArgument(current != null, "No current snapshot in %s when looking for the first snapshot", table);
+
+        while (true) {
+            if (current.parentId() == null) {
+                return Optional.of(current);
+            }
+            current = table.snapshot(current.parentId());
+            if (current == null) {
+                // History expired
+                return Optional.empty();
+            }
+        }
+    }
+
+    /**
+     * @return First (oldest) snapshot that is reachable from {@link Table#currentSnapshot()} but is not
+     * reachable from snapshot with id {@code baseSnapshotId}. Returns empty if table history
+     * expiration makes it impossible to find the snapshot.
+     * @throws IllegalArgumentException when table has no snapshot,
+     * {@code baseSnapshotId} is not a valid snapshot in the table or
+     * the {@code baseSnapshotId} is the current snapshot.
+     */
+    public static Optional<Snapshot> firstSnapshotAfter(Table table, long baseSnapshotId)
+    {
+        Snapshot current = table.currentSnapshot();
+        checkArgument(current != null, "No current snapshot in %s when looking for the first snapshot after %s", table, baseSnapshotId);
+        checkArgument(current.snapshotId() != baseSnapshotId, "No snapshot after %s in %s, current snapshot is %s", baseSnapshotId, table, current);
+
+        while (true) {
+            checkArgument(current.parentId() != null, "Snapshot id %s is not valid in table %s, snapshot %s has no parent", baseSnapshotId, table, current);
+            if (current.parentId() == baseSnapshotId) {
+                return Optional.of(current);
+            }
+            current = table.snapshot(current.parentId());
+            if (current == null) {
+                // History expired
+                return Optional.empty();
+            }
+        }
     }
 
     public static long getSnapshotIdAsOfTime(Table table, long epochMillis)
@@ -652,5 +706,55 @@ public final class IcebergUtil
         if (!allColumns.containsAll(orcBloomFilterColumns)) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Orc bloom filter columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
         }
+    }
+
+    public static int parseVersion(String metadataFileName)
+            throws TrinoException
+    {
+        checkArgument(!metadataFileName.contains("/"), "Not a file name: %s", metadataFileName);
+        Matcher matcher = METADATA_FILE_NAME_PATTERN.matcher(metadataFileName);
+        if (matcher.matches()) {
+            return parseInt(matcher.group("version"));
+        }
+        throw new TrinoException(ICEBERG_BAD_DATA, "Invalid metadata file name: " + metadataFileName);
+    }
+
+    public static String fixBrokenMetadataLocation(String location)
+    {
+        // Version 393-394 stored metadata location with double slash https://github.com/trinodb/trino/commit/e95fdcc7d1ec110b10977d17458e06fc4e6f217d#diff-9bbb7c0b6168f0e6b4732136f9a97f820aa082b04efb5609b6138afc118831d7R46
+        // e.g. s3://bucket/db/table//metadata/00001.metadata.json
+        // It caused failure when accessing S3 objects https://github.com/trinodb/trino/issues/14299
+        // Version 395 fixed the above issue by removing trailing slash https://github.com/trinodb/trino/pull/13984,
+        // but the change was insufficient for existing table cases created by 393 and 394. This method covers existing table cases.
+        String fileName = fileName(location);
+        String correctSuffix = "/metadata/" + fileName;
+        String brokenSuffix = "//metadata/" + fileName;
+        if (!location.endsWith(brokenSuffix)) {
+            return location;
+        }
+        return location.replaceFirst(Pattern.quote(brokenSuffix) + "$", Matcher.quoteReplacement(correctSuffix));
+    }
+
+    public static String fileName(String path)
+    {
+        return path.substring(path.lastIndexOf('/') + 1);
+    }
+
+    public static void commit(SnapshotUpdate<?> update, ConnectorSession session)
+    {
+        update.set(TRINO_QUERY_ID_NAME, session.getQueryId());
+        update.commit();
+    }
+
+    public static TableScan buildTableScan(Table icebergTable, MetadataTableType metadataTableType)
+    {
+        return createMetadataTableInstance(icebergTable, metadataTableType).newScan();
+    }
+
+    public static Map<String, Integer> columnNameToPositionInSchema(Schema schema)
+    {
+        return mapWithIndex(schema.columns().stream(),
+                (column, position) -> immutableEntry(column.name(), Long.valueOf(position).intValue()))
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 }

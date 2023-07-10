@@ -17,12 +17,15 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
-
-import javax.annotation.concurrent.Immutable;
+import io.trino.sql.tree.NullLiteral;
 
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class FilterNode
@@ -39,6 +42,10 @@ public class FilterNode
         super(id);
 
         this.source = source;
+        requireNonNull(predicate, "predicate is null");
+        // The condition doesn't guarantee that predicate is of type boolean, but was found to be a practical way to identify
+        // places where FilterNode was created without appropriate coercions.
+        checkArgument(!(predicate instanceof NullLiteral), "Predicate must be an expression of boolean type: %s", predicate);
         this.predicate = predicate;
     }
 

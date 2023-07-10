@@ -2,15 +2,18 @@
 Hive connector with Azure Storage
 =================================
 
-The :doc:`hive` can be configured to query
-Azure Standard Blob Storage and Azure Data Lake Storage Gen2 (ABFS). Azure Blobs
-are accessed via the Windows Azure Storage Blob (WASB). This layer is built on
-top of the HDFS APIs and is what allows for the separation of storage from the
-cluster.
+The :doc:`hive` can be configured to use `Azure Data Lake Storage (Gen2)
+<https://azure.microsoft.com/products/storage/data-lake-storage/>`_. Trino
+supports Azure Blob File System (ABFS) to access data in ADLS Gen2.
 
-Trino supports both ADLS Gen1 and Gen2. With ADLS Gen2 now generally available,
-we recommend using ADLS Gen2. Learn more from `the official documentation
-<https://docs.microsoft.com/en-us/azure/data-lake-store/data-lake-store-overview>`_.
+Trino also supports `ADLS Gen1
+<https://learn.microsoft.com/azure/data-lake-store/data-lake-store-overview>`_
+and Windows Azure Storage Blob driver (WASB), but we recommend `migrating to
+ADLS Gen2
+<https://learn.microsoft.com/azure/storage/blobs/data-lake-storage-migrate-gen1-to-gen2-azure-portal>`_,
+as ADLS Gen1 and WASB are legacy options that will be removed in the future.
+Learn more from `the official documentation
+<https://docs.microsoft.com/azure/data-lake-store/data-lake-store-overview>`_.
 
 Hive connector configuration for Azure Storage credentials
 ----------------------------------------------------------
@@ -25,20 +28,6 @@ properties from the following sections in the catalog properties file.
 For more complex use cases, such as configuring multiple secondary storage
 accounts using Hadoop's ``core-site.xml``, see the
 :ref:`hive-azure-advanced-config` options.
-
-WASB storage
-^^^^^^^^^^^^
-
-.. list-table:: WASB properties
-  :widths: 30, 70
-  :header-rows: 1
-
-  * - Property name
-    - Description
-  * - ``hive.azure.wasb-storage-account``
-    - Storage account name of Azure Blob Storage
-  * - ``hive.azure.wasb-access-key``
-    - The decrypted access key for the Azure Blob Storage
 
 ADLS Gen2 / ABFS storage
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -75,8 +64,8 @@ When using a service principal, it must have the Storage Blob Data Owner,
 Contributor, or Reader role on the storage account you are using, depending on
 which operations you would like to use.
 
-ADLS Gen1
-^^^^^^^^^
+ADLS Gen1 (legacy)
+^^^^^^^^^^^^^^^^^^
 
 While it is advised to migrate to ADLS Gen2 whenever possible, if you still
 choose to use ADLS Gen1 you need to include the following properties in your
@@ -89,7 +78,7 @@ catalog configuration.
     secret for your ADLS Gen1 account's App Registration, and save this value
     because you won't able to retrieve the key later. Refer to the Azure
     `documentation
-    <https://docs.microsoft.com/en-us/azure/data-lake-store/data-lake-store-service-to-service-authenticate-using-active-directory>`_
+    <https://docs.microsoft.com/azure/data-lake-store/data-lake-store-service-to-service-authenticate-using-active-directory>`_
     for details.
 
 .. list-table:: ADLS properties
@@ -108,6 +97,20 @@ catalog configuration.
   * - ``hive.azure.adl-proxy-host``
     - Proxy host and port in ``host:port`` format. Use this property to connect
       to an ADLS endpoint via a SOCKS proxy.
+
+WASB storage (legacy)
+^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table:: WASB properties
+  :widths: 30, 70
+  :header-rows: 1
+
+  * - Property name
+    - Description
+  * - ``hive.azure.wasb-storage-account``
+    - Storage account name of Azure Blob Storage
+  * - ``hive.azure.wasb-access-key``
+    - The decrypted access key for the Azure Blob Storage
 
 .. _hive-azure-advanced-config:
 

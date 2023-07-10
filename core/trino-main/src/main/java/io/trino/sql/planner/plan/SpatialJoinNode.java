@@ -17,10 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
@@ -52,17 +51,11 @@ public class SpatialJoinNode
 
         public static Type fromJoinNodeType(JoinNode.Type joinNodeType)
         {
-            switch (joinNodeType) {
-                case INNER:
-                    return Type.INNER;
-                case LEFT:
-                    return Type.LEFT;
-                case RIGHT:
-                case FULL:
-                    // unsupported
-                    break;
-            }
-            throw new IllegalArgumentException("Unsupported spatial join type: " + joinNodeType);
+            return switch (joinNodeType) {
+                case INNER -> Type.INNER;
+                case LEFT -> Type.LEFT;
+                default -> throw new IllegalArgumentException("Unsupported spatial join type: " + joinNodeType);
+            };
         }
     }
 

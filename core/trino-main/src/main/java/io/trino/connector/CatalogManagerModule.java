@@ -16,10 +16,6 @@ package io.trino.connector;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.metadata.CatalogManager;
-
-import javax.inject.Inject;
 
 public class CatalogManagerModule
         extends AbstractConfigurationAwareModule
@@ -30,27 +26,13 @@ public class CatalogManagerModule
         binder.bind(DefaultCatalogFactory.class).in(Scopes.SINGLETON);
         binder.bind(LazyCatalogFactory.class).in(Scopes.SINGLETON);
         binder.bind(CatalogFactory.class).to(LazyCatalogFactory.class).in(Scopes.SINGLETON);
-        binder.bind(LazyRegister.class).asEagerSingleton();
 
-        binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorServicesProvider.class).to(ConnectorManager.class).in(Scopes.SINGLETON);
-
-        binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
+        CatalogManagerConfig config = buildConfigObject(CatalogManagerConfig.class);
+        switch (config.getCatalogMangerKind()) {
+            case STATIC -> install(new StaticCatalogManagerModule());
+            case DYNAMIC -> install(new DynamicCatalogManagerModule());
+        }
 
         install(new CatalogServiceProviderModule());
-    }
-
-    private static class LazyRegister
-    {
-        @Inject
-        public LazyRegister(
-                DefaultCatalogFactory defaultCatalogFactory,
-                LazyCatalogFactory lazyCatalogFactory,
-                ConnectorManager manager,
-                GlobalSystemConnector globalSystemConnector)
-        {
-            lazyCatalogFactory.setCatalogFactory(defaultCatalogFactory);
-            manager.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, globalSystemConnector);
-        }
     }
 }

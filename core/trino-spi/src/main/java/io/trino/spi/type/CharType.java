@@ -14,28 +14,26 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.function.BlockIndex;
-import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.ScalarOperator;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
-import static io.trino.spi.function.OperatorType.EQUAL;
-import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.Chars.compareChars;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Slices.sliceRepresentation;
-import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.Character.MAX_CODE_POINT;
+import static java.lang.Character.MIN_CODE_POINT;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.singletonList;
@@ -43,18 +41,44 @@ import static java.util.Collections.singletonList;
 public final class CharType
         extends AbstractVariableWidthType
 {
-    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(CharType.class, lookup(), Slice.class);
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
+            .addOperators(DEFAULT_COMPARABLE_OPERATORS)
+            .addOperators(CharType.class, lookup())
+            .build();
 
     public static final int MAX_LENGTH = 65_536;
+    private static final CharType[] CACHED_INSTANCES = new CharType[128];
+
+    static {
+        for (int i = 0; i < CACHED_INSTANCES.length; i++) {
+            CACHED_INSTANCES[i] = new CharType(i);
+        }
+    }
 
     private final int length;
+    private volatile Optional<Range> range;
 
+    /**
+     * @deprecated Use {@link #createCharType(int)} instead.
+     */
+    @Deprecated
     public static CharType createCharType(long length)
     {
+        if (length < 0 || length > MAX_LENGTH) {
+            throw new IllegalArgumentException(format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
+        }
+        return createCharType(toIntExact(length));
+    }
+
+    public static CharType createCharType(int length)
+    {
+        if (0 <= length && length < CACHED_INSTANCES.length) {
+            return CACHED_INSTANCES[length];
+        }
         return new CharType(length);
     }
 
-    private CharType(long length)
+    private CharType(int length)
     {
         super(
                 new TypeSignature(
@@ -63,9 +87,9 @@ public final class CharType
                 Slice.class);
 
         if (length < 0 || length > MAX_LENGTH) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
+            throw new IllegalArgumentException(format("CHAR length must be in range [0, %s], got %s", MAX_LENGTH, length));
         }
-        this.length = (int) length;
+        this.length = length;
     }
 
     public int getLength()
@@ -92,6 +116,41 @@ public final class CharType
     }
 
     @Override
+    public Optional<Range> getRange()
+    {
+        Optional<Range> range = this.range;
+        @SuppressWarnings("OptionalAssignedToNull")
+        boolean cachedRangePresent = range != null;
+        if (!cachedRangePresent) {
+            if (length > 100) {
+                // The max/min values may be materialized in the plan, so we don't want them to be too large.
+                // Range comparison against large values are usually nonsensical, too, so no need to support them
+                // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
+                range = Optional.empty();
+            }
+            else {
+                int minCodePointSize = SliceUtf8.lengthOfCodePoint(MIN_CODE_POINT);
+                int maxCodePointSize = SliceUtf8.lengthOfCodePoint(MAX_CODE_POINT);
+
+                Slice min = Slices.allocate(minCodePointSize * length);
+                Slice max = Slices.allocate(maxCodePointSize * length);
+                int position = 0;
+                for (int i = 0; i < length; i++) {
+                    position += SliceUtf8.setCodePointAt(MIN_CODE_POINT, min, position);
+                }
+                position = 0;
+                for (int i = 0; i < length; i++) {
+                    position += SliceUtf8.setCodePointAt(MAX_CODE_POINT, max, position);
+                }
+
+                range = Optional.of(new Range(min, max));
+            }
+            this.range = range;
+        }
+        return range;
+    }
+
+    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {
@@ -112,7 +171,7 @@ public final class CharType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public VariableWidthBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         // If bound on length of char is smaller than EXPECTED_BYTES_PER_ENTRY, use that as expectedBytesPerEntry
         // The data can take up to 4 bytes per character due to UTF-8 encoding, but we assume it is ASCII and only needs one byte.
@@ -126,8 +185,7 @@ public final class CharType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
-            blockBuilder.closeEntry();
+            ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
         }
     }
 
@@ -154,7 +212,7 @@ public final class CharType
         if (length > 0 && value.getByte(offset + length - 1) == ' ') {
             throw new IllegalArgumentException("Slice representing Char should not have trailing spaces");
         }
-        blockBuilder.writeBytes(value, offset, length).closeEntry();
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(value, offset, length);
     }
 
     @Override
@@ -176,35 +234,6 @@ public final class CharType
     public int hashCode()
     {
         return Objects.hash(length);
-    }
-
-    @ScalarOperator(EQUAL)
-    private static boolean equalOperator(Slice left, Slice right)
-    {
-        return left.equals(right);
-    }
-
-    @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
-    {
-        int leftLength = leftBlock.getSliceLength(leftPosition);
-        int rightLength = rightBlock.getSliceLength(rightPosition);
-        if (leftLength != rightLength) {
-            return false;
-        }
-        return leftBlock.equals(leftPosition, 0, rightBlock, rightPosition, 0, leftLength);
-    }
-
-    @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(Slice value)
-    {
-        return XxHash64.hash(value);
-    }
-
-    @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
-    {
-        return block.hash(position, 0, block.getSliceLength(position));
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)

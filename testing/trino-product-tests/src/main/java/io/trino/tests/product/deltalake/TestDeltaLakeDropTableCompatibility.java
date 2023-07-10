@@ -17,19 +17,23 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
+import io.trino.testng.services.Flaky;
 import io.trino.tests.product.hive.Engine;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.hive.Engine.DELTA;
 import static io.trino.tests.product.hive.Engine.TRINO;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -44,7 +48,7 @@ public class TestDeltaLakeDropTableCompatibility
 
     private AmazonS3 s3;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         super.setUp();
@@ -60,27 +64,22 @@ public class TestDeltaLakeDropTableCompatibility
                 {TRINO, DELTA, true},
                 {TRINO, DELTA, false},
                 {DELTA, TRINO, true},
+                {DELTA, TRINO, false},
                 {DELTA, DELTA, true},
                 {DELTA, DELTA, false},
         };
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "engineConfigurations")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDropTable(Engine creator, Engine dropper, boolean explicitLocation)
     {
         testDropTableAccuracy(creator, dropper, explicitLocation);
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testCreateManagedTableInDeltaDropTableInTrino()
-    {
-        //TODO Integrate this method into `engineConfigurations()` data provider method after dealing with https://github.com/trinodb/trino/issues/13017
-        testDropTableAccuracy(DELTA, TRINO, false);
-    }
-
     private void testDropTableAccuracy(Engine creator, Engine dropper, boolean explicitLocation)
     {
-        String schemaName = "test_schema_with_location_" + randomTableSuffix();
+        String schemaName = "test_schema_with_location_" + randomNameSuffix();
         String schemaLocation = format("s3://%s/databricks-compatibility-test-%s", bucketName, schemaName);
         String tableName = explicitLocation ? "test_external_table" : "test_managed_table";
         Optional<String> tableLocation = explicitLocation
@@ -88,40 +87,34 @@ public class TestDeltaLakeDropTableCompatibility
                 : Optional.empty();
 
         switch (creator) {
-            case TRINO:
-                onTrino().executeQuery(format("CREATE SCHEMA delta.%s WITH (location = '%s')", schemaName, schemaLocation));
-                break;
-            case DELTA:
-                onDelta().executeQuery(format("CREATE SCHEMA %s LOCATION \"%s\"", schemaName, schemaLocation));
-                break;
-            default:
-                throw new UnsupportedOperationException("Unsupported engine: " + creator);
+            case TRINO -> onTrino().executeQuery(format("CREATE SCHEMA delta.%s WITH (location = '%s')", schemaName, schemaLocation));
+            case DELTA -> onDelta().executeQuery(format("CREATE SCHEMA %s LOCATION \"%s\"", schemaName, schemaLocation));
+            default -> throw new UnsupportedOperationException("Unsupported engine: " + creator);
         }
         try {
             onTrino().executeQuery("USE delta." + schemaName);
             switch (creator) {
-                case TRINO:
-                    onTrino().executeQuery(format(
-                            "CREATE TABLE %s.%s (a, b) %s AS VALUES (1, 2), (2, 3), (3, 4)",
-                            schemaName,
-                            tableName,
-                            tableLocation.map(location -> "WITH (location = '" + location + "')").orElse("")));
-                    break;
-                case DELTA:
-                    onDelta().executeQuery(format(
-                            "CREATE TABLE %s.%s USING DELTA %s AS VALUES (1, 2), (2, 3), (3, 4)",
-                            schemaName,
-                            tableName,
-                            tableLocation.map(location -> "LOCATION \"" + location + "\"").orElse("")));
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported engine: " + creator);
+                case TRINO -> onTrino().executeQuery(format(
+                        "CREATE TABLE %s.%s (a, b) %s AS VALUES (1, 2), (2, 3), (3, 4)",
+                        schemaName,
+                        tableName,
+                        tableLocation.map(location -> "WITH (location = '" + location + "')").orElse("")));
+                case DELTA -> onDelta().executeQuery(format(
+                        "CREATE TABLE %s.%s USING DELTA %s AS VALUES (1, 2), (2, 3), (3, 4)",
+                        schemaName,
+                        tableName,
+                        tableLocation.map(location -> "LOCATION \"" + location + "\"").orElse("")));
+                default -> throw new UnsupportedOperationException("Unsupported engine: " + creator);
             }
 
             ObjectListing tableFiles = s3.listObjects(bucketName, "databricks-compatibility-test-" + schemaName + "/" + tableName);
             assertThat(tableFiles.getObjectSummaries()).isNotEmpty();
 
-            dropper.queryExecutor().executeQuery("DROP TABLE " + schemaName + "." + tableName);
+            switch (dropper) {
+                case DELTA -> dropDeltaTableWithRetry(schemaName + "." + tableName);
+                case TRINO -> onTrino().executeQuery("DROP TABLE " + schemaName + "." + tableName);
+                default -> throw new UnsupportedOperationException("Unsupported engine: " + dropper);
+            }
             tableFiles = s3.listObjects(bucketName, "databricks-compatibility-test-" + schemaName + "/" + tableName);
             if (explicitLocation) {
                 assertThat(tableFiles.getObjectSummaries()).isNotEmpty();
@@ -131,7 +124,7 @@ public class TestDeltaLakeDropTableCompatibility
             }
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS " + schemaName + "." + tableName);
+            dropDeltaTableWithRetry(schemaName + "." + tableName);
             onDelta().executeQuery("DROP SCHEMA " + schemaName);
         }
     }

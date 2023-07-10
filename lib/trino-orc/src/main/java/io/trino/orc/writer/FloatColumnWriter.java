@@ -33,7 +33,6 @@ import io.trino.orc.stream.PresentOutputStream;
 import io.trino.orc.stream.StreamDataOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -46,6 +45,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static java.lang.Float.intBitsToFloat;
@@ -54,7 +54,7 @@ import static java.util.Objects.requireNonNull;
 public class FloatColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(FloatColumnWriter.class);
     private static final ColumnEncoding COLUMN_ENCODING = new ColumnEncoding(DIRECT, 0);
 
     private final OrcColumnId columnId;

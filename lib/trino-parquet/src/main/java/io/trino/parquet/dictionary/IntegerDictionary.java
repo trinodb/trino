@@ -14,28 +14,23 @@
 package io.trino.parquet.dictionary;
 
 import io.trino.parquet.DictionaryPage;
-import org.apache.parquet.column.values.plain.PlainValuesReader.IntegerPlainValuesReader;
-
-import java.io.IOException;
+import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.decoders.ValueDecoder;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.parquet.ParquetReaderUtils.toInputStream;
+import static io.trino.parquet.reader.decoders.PlainValueDecoders.IntPlainValueDecoder;
 
 public class IntegerDictionary
-        extends Dictionary
+        implements Dictionary
 {
     private final int[] content;
 
     public IntegerDictionary(DictionaryPage dictionaryPage)
-            throws IOException
     {
-        super(dictionaryPage.getEncoding());
         content = new int[dictionaryPage.getDictionarySize()];
-        IntegerPlainValuesReader intReader = new IntegerPlainValuesReader();
-        intReader.initFromPage(dictionaryPage.getDictionarySize(), toInputStream(dictionaryPage));
-        for (int i = 0; i < content.length; i++) {
-            content[i] = intReader.readInteger();
-        }
+        ValueDecoder<int[]> intReader = new IntPlainValueDecoder();
+        intReader.init(new SimpleSliceInputStream(dictionaryPage.getSlice()));
+        intReader.read(content, 0, dictionaryPage.getDictionarySize());
     }
 
     @Override

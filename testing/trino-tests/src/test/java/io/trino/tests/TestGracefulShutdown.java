@@ -32,11 +32,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.memory.TestMemoryManager.createQueryRunner;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -82,11 +84,12 @@ public class TestGracefulShutdown
                         executor));
             }
 
+            @SuppressWarnings("resource")
             TestingTrinoServer worker = queryRunner.getServers()
                     .stream()
                     .filter(server -> !server.isCoordinator())
                     .findFirst()
-                    .get();
+                    .orElseThrow();
 
             SqlTaskManager taskManager = worker.getTaskManager();
 
@@ -110,18 +113,20 @@ public class TestGracefulShutdown
         }
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test
     public void testCoordinatorShutdown()
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, ImmutableMap.of())) {
+            @SuppressWarnings("resource")
             TestingTrinoServer coordinator = queryRunner.getServers()
                     .stream()
                     .filter(TestingTrinoServer::isCoordinator)
-                    .findFirst()
-                    .get();
+                    .collect(onlyElement());
 
-            coordinator.getGracefulShutdownHandler().requestShutdown();
+            assertThatThrownBy(coordinator.getGracefulShutdownHandler()::requestShutdown)
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessage("Cannot shutdown coordinator");
         }
     }
 }

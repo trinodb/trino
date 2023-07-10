@@ -17,12 +17,14 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
-import io.trino.spi.block.Int96ArrayBlockBuilder;
+import io.trino.spi.block.Fixed12BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.ScalarOperator;
+
+import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
@@ -30,7 +32,10 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -43,6 +48,7 @@ class LongTimestampType
         extends TimestampType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongTimestampType.class, lookup(), LongTimestamp.class);
+    private final Range range;
 
     public LongTimestampType(int precision)
     {
@@ -51,6 +57,10 @@ class LongTimestampType
         if (precision < MAX_SHORT_PRECISION + 1 || precision > MAX_PRECISION) {
             throw new IllegalArgumentException(format("Precision must be in the range [%s, %s]", MAX_SHORT_PRECISION + 1, MAX_PRECISION));
         }
+
+        // ShortTimestampType instances are created eagerly and shared so it's OK to precompute some things.
+        int picosOfMicroMax = toIntExact(PICOSECONDS_PER_MICROSECOND - rescale(1, 0, 12 - getPrecision()));
+        range = new Range(new LongTimestamp(Long.MIN_VALUE, 0), new LongTimestamp(Long.MAX_VALUE, picosOfMicroMax));
     }
 
     @Override
@@ -75,7 +85,7 @@ class LongTimestampType
         else {
             maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
         }
-        return new Int96ArrayBlockBuilder(
+        return new Fixed12BlockBuilder(
                 blockBuilderStatus,
                 Math.min(expectedEntries, maxBlockSizeInBytes / getFixedSize()));
     }
@@ -89,7 +99,7 @@ class LongTimestampType
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new Int96ArrayBlockBuilder(null, positionCount);
+        return new Fixed12BlockBuilder(null, positionCount);
     }
 
     @Override
@@ -99,9 +109,9 @@ class LongTimestampType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(getEpochMicros(block, position));
-            blockBuilder.writeInt(getFraction(block, position));
-            blockBuilder.closeEntry();
+            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(
+                    getEpochMicros(block, position),
+                    getFraction(block, position));
         }
     }
 
@@ -120,9 +130,7 @@ class LongTimestampType
 
     public void write(BlockBuilder blockBuilder, long epochMicros, int fraction)
     {
-        blockBuilder.writeLong(epochMicros);
-        blockBuilder.writeInt(fraction);
-        blockBuilder.closeEntry();
+        ((Fixed12BlockBuilder) blockBuilder).writeFixed12(epochMicros, fraction);
     }
 
     @Override
@@ -146,6 +154,12 @@ class LongTimestampType
     private static int getFraction(Block block, int position)
     {
         return block.getInt(position, SIZE_OF_LONG);
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(range);
     }
 
     @ScalarOperator(EQUAL)

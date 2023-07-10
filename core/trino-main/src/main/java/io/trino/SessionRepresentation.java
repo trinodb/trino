@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
+import io.opentelemetry.api.trace.Span;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.BasicPrincipal;
@@ -41,6 +43,7 @@ import static java.util.Objects.requireNonNull;
 public final class SessionRepresentation
 {
     private final String queryId;
+    private final Span querySpan;
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final String user;
@@ -70,6 +73,7 @@ public final class SessionRepresentation
     @JsonCreator
     public SessionRepresentation(
             @JsonProperty("queryId") String queryId,
+            @JsonProperty("querySpan") Span querySpan,
             @JsonProperty("transactionId") Optional<TransactionId> transactionId,
             @JsonProperty("clientTransactionSupport") boolean clientTransactionSupport,
             @JsonProperty("user") String user,
@@ -97,6 +101,7 @@ public final class SessionRepresentation
             @JsonProperty("protocolName") String protocolName)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
+        this.querySpan = requireNonNull(querySpan, "querySpan is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.user = requireNonNull(user, "user is null");
@@ -133,6 +138,12 @@ public final class SessionRepresentation
     public String getQueryId()
     {
         return queryId;
+    }
+
+    @JsonProperty
+    public Span getQuerySpan()
+    {
+        return querySpan;
     }
 
     @JsonProperty
@@ -309,13 +320,14 @@ public final class SessionRepresentation
 
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
-        return toSession(sessionPropertyManager, emptyMap());
+        return toSession(sessionPropertyManager, emptyMap(), Optional.empty());
     }
 
-    public Session toSession(SessionPropertyManager sessionPropertyManager, Map<String, String> extraCredentials)
+    public Session toSession(SessionPropertyManager sessionPropertyManager, Map<String, String> extraCredentials, Optional<Slice> exchangeEncryptionKey)
     {
         return new Session(
                 new QueryId(queryId),
+                querySpan,
                 transactionId,
                 clientTransactionSupport,
                 toIdentity(extraCredentials),
@@ -337,6 +349,7 @@ public final class SessionRepresentation
                 catalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
-                createProtocolHeaders(protocolName));
+                createProtocolHeaders(protocolName),
+                exchangeEncryptionKey);
     }
 }

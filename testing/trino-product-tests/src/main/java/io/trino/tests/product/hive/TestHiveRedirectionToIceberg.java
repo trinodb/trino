@@ -13,32 +13,30 @@
  */
 package io.trino.tests.product.hive;
 
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
 import org.assertj.core.api.AbstractStringAssert;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.param;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_ICEBERG_REDIRECTIONS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveRedirectionToIceberg
         extends ProductTest
 {
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void createAdditionalSchema()
     {
         onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive.nondefaultschema");
@@ -47,7 +45,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testRedirect()
     {
-        String tableName = "redirect_" + randomTableSuffix();
+        String tableName = "redirect_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -63,7 +61,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testRedirectWithNonDefaultSchema()
     {
-        String tableName = "redirect_non_default_schema_" + randomTableSuffix();
+        String tableName = "redirect_non_default_schema_" + randomNameSuffix();
         String hiveTableName = "hive.nondefaultschema." + tableName;
         String icebergTableName = "iceberg.nondefaultschema." + tableName;
 
@@ -79,7 +77,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testRedirectToNonexistentCatalog()
     {
-        String tableName = "redirect_to_nonexistent_iceberg_" + randomTableSuffix();
+        String tableName = "redirect_to_nonexistent_iceberg_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -102,7 +100,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testRedirectWithDefaultSchemaInSession()
     {
-        String tableName = "redirect_with_use_" + randomTableSuffix();
+        String tableName = "redirect_with_use_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -124,7 +122,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testRedirectPartitionsToUnpartitioned()
     {
-        String tableName = "iceberg_unpartitioned_table_" + randomTableSuffix();
+        String tableName = "iceberg_unpartitioned_table_" + randomNameSuffix();
         String icebergTableName = "iceberg.default." + tableName;
 
         createIcebergTable(icebergTableName, false);
@@ -140,7 +138,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testRedirectPartitionsToPartitioned()
     {
-        String tableName = "iceberg_partitioned_table_" + randomTableSuffix();
+        String tableName = "iceberg_partitioned_table_" + randomNameSuffix();
         String icebergTableName = "iceberg.default." + tableName;
 
         createIcebergTable(icebergTableName, true);
@@ -161,7 +159,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS}, dataProvider = "schemaAndPartitioning")
     public void testInsert(String schema, boolean partitioned)
     {
-        String tableName = "iceberg_insert_" + randomTableSuffix();
+        String tableName = "iceberg_insert_" + randomNameSuffix();
         String hiveTableName = "hive." + schema + "." + tableName;
         String icebergTableName = "iceberg." + schema + "." + tableName;
 
@@ -192,7 +190,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testDelete()
     {
-        String tableName = "iceberg_insert_" + randomTableSuffix();
+        String tableName = "iceberg_insert_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -210,7 +208,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testUpdate()
     {
-        String tableName = "iceberg_insert_" + randomTableSuffix();
+        String tableName = "iceberg_insert_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -225,9 +223,36 @@ public class TestHiveRedirectionToIceberg
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    public void testMerge()
+    {
+        String sourceTableName = "iceberg_merge_source_" + randomNameSuffix();
+        String targetTableName = "iceberg_merge_target_" + randomNameSuffix();
+        String hiveSourceTableName = "hive.default." + sourceTableName;
+        String hiveTargetTableName = "hive.default." + targetTableName;
+        String icebergSourceTableName = "iceberg.default." + sourceTableName;
+        String icebergTargetTableName = "iceberg.default." + targetTableName;
+
+        createIcebergTable(icebergSourceTableName, true, true);
+        createIcebergTable(icebergTargetTableName, true, false);
+
+        assertThat(onTrino().executeQuery("" +
+                "MERGE INTO " + hiveTargetTableName + " t USING " + hiveSourceTableName + " s ON t.nationkey = s.nationkey " +
+                "WHEN NOT MATCHED " +
+                "    THEN INSERT (nationkey, name, regionkey, comment) " +
+                "            VALUES (s.nationkey, s.name, s.regionkey, s.comment)"))
+                .updatedRowsCountIsEqualTo(25);
+        assertResultsEqual(
+                onTrino().executeQuery("TABLE " + icebergSourceTableName),
+                onTrino().executeQuery("TABLE " + icebergTargetTableName));
+
+        onTrino().executeQuery("DROP TABLE " + icebergSourceTableName);
+        onTrino().executeQuery("DROP TABLE " + icebergTargetTableName);
+    }
+
+    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testDropTable()
     {
-        String tableName = "hive_drop_iceberg_" + randomTableSuffix();
+        String tableName = "hive_drop_iceberg_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -240,7 +265,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testDescribe()
     {
-        String tableName = "iceberg_describe_" + randomTableSuffix();
+        String tableName = "iceberg_describe_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -256,13 +281,13 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testShowCreateTable()
     {
-        String tableName = "iceberg_show_create_table_" + randomTableSuffix();
+        String tableName = "iceberg_show_create_table_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
         createIcebergTable(icebergTableName, true);
 
-        Assertions.assertThat((String) getOnlyElement(getOnlyElement(onTrino().executeQuery("SHOW CREATE TABLE " + hiveTableName).rows())))
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + hiveTableName).getOnlyValue())
                 .matches("\\QCREATE TABLE " + icebergTableName + " (\n" +
                         "   nationkey bigint,\n" +
                         "   name varchar,\n" +
@@ -270,7 +295,7 @@ public class TestHiveRedirectionToIceberg
                         "   comment varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = 'ORC',\n" +
+                        "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         format("   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s-\\E.*\\Q',\n", tableName) +
                         "   partitioning = ARRAY['regionkey']\n" + // 'partitioning' comes from Iceberg
@@ -282,7 +307,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testShowStats()
     {
-        String tableName = "iceberg_show_create_table_" + randomTableSuffix();
+        String tableName = "iceberg_show_create_table_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -290,10 +315,10 @@ public class TestHiveRedirectionToIceberg
 
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + hiveTableName))
                 .containsOnly(
-                        row("nationkey", null, null, 0d, null, "0", "24"),
-                        row("name", null, null, 0d, null, null, null),
-                        row("regionkey", null, null, 0d, null, "0", "4"),
-                        row("comment", null, null, 0d, null, null, null),
+                        row("nationkey", null, 25d, 0d, null, "0", "24"),
+                        row("name", 1231d, 25d, 0d, null, null, null),
+                        row("regionkey", null, 5d, 0d, null, "0", "4"),
+                        row("comment", 3558d, 25d, 0d, null, null, null),
                         row(null, null, null, null, 25d, null, null));
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
@@ -302,7 +327,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testAlterTableRename()
     {
-        String tableName = "iceberg_rename_table_" + randomTableSuffix();
+        String tableName = "iceberg_rename_table_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -328,7 +353,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testAlterTableAddColumn()
     {
-        String tableName = "iceberg_alter_table_" + randomTableSuffix();
+        String tableName = "iceberg_alter_table_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -336,7 +361,7 @@ public class TestHiveRedirectionToIceberg
 
         onTrino().executeQuery("ALTER TABLE " + hiveTableName + " ADD COLUMN some_new_column double");
 
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+        assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
                 .containsOnly("nationkey", "name", "regionkey", "comment", "some_new_column");
 
         assertResultsEqual(
@@ -348,7 +373,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testAlterTableDropColumn()
     {
-        String tableName = "iceberg_alter_table_drop_column_" + randomTableSuffix();
+        String tableName = "iceberg_alter_table_drop_column_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -356,7 +381,7 @@ public class TestHiveRedirectionToIceberg
 
         onTrino().executeQuery("ALTER TABLE " + hiveTableName + " DROP COLUMN comment");
 
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+        assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
                 .containsOnly("nationkey", "name", "regionkey");
 
         assertResultsEqual(
@@ -368,7 +393,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testAlterTableRenameColumn()
     {
-        String tableName = "iceberg_alter_table_" + randomTableSuffix();
+        String tableName = "iceberg_alter_table_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -376,7 +401,7 @@ public class TestHiveRedirectionToIceberg
 
         onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME COLUMN nationkey TO nation_key");
 
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+        assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
                 .containsOnly("nation_key", "name", "regionkey", "comment");
 
         assertResultsEqual(
@@ -388,7 +413,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testCommentTable()
     {
-        String tableName = "iceberg_comment_table_" + randomTableSuffix();
+        String tableName = "iceberg_comment_table_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -409,7 +434,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testCommentColumn()
     {
-        String tableName = "iceberg_comment_column_" + randomTableSuffix();
+        String tableName = "iceberg_comment_column_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
         String columnName = "nationkey";
@@ -430,7 +455,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testShowGrants()
     {
-        String tableName = "iceberg_show_grants_" + randomTableSuffix();
+        String tableName = "iceberg_show_grants_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
         createIcebergTable(icebergTableName, false);
@@ -445,10 +470,10 @@ public class TestHiveRedirectionToIceberg
     public void testInformationSchemaColumns()
     {
         // use dedicated schema so that we control the number and shape of tables
-        String schemaName = "redirect_information_schema_" + randomTableSuffix();
+        String schemaName = "redirect_information_schema_" + randomNameSuffix();
         onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive." + schemaName);
 
-        String tableName = "redirect_information_schema_table_" + randomTableSuffix();
+        String tableName = "redirect_information_schema_table_" + randomNameSuffix();
         String icebergTableName = "iceberg." + schemaName + "." + tableName;
 
         createIcebergTable(icebergTableName, false);
@@ -488,10 +513,10 @@ public class TestHiveRedirectionToIceberg
     public void testSystemJdbcColumns()
     {
         // use dedicated schema so that we control the number and shape of tables
-        String schemaName = "redirect_system_jdbc_columns_" + randomTableSuffix();
+        String schemaName = "redirect_system_jdbc_columns_" + randomNameSuffix();
         onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive." + schemaName);
 
-        String tableName = "redirect_system_jdbc_columns_table_" + randomTableSuffix();
+        String tableName = "redirect_system_jdbc_columns_table_" + randomNameSuffix();
         String icebergTableName = "iceberg." + schemaName + "." + tableName;
 
         createIcebergTable(icebergTableName, false);
@@ -531,7 +556,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testGrant()
     {
-        String tableName = "iceberg_grant_" + randomTableSuffix();
+        String tableName = "iceberg_grant_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -546,7 +571,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testRevoke()
     {
-        String tableName = "iceberg_revoke_" + randomTableSuffix();
+        String tableName = "iceberg_revoke_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -561,7 +586,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testSetTableAuthorization()
     {
-        String tableName = "iceberg_set_table_authorization_" + randomTableSuffix();
+        String tableName = "iceberg_set_table_authorization_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -576,7 +601,7 @@ public class TestHiveRedirectionToIceberg
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testDeny()
     {
-        String tableName = "iceberg_deny_" + randomTableSuffix();
+        String tableName = "iceberg_deny_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
@@ -605,8 +630,7 @@ public class TestHiveRedirectionToIceberg
 
     private static AbstractStringAssert<?> assertTableComment(String catalog, String schema, String tableName)
     {
-        QueryResult queryResult = readTableComment(catalog, schema, tableName);
-        return Assertions.assertThat((String) getOnlyElement(getOnlyElement(queryResult.rows())));
+        return assertThat((String) readTableComment(catalog, schema, tableName).getOnlyValue());
     }
 
     private static QueryResult readTableComment(String catalog, String schema, String tableName)
@@ -620,8 +644,7 @@ public class TestHiveRedirectionToIceberg
 
     private static AbstractStringAssert<?> assertColumnComment(String catalog, String schema, String tableName, String columnName)
     {
-        QueryResult queryResult = readColumnComment(catalog, schema, tableName, columnName);
-        return Assertions.assertThat((String) getOnlyElement(getOnlyElement(queryResult.rows())));
+        return assertThat((String) readColumnComment(catalog, schema, tableName, columnName).getOnlyValue());
     }
 
     private static QueryResult readColumnComment(String catalog, String schema, String tableName, String columnName)

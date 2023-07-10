@@ -13,6 +13,7 @@
  */
 package io.trino.connector.system;
 
+import com.google.inject.Inject;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -31,8 +32,7 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
-
-import javax.inject.Inject;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 
 import java.util.Optional;
 
@@ -42,7 +42,9 @@ import static io.trino.metadata.MetadataListing.getMaterializedViews;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -57,7 +59,8 @@ public class MaterializedViewSystemTable
             .column("storage_catalog", createUnboundedVarcharType())
             .column("storage_schema", createUnboundedVarcharType())
             .column("storage_table", createUnboundedVarcharType())
-            .column("is_fresh", BOOLEAN)
+            .column("freshness", createUnboundedVarcharType())
+            .column("last_fresh_time", createTimestampWithTimeZoneType(9)) // point in time
             .column("comment", createUnboundedVarcharType())
             .column("definition", createUnboundedVarcharType())
             .build();
@@ -138,7 +141,15 @@ public class MaterializedViewSystemTable
                 definition.getStorageTable()
                         .map(storageTable -> storageTable.getSchemaTableName().getTableName())
                         .orElse(""),
-                freshness.isMaterializedViewFresh(),
+                // freshness
+                freshness.getFreshness().name(),
+                // last_fresh_time
+                freshness.getLastFreshTime()
+                        .map(instant -> LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
+                                instant.getEpochSecond(),
+                                (long) instant.getNano() * PICOSECONDS_PER_NANOSECOND,
+                                UTC_KEY))
+                        .orElse(null),
                 definition.getComment().orElse(""),
                 definition.getOriginalSql()
         };

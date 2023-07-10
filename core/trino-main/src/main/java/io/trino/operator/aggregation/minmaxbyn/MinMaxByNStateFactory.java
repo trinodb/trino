@@ -14,16 +14,17 @@
 package io.trino.operator.aggregation.minmaxbyn;
 
 import io.trino.array.ObjectBigArray;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.GroupedAccumulatorState;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.Function;
 import java.util.function.LongFunction;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public final class MinMaxByNStateFactory
 {
@@ -37,7 +38,7 @@ public final class MinMaxByNStateFactory
             extends AbstractMinMaxByNState
             implements GroupedAccumulatorState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedMinMaxByNState.class).instanceSize();
+        private static final int INSTANCE_SIZE = instanceSize(GroupedMinMaxByNState.class);
 
         private final LongFunction<TypedKeyValueHeap> heapFactory;
         private final Function<Block, TypedKeyValueHeap> deserializer;
@@ -119,13 +120,9 @@ public final class MinMaxByNStateFactory
                 return;
             }
 
-            BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
-
             size -= typedHeap.getEstimatedSize();
-            typedHeap.popAllReverse(arrayBlockBuilder);
+            ((ArrayBlockBuilder) out).buildEntry(typedHeap::popAllReverse);
             size += typedHeap.getEstimatedSize();
-
-            out.closeEntry();
         }
 
         @Override
@@ -165,7 +162,7 @@ public final class MinMaxByNStateFactory
     public abstract static class SingleMinMaxByNState
             extends AbstractMinMaxByNState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMinMaxByNState.class).instanceSize();
+        private static final int INSTANCE_SIZE = instanceSize(SingleMinMaxByNState.class);
 
         private final LongFunction<TypedKeyValueHeap> heapFactory;
         private final Function<Block, TypedKeyValueHeap> deserializer;
@@ -238,9 +235,7 @@ public final class MinMaxByNStateFactory
                 return;
             }
 
-            BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
-            typedHeap.popAllReverse(arrayBlockBuilder);
-            out.closeEntry();
+            ((ArrayBlockBuilder) out).buildEntry(typedHeap::popAllReverse);
         }
 
         @Override

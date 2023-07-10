@@ -43,7 +43,6 @@ public class PinotQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("default"))
-                .setNodeCount(2)
                 .setExtraProperties(extraProperties)
                 .build();
         queryRunner.installPlugin(new PinotPlugin(extension));
@@ -79,7 +78,6 @@ public class PinotQueryRunner
         Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()
                 .put("pinot.controller-urls", pinot.getControllerConnectString())
                 .put("pinot.segments-per-split", "10")
-                .put("pinot.request-timeout", "3m")
                 .buildOrThrow();
         DistributedQueryRunner queryRunner = createPinotQueryRunner(properties, pinotProperties, Optional.empty());
         Thread.sleep(10);

@@ -69,7 +69,7 @@ public class TableAccessControlRule
             @JsonProperty("table") Optional<Pattern> tableRegex)
     {
         this.privileges = ImmutableSet.copyOf(requireNonNull(privileges, "privileges is null"));
-        this.columnConstraints = Maps.uniqueIndex(requireNonNull(columns, "columns is null").orElse(ImmutableList.of()), ColumnConstraint::getName);
+        this.columnConstraints = Maps.uniqueIndex(columns.orElse(ImmutableList.of()), ColumnConstraint::getName);
         this.restrictedColumns = columnConstraints.values().stream()
                 .filter(constraint -> !constraint.isAllowed())
                 .map(ColumnConstraint::getName)
@@ -102,20 +102,20 @@ public class TableAccessControlRule
         return (privileges.contains(SELECT) || privileges.contains(GRANT_SELECT)) && restrictedColumns.stream().noneMatch(columnNames::contains);
     }
 
-    public Optional<ViewExpression> getColumnMask(String user, String catalog, String schema, String column)
+    public Optional<ViewExpression> getColumnMask(String catalog, String schema, String column)
     {
         return Optional.ofNullable(columnConstraints.get(column)).flatMap(constraint ->
                 constraint.getMask().map(mask -> new ViewExpression(
-                        constraint.getMaskEnvironment().flatMap(ExpressionEnvironment::getUser).orElse(user),
+                        constraint.getMaskEnvironment().flatMap(ExpressionEnvironment::getUser),
                         Optional.of(catalog),
                         Optional.of(schema),
                         mask)));
     }
 
-    public Optional<ViewExpression> getFilter(String user, String catalog, String schema)
+    public Optional<ViewExpression> getFilter(String catalog, String schema)
     {
         return filter.map(filter -> new ViewExpression(
-                filterEnvironment.flatMap(ExpressionEnvironment::getUser).orElse(user),
+                filterEnvironment.flatMap(ExpressionEnvironment::getUser),
                 Optional.of(catalog),
                 Optional.of(schema),
                 filter));

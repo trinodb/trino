@@ -271,3 +271,90 @@ FETCH FIRST N ROWS``.
 
 Implementation and support is connector-specific since different data sources
 support different SQL syntax and processing.
+
+For example, you can find two queries to learn how to identify Top-N pushdown behavior in the following section.
+
+First, a concrete example of a Top-N pushdown query on top of a PostgreSQL database::
+
+    SELECT id, name
+    FROM postgresql.public.company
+    ORDER BY id
+    LIMIT 5;
+
+You can get the explain plan by prepending the above query with ``EXPLAIN``::
+
+    EXPLAIN SELECT id, name
+    FROM postgresql.public.company
+    ORDER BY id
+    LIMIT 5;
+
+.. code-block:: text
+
+ Fragment 0 [SINGLE]
+     Output layout: [id, name]
+     Output partitioning: SINGLE []
+     Stage Execution Strategy: UNGROUPED_EXECUTION
+     Output[id, name]
+     │   Layout: [id:integer, name:varchar]
+     │   Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: ?}
+     └─ RemoteSource[1]
+            Layout: [id:integer, name:varchar]
+
+ Fragment 1 [SOURCE]
+     Output layout: [id, name]
+     Output partitioning: SINGLE []
+     Stage Execution Strategy: UNGROUPED_EXECUTION
+     TableScan[postgresql:public.company public.company sortOrder=[id:integer:int4 ASC NULLS LAST] limit=5, grouped = false]
+         Layout: [id:integer, name:varchar]
+         Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: 0B}
+         name := name:varchar:text
+         id := id:integer:int4
+
+Second, an example of a Top-N query on the ``tpch`` connector which does not support
+Top-N pushdown functionality::
+
+    SELECT custkey, name
+    FROM tpch.sf1.customer
+    ORDER BY custkey
+    LIMIT 5;
+
+The related query plan:
+
+.. code-block:: text
+
+ Fragment 0 [SINGLE]
+     Output layout: [custkey, name]
+     Output partitioning: SINGLE []
+     Stage Execution Strategy: UNGROUPED_EXECUTION
+     Output[custkey, name]
+     │   Layout: [custkey:bigint, name:varchar(25)]
+     │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+     └─ TopN[5 by (custkey ASC NULLS LAST)]
+        │   Layout: [custkey:bigint, name:varchar(25)]
+        └─ LocalExchange[SINGLE] ()
+           │   Layout: [custkey:bigint, name:varchar(25)]
+           │   Estimates: {rows: ? (?), cpu: ?, memory: ?, network: ?}
+           └─ RemoteSource[1]
+                  Layout: [custkey:bigint, name:varchar(25)]
+
+ Fragment 1 [SOURCE]
+     Output layout: [custkey, name]
+     Output partitioning: SINGLE []
+     Stage Execution Strategy: UNGROUPED_EXECUTION
+     TopNPartial[5 by (custkey ASC NULLS LAST)]
+     │   Layout: [custkey:bigint, name:varchar(25)]
+     └─ TableScan[tpch:customer:sf1.0, grouped = false]
+            Layout: [custkey:bigint, name:varchar(25)]
+            Estimates: {rows: 150000 (4.58MB), cpu: 4.58M, memory: 0B, network: 0B}
+            custkey := tpch:custkey
+            name := tpch:name
+
+In the preceding query plan, the Top-N operation ``TopN[5 by (custkey ASC NULLS LAST)]``
+is being applied in the ``Fragment 0`` by Trino and not by the source database.
+
+Note that, compared to the query executed on top of the ``tpch`` connector,
+the explain plan of the query applied on top of the ``postgresql`` connector
+is missing the reference to the operation ``TopN[5 by (id ASC NULLS LAST)]``
+in the ``Fragment 0``.
+The absence of the ``TopN`` Trino operator in the ``Fragment 0`` from the query plan
+demonstrates that the query benefits of the Top-N pushdown optimization.

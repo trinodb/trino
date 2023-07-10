@@ -86,7 +86,6 @@ public class HiveTableHandle
                 bucketFilter,
                 analyzePartitionValues,
                 ImmutableSet.of(),
-                ImmutableSet.of(),
                 transaction,
                 false,
                 Optional.empty());
@@ -114,10 +113,47 @@ public class HiveTableHandle
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableSet.of(),
-                ImmutableSet.of(),
                 NO_ACID_TRANSACTION,
                 false,
                 Optional.empty());
+    }
+
+    private HiveTableHandle(
+            String schemaName,
+            String tableName,
+            Optional<Map<String, String>> tableParameters,
+            List<HiveColumnHandle> partitionColumns,
+            List<HiveColumnHandle> dataColumns,
+            Optional<List<String>> partitionNames,
+            Optional<List<HivePartition>> partitions,
+            TupleDomain<HiveColumnHandle> compactEffectivePredicate,
+            TupleDomain<ColumnHandle> enforcedConstraint,
+            Optional<HiveBucketHandle> bucketHandle,
+            Optional<HiveBucketFilter> bucketFilter,
+            Optional<List<List<String>>> analyzePartitionValues,
+            Set<ColumnHandle> constraintColumns,
+            AcidTransaction transaction,
+            boolean recordScannedFiles,
+            Optional<Long> maxSplitFileSize)
+    {
+        this(
+                schemaName,
+                tableName,
+                tableParameters,
+                partitionColumns,
+                dataColumns,
+                partitionNames,
+                partitions,
+                compactEffectivePredicate,
+                enforcedConstraint,
+                bucketHandle,
+                bucketFilter,
+                analyzePartitionValues,
+                constraintColumns,
+                ImmutableSet.<ColumnHandle>builder().addAll(partitionColumns).addAll(dataColumns).build(),
+                transaction,
+                recordScannedFiles,
+                maxSplitFileSize);
     }
 
     public HiveTableHandle(
@@ -142,16 +178,16 @@ public class HiveTableHandle
         checkState(partitionNames.isEmpty() || partitions.isEmpty(), "partition names and partitions list cannot be present at same time");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableParameters = requireNonNull(tableParameters, "tableParameters is null").map(ImmutableMap::copyOf);
+        this.tableParameters = tableParameters.map(ImmutableMap::copyOf);
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
-        this.partitionNames = requireNonNull(partitionNames, "partitionNames is null").map(ImmutableList::copyOf);
-        this.partitions = requireNonNull(partitions, "partitions is null").map(ImmutableList::copyOf);
+        this.partitionNames = partitionNames.map(ImmutableList::copyOf);
+        this.partitions = partitions.map(ImmutableList::copyOf);
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
-        this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null").map(ImmutableList::copyOf);
+        this.analyzePartitionValues = analyzePartitionValues.map(ImmutableList::copyOf);
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
         this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
         this.transaction = requireNonNull(transaction, "transaction is null");
@@ -181,53 +217,8 @@ public class HiveTableHandle
                 maxScannedFileSize);
     }
 
-    public HiveTableHandle withAnalyzeColumnNames()
-    {
-        return new HiveTableHandle(
-                schemaName,
-                tableName,
-                tableParameters,
-                partitionColumns,
-                dataColumns,
-                partitionNames,
-                partitions,
-                compactEffectivePredicate,
-                enforcedConstraint,
-                bucketHandle,
-                bucketFilter,
-                analyzePartitionValues,
-                constraintColumns,
-                projectedColumns,
-                transaction,
-                recordScannedFiles,
-                maxScannedFileSize);
-    }
-
     public HiveTableHandle withTransaction(AcidTransaction transaction)
     {
-        return new HiveTableHandle(
-                schemaName,
-                tableName,
-                tableParameters,
-                partitionColumns,
-                dataColumns,
-                partitionNames,
-                partitions,
-                compactEffectivePredicate,
-                enforcedConstraint,
-                bucketHandle,
-                bucketFilter,
-                analyzePartitionValues,
-                constraintColumns,
-                projectedColumns,
-                transaction,
-                recordScannedFiles,
-                maxScannedFileSize);
-    }
-
-    public HiveTableHandle withUpdateProcessor(AcidTransaction transaction, HiveUpdateProcessor updateProcessor)
-    {
-        requireNonNull(updateProcessor, "updateProcessor is null");
         return new HiveTableHandle(
                 schemaName,
                 tableName,
@@ -424,34 +415,15 @@ public class HiveTableHandle
     }
 
     @JsonIgnore
-    public boolean isAcidDelete()
+    public boolean isAcidMerge()
     {
-        return transaction.isDelete();
-    }
-
-    @JsonIgnore
-    public boolean isAcidUpdate()
-    {
-        return transaction.isUpdate();
-    }
-
-    @JsonIgnore
-    public Optional<HiveUpdateProcessor> getUpdateProcessor()
-    {
-        return transaction.getUpdateProcessor();
+        return transaction.isMerge();
     }
 
     @JsonIgnore
     public boolean isInAcidTransaction()
     {
         return transaction.isAcidTransactionRunning();
-    }
-
-    @JsonIgnore
-    public long getAcidTransactionId()
-    {
-        checkState(transaction.isAcidTransactionRunning(), "The AcidTransaction is not running");
-        return transaction.getAcidTransactionId();
     }
 
     @JsonIgnore

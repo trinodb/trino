@@ -36,13 +36,13 @@ public class TestNodeSchedulerConfig
                 .setNodeSchedulerPolicy(UNIFORM.name())
                 .setMinCandidates(10)
                 .setMaxSplitsPerNode(100)
-                .setMaxPendingSplitsPerTask(10)
-                .setMaxUnacknowledgedSplitsPerTask(500)
+                .setMinPendingSplitsPerTask(10)
+                .setMaxAdjustedPendingSplitsWeightPerTask(2000)
+                .setMaxUnacknowledgedSplitsPerTask(2000)
                 .setIncludeCoordinator(true)
                 .setSplitsBalancingPolicy(NodeSchedulerConfig.SplitsBalancingPolicy.STAGE)
                 .setOptimizedLocalScheduling(true)
-                .setAllowedNoMatchingNodePeriod(new Duration(2, MINUTES))
-                .setNodeAllocatorType("bin_packing"));
+                .setAllowedNoMatchingNodePeriod(new Duration(2, MINUTES)));
     }
 
     @Test
@@ -52,26 +52,26 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.policy", "topology")
                 .put("node-scheduler.min-candidates", "11")
                 .put("node-scheduler.include-coordinator", "false")
-                .put("node-scheduler.max-pending-splits-per-task", "11")
+                .put("node-scheduler.min-pending-splits-per-task", "11")
+                .put("node-scheduler.max-adjusted-pending-splits-per-task", "33")
                 .put("node-scheduler.max-splits-per-node", "101")
                 .put("node-scheduler.max-unacknowledged-splits-per-task", "501")
                 .put("node-scheduler.splits-balancing-policy", "node")
                 .put("node-scheduler.optimized-local-scheduling", "false")
                 .put("node-scheduler.allowed-no-matching-node-period", "1m")
-                .put("node-scheduler.allocator-type", "fixed_count")
                 .buildOrThrow();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
                 .setNodeSchedulerPolicy("topology")
                 .setIncludeCoordinator(false)
                 .setMaxSplitsPerNode(101)
-                .setMaxPendingSplitsPerTask(11)
+                .setMinPendingSplitsPerTask(11)
+                .setMaxAdjustedPendingSplitsWeightPerTask(33)
                 .setMaxUnacknowledgedSplitsPerTask(501)
                 .setMinCandidates(11)
                 .setSplitsBalancingPolicy(NODE)
                 .setOptimizedLocalScheduling(false)
-                .setAllowedNoMatchingNodePeriod(new Duration(1, MINUTES))
-                .setNodeAllocatorType("fixed_count");
+                .setAllowedNoMatchingNodePeriod(new Duration(1, MINUTES));
 
         assertFullMapping(properties, expected);
     }

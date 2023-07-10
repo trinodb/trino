@@ -16,10 +16,10 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 
 import java.lang.invoke.MethodHandle;
 
@@ -48,10 +48,10 @@ public final class VersionFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(nodeVersion);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(),

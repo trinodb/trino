@@ -18,13 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
-import io.airlift.slice.Slice;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
 import io.trino.server.ExpressionSerialization.ExpressionSerializer;
-import io.trino.server.SliceSerialization.SliceDeserializer;
-import io.trino.server.SliceSerialization.SliceSerializer;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -70,11 +67,9 @@ public class TestWindowNode
         SqlParser sqlParser = new SqlParser();
         ObjectMapperProvider provider = new ObjectMapperProvider();
         provider.setJsonSerializers(ImmutableMap.of(
-                Slice.class, new SliceSerializer(),
                 Expression.class, new ExpressionSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
                 Type.class, new TypeDeserializer(functionResolution.getPlannerContext().getTypeManager()),
-                Slice.class, new SliceDeserializer(),
                 Expression.class, new ExpressionDeserializer(sqlParser),
                 TypeSignature.class, new TypeSignatureDeserializer()));
         provider.setKeyDeserializers(ImmutableMap.of(
@@ -114,7 +109,7 @@ public class TestWindowNode
                 Optional.empty());
 
         PlanNodeId id = newId();
-        WindowNode.Specification specification = new WindowNode.Specification(
+        DataOrganizationSpecification specification = new DataOrganizationSpecification(
                 ImmutableList.of(columnA),
                 Optional.of(new OrderingScheme(
                         ImmutableList.of(columnB),

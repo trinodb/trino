@@ -357,7 +357,7 @@ public final class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                builder.append(format("%s := %s\\n", entry.getKey(), formatAggregation(entry.getValue())));
+                builder.append(format("%s := %s\\n", entry.getKey(), formatAggregation(new NoOpAnonymizer(), entry.getValue())));
             }
             printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString(), NODE_COLORS.get(NodeType.AGGREGATE));
             return node.getSource().accept(this, context);

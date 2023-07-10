@@ -65,8 +65,8 @@ public class ResourceGroupSpecBuilder
         this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null");
         this.schedulingWeight = schedulingWeight;
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
-        this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null").map(Duration::valueOf);
-        this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null").map(Duration::valueOf);
+        this.softCpuLimit = softCpuLimit.map(Duration::valueOf);
+        this.hardCpuLimit = hardCpuLimit.map(Duration::valueOf);
         this.parentId = parentId;
     }
 

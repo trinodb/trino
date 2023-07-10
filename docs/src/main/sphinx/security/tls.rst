@@ -17,7 +17,7 @@ the foundational layer.
     This page discusses only how to prepare the Trino server for secure client
     connections from outside of the Trino cluster to its coordinator.
 
-See the :doc:`Glossary </appendix/glossary>` to clarify unfamiliar terms.
+See the :doc:`Glossary </glossary>` to clarify unfamiliar terms.
 
 .. _tls-version-and-ciphers:
 
@@ -39,7 +39,7 @@ configured on the coordinator to determine that JVM's default cipher list.
 .. code-block:: shell
 
   echo "java.util.Arrays.asList(((javax.net.ssl.SSLServerSocketFactory) \
-  javax.net.ssl.SSLServerSocketFactory.getDefault()).getSupportedCipherSuites()).stream().forEach(System.out::println)" | jshell -
+  javax.net.ssl.SSLServerSocketFactory.getDefault()).getSupportedCipherSuites()).forEach(System.out::println)" | jshell -
 
 The default Trino server specifies a set of regular expressions that exclude
 older cipher suites that do not support forward secrecy (FS).
@@ -101,7 +101,7 @@ typically runs with default HTTP configuration on the default port, 8080.
 
 When a load balancer accepts a TLS encrypted connection, it adds a
 `forwarded
-<https://developer.mozilla.org/en-US/docs/Web/HTTP/Proxy_servers_and_tunneling#forwarding_client_information_through_proxies>`_
+<https://developer.mozilla.org/docs/Web/HTTP/Proxy_servers_and_tunneling#forwarding_client_information_through_proxies>`_
 HTTP header to the request, such as ``X-Forwarded-Proto: https``.
 
 This tells the Trino coordinator to process the connection as if a TLS
@@ -110,7 +110,7 @@ not need to configure ``http-server.https.enabled=true`` for a coordinator
 behind a load balancer.
 
 However, to enable processing of such forwarded headers, the server's
-:ref:`config properties file <config_properties>` *must* include the following:
+:ref:`config properties file <config-properties>` *must* include the following:
 
 .. code-block:: text
 
@@ -154,7 +154,7 @@ following types of certificates:
 * **Generated self-signed certificates** — A certificate generated just for
   Trino that is not automatically trusted by any client. Before using, make sure
   you understand the :ref:`limitations of self-signed certificates
-  <self_signed_limits>`.
+  <self-signed-limits>`.
 
 The most convenient option and strongly recommended option is a globally trusted
 certificate. It may require a little more work up front, but it is worth it to
@@ -165,6 +165,8 @@ Keys and certificates
 
 Trino can read certificates and private keys encoded in PEM encoded PKCS #1, PEM
 encoded PKCS #8, PKCS #12, and the legacy Java KeyStore (JKS) format.
+Certificates and private keys encoded in a binary format such as DER must be
+converted.
 
 Make sure you obtain a certificate that is validated by a recognized
 :ref:`certificate authority <glossCA>`.
@@ -211,7 +213,7 @@ Configure the coordinator
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 On the coordinator, add the following lines to the :ref:`config properties file
-<config_properties>` to enable TLS/HTTPS support for the server.
+<config-properties>` to enable TLS/HTTPS support for the server.
 
 .. note::
 
@@ -259,17 +261,43 @@ re-enable it by setting:
 
   http-server.authentication.allow-insecure-over-http=true
 
-Test configuration
-^^^^^^^^^^^^^^^^^^
+.. _verify-tls:
 
-To test your configuration settings, restart the server and try to connect to it
-with the Trino :doc:`CLI </client/cli>` or :doc:`Web UI
-</admin/web-interface>`, using a URL that begins with ``https://``.
+Verify configuration
+^^^^^^^^^^^^^^^^^^^^
 
-Now that TLS is configured, go back and :doc:`configure the authentication
-</security>` method for your server.
+To verify TLS/HTTPS configuration, log in to the :doc:`Web UI
+</admin/web-interface>`, and send a query with the Trino :doc:`CLI
+</client/cli>`.
 
-.. _self_signed_limits:
+* Connect to the Web UI from your browser using a URL that uses HTTPS, such as
+  ``https://trino.example.com:8443``. Enter any username into the ``Username``
+  text box, and log in to the UI. The ``Password`` box is disabled while
+  :doc:`authentication <authentication-types>` is not configured.
+
+* Connect with the Trino CLI using a URL that uses HTTPS, such as
+  ``https://trino.example.com:8443``:
+
+.. code-block:: text
+
+    ./trino --server https://trino.example.com:8443
+
+Send a query to test the connection:
+
+.. code-block:: text
+
+  trino> SELECT 'rocks' AS trino;
+
+  trino
+  -------
+  rocks
+  (1 row)
+
+  Query 20220919_113804_00017_54qfi, FINISHED, 1 node
+  Splits: 1 total, 1 done (100.00%)
+  0.12 [0 rows, 0B] [0 rows/s, 0B/s]
+
+.. _self-signed-limits:
 
 Limitations of self-signed certificates
 ---------------------------------------

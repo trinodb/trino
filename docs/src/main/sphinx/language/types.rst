@@ -5,10 +5,33 @@ Data types
 Trino has a set of built-in data types, described below.
 Additional types can be provided by plugins.
 
-.. note::
+.. _type-mapping-overview:
 
-    Connectors are not required to support all types.
-    See connector documentation for details on supported types.
+Trino type support and mapping
+------------------------------
+
+Connectors to data sources are not required to support all Trino data types
+described on this page. If there are data types similar to Trino's that are used
+on the data source, the connector may map the Trino and remote data types to
+each other as needed.
+
+Depending on the connector and the data source, type mapping may apply
+in either direction as follows:
+
+* **Data source to Trino** mapping applies to any operation where columns in the
+  data source are read by Trino, such as a :doc:`/sql/select` statement, and the
+  underlying source data type needs to be represented by a Trino data type.
+
+* **Trino to data source** mapping applies to any operation where the columns
+  or expressions in Trino need to be translated into data types or expressions
+  compatible with the underlying data source. For example,
+  :doc:`/sql/create-table-as` statements specify Trino types that are then
+  mapped to types on the remote data source. Predicates like ``WHERE`` also use
+  these mappings in order to ensure that the predicate is translated to valid
+  syntax on the remote data source.
+
+Data type support and mappings vary depending on the connector. Refer to the
+:doc:`connector documentation </connector>` for more information.
 
 .. _boolean-data-types:
 
@@ -153,6 +176,8 @@ Date and time
 
 See also :doc:`/functions/datetime`
 
+.. _date-data-type:
+
 ``DATE``
 ^^^^^^^^
 
@@ -239,11 +264,27 @@ The following examples illustrate the behavior::
 Instant in time that includes the date and time of day with ``P`` digits of
 precision for the fraction of seconds and with a time zone. Values of this
 type are rendered using the time zone from the value.
-Time zones are expressed as the numeric UTC offset value::
+Time zones can be expressed in the following ways:
 
-    TIMESTAMP '2001-08-22 03:04:05.321 -08:00';
-    -- 2001-08-22 03:04:05.321-08:00
+* ``UTC``, with ``GMT``, ``Z``, or ``UT`` usable as aliases for UTC.
+* ``+hh:mm`` or ``-hh:mm`` with ``hh:mm`` as an hour and minute offset from UTC.
+  Can be written with or without ``UTC``, ``GMT``, or ``UT`` as an alias for
+  UTC.
+* An `IANA time zone name <https://www.iana.org/time-zones>`_.
 
+The following examples demonstrate some of these syntax options::
+
+    SELECT TIMESTAMP '2001-08-22 03:04:05.321 UTC';
+    -- 2001-08-22 03:04:05.321 UTC
+
+    SELECT TIMESTAMP '2001-08-22 03:04:05.321 -08:30';
+    -- 2001-08-22 03:04:05.321 -08:30
+
+    SELECT TIMESTAMP '2001-08-22 03:04:05.321 GMT-08:30';
+    -- 2001-08-22 03:04:05.321 -08:30
+
+    SELECT TIMESTAMP '2001-08-22 03:04:05.321 America/New_York';
+    -- 2001-08-22 03:04:05.321 America/New_York
 
 ``INTERVAL YEAR TO MONTH``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -264,7 +305,7 @@ Example: ``INTERVAL '2' DAY``
 Structural
 ----------
 
-.. _array_type:
+.. _array-type:
 
 ``ARRAY``
 ^^^^^^^^^
@@ -273,7 +314,7 @@ An array of the given component type.
 
 Example: ``ARRAY[1, 2, 3]``
 
-.. _map_type:
+.. _map-type:
 
 ``MAP``
 ^^^^^^^
@@ -282,7 +323,7 @@ A map between the given component types.
 
 Example: ``MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])``
 
-.. _row_type:
+.. _row-type:
 
 ``ROW``
 ^^^^^^^
@@ -306,7 +347,7 @@ Example: ``ROW(1, 2.0)[1]``
 Network address
 ---------------
 
-.. _ipaddress_type:
+.. _ipaddress-type:
 
 ``IPADDRESS``
 ^^^^^^^^^^^^^
@@ -324,7 +365,7 @@ Examples: ``IPADDRESS '10.0.0.1'``, ``IPADDRESS '2001:db8::1'``
 UUID
 ----
 
-.. _uuid_type:
+.. _uuid-type:
 
 ``UUID``
 ^^^^^^^^
@@ -338,9 +379,9 @@ HyperLogLog
 -----------
 
 Calculating the approximate distinct count can be done much more cheaply than an exact count using the
-`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_ data sketch. See :doc:`/functions/hyperloglog`.
+`HyperLogLog <https://wikipedia.org/wiki/HyperLogLog>`_ data sketch. See :doc:`/functions/hyperloglog`.
 
-.. _hyperloglog_type:
+.. _hyperloglog-type:
 
 ``HyperLogLog``
 ^^^^^^^^^^^^^^^
@@ -348,30 +389,30 @@ Calculating the approximate distinct count can be done much more cheaply than an
 A HyperLogLog sketch allows efficient computation of :func:`approx_distinct`. It starts as a
 sparse representation, switching to a dense representation when it becomes more efficient.
 
-.. _p4hyperloglog_type:
+.. _p4hyperloglog-type:
 
 ``P4HyperLogLog``
 ^^^^^^^^^^^^^^^^^
 
-A P4HyperLogLog sketch is similar to :ref:`hyperloglog_type`, but it starts (and remains)
+A P4HyperLogLog sketch is similar to :ref:`hyperloglog-type`, but it starts (and remains)
 in the dense representation.
 
 SetDigest
 ---------
 
-.. _setdigest_type:
+.. _setdigest-type:
 
 ``SetDigest``
 ^^^^^^^^^^^^^
 
 A SetDigest (setdigest) is a data sketch structure used
-in calculating `Jaccard similarity coefficient <https://en.wikipedia.org/wiki/Jaccard_index>`_
+in calculating `Jaccard similarity coefficient <https://wikipedia.org/wiki/Jaccard_index>`_
 between two sets.
 
 SetDigest encapsulates the following components:
 
-- `HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_
-- `MinHash with a single hash function <http://en.wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
+- `HyperLogLog <https://wikipedia.org/wiki/HyperLogLog>`_
+- `MinHash with a single hash function <http://wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
 
 The HyperLogLog structure is used for the approximation of the distinct elements
 in the original set.
@@ -384,7 +425,7 @@ SetDigests are additive, meaning they can be merged together.
 Quantile digest
 ---------------
 
-.. _qdigest_type:
+.. _qdigest-type:
 
 ``QDigest``
 ^^^^^^^^^^^
@@ -407,7 +448,7 @@ daily, and quickly merged to retrieve the 99th percentile value.
 T-Digest
 --------
 
-.. _tdigest_type:
+.. _tdigest-type:
 
 ``TDigest``
 ^^^^^^^^^^^

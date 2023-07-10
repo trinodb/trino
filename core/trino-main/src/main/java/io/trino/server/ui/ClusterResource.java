@@ -14,21 +14,20 @@
 package io.trino.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.Immutable;
+import com.google.inject.Inject;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import io.trino.client.NodeVersion;
 import io.trino.server.security.ResourceSecurity;
-
-import javax.annotation.concurrent.Immutable;
-import javax.inject.Inject;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
 
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 @Path("/ui/api/cluster")
 public class ClusterResource
@@ -41,7 +40,7 @@ public class ClusterResource
     public ClusterResource(NodeVersion nodeVersion, NodeInfo nodeInfo)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
-        this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
+        this.environment = nodeInfo.getEnvironment();
     }
 
     @ResourceSecurity(WEB_UI)

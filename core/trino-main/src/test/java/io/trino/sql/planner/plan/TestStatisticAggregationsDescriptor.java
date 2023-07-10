@@ -16,6 +16,7 @@ package io.trino.sql.planner.plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodec;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.sql.planner.Symbol;
@@ -24,24 +25,11 @@ import org.testng.annotations.Test;
 
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeyDeserializer.deserialize;
-import static io.trino.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeySerializer.serialize;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 public class TestStatisticAggregationsDescriptor
 {
     private static final ImmutableList<String> COLUMNS = ImmutableList.of("", "col1", "$:###:;", "abc+dddd___");
-
-    @Test
-    public void testColumnStatisticMetadataKeySerializationRoundTrip()
-    {
-        for (String column : COLUMNS) {
-            for (ColumnStatisticType type : ColumnStatisticType.values()) {
-                ColumnStatisticMetadata expected = new ColumnStatisticMetadata(column, type);
-                assertEquals(deserialize(serialize(expected)), expected);
-            }
-        }
-    }
 
     @Test
     public void testSerializationRoundTrip()
@@ -64,6 +52,8 @@ public class TestStatisticAggregationsDescriptor
             for (ColumnStatisticType type : ColumnStatisticType.values()) {
                 builder.addColumnStatistic(new ColumnStatisticMetadata(column, type), testSymbol(symbolAllocator));
             }
+            builder.addColumnStatistic(new ColumnStatisticMetadata(column, "count non null", new FunctionName("count")), testSymbol(symbolAllocator));
+            builder.addColumnStatistic(new ColumnStatisticMetadata(column, "count true", new FunctionName("count_if")), testSymbol(symbolAllocator));
             builder.addGrouping(column, testSymbol(symbolAllocator));
         }
         builder.addTableStatistic(ROW_COUNT, testSymbol(symbolAllocator));

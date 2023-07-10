@@ -13,20 +13,18 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.type.DecimalType;
 
 public final class DecimalColumnReaderFactory
 {
     private DecimalColumnReaderFactory() {}
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, DecimalType parquetDecimalType)
+    public static PrimitiveColumnReader createReader(PrimitiveField field, DecimalType parquetDecimalType)
     {
         if (parquetDecimalType.isShort()) {
-            return new ShortDecimalColumnReader(descriptor, parquetDecimalType);
+            return new ShortDecimalColumnReader(field, parquetDecimalType);
         }
-        else {
-            return new LongDecimalColumnReader(descriptor, parquetDecimalType);
-        }
+        return new LongDecimalColumnReader(field, parquetDecimalType);
     }
 }

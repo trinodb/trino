@@ -104,7 +104,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     public void setup()
     {
         // create lineitem table in test connector
-        getQueryRunner().installPlugin(new TestPlugin(getRetryPolicy() == RetryPolicy.TASK));
+        getQueryRunner().installPlugin(new TestingPlugin(getRetryPolicy() == RetryPolicy.TASK));
         getQueryRunner().installPlugin(new TpchPlugin());
         getQueryRunner().installPlugin(new TpcdsPlugin());
         getQueryRunner().installPlugin(new MemoryPlugin());
@@ -140,6 +140,21 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 "SELECT * FROM lineitem JOIN tpch.tiny.orders ON lineitem.orderkey = orders.orderkey",
                 Set.of(ORDERKEY_HANDLE),
                 TupleDomain.all());
+    }
+
+    @Test(timeOut = 30_000, dataProvider = "testJoinDistributionType")
+    public void testMultiColumnJoinWithDifferentCardinalitiesInBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    {
+        // orderkey has high cardinality, suppkey has low cardinality due to filter
+        assertQueryDynamicFilters(
+                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                "SELECT * FROM lineitem l1 " +
+                        "JOIN tpch.tiny.lineitem l2 ON l1.orderkey = l2.orderkey AND l1.suppkey = l2.suppkey " +
+                        "WHERE l2.suppkey BETWEEN 1 AND 10",
+                Set.of(ORDERKEY_HANDLE, SUPP_KEY_HANDLE),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        multipleValues(BIGINT, LongStream.rangeClosed(1L, 10L).boxed().collect(toImmutableList())))));
     }
 
     @Test(timeOut = 30_000, dataProvider = "testJoinDistributionType")
@@ -410,12 +425,12 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
         computeActual(session, query);
     }
 
-    private class TestPlugin
+    private class TestingPlugin
             implements Plugin
     {
         private final boolean isTaskRetryMode;
 
-        public TestPlugin(boolean isTaskRetryMode)
+        public TestingPlugin(boolean isTaskRetryMode)
         {
             this.isTaskRetryMode = isTaskRetryMode;
         }

@@ -38,7 +38,8 @@ public class TestOrcReaderConfig
                 .setTinyStripeThreshold(DataSize.of(8, Unit.MEGABYTE))
                 .setMaxBlockSize(DataSize.of(16, Unit.MEGABYTE))
                 .setLazyReadSmallRanges(true)
-                .setNestedLazy(true));
+                .setNestedLazy(true)
+                .setReadLegacyShortZoneId(false));
     }
 
     @Test
@@ -54,6 +55,7 @@ public class TestOrcReaderConfig
                 .put("hive.orc.max-read-block-size", "66kB")
                 .put("hive.orc.lazy-read-small-ranges", "false")
                 .put("hive.orc.nested-lazy", "false")
+                .put("hive.orc.read-legacy-short-zone-id", "true")
                 .buildOrThrow();
 
         OrcReaderConfig expected = new OrcReaderConfig()
@@ -65,7 +67,8 @@ public class TestOrcReaderConfig
                 .setTinyStripeThreshold(DataSize.of(61, Unit.KILOBYTE))
                 .setMaxBlockSize(DataSize.of(66, Unit.KILOBYTE))
                 .setLazyReadSmallRanges(false)
-                .setNestedLazy(false);
+                .setNestedLazy(false)
+                .setReadLegacyShortZoneId(true);
 
         assertFullMapping(properties, expected);
     }

@@ -13,11 +13,11 @@
  */
 package io.trino.operator.join.unspilled;
 
-import io.trino.operator.join.JoinProbe;
 import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
@@ -44,6 +44,7 @@ public class LookupJoinPageBuilder
     private int estimatedProbeRowSize = -1;
     private int previousPosition = -1;
     private boolean isSequentialProbeIndices = true;
+    private boolean repeatBuildRow;
 
     public LookupJoinPageBuilder(List<Type> buildTypes)
     {
@@ -63,6 +64,13 @@ public class LookupJoinPageBuilder
         return probeIndexBuilder.isEmpty() && buildPageBuilder.isEmpty();
     }
 
+    public int getPositionCount()
+    {
+        // when build rows are repeated then position count is equal to probe position count
+        verify(!repeatBuildRow);
+        return probeIndexBuilder.size();
+    }
+
     public void reset()
     {
         // be aware that probeIndexBuilder will not clear its capacity
@@ -72,6 +80,7 @@ public class LookupJoinPageBuilder
         estimatedProbeRowSize = -1;
         previousPosition = -1;
         isSequentialProbeIndices = true;
+        repeatBuildRow = false;
     }
 
     /**
@@ -102,8 +111,17 @@ public class LookupJoinPageBuilder
         }
     }
 
+    public void repeatBuildRow()
+    {
+        repeatBuildRow = true;
+    }
+
     public Page build(JoinProbe probe)
     {
+        if (repeatBuildRow) {
+            return buildRepeatedPage(probe);
+        }
+
         int outputPositions = probeIndexBuilder.size();
         verify(buildPageBuilder.getPositionCount() == outputPositions);
 
@@ -141,6 +159,32 @@ public class LookupJoinPageBuilder
         return new Page(outputPositions, blocks);
     }
 
+    private Page buildRepeatedPage(JoinProbe probe)
+    {
+        // Build match can be repeated only if there is a single build row match
+        // and probe join channels are run length encoded.
+        verify(probe.areProbeJoinChannelsRunLengthEncoded());
+        verify(buildPageBuilder.getPositionCount() == 1);
+        verify(probeIndexBuilder.size() == 1);
+        verify(probeIndexBuilder.getInt(0) == 0);
+
+        int positionCount = probe.getPage().getPositionCount();
+        int[] probeOutputChannels = probe.getOutputChannels();
+        Block[] blocks = new Block[probeOutputChannels.length + buildOutputChannelCount];
+
+        for (int i = 0; i < probeOutputChannels.length; i++) {
+            blocks[i] = probe.getPage().getBlock(probeOutputChannels[i]);
+        }
+
+        int offset = probeOutputChannels.length;
+        for (int i = 0; i < buildOutputChannelCount; i++) {
+            Block buildBlock = buildPageBuilder.getBlockBuilder(i).build();
+            blocks[offset + i] = RunLengthEncodedBlock.create(buildBlock, positionCount);
+        }
+
+        return new Page(positionCount, blocks);
+    }
+
     @Override
     public String toString()
     {
@@ -152,7 +196,7 @@ public class LookupJoinPageBuilder
 
     private static Block unwrapLoadedBlock(Block filteredProbeBlock)
     {
-        // Lazy blocks (e.g used in filter condition) could be loaded during filter evaluation.
+        // Lazy blocks (e.g. used in filter condition) could be loaded during filter evaluation.
         // Unwrap them to reduce overhead of further processing.
         return filteredProbeBlock.isLoaded() ? filteredProbeBlock.getLoadedBlock() : filteredProbeBlock;
     }

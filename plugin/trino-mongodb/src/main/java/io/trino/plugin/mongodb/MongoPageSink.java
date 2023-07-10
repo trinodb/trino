@@ -14,65 +14,65 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.InsertManyOptions;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
-import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
+import io.trino.spi.connector.ConnectorPageSinkId;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.NamedTypeSignature;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
-import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.bson.BsonInvalidOperationException;
 import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
-import static io.trino.plugin.mongodb.TypeUtils.isArrayType;
 import static io.trino.plugin.mongodb.TypeUtils.isJsonType;
-import static io.trino.plugin.mongodb.TypeUtils.isMapType;
-import static io.trino.plugin.mongodb.TypeUtils.isRowType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.readBigDecimal;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
-import static java.lang.Float.intBitsToFloat;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.floorDiv;
-import static java.lang.Math.toIntExact;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -82,34 +82,41 @@ public class MongoPageSink
         implements ConnectorPageSink
 {
     private final MongoSession mongoSession;
-    private final SchemaTableName schemaTableName;
+    private final RemoteTableName remoteTableName;
     private final List<MongoColumnHandle> columns;
     private final String implicitPrefix;
+    private final Optional<String> pageSinkIdColumnName;
+    private final ConnectorPageSinkId pageSinkId;
 
     public MongoPageSink(
             MongoClientConfig config,
             MongoSession mongoSession,
-            SchemaTableName schemaTableName,
-            List<MongoColumnHandle> columns)
+            RemoteTableName remoteTableName,
+            List<MongoColumnHandle> columns,
+            Optional<String> pageSinkIdColumnName,
+            ConnectorPageSinkId pageSinkId)
     {
         this.mongoSession = mongoSession;
-        this.schemaTableName = schemaTableName;
+        this.remoteTableName = remoteTableName;
         this.columns = columns;
         this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
+        this.pageSinkIdColumnName = requireNonNull(pageSinkIdColumnName, "pageSinkIdColumnName is null");
+        this.pageSinkId = requireNonNull(pageSinkId, "pageSinkId is null");
     }
 
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        MongoCollection<Document> collection = mongoSession.getCollection(schemaTableName);
+        MongoCollection<Document> collection = mongoSession.getCollection(remoteTableName);
         List<Document> batch = new ArrayList<>(page.getPositionCount());
 
         for (int position = 0; position < page.getPositionCount(); position++) {
             Document doc = new Document();
+            pageSinkIdColumnName.ifPresent(columnName -> doc.append(columnName, pageSinkId.getId()));
 
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 MongoColumnHandle column = columns.get(channel);
-                doc.append(column.getName(), getObjectValue(columns.get(channel).getType(), page.getBlock(channel), position));
+                doc.append(column.getBaseName(), getObjectValue(columns.get(channel).getType(), page.getBlock(channel), position));
             }
             batch.add(doc);
         }
@@ -130,54 +137,56 @@ public class MongoPageSink
         if (type.equals(OBJECT_ID)) {
             return new ObjectId(block.getSlice(position, 0, block.getSliceLength(position)).getBytes());
         }
-        if (type.equals(BooleanType.BOOLEAN)) {
-            return type.getBoolean(block, position);
+        if (type.equals(BOOLEAN)) {
+            return BOOLEAN.getBoolean(block, position);
         }
-        if (type.equals(BigintType.BIGINT)) {
-            return type.getLong(block, position);
+        if (type.equals(BIGINT)) {
+            return BIGINT.getLong(block, position);
         }
-        if (type.equals(IntegerType.INTEGER)) {
-            return toIntExact(type.getLong(block, position));
+        if (type.equals(INTEGER)) {
+            return INTEGER.getInt(block, position);
         }
-        if (type.equals(SmallintType.SMALLINT)) {
-            return Shorts.checkedCast(type.getLong(block, position));
+        if (type.equals(SMALLINT)) {
+            return SMALLINT.getShort(block, position);
         }
-        if (type.equals(TinyintType.TINYINT)) {
-            return SignedBytes.checkedCast(type.getLong(block, position));
+        if (type.equals(TINYINT)) {
+            return TINYINT.getByte(block, position);
         }
-        if (type.equals(RealType.REAL)) {
-            return intBitsToFloat(toIntExact(type.getLong(block, position)));
+        if (type.equals(REAL)) {
+            return REAL.getFloat(block, position);
         }
-        if (type.equals(DoubleType.DOUBLE)) {
-            return type.getDouble(block, position);
+        if (type.equals(DOUBLE)) {
+            return DOUBLE.getDouble(block, position);
         }
-        if (type instanceof VarcharType) {
-            return type.getSlice(block, position).toStringUtf8();
+        if (type instanceof VarcharType varcharType) {
+            return varcharType.getSlice(block, position).toStringUtf8();
         }
-        if (type instanceof CharType) {
-            return padSpaces(type.getSlice(block, position), ((CharType) type)).toStringUtf8();
+        if (type instanceof CharType charType) {
+            return padSpaces(charType.getSlice(block, position), charType).toStringUtf8();
         }
-        if (type.equals(VarbinaryType.VARBINARY)) {
-            return new Binary(type.getSlice(block, position).getBytes());
+        if (type.equals(VARBINARY)) {
+            return new Binary(VARBINARY.getSlice(block, position).getBytes());
         }
-        if (type.equals(DateType.DATE)) {
-            long days = type.getLong(block, position);
-            return new Date(TimeUnit.DAYS.toMillis(days));
+        if (type.equals(DATE)) {
+            int days = DATE.getInt(block, position);
+            return LocalDate.ofEpochDay(days);
         }
-        if (type.equals(TimeType.TIME)) {
-            long picos = type.getLong(block, position);
-            return new Date(roundDiv(picos, PICOSECONDS_PER_MILLISECOND));
+        if (type.equals(TIME_MILLIS)) {
+            long picos = TIME_MILLIS.getLong(block, position);
+            return LocalTime.ofNanoOfDay(roundDiv(picos, PICOSECONDS_PER_NANOSECOND));
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
-            long millisUtc = floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
-            return new Date(millisUtc);
+            long millisUtc = floorDiv(TIMESTAMP_MILLIS.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
+            Instant instant = Instant.ofEpochMilli(millisUtc);
+            return LocalDateTime.ofInstant(instant, UTC);
         }
-        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
-            long millisUtc = unpackMillisUtc(type.getLong(block, position));
-            return new Date(millisUtc);
+        if (type.equals(TIMESTAMP_TZ_MILLIS)) {
+            long millisUtc = unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, position));
+            Instant instant = Instant.ofEpochMilli(millisUtc);
+            return LocalDateTime.ofInstant(instant, UTC);
         }
-        if (type instanceof DecimalType) {
-            return readBigDecimal((DecimalType) type, block, position);
+        if (type instanceof DecimalType decimalType) {
+            return readBigDecimal(decimalType, block, position);
         }
         if (isJsonType(type)) {
             String json = type.getSlice(block, position).toStringUtf8();
@@ -188,8 +197,8 @@ public class MongoPageSink
                 throw new TrinoException(NOT_SUPPORTED, "Can't convert json to MongoDB Document: " + json, e);
             }
         }
-        if (isArrayType(type)) {
-            Type elementType = type.getTypeParameters().get(0);
+        if (type instanceof ArrayType arrayType) {
+            Type elementType = arrayType.getElementType();
 
             Block arrayBlock = block.getObject(position, Block.class);
 
@@ -201,9 +210,9 @@ public class MongoPageSink
 
             return unmodifiableList(list);
         }
-        if (isMapType(type)) {
-            Type keyType = type.getTypeParameters().get(0);
-            Type valueType = type.getTypeParameters().get(1);
+        if (type instanceof MapType mapType) {
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
 
             Block mapBlock = block.getObject(position, Block.class);
 
@@ -218,15 +227,15 @@ public class MongoPageSink
 
             return unmodifiableList(values);
         }
-        if (isRowType(type)) {
+        if (type instanceof RowType rowType) {
             Block rowBlock = block.getObject(position, Block.class);
 
-            List<Type> fieldTypes = type.getTypeParameters();
+            List<Type> fieldTypes = rowType.getTypeParameters();
             if (fieldTypes.size() != rowBlock.getPositionCount()) {
                 throw new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }
 
-            if (isImplicitRowType(type)) {
+            if (isImplicitRowType(rowType)) {
                 List<Object> rowValue = new ArrayList<>();
                 for (int i = 0; i < rowBlock.getPositionCount(); i++) {
                     Object element = getObjectValue(fieldTypes.get(i), rowBlock, i);
@@ -238,7 +247,7 @@ public class MongoPageSink
             Map<String, Object> rowValue = new HashMap<>();
             for (int i = 0; i < rowBlock.getPositionCount(); i++) {
                 rowValue.put(
-                        type.getTypeSignature().getParameters().get(i).getNamedTypeSignature().getName().orElse("field" + i),
+                        rowType.getTypeSignature().getParameters().get(i).getNamedTypeSignature().getName().orElse("field" + i),
                         getObjectValue(fieldTypes.get(i), rowBlock, i));
             }
             return unmodifiableMap(rowValue);
@@ -261,7 +270,7 @@ public class MongoPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        return completedFuture(ImmutableList.of());
+        return completedFuture(ImmutableList.of(Slices.wrappedLongArray(pageSinkId.getId())));
     }
 
     @Override

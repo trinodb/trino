@@ -34,7 +34,6 @@ import io.trino.orc.stream.PresentOutputStream;
 import io.trino.orc.stream.StreamDataOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -48,6 +47,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class LongColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(LongColumnWriter.class);
     private final OrcColumnId columnId;
     private final Type type;
     private final boolean compressed;

@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTableHandle;
@@ -31,21 +33,19 @@ import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 import io.trino.spi.type.ArrayType;
 
-import javax.inject.Inject;
-import javax.inject.Provider;
-
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.metastore.utils.FileUtils.makePartName;
 
 /**
  * A procedure that drops statistics.  It can be invoked for a subset of partitions (e.g.
@@ -55,14 +55,16 @@ import static org.apache.hadoop.hive.metastore.utils.FileUtils.makePartName;
 public class DropStatsProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle DROP_STATS = methodHandle(
-            DropStatsProcedure.class,
-            "dropStats",
-            ConnectorSession.class,
-            ConnectorAccessControl.class,
-            String.class,
-            String.class,
-            List.class);
+    private static final MethodHandle DROP_STATS;
+
+    static {
+        try {
+            DROP_STATS = lookup().unreflect(DropStatsProcedure.class.getMethod("dropStats", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, List.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final TransactionalMetadataFactory hiveMetadataFactory;
 
@@ -94,6 +96,9 @@ public class DropStatsProcedure
 
     private void doDropStats(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<?> partitionValues)
     {
+        checkProcedureArgument(schema != null, "schema_name cannot be null");
+        checkProcedureArgument(table != null, "table_name cannot be null");
+
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create(session.getIdentity(), true);
         HiveTableHandle handle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
         if (handle == null) {

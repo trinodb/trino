@@ -16,14 +16,13 @@ package io.trino.execution.buffer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.Immutable;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.Immutable;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -78,7 +77,7 @@ class ClientBuffer
         this.onPagesReleased = requireNonNull(onPagesReleased, "onPagesReleased is null");
     }
 
-    public BufferInfo getInfo()
+    public PipelinedBufferInfo getInfo()
     {
         //
         // NOTE: this code must be lock free so state machine updates do not hang
@@ -93,8 +92,7 @@ class ClientBuffer
         // if destroyed the buffered page count must be zero regardless of observation ordering in this lock free code
         int bufferedPages = destroyed ? 0 : Math.max(toIntExact(pagesAdded.get() - sequenceId), 0);
 
-        PageBufferInfo pageBufferInfo = new PageBufferInfo(bufferId.getId(), bufferedPages, bufferedBytes.get(), rowsAdded.get(), pagesAdded.get());
-        return new BufferInfo(bufferId, destroyed, bufferedPages, sequenceId, pageBufferInfo);
+        return new PipelinedBufferInfo(bufferId, rowsAdded.get(), pagesAdded.get(), bufferedPages, bufferedBytes.get(), sequenceId, destroyed);
     }
 
     public boolean isDestroyed()

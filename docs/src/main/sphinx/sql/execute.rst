@@ -43,4 +43,4 @@ This is equivalent to::
 See also
 --------
 
-:doc:`prepare`
+:doc:`prepare`, :doc:`deallocate-prepare`, :doc:`execute-immediate`

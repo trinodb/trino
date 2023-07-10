@@ -8,12 +8,12 @@ Usage: $0 [-h] [-a <ARCHITECTURES>] [-r <VERSION>]
 Builds the Trino Docker image
 
 -h       Display help
--a       Build the specified comma-separated architectures, defaults to amd64,arm64
+-a       Build the specified comma-separated architectures, defaults to amd64,arm64,ppc64le
 -r       Build the specified Trino release version, downloads all required artifacts
 EOF
 }
 
-ARCHITECTURES=(amd64 arm64)
+ARCHITECTURES=(amd64 arm64 ppc64le)
 TRINO_VERSION=
 
 while getopts ":a:h:r:" o; do
@@ -87,6 +87,9 @@ echo "🏃 Testing built images"
 source container-test.sh
 
 for arch in "${ARCHITECTURES[@]}"; do
-    test_container "${TAG_PREFIX}-$arch" "linux/$arch"
+    # TODO: remove when https://github.com/multiarch/qemu-user-static/issues/128 is fixed
+    if [[ "$arch" != "ppc64le" ]]; then
+        test_container "${TAG_PREFIX}-$arch" "linux/$arch"
+    fi
     docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' "${TAG_PREFIX}-$arch"
 done

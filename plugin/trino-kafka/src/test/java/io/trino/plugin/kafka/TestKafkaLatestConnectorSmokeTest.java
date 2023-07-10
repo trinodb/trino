@@ -34,17 +34,25 @@ public class TestKafkaLatestConnectorSmokeTest
                 .build();
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+                return false;
+
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
 
             case SUPPORTS_CREATE_TABLE:
+            case SUPPORTS_RENAME_TABLE:
                 return false;
 
-            case SUPPORTS_RENAME_TABLE:
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
             default:

@@ -15,13 +15,13 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.TDigest;
+import io.trino.block.BlockAssertions;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.function.BiFunction;
@@ -31,7 +31,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
-import static io.trino.block.BlockAssertions.createRLEBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.operator.scalar.TDigestFunctions.DEFAULT_WEIGHT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -42,7 +41,6 @@ import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
 public class TestTDigestAggregationFunction
-        extends AbstractTestFunctions
 {
     private static final BiFunction<Object, Object, Boolean> TDIGEST_EQUALITY = (actualBinary, expectedBinary) -> {
         if (actualBinary == null && expectedBinary == null) {
@@ -71,7 +69,7 @@ public class TestTDigestAggregationFunction
                 1.0, 2.0, 3.0, 4.0, 5.0);
         testAggregation(
                 createDoublesBlock(null, null, null, null, null),
-                createRLEBlock(1.0, 5),
+                BlockAssertions.createRepeatedValuesBlock(1.0, 5),
                 ImmutableList.of());
         testAggregation(
                 createDoublesBlock(-1.0, -2.0, -3.0, -4.0, -5.0, -6.0, -7.0, -8.0, -9.0, -10.0),
@@ -85,11 +83,11 @@ public class TestTDigestAggregationFunction
                 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0);
         testAggregation(
                 createDoublesBlock(),
-                createRLEBlock(1.0, 0),
+                BlockAssertions.createRepeatedValuesBlock(1.0, 0),
                 ImmutableList.of());
         testAggregation(
                 createDoublesBlock(1.0),
-                createRLEBlock(1.1, 1),
+                BlockAssertions.createRepeatedValuesBlock(1.1, 1),
                 ImmutableList.of(1.1),
                 1.0);
 

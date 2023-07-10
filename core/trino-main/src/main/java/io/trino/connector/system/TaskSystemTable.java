@@ -13,6 +13,7 @@
  */
 package io.trino.connector.system;
 
+import com.google.inject.Inject;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -30,8 +31,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import org.joda.time.DateTime;
-
-import javax.inject.Inject;
 
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.ALL_NODES;

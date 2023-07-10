@@ -17,11 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.FeaturesConfig;
 import io.trino.client.NodeVersion;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -41,11 +45,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
-import static io.trino.metadata.Signature.mangleOperatorName;
-import static io.trino.metadata.Signature.unmangleOperator;
-import static io.trino.metadata.TypeVariableConstraint.typeVariable;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
+import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.TypeVariableConstraint.typeVariable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
@@ -265,7 +269,7 @@ public class TestGlobalFunctionCatalog
     private static List<FunctionMetadata> listOperators(Metadata metadata)
     {
         Set<String> operatorNames = Arrays.stream(OperatorType.values())
-                .map(Signature::mangleOperatorName)
+                .map(OperatorNameUtil::mangleOperatorName)
                 .collect(toImmutableSet());
 
         return metadata.listFunctions(TEST_SESSION).stream()
@@ -355,9 +359,9 @@ public class TestGlobalFunctionCatalog
                 functions.add(new SqlScalarFunction(functionMetadata)
                 {
                     @Override
-                    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+                    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
                     {
-                        return new ChoicesScalarFunctionImplementation(
+                        return new ChoicesSpecializedSqlScalarFunction(
                                 boundSignature,
                                 FAIL_ON_NULL,
                                 nCopies(boundSignature.getArity(), NEVER_NULL),

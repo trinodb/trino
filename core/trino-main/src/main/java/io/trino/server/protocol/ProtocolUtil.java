@@ -54,7 +54,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -72,18 +71,6 @@ public final class ProtocolUtil
 
     private ProtocolUtil() {}
 
-    public static List<Column> createColumns(List<String> columnNames, List<Type> columnTypes, boolean supportsParametricDateTime)
-    {
-        checkArgument(columnNames.size() == columnTypes.size(), "Column names and types size mismatch");
-
-        ImmutableList.Builder<Column> list = ImmutableList.builder();
-        for (int i = 0; i < columnNames.size(); i++) {
-            list.add(createColumn(columnNames.get(i), columnTypes.get(i), supportsParametricDateTime));
-        }
-        List<Column> columns = list.build();
-        return columns;
-    }
-
     public static Column createColumn(String name, Type type, boolean supportsParametricDateTime)
     {
         String formatted = formatType(TypeSignatureTranslator.toSqlType(type), supportsParametricDateTime);
@@ -93,8 +80,7 @@ public final class ProtocolUtil
 
     private static String formatType(DataType type, boolean supportsParametricDateTime)
     {
-        if (type instanceof DateTimeDataType) {
-            DateTimeDataType dataTimeType = (DateTimeDataType) type;
+        if (type instanceof DateTimeDataType dataTimeType) {
             if (!supportsParametricDateTime) {
                 if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && dataTimeType.isWithTimeZone()) {
                     return TIMESTAMP_WITH_TIME_ZONE;
@@ -112,14 +98,12 @@ public final class ProtocolUtil
 
             return ExpressionFormatter.formatExpression(type);
         }
-        if (type instanceof RowDataType) {
-            RowDataType rowDataType = (RowDataType) type;
+        if (type instanceof RowDataType rowDataType) {
             return rowDataType.getFields().stream()
                     .map(field -> field.getName().map(name -> name + " ").orElse("") + formatType(field.getType(), supportsParametricDateTime))
                     .collect(Collectors.joining(", ", ROW + "(", ")"));
         }
-        if (type instanceof GenericDataType) {
-            GenericDataType dataType = (GenericDataType) type;
+        if (type instanceof GenericDataType dataType) {
             if (dataType.getArguments().isEmpty()) {
                 return dataType.getName().getValue();
             }
@@ -195,6 +179,8 @@ public final class ProtocolUtil
                 .setState(queryInfo.getState().toString())
                 .setQueued(queryInfo.getState() == QueryState.QUEUED)
                 .setScheduled(queryInfo.isScheduled())
+                .setProgressPercentage(queryInfo.getProgressPercentage())
+                .setRunningPercentage(queryInfo.getRunningPercentage())
                 .setNodes(globalUniqueNodes.size())
                 .setTotalSplits(queryStats.getTotalDrivers())
                 .setQueuedSplits(queryStats.getQueuedDrivers())

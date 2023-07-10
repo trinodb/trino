@@ -13,21 +13,25 @@
  */
 package io.trino.execution.scheduler;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import io.trino.connector.CatalogHandle;
+import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.StageId;
+import io.trino.metadata.Split;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
+import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,7 +51,7 @@ public class TestTaskDescriptorStorage
     @Test
     public void testHappyPath()
     {
-        TaskDescriptorStorage manager = new TaskDescriptorStorage(DataSize.of(10, KILOBYTE));
+        TaskDescriptorStorage manager = new TaskDescriptorStorage(DataSize.of(15, KILOBYTE));
         manager.initialize(QUERY_1);
         manager.initialize(QUERY_2);
 
@@ -59,8 +63,8 @@ public class TestTaskDescriptorStorage
         manager.put(QUERY_2_STAGE_2, createTaskDescriptor(1, DataSize.of(2, KILOBYTE), "catalog6"));
 
         assertThat(manager.getReservedBytes())
-                .isGreaterThanOrEqualTo(toBytes(8, KILOBYTE))
-                .isLessThanOrEqualTo(toBytes(10, KILOBYTE));
+                .isGreaterThanOrEqualTo(toBytes(10, KILOBYTE))
+                .isLessThanOrEqualTo(toBytes(15, KILOBYTE));
 
         assertThat(manager.get(QUERY_1_STAGE_1, 0))
                 .flatMap(TestTaskDescriptorStorage::getCatalogName)
@@ -90,8 +94,8 @@ public class TestTaskDescriptorStorage
                 .hasMessageContaining("descriptor not found for key");
 
         assertThat(manager.getReservedBytes())
-                .isGreaterThanOrEqualTo(toBytes(5, KILOBYTE))
-                .isLessThanOrEqualTo(toBytes(7, KILOBYTE));
+                .isGreaterThanOrEqualTo(toBytes(6, KILOBYTE))
+                .isLessThanOrEqualTo(toBytes(8, KILOBYTE));
     }
 
     @Test
@@ -136,8 +140,8 @@ public class TestTaskDescriptorStorage
 
         // assert that the memory has been released
         assertThat(manager.getReservedBytes())
-                .isGreaterThanOrEqualTo(toBytes(3, KILOBYTE))
-                .isLessThanOrEqualTo(toBytes(4, KILOBYTE));
+                .isGreaterThanOrEqualTo(toBytes(4, KILOBYTE))
+                .isLessThanOrEqualTo(toBytes(5, KILOBYTE));
 
         // check that the any future operations for QUERY_1 will fail
         assertThatThrownBy(() -> manager.put(QUERY_1_STAGE_1, createTaskDescriptor(0, DataSize.of(1, KILOBYTE))))
@@ -194,9 +198,10 @@ public class TestTaskDescriptorStorage
     {
         return new TaskDescriptor(
                 partitionId,
-                ImmutableListMultimap.of(),
-                ImmutableListMultimap.of(new PlanNodeId("1"), new TestingExchangeSourceHandle(retainedSize.toBytes())),
-                new NodeRequirements(catalog, ImmutableSet.of(), DataSize.of(4, GIGABYTE)));
+                ImmutableListMultimap.of(
+                        new PlanNodeId("1"),
+                        new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.of(new TestingExchangeSourceHandle(retainedSize.toBytes())), Optional.empty())))),
+                new NodeRequirements(catalog, ImmutableSet.of()));
     }
 
     private static Optional<String> getCatalogName(TaskDescriptor descriptor)
@@ -208,11 +213,10 @@ public class TestTaskDescriptorStorage
 
     private static boolean isStorageCapacityExceededFailure(Throwable t)
     {
-        if (!(t instanceof TrinoException)) {
+        if (!(t instanceof TrinoException trinoException)) {
             return false;
         }
-        TrinoException e = (TrinoException) t;
-        return e.getErrorCode().getCode() == EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY.toErrorCode().getCode();
+        return trinoException.getErrorCode().getCode() == EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY.toErrorCode().getCode();
     }
 
     private static long toBytes(int size, DataSize.Unit unit)
@@ -232,6 +236,12 @@ public class TestTaskDescriptorStorage
 
         @Override
         public int getPartitionId()
+        {
+            return 0;
+        }
+
+        @Override
+        public long getDataSizeInBytes()
         {
             return 0;
         }

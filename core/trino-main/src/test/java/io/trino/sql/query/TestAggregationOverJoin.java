@@ -27,15 +27,16 @@ public class TestAggregationOverJoin
     {
         // https://github.com/prestodb/presto/issues/10592
         try (QueryAssertions assertions = new QueryAssertions()) {
-            assertThat(assertions.query(
-                    "WITH " +
-                            "    t (a, b) AS (VALUES (1, 'a'), (1, 'b')), " +
-                            "    u (a) AS (VALUES 1) " +
-                            "SELECT DISTINCT v.a " +
-                            "FROM ( " +
-                            "    SELECT DISTINCT a, b " +
-                            "    FROM t) v " +
-                            "LEFT JOIN u on v.a = u.a"))
+            assertThat(assertions.query("""
+                    WITH
+                        t (a, b) AS (VALUES (1, 'a'), (1, 'b')),
+                        u (a) AS (VALUES 1)
+                    SELECT DISTINCT v.a
+                    FROM (
+                        SELECT DISTINCT a, b
+                        FROM t) v
+                    LEFT JOIN u on v.a = u.a
+                    """))
                     .matches("VALUES 1");
         }
     }

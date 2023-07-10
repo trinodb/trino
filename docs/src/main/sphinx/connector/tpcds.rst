@@ -15,7 +15,7 @@ Configuration
 -------------
 
 To configure the TPCDS connector, create a catalog properties file
-``etc/catalog/tpcds.properties`` with the following contents:
+``etc/catalog/example.properties`` with the following contents:
 
 .. code-block:: text
 
@@ -26,7 +26,7 @@ TPCDS schemas
 
 The TPCDS connector supplies several schemas::
 
-    SHOW SCHEMAS FROM tpcds;
+    SHOW SCHEMAS FROM example;
 
 .. code-block:: text
 
@@ -57,6 +57,14 @@ corresponds to a gigabyte of data. For example, for scale factor ``300``,
 a total of ``300`` gigabytes are generated. The ``tiny`` schema is an
 alias for scale factor ``0.01``, which is a very small data set useful for
 testing.
+
+.. _tpcds-type-mapping:
+
+Type mapping
+------------
+
+Trino supports all data types used within the TPCDS schemas so no mapping is
+required.
 
 .. _tpcds-sql-support:
 

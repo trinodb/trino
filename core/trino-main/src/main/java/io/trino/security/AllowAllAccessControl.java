@@ -73,13 +73,23 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanCreateCatalog(SecurityContext context, String catalog)
+    {
+    }
+
+    @Override
+    public void checkCanDropCatalog(SecurityContext context, String catalog)
+    {
+    }
+
+    @Override
     public Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs)
     {
         return catalogs;
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties)
     {
     }
 
@@ -182,6 +192,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName)
     {
     }
@@ -268,6 +283,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
     {
     }
 

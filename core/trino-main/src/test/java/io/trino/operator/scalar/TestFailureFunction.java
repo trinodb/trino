@@ -15,35 +15,41 @@ package io.trino.operator.scalar;
 
 import io.airlift.json.JsonCodec;
 import io.trino.client.FailureInfo;
-import io.trino.spi.TrinoException;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.sql.query.QueryAssertions;
 import io.trino.util.Failures;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestFailureFunction
-        extends AbstractTestFunctions
 {
-    private static final String FAILURE_INFO = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(new RuntimeException("fail me")).toFailureInfo());
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
 
     @Test
     public void testFailure()
     {
-        assertInvalidFunction("fail(json_parse('" + FAILURE_INFO + "'))", GENERIC_USER_ERROR, "fail me");
-    }
-
-    @Test
-    public void testQuery()
-    {
-        // The other test does not exercise this function during execution (i.e. inside a page processor).
-        // It only verifies constant folding works.
-        try (LocalQueryRunner runner = LocalQueryRunner.create(TEST_SESSION)) {
-            assertThatThrownBy(() -> runner.execute("select if(x, 78, 0/0) from (values rand() >= 0, rand() < 0) t(x)"))
-                    .isInstanceOf(TrinoException.class)
-                    .hasMessageMatching("Division by zero");
-        }
+        String failure = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(new RuntimeException("fail me")).toFailureInfo());
+        assertTrinoExceptionThrownBy(() -> assertions.function("fail", "json_parse('" + failure + "')").evaluate())
+                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasMessage("fail me");
     }
 }

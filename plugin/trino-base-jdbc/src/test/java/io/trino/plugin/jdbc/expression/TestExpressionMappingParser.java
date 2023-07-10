@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionMappingParser
 {
@@ -66,18 +66,18 @@ public class TestExpressionMappingParser
                         Optional.empty()));
 
         assertExpressionPattern(
-                "$like_pattern(a: varchar(n), b: varchar(m))",
+                "$like(a: varchar(n), b: varchar(m))",
                 new CallPattern(
-                        "$like_pattern",
+                        "$like",
                         List.of(
                                 new ExpressionCapture("a", type("varchar", parameter("n"))),
                                 new ExpressionCapture("b", type("varchar", parameter("m")))),
                         Optional.empty()));
 
         assertExpressionPattern(
-                "$like_pattern(a: varchar(n), b: varchar(m)): boolean",
+                "$like(a: varchar(n), b: varchar(m)): boolean",
                 new CallPattern(
-                        "$like_pattern",
+                        "$like",
                         List.of(
                                 new ExpressionCapture("a", type("varchar", parameter("n"))),
                                 new ExpressionCapture("b", type("varchar", parameter("m")))),
@@ -105,8 +105,8 @@ public class TestExpressionMappingParser
 
     private static void assertExpressionPattern(String expressionPattern, String canonical, ExpressionPattern expected)
     {
-        assertEquals(expressionPattern(expressionPattern), expected);
-        assertEquals(expected.toString(), canonical);
+        assertThat(expressionPattern(expressionPattern)).isEqualTo(expected);
+        assertThat(expected.toString()).isEqualTo(canonical);
     }
 
     private static ExpressionPattern expressionPattern(String expressionPattern)

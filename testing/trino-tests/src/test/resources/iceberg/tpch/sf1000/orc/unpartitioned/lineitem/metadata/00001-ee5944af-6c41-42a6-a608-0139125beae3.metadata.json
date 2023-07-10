@@ -1,0 +1,243 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "2d8a3630-df3e-48f9-974b-3b77a1a0b382",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-ORC/lineitem",
+  "last-updated-ms" : 1663697785077,
+  "last-column-id" : 16,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "orderkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "partkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "suppkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "linenumber",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "quantity",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 6,
+      "name" : "extendedprice",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 7,
+      "name" : "discount",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 8,
+      "name" : "tax",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 9,
+      "name" : "returnflag",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "linestatus",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "shipdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 12,
+      "name" : "commitdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 13,
+      "name" : "receiptdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 14,
+      "name" : "shipinstruct",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "shipmode",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "comment",
+      "required" : false,
+      "type" : "string"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "orderkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "partkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "suppkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "linenumber",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "quantity",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 6,
+      "name" : "extendedprice",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 7,
+      "name" : "discount",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 8,
+      "name" : "tax",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 9,
+      "name" : "returnflag",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "linestatus",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "shipdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 12,
+      "name" : "commitdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 13,
+      "name" : "receiptdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 14,
+      "name" : "shipinstruct",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "shipmode",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "comment",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.2.ndv" : "205115671",
+    "trino.stats.ndv.7.ndv" : "11",
+    "trino.stats.ndv.16.ndv" : "153538485",
+    "trino.stats.ndv.4.ndv" : "7",
+    "trino.stats.ndv.5.ndv" : "50",
+    "trino.stats.ndv.9.ndv" : "3",
+    "trino.stats.ndv.14.ndv" : "4",
+    "trino.stats.ndv.12.ndv" : "2493",
+    "trino.stats.ndv.10.ndv" : "2",
+    "trino.stats.ndv.8.ndv" : "9",
+    "trino.stats.ndv.1.ndv" : "1485693109",
+    "trino.stats.ndv.15.ndv" : "7",
+    "trino.stats.ndv.3.ndv" : "10311101",
+    "trino.stats.ndv.6.ndv" : "3790825",
+    "write.format.default" : "ORC",
+    "trino.stats.ndv.13.ndv" : "2576",
+    "trino.stats.ndv.11.ndv" : "2551"
+  },
+  "current-snapshot-id" : 4352555810371227857,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 4352555810371227857,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 4352555810371227857,
+    "timestamp-ms" : 1647878270929,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "155",
+      "added-records" : "5999989709",
+      "added-files-size" : "163649958652",
+      "changed-partition-count" : "1",
+      "total-records" : "5999989709",
+      "total-files-size" : "163649958652",
+      "total-data-files" : "155",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-ORC/lineitem/metadata/snap-4352555810371227857-1-27bed02d-660f-4274-bf90-81621ac8000d.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1647878270929,
+    "snapshot-id" : 4352555810371227857
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1647878270929,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-ORC/lineitem/metadata/00000-f22e58ee-c309-45b2-aa68-ca11028d85c8.metadata.json"
+  } ]
+}

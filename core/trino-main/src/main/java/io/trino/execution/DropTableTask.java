@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -22,8 +23,6 @@ import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.Expression;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -86,7 +85,7 @@ public class DropTableTask
         QualifiedObjectName tableName = redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName);
         accessControl.checkCanDropTable(session.toSecurityContext(), tableName);
 
-        metadata.dropTable(session, redirectionAwareTableHandle.getTableHandle().get());
+        metadata.dropTable(session, redirectionAwareTableHandle.getTableHandle().get(), tableName.asCatalogSchemaTableName());
 
         return immediateVoidFuture();
     }

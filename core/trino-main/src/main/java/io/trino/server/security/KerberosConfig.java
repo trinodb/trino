@@ -16,8 +16,7 @@ package io.trino.server.security;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.Optional;
@@ -71,7 +70,7 @@ public class KerberosConfig
         return keytab;
     }
 
-    @Config(HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB)
+    @Config("http-server.authentication.krb5.keytab")
     @LegacyConfig("http.server.authentication.krb5.keytab")
     public KerberosConfig setKeytab(File keytab)
     {

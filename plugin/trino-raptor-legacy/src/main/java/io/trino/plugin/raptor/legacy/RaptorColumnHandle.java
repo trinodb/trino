@@ -22,6 +22,9 @@ import java.util.Objects;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +33,6 @@ public final class RaptorColumnHandle
 {
     // Generated rowId column for updates
     private static final long SHARD_ROW_ID_COLUMN_ID = -1;
-    private static final String SHARD_ROW_ID_COLUMN_NAME = "$shard_row_id";
 
     public static final long SHARD_UUID_COLUMN_ID = -2;
     public static final String SHARD_UUID_COLUMN_NAME = "$shard_uuid";
@@ -38,6 +40,13 @@ public final class RaptorColumnHandle
 
     public static final long BUCKET_NUMBER_COLUMN_ID = -3;
     public static final String BUCKET_NUMBER_COLUMN_NAME = "$bucket_number";
+
+    private static final long MERGE_ROW_ID_COLUMN_ID = -4;
+    private static final String MERGE_ROW_ID_COLUMN_NAME = "$merge_row_id";
+    private static final Type MERGE_ROW_ID_COLUMN_TYPE = rowType(
+            field("bucket", INTEGER),
+            field("uuid", UUID),
+            field("row_id", BIGINT));
 
     private final String columnName;
     private final long columnId;
@@ -97,11 +106,6 @@ public final class RaptorColumnHandle
         return Objects.hash(columnId);
     }
 
-    public boolean isShardRowId()
-    {
-        return isShardRowIdColumn(columnId);
-    }
-
     public boolean isShardUuid()
     {
         return isShardUuidColumn(columnId);
@@ -115,11 +119,6 @@ public final class RaptorColumnHandle
     public static boolean isShardRowIdColumn(long columnId)
     {
         return columnId == SHARD_ROW_ID_COLUMN_ID;
-    }
-
-    public static RaptorColumnHandle shardRowIdHandle()
-    {
-        return new RaptorColumnHandle(SHARD_ROW_ID_COLUMN_NAME, SHARD_ROW_ID_COLUMN_ID, BIGINT);
     }
 
     public static boolean isShardUuidColumn(long columnId)
@@ -140,6 +139,16 @@ public final class RaptorColumnHandle
     public static RaptorColumnHandle bucketNumberColumnHandle()
     {
         return new RaptorColumnHandle(BUCKET_NUMBER_COLUMN_NAME, BUCKET_NUMBER_COLUMN_ID, INTEGER);
+    }
+
+    public static RaptorColumnHandle mergeRowIdHandle()
+    {
+        return new RaptorColumnHandle(MERGE_ROW_ID_COLUMN_NAME, MERGE_ROW_ID_COLUMN_ID, MERGE_ROW_ID_COLUMN_TYPE);
+    }
+
+    public static boolean isMergeRowIdColumn(long columnId)
+    {
+        return columnId == MERGE_ROW_ID_COLUMN_ID;
     }
 
     public static boolean isHiddenColumn(long columnId)

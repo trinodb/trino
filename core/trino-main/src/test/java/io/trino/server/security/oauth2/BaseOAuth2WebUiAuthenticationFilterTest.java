@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
-import io.airlift.testing.Closeables;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
@@ -46,18 +45,20 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static javax.ws.rs.core.HttpHeaders.LOCATION;
-import static javax.ws.rs.core.Response.Status.OK;
-import static javax.ws.rs.core.Response.Status.SEE_OTHER;
-import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.ws.rs.core.HttpHeaders.LOCATION;
+import static jakarta.ws.rs.core.Response.Status.OK;
+import static jakarta.ws.rs.core.Response.Status.SEE_OTHER;
+import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
@@ -75,28 +76,24 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
     private static final String UNTRUSTED_CLIENT_SECRET = "untrusted-secret";
     private static final String UNTRUSTED_CLIENT_AUDIENCE = "https://untrusted.com";
 
-    private final Logging logging = Logging.initialize();
-    protected final OkHttpClient httpClient;
+    protected OkHttpClient httpClient;
     protected TestingHydraIdentityProvider hydraIdP;
-
     private TestingTrinoServer server;
     private URI serverUri;
     private URI uiUri;
-
-    protected BaseOAuth2WebUiAuthenticationFilterTest()
-    {
-        OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
-        setupInsecureSsl(httpClientBuilder);
-        httpClientBuilder.followRedirects(false);
-        httpClient = httpClientBuilder.build();
-    }
 
     @BeforeClass
     public void setup()
             throws Exception
     {
+        Logging logging = Logging.initialize();
         logging.setLevel(OAuth2WebUiAuthenticationFilter.class.getName(), Level.DEBUG);
         logging.setLevel(OAuth2Service.class.getName(), Level.DEBUG);
+
+        OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
+        setupInsecureSsl(httpClientBuilder);
+        httpClientBuilder.followRedirects(false);
+        httpClient = httpClientBuilder.build();
 
         hydraIdP = getHydraIdp();
         String idpUrl = "https://localhost:" + hydraIdP.getAuthPort();
@@ -131,7 +128,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                 "https://untrusted.com/callback");
     }
 
-    protected abstract ImmutableMap<String, String> getOAuth2Config(String idpUrl);
+    protected abstract Map<String, String> getOAuth2Config(String idpUrl);
 
     protected abstract TestingHydraIdentityProvider getHydraIdp()
             throws Exception;
@@ -140,9 +137,20 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
     public void tearDown()
             throws Exception
     {
+        Logging logging = Logging.initialize();
         logging.clearLevel(OAuth2WebUiAuthenticationFilter.class.getName());
         logging.clearLevel(OAuth2Service.class.getName());
-        Closeables.closeAll(server, hydraIdP);
+
+        closeAll(
+                server,
+                hydraIdP,
+                () -> {
+                    httpClient.dispatcher().executorService().shutdown();
+                    httpClient.connectionPool().evictAll();
+                });
+        server = null;
+        hydraIdP = null;
+        httpClient = null;
     }
 
     @Test
@@ -245,15 +253,15 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         assertThat(cookieStore.get(uiUri)).isEmpty();
 
         // access UI and follow redirects in order to get OAuth2 cookie
-        Response response = httpClient.newCall(
+        try (Response response = httpClient.newCall(
                 new Request.Builder()
                         .url(uiUri.toURL())
                         .get()
                         .build())
-                .execute();
-
-        assertEquals(response.code(), SC_OK);
-        assertEquals(response.request().url().toString(), uiUri.toString());
+                .execute()) {
+            assertEquals(response.code(), SC_OK);
+            assertEquals(response.request().url().toString(), uiUri.toString());
+        }
         Optional<HttpCookie> oauth2Cookie = cookieStore.get(uiUri)
                 .stream()
                 .filter(cookie -> cookie.getName().equals(OAUTH2_COOKIE))
@@ -313,7 +321,6 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         }
     }
 
-    @SuppressWarnings("NullableProblems")
     private OkHttpClient httpClientWithOAuth2Cookie(String cookieValue, boolean followRedirects)
     {
         OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();

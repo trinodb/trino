@@ -257,9 +257,7 @@ final class StochasticPriorityQueue<E>
                 if (left.get().descendants < right.get().descendants) {
                     return left.get().addNode(value, tickets);
                 }
-                else {
-                    return right.get().addNode(value, tickets);
-                }
+                return right.get().addNode(value, tickets);
             }
 
             Node<E> child = new Node<>(Optional.of(this), value);

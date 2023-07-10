@@ -20,7 +20,7 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Arrays.asList;
 
 public class TestRFC2822JsonFieldDecoder
@@ -31,15 +31,15 @@ public class TestRFC2822JsonFieldDecoder
     public void testDecode()
     {
         tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", TIMESTAMP_MILLIS, 1_518_182_119_000_000L);
-        tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1518182119000L, UTC_KEY));
+        tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", TIMESTAMP_TZ_MILLIS, packDateTimeWithZone(1518182119000L, UTC_KEY));
         tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", TIMESTAMP_MILLIS, 1_518_182_119_000_000L);
-        tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1518182119000L, getTimeZoneKeyForOffset(120)));
+        tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", TIMESTAMP_TZ_MILLIS, packDateTimeWithZone(1518182119000L, getTimeZoneKeyForOffset(120)));
     }
 
     @Test
     public void testDecodeNulls()
     {
-        for (Type type : asList(TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE)) {
+        for (Type type : asList(TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS)) {
             tester.assertDecodedAsNull("null", type);
             tester.assertMissingDecodedAsNull(type);
         }

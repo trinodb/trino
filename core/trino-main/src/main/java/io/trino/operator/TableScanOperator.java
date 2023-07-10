@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.trino.Session;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
@@ -28,19 +27,15 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -117,13 +112,13 @@ public class TableScanOperator
 
         @Override
         public WorkProcessorSourceOperator create(
-                Session session,
+                OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits)
         {
             return new TableScanWorkProcessorOperator(
-                    session,
+                    operatorContext.getSession(),
                     memoryTrackingContext,
                     splits,
                     pageSourceProvider,
@@ -189,13 +184,13 @@ public class TableScanOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public void addSplit(Split split)
     {
         requireNonNull(split, "split is null");
         checkState(this.split == null, "Table scan split already set");
 
         if (finished) {
-            return Optional::empty;
+            return;
         }
 
         this.split = split;
@@ -210,13 +205,6 @@ public class TableScanOperator
         if (split.getConnectorSplit() instanceof EmptySplit) {
             source = new EmptyPageSource();
         }
-
-        return () -> {
-            if (source instanceof UpdatablePageSource) {
-                return Optional.of((UpdatablePageSource) source);
-            }
-            return Optional.empty();
-        };
     }
 
     @Override

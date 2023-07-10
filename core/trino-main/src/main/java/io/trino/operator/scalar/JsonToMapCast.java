@@ -13,19 +13,21 @@
  */
 package io.trino.operator.scalar;
 
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonCastException;
@@ -43,8 +45,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.BlockBuilderAppender.createBlockBuilderAppender;
-import static io.trino.util.JsonUtil.JSON_FACTORY;
 import static io.trino.util.JsonUtil.canCastFromJson;
+import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static io.trino.util.Reflection.methodHandle;
@@ -55,6 +57,13 @@ public class JsonToMapCast
 {
     public static final JsonToMapCast JSON_TO_MAP = new JsonToMapCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", MapType.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
+
+    private static final JsonFactory JSON_FACTORY = createJsonFactory();
+
+    static {
+        // Changes factory. Necessary for JsonParser.readValueAsTree to work.
+        new ObjectMapper(JSON_FACTORY);
+    }
 
     private JsonToMapCast()
     {
@@ -71,7 +80,7 @@ public class JsonToMapCast
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         checkArgument(boundSignature.getArity() == 1, "Expected arity to be 1");
         MapType mapType = (MapType) boundSignature.getReturnType();
@@ -79,7 +88,7 @@ public class JsonToMapCast
 
         BlockBuilderAppender mapAppender = createBlockBuilderAppender(mapType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType).bindTo(mapAppender);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),

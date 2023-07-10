@@ -41,10 +41,12 @@ public class TestMemoryManagerConfig
                 .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
                 .setMaxQueryMemory(DataSize.of(20, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(40, GIGABYTE))
+                .setFaultTolerantExecutionCoordinatorTaskMemory(DataSize.of(2, GIGABYTE))
                 .setFaultTolerantExecutionTaskMemory(DataSize.of(5, GIGABYTE))
                 .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(1, GIGABYTE))
                 .setFaultTolerantExecutionTaskMemoryGrowthFactor(3.0)
-                .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.9));
+                .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.9)
+                .setFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(true));
     }
 
     @Test
@@ -56,10 +58,12 @@ public class TestMemoryManagerConfig
                 .put("query.low-memory-killer.delay", "20s")
                 .put("query.max-memory", "2GB")
                 .put("query.max-total-memory", "3GB")
+                .put("fault-tolerant-execution-coordinator-task-memory", "123GB")
                 .put("fault-tolerant-execution-task-memory", "2GB")
                 .put("fault-tolerant-execution-task-runtime-memory-estimation-overhead", "300MB")
                 .put("fault-tolerant-execution-task-memory-growth-factor", "17.3")
                 .put("fault-tolerant-execution-task-memory-estimation-quantile", "0.7")
+                .put("fault-tolerant-execution.memory-requirement-increase-on-worker-crash-enabled", "false")
                 .buildOrThrow();
 
         MemoryManagerConfig expected = new MemoryManagerConfig()
@@ -68,10 +72,12 @@ public class TestMemoryManagerConfig
                 .setKillOnOutOfMemoryDelay(new Duration(20, SECONDS))
                 .setMaxQueryMemory(DataSize.of(2, GIGABYTE))
                 .setMaxQueryTotalMemory(DataSize.of(3, GIGABYTE))
+                .setFaultTolerantExecutionCoordinatorTaskMemory(DataSize.of(123, GIGABYTE))
                 .setFaultTolerantExecutionTaskMemory(DataSize.of(2, GIGABYTE))
                 .setFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(DataSize.of(300, MEGABYTE))
                 .setFaultTolerantExecutionTaskMemoryGrowthFactor(17.3)
-                .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.7);
+                .setFaultTolerantExecutionTaskMemoryEstimationQuantile(0.7)
+                .setFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(false);
 
         assertFullMapping(properties, expected);
     }

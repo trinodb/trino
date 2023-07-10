@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
 import io.trino.spi.TrinoException;
@@ -29,9 +30,9 @@ import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.type.DateTimes;
+import io.trino.util.DateTimeUtils;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
-import org.joda.time.DateTimeZone;
 import org.joda.time.Days;
 import org.joda.time.LocalDate;
 import org.joda.time.chrono.ISOChronology;
@@ -41,6 +42,7 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.math.BigInteger;
+import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
@@ -53,6 +55,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
@@ -86,6 +89,7 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
     private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
+    private static final Slice ISO_8601_DATE_FORMAT = Slices.utf8Slice("%Y-%m-%d");
 
     private DateTimeFunctions() {}
 
@@ -325,7 +329,7 @@ public final class DateTimeFunctions
             case "year":
                 return chronology.year();
         }
-        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Timestamp field");
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIMESTAMP field");
     }
 
     @Description("Parses the specified date/time by the given format")
@@ -371,6 +375,16 @@ public final class DateTimeFunctions
     @SqlType("timestamp(3)") // TODO: increase precision?
     public static long dateParse(ConnectorSession session, @SqlType("varchar(x)") Slice dateTime, @SqlType("varchar(y)") Slice formatString)
     {
+        if (ISO_8601_DATE_FORMAT.equals(formatString)) {
+            try {
+                long days = DateTimeUtils.parseDate(dateTime.toStringUtf8());
+                return scaleEpochMillisToMicros(days * MILLISECONDS_PER_DAY);
+            }
+            catch (IllegalArgumentException | ArithmeticException | DateTimeException e) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+            }
+        }
+
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
                 .withZoneUTC()
                 .withLocale(session.getLocale());
@@ -648,23 +662,6 @@ public final class DateTimeFunctions
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
-    }
-
-    // HACK WARNING!
-    // This method does calculate difference between timezone offset on current date (session start)
-    // and 1970-01-01 (same timezone). This is used to be able to avoid using fixed offset TZ for
-    // places where TZ offset is explicitly accessed (namely AT TIME ZONE).
-    // DateTimeFormatter does format specified instance in specified time zone calculating offset for
-    // that time zone based on provided instance. As Trino TIME type is represented as millis since
-    // 00:00.000 of some day UTC, we always use timezone offset that was valid on 1970-01-01.
-    // Best effort without changing representation of TIME WITH TIME ZONE is to use offset of the timezone
-    // based on session start time.
-    // By adding this difference to instance that we would like to convert to other TZ, we can
-    // get exact value of utcMillis for current session start time.
-    // Silent assumption is made, that no changes in TZ offsets were done on 1970-01-01.
-    public static long valueToSessionTimeZoneOffsetDiff(long epochMillis, DateTimeZone timeZone)
-    {
-        return timeZone.getOffset(0) - timeZone.getOffset(epochMillis);
     }
 
     @ScalarFunction("to_milliseconds")

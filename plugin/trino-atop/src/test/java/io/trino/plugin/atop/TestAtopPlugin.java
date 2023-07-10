@@ -13,7 +13,14 @@
  */
 package io.trino.plugin.atop;
 
+import com.google.common.collect.ImmutableMap;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -21,11 +28,15 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 public class TestAtopPlugin
 {
     @Test
-    public void testGetConnectorFactory()
+    public void testCreateConnector()
+            throws Exception
     {
-        AtopPlugin plugin = new AtopPlugin();
+        Plugin plugin = new AtopPlugin();
         assertInstanceOf(getOnlyElement(plugin.getConnectorFactories()), AtopConnectorFactory.class);
-    }
 
-    // TODO test factory
+        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+
+        Path atopExecutable = Files.createTempFile(null, null);
+        factory.create("test", ImmutableMap.of("atop.executable-path", atopExecutable.toString()), new TestingConnectorContext()).shutdown();
+    }
 }

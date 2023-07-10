@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 
-import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.mariadb.MariaDbQueryRunner.createMariaDbQueryRunner;
 import static java.util.Objects.requireNonNull;
 
@@ -61,7 +61,7 @@ public class TestMariaDbCaseInsensitiveMapping
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return requireNonNull(server, "server is null")::execute;
+        return server::execute;
     }
 
     @Override

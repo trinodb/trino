@@ -20,7 +20,7 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.Expression;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -33,13 +33,13 @@ public class TestArraySortAfterArrayDistinct
     @Test
     public void testArrayDistinctAfterArraySort()
     {
-        test("ARRAY_DISTINCT(ARRAY_SORT(ARRAY['a']))", "ARRAY_SORT(ARRAY_DISTINCT(ARRAY['a']))");
+        test("ARRAY_DISTINCT(ARRAY_SORT(\"$array\"('a')))", "ARRAY_SORT(ARRAY_DISTINCT(\"$array\"('a')))");
     }
 
     @Test
     public void testArrayDistinctAfterArraySortWithLambda()
     {
-        test("ARRAY_DISTINCT(ARRAY_SORT(ARRAY['a'], (a, b) -> 1))", "ARRAY_SORT(ARRAY_DISTINCT(ARRAY['a']), (a, b) -> 1)");
+        test("ARRAY_DISTINCT(ARRAY_SORT(\"$array\"('a'), (a, b) -> 1))", "ARRAY_SORT(ARRAY_DISTINCT(\"$array\"('a')), (a, b) -> 1)");
     }
 
     private void test(String original, String rewritten)

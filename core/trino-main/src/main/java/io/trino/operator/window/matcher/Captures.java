@@ -13,14 +13,14 @@
  */
 package io.trino.operator.window.matcher;
 
-import org.openjdk.jol.info.ClassLayout;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 // TODO: optimize by
 //   - reference counting and copy on write
 //   - reuse allocated arrays
 class Captures
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Captures.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(Captures.class);
 
     private final IntMultimap captures;
     private final IntMultimap labels;

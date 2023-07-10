@@ -29,6 +29,7 @@ import io.minio.ListObjectsArgs;
 import io.minio.ListenBucketNotificationArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.PutObjectArgs;
+import io.minio.RemoveObjectArgs;
 import io.minio.Result;
 import io.minio.messages.Event;
 import io.minio.messages.NotificationRecords;
@@ -220,6 +221,19 @@ public class MinioClient
                             .build())
                     .bucket(targetBucket)
                     .object(targetKey)
+                    .build());
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void removeObject(String bucket, String key)
+    {
+        try {
+            client.removeObject(RemoveObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(key)
                     .build());
         }
         catch (Exception e) {

@@ -1,0 +1,82 @@
+{
+  "format-version" : 2,
+  "table-uuid" : "40fcc865-d81e-4de1-a711-b0279018331c",
+  "location" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/inventory",
+  "last-sequence-number" : 1,
+  "last-updated-ms" : 1678866564415,
+  "last-column-id" : 4,
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "inv_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "inv_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "inv_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "inv_quantity_on_hand",
+      "required" : false,
+      "type" : "int"
+    } ]
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 2468336565001458778,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 2468336565001458778,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "sequence-number" : 1,
+    "snapshot-id" : 2468336565001458778,
+    "timestamp-ms" : 1678866564415,
+    "summary" : {
+      "operation" : "append",
+      "trino_query_id" : "20230315_074830_00077_9f4mz",
+      "added-data-files" : "46",
+      "added-records" : "783000000",
+      "added-files-size" : "1866673522",
+      "changed-partition-count" : "1",
+      "total-records" : "783000000",
+      "total-files-size" : "1866673522",
+      "total-data-files" : "46",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/inventory/metadata/snap-2468336565001458778-1-b09da5f8-9688-41de-97b7-d7558d5793e3.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1678866564415,
+    "snapshot-id" : 2468336565001458778
+  } ],
+  "metadata-log" : [ ]
+}

@@ -14,19 +14,18 @@
 package io.trino.server;
 
 import com.google.common.reflect.TypeToken;
+import com.google.inject.Inject;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
-
-import javax.inject.Inject;
-import javax.ws.rs.Produces;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.MultivaluedMap;
-import javax.ws.rs.ext.MessageBodyWriter;
-import javax.ws.rs.ext.Provider;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.MultivaluedMap;
+import jakarta.ws.rs.ext.MessageBodyWriter;
+import jakarta.ws.rs.ext.Provider;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -39,7 +38,6 @@ import java.util.List;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
-import static java.util.Objects.requireNonNull;
 
 @Provider
 @Produces(TRINO_PAGES)
@@ -65,7 +63,6 @@ public class PagesResponseWriter
     @Inject
     public PagesResponseWriter(FeaturesConfig featuresConfig)
     {
-        requireNonNull(featuresConfig, "featuresConfig is null");
         this.dataIntegrityVerificationEnabled = featuresConfig.getExchangeDataIntegrityVerification() != DataIntegrityVerification.NONE;
     }
 

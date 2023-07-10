@@ -20,7 +20,7 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,7 +30,7 @@ import static org.testng.Assert.assertEquals;
 public abstract class BaseSharedMetastoreTest
         extends AbstractTestQueryFramework
 {
-    protected final String schema = "test_shared_schema_" + randomTableSuffix();
+    protected final String schema = "test_shared_schema_" + randomNameSuffix();
 
     protected abstract String getExpectedHiveCreateSchema(String catalogName);
 
@@ -139,7 +139,7 @@ public abstract class BaseSharedMetastoreTest
     public void testTimeTravelWithRedirection()
             throws InterruptedException
     {
-        String testLocalSchema = "test_schema_" + randomTableSuffix();
+        String testLocalSchema = "test_schema_" + randomNameSuffix();
         try {
             assertUpdate("CREATE SCHEMA iceberg. " + testLocalSchema);
             assertUpdate(format("CREATE TABLE iceberg.%s.nation_test AS SELECT * FROM nation", testLocalSchema), 25);
@@ -180,13 +180,12 @@ public abstract class BaseSharedMetastoreTest
 
     private long getLatestSnapshotId(String schema)
     {
-        return (long) computeActual(format("SELECT snapshot_id FROM iceberg.%s.\"nation_test$snapshots\" ORDER BY committed_at DESC LIMIT 1", schema))
-                .getOnlyValue();
+        return (long) computeScalar(format("SELECT snapshot_id FROM iceberg.%s.\"nation_test$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", schema));
     }
 
     private long getCommittedAtInEpochMilliSeconds(long snapshotId, String schema)
     {
-        return ((ZonedDateTime) computeActual(format("SELECT committed_at FROM iceberg.%s.\"nation_test$snapshots\" WHERE snapshot_id=%s LIMIT 1", schema, snapshotId)).getOnlyValue())
+        return ((ZonedDateTime) computeScalar(format("SELECT committed_at FROM iceberg.%s.\"nation_test$snapshots\" WHERE snapshot_id=%s", schema, snapshotId)))
                 .toInstant().toEpochMilli();
     }
 

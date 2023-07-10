@@ -18,9 +18,9 @@ import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsResult;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
-import org.assertj.core.api.Assertions;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -28,14 +28,16 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeTransactionLogCache
         extends BaseTestDeltaLakeS3Storage
@@ -46,7 +48,7 @@ public class TestDeltaLakeTransactionLogCache
 
     private AmazonS3 s3;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         super.setUp();
@@ -54,12 +56,13 @@ public class TestDeltaLakeTransactionLogCache
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testAllDataFilesAreLoadedWhenTransactionLogFileAfterTheCachedTableVersionIsMissing()
     {
-        String tableName = "test_dl_cached_table_files_accuracy_" + randomTableSuffix();
+        String tableName = "test_dl_cached_table_files_accuracy_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
-        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s')",
+        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s', checkpoint_interval = 10)",
                 tableName,
                 bucketName,
                 tableDirectory));
@@ -98,7 +101,7 @@ public class TestDeltaLakeTransactionLogCache
         DeleteObjectsResult deleteObjectsResult = s3.deleteObjects(
                 new DeleteObjectsRequest(bucketName)
                         .withKeys(transactionLogFilesToRemove));
-        Assertions.assertThat(
+        assertThat(
                         deleteObjectsResult.getDeletedObjects().stream()
                                 .map(DeleteObjectsResult.DeletedObject::getKey)
                                 .collect(Collectors.toList()))

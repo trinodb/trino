@@ -23,7 +23,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -43,7 +43,7 @@ public class TestIcebergPartitionEvolution
     @Test
     public void testRemovePartitioning()
     {
-        String tableName = "test_remove_partition_" + randomTableSuffix();
+        String tableName = "test_remove_partition_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey', 'truncate(name, 1)']) AS SELECT * FROM nation WHERE nationkey < 10", 10);
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY[]");
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation WHERE nationkey >= 10", 15);
@@ -73,7 +73,7 @@ public class TestIcebergPartitionEvolution
     @Test
     public void testAddPartitionColumn()
     {
-        String tableName = "test_add_partition_column_" + randomTableSuffix();
+        String tableName = "test_add_partition_column_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM nation WHERE nationkey < 10", 10);
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['regionkey', 'truncate(name, 1)']");
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation WHERE nationkey >= 10", 15);
@@ -113,7 +113,7 @@ public class TestIcebergPartitionEvolution
                 .filter(file -> ((String) file.getField(0)).contains("regionkey="))
                 .collect(toImmutableList());
 
-        expectedInitialFiles = toIntExact((long) computeActual("SELECT DISTINCT substring(name, 1, 1) FROM nation WHERE nationkey < 10").getRowCount());
+        expectedInitialFiles = computeActual("SELECT DISTINCT substring(name, 1, 1) FROM nation WHERE nationkey < 10").getRowCount();
         assertThat(initialFiles).hasSize(expectedInitialFiles);
         assertEquals(initialFiles.stream().mapToLong(row -> (long) row.getField(1)).sum(), 10L);
 
@@ -128,7 +128,7 @@ public class TestIcebergPartitionEvolution
     @Test
     public void testChangePartitionTransform()
     {
-        String tableName = "test_change_partition_transform_" + randomTableSuffix();
+        String tableName = "test_change_partition_transform_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (ts, a) WITH (partitioning = ARRAY['year(ts)']) " +
                 "AS VALUES (TIMESTAMP '2021-01-01 01:01:01.111111', 1), (TIMESTAMP '2022-02-02 02:02:02.222222', 2), (TIMESTAMP '2023-03-03 03:03:03.333333', 3)", 3);
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['month(ts)']");
@@ -152,6 +152,17 @@ public class TestIcebergPartitionEvolution
 
         assertThat(yearPartitionedFiles).hasSize(3);
         assertThat(monthPartitionedFiles).hasSize(2);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUnsupportedNestedFieldPartition()
+    {
+        String tableName = "test_unsupported_nested_field_partition_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(parent ROW(child VARCHAR))");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"parent.child\"']",
+                "Partitioning by nested field is unsupported: parent.child");
         assertUpdate("DROP TABLE " + tableName);
     }
 }

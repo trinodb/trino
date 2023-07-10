@@ -17,7 +17,7 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
-import io.trino.spi.block.Int96ArrayBlockBuilder;
+import io.trino.spi.block.Fixed12BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
@@ -36,7 +36,7 @@ import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclarati
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
-class LongTimeWithTimeZoneType
+final class LongTimeWithTimeZoneType
         extends TimeWithTimeZoneType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongTimeWithTimeZoneType.class, lookup(), LongTimeWithTimeZone.class);
@@ -72,7 +72,7 @@ class LongTimeWithTimeZoneType
         else {
             maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
         }
-        return new Int96ArrayBlockBuilder(
+        return new Fixed12BlockBuilder(
                 blockBuilderStatus,
                 Math.min(expectedEntries, maxBlockSizeInBytes / getFixedSize()));
     }
@@ -86,7 +86,7 @@ class LongTimeWithTimeZoneType
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return new Int96ArrayBlockBuilder(null, positionCount);
+        return new Fixed12BlockBuilder(null, positionCount);
     }
 
     @Override
@@ -96,9 +96,9 @@ class LongTimeWithTimeZoneType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(getPicos(block, position));
-            blockBuilder.writeInt(getOffsetMinutes(block, position));
-            blockBuilder.closeEntry();
+            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(
+                    getPicos(block, position),
+                    getOffsetMinutes(block, position));
         }
     }
 
@@ -112,9 +112,9 @@ class LongTimeWithTimeZoneType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         LongTimeWithTimeZone timestamp = (LongTimeWithTimeZone) value;
-        blockBuilder.writeLong(timestamp.getPicoseconds());
-        blockBuilder.writeInt(timestamp.getOffsetMinutes());
-        blockBuilder.closeEntry();
+        ((Fixed12BlockBuilder) blockBuilder).writeFixed12(
+                timestamp.getPicoseconds(),
+                timestamp.getOffsetMinutes());
     }
 
     @Override

@@ -16,8 +16,8 @@ package io.trino.sql.analyzer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 
 import java.util.List;
 import java.util.Objects;
@@ -29,6 +29,7 @@ import static java.util.Objects.requireNonNull;
 public final class Output
 {
     private final String catalogName;
+    private final CatalogVersion catalogVersion;
     private final String schema;
     private final String table;
     private final Optional<List<OutputColumn>> columns;
@@ -36,20 +37,28 @@ public final class Output
     @JsonCreator
     public Output(
             @JsonProperty("catalogName") String catalogName,
+            @JsonProperty("catalogVersion") CatalogVersion catalogVersion,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("columns") Optional<List<OutputColumn>> columns)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogVersion = requireNonNull(catalogVersion, "catalogVersion is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
-        this.columns = requireNonNull(columns, "columns is null").map(ImmutableList::copyOf);
+        this.columns = columns.map(ImmutableList::copyOf);
     }
 
     @JsonProperty
     public String getCatalogName()
     {
         return catalogName;
+    }
+
+    @JsonProperty
+    public CatalogVersion getCatalogVersion()
+    {
+        return catalogVersion;
     }
 
     @JsonProperty
@@ -81,6 +90,7 @@ public final class Output
         }
         Output output = (Output) o;
         return Objects.equals(catalogName, output.catalogName) &&
+                Objects.equals(catalogVersion, output.catalogVersion) &&
                 Objects.equals(schema, output.schema) &&
                 Objects.equals(table, output.table) &&
                 Objects.equals(columns, output.columns);
@@ -89,6 +99,6 @@ public final class Output
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, schema, table, columns);
+        return Objects.hash(catalogName, catalogVersion, schema, table, columns);
     }
 }

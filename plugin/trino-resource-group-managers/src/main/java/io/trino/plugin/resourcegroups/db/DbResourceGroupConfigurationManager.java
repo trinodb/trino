@@ -17,6 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
@@ -32,13 +34,10 @@ import io.trino.spi.resourcegroups.ResourceGroup;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -84,6 +83,7 @@ public class DbResourceGroupConfigurationManager
     private final AtomicLong lastRefresh = new AtomicLong();
     private final String environment;
     private final Duration maxRefreshInterval;
+    private final Duration refreshInterval;
     private final boolean exactMatchSelectorEnabled;
 
     private final CounterStat refreshFailures = new CounterStat();
@@ -92,11 +92,10 @@ public class DbResourceGroupConfigurationManager
     public DbResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, DbResourceGroupConfig config, ResourceGroupsDao dao, @ForEnvironment String environment)
     {
         super(memoryPoolManager);
-        requireNonNull(memoryPoolManager, "memoryPoolManager is null");
-        requireNonNull(config, "config is null");
         requireNonNull(dao, "daoProvider is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.maxRefreshInterval = config.getMaxRefreshInterval();
+        this.refreshInterval = config.getRefreshInterval();
         this.exactMatchSelectorEnabled = config.getExactMatchSelectorEnabled();
         this.dao = dao;
         load();
@@ -131,7 +130,7 @@ public class DbResourceGroupConfigurationManager
     public void start()
     {
         if (started.compareAndSet(false, true)) {
-            configExecutor.scheduleWithFixedDelay(this::load, 1, 1, TimeUnit.SECONDS);
+            configExecutor.scheduleWithFixedDelay(this::load, 1000, refreshInterval.toMillis(), TimeUnit.MILLISECONDS);
         }
     }
 

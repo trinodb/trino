@@ -22,11 +22,11 @@ import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.sql.planner.plan.WindowNode.Function;
-import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -63,7 +63,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                             p.project(
                                     Assignments.identity(a),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
@@ -86,11 +86,11 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("a = 1"),
+                            PlanBuilder.expression("a = BIGINT '1'"),
                             p.project(
                                     Assignments.identity(a, ranking),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
@@ -113,11 +113,11 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("a = 1 AND ranking < -10"),
+                            PlanBuilder.expression("a = BIGINT '1' AND ranking < BIGINT '-10'"),
                             p.project(
                                     Assignments.identity(a, ranking),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
@@ -140,18 +140,18 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("ranking > 2 AND ranking < 5"),
+                            PlanBuilder.expression("ranking > BIGINT '2' AND ranking < BIGINT '5'"),
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "ranking > 2 AND ranking < 5",
+                        "ranking > BIGINT '2' AND ranking < BIGINT '5'",
                         project(
                                 ImmutableMap.of("ranking", expression("ranking")),
                                 topNRanking(
@@ -181,11 +181,11 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("ranking < 5"),
+                            PlanBuilder.expression("ranking < BIGINT '5'"),
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
@@ -220,18 +220,18 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("ranking < 5 AND a > 0"),
+                            PlanBuilder.expression("ranking < BIGINT '5' AND a > BIGINT '0'"),
                             p.project(
                                     Assignments.identity(ranking, a),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "a > 0",
+                        "a > BIGINT '0'",
                         project(
                                 ImmutableMap.of("ranking", expression("ranking"), "a", expression("a")),
                                 topNRanking(
@@ -251,18 +251,18 @@ public class TestPushPredicateThroughProjectIntoWindow
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("ranking < 5 AND ranking % 2 = 0"),
+                            PlanBuilder.expression("ranking < BIGINT '5' AND ranking % 2 = BIGINT '0'"),
                             p.project(
                                     Assignments.identity(ranking),
                                     p.window(
-                                            new Specification(
+                                            new DataOrganizationSpecification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
                                             ImmutableMap.of(ranking, rankingFunction),
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "ranking % 2 = 0",
+                        "ranking % 2 = BIGINT '0'",
                         project(
                                 ImmutableMap.of("ranking", expression("ranking")),
                                 topNRanking(

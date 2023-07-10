@@ -84,55 +84,53 @@ public class CsvColumnDecoder
         if (columnIndex >= tokens.length) {
             return nullValueProvider();
         }
-        else {
-            return new FieldValueProvider()
+        return new FieldValueProvider()
+        {
+            @Override
+            public boolean isNull()
             {
-                @Override
-                public boolean isNull()
-                {
-                    return tokens[columnIndex].isEmpty();
-                }
+                return tokens[columnIndex].isEmpty();
+            }
 
-                @SuppressWarnings("SimplifiableConditionalExpression")
-                @Override
-                public boolean getBoolean()
-                {
-                    try {
-                        return Boolean.parseBoolean(tokens[columnIndex].trim());
-                    }
-                    catch (NumberFormatException e) {
-                        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
-                    }
+            @SuppressWarnings("SimplifiableConditionalExpression")
+            @Override
+            public boolean getBoolean()
+            {
+                try {
+                    return Boolean.parseBoolean(tokens[columnIndex].trim());
                 }
+                catch (NumberFormatException e) {
+                    throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
+                }
+            }
 
-                @Override
-                public long getLong()
-                {
-                    try {
-                        return Long.parseLong(tokens[columnIndex].trim());
-                    }
-                    catch (NumberFormatException e) {
-                        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
-                    }
+            @Override
+            public long getLong()
+            {
+                try {
+                    return Long.parseLong(tokens[columnIndex].trim());
                 }
+                catch (NumberFormatException e) {
+                    throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
+                }
+            }
 
-                @Override
-                public double getDouble()
-                {
-                    try {
-                        return Double.parseDouble(tokens[columnIndex].trim());
-                    }
-                    catch (NumberFormatException e) {
-                        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
-                    }
+            @Override
+            public double getDouble()
+            {
+                try {
+                    return Double.parseDouble(tokens[columnIndex].trim());
                 }
+                catch (NumberFormatException e) {
+                    throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
+                }
+            }
 
-                @Override
-                public Slice getSlice()
-                {
-                    return truncateToLength(utf8Slice(tokens[columnIndex]), columnType);
-                }
-            };
-        }
+            @Override
+            public Slice getSlice()
+            {
+                return truncateToLength(utf8Slice(tokens[columnIndex]), columnType);
+            }
+        };
     }
 }

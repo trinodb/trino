@@ -15,12 +15,11 @@ package io.trino.orc.writer;
 
 import io.trino.array.IntBigArray;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Math.min;
@@ -32,14 +31,14 @@ import static java.util.Objects.requireNonNull;
 // can use store the data in multiple Slices to avoid a large contiguous allocation.
 public class DictionaryBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(DictionaryBuilder.class);
     private static final float FILL_RATIO = 0.75f;
     private static final int EMPTY_SLOT = -1;
     private static final int NULL_POSITION = 0;
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
 
     private final IntBigArray blockPositionByHash = new IntBigArray();
-    private BlockBuilder elementBlock;
+    private VariableWidthBlockBuilder elementBlock;
 
     private int maxFill;
     private int hashMask;
@@ -90,7 +89,7 @@ public class DictionaryBuilder
     {
         containsNullElement = false;
         blockPositionByHash.fill(EMPTY_SLOT);
-        elementBlock = elementBlock.newBlockBuilderLike(null);
+        elementBlock = (VariableWidthBlockBuilder) elementBlock.newBlockBuilderLike(null);
         // first position is always null
         elementBlock.appendNull();
     }
@@ -103,9 +102,7 @@ public class DictionaryBuilder
         if (block.isNull(position)) {
             return containsNullElement;
         }
-        else {
-            return blockPositionByHash.get(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
-        }
+        return blockPositionByHash.get(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
     }
 
     public int putIfAbsent(Block block, int position)
@@ -160,8 +157,7 @@ public class DictionaryBuilder
     private int addNewElement(long hashPosition, Block block, int position)
     {
         checkArgument(!block.isNull(position), "position is null");
-        block.writeBytesTo(position, 0, block.getSliceLength(position), elementBlock);
-        elementBlock.closeEntry();
+        elementBlock.buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
 
         int newElementPositionInBlock = elementBlock.getPositionCount() - 1;
         blockPositionByHash.set(hashPosition, newElementPositionInBlock);

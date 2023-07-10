@@ -28,7 +28,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 final class MetadataUtil
 {
@@ -72,6 +72,6 @@ final class MetadataUtil
     {
         String json = codec.toJson(object);
         T copy = codec.fromJson(json);
-        assertEquals(copy, object);
+        assertThat(copy).isEqualTo(object);
     }
 }

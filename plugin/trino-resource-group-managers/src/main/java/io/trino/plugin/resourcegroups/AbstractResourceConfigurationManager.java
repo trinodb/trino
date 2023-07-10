@@ -14,6 +14,7 @@
 package io.trino.plugin.resourcegroups;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
@@ -23,8 +24,6 @@ import io.trino.spi.resourcegroups.ResourceGroup;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -112,15 +111,13 @@ public abstract class AbstractResourceConfigurationManager
         StringBuilder fullyQualifiedGroupName = new StringBuilder();
         for (ResourceGroupNameTemplate groupName : spec.getGroup().getSegments()) {
             fullyQualifiedGroupName.append(groupName);
-            Optional<ResourceGroupSpec> match = groups
+            ResourceGroupSpec match = groups
                     .stream()
                     .filter(groupSpec -> groupSpec.getName().equals(groupName))
-                    .findFirst();
-            if (match.isEmpty()) {
-                throw new IllegalArgumentException(format("Selector refers to nonexistent group: %s", fullyQualifiedGroupName));
-            }
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(format("Selector refers to nonexistent group: %s", fullyQualifiedGroupName)));
             fullyQualifiedGroupName.append(".");
-            groups = match.get().getSubGroups();
+            groups = match.getSubGroups();
         }
     }
 

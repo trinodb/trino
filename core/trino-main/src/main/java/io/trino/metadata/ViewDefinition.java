@@ -70,7 +70,7 @@ public class ViewDefinition
         this.catalog = view.getCatalog();
         this.schema = view.getSchema();
         this.columns = view.getColumns().stream()
-                .map(column -> new ViewColumn(column.getName(), column.getType()))
+                .map(column -> new ViewColumn(column.getName(), column.getType(), column.getComment()))
                 .collect(toImmutableList());
         this.comment = view.getComment();
         this.runAsIdentity = runAsIdentity;
@@ -124,7 +124,7 @@ public class ViewDefinition
                 catalog,
                 schema,
                 columns.stream()
-                        .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), column.getType()))
+                        .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), column.getType(), column.getComment()))
                         .collect(toImmutableList()),
                 comment,
                 runAsIdentity.map(Identity::getUser),

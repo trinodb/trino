@@ -22,7 +22,7 @@ import io.trino.tests.product.launcher.env.common.Standard;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -60,9 +60,9 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
                 .withEnv("DATABRICKS_TOKEN", databricksTestToken));
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector(
-                "delta-lake",
+                "delta_lake",
                 forHostPath(configDir.getPath("delta.properties")),
-                CONTAINER_PRESTO_ETC + "/catalog/delta.properties");
+                CONTAINER_TRINO_ETC + "/catalog/delta.properties");
 
         builder.configureContainer(TESTS, container -> exportAWSCredentials(container)
                 .withEnv("S3_BUCKET", s3Bucket)
@@ -76,9 +76,9 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
 
     private DockerContainer exportAWSCredentials(DockerContainer container)
     {
-        container = exportAWSCredential(container, "DATABRICKS_AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID", true);
-        container = exportAWSCredential(container, "DATABRICKS_AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY", true);
-        return exportAWSCredential(container, "DATABRICKS_AWS_SESSION_TOKEN", "AWS_SESSION_TOKEN", false);
+        container = exportAWSCredential(container, "TRINO_AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID", true);
+        container = exportAWSCredential(container, "TRINO_AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY", true);
+        return exportAWSCredential(container, "TRINO_AWS_SESSION_TOKEN", "AWS_SESSION_TOKEN", false);
     }
 
     private DockerContainer exportAWSCredential(DockerContainer container, String credentialEnvVariable, String containerEnvVariable, boolean required)

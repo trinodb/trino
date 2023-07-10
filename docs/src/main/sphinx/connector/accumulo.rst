@@ -13,7 +13,7 @@ Installing the iterator dependency
 ----------------------------------
 
 The Accumulo connector uses custom Accumulo iterators in
-order to push various information in a SQL predicate clause to Accumulo for
+order to push various information in SQL predicate clauses to Accumulo for
 server-side filtering, known as *predicate pushdown*. In order
 for the server-side iterators to work, you need to add the ``trino-accumulo-iterators``
 JAR file to Accumulo's ``lib/ext`` directory on each TabletServer node.
@@ -21,7 +21,7 @@ JAR file to Accumulo's ``lib/ext`` directory on each TabletServer node.
 .. code-block:: bash
 
     # For each TabletServer node:
-    scp $PRESTO_HOME/plugins/accumulo/trino-accumulo-iterators-*.jar [tabletserver_address]:$ACCUMULO_HOME/lib/ext
+    scp $TRINO_HOME/plugins/accumulo/trino-accumulo-iterators-*.jar [tabletserver_address]:$ACCUMULO_HOME/lib/ext
 
     # TabletServer should pick up new JAR files in ext directory, but may require restart
 
@@ -37,9 +37,9 @@ To connect to Accumulo, you need:
 Connector configuration
 -----------------------
 
-Create ``etc/catalog/accumulo.properties``
-to mount the ``accumulo`` connector as the ``accumulo`` catalog,
-replacing the ``accumulo.xxx`` properties as required:
+Create ``etc/catalog/example.properties`` to mount the ``accumulo`` connector as
+the ``example`` catalog, with the following connector properties as appropriate
+for your setup:
 
 .. code-block:: text
 
@@ -48,6 +48,8 @@ replacing the ``accumulo.xxx`` properties as required:
     accumulo.zookeepers=xxx
     accumulo.username=username
     accumulo.password=password
+
+Replace the ``accumulo.xxx`` properties as required.
 
 Configuration variables
 -----------------------
@@ -59,7 +61,7 @@ Property name                                    Default value          Required
 ``accumulo.zookeepers``                          (none)                 Yes        ZooKeeper connect string
 ``accumulo.username``                            (none)                 Yes        Accumulo user for Trino
 ``accumulo.password``                            (none)                 Yes        Accumulo password for user
-``accumulo.zookeeper.metadata.root``             ``/presto-accumulo``   No         Root znode for storing metadata. Only relevant if using default Metadata Manager
+``accumulo.zookeeper.metadata.root``             ``/trino-accumulo``    No         Root znode for storing metadata. Only relevant if using default Metadata Manager
 ``accumulo.cardinality.cache.size``              ``100000``             No         Sets the size of the index cardinality cache
 ``accumulo.cardinality.cache.expire.duration``   ``5m``                 No         Sets the expiration duration of the cardinality cache.
 ================================================ ====================== ========== =====================================================================================
@@ -79,7 +81,7 @@ clause of your table definition.
 
 Simply issue a ``CREATE TABLE`` statement to create a new Trino/Accumulo table::
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -88,7 +90,7 @@ Simply issue a ``CREATE TABLE`` statement to create a new Trino/Accumulo table::
 
 .. code-block:: sql
 
-    DESCRIBE myschema.scientists;
+    DESCRIBE example_schema.scientists;
 
 .. code-block:: text
 
@@ -106,7 +108,7 @@ are both identical to the Trino column name).
 
 When creating a table using SQL, you can optionally specify a
 ``column_mapping`` table property. The value of this property is a
-comma-delimited list of triples, Presto column **:** Accumulo column
+comma-delimited list of triples, Trino column **:** Accumulo column
 family **:** accumulo column qualifier, with one triple for every
 non-row ID column. This sets the mapping of the Trino column name to
 the corresponding Accumulo column family and column qualifier.
@@ -122,7 +124,7 @@ For example:
 
 .. code-block:: sql
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -134,7 +136,7 @@ For example:
 
 .. code-block:: sql
 
-    DESCRIBE myschema.scientists;
+    DESCRIBE example_schema.scientists;
 
 .. code-block:: text
 
@@ -156,13 +158,13 @@ You can then issue ``INSERT`` statements to put data into Accumulo.
 
 .. code-block:: sql
 
-    INSERT INTO myschema.scientists VALUES
+    INSERT INTO example_schema.scientists VALUES
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09' ),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23' );
 
 .. code-block:: sql
 
-    SELECT * FROM myschema.scientists;
+    SELECT * FROM example_schema.scientists;
 
 .. code-block:: text
 
@@ -180,14 +182,14 @@ little younger.)
 .. code-block:: bash
 
     $ accumulo shell -u root -p secret
-    root@default> table myschema.scientists
-    root@default myschema.scientists> insert row3 metadata name "Tim Berners-Lee"
-    root@default myschema.scientists> insert row3 metadata age 60
-    root@default myschema.scientists> insert row3 metadata date 5321
+    root@default> table example_schema.scientists
+    root@default example_schema.scientists> insert row3 metadata name "Tim Berners-Lee"
+    root@default example_schema.scientists> insert row3 metadata age 60
+    root@default example_schema.scientists> insert row3 metadata date 5321
 
 .. code-block:: sql
 
-    SELECT * FROM myschema.scientists;
+    SELECT * FROM example_schema.scientists;
 
 .. code-block:: text
 
@@ -205,7 +207,7 @@ tables.
 
 .. code-block:: sql
 
-    DROP TABLE myschema.scientists;
+    DROP TABLE example_schema.scientists;
 
 Indexing columns
 ----------------
@@ -236,7 +238,7 @@ should be using the default ``lexicoder`` serializer).
 
 .. code-block:: sql
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -255,9 +257,9 @@ tables to store the index and metrics.
     root@default> tables
     accumulo.metadata
     accumulo.root
-    myschema.scientists
-    myschema.scientists_idx
-    myschema.scientists_idx_metrics
+    example_schema.scientists
+    example_schema.scientists_idx
+    example_schema.scientists_idx_metrics
     trace
 
 After inserting data, we can look at the index table and see there are
@@ -266,13 +268,13 @@ queries this index table
 
 .. code-block:: sql
 
-    INSERT INTO myschema.scientists VALUES
+    INSERT INTO example_schema.scientists VALUES
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09'),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23');
 
 .. code-block:: text
 
-    root@default> scan -t myschema.scientists_idx
+    root@default> scan -t example_schema.scientists_idx
     -21011 metadata_date:row2 []
     -23034 metadata_date:row1 []
     103 metadata_age:row2 []
@@ -290,7 +292,7 @@ scans the data table.
 
 .. code-block:: sql
 
-    SELECT * FROM myschema.scientists WHERE age = 109;
+    SELECT * FROM example_schema.scientists WHERE age = 109;
 
 .. code-block:: text
 
@@ -303,15 +305,8 @@ Loading data
 ------------
 
 The Accumulo connector supports loading data via INSERT statements, however
-this method tends to be low-throughput and should not be relied on when throughput
-is a concern. Instead, users of the connector should use the ``PrestoBatchWriter``
-tool that is provided as part of the presto-accumulo-tools subproject in the
-`presto-accumulo repository <https://github.com/bloomberg/presto-accumulo>`_.
-
-The ``PrestoBatchWriter`` is a wrapper class for the typical ``BatchWriter`` that
-leverages the Trino/Accumulo metadata to write Mutations to the main data table.
-In particular, it handles indexing the given mutations on any indexed columns.
-Usage of the tool is provided in the README in the `repository <https://github.com/bloomberg/presto-accumulo>`_.
+this method tends to be low-throughput and should not be relied on when
+throughput is a concern.
 
 External tables
 ---------------
@@ -435,7 +430,7 @@ Table property usage example:
 
 .. code-block:: sql
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -470,7 +465,7 @@ Session properties
 You can change the default value of a session property by using :doc:`/sql/set-session`.
 Note that session properties are prefixed with the catalog name::
 
-    SET SESSION accumulo.column_filter_optimizations_enabled = false;
+    SET SESSION example.column_filter_optimizations_enabled = false;
 
 ============================================= ============= =======================================================================================================
 Property name                                 Default value Description
@@ -496,10 +491,6 @@ Adding a new column to an existing table cannot be done today via
 ``ALTER TABLE [table] ADD COLUMN [name] [type]`` because of the additional
 metadata required for the columns to work; the column family, qualifier,
 and if the column is indexed.
-
-Instead, you can use one of the utilities in the
-`presto-accumulo-tools <https://github.com/bloomberg/presto-accumulo/tree/master/presto-accumulo-tools>`__
-sub-project of the ``presto-accumulo`` repository.  Documentation and usage can be found in the README.
 
 Serializers
 -----------
@@ -531,7 +522,7 @@ specifying the fully-qualified Java class name in the connector configuration.
 
 .. code-block:: sql
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -544,13 +535,13 @@ specifying the fully-qualified Java class name in the connector configuration.
 
 .. code-block:: sql
 
-    INSERT INTO myschema.scientists VALUES
+    INSERT INTO example_schema.scientists VALUES
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09' ),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23' );
 
 .. code-block:: text
 
-    root@default> scan -t myschema.scientists
+    root@default> scan -t example_schema.scientists
     row1 metadata:age []    \x08\x80\x00\x00\x00\x00\x00\x00m
     row1 metadata:date []    \x08\x7F\xFF\xFF\xFF\xFF\xFF\xA6\x06
     row1 metadata:name []    Grace Hopper
@@ -560,7 +551,7 @@ specifying the fully-qualified Java class name in the connector configuration.
 
 .. code-block:: sql
 
-    CREATE TABLE myschema.stringy_scientists (
+    CREATE TABLE example_schema.stringy_scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -573,13 +564,13 @@ specifying the fully-qualified Java class name in the connector configuration.
 
 .. code-block:: sql
 
-    INSERT INTO myschema.stringy_scientists VALUES
+    INSERT INTO example_schema.stringy_scientists VALUES
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09' ),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23' );
 
 .. code-block:: text
 
-    root@default> scan -t myschema.stringy_scientists
+    root@default> scan -t example_schema.stringy_scientists
     row1 metadata:age []    109
     row1 metadata:date []    -23034
     row1 metadata:name []    Grace Hopper
@@ -589,7 +580,7 @@ specifying the fully-qualified Java class name in the connector configuration.
 
 .. code-block:: sql
 
-    CREATE TABLE myschema.custom_scientists (
+    CREATE TABLE example_schema.custom_scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -617,7 +608,7 @@ follows:
     /metadata-root/schema/table
 
 Where ``metadata-root`` is the value of ``zookeeper.metadata.root`` in
-the config file (default is ``/presto-accumulo``), ``schema`` is the
+the config file (default is ``/trino-accumulo``), ``schema`` is the
 Trino schema (which is identical to the Accumulo namespace name), and
 ``table`` is the Trino table name (again, identical to Accumulo name).
 The data of the ``table`` ZooKeeper node is a serialized
@@ -666,12 +657,12 @@ when creating the external table.
      c      | date    |       | Accumulo column c:c. Indexed: true
 
 2. Using the ZooKeeper CLI, delete the corresponding znode.  Note this uses the default ZooKeeper
-metadata root of ``/presto-accumulo``
+metadata root of ``/trino-accumulo``
 
 .. code-block:: text
 
     $ zkCli.sh
-    [zk: localhost:2181(CONNECTED) 1] delete /presto-accumulo/foo/bar
+    [zk: localhost:2181(CONNECTED) 1] delete /trino-accumulo/foo/bar
 
 3. Re-create the table using the same DDL as before, but adding the ``external=true`` property.
 Note that if you had not previously defined the column_mapping, you need to add the property
@@ -690,6 +681,120 @@ the output of the ``DESCRIBE`` statement.
       index_columns = 'b,c',
       external = true
     );
+
+.. _accumulo-type-mapping:
+
+Type mapping
+------------
+
+Because Trino and Accumulo each support types that the other does not, this
+connector modifies some types when reading or writing data. Data types may not
+map the same way in both directions between Trino and the data source. Refer to
+the following sections for type mapping in each direction.
+
+Accumulo type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Accumulo types to the corresponding Trino types following
+this table:
+
+.. list-table:: Accumulo type to Trino type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - Accumulo type
+    - Trino type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    -
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``REAL``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``VARBINARY``
+    - ``VARBINARY``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    -
+
+No other types are supported
+
+Trino type to Accumulo type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding Trino type to Accumulo type
+mapping types following this table:
+
+.. list-table:: Trino type to Accumulo type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - Trino type
+    - Accumulo type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``TINYINT``
+    - ``TINYINT``
+    - Trino only supports writing values belonging to ``[0, 127]``
+  * - ``SMALLINT``
+    - ``SMALLINT``
+    -
+  * - ``INTEGER``
+    - ``INTEGER``
+    -
+  * - ``BIGINT``
+    - ``BIGINT``
+    -
+  * - ``REAL``
+    - ``REAL``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``VARCHAR(n)``
+    - ``VARCHAR(n)``
+    -
+  * - ``VARBINARY``
+    - ``VARBINARY``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(n)``
+    - ``TIME(n)``
+    -
+  * - ``TIMESTAMP(n)``
+    - ``TIMESTAMP(n)``
+    -
+
+No other types are supported
 
 .. _accumulo-sql-support:
 

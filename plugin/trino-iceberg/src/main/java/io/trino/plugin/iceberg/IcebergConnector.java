@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Injector;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -40,6 +42,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.immutableEnumSet;
+import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -48,6 +51,7 @@ import static java.util.Objects.requireNonNull;
 public class IcebergConnector
         implements Connector
 {
+    private final Injector injector;
     private final LifeCycleManager lifeCycleManager;
     private final IcebergTransactionManager transactionManager;
     private final ConnectorSplitManager splitManager;
@@ -58,11 +62,13 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
     private final List<PropertyMetadata<?>> materializedViewProperties;
+    private final List<PropertyMetadata<?>> analyzeProperties;
     private final Optional<ConnectorAccessControl> accessControl;
     private final Set<Procedure> procedures;
     private final Set<TableProcedureMetadata> tableProcedures;
 
     public IcebergConnector(
+            Injector injector,
             LifeCycleManager lifeCycleManager,
             IcebergTransactionManager transactionManager,
             ConnectorSplitManager splitManager,
@@ -73,22 +79,25 @@ public class IcebergConnector
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
             List<PropertyMetadata<?>> materializedViewProperties,
+            List<PropertyMetadata<?>> analyzeProperties,
             Optional<ConnectorAccessControl> accessControl,
             Set<Procedure> procedures,
             Set<TableProcedureMetadata> tableProcedures)
     {
+        this.injector = requireNonNull(injector, "injector is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
-        this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
+        this.sessionProperties = sessionPropertiesProviders.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.materializedViewProperties = ImmutableList.copyOf(requireNonNull(materializedViewProperties, "materializedViewProperties is null"));
+        this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
@@ -97,7 +106,9 @@ public class IcebergConnector
     @Override
     public Set<ConnectorCapabilities> getCapabilities()
     {
-        return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT);
+        return immutableEnumSet(
+                NOT_NULL_COLUMN_CONSTRAINT,
+                MATERIALIZED_VIEW_GRACE_PERIOD);
     }
 
     @Override
@@ -168,6 +179,12 @@ public class IcebergConnector
     }
 
     @Override
+    public List<PropertyMetadata<?>> getAnalyzeProperties()
+    {
+        return analyzeProperties;
+    }
+
+    @Override
     public ConnectorAccessControl getAccessControl()
     {
         return accessControl.orElseThrow(UnsupportedOperationException::new);
@@ -198,5 +215,11 @@ public class IcebergConnector
     public final void shutdown()
     {
         lifeCycleManager.stop();
+    }
+
+    @VisibleForTesting
+    public Injector getInjector()
+    {
+        return injector;
     }
 }

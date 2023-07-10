@@ -15,10 +15,9 @@ package io.trino.plugin.mysql;
 
 import com.mysql.cj.conf.ConnectionUrlParser;
 import com.mysql.cj.exceptions.CJException;
-import com.mysql.jdbc.Driver;
+import com.mysql.cj.jdbc.Driver;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
-
-import javax.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.AssertTrue;
 
 import java.sql.SQLException;
 
@@ -32,8 +31,7 @@ public class MySqlJdbcConfig
     public boolean isUrlValid()
     {
         try {
-            Driver driver = new Driver();
-            return driver.acceptsURL(getConnectionUrl());
+            return new Driver().acceptsURL(getConnectionUrl());
         }
         catch (SQLException e) {
             throw new RuntimeException(e);

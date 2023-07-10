@@ -34,22 +34,15 @@ public interface PartitionMemoryEstimator
     class MemoryRequirements
     {
         private final DataSize requiredMemory;
-        private final boolean limitReached;
 
-        MemoryRequirements(DataSize requiredMemory, boolean limitReached)
+        MemoryRequirements(DataSize requiredMemory)
         {
             this.requiredMemory = requireNonNull(requiredMemory, "requiredMemory is null");
-            this.limitReached = limitReached;
         }
 
         public DataSize getRequiredMemory()
         {
             return requiredMemory;
-        }
-
-        public boolean isLimitReached()
-        {
-            return limitReached;
         }
 
         @Override
@@ -62,13 +55,13 @@ public interface PartitionMemoryEstimator
                 return false;
             }
             MemoryRequirements that = (MemoryRequirements) o;
-            return limitReached == that.limitReached && Objects.equals(requiredMemory, that.requiredMemory);
+            return Objects.equals(requiredMemory, that.requiredMemory);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(requiredMemory, limitReached);
+            return Objects.hash(requiredMemory);
         }
 
         @Override
@@ -76,7 +69,6 @@ public interface PartitionMemoryEstimator
         {
             return toStringHelper(this)
                     .add("requiredMemory", requiredMemory)
-                    .add("limitReached", limitReached)
                     .toString();
         }
     }

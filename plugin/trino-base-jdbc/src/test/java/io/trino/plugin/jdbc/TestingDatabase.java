@@ -42,7 +42,7 @@ final class TestingDatabase
             throws SQLException
     {
         databaseName = "TEST" + System.nanoTime() + ThreadLocalRandom.current().nextLong();
-        String connectionUrl = "jdbc:h2:mem:" + databaseName;
+        String connectionUrl = "jdbc:h2:mem:" + databaseName + ";NON_KEYWORDS=KEY,VALUE"; // key and value are reserved keywords in H2 2.x
         jdbcClient = new TestingH2JdbcClient(
                 new BaseJdbcConfig(),
                 new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new EmptyCredentialProvider()));

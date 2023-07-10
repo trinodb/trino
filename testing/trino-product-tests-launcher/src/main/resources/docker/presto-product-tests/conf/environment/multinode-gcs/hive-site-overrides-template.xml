@@ -1,0 +1,8 @@
+<configuration>
+
+    <property>
+        <name>hive.metastore.warehouse.dir</name>
+        <value>gs://%GCP_STORAGE_BUCKET%/%GCP_WAREHOUSE_DIR%/</value>
+    </property>
+
+</configuration>

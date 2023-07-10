@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
@@ -32,7 +34,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.RetryMode;
@@ -41,33 +42,33 @@ import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SampleType.SYSTEM;
@@ -193,11 +194,21 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        return tables.values().stream()
+        throw new UnsupportedOperationException("The deprecated listTableColumns is not supported because streamTableColumns is implemented instead");
+    }
+
+    @Override
+    public synchronized Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        // This list must be materialized before returning, otherwise the iterator could throw a ConcurrentModificationException
+        // if another thread modifies the tables map before the iterator is fully consumed
+        List<TableColumnsMetadata> columnsMetadata = tables.values().stream()
                 .filter(table -> prefix.matches(table.getSchemaTableName()))
-                .collect(toImmutableMap(TableInfo::getSchemaTableName, handle -> handle.getMetadata().getColumns()));
+                .map(tableInfo -> TableColumnsMetadata.forTable(tableInfo.getSchemaTableName(), tableInfo.getMetadata().getColumns()))
+                .collect(toImmutableList());
+        return columnsMetadata.iterator();
     }
 
     @Override
@@ -220,7 +231,7 @@ public class MemoryMetadata
         long tableId = handle.getId();
 
         TableInfo oldInfo = tables.get(tableId);
-        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getDataFragments()));
+        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getDataFragments(), oldInfo.getComment()));
 
         tableIds.remove(oldInfo.getSchemaTableName());
         tableIds.put(newTableName, tableId);
@@ -236,9 +247,6 @@ public class MemoryMetadata
     @Override
     public synchronized MemoryOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
-        if (tableMetadata.getComment().isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with table comment");
-        }
         checkSchemaExists(tableMetadata.getTable().getSchemaName());
         checkTableNotExists(tableMetadata.getTable());
         long tableId = nextTableId.getAndIncrement();
@@ -248,10 +256,7 @@ public class MemoryMetadata
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
-            if (column.getComment() != null) {
-                throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
-            }
-            columns.add(new ColumnInfo(new MemoryColumnHandle(i), column.getName(), column.getType()));
+            columns.add(new ColumnInfo(new MemoryColumnHandle(i), column.getName(), column.getType(), Optional.ofNullable(column.getComment())));
         }
 
         tableIds.put(tableMetadata.getTable(), tableId);
@@ -260,7 +265,8 @@ public class MemoryMetadata
                 tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
                 columns.build(),
-                new HashMap<>()));
+                new HashMap<>(),
+                tableMetadata.getComment()));
 
         return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(tableIds.values()));
     }
@@ -341,6 +347,22 @@ public class MemoryMetadata
     }
 
     @Override
+    public synchronized void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        ConnectorViewDefinition view = getView(session, viewName).orElseThrow(() -> new ViewNotFoundException(viewName));
+        views.put(viewName, new ConnectorViewDefinition(
+                view.getOriginalSql(),
+                view.getCatalog(),
+                view.getSchema(),
+                view.getColumns().stream()
+                        .map(currentViewColumn -> Objects.equals(columnName, currentViewColumn.getName()) ? new ConnectorViewDefinition.ViewColumn(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
+                        .collect(toImmutableList()),
+                view.getComment(),
+                view.getOwner(),
+                view.isRunAsInvoker()));
+    }
+
+    @Override
     public synchronized void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
     {
         checkSchemaExists(newViewName.getSchemaName());
@@ -406,13 +428,7 @@ public class MemoryMetadata
             dataFragments.merge(memoryDataFragment.getHostAddress(), memoryDataFragment, MemoryDataFragment::merge);
         }
 
-        tables.put(tableId, new TableInfo(tableId, info.getSchemaName(), info.getTableName(), info.getColumns(), dataFragments));
-    }
-
-    @Override
-    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
-    {
-        return new ConnectorTableProperties();
+        tables.put(tableId, new TableInfo(tableId, info.getSchemaName(), info.getTableName(), info.getColumns(), dataFragments, info.getComment()));
     }
 
     public List<MemoryDataFragment> getDataFragments(long tableId)
@@ -459,5 +475,33 @@ public class MemoryMetadata
         return Optional.of(new SampleApplicationResult<>(
                 new MemoryTableHandle(table.getId(), table.getLimit(), OptionalDouble.of(table.getSampleRatio().orElse(1) * sampleRatio)),
                 true));
+    }
+
+    @Override
+    public synchronized void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
+    {
+        MemoryTableHandle table = (MemoryTableHandle) tableHandle;
+        TableInfo info = tables.get(table.getId());
+        checkArgument(info != null, "Table not found");
+        tables.put(table.getId(), new TableInfo(table.getId(), info.getSchemaName(), info.getTableName(), info.getColumns(), info.getDataFragments(), comment));
+    }
+
+    @Override
+    public synchronized void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Optional<String> comment)
+    {
+        MemoryTableHandle table = (MemoryTableHandle) tableHandle;
+        TableInfo info = tables.get(table.getId());
+        checkArgument(info != null, "Table not found");
+        tables.put(
+                table.getId(),
+                new TableInfo(
+                        table.getId(),
+                        info.getSchemaName(),
+                        info.getTableName(),
+                        info.getColumns().stream()
+                                .map(tableColumn -> Objects.equals(tableColumn.getHandle(), columnHandle) ? new ColumnInfo(tableColumn.getHandle(), tableColumn.getName(), tableColumn.getMetadata().getType(), comment) : tableColumn)
+                                .collect(toImmutableList()),
+                        info.getDataFragments(),
+                        info.getComment()));
     }
 }

@@ -16,9 +16,14 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.hdfs.ConfigurationInitializer;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.azure.HiveAzureConfig;
+import io.trino.hdfs.azure.TrinoAzureConfigurationInitializer;
 import io.trino.plugin.hive.AbstractTestHive.Transaction;
-import io.trino.plugin.hive.azure.HiveAzureConfig;
-import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -99,7 +104,7 @@ public abstract class AbstractTestHiveFileSystemAbfs
     private HdfsConfiguration createHdfsConfiguration()
     {
         ConfigurationInitializer initializer = new TrinoAzureConfigurationInitializer(getConfig());
-        return new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(initializer)), ImmutableSet.of());
+        return new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(initializer)), ImmutableSet.of());
     }
 
     @Override

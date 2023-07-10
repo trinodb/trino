@@ -16,11 +16,11 @@ package io.trino.sql.planner.sanity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -30,8 +30,8 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.TestingTransactionHandle;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -53,7 +53,7 @@ public class TestValidateAggregationsWithDefaultValues
     private Symbol symbol;
     private TableScanNode tableScanNode;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         plannerContext = getQueryRunner().getPlannerContext();

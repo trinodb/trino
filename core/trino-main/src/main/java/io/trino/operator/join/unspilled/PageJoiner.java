@@ -18,20 +18,17 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
-import io.trino.operator.join.JoinProbe;
-import io.trino.operator.join.JoinProbe.JoinProbeFactory;
 import io.trino.operator.join.JoinStatisticsCounter;
 import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.LookupSource;
+import io.trino.operator.join.unspilled.JoinProbe.JoinProbeFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.util.List;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
@@ -97,17 +94,10 @@ public class PageJoiner
     {
         boolean finishing = probePage == null;
 
-        if (probe == null) {
-            if (!finishing) {
-                // create new probe for next probe page
-                probe = joinProbeFactory.createJoinProbe(probePage);
-            }
-            else {
-                close();
-                return finished();
-            }
+        if (probe == null && finishing) {
+            close();
+            return finished();
         }
-        verify(probe != null, "no probe to work with");
 
         if (lookupSource == null) {
             if (!lookupSourceFuture.isDone()) {
@@ -116,6 +106,10 @@ public class PageJoiner
 
             lookupSource = requireNonNull(getDone(lookupSourceFuture));
             statisticsCounter.updateLookupSourcePositions(lookupSource.getJoinPositionCount());
+        }
+        if (probe == null) {
+            probe = joinProbeFactory.createJoinProbe(probePage, lookupSource);
+            statisticsCounter.recordCreateProbe();
         }
 
         processProbe(lookupSource);
@@ -153,11 +147,50 @@ public class PageJoiner
                 }
                 statisticsCounter.recordProbe(joinSourcePositions);
             }
-            if (!advanceProbePosition(lookupSource)) {
+
+            if (handleRleProbe()) {
+                break;
+            }
+
+            if (!advanceProbePosition()) {
                 break;
             }
         }
         while (!yieldSignal.isSet());
+    }
+
+    /**
+     * @return true if run length encoded probe has been handled and probe page processing is now finished
+     */
+    private boolean handleRleProbe()
+    {
+        if (!probe.areProbeJoinChannelsRunLengthEncoded()) {
+            return false;
+        }
+
+        if (probe.getPosition() != 0) {
+            // RLE probe can be handled only after first row is processed
+            return false;
+        }
+
+        if (pageBuilder.getPositionCount() == 0) {
+            // skip matching of other probe rows since first
+            // row from RLE probe did not produce any matches
+            probe.finish();
+            statisticsCounter.recordRleProbe();
+            return true;
+        }
+
+        if (pageBuilder.getPositionCount() == 1) {
+            // repeat probe join key match
+            pageBuilder.repeatBuildRow();
+            probe.finish();
+            statisticsCounter.recordRleProbe();
+            return true;
+        }
+
+        // process probe row by row since there are multiple matches per probe join key
+        return false;
     }
 
     /**
@@ -211,14 +244,14 @@ public class PageJoiner
     /**
      * @return whether there are more positions on probe side
      */
-    private boolean advanceProbePosition(LookupSource lookupSource)
+    private boolean advanceProbePosition()
     {
         if (!probe.advanceNextPosition()) {
             return false;
         }
 
         // update join position
-        joinPosition = probe.getCurrentJoinPosition(lookupSource);
+        joinPosition = probe.getCurrentJoinPosition();
         // reset row join state for next row
         joinSourcePositions = 0;
         currentProbePositionProducedRow = false;

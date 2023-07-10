@@ -18,15 +18,14 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.util.Providers;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
+import jakarta.annotation.Nullable;
 import org.weakref.jmx.MBeanExporter;
-
-import javax.annotation.Nullable;
-import javax.inject.Singleton;
 
 import java.util.Map;
 import java.util.Optional;

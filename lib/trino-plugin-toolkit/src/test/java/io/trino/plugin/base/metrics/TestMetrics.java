@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Map;
 
+import static io.trino.spi.metrics.Metrics.accumulator;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -50,21 +51,15 @@ public class TestMetrics
     @Test
     public void testMergeHistogram()
     {
-        TDigest d1 = new TDigest();
-        d1.add(10.0, 1);
-
-        TDigest d2 = new TDigest();
-        d2.add(5.0, 2);
-
-        Metrics m1 = new Metrics(ImmutableMap.of("a", new TDigestHistogram(d1)));
-        Metrics m2 = new Metrics(ImmutableMap.of("a", new TDigestHistogram(d2)));
+        Metrics m1 = new Metrics(ImmutableMap.of("a", TDigestHistogram.fromValue(10.0, 1)));
+        Metrics m2 = new Metrics(ImmutableMap.of("a", TDigestHistogram.fromValue(5.0, 2)));
         TDigestHistogram merged = (TDigestHistogram) merge(m1, m2).getMetrics().get("a");
 
         assertThat(merged.getTotal()).isEqualTo(3L);
         assertThat(merged.getPercentile(0)).isEqualTo(5.0);
         assertThat(merged.getPercentile(100)).isEqualTo(10.0);
         assertThat(merged.toString())
-                .matches("\\{count=3\\.00, p01=5\\.00, p05=5\\.00, p10=5\\.00, p25=5\\.00, p50=7\\.50, p75=10\\.00, p90=10\\.00, p95=10\\.00, p99=10\\.00, min=5\\.00, max=10\\.00\\}");
+                .matches("\\{count=3, p01=5\\.00, p05=5\\.00, p10=5\\.00, p25=5\\.00, p50=7\\.50, p75=10\\.00, p90=10\\.00, p95=10\\.00, p99=10\\.00, min=5\\.00, max=10\\.00\\}");
     }
 
     @Test
@@ -114,6 +109,17 @@ public class TestMetrics
         Metrics m1 = new Metrics(ImmutableMap.of("a", new TDigestHistogram(new TDigest())));
         Metrics m2 = new Metrics(ImmutableMap.of("a", new LongCount(0)));
         merge(m1, m2);
+    }
+
+    @Test
+    public void testReduceSingleMetrics()
+    {
+        Metrics metrics = new Metrics(ImmutableMap.of("a", new LongCount(0)));
+        assertThat(accumulator().add(metrics).get()).isEqualTo(metrics);
+
+        Metrics metrics1 = new Metrics(ImmutableMap.of("a", new LongCount(1)));
+        Metrics metrics2 = new Metrics(ImmutableMap.of("a", new LongCount(2)));
+        assertThat(accumulator().add(metrics1).add(metrics2).get()).isEqualTo(new Metrics(ImmutableMap.of("a", new LongCount(3))));
     }
 
     private static Metrics merge(Metrics... metrics)

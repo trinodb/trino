@@ -14,6 +14,7 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
@@ -22,9 +23,6 @@ import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
-import javax.inject.Inject;
-
-import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -37,7 +35,7 @@ public class EnvSinglenodeHiveIcebergRedirections
     public EnvSinglenodeHiveIcebergRedirections(DockerFiles dockerFiles, Standard standard, Hadoop hadoop)
     {
         super(ImmutableList.of(standard, hadoop));
-        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-hive-iceberg-redirections");
+        configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-hive-iceberg-redirections");
     }
 
     @Override

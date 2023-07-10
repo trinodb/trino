@@ -22,7 +22,7 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.UnnestNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -65,11 +65,9 @@ public class TestUseNonPartitionedJoinLookupSource
                             repartitioningExchange(p, b, p.values(b)));
                 })
                 .matches(
-                        join(
-                                INNER,
-                                ImmutableList.of(),
-                                values("a"),
-                                exchange(LOCAL, GATHER, values("b"))));
+                        join(INNER, builder -> builder
+                                .left(values("a"))
+                                .right(exchange(LOCAL, GATHER, values("b")))));
     }
 
     @Test

@@ -20,14 +20,13 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.TWO_HIVES;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.Math.pow;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTwoHives
 {
@@ -81,7 +80,6 @@ public class TestTwoHives
     {
         return CATALOGS.stream()
                 .map(catalog -> new Object[] {catalog})
-                .collect(toList())
-                .toArray(new Object[][] {});
+                .toArray(Object[][]::new);
     }
 }

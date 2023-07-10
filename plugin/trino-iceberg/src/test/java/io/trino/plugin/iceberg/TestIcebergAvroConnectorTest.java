@@ -13,11 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import org.testng.SkipException;
-
-import java.util.Map;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 
@@ -27,13 +23,6 @@ public class TestIcebergAvroConnectorTest
     public TestIcebergAvroConnectorTest()
     {
         super(AVRO);
-    }
-
-    @Override
-    protected Map<String, String> additionalIcebergProperties()
-    {
-        // Iceberg AVRO doesn't support ZSTD (connector's default) compression codec
-        return ImmutableMap.of("iceberg.compression-codec", "SNAPPY");
     }
 
     @Override
@@ -49,14 +38,14 @@ public class TestIcebergAvroConnectorTest
     }
 
     @Override
-    protected Session withSmallRowGroups(Session session)
+    public void testIncorrectIcebergFileSizes()
     {
-        return session;
+        throw new SkipException("Avro does not do tail reads");
     }
 
     @Override
-    public void testIncorrectIcebergFileSizes()
+    protected boolean isFileSorted(String path, String sortColumnName)
     {
-        throw new SkipException("TODO: Enable after supporting 'use_file_size_from_metadata' session property");
+        throw new SkipException("Unimplemented");
     }
 }

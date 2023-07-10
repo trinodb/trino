@@ -28,6 +28,9 @@ import static java.util.Objects.requireNonNull;
 
 public class Constraint
 {
+    private static final Constraint ALWAYS_TRUE = new Constraint(TupleDomain.all());
+    private static final Constraint ALWAYS_FALSE = new Constraint(TupleDomain.none(), bindings -> false, Set.of());
+
     private final TupleDomain<ColumnHandle> summary;
     private final ConnectorExpression expression;
     private final Map<String, ColumnHandle> assignments;
@@ -36,12 +39,12 @@ public class Constraint
 
     public static Constraint alwaysTrue()
     {
-        return new Constraint(TupleDomain.all());
+        return ALWAYS_TRUE;
     }
 
     public static Constraint alwaysFalse()
     {
-        return new Constraint(TupleDomain.none(), bindings -> false, Set.of());
+        return ALWAYS_FALSE;
     }
 
     public Constraint(TupleDomain<ColumnHandle> summary)
@@ -80,7 +83,7 @@ public class Constraint
         this.expression = requireNonNull(expression, "expression is null");
         this.assignments = Map.copyOf(requireNonNull(assignments, "assignments is null"));
         this.predicate = requireNonNull(predicate, "predicate is null");
-        this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null").map(Set::copyOf);
+        this.predicateColumns = predicateColumns.map(Set::copyOf);
 
         if (predicateColumns.isPresent() && predicate.isEmpty()) {
             throw new IllegalArgumentException("predicateColumns cannot be present when predicate is not present");

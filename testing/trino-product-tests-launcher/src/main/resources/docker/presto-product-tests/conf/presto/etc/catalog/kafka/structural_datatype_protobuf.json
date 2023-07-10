@@ -1,0 +1,55 @@
+{
+  "tableName": "structural_datatype_protobuf",
+  "schemaName": "product_tests",
+  "topicName": "structural_datatype_protobuf",
+  "message": {
+    "dataFormat": "protobuf",
+    "dataSchema": "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/structural_datatype.proto",
+    "fields": [
+      {
+        "name": "c_array",
+        "type": "ARRAY(ROW(simple_string VARCHAR))",
+        "mapping": "a_array"
+      },
+      {
+        "name": "b_map",
+        "type": "MAP(VARCHAR, ROW(simple_string VARCHAR))",
+        "mapping": "b_map"
+      },
+      {
+        "name": "a_row",
+        "type": "ROW(d_double DOUBLE, e_float REAL, g_enum VARCHAR)",
+        "mapping": "c_row"
+      },
+      {
+        "name": "a_string",
+        "type": "VARCHAR",
+        "mapping": "c_row/a_string"
+      },
+      {
+        "name": "c_integer",
+        "type": "INTEGER",
+        "mapping": "c_row/b_integer"
+      },
+      {
+        "name": "c_bigint",
+        "type": "BIGINT",
+        "mapping": "c_row/c_bigint"
+      },
+      {
+        "name": "d_row",
+        "type": "ROW(simple_string VARCHAR)",
+        "mapping": "c_row/simple_row"
+      },
+      {
+        "name": "e_timestamp",
+        "type": "TIMESTAMP(6)",
+        "mapping": "c_row/h_timestamp"
+      }
+    ]
+  },
+  "key": {
+    "dataFormat": "raw",
+    "fields": []
+  }
+}

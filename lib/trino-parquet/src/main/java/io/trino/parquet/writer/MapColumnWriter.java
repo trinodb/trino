@@ -14,22 +14,22 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.parquet.writer.repdef.DefLevelIterable;
-import io.trino.parquet.writer.repdef.DefLevelIterables;
-import io.trino.parquet.writer.repdef.RepLevelIterable;
-import io.trino.parquet.writer.repdef.RepLevelIterables;
+import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
+import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
+import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
+import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
 import io.trino.spi.block.ColumnarMap;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class MapColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapColumnWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(MapColumnWriter.class);
 
     private final ColumnWriter keyWriter;
     private final ColumnWriter valueWriter;
@@ -50,16 +50,16 @@ public class MapColumnWriter
     {
         ColumnarMap columnarMap = ColumnarMap.toColumnarMap(columnChunk.getBlock());
 
-        ImmutableList<DefLevelIterable> defLevelIterables = ImmutableList.<DefLevelIterable>builder()
-                .addAll(columnChunk.getDefLevelIterables())
-                .add(DefLevelIterables.of(columnarMap, maxDefinitionLevel)).build();
+        ImmutableList<DefLevelWriterProvider> defLevelWriterProviders = ImmutableList.<DefLevelWriterProvider>builder()
+                .addAll(columnChunk.getDefLevelWriterProviders())
+                .add(DefLevelWriterProviders.of(columnarMap, maxDefinitionLevel)).build();
 
-        ImmutableList<RepLevelIterable> repLevelIterables = ImmutableList.<RepLevelIterable>builder()
-                .addAll(columnChunk.getRepLevelIterables())
-                .add(RepLevelIterables.of(columnarMap, maxRepetitionLevel)).build();
+        ImmutableList<RepLevelWriterProvider> repLevelIterables = ImmutableList.<RepLevelWriterProvider>builder()
+                .addAll(columnChunk.getRepLevelWriterProviders())
+                .add(RepLevelWriterProviders.of(columnarMap, maxRepetitionLevel)).build();
 
-        keyWriter.writeBlock(new ColumnChunk(columnarMap.getKeysBlock(), defLevelIterables, repLevelIterables));
-        valueWriter.writeBlock(new ColumnChunk(columnarMap.getValuesBlock(), defLevelIterables, repLevelIterables));
+        keyWriter.writeBlock(new ColumnChunk(columnarMap.getKeysBlock(), defLevelWriterProviders, repLevelIterables));
+        valueWriter.writeBlock(new ColumnChunk(columnarMap.getValuesBlock(), defLevelWriterProviders, repLevelIterables));
     }
 
     @Override

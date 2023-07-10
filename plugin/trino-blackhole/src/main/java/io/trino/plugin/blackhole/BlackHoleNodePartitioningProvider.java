@@ -13,59 +13,33 @@
  */
 package io.trino.plugin.blackhole;
 
-import io.trino.spi.NodeManager;
-import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
-import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static java.util.Objects.requireNonNull;
+import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 
 public class BlackHoleNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
-    private final NodeManager nodeManager;
     private final TypeOperators typeOperators;
 
-    public BlackHoleNodePartitioningProvider(NodeManager nodeManager, TypeOperators typeOperators)
+    public BlackHoleNodePartitioningProvider(TypeOperators typeOperators)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.typeOperators = typeOperators;
-    }
-
-    @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
-    {
-        // create one bucket per node
-        return createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size());
-    }
-
-    @Override
-    public ToIntFunction<ConnectorSplit> getSplitBucketFunction(
-            ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session,
-            ConnectorPartitioningHandle partitioningHandle)
-    {
-        return value -> {
-            throw new TrinoException(NOT_SUPPORTED, "Black hole connector does not supported distributed reads");
-        };
     }
 
     @Override
@@ -77,14 +51,22 @@ public class BlackHoleNodePartitioningProvider
             int bucketCount)
     {
         List<MethodHandle> hashCodeInvokers = partitionChannelTypes.stream()
-                .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)))
+                .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)))
                 .collect(toImmutableList());
 
         return (page, position) -> {
             long hash = 13;
             for (int i = 0; i < partitionChannelTypes.size(); i++) {
+                Block block = page.getBlock(i);
                 try {
-                    hash = 31 * hash + (long) hashCodeInvokers.get(i).invokeExact(page.getBlock(i), 0);
+                    long valueHash;
+                    if (block.isNull(position)) {
+                        valueHash = NULL_HASH_CODE;
+                    }
+                    else {
+                        valueHash = (long) hashCodeInvokers.get(i).invokeExact(block, position);
+                    }
+                    hash = 31 * hash + valueHash;
                 }
                 catch (Throwable throwable) {
                     throwIfUnchecked(throwable);

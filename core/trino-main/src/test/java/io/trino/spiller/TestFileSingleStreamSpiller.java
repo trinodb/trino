@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.execution.buffer.PagesSerdeUtil;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.PageAssertions;
@@ -39,15 +40,15 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.MoreFiles.listFiles;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static io.trino.execution.buffer.PagesSerde.isSerializedPageCompressed;
-import static io.trino.execution.buffer.PagesSerde.isSerializedPageEncrypted;
+import static io.trino.execution.buffer.PagesSerdeUtil.isSerializedPageCompressed;
+import static io.trino.execution.buffer.PagesSerdeUtil.isSerializedPageEncrypted;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Double.doubleToLongBits;
 import static java.nio.file.Files.newInputStream;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -151,6 +152,11 @@ public class TestFileSingleStreamSpiller
             PageAssertions.assertPageEquals(TYPES, page, spilledPages.get(i));
         }
 
+        // Repeated reads are disallowed
+        assertThatThrownBy(spiller::getSpilledPages)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Repeated reads are disallowed to prevent potential resource leaks");
+
         spiller.close();
         assertEquals(listFiles(spillPath.toPath()).size(), 0);
         assertEquals(memoryContext.getBytes(), 0);
@@ -162,9 +168,9 @@ public class TestFileSingleStreamSpiller
         BlockBuilder col2 = DOUBLE.createBlockBuilder(null, 1);
         BlockBuilder col3 = VARBINARY.createBlockBuilder(null, 1);
 
-        col1.writeLong(42).closeEntry();
-        col2.writeLong(doubleToLongBits(43.0)).closeEntry();
-        col3.writeLong(doubleToLongBits(43.0)).writeLong(1).closeEntry();
+        BIGINT.writeLong(col1, 42);
+        DOUBLE.writeDouble(col2, 43.0);
+        VARBINARY.writeSlice(col3, Slices.allocate(16).getOutput().appendDouble(43.0).appendLong(1).slice());
 
         return new Page(col1.build(), col2.build(), col3.build());
     }

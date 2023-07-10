@@ -14,10 +14,9 @@
 package io.trino.tests.product.cli;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Files;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
@@ -26,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 
 import static io.trino.tempto.Requirements.compose;
@@ -52,7 +52,6 @@ import static io.trino.tests.product.TestGroups.LDAP_CLI;
 import static io.trino.tests.product.TestGroups.LDAP_MULTIPLE_BINDS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -94,12 +93,12 @@ public class TestTrinoLdapCli
             throws IOException
     {}
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     @Override
-    public void stopPresto()
+    public void stopCli()
             throws InterruptedException
     {
-        super.stopPresto();
+        super.stopCli();
     }
 
     @Override
@@ -137,7 +136,7 @@ public class TestTrinoLdapCli
     {
         File temporayFile = File.createTempFile("test-sql", null);
         temporayFile.deleteOnExit();
-        Files.write(SELECT_FROM_NATION + "\n", temporayFile, UTF_8);
+        Files.writeString(temporayFile.toPath(), SELECT_FROM_NATION + "\n");
 
         launchTrinoCliWithServerArgument("--file", temporayFile.getAbsolutePath());
         assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
@@ -254,7 +253,7 @@ public class TestTrinoLdapCli
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Authentication using username/password requires HTTPS to be enabled"));
-        skipAfterTestWithContext();
+        skipAfterMethodWithContext();
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -265,10 +264,10 @@ public class TestTrinoLdapCli
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Error setting up SSL: keystore password was incorrect"));
-        skipAfterTestWithContext();
+        skipAfterMethodWithContext();
     }
 
-    private void skipAfterTestWithContext()
+    private void skipAfterMethodWithContext()
     {
         trino.close();
         trino = null;
@@ -292,7 +291,7 @@ public class TestTrinoLdapCli
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Illegal character ':' found in username"));
-        skipAfterTestWithContext();
+        skipAfterMethodWithContext();
     }
 
     @Test(groups = {LDAP_AND_FILE_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)

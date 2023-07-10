@@ -15,16 +15,18 @@ package io.trino.operator.aggregation.minmaxbyn;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
@@ -32,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TypedKeyValueHeap
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedKeyValueHeap.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(TypedKeyValueHeap.class);
 
     private static final int COMPACT_THRESHOLD_BYTES = 32768;
     private static final int COMPACT_THRESHOLD_RATIO = 3; // when 2/3 of elements in keyBlockBuilder is unreferenced, do compact
@@ -96,22 +98,21 @@ public class TypedKeyValueHeap
 
     public void serialize(BlockBuilder out)
     {
-        BlockBuilder blockBuilder = out.beginBlockEntry();
-        BIGINT.writeLong(blockBuilder, getCapacity());
+        ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {
+            BIGINT.writeLong(fieldBuilders.get(0), getCapacity());
 
-        BlockBuilder keyElements = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < positionCount; i++) {
-            keyType.appendTo(keyBlockBuilder, heapIndex[i], keyElements);
-        }
-        blockBuilder.closeEntry();
+            ((ArrayBlockBuilder) fieldBuilders.get(1)).buildEntry(elementBuilder -> {
+                for (int i = 0; i < positionCount; i++) {
+                    keyType.appendTo(keyBlockBuilder, heapIndex[i], elementBuilder);
+                }
+            });
 
-        BlockBuilder valueElements = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < positionCount; i++) {
-            valueType.appendTo(valueBlockBuilder, heapIndex[i], valueElements);
-        }
-        blockBuilder.closeEntry();
-
-        out.closeEntry();
+            ((ArrayBlockBuilder) fieldBuilders.get(2)).buildEntry(elementBuilder -> {
+                for (int i = 0; i < positionCount; i++) {
+                    valueType.appendTo(valueBlockBuilder, heapIndex[i], elementBuilder);
+                }
+            });
+        });
     }
 
     public static TypedKeyValueHeap deserialize(boolean min, MethodHandle compare, Type keyType, Type valueType, Block rowBlock)

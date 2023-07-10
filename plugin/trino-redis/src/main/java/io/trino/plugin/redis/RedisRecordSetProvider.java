@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.redis;
 
+import com.google.inject.Inject;
 import io.trino.decoder.DispatchingRowDecoderFactory;
 import io.trino.decoder.RowDecoder;
 import io.trino.spi.connector.ColumnHandle;
@@ -22,8 +23,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordSet;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

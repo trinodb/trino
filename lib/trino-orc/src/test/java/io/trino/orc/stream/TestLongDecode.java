@@ -111,10 +111,8 @@ public class TestLongDecode
                 output.write((byte) value);
                 return;
             }
-            else {
-                output.write((byte) (0x80 | (value & 0x7f)));
-                value >>>= 7;
-            }
+            output.write((byte) (0x80 | (value & 0x7f)));
+            value >>>= 7;
         }
     }
 

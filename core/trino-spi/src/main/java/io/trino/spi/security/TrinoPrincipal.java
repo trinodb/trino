@@ -30,7 +30,7 @@ public class TrinoPrincipal
     public TrinoPrincipal(@JsonProperty("type") PrincipalType type, @JsonProperty("name") String name)
     {
         this.type = requireNonNull(type, "type is null");
-        this.name = requireNonNull(name, "name is null").toLowerCase(ENGLISH);
+        this.name = name.toLowerCase(ENGLISH);
     }
 
     @JsonProperty

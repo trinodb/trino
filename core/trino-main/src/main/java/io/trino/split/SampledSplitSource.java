@@ -15,9 +15,8 @@ package io.trino.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.connector.CatalogHandle;
-
-import javax.annotation.Nullable;
+import io.trino.spi.connector.CatalogHandle;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;

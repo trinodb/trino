@@ -17,13 +17,12 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.HostAddress;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -56,7 +55,7 @@ public final class FileBasedNetworkTopology
     public FileBasedNetworkTopology(TopologyFileConfig topologyConfig)
     {
         this(
-                requireNonNull(topologyConfig, "topologyConfig is null").getNetworkTopologyFile(),
+                topologyConfig.getNetworkTopologyFile(),
                 topologyConfig.getRefreshPeriod(),
                 Ticker.systemTicker());
     }
@@ -64,7 +63,7 @@ public final class FileBasedNetworkTopology
     FileBasedNetworkTopology(File networkTopologyFile, Duration refreshPeriod, Ticker ticker)
     {
         this.networkTopologyFile = requireNonNull(networkTopologyFile, "networkTopologyFile is null");
-        this.refreshPeriodNanos = requireNonNull(refreshPeriod, "refreshPeriodNanos is null").roundTo(NANOSECONDS);
+        this.refreshPeriodNanos = refreshPeriod.roundTo(NANOSECONDS);
         this.ticker = requireNonNull(ticker, "ticker is null");
         refreshTopology();
     }

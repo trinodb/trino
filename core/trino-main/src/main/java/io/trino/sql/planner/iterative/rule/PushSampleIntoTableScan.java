@@ -82,12 +82,9 @@ public class PushSampleIntoTableScan
 
     private static SampleType getSamplingType(Type sampleNodeType)
     {
-        switch (sampleNodeType) {
-            case SYSTEM:
-                return SampleType.SYSTEM;
-            case BERNOULLI:
-                return SampleType.BERNOULLI;
-        }
-        throw new UnsupportedOperationException("Not yet implemented for " + sampleNodeType);
+        return switch (sampleNodeType) {
+            case SYSTEM -> SampleType.SYSTEM;
+            case BERNOULLI -> SampleType.BERNOULLI;
+        };
     }
 }

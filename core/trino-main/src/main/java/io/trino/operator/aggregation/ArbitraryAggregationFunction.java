@@ -27,7 +27,7 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
-@AggregationFunction("arbitrary")
+@AggregationFunction(value = "any_value", alias = "arbitrary")
 @Description("Return an arbitrary non-null input value")
 public final class ArbitraryAggregationFunction
 {

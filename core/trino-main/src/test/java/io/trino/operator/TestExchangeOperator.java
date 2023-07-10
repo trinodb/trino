@@ -22,18 +22,17 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.exchange.DirectExchangeInput;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.Split;
 import io.trino.operator.ExchangeOperator.ExchangeOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
-import io.trino.split.RemoteSplit.DirectExchangeInput;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -51,7 +50,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
+import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.TestingTaskBuffer.PAGE;
@@ -88,7 +87,7 @@ public class TestExchangeOperator
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
-        httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), scheduler);
+        httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers, SERDE_FACTORY), scheduler);
 
         directExchangeClientSupplier = (queryId, exchangeId, memoryContext, taskFailureListener, retryPolicy) -> new DirectExchangeClient(
                 "localhost",
@@ -264,14 +263,14 @@ public class TestExchangeOperator
                 directExchangeClientSupplier,
                 SERDE_FACTORY,
                 RetryPolicy.NONE,
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()));
+                new ExchangeManagerRegistry());
 
         DriverContext driverContext = createTaskContext(scheduler, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
         SourceOperator operator = operatorFactory.createOperator(driverContext);
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
+        operatorFactory.noMoreOperators();
         return operator;
     }
 
@@ -292,9 +291,7 @@ public class TestExchangeOperator
                 greaterThanZero = true;
                 break;
             }
-            else {
-                Thread.sleep(10);
-            }
+            Thread.sleep(10);
         }
         assertTrue(greaterThanZero);
 
@@ -326,13 +323,11 @@ public class TestExchangeOperator
             assertPageEquals(TYPES, page, PAGE);
         }
 
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
-
         return outputPages;
     }
 
     private static void waitForFinished(Operator operator)
-            throws InterruptedException
+            throws Exception
     {
         // wait for finished or until 10 seconds has passed
         long endTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
@@ -349,6 +344,10 @@ public class TestExchangeOperator
         assertEquals(operator.isFinished(), true);
         assertEquals(operator.needsInput(), false);
         assertNull(operator.getOutput());
+
+        operator.close();
+        operator.getOperatorContext().destroy();
+
         assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
     }
 }

@@ -19,10 +19,10 @@ import io.trino.tempto.query.QueryResult;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTableLocation;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -184,6 +184,16 @@ public abstract class BaseTestSyncPartitionMetadata
         assertThatThrownBy(() -> onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD', false)"))
                 .hasMessageContaining(format("One or more partitions already exist for table 'default.%s'", tableName));
         assertPartitions(tableName, row("a", "1"), row("b", "2"));
+    }
+
+    public void testSyncPartitionMetadataWithNullArgument()
+    {
+        assertQueryFailure(() -> onTrino().executeQuery("CALL system.sync_partition_metadata(NULL, 'page_views', 'ADD')"))
+                .hasMessageMatching(".*schema_name cannot be null.*");
+        assertQueryFailure(() -> onTrino().executeQuery("CALL system.sync_partition_metadata('web', NULl, 'ADD')"))
+                .hasMessageMatching(".*table_name cannot be null.*");
+        assertQueryFailure(() -> onTrino().executeQuery("CALL system.sync_partition_metadata('web', 'page_views', NULL)"))
+                .hasMessageMatching(".*mode cannot be null.*");
     }
 
     private String tableLocation(String tableName)

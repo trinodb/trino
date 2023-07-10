@@ -41,8 +41,6 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestJdbcClient
 {
@@ -66,32 +64,34 @@ public class TestJdbcClient
             throws Exception
     {
         database.close();
+        database = null;
     }
 
     @Test
     public void testMetadata()
     {
-        assertTrue(jdbcClient.getSchemaNames(session).containsAll(ImmutableSet.of("example", "tpch")));
-        assertEquals(jdbcClient.getTableNames(session, Optional.of("example")), ImmutableList.of(
+        assertThat(jdbcClient.getSchemaNames(session).containsAll(ImmutableSet.of("example", "tpch"))).isTrue();
+        assertThat(jdbcClient.getTableNames(session, Optional.of("example"))).containsExactly(
                 new SchemaTableName("example", "numbers"),
                 new SchemaTableName("example", "timestamps"),
                 new SchemaTableName("example", "view_source"),
-                new SchemaTableName("example", "view")));
-        assertEquals(jdbcClient.getTableNames(session, Optional.of("tpch")), ImmutableList.of(
+                new SchemaTableName("example", "view"));
+
+        assertThat(jdbcClient.getTableNames(session, Optional.of("tpch"))).containsExactly(
                 new SchemaTableName("tpch", "lineitem"),
-                new SchemaTableName("tpch", "orders")));
+                new SchemaTableName("tpch", "orders"));
 
         SchemaTableName schemaTableName = new SchemaTableName("example", "numbers");
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
-        assertTrue(table.isPresent(), "table is missing");
-        assertEquals(table.get().getCatalogName(), catalogName.toUpperCase(ENGLISH));
-        assertEquals(table.get().getSchemaName(), "EXAMPLE");
-        assertEquals(table.get().getTableName(), "NUMBERS");
-        assertEquals(table.get().getRequiredNamedRelation().getSchemaTableName(), schemaTableName);
-        assertEquals(jdbcClient.getColumns(session, table.orElse(null)), ImmutableList.of(
+        assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
+        assertThat(table.get().getRequiredNamedRelation().getRemoteTableName().getCatalogName().orElse(null)).isEqualTo(catalogName.toUpperCase(ENGLISH));
+        assertThat(table.get().getRequiredNamedRelation().getRemoteTableName().getSchemaName().orElse(null)).isEqualTo("EXAMPLE");
+        assertThat(table.get().getRequiredNamedRelation().getRemoteTableName().getTableName()).isEqualTo("NUMBERS");
+        assertThat(table.get().getRequiredNamedRelation().getSchemaTableName()).isEqualTo(schemaTableName);
+        assertThat(jdbcClient.getColumns(session, table.orElse(null))).containsExactly(
                 new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
-                new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
+                new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT));
     }
 
     @Test
@@ -99,10 +99,10 @@ public class TestJdbcClient
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "num_ers");
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
-        assertTrue(table.isPresent(), "table is missing");
-        assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
+        assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
+        assertThat(jdbcClient.getColumns(session, table.get())).containsExactly(
                 new JdbcColumnHandle("TE_T", JDBC_VARCHAR, VARCHAR),
-                new JdbcColumnHandle("VA%UE", JDBC_BIGINT, BIGINT)));
+                new JdbcColumnHandle("VA%UE", JDBC_BIGINT, BIGINT));
     }
 
     @Test
@@ -110,12 +110,12 @@ public class TestJdbcClient
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "table_with_float_col");
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
-        assertTrue(table.isPresent(), "table is missing");
-        assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
+        assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
+        assertThat(jdbcClient.getColumns(session, table.get())).containsExactly(
                 new JdbcColumnHandle("COL1", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle("COL2", JDBC_DOUBLE, DOUBLE),
                 new JdbcColumnHandle("COL3", JDBC_DOUBLE, DOUBLE),
-                new JdbcColumnHandle("COL4", JDBC_REAL, REAL)));
+                new JdbcColumnHandle("COL4", JDBC_REAL, REAL));
     }
 
     @Test
@@ -123,11 +123,11 @@ public class TestJdbcClient
     {
         SchemaTableName schemaTableName = new SchemaTableName("example", "timestamps");
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
-        assertTrue(table.isPresent(), "table is missing");
-        assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
+        assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
+        assertThat(jdbcClient.getColumns(session, table.get())).containsExactly(
                 new JdbcColumnHandle("TS_3", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
                 new JdbcColumnHandle("TS_6", JDBC_TIMESTAMP, TIMESTAMP_MICROS),
-                new JdbcColumnHandle("TS_9", JDBC_TIMESTAMP, TIMESTAMP_NANOS)));
+                new JdbcColumnHandle("TS_9", JDBC_TIMESTAMP, TIMESTAMP_NANOS));
     }
 
     @Test
@@ -155,7 +155,9 @@ public class TestJdbcClient
         jdbcClient.renameTable(session, jdbcClient.getTableHandle(session, oldTable).get(), newTable);
         jdbcClient.dropTable(session, jdbcClient.getTableHandle(session, newTable).get());
         jdbcClient.dropSchema(session, schemaName);
-        assertThat(jdbcClient.getTableNames(session, Optional.empty())).doesNotContain(oldTable).doesNotContain(newTable);
+        assertThat(jdbcClient.getTableNames(session, Optional.empty()))
+                .doesNotContain(oldTable)
+                .doesNotContain(newTable);
         assertThat(jdbcClient.getSchemaNames(session)).doesNotContain(schemaName);
     }
 }

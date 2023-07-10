@@ -45,7 +45,7 @@ public class PageBuilder
      * therefore it can resize frequently while appending new rows.
      * <p>
      * This constructor should only be used to get the initial PageBuilder.
-     * Once the PageBuilder is full use reset() or createPageBuilderLike() to create a new
+     * Once the PageBuilder is full use reset() or newPageBuilderLike() to create a new
      * PageBuilder instance with its size estimated based on previous data.
      */
     public PageBuilder(List<? extends Type> types)
@@ -96,6 +96,19 @@ public class PageBuilder
         for (int i = 0; i < blockBuilders.length; i++) {
             blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
         }
+    }
+
+    public void reset(int expectedEntries)
+    {
+        if (isEmpty()) {
+            return;
+        }
+        pageBuilderStatus = new PageBuilderStatus(pageBuilderStatus.getMaxPageSizeInBytes());
+
+        for (int i = 0; i < blockBuilders.length; i++) {
+            blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(expectedEntries, pageBuilderStatus.createBlockBuilderStatus());
+        }
+        declaredPositions = 0;
     }
 
     public PageBuilder newPageBuilderLike()

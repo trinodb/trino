@@ -16,8 +16,9 @@ package io.trino.plugin.hive.benchmark;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.GenericHiveRecordCursorProvider;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
@@ -40,7 +41,6 @@ import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 
 import java.io.File;
@@ -129,14 +129,11 @@ public abstract class AbstractFileFormat
                 new HiveConfig(),
                 getHivePageSourceFactory(hdfsEnvironment).map(ImmutableSet::of).orElse(ImmutableSet.of()),
                 getHiveRecordCursorProvider(hdfsEnvironment).map(ImmutableSet::of).orElse(ImmutableSet.of()),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, new HiveConfig()),
-                Optional.empty());
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, new HiveConfig()));
 
         Properties schema = createSchema(getFormat(), schemaColumnNames, schemaColumnTypes);
 
         HiveSplit split = new HiveSplit(
-                "schema_name",
-                "table_name",
                 "",
                 targetFile.getPath(),
                 0,
@@ -148,14 +145,12 @@ public abstract class AbstractFileFormat
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
-                0,
                 false,
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty(),
-                0,
                 SplitWeight.standard());
 
         return factory.createPageSource(
@@ -187,7 +182,7 @@ public abstract class AbstractFileFormat
         Optional<ReaderRecordCursorWithProjections> recordCursorWithProjections = cursorProvider.createRecordCursor(
                 conf,
                 session,
-                new Path(targetFile.getAbsolutePath()),
+                Location.of(targetFile.getAbsolutePath()),
                 0,
                 targetFile.length(),
                 targetFile.length(),
@@ -217,9 +212,8 @@ public abstract class AbstractFileFormat
         Properties schema = createSchema(format, columnNames, columnTypes);
         Optional<ReaderPageSource> readerPageSourceWithProjections = pageSourceFactory
                 .createPageSource(
-                        conf,
                         session,
-                        new Path(targetFile.getAbsolutePath()),
+                        Location.of(targetFile.getAbsolutePath()),
                         0,
                         targetFile.length(),
                         targetFile.length(),

@@ -36,9 +36,10 @@ public class TestFeaturesConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(FeaturesConfig.class)
+                .setLegacyCatalogRoles(false)
                 .setRedistributeWrites(true)
                 .setScaleWriters(true)
-                .setWriterMinSize(DataSize.of(32, MEGABYTE))
+                .setWriterScalingMinDataProcessed(DataSize.of(120, MEGABYTE))
                 .setRegexLibrary(JONI)
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
                 .setRe2JDfaRetries(5)
@@ -51,7 +52,6 @@ public class TestFeaturesConfig
                 .setMemoryRevokingTarget(0.5)
                 .setExchangeCompressionEnabled(false)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.ABORT)
-                .setLegacyRowToJsonCast(false)
                 .setParseDecimalLiteralsAsDouble(false)
                 .setPagesIndexEagerCompactionEnabled(false)
                 .setFilterAndProjectMinOutputPageSize(DataSize.of(500, KILOBYTE))
@@ -62,9 +62,10 @@ public class TestFeaturesConfig
                 .setOmitDateTimeTypePrecision(false)
                 .setLegacyCatalogRoles(false)
                 .setIncrementalHashArrayLoadFactorEnabled(true)
+                .setLegacyMaterializedViewGracePeriod(false)
                 .setHideInaccessibleColumns(false)
-                .setAllowSetViewAuthorization(false)
-                .setForceSpillingJoin(false));
+                .setForceSpillingJoin(false)
+                .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
     }
 
     @Test
@@ -73,7 +74,7 @@ public class TestFeaturesConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "false")
-                .put("writer-min-size", "42GB")
+                .put("writer-scaling-min-data-processed", "4GB")
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
@@ -86,7 +87,6 @@ public class TestFeaturesConfig
                 .put("memory-revoking-target", "0.8")
                 .put("exchange.compression-enabled", "true")
                 .put("exchange.data-integrity-verification", "RETRY")
-                .put("deprecated.legacy-row-to-json-cast", "true")
                 .put("parse-decimal-literals-as-double", "true")
                 .put("pages-index.eager-compaction-enabled", "true")
                 .put("filter-and-project-min-output-page-size", "1MB")
@@ -97,15 +97,16 @@ public class TestFeaturesConfig
                 .put("deprecated.omit-datetime-type-precision", "true")
                 .put("deprecated.legacy-catalog-roles", "true")
                 .put("incremental-hash-array-load-factor.enabled", "false")
+                .put("legacy.materialized-view-grace-period", "true")
                 .put("hide-inaccessible-columns", "true")
-                .put("legacy.allow-set-view-authorization", "true")
                 .put("force-spilling-join-operator", "true")
+                .put("fault-tolerant-execution.exchange-encryption-enabled", "false")
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
                 .setRedistributeWrites(false)
                 .setScaleWriters(false)
-                .setWriterMinSize(DataSize.of(42, GIGABYTE))
+                .setWriterScalingMinDataProcessed(DataSize.of(4, GIGABYTE))
                 .setRegexLibrary(RE2J)
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)
@@ -118,7 +119,6 @@ public class TestFeaturesConfig
                 .setMemoryRevokingTarget(0.8)
                 .setExchangeCompressionEnabled(true)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.RETRY)
-                .setLegacyRowToJsonCast(true)
                 .setParseDecimalLiteralsAsDouble(true)
                 .setPagesIndexEagerCompactionEnabled(true)
                 .setFilterAndProjectMinOutputPageSize(DataSize.of(1, MEGABYTE))
@@ -129,9 +129,10 @@ public class TestFeaturesConfig
                 .setOmitDateTimeTypePrecision(true)
                 .setLegacyCatalogRoles(true)
                 .setIncrementalHashArrayLoadFactorEnabled(false)
+                .setLegacyMaterializedViewGracePeriod(true)
                 .setHideInaccessibleColumns(true)
-                .setAllowSetViewAuthorization(true)
-                .setForceSpillingJoin(true);
+                .setForceSpillingJoin(true)
+                .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);
     }
 }

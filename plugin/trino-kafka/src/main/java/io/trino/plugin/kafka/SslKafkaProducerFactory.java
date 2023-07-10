@@ -14,11 +14,10 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.plugin.kafka.security.ForKafkaSsl;
 import io.trino.plugin.kafka.security.KafkaSslConfig;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.util.Properties;
 
@@ -34,8 +33,6 @@ public class SslKafkaProducerFactory
     public SslKafkaProducerFactory(@ForKafkaSsl KafkaProducerFactory delegate, KafkaSslConfig sslConfig)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        requireNonNull(sslConfig, "sslConfig is null");
-
         map = ImmutableMap.copyOf(sslConfig.getKafkaClientProperties());
     }
 

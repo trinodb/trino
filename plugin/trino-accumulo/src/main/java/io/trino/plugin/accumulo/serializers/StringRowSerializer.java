@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.accumulo.serializers;
 
+import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Table;
 import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.Types;
 import io.trino.spi.TrinoException;
@@ -37,7 +39,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -51,7 +53,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class StringRowSerializer
         implements AccumuloRowSerializer
 {
-    private final Map<String, Map<String, String>> familyQualifierColumnMap = new HashMap<>();
+    private final Table<String, String, String> familyQualifierColumnMap = HashBasedTable.create();
     private final Map<String, Object> columnValues = new HashMap<>();
     private final Text rowId = new Text();
     private final Text family = new Text();
@@ -77,13 +79,7 @@ public class StringRowSerializer
     public void setMapping(String name, String family, String qualifier)
     {
         columnValues.put(name, null);
-        Map<String, String> qualifierColumnMap = familyQualifierColumnMap.get(family);
-        if (qualifierColumnMap == null) {
-            qualifierColumnMap = new HashMap<>();
-            familyQualifierColumnMap.put(family, qualifierColumnMap);
-        }
-
-        qualifierColumnMap.put(qualifier, name);
+        familyQualifierColumnMap.put(family, qualifier, name);
     }
 
     @Override
@@ -112,7 +108,7 @@ public class StringRowSerializer
         }
 
         value.set(entry.getValue().get());
-        columnValues.put(familyQualifierColumnMap.get(family.toString()).get(qualifier.toString()), value.toString());
+        columnValues.put(familyQualifierColumnMap.get(family.toString(), qualifier.toString()), value.toString());
     }
 
     @Override
@@ -331,7 +327,7 @@ public class StringRowSerializer
         else if (type.equals(SMALLINT)) {
             setShort(text, (Short) value);
         }
-        else if (type.equals(TIME)) {
+        else if (type.equals(TIME_MILLIS)) {
             setTime(text, (Time) value);
         }
         else if (type.equals(TIMESTAMP_MILLIS)) {
@@ -385,7 +381,7 @@ public class StringRowSerializer
         if (type.equals(SMALLINT)) {
             return (T) (Long) ((Short) Short.parseShort(strValue)).longValue();
         }
-        if (type.equals(TIME)) {
+        if (type.equals(TIME_MILLIS)) {
             return (T) (Long) Long.parseLong(strValue);
         }
         if (type.equals(TIMESTAMP_MILLIS)) {

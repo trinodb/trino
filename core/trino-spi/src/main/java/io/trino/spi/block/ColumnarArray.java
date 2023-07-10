@@ -26,21 +26,20 @@ public class ColumnarArray
     {
         requireNonNull(block, "block is null");
 
-        if (block instanceof LazyBlock) {
-            block = ((LazyBlock) block).getBlock();
+        if (block instanceof LazyBlock lazyBlock) {
+            block = lazyBlock.getBlock();
         }
-        if (block instanceof DictionaryBlock) {
-            return toColumnarArray((DictionaryBlock) block);
+        if (block instanceof DictionaryBlock dictionaryBlock) {
+            return toColumnarArray(dictionaryBlock);
         }
-        if (block instanceof RunLengthEncodedBlock) {
-            return toColumnarArray((RunLengthEncodedBlock) block);
+        if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
+            return toColumnarArray(runLengthEncodedBlock);
         }
 
-        if (!(block instanceof AbstractArrayBlock)) {
+        if (!(block instanceof AbstractArrayBlock arrayBlock)) {
             throw new IllegalArgumentException("Invalid array block: " + block.getClass().getName());
         }
 
-        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
         Block elementsBlock = arrayBlock.getRawElementBlock();
 
         // trim elements to just visible region
@@ -84,7 +83,7 @@ public class ColumnarArray
                 dictionaryBlock,
                 0,
                 offsets,
-                new DictionaryBlock(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds));
+                DictionaryBlock.create(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds));
     }
 
     private static ColumnarArray toColumnarArray(RunLengthEncodedBlock rleBlock)
@@ -112,12 +111,12 @@ public class ColumnarArray
                 rleBlock,
                 0,
                 offsets,
-                new DictionaryBlock(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds));
+                DictionaryBlock.create(dictionaryIds.length, columnarArray.getElementsBlock(), dictionaryIds));
     }
 
     private ColumnarArray(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block elementsBlock)
     {
-        this.nullCheckBlock = nullCheckBlock;
+        this.nullCheckBlock = requireNonNull(nullCheckBlock, "nullCheckBlock is null");
         this.offsetsOffset = offsetsOffset;
         this.offsets = offsets;
         this.elementsBlock = elementsBlock;
@@ -126,6 +125,11 @@ public class ColumnarArray
     public int getPositionCount()
     {
         return nullCheckBlock.getPositionCount();
+    }
+
+    public boolean mayHaveNull()
+    {
+        return nullCheckBlock.mayHaveNull();
     }
 
     public boolean isNull(int position)

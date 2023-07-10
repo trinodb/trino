@@ -24,9 +24,9 @@ public class TestIdRegistry
     public void testAllocateDeallocate()
     {
         IdRegistry<String> registry = new IdRegistry<>();
-        int id1 = registry.allocateId(Integer::toString);
+        int id1 = Integer.parseInt(registry.allocateId(Integer::toString));
         assertEquals(registry.get(id1), Integer.toString(id1));
-        int id2 = registry.allocateId(Integer::toString);
+        int id2 = Integer.parseInt(registry.allocateId(Integer::toString));
         assertEquals(registry.get(id1), Integer.toString(id1));
         assertEquals(registry.get(id2), Integer.toString(id2));
 
@@ -42,7 +42,7 @@ public class TestIdRegistry
         IntArrayList ids = new IntArrayList();
         // Bulk allocate
         for (int i = 0; i < 100; i++) {
-            ids.add(registry.allocateId(Integer::toString));
+            ids.add(Integer.parseInt(registry.allocateId(Integer::toString)));
         }
         // Get values
         for (int i = 0; i < 100; i++) {
@@ -58,12 +58,12 @@ public class TestIdRegistry
     public void testIdRecycling()
     {
         IdRegistry<String> registry = new IdRegistry<>();
-        int id1 = registry.allocateId(Integer::toString);
+        int id1 = Integer.parseInt(registry.allocateId(Integer::toString));
         registry.deallocate(id1);
-        int id2 = registry.allocateId(Integer::toString);
+        int id2 = Integer.parseInt(registry.allocateId(Integer::toString));
         assertEquals(id1, id2);
 
-        int id3 = registry.allocateId(Integer::toString);
+        int id3 = Integer.parseInt(registry.allocateId(Integer::toString));
         registry.allocateId(Integer::toString);
         registry.deallocate(id3);
         registry.allocateId(Integer::toString);

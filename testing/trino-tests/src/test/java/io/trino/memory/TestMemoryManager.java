@@ -48,6 +48,7 @@ import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -197,9 +198,7 @@ public class TestMemoryManager
     private void testNoLeak(@Language("SQL") String query)
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("task.verbose-stats", "true")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("task.verbose-stats", "true");
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             executor.submit(() -> queryRunner.execute(query)).get();
@@ -220,9 +219,7 @@ public class TestMemoryManager
     public void testClusterPools()
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("task.verbose-stats", "true")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("task.verbose-stats", "true");
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             // Reserve all the memory
@@ -330,7 +327,7 @@ public class TestMemoryManager
                 // The user memory enforcement is tested in testQueryTotalMemoryLimit().
                 // Total memory = user memory + revocable memory.
                 .put("spill-enabled", "true")
-                .put("spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "trino", "spills").toString())
+                .put("spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "trino", "spills", randomUUID().toString()).toString())
                 .put("spiller-max-used-space-threshold", "1.0")
                 .buildOrThrow();
         try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {

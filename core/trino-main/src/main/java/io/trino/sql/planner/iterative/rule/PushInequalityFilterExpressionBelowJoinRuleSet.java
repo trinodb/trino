@@ -182,10 +182,9 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
 
     private boolean isSupportedExpression(JoinNodeContext joinNodeContext, Expression expression)
     {
-        if (!(expression instanceof ComparisonExpression && isDeterministic(expression, metadata))) {
+        if (!(expression instanceof ComparisonExpression comparison && isDeterministic(expression, metadata))) {
             return false;
         }
-        ComparisonExpression comparison = (ComparisonExpression) expression;
         if (!SUPPORTED_COMPARISONS.contains(comparison.getOperator())) {
             return false;
         }

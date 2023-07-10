@@ -15,10 +15,10 @@ package io.trino.plugin.hive.rcfile;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.trino.hive.formats.FileCorruptionException;
+import io.trino.hive.formats.rcfile.RcFileReader;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveType;
-import io.trino.rcfile.RcFileCorruptionException;
-import io.trino.rcfile.RcFileReader;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -129,7 +129,7 @@ public class RcFilePageSource
             Block[] blocks = new Block[hiveColumnIndexes.length];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
                 if (constantBlocks[fieldId] != null) {
-                    blocks[fieldId] = new RunLengthEncodedBlock(constantBlocks[fieldId], currentPageSize);
+                    blocks[fieldId] = RunLengthEncodedBlock.create(constantBlocks[fieldId], currentPageSize);
                 }
                 else {
                     blocks[fieldId] = createBlock(currentPageSize, fieldId);
@@ -142,13 +142,13 @@ public class RcFilePageSource
             closeAllSuppress(e, this);
             throw e;
         }
-        catch (RcFileCorruptionException e) {
+        catch (FileCorruptionException e) {
             closeAllSuppress(e, this);
-            throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
+            throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getFileLocation()), e);
         }
         catch (IOException | RuntimeException e) {
             closeAllSuppress(e, this);
-            throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getId()), e);
+            throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getFileLocation()), e);
         }
     }
 
@@ -211,11 +211,11 @@ public class RcFilePageSource
             try {
                 block = rcFileReader.readBlock(columnIndex);
             }
-            catch (RcFileCorruptionException e) {
-                throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
+            catch (FileCorruptionException e) {
+                throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getFileLocation()), e);
             }
             catch (IOException | RuntimeException e) {
-                throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getId()), e);
+                throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getFileLocation()), e);
             }
 
             loaded = true;

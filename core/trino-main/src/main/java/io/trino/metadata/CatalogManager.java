@@ -14,43 +14,56 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogProperties;
+import io.trino.connector.ConnectorName;
+import io.trino.spi.connector.CatalogHandle;
 
-import javax.annotation.concurrent.ThreadSafe;
-
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
-
-@ThreadSafe
-public class CatalogManager
+public interface CatalogManager
 {
-    private final ConcurrentMap<String, Catalog> catalogs = new ConcurrentHashMap<>();
-
-    public synchronized void registerCatalog(Catalog catalog)
+    CatalogManager NO_CATALOGS = new CatalogManager()
     {
-        requireNonNull(catalog, "catalog is null");
+        @Override
+        public Set<String> getCatalogNames()
+        {
+            return ImmutableSet.of();
+        }
 
-        checkState(catalogs.put(catalog.getCatalogName(), catalog) == null, "Catalog '%s' is already registered", catalog.getCatalogName());
-    }
+        @Override
+        public Optional<Catalog> getCatalog(String catalogName)
+        {
+            return Optional.empty();
+        }
 
-    public Optional<CatalogHandle> removeCatalog(String catalogName)
-    {
-        return Optional.ofNullable(catalogs.remove(catalogName))
-                .map(Catalog::getCatalogHandle);
-    }
+        @Override
+        public Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle)
+        {
+            return Optional.empty();
+        }
 
-    public Set<String> getCatalogNames()
-    {
-        return ImmutableSet.copyOf(catalogs.keySet());
-    }
+        @Override
+        public void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
+        {
+            throw new UnsupportedOperationException();
+        }
 
-    public Optional<Catalog> getCatalog(String catalogName)
-    {
-        return Optional.ofNullable(catalogs.get(catalogName));
-    }
+        @Override
+        public void dropCatalog(String catalogName, boolean exists)
+        {
+            throw new UnsupportedOperationException();
+        }
+    };
+
+    Set<String> getCatalogNames();
+
+    Optional<Catalog> getCatalog(String catalogName);
+
+    Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle);
+
+    void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists);
+
+    void dropCatalog(String catalogName, boolean exists);
 }

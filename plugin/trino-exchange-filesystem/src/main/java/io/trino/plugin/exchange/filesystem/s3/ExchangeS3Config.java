@@ -16,16 +16,17 @@ package io.trino.plugin.exchange.filesystem.s3;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.model.StorageClass;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 
@@ -49,7 +50,9 @@ public class ExchangeS3Config
     private int asyncClientConcurrency = 100;
     private int asyncClientMaxPendingConnectionAcquires = 10000;
     private Duration connectionAcquisitionTimeout = new Duration(1, MINUTES);
+    private boolean s3PathStyleAccess;
     private Optional<String> gcsJsonKeyFilePath = Optional.empty();
+    private Optional<String> gcsJsonKey = Optional.empty();
 
     public String getS3AwsAccessKey()
     {
@@ -127,6 +130,12 @@ public class ExchangeS3Config
     {
         this.s3Endpoint = Optional.ofNullable(s3Endpoint);
         return this;
+    }
+
+    @AssertTrue(message = "Either exchange.s3.region or exchange.s3.endpoint is expected to be set")
+    public boolean isEndpointOrRegionSet()
+    {
+        return s3Region.isPresent() || s3Endpoint.isPresent();
     }
 
     @Min(0)
@@ -222,15 +231,43 @@ public class ExchangeS3Config
         return this;
     }
 
-    public Optional<String> getGcsJsonKeyFilePath()
+    public boolean isS3PathStyleAccess()
+    {
+        return s3PathStyleAccess;
+    }
+
+    @Config("exchange.s3.path-style-access")
+    @ConfigDescription("Use path-style access for all request to S3")
+    public ExchangeS3Config setS3PathStyleAccess(boolean s3PathStyleAccess)
+    {
+        this.s3PathStyleAccess = s3PathStyleAccess;
+        return this;
+    }
+
+    public Optional<@FileExists String> getGcsJsonKeyFilePath()
     {
         return gcsJsonKeyFilePath;
     }
 
     @Config("exchange.gcs.json-key-file-path")
+    @ConfigDescription("Path to the JSON file that contains your Google Cloud Platform service account key. Not to be set together with `exchange.gcs.json-key`")
     public ExchangeS3Config setGcsJsonKeyFilePath(String gcsJsonKeyFilePath)
     {
         this.gcsJsonKeyFilePath = Optional.ofNullable(gcsJsonKeyFilePath);
+        return this;
+    }
+
+    public Optional<String> getGcsJsonKey()
+    {
+        return gcsJsonKey;
+    }
+
+    @Config("exchange.gcs.json-key")
+    @ConfigDescription("Your Google Cloud Platform service account key in JSON format. Not to be set together with `exchange.gcs.json-key-file-path`")
+    @ConfigSecuritySensitive
+    public ExchangeS3Config setGcsJsonKey(String gcsJsonKey)
+    {
+        this.gcsJsonKey = Optional.ofNullable(gcsJsonKey);
         return this;
     }
 }

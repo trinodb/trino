@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import io.airlift.log.Logger;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -23,15 +25,15 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
+import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
@@ -40,6 +42,7 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_
 public class HiveMetastoreTableOperations
         extends AbstractMetastoreTableOperations
 {
+    private static final Logger log = Logger.get(HiveMetastoreTableOperations.class);
     private final ThriftMetastore thriftMetastore;
 
     public HiveMetastoreTableOperations(
@@ -59,7 +62,7 @@ public class HiveMetastoreTableOperations
     @Override
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
-        String newMetadataLocation = writeNewMetadata(metadata, version + 1);
+        String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
 
         long lockId = thriftMetastore.acquireTableExclusiveLock(
                 new AcidTransactionOwner(session.getUser()),
@@ -71,7 +74,7 @@ public class HiveMetastoreTableOperations
                     .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
 
             checkState(currentMetadataLocation != null, "No current metadata location for existing table");
-            String metadataLocation = currentTable.getParameters().get(METADATA_LOCATION_PROP);
+            String metadataLocation = fixBrokenMetadataLocation(currentTable.getParameters().get(METADATA_LOCATION_PROP));
             if (!currentMetadataLocation.equals(metadataLocation)) {
                 throw new CommitFailedException("Metadata location [%s] is not same as table metadata location [%s] for %s",
                         currentMetadataLocation, metadataLocation, getSchemaTableName());
@@ -90,12 +93,22 @@ public class HiveMetastoreTableOperations
                 metastore.replaceTable(database, tableName, table, privileges);
             }
             catch (RuntimeException e) {
-                // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
-                throw new CommitFailedException(e, "Failed to commit to table %s.%s", database, tableName);
+                // Cannot determine whether the `replaceTable` operation was successful,
+                // regardless of the exception thrown (e.g. : timeout exception) or it actually failed
+                throw new CommitStateUnknownException(e);
             }
         }
         finally {
-            thriftMetastore.releaseTableLock(lockId);
+            try {
+                thriftMetastore.releaseTableLock(lockId);
+            }
+            catch (RuntimeException e) {
+                // Release lock step has failed. Not throwing this exception, after commit has already succeeded.
+                // So, that underlying iceberg API will not do the metadata cleanup, otherwise table will be in unusable state.
+                // If configured and supported, the unreleased lock will be automatically released by the metastore after not hearing a heartbeat for a while,
+                // or otherwise it might need to be manually deleted from the metastore backend storage.
+                log.error(e, "Failed to release lock %s when committing to table %s", lockId, tableName);
+            }
         }
 
         shouldRefresh = true;

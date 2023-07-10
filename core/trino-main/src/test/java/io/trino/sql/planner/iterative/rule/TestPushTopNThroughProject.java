@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -26,7 +25,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingMetadata;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -65,7 +64,7 @@ public class TestPushTopNThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("projectedA", new ExpressionMatcher("a"), "projectedB", new ExpressionMatcher("b")),
+                                ImmutableMap.of("projectedA", expression("a"), "projectedB", expression("b")),
                                 topN(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
     }
 
@@ -89,7 +88,7 @@ public class TestPushTopNThroughProject
                 })
                 .matches(
                         project(
-                                ImmutableMap.of("projectedA", new ExpressionMatcher("a"), "projectedC", new ExpressionMatcher("a + b")),
+                                ImmutableMap.of("projectedA", expression("a"), "projectedC", expression("a + b")),
                                 topN(1, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a", "b"))));
     }
 

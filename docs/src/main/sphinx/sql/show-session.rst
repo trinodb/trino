@@ -14,7 +14,7 @@ Description
 
 List the current :ref:`session properties <session-properties-definition>`.
 
-:ref:`Specify a pattern <like_operator>` in the optional ``LIKE`` clause to
+:ref:`Specify a pattern <like-operator>` in the optional ``LIKE`` clause to
 filter the results to the desired subset. For example, the following query
 allows you to find session properties that begin with ``query``::
 

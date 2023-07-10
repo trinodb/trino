@@ -24,22 +24,15 @@ import javax.naming.directory.BasicAttributes;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.ModificationItem;
 
-import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static java.lang.Character.MAX_RADIX;
-import static java.lang.Math.abs;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 final class LdapUtil
 {
-    private static final SecureRandom random = new SecureRandom();
-    private static final int RANDOM_SUFFIX_LENGTH = 10;
-
     public static final String MEMBER = "member";
 
     private LdapUtil()
@@ -119,11 +112,5 @@ final class LdapUtil
                         "userPassword", password))
                 .setObjectClasses(Arrays.asList("person", "inetOrgPerson"))
                 .build();
-    }
-
-    public static String randomSuffix()
-    {
-        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
-        return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
     }
 }

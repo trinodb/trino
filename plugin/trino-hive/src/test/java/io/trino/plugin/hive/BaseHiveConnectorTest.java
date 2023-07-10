@@ -16,12 +16,10 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryInfo;
@@ -31,6 +29,12 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.Storage;
+import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -43,6 +47,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.planprinter.IoPlanPrinter;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedDomain;
@@ -55,12 +60,14 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
+import org.assertj.core.api.AbstractLongAssert;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -82,39 +89,61 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.intersection;
-import static com.google.common.io.Files.asCharSink;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MAX;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MIN;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MAX;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MIN;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE;
+import static io.trino.SystemSessionProperties.MAX_WRITER_TASKS_COUNT;
+import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
+import static io.trino.SystemSessionProperties.SCALE_WRITERS;
+import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
+import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_MAX_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
+import static io.trino.SystemSessionProperties.WRITER_SCALING_MIN_DATA_PROCESSED;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
+import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
+import static io.trino.plugin.hive.HiveStorageFormat.REGEX;
 import static io.trino.plugin.hive.HiveTableProperties.AUTO_PURGE;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -142,15 +171,16 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
+import static java.nio.file.Files.writeString;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -160,8 +190,8 @@ import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.data.Offset.offset;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -181,20 +211,30 @@ public abstract class BaseHiveConnectorTest
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
     }
 
-    protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties, Consumer<QueryRunner> additionalSetup)
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
-                .setExtraProperties(extraProperties)
-                .setAdditionalSetup(additionalSetup)
-                .setHiveProperties(ImmutableMap.of(
-                        "hive.allow-register-partition-procedure", "true",
-                        // Reduce writer sort buffer size to ensure SortingFileWriter gets used
-                        "hive.writer-sort-buffer-size", "1MB",
-                        // Make weighted split scheduling more conservative to avoid OOMs in test
-                        "hive.minimum-assigned-split-weight", "0.5"))
-                .addExtraProperty("legacy.allow-set-view-authorization", "true")
+        return createHiveQueryRunner(HiveQueryRunner.builder());
+    }
+
+    protected static QueryRunner createHiveQueryRunner(HiveQueryRunner.Builder<?> builder)
+            throws Exception
+    {
+        // Use faster compression codec in tests. TODO remove explicit config when default changes
+        verify(new HiveConfig().getHiveCompressionCodec() == HiveCompressionOption.GZIP);
+        String hiveCompressionCodec = HiveCompressionCodec.ZSTD.name();
+
+        DistributedQueryRunner queryRunner = builder
+                .addHiveProperty("hive.compression-codec", hiveCompressionCodec)
+                .addHiveProperty("hive.allow-register-partition-procedure", "true")
+                // Reduce writer sort buffer size to ensure SortingFileWriter gets used
+                .addHiveProperty("hive.writer-sort-buffer-size", "1MB")
+                // Make weighted split scheduling more conservative to avoid OOMs in test
+                .addHiveProperty("hive.minimum-assigned-split-weight", "0.5")
+                .addHiveProperty("hive.partition-projection-enabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
+                .setTpchBucketedCatalogEnabled(true)
                 .build();
 
         // extra catalog with NANOSECOND timestamp precision
@@ -205,6 +245,7 @@ public abstract class BaseHiveConnectorTest
         return queryRunner;
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -212,27 +253,34 @@ public abstract class BaseHiveConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
-            case SUPPORTS_CREATE_VIEW:
-                return true;
+            case SUPPORTS_DROP_FIELD:
+            case SUPPORTS_SET_COLUMN_TYPE:
+                return false;
+
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
+                return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
-            case SUPPORTS_DELETE:
-                return true;
-
-            case SUPPORTS_UPDATE:
-                return true;
+            case SUPPORTS_MERGE:
+                // FIXME: Fails because only allowed with transactional tables
+                return false;
+            case SUPPORTS_TRUNCATE:
+                return false;
 
             case SUPPORTS_MULTI_STATEMENT_WRITES:
-                return true;
-
-            case SUPPORTS_COMMENT_ON_VIEW:
                 return true;
 
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Override
+    protected String createTableForWrites(String createTable)
+    {
+        return createTable + " WITH (transactional = true)";
     }
 
     @Override
@@ -246,42 +294,42 @@ public abstract class BaseHiveConnectorTest
     public void testDelete()
     {
         assertThatThrownBy(super::testDelete)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testDeleteWithComplexPredicate()
     {
         assertThatThrownBy(super::testDeleteWithComplexPredicate)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testDeleteWithSemiJoin()
     {
         assertThatThrownBy(super::testDeleteWithSemiJoin)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testDeleteWithSubquery()
     {
         assertThatThrownBy(super::testDeleteWithSubquery)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testUpdate()
     {
         assertThatThrownBy(super::testUpdate)
-                .hasMessage("Hive update is only supported for ACID transactional tables");
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
@@ -291,43 +339,50 @@ public abstract class BaseHiveConnectorTest
         // TODO (https://github.com/trinodb/trino/issues/10518) test this with a TestHiveConnectorTest version that creates ACID tables by default, or in some other way
         assertThatThrownBy(super::testUpdateRowConcurrently)
                 .hasMessage("Unexpected concurrent update failure")
-                .getCause()
-                .hasMessage("Hive update is only supported for ACID transactional tables");
+                .cause()
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testUpdateWithPredicates()
     {
         assertThatThrownBy(super::testUpdateWithPredicates)
-                .hasMessage("Hive update is only supported for ACID transactional tables");
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+    }
+
+    @Override
+    public void testUpdateRowType()
+    {
+        assertThatThrownBy(super::testUpdateRowType)
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testUpdateAllValues()
     {
         assertThatThrownBy(super::testUpdateAllValues)
-                .hasMessage("Hive update is only supported for ACID transactional tables");
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
         assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testDeleteWithVarcharPredicate()
     {
         assertThatThrownBy(super::testDeleteWithVarcharPredicate)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Override
     public void testRowLevelDelete()
     {
         assertThatThrownBy(super::testRowLevelDelete)
-                .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasStackTraceContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
     @Test(dataProvider = "queryPartitionFilterRequiredSchemasDataProvider")
@@ -422,7 +477,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testRequiredPartitionFilterAppliedOnDifferentSchema()
     {
-        String schemaName = "schema_" + randomTableSuffix();
+        String schemaName = "schema_" + randomNameSuffix();
         Session session = Session.builder(getSession())
                 .setIdentity(Identity.forUser("hive")
                         .withRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
@@ -654,6 +709,15 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(admin, "DROP ROLE authorized_users IN hive");
     }
 
+    @Override
+    public void testCreateSchemaWithNonLowercaseOwnerName()
+    {
+        // Override because HivePrincipal's username is case-sensitive unlike TrinoPrincipal
+        assertThatThrownBy(super::testCreateSchemaWithNonLowercaseOwnerName)
+                .hasMessageContaining("Access Denied: Cannot create schema")
+                .hasStackTraceContaining("CREATE SCHEMA");
+    }
+
     @Test
     public void testCreateSchemaWithAuthorizationForUser()
     {
@@ -761,20 +825,33 @@ public abstract class BaseHiveConnectorTest
                 .build();
 
         assertUpdate(admin, "CREATE SCHEMA test_schema_authorization");
-
+        assertAccessDenied(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user2", "Cannot set authorization for schema test_schema_authorization to USER user2");
+        assertAccessDenied(user, "DROP SCHEMA test_schema_authorization", "Cannot drop schema test_schema_authorization");
         assertUpdate(admin, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user");
-        assertUpdate(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin");
-        assertQueryFails(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin", "Access Denied: Cannot set authorization for schema test_schema_authorization to ROLE admin");
+        // only admin can change the owner
+        assertAccessDenied(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user2", "Cannot set authorization for schema test_schema_authorization to USER user2");
+        assertUpdate(user, "DROP SCHEMA test_schema_authorization"); // new onwer can drop schema
 
         // switch owner back to user, and then change the owner to ROLE admin from a different catalog to verify roles are relative to the catalog of the schema
-        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user");
         Session userSessionInDifferentCatalog = testSessionBuilder()
                 .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
                 .build();
-        assertUpdate(userSessionInDifferentCatalog, "ALTER SCHEMA hive.test_schema_authorization SET AUTHORIZATION ROLE admin");
-        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user");
-
-        assertUpdate(admin, "DROP SCHEMA test_schema_authorization");
+        assertUpdate(admin, "CREATE SCHEMA test_schema_authorization");
+        assertAccessDenied(
+                userSessionInDifferentCatalog,
+                "ALTER SCHEMA hive.test_schema_authorization SET AUTHORIZATION user",
+                "Cannot set authorization for schema test_schema_authorization to USER user");
+        assertAccessDenied(
+                userSessionInDifferentCatalog,
+                "DROP SCHEMA hive.test_schema_authorization",
+                "Cannot drop schema test_schema_authorization");
+        assertUpdate(admin, "ALTER SCHEMA hive.test_schema_authorization SET AUTHORIZATION user");
+        assertAccessDenied(
+                userSessionInDifferentCatalog,
+                "ALTER SCHEMA hive.test_schema_authorization SET AUTHORIZATION user",
+                "Cannot set authorization for schema test_schema_authorization to USER user");
+        // new owner can drop schema
+        assertUpdate(userSessionInDifferentCatalog, "DROP SCHEMA hive.test_schema_authorization");
     }
 
     @Test
@@ -798,9 +875,14 @@ public abstract class BaseHiveConnectorTest
                 "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice",
                 "Cannot set authorization for table test_table_authorization.foo to USER alice");
         assertUpdate(admin, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice");
-        assertUpdate(alice, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION admin");
+        // only admin can change the owner
+        assertAccessDenied(
+                alice,
+                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice",
+                "Cannot set authorization for table test_table_authorization.foo to USER alice");
+        // alice as new owner can now drop table
+        assertUpdate(alice, "DROP TABLE test_table_authorization.foo");
 
-        assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
         assertUpdate(admin, "DROP SCHEMA test_table_authorization");
     }
 
@@ -825,13 +907,18 @@ public abstract class BaseHiveConnectorTest
                 alice,
                 "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
                 "Cannot set authorization for table test_table_authorization_role.foo to ROLE admin");
+        assertAccessDenied(
+                alice,
+                "DROP TABLE test_table_authorization_role.foo",
+                "Cannot drop table test_table_authorization_role.foo");
         assertUpdate(admin, "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION alice");
-        assertQueryFails(
+        // Only admin can change the owner
+        assertAccessDenied(
                 alice,
                 "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
-                "Setting table owner type as a role is not supported");
-
-        assertUpdate(admin, "DROP TABLE test_table_authorization_role.foo");
+                "Cannot set authorization for table test_table_authorization_role.foo to ROLE admin");
+        // new owner can drop table
+        assertUpdate(alice, "DROP TABLE test_table_authorization_role.foo");
         assertUpdate(admin, "DROP SCHEMA test_table_authorization_role");
     }
 
@@ -848,17 +935,21 @@ public abstract class BaseHiveConnectorTest
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
-        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+        String schema = "test_view_authorization" + randomNameSuffix();
 
         assertUpdate(admin, "CREATE SCHEMA " + schema);
         assertUpdate(admin, "CREATE VIEW " + schema + ".test_view AS SELECT current_user AS user");
 
         assertAccessDenied(
                 alice,
-                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice",
-                "Cannot set authorization for view " + schema + ".test_view to USER alice");
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin",
+                "Cannot set authorization for view " + schema + ".test_view to USER admin");
         assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
-        assertUpdate(alice, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin");
+        // only admin can change the owner
+        assertAccessDenied(
+                alice,
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin",
+                "Cannot set authorization for view " + schema + ".test_view to USER admin");
 
         assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
         assertUpdate(admin, "DROP SCHEMA " + schema);
@@ -877,20 +968,29 @@ public abstract class BaseHiveConnectorTest
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
-        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+        String schema = "test_view_authorization" + randomNameSuffix();
 
         assertUpdate(admin, "CREATE SCHEMA " + schema);
         assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
         assertUpdate(admin, "INSERT INTO " + schema + ".test_table VALUES (1)", 1);
         assertUpdate(admin, "CREATE VIEW " + schema + ".test_view SECURITY DEFINER AS SELECT * from " + schema + ".test_table");
         assertUpdate(admin, "GRANT SELECT ON " + schema + ".test_view TO alice");
+        assertAccessDenied(
+                alice,
+                "DROP VIEW " + schema + ".test_view",
+                "Cannot drop view " + schema + ".test_view");
 
         assertQuery(alice, "SELECT * FROM " + schema + ".test_view", "VALUES (1)");
         assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
         assertQueryFails(alice, "SELECT * FROM " + schema + ".test_view", "Access Denied: Cannot select from table " + schema + ".test_table");
 
-        assertUpdate(alice, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin");
-        assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
+        // only admin can change the owner
+        assertAccessDenied(
+                alice,
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin",
+                "Cannot set authorization for view " + schema + ".test_view to USER admin");
+        // new owner can drop the view
+        assertUpdate(alice, "DROP VIEW " + schema + ".test_view");
         assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
         assertUpdate(admin, "DROP SCHEMA " + schema);
     }
@@ -908,20 +1008,29 @@ public abstract class BaseHiveConnectorTest
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
-        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+        String schema = "test_view_authorization" + randomNameSuffix();
 
         assertUpdate(admin, "CREATE SCHEMA " + schema);
         assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
         assertUpdate(admin, "INSERT INTO " + schema + ".test_table VALUES (1)", 1);
         assertUpdate(admin, "CREATE VIEW " + schema + ".test_view SECURITY INVOKER AS SELECT * from " + schema + ".test_table");
         assertUpdate(admin, "GRANT SELECT ON " + schema + ".test_view TO alice");
+        assertAccessDenied(
+                alice,
+                "DROP VIEW " + schema + ".test_view",
+                "Cannot drop view " + schema + ".test_view");
 
         assertQueryFails(alice, "SELECT * FROM " + schema + ".test_view", "Access Denied: Cannot select from table " + schema + ".test_table");
         assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
         assertQueryFails(alice, "SELECT * FROM " + schema + ".test_view", "Access Denied: Cannot select from table " + schema + ".test_table");
 
-        assertUpdate(alice, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin");
-        assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
+        // only admin can change the owner
+        assertAccessDenied(
+                alice,
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin",
+                "Cannot set authorization for view " + schema + ".test_view to USER admin");
+        // new owner can drop the view
+        assertUpdate(alice, "DROP VIEW " + schema + ".test_view");
         assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
         assertUpdate(admin, "DROP SCHEMA " + schema);
     }
@@ -939,7 +1048,7 @@ public abstract class BaseHiveConnectorTest
                 .setIdentity(Identity.forUser("alice").build())
                 .build();
 
-        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+        String schema = "test_view_authorization" + randomNameSuffix();
 
         assertUpdate(admin, "CREATE SCHEMA " + schema);
         assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
@@ -951,10 +1060,11 @@ public abstract class BaseHiveConnectorTest
                 "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
                 "Cannot set authorization for view " + schema + ".test_view to ROLE admin");
         assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
-        assertQueryFails(
+        // only admin can change the owner
+        assertAccessDenied(
                 alice,
                 "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
-                "Setting table owner type as a role is not supported");
+                "Cannot set authorization for view " + schema + ".test_view to ROLE admin");
 
         assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
         assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
@@ -1026,37 +1136,39 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "processing",
-                                                        BOOLEAN,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("false"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("false"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "processing",
+                                                                BOOLEAN,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("false"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("false"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                         estimate)),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         estimate));
@@ -1074,25 +1186,27 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("199"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("199"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                         estimate)),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         estimate));
@@ -1106,25 +1220,18 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("100"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("100"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("100"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("100"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY))))))),
                                         estimate)),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
                         finalEstimate));
@@ -1147,37 +1254,39 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "orderstatus",
-                                                        VarcharType.createVarcharType(1),
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("P"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("P"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "orderstatus",
+                                                                VarcharType.createVarcharType(1),
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1188,40 +1297,42 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "orderstatus",
-                                                        VarcharType.createVarcharType(1),
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("P"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("P"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("S"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("S"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "orderstatus",
+                                                                VarcharType.createVarcharType(1),
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("S"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("S"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1232,33 +1343,57 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "orderkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "custkey",
-                                                        BIGINT,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                new FormattedMarker(Optional.of("10"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "orderkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "custkey",
+                                                                BIGINT,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
 
         assertUpdate("DROP TABLE test_io_explain_column_filters");
+    }
+
+    @Test
+    public void testIoExplainWithEmptyPartitionedTable()
+    {
+        // Test IO explain a partitioned table with no data.
+        assertUpdate("CREATE TABLE test_io_explain_with_empty_partitioned_table WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderkey FROM orders WITH NO DATA", 0);
+
+        EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(0.0, 0.0, 0.0, 0.0, 0.0);
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey FROM test_io_explain_with_empty_partitioned_table");
+        assertEquals(
+                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
+                        ImmutableSet.of(
+                                new TableColumnInfo(
+                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_with_empty_partitioned_table"),
+                                        new IoPlanPrinter.Constraint(true, ImmutableSet.of()),
+                                        estimate)),
+                        Optional.empty(),
+                        estimate));
+
+        assertUpdate("DROP TABLE test_io_explain_with_empty_partitioned_table");
     }
 
     @Test
@@ -1290,16 +1425,18 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_no_filter"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "ds",
-                                                        VARCHAR,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "ds",
+                                                                VARCHAR,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1335,25 +1472,27 @@ public abstract class BaseHiveConnectorTest
                         ImmutableSet.of(
                                 new TableColumnInfo(
                                         new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_filter_on_agg"),
-                                        ImmutableSet.of(
-                                                new ColumnConstraint(
-                                                        "ds",
-                                                        VARCHAR,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("a"), EXACTLY))))),
-                                                new ColumnConstraint(
-                                                        "b",
-                                                        VARCHAR,
-                                                        new FormattedDomain(
-                                                                false,
-                                                                ImmutableSet.of(
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("b"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("b"), EXACTLY)))))),
+                                        new IoPlanPrinter.Constraint(
+                                                false,
+                                                ImmutableSet.of(
+                                                        new ColumnConstraint(
+                                                                "ds",
+                                                                VARCHAR,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY))))),
+                                                        new ColumnConstraint(
+                                                                "b",
+                                                                VARCHAR,
+                                                                new FormattedDomain(
+                                                                        false,
+                                                                        ImmutableSet.of(
+                                                                                new FormattedRange(
+                                                                                        new FormattedMarker(Optional.of("b"), EXACTLY),
+                                                                                        new FormattedMarker(Optional.of("b"), EXACTLY))))))),
                                         estimate)),
                         Optional.empty(),
                         finalEstimate));
@@ -1389,21 +1528,24 @@ public abstract class BaseHiveConnectorTest
                     type.getDisplayName());
 
             assertUpdate(query, 1);
+
             assertEquals(
                     getIoPlanCodec().fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_types_table").getOnlyColumnAsSet())),
                     new IoPlan(
                             ImmutableSet.of(new TableColumnInfo(
                                     new CatalogSchemaTableName(catalog, "tpch", "test_types_table"),
-                                    ImmutableSet.of(
-                                            new ColumnConstraint(
-                                                    "my_col",
-                                                    type,
-                                                    new FormattedDomain(
-                                                            false,
-                                                            ImmutableSet.of(
-                                                                    new FormattedRange(
-                                                                            new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY),
-                                                                            new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY)))))),
+                                    new IoPlanPrinter.Constraint(
+                                            false,
+                                            ImmutableSet.of(
+                                                    new ColumnConstraint(
+                                                            "my_col",
+                                                            type,
+                                                            new FormattedDomain(
+                                                                    false,
+                                                                    ImmutableSet.of(
+                                                                            new FormattedRange(
+                                                                                    new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY),
+                                                                                    new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY))))))),
                                     estimate)),
                             Optional.empty(),
                             estimate),
@@ -1799,11 +1941,6 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testTargetMaxFileSize()
     {
-        testTargetMaxFileSize(3);
-    }
-
-    protected void testTargetMaxFileSize(int expectedTableWriters)
-    {
         // We use TEXTFILE in this test because is has a very consistent and predictable size
         @Language("SQL") String createTableSql = "CREATE TABLE test_max_file_size WITH (format = 'TEXTFILE') AS SELECT * FROM tpch.sf1.lineitem LIMIT 1000000";
         @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\", \"$file_size\" FROM test_max_file_size";
@@ -1812,22 +1949,27 @@ public abstract class BaseHiveConnectorTest
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
                 .setSystemProperty("scale_writers", "false")
+                .setSystemProperty("redistribute_writes", "false")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
-        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters);
+        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(1);
         assertUpdate("DROP TABLE test_max_file_size");
 
         // Write table with small limit and verify we get multiple files per node near the expected size
         // Writer writes chunks of rows that are about 1MB
-        DataSize maxSize = DataSize.of(1, Unit.MEGABYTE);
+        DataSize maxSize = DataSize.of(1, MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
                 .build();
 
         assertUpdate(session, createTableSql, 1000000);
         MaterializedResult result = computeActual(selectFileInfo);
-        assertThat(result.getRowCount()).isGreaterThan(expectedTableWriters);
+        assertThat(result.getRowCount()).isGreaterThan(1);
         for (MaterializedRow row : result) {
             // allow up to a larger delta due to the very small max size and the relatively large writer chunk size
             assertThat((Long) row.getField(1)).isLessThan(maxSize.toBytes() * 3);
@@ -1839,11 +1981,6 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testTargetMaxFileSizePartitioned()
     {
-        testTargetMaxFileSizePartitioned(3);
-    }
-
-    protected void testTargetMaxFileSizePartitioned(int expectedTableWriters)
-    {
         // We use TEXTFILE in this test because is has a very consistent and predictable size
         @Language("SQL") String createTableSql = "" +
                 "CREATE TABLE test_max_file_size_partitioned WITH (partitioned_by = ARRAY['returnflag'], format = 'TEXTFILE') AS " +
@@ -1854,23 +1991,32 @@ public abstract class BaseHiveConnectorTest
         // verify the default behavior is one file per node per partition
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_partitioned_writer_count", "1")
+                // task scale writers should be disabled since we want to write a single file
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .setSystemProperty("scale_writers", "false")
+                .setSystemProperty("redistribute_writes", "false")
+                .setSystemProperty("use_preferred_write_partitioning", "false")
                 .build();
         assertUpdate(session, createTableSql, 1000000);
-        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters * 3);
+        assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(3);
         assertUpdate("DROP TABLE test_max_file_size_partitioned");
 
         // Write table with small limit and verify we get multiple files per node near the expected size
         // Writer writes chunks of rows that are about 1MB
-        DataSize maxSize = DataSize.of(1, Unit.MEGABYTE);
+        DataSize maxSize = DataSize.of(1, MEGABYTE);
         session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_partitioned_writer_count", "1")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
+                .setSystemProperty("use_preferred_write_partitioning", "false")
                 .setCatalogSessionProperty("hive", "target_max_file_size", maxSize.toString())
                 .build();
 
         assertUpdate(session, createTableSql, 1000000);
         MaterializedResult result = computeActual(selectFileInfo);
-        assertThat(result.getRowCount()).isGreaterThan(expectedTableWriters * 3);
+        assertThat(result.getRowCount()).isGreaterThan(3);
         for (MaterializedRow row : result) {
             // allow up to a larger delta due to the very small max size and the relatively large writer chunk size
             assertThat((Long) row.getField(1)).isLessThan(maxSize.toBytes() * 3);
@@ -1982,8 +2128,16 @@ public abstract class BaseHiveConnectorTest
     {
         // create empty bucket files for all storage formats and compression codecs
         for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            if (storageFormat == REGEX) {
+                // REGEX format is readonly
+                continue;
+            }
             for (HiveCompressionCodec compressionCodec : HiveCompressionCodec.values()) {
                 if ((storageFormat == HiveStorageFormat.AVRO) && (compressionCodec == HiveCompressionCodec.LZ4)) {
+                    continue;
+                }
+                if ((storageFormat == HiveStorageFormat.PARQUET) && (compressionCodec == HiveCompressionCodec.LZ4)) {
+                    // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
                     continue;
                 }
                 testEmptyBucketedTable(storageFormat, compressionCodec, true);
@@ -2093,13 +2247,150 @@ public abstract class BaseHiveConnectorTest
         assertFalse(getQueryRunner().tableExists(session, tableName));
     }
 
+    @Test(dataProvider = "bucketFilteringDataTypesSetupProvider")
+    public void testFilterOnBucketedTable(BucketedFilterTestSetup testSetup)
+    {
+        String tableName = "test_filter_on_bucketed_table_" + randomNameSuffix();
+        assertUpdate(
+                """
+                CREATE TABLE %s (bucket_key %s, other_data double)
+                WITH (
+                    format = 'TEXTFILE',
+                    bucketed_by = ARRAY[ 'bucket_key' ],
+                    bucket_count = 5)
+                """.formatted(tableName, testSetup.getTypeName()));
+
+        String values = testSetup.getValues().stream()
+                .map(value -> "(" + value + ", rand())")
+                .collect(joining(", "));
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + values, testSetup.getValues().size());
+
+        // It will only read data from a single bucket instead of all buckets,
+        // so physicalInputPositions should be less than number of rows inserted (.
+        assertQueryStats(
+                getSession(),
+                """
+                SELECT count(*)
+                FROM %s
+                WHERE bucket_key = %s
+                """.formatted(tableName, testSetup.getFilterValue()),
+                queryStats -> assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(testSetup.getExpectedPhysicalInputRows()),
+                result -> assertThat(result.getOnlyValue()).isEqualTo(testSetup.getExpectedResult()));
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public final Object[][] bucketFilteringDataTypesSetupProvider()
+    {
+        List<BucketedFilterTestSetup> testSetups = ImmutableList.of(
+                new BucketedFilterTestSetup(
+                        "BOOLEAN",
+                        Stream.concat(IntStream.range(0, 100).mapToObj(i -> "true"), IntStream.range(0, 100).mapToObj(i -> "false"))
+                                .collect(toImmutableList()),
+                        "true",
+                        100,
+                        100),
+                new BucketedFilterTestSetup(
+                        "TINYINT",
+                        IntStream.range(0, 127).mapToObj(String::valueOf).collect(toImmutableList()),
+                        "126",
+                        26,
+                        1),
+                new BucketedFilterTestSetup(
+                        "SMALLINT",
+                        IntStream.range(0, 1000).map(i -> i + 22767).mapToObj(String::valueOf).collect(toImmutableList()),
+                        "22767",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "INTEGER",
+                        IntStream.range(0, 1000).map(i -> i + 1274942432).mapToObj(String::valueOf).collect(toImmutableList()),
+                        "1274942432",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "BIGINT",
+                        IntStream.range(0, 1000).mapToLong(i -> i + 312739231274942432L).mapToObj(String::valueOf).collect(toImmutableList()),
+                        "312739231274942432",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "REAL",
+                        IntStream.range(0, 1000).mapToDouble(i -> i + 567.123).mapToObj(val -> "REAL '" + val + "'").collect(toImmutableList()),
+                        "567.123",
+                        201,
+                        1),
+                new BucketedFilterTestSetup(
+                        "DOUBLE",
+                        IntStream.range(0, 1000).mapToDouble(i -> i + 1234567890123.123).mapToObj(val -> "DOUBLE '" + val + "'").collect(toImmutableList()),
+                        "1234567890123.123",
+                        201,
+                        1),
+                new BucketedFilterTestSetup(
+                        "VARCHAR",
+                        IntStream.range(0, 1000).mapToObj(i -> "'test value " + i + "'").collect(toImmutableList()),
+                        "'test value 5'",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "VARCHAR(20)",
+                        IntStream.range(0, 1000).mapToObj(i -> "'test value " + i + "'").collect(toImmutableList()),
+                        "'test value 5'",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "DATE",
+                        IntStream.range(0, 1000).mapToObj(i -> "DATE '2020-02-12' + interval '" + i + "' day").collect(toImmutableList()),
+                        "DATE '2020-02-15'",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "ARRAY<INT>",
+                        IntStream.range(0, 1000)
+                                .mapToObj(i -> format("ARRAY[%s, %s, %s, %s]", i + 22767, i + 22768, i + 22769, i + 22770))
+                                .collect(toImmutableList()),
+                        "ARRAY[22767, 22768, 22769, 22770]",
+                        200,
+                        1),
+                new BucketedFilterTestSetup(
+                        "MAP<DOUBLE, INT>",
+                        IntStream.range(0, 1000)
+                                .mapToObj(i -> format("MAP(ARRAY[%s, %s], ARRAY[%s, %s])", i + 567.123, i + 568.456, i + 22769, i + 22770))
+                                .collect(toImmutableList()),
+                        "MAP(ARRAY[567.123, 568.456], ARRAY[22769, 22770])",
+                        149,
+                        1));
+        return testSetups.stream()
+                .collect(toDataProvider());
+    }
+
+    @Test(dataProvider = "bucketedUnsupportedTypes")
+    public void testBucketedTableUnsupportedTypes(String typeName)
+    {
+        String tableName = "test_bucketed_table_for_unsupported_types_" + randomNameSuffix();
+        assertThatThrownBy(() -> assertUpdate(
+                """
+                CREATE TABLE %s (bucket_key %s, other_data double)
+                WITH (
+                    bucketed_by = ARRAY[ 'bucket_key' ],
+                    bucket_count = 5)
+                """.formatted(tableName, typeName)))
+                .hasMessage("Cannot create a table bucketed on an unsupported type");
+    }
+
+    @DataProvider
+    public final Object[][] bucketedUnsupportedTypes()
+    {
+        return new Object[][] {{"VARBINARY"}, {"TIMESTAMP"}, {"DECIMAL(10,3)"}, {"CHAR"}, {"ROW(id VARCHAR)"}};
+    }
+
     /**
      * Regression test for https://github.com/trinodb/trino/issues/5295
      */
     @Test
     public void testBucketedTableWithTimestampColumn()
     {
-        String tableName = "test_bucketed_table_with_timestamp_" + randomTableSuffix();
+        String tableName = "test_bucketed_table_with_timestamp_" + randomNameSuffix();
 
         String createTable = "" +
                 "CREATE TABLE " + tableName + " (" +
@@ -2255,6 +2546,34 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testUnpartitionedInsertWithMultipleFiles()
+    {
+        String tableName = "test_unpartitioned_insert_with_multiple_files";
+        try {
+            @Language("SQL") String createTargetTable = "" +
+                    "CREATE TABLE " + tableName + " " +
+                    "WITH (format = 'ORC') " +
+                    "AS " +
+                    "SELECT * " +
+                    "FROM tpch.sf1.orders";
+            assertUpdate(singleWriterWithTinyTargetFileSize(), createTargetTable, "SELECT 1500000");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    private Session singleWriterWithTinyTargetFileSize()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_scale_writers_enabled", "false")
+                .setSystemProperty("query_max_memory_per_node", "100MB")
+                .setCatalogSessionProperty(catalog, "target_max_file_size", "1B")
+                .build();
     }
 
     @Test
@@ -2628,6 +2947,24 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testUnregisterPartitionWithNullArgument()
+    {
+        assertQueryFails("CALL system.unregister_partition(NULL, 'page_views', ARRAY['country'], ARRAY['US'])", ".*schema_name cannot be null.*");
+        assertQueryFails("CALL system.unregister_partition('web', NULL, ARRAY['country'], ARRAY['US'])", ".*table_name cannot be null.*");
+        assertQueryFails("CALL system.unregister_partition('web', 'page_views', NULL, ARRAY['US'])", ".*partition_columns cannot be null.*");
+        assertQueryFails("CALL system.unregister_partition('web', 'page_views', ARRAY['country'], NULL)", ".*partition_values cannot be null.*");
+    }
+
+    @Test
+    public void testRegisterPartitionWithNullArgument()
+    {
+        assertQueryFails("CALL system.register_partition(NULL, 'page_views', ARRAY['country'], ARRAY['US'])", ".*schema_name cannot be null.*");
+        assertQueryFails("CALL system.register_partition('web', NULL, ARRAY['country'], ARRAY['US'])", ".*table_name cannot be null.*");
+        assertQueryFails("CALL system.register_partition('web', 'page_views', NULL, ARRAY['US'])", ".*partition_columns cannot be null.*");
+        assertQueryFails("CALL system.register_partition('web', 'page_views', ARRAY['country'], NULL)", ".*partition_values cannot be null.*");
+    }
+
+    @Test
     public void testCreateEmptyBucketedPartition()
     {
         for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
@@ -2661,6 +2998,15 @@ public abstract class BaseHiveConnectorTest
         assertQueryFails(
                 format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, "non_existing_table", "empty"),
                 format("Table '%s.%s' does not exist", TPCH_SCHEMA, "non_existing_table"));
+    }
+
+    @Test
+    public void testCreateEmptyPartitionWithNullArgument()
+    {
+        assertQueryFails("CALL system.create_empty_partition(NULL, 'page_views', ARRAY['country'], ARRAY['US'])", "schema_name cannot be null");
+        assertQueryFails("CALL system.create_empty_partition('web', NULL, ARRAY['country'], ARRAY['US'])", "table_name cannot be null");
+        assertQueryFails("CALL system.create_empty_partition('web', 'page_views', NULL, ARRAY['US'])", "partition_columns cannot be null");
+        assertQueryFails("CALL system.create_empty_partition('web', 'page_views', ARRAY['country'], NULL)", "partition_values cannot be null");
     }
 
     @Test
@@ -3207,6 +3553,10 @@ public abstract class BaseHiveConnectorTest
         // insert 10 partitions with part1=part2
         assertUpdate("INSERT INTO " + tableName + " SELECT 'bar' foo, n part1, n part2 FROM UNNEST(sequence(1, 10)) a(n)", 10);
 
+        // verify can query less than 1000 partitions
+        assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))
+                .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
+
         // verify can query 1000 partitions
         assertThat(query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NULL AND part2 < 1001"))
                 .matches("VALUES BIGINT '1000'");
@@ -3401,7 +3751,7 @@ public abstract class BaseHiveConnectorTest
 
         assertThatThrownBy(() -> getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1"))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("Deletes must match whole partitions for non-transactional tables");
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
 
         assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' AND linenumber<>3");
 
@@ -3460,7 +3810,6 @@ public abstract class BaseHiveConnectorTest
                 "(grape bigint, orange bigint, pear varchar(65535), mango integer, lychee smallint, kiwi tinyint, apple varchar, pineapple varchar(65535))\n" +
                 "WITH (partitioned_by = ARRAY['apple', 'pineapple'])");
 
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM test_show_columns_partition_key");
         Type unboundedVarchar = canonicalizeType(VARCHAR);
         MaterializedResult expected = resultBuilder(getSession(), unboundedVarchar, unboundedVarchar, unboundedVarchar, unboundedVarchar)
                 .row("grape", canonicalizeType(BIGINT).toString(), "", "")
@@ -3472,7 +3821,7 @@ public abstract class BaseHiveConnectorTest
                 .row("apple", canonicalizeType(VARCHAR).toString(), "partition key", "")
                 .row("pineapple", canonicalizeType(createVarcharType(65535)).toString(), "partition key", "")
                 .build();
-        assertEquals(actual, expected);
+        assertThat(query("SHOW COLUMNS FROM test_show_columns_partition_key")).matches(expected);
     }
 
     // TODO: These should be moved to another class, when more connectors support arrays
@@ -3690,12 +4039,7 @@ public abstract class BaseHiveConnectorTest
         assertQuery(bucketedSession, "SELECT count(*) a FROM orders t1 JOIN customer t2 on t1.custkey=t2.custkey", "SELECT count(*) FROM orders");
         assertQuery(bucketedSession, "SELECT count(distinct custkey) FROM orders");
 
-        assertQuery(
-                Session.builder(bucketedSession).setSystemProperty("task_writer_count", "1").build(),
-                "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
-        assertQuery(
-                Session.builder(bucketedSession).setSystemProperty("task_writer_count", "4").build(),
-                "SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
+        assertQuery("SELECT custkey, COUNT(*) FROM orders GROUP BY custkey");
     }
 
     @Test
@@ -3703,6 +4047,7 @@ public abstract class BaseHiveConnectorTest
     {
         testWithAllStorageFormats(this::testSingleWriter);
         testWithAllStorageFormats(this::testMultipleWriters);
+        testWithAllStorageFormats(this::testMultipleWritersWithSkewedData);
     }
 
     protected void testSingleWriter(Session session, HiveStorageFormat storageFormat)
@@ -3715,8 +4060,10 @@ public abstract class BaseHiveConnectorTest
                     storageFormat);
             assertUpdate(
                     Session.builder(session)
+                            .setSystemProperty("task_writer_count", "1")
                             .setSystemProperty("scale_writers", "true")
-                            .setSystemProperty("writer_min_size", "32MB")
+                            .setSystemProperty("task_scale_writers_enabled", "false")
+                            .setSystemProperty("writer_scaling_min_data_processed", "32MB")
                             .build(),
                     createTableSql,
                     (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
@@ -3738,8 +4085,10 @@ public abstract class BaseHiveConnectorTest
                     storageFormat);
             assertUpdate(
                     Session.builder(session)
+                            .setSystemProperty("task_writer_count", "1")
                             .setSystemProperty("scale_writers", "true")
-                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_scale_writers_enabled", "false")
+                            .setSystemProperty("writer_scaling_min_data_processed", "1MB")
                             .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
                             .build(),
                     createTableSql,
@@ -3751,6 +4100,158 @@ public abstract class BaseHiveConnectorTest
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS scale_writers_large");
+        }
+    }
+
+    private void testMultipleWritersWithSkewedData(Session session, HiveStorageFormat storageFormat)
+    {
+        try {
+            // skewed table that will scale writers to multiple machines
+            String selectSql = "SELECT t1.* FROM (SELECT *, case when orderkey >= 0 then 1 else orderkey end as join_key FROM tpch.sf1.orders) t1 " +
+                               "INNER JOIN (SELECT orderkey FROM tpch.sf1.orders) t2 " +
+                               "ON t1.join_key = t2.orderkey";
+            @Language("SQL") String createTableSql = format("" +
+                            "CREATE TABLE scale_writers_skewed WITH (format = '%s') AS " + selectSql,
+                    storageFormat);
+            assertUpdate(
+                    Session.builder(session)
+                            .setSystemProperty("task_writer_count", "1")
+                            .setSystemProperty("scale_writers", "true")
+                            .setSystemProperty("task_scale_writers_enabled", "false")
+                            .setSystemProperty("writer_scaling_min_data_processed", "1MB")
+                            .setSystemProperty("join_distribution_type", "PARTITIONED")
+                            .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
+                            .build(),
+                    createTableSql,
+                    (long) computeActual("SELECT count(*) FROM (" + selectSql + ")")
+                            .getOnlyValue());
+
+            long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM scale_writers_skewed");
+            long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+            assertThat(files).isBetween(2L, workers);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS skewed_table");
+            assertUpdate("DROP TABLE IF EXISTS scale_writers_skewed");
+        }
+    }
+
+    @Test
+    public void testMultipleWritersWhenTaskScaleWritersIsEnabled()
+    {
+        long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+        int taskMaxScaleWriterCount = 4;
+        testTaskScaleWriters(getSession(), DataSize.of(200, KILOBYTE), taskMaxScaleWriterCount, false)
+                .isBetween(workers + 1, workers * taskMaxScaleWriterCount);
+    }
+
+    @Test
+    public void testTaskWritersDoesNotScaleWithLargeMinWriterSize()
+    {
+        long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+        // In the case of streaming, the number of writers is equal to the number of workers
+        testTaskScaleWriters(getSession(), DataSize.of(2, GIGABYTE), 4, false).isEqualTo(workers);
+    }
+
+    @Test
+    public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
+    {
+        long workers = (long) computeScalar("SELECT count(*) FROM system.runtime.nodes");
+        int taskMaxScaleWriterCount = 2;
+        // It is only applicable for pipeline execution mode, since we are testing
+        // when both "scaleWriters" and "taskScaleWriters" are enabled, the writers are
+        // scaling upto multiple worker nodes.
+        testTaskScaleWriters(getSession(), DataSize.of(200, KILOBYTE), taskMaxScaleWriterCount, true)
+                .isBetween((long) taskMaxScaleWriterCount + workers, workers * taskMaxScaleWriterCount);
+    }
+
+    @DataProvider(name = "taskWritersLimitParams")
+    public Object[][] prepareScaledWritersOption()
+    {
+        return new Object[][] {{true, true, 2}, {false, true, 2}, {false, false, 3}};
+    }
+
+    @Test(dataProvider = "taskWritersLimitParams")
+    public void testWriterTasksCountLimitUnpartitioned(boolean scaleWriters, boolean redistributeWrites, int expectedFilesCount)
+    {
+        testLimitWriterTasks(2, expectedFilesCount, scaleWriters, redistributeWrites, false, DataSize.of(1, MEGABYTE));
+    }
+
+    @Test
+    public void testWriterTasksCountLimitPartitionedScaleWritersDisabled()
+    {
+        testLimitWriterTasks(2, 2, false, true, true, DataSize.of(1, MEGABYTE));
+    }
+
+    @Test
+    public void testWriterTasksCountLimitPartitionedScaleWritersEnabled()
+    {
+        testLimitWriterTasks(2, 4, true, true, true, DataSize.of(1, MEGABYTE));
+        testLimitWriterTasks(2, 2, true, true, true, DataSize.of(32, MEGABYTE));
+    }
+
+    private void testLimitWriterTasks(int maxWriterTasks, int expectedFilesCount, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned, DataSize writerScalingMinDataProcessed)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SCALE_WRITERS, Boolean.toString(scaleWritersEnabled))
+                .setSystemProperty(MAX_WRITER_TASKS_COUNT, Integer.toString(maxWriterTasks))
+                .setSystemProperty(REDISTRIBUTE_WRITES, Boolean.toString(redistributeWrites))
+                .setSystemProperty(TASK_WRITER_COUNT, "1")
+                .setSystemProperty(WRITER_SCALING_MIN_DATA_PROCESSED, writerScalingMinDataProcessed.toString())
+                .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
+                .build();
+        String tableName = "writing_tasks_limit_%s".formatted(randomNameSuffix());
+        @Language("SQL") String createTableSql = format(
+                "CREATE TABLE %s WITH (format = 'ORC' %s) AS SELECT *, mod(orderkey, 2) as part_key FROM tpch.sf1.orders LIMIT",
+                tableName, partitioned ? ", partitioned_by = ARRAY['part_key']" : "");
+        try {
+            assertUpdate(session, createTableSql, (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+            long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM %s".formatted(tableName));
+            assertEquals(files, expectedFilesCount);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS %s".formatted(tableName));
+        }
+    }
+
+    protected AbstractLongAssert<?> testTaskScaleWriters(
+            Session session,
+            DataSize writerScalingMinDataProcessed,
+            int taskMaxScaleWriterCount,
+            boolean scaleWriters)
+    {
+        String tableName = "task_scale_writers_" + randomNameSuffix();
+        try {
+            @Language("SQL") String createTableSql = format(
+                    "CREATE TABLE %s WITH (format = 'ORC') AS SELECT * FROM tpch.sf5.orders",
+                    tableName);
+            assertUpdate(
+                    Session.builder(session)
+                            .setSystemProperty(SCALE_WRITERS, String.valueOf(scaleWriters))
+                            .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
+                            .setSystemProperty(WRITER_SCALING_MIN_DATA_PROCESSED, writerScalingMinDataProcessed.toString())
+                            .setSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, String.valueOf(taskMaxScaleWriterCount))
+                            // Set the value higher than sf1 input data size such that fault-tolerant scheduler
+                            // shouldn't add new task and scaling only happens through the local scaling exchange.
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MIN, "2GB")
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MAX, "2GB")
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MIN, "2GB")
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MAX, "2GB")
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE, "2GB")
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE, "2GB")
+                            // Set the value of orc strip size low to increase the frequency at which
+                            // physicalWrittenDataSize is updated through ConnectorPageSink#getCompletedBytes()
+                            .setCatalogSessionProperty(catalog, "orc_optimized_writer_min_stripe_size", "2MB")
+                            .setCatalogSessionProperty(catalog, "orc_optimized_writer_max_stripe_size", "2MB")
+                            .build(),
+                    createTableSql,
+                    (long) computeActual("SELECT count(*) FROM tpch.sf5.orders").getOnlyValue());
+
+            long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName);
+            return assertThat(files);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -3823,8 +4324,7 @@ public abstract class BaseHiveConnectorTest
                         "   orc_bloom_filter_columns = ARRAY['c1','c 2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
                         "   partitioned_by = ARRAY['c5'],\n" +
-                        "   sorted_by = ARRAY['c1','c 2 DESC'],\n" +
-                        "   transactional = true\n" +
+                        "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -3847,6 +4347,33 @@ public abstract class BaseHiveConnectorTest
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
     }
 
+    @Test
+    public void testShowCreateTableWithColumnProperties()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_show_create_table_with_column_properties",
+                "(a INT, b INT WITH (partition_projection_type = 'INTEGER', partition_projection_range = ARRAY['0', '10'])) " +
+                        "WITH (" +
+                        "    partition_projection_enabled = true," +
+                        "    partitioned_by = ARRAY['b']," +
+                        "    partition_projection_location_template = 's3://example/${b}')")) {
+            String result = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertEquals(
+                    result,
+                    "CREATE TABLE hive.tpch." + table.getName() + " (\n" +
+                            "   a integer,\n" +
+                            "   b integer WITH ( partition_projection_range = ARRAY['0','10'], partition_projection_type = 'INTEGER' )\n" +
+                            ")\n" +
+                            "WITH (\n" +
+                            "   format = 'ORC',\n" +
+                            "   partition_projection_enabled = true,\n" +
+                            "   partition_projection_location_template = 's3://example/${b}',\n" +
+                            "   partitioned_by = ARRAY['b']\n" +
+                            ")");
+        }
+    }
+
     private void testCreateExternalTable(
             String tableName,
             String fileContents,
@@ -3856,7 +4383,7 @@ public abstract class BaseHiveConnectorTest
     {
         java.nio.file.Path tempDir = createTempDirectory(null);
         File dataFile = tempDir.resolve("test.txt").toFile();
-        Files.asCharSink(dataFile, UTF_8).write(fileContents);
+        writeString(dataFile.toPath(), fileContents);
 
         // Table properties
         StringJoiner propertiesSql = new StringJoiner(",\n   ");
@@ -4089,6 +4616,8 @@ public abstract class BaseHiveConnectorTest
                         getSession().getCatalog().get(),
                         getSession().getSchema().get())))
                 .hasMessageMatching("Inserting into Hive table with skip.footer.line.count property not supported");
+
+        assertUpdate("DROP TABLE csv_table_skip_footer");
 
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.csv_table_skip_header_footer (\n" +
@@ -4577,6 +5106,16 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE test_drop_column");
     }
 
+    @Override
+    public void testDropAndAddColumnWithSameName()
+    {
+        // Override because Hive connector can access old data after dropping and adding a column with same name
+        assertThatThrownBy(super::testDropAndAddColumnWithSameName)
+                .hasMessageContaining("""
+                        Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):
+                            [1, 2]""");
+    }
+
     @Test
     public void testAvroTypeValidation()
     {
@@ -4585,6 +5124,30 @@ public abstract class BaseHiveConnectorTest
         assertQueryFails("CREATE TABLE test_avro_types (x smallint) WITH (format = 'AVRO')", "Column 'x' is smallint, which is not supported by Avro. Use integer instead.");
 
         assertQueryFails("CREATE TABLE test_avro_types WITH (format = 'AVRO') AS SELECT cast(42 AS smallint) z", "Column 'z' is smallint, which is not supported by Avro. Use integer instead.");
+    }
+
+    @Test
+    public void testAvroTimestampUpCasting()
+    {
+        @Language("SQL") String createTable = "CREATE TABLE test_avro_timestamp_upcasting WITH (format = 'AVRO') AS SELECT TIMESTAMP '1994-09-27 11:23:45.678' my_timestamp";
+
+        //avro only stores as millis
+        assertUpdate(createTable, 1);
+
+        // access with multiple precisions
+        assertQuery(withTimestampPrecision(getSession(), HiveTimestampPrecision.MILLISECONDS),
+                "SELECT * from test_avro_timestamp_upcasting",
+                "VALUES (TIMESTAMP '1994-09-27 11:23:45.678')");
+
+        // access with multiple precisions
+        assertQuery(withTimestampPrecision(getSession(), HiveTimestampPrecision.MICROSECONDS),
+                "SELECT * from test_avro_timestamp_upcasting",
+                "VALUES (TIMESTAMP '1994-09-27 11:23:45.678000')");
+
+        // access with multiple precisions
+        assertQuery(withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS),
+                "SELECT * from test_avro_timestamp_upcasting",
+                "VALUES (TIMESTAMP '1994-09-27 11:23:45.678000000')");
     }
 
     @Test
@@ -4607,7 +5170,8 @@ public abstract class BaseHiveConnectorTest
                 .row("a ")
                 .build();
 
-        assertEquals(actual, expected);
+        assertThat(actual.getTypes()).isEqualTo(expected.getTypes());
+        assertThat(actual).containsExactlyElementsOf(expected);
     }
 
     /**
@@ -4628,16 +5192,18 @@ public abstract class BaseHiveConnectorTest
 
             assertQuery(
                     "SELECT a, a <= 'bbc' FROM test_table_with_char",
-                    "VALUES (cast('aaa' as char(20)), true), " +
-                            "(cast('bbb' as char(20)), true), " +
-                            "(cast('bbc' as char(20)), true), " +
-                            "(cast('bbd' as char(20)), false)");
+                    "VALUES " +
+                            "('aaa                 ', true), " +
+                            "('bbb                 ', true), " +
+                            "('bbc                 ', true), " +
+                            "('bbd                 ', false)");
 
             assertQuery(
                     "SELECT a FROM test_table_with_char WHERE a <= 'bbc'",
-                    "VALUES cast('aaa' as char(20)), " +
-                            "cast('bbb' as char(20)), " +
-                            "cast('bbc' as char(20))");
+                    "VALUES " +
+                            "'aaa                 ', " +
+                            "'bbb                 ', " +
+                            "'bbc                 '");
         }
         finally {
             assertUpdate("DROP TABLE test_table_with_char");
@@ -4707,10 +5273,10 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test(dataProvider = "timestampPrecisionAndValues")
-    public void testParquetTimestampPredicatePushdownOptimizedWriter(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    public void testParquetTimestampPredicatePushdownHiveWriter(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "false")
                 .build();
         doTestParquetTimestampPredicatePushdown(session, timestampPrecision, value);
     }
@@ -4718,7 +5284,7 @@ public abstract class BaseHiveConnectorTest
     private void doTestParquetTimestampPredicatePushdown(Session baseSession, HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
         Session session = withTimestampPrecision(baseSession, timestampPrecision);
-        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomTableSuffix();
+        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         assertUpdate("CREATE TABLE " + tableName + " (t TIMESTAMP) WITH (format = 'PARQUET')");
         assertUpdate(session, format("INSERT INTO %s VALUES (%s)", tableName, formatTimestamp(value)), 1);
@@ -4819,30 +5385,21 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    public void testParquetDictionaryPredicatePushdownWithOptimizedWriter()
+    public void testParquetDictionaryPredicatePushdownWithHiveWriter()
     {
         testParquetDictionaryPredicatePushdown(
                 Session.builder(getSession())
-                        .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                        .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "false")
                         .build());
     }
 
     private void testParquetDictionaryPredicatePushdown(Session session)
     {
-        String tableName = "test_parquet_dictionary_pushdown_" + randomTableSuffix();
+        String tableName = "test_parquet_dictionary_pushdown_" + randomNameSuffix();
         assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
         assertUpdate(session, "CREATE TABLE " + tableName + " (n BIGINT) WITH (format = 'PARQUET')");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1, 1, 2, 2, 4, 4, 5, 5", 8);
         assertNoDataRead("SELECT * FROM " + tableName + " WHERE n = 3");
-    }
-
-    private void assertNoDataRead(@Language("SQL") String sql)
-    {
-        assertQueryStats(
-                getSession(),
-                sql,
-                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(0),
-                results -> assertThat(results.getRowCount()).isEqualTo(0));
     }
 
     private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, MaterializedResultWithQueryId queryResult)
@@ -5010,10 +5567,10 @@ public abstract class BaseHiveConnectorTest
         // eg. table column: a row(c varchar, b bigint), partition column: a row(b bigint, c varchar)
         try {
             assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'), 1)", 1);
+            assertUpdate("INSERT INTO evolve_test values (10, row(1, 'abc'), 1)", 1);
             assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
             assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
-            assertUpdate("INSERT INTO evolve_test values (2, row('def', 2), 2)", 1);
+            assertUpdate("INSERT INTO evolve_test values (20, row('def', 2), 2)", 1);
             assertQueryFails("SELECT a.b FROM evolve_test where d = 1", ".*There is a mismatch between the table and partition schemas.*");
         }
         finally {
@@ -5024,10 +5581,10 @@ public abstract class BaseHiveConnectorTest
         // i.e. "a.c" produces null for rows that were inserted before type of "a" was changed
         try {
             assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate("INSERT INTO evolve_test values (1, row(1), 1)", 1);
+            assertUpdate("INSERT INTO evolve_test values (10, row(1), 1)", 1);
             assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
             assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar)");
-            assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def'), 2)", 1);
+            assertUpdate("INSERT INTO evolve_test values (20, row(2, 'def'), 2)", 1);
             assertQuery("SELECT a.c FROM evolve_test", "SELECT 'def' UNION SELECT null");
         }
         finally {
@@ -5037,10 +5594,10 @@ public abstract class BaseHiveConnectorTest
         // Verify field access when the row evolves without changes to field type
         try {
             assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'), 1)", 1);
+            assertUpdate("INSERT INTO evolve_test values (10, row(1, 'abc'), 1)", 1);
             assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
             assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar, e int)");
-            assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def', 2), 2)", 1);
+            assertUpdate("INSERT INTO evolve_test values (20, row(2, 'def', 2), 2)", 1);
             assertQuery("SELECT a.b FROM evolve_test", "VALUES 1, 2");
         }
         finally {
@@ -5052,7 +5609,7 @@ public abstract class BaseHiveConnectorTest
     public void testSubfieldReordering()
     {
         // Validate for formats for which subfield access is name based
-        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET);
+        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET, HiveStorageFormat.AVRO);
 
         for (HiveStorageFormat format : formats) {
             // Subfields reordered in the file are read correctly. e.g. if partition column type is row(b bigint, c varchar) but the file
@@ -5113,7 +5670,7 @@ public abstract class BaseHiveConnectorTest
                 "SELECT a FROM " + tableName + " WHERE b = 'b'",
                 "VALUES ('a')");
 
-        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName).getOnlyValue();
+        String tableLocation = getTableLocation(tableName);
 
         // Reverse the table so that the Hive column ordering does not match the Parquet column ordering
         String reversedTableName = "test_parquet_by_column_index_reversed";
@@ -5166,7 +5723,7 @@ public abstract class BaseHiveConnectorTest
                 singleColumnTableName));
         assertUpdate(sessionUsingColumnIndex, "INSERT INTO " + singleColumnTableName + " VALUES ('a')", 1);
 
-        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + singleColumnTableName).getOnlyValue();
+        String tableLocation = getTableLocation(singleColumnTableName);
         String multiColumnTableName = "test_parquet_missing_columns_two";
         assertUpdate(sessionUsingColumnIndex, format(
                 "CREATE TABLE %s(" +
@@ -5218,7 +5775,7 @@ public abstract class BaseHiveConnectorTest
                 missingNestedFieldsTableName));
         assertUpdate(sessionUsingColumnIndex, "INSERT INTO " + missingNestedFieldsTableName + " VALUES (ARRAY[ROW(2)])", 1);
 
-        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + missingNestedFieldsTableName).getOnlyValue();
+        String tableLocation = getTableLocation(missingNestedFieldsTableName);
         String missingNestedArrayTableName = "test_parquet_missing_nested_array";
         assertUpdate(sessionUsingColumnIndex, format(
                 "CREATE TABLE %s(" +
@@ -5598,11 +6155,10 @@ public abstract class BaseHiveConnectorTest
         return plan -> {
             int actualLocalExchangesCount = searchFrom(plan.getRoot())
                     .where(node -> {
-                        if (!(node instanceof ExchangeNode)) {
+                        if (!(node instanceof ExchangeNode exchangeNode)) {
                             return false;
                         }
 
-                        ExchangeNode exchangeNode = (ExchangeNode) node;
                         return exchangeNode.getScope() == ExchangeNode.Scope.LOCAL && exchangeNode.getType() == ExchangeNode.Type.REPARTITION;
                     })
                     .findAll()
@@ -5628,7 +6184,7 @@ public abstract class BaseHiveConnectorTest
         try {
             assertQuery(
                     "SELECT * FROM test_table_with_char_rc WHERE char_column = 'khaki  '",
-                    "VALUES (CAST('khaki' AS CHAR(7)))");
+                    "VALUES ('khaki  ')");
         }
         finally {
             assertUpdate("DROP TABLE test_table_with_char_rc");
@@ -5689,113 +6245,6 @@ public abstract class BaseHiveConnectorTest
         });
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testRoleAuthorizationDescriptors()
-    {
-        Session user = testSessionBuilder()
-                .setCatalog(getSession().getCatalog())
-                .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
-                .build();
-
-        assertUpdate("CREATE ROLE test_r_a_d1 IN hive");
-        assertUpdate("CREATE ROLE test_r_a_d2 IN hive");
-        assertUpdate("CREATE ROLE test_r_a_d3 IN hive");
-
-        // nothing showing because no roles have been granted
-        assertQueryReturnsEmptyResult("SELECT * FROM information_schema.role_authorization_descriptors");
-
-        // role_authorization_descriptors is not accessible for a non-admin user, even when it's empty
-        assertQueryFails(user, "SELECT * FROM information_schema.role_authorization_descriptors",
-                "Access Denied: Cannot select from table information_schema.role_authorization_descriptors");
-
-        assertUpdate("GRANT test_r_a_d1 TO USER user IN hive");
-        // user with same name as a role
-        assertUpdate("GRANT test_r_a_d2 TO USER test_r_a_d1 IN hive");
-        assertUpdate("GRANT test_r_a_d2 TO USER user1 WITH ADMIN OPTION IN hive");
-        assertUpdate("GRANT test_r_a_d2 TO USER user2 IN hive");
-        assertUpdate("GRANT test_r_a_d2 TO ROLE test_r_a_d1 IN hive");
-
-        // role_authorization_descriptors is not accessible for a non-admin user
-        assertQueryFails(user, "SELECT * FROM information_schema.role_authorization_descriptors",
-                "Access Denied: Cannot select from table information_schema.role_authorization_descriptors");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors",
-                "VALUES " +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')," +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')," +
-                        "('test_r_a_d1', null, null, 'user', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors LIMIT 1000000000",
-                "VALUES " +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')," +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')," +
-                        "('test_r_a_d1', null, null, 'user', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT COUNT(*) FROM (SELECT * FROM information_schema.role_authorization_descriptors LIMIT 2)",
-                "VALUES (2)");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE role_name = 'test_r_a_d2'",
-                "VALUES " +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')," +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')," +
-                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT COUNT(*) FROM (SELECT * FROM information_schema.role_authorization_descriptors WHERE role_name = 'test_r_a_d2' LIMIT 1)",
-                "VALUES 1");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'user'",
-                "VALUES ('test_r_a_d1', null, null, 'user', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee like 'user%'",
-                "VALUES " +
-                        "('test_r_a_d1', null, null, 'user', 'USER', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user2', 'USER', 'NO')," +
-                        "('test_r_a_d2', null, null, 'user1', 'USER', 'YES')");
-
-        assertQuery(
-                "SELECT COUNT(*) FROM (SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee like 'user%' LIMIT 2)",
-                "VALUES 2");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1'",
-                "VALUES " +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')," +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1' LIMIT 1",
-                "VALUES " +
-                        "('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1' AND grantee_type = 'USER'",
-                "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'USER', 'NO')");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee = 'test_r_a_d1' AND grantee_type = 'ROLE'",
-                "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')");
-
-        assertQuery(
-                "SELECT * FROM information_schema.role_authorization_descriptors WHERE grantee_type = 'ROLE'",
-                "VALUES ('test_r_a_d2', null, null, 'test_r_a_d1', 'ROLE', 'NO')");
-
-        assertUpdate("DROP ROLE test_r_a_d1 IN hive");
-        assertUpdate("DROP ROLE test_r_a_d2 IN hive");
-        assertUpdate("DROP ROLE test_r_a_d3 IN hive");
     }
 
     @Test
@@ -6845,6 +7294,10 @@ public abstract class BaseHiveConnectorTest
         // Drop stats for 2 partitions
         assertUpdate(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['p2', '7'], ARRAY['p3', '8']])", TPCH_SCHEMA, tableName));
 
+        // Note: Even after deleting stats from metastore, stats for partitioned columns will be present since
+        // we try to estimate them based on available partition information. This will help engine use ndv, min and max
+        // in certain optimizer rules.
+
         // Only stats for the specified partitions should be removed
         // no change
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p1' AND p_bigint = 7)", tableName),
@@ -6867,8 +7320,8 @@ public abstract class BaseHiveConnectorTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
-                        "('p_varchar', null, null, null, null, null, null), " +
-                        "('p_bigint', null, null, null, null, null, null), " +
+                        "('p_varchar', null, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '7', '7'), " +
                         "(null, null, null, null, null, null, null)");
         // no change
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar IS NULL AND p_bigint IS NULL)", tableName),
@@ -6891,8 +7344,8 @@ public abstract class BaseHiveConnectorTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
-                        "('p_varchar', null, null, null, null, null, null), " +
-                        "('p_bigint', null, null, null, null, null, null), " +
+                        "('p_varchar', null, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '8', '8'), " +
                         "(null, null, null, null, null, null, null)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'e1' AND p_bigint = 9)", tableName),
                 "SELECT * FROM VALUES " +
@@ -6928,8 +7381,8 @@ public abstract class BaseHiveConnectorTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
-                        "('p_varchar', null, null, null, null, null, null), " +
-                        "('p_bigint', null, null, null, null, null, null), " +
+                        "('p_varchar', null, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '7', '7'), " +
                         "(null, null, null, null, null, null, null)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p2' AND p_bigint = 7)", tableName),
                 "SELECT * FROM VALUES " +
@@ -6939,8 +7392,8 @@ public abstract class BaseHiveConnectorTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
-                        "('p_varchar', null, null, null, null, null, null), " +
-                        "('p_bigint', null, null, null, null, null, null), " +
+                        "('p_varchar', null, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '7', '7'), " +
                         "(null, null, null, null, null, null, null)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar IS NULL AND p_bigint IS NULL)", tableName),
                 "SELECT * FROM VALUES " +
@@ -6950,8 +7403,8 @@ public abstract class BaseHiveConnectorTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
-                        "('p_varchar', null, null, null, null, null, null), " +
-                        "('p_bigint', null, null, null, null, null, null), " +
+                        "('p_varchar', null, 0.0, 1.0, null, null, null), " +
+                        "('p_bigint', null, 0.0, 1.0, null, null, null), " +
                         "(null, null, null, null, null, null, null)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'p3' AND p_bigint = 8)", tableName),
                 "SELECT * FROM VALUES " +
@@ -6961,8 +7414,8 @@ public abstract class BaseHiveConnectorTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
-                        "('p_varchar', null, null, null, null, null, null), " +
-                        "('p_bigint', null, null, null, null, null, null), " +
+                        "('p_varchar', null, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '8', '8'), " +
                         "(null, null, null, null, null, null, null)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'e1' AND p_bigint = 9)", tableName),
                 "SELECT * FROM VALUES " +
@@ -6972,8 +7425,8 @@ public abstract class BaseHiveConnectorTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
-                        "('p_varchar', null, null, null, null, null, null), " +
-                        "('p_bigint', null, null, null, null, null, null), " +
+                        "('p_varchar', null, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '9', '9'), " +
                         "(null, null, null, null, null, null, null)");
         assertQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_varchar = 'e2' AND p_bigint = 9)", tableName),
                 "SELECT * FROM VALUES " +
@@ -6983,8 +7436,8 @@ public abstract class BaseHiveConnectorTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
-                        "('p_varchar', null, null, null, null, null, null), " +
-                        "('p_bigint', null, null, null, null, null, null), " +
+                        "('p_varchar', null, 1.0, 0.0, null, null, null), " +
+                        "('p_bigint', null, 1.0, 0.0, null, '9', '9'), " +
                         "(null, null, null, null, null, null, null)");
 
         // All table stats are gone
@@ -6997,11 +7450,18 @@ public abstract class BaseHiveConnectorTest
                         "('c_timestamp', null, null, null, null, null, null), " +
                         "('c_varchar', null, null, null, null, null, null), " +
                         "('c_varbinary', null, null, null, null, null, null), " +
-                        "('p_varchar', null, null, null, null, null, null), " +
-                        "('p_bigint', null, null, null, null, null, null), " +
+                        "('p_varchar', null, 5.0, 0.16666666666666666, null, null, null), " +
+                        "('p_bigint', null, 3.0, 0.16666666666666666, null, '7', '9'), " +
                         "(null, null, null, null, null, null, null)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDropStatsPartitionedTableWithNullArgument()
+    {
+        assertQueryFails("CALL system.drop_stats(NULL, 'page_views')", "schema_name cannot be null");
+        assertQueryFails("CALL system.drop_stats('web', NULL)", "table_name cannot be null");
     }
 
     @Test
@@ -7264,7 +7724,7 @@ public abstract class BaseHiveConnectorTest
                 "  \"fields\": [\n" +
                 "    { \"name\":\"string_col\", \"type\":\"string\" }\n" +
                 "]}";
-        asCharSink(schemaFile, UTF_8).write(schema);
+        writeString(schemaFile.toPath(), schema);
         return schemaFile;
     }
 
@@ -7325,31 +7785,6 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE test_prune_failure");
     }
 
-    @Test
-    public void testTemporaryStagingDirectorySessionProperties()
-    {
-        String tableName = "test_temporary_staging_directory_session_properties";
-        assertUpdate(format("CREATE TABLE %s(i int)", tableName));
-
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "false")
-                .build();
-
-        HiveInsertTableHandle hiveInsertTableHandle = getHiveInsertTableHandle(session, tableName);
-        assertEquals(hiveInsertTableHandle.getLocationHandle().getWritePath(), hiveInsertTableHandle.getLocationHandle().getTargetPath());
-
-        session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "true")
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
-                .build();
-
-        hiveInsertTableHandle = getHiveInsertTableHandle(session, tableName);
-        assertNotEquals(hiveInsertTableHandle.getLocationHandle().getWritePath(), hiveInsertTableHandle.getLocationHandle().getTargetPath());
-        assertTrue(hiveInsertTableHandle.getLocationHandle().getWritePath().toString().startsWith("file:/tmp/custom/temporary-"));
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
     private HiveInsertTableHandle getHiveInsertTableHandle(Session session, String tableName)
     {
         Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
@@ -7364,33 +7799,6 @@ public abstract class BaseHiveConnectorTest
                     metadata.finishInsert(transactionSession, insertTableHandle, ImmutableList.of(), ImmutableList.of());
                     return hiveInsertTableHandle;
                 });
-    }
-
-    @Test
-    public void testSortedWritingTempStaging()
-    {
-        String tableName = "test_sorted_writing";
-        @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE %s " +
-                        "WITH (" +
-                        "   bucket_count = 7," +
-                        "   bucketed_by = ARRAY['shipmode']," +
-                        "   sorted_by = ARRAY['shipmode']" +
-                        ") AS " +
-                        "SELECT * FROM tpch.tiny.lineitem",
-                tableName);
-
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "sorted_writing_enabled", "true")
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "true")
-                .setCatalogSessionProperty("hive", "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
-                .build();
-
-        assertUpdate(session, createTableSql, 60175L);
-        MaterializedResult expected = computeActual("SELECT * FROM tpch.tiny.lineitem");
-        MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -7551,7 +7959,7 @@ public abstract class BaseHiveConnectorTest
                 "SELECT b, c.f1.g2, c.f3, d FROM " + tableName,
                 "VALUES ('ala', 873321, X'abcdef', 12345678)");
 
-        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName).getOnlyValue();
+        String tableLocation = getTableLocation(tableName);
 
         assertUpdate(session, format(
                 "CREATE TABLE %s(" +
@@ -7596,25 +8004,25 @@ public abstract class BaseHiveConnectorTest
         assertQueryFails(
                 session,
                 "CREATE TABLE test_invalid_precision_timestamp(ts) AS SELECT TIMESTAMP '2001-02-03 11:22:33.123456789'",
-                "\\QIncorrect timestamp precision for timestamp(9); the configured precision is " + HiveTimestampPrecision.MICROSECONDS);
+                "\\QIncorrect timestamp precision for timestamp(9); the configured precision is " + HiveTimestampPrecision.MICROSECONDS + "; column name: ts");
         assertQueryFails(
                 session,
                 "CREATE TABLE test_invalid_precision_timestamp (ts TIMESTAMP(9))",
-                "\\QIncorrect timestamp precision for timestamp(9); the configured precision is " + HiveTimestampPrecision.MICROSECONDS);
+                "\\QIncorrect timestamp precision for timestamp(9); the configured precision is " + HiveTimestampPrecision.MICROSECONDS + "; column name: ts");
         assertQueryFails(
                 session,
                 "CREATE TABLE test_invalid_precision_timestamp(ts) AS SELECT TIMESTAMP '2001-02-03 11:22:33.123'",
-                "\\QIncorrect timestamp precision for timestamp(3); the configured precision is " + HiveTimestampPrecision.MICROSECONDS);
+                "\\QIncorrect timestamp precision for timestamp(3); the configured precision is " + HiveTimestampPrecision.MICROSECONDS + "; column name: ts");
         assertQueryFails(
                 session,
                 "CREATE TABLE test_invalid_precision_timestamp (ts TIMESTAMP(3))",
-                "\\QIncorrect timestamp precision for timestamp(3); the configured precision is " + HiveTimestampPrecision.MICROSECONDS);
+                "\\QIncorrect timestamp precision for timestamp(3); the configured precision is " + HiveTimestampPrecision.MICROSECONDS + "; column name: ts");
     }
 
     @Test
     public void testOptimize()
     {
-        String tableName = "test_optimize_" + randomTableSuffix();
+        String tableName = "test_optimize_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
 
         insertNationNTimes(tableName, 10);
@@ -7656,7 +8064,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testOptimizeWithWriterScaling()
     {
-        String tableName = "test_optimize_witer_scaling" + randomTableSuffix();
+        String tableName = "test_optimize_witer_scaling" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
 
         insertNationNTimes(tableName, 4);
@@ -7667,7 +8075,7 @@ public abstract class BaseHiveConnectorTest
 
         Session writerScalingSession = Session.builder(optimizeEnabledSession())
                 .setSystemProperty("scale_writers", "true")
-                .setSystemProperty("writer_min_size", "100GB")
+                .setSystemProperty("writer_scaling_min_data_processed", "100GB")
                 .build();
 
         assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
@@ -7686,7 +8094,7 @@ public abstract class BaseHiveConnectorTest
         int insertCount = 4;
         int partitionsCount = 5;
 
-        String tableName = "test_optimize_with_partitioning_" + randomTableSuffix();
+        String tableName = "test_optimize_with_partitioning_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(" +
                 "  nationkey BIGINT, " +
                 "  name VARCHAR, " +
@@ -7704,7 +8112,7 @@ public abstract class BaseHiveConnectorTest
         Session optimizeEnabledSession = optimizeEnabledSession();
         Session writerScalingSession = Session.builder(optimizeEnabledSession)
                 .setSystemProperty("scale_writers", "true")
-                .setSystemProperty("writer_min_size", "100GB")
+                .setSystemProperty("writer_scaling_min_data_processed", "100GB")
                 .build();
 
         // optimize with unsupported WHERE
@@ -7743,7 +8151,7 @@ public abstract class BaseHiveConnectorTest
     public void testOptimizeWithBucketing()
     {
         int insertCount = 4;
-        String tableName = "test_optimize_with_bucketing_" + randomTableSuffix();
+        String tableName = "test_optimize_with_bucketing_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(" +
                 "  nationkey BIGINT, " +
                 "  name VARCHAR, " +
@@ -7775,7 +8183,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testOptimizeHiveSystemTable()
     {
-        String tableName = "test_optimize_system_table_" + randomTableSuffix();
+        String tableName = "test_optimize_system_table_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(a bigint, b bigint) WITH (partitioned_by = ARRAY['b'])");
 
         assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
@@ -7795,7 +8203,9 @@ public abstract class BaseHiveConnectorTest
 
     private void insertNationNTimes(String tableName, int times)
     {
-        assertUpdate("INSERT INTO " + tableName + "(nationkey, name, regionkey, comment) " + join(" UNION ALL ", nCopies(times, "SELECT * FROM tpch.sf1.nation")), times * 25);
+        for (int i = 0; i < times; i++) {
+            assertUpdate("INSERT INTO " + tableName + "(nationkey, name, regionkey, comment) SELECT * FROM tpch.sf1.nation", 25);
+        }
     }
 
     private void assertNationNTimes(String tableName, int times)
@@ -7824,7 +8234,7 @@ public abstract class BaseHiveConnectorTest
             return;
         }
 
-        String tableName = "test_timestamp_precision_" + randomTableSuffix();
+        String tableName = "test_timestamp_precision_" + randomNameSuffix();
         String createTable = "CREATE TABLE " + tableName + " (ts TIMESTAMP) WITH (format = '%s')";
         @Language("SQL") String insert = "INSERT INTO " + tableName + " VALUES (TIMESTAMP '%s')";
 
@@ -7851,7 +8261,7 @@ public abstract class BaseHiveConnectorTest
             return;
         }
 
-        String tableName = "test_timestamp_precision_" + randomTableSuffix();
+        String tableName = "test_timestamp_precision_" + randomNameSuffix();
         String createTableAs = "CREATE TABLE " + tableName + " WITH (format = '%s') AS SELECT TIMESTAMP '%s' ts";
 
         testTimestampPrecisionWrites(
@@ -7896,7 +8306,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testSelectFromViewWithoutDefaultCatalogAndSchema()
     {
-        String viewName = "select_from_view_without_catalog_and_schema_" + randomTableSuffix();
+        String viewName = "select_from_view_without_catalog_and_schema_" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM nation WHERE nationkey=1");
         assertQuery("SELECT count(*) FROM " + viewName, "VALUES 1");
         assertQuery("SELECT count(*) FROM hive.tpch." + viewName, "VALUES 1");
@@ -7922,60 +8332,81 @@ public abstract class BaseHiveConnectorTest
                 .build();
 
         // Hive views tests covered in TestHiveViews.testTimestampHiveView and TestHiveViesLegacy.testTimestampHiveView
-        String tableName = "ts_hive_table_" + randomTableSuffix();
+        String tableName = "ts_hive_table_" + randomNameSuffix();
         assertUpdate(
                 withTimestampPrecision(defaultSession, HiveTimestampPrecision.NANOSECONDS),
                 "CREATE TABLE " + tableName + " AS SELECT TIMESTAMP '1990-01-02 12:13:14.123456789' ts",
                 1);
 
         // Presto view created with config property set to MILLIS and session property not set
-        String prestoViewNameDefault = "presto_view_ts_default_" + randomTableSuffix();
+        String prestoViewNameDefault = "presto_view_ts_default_" + randomNameSuffix();
         assertUpdate(defaultSession, "CREATE VIEW " + prestoViewNameDefault + " AS SELECT *  FROM " + tableName);
 
         assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(defaultSession, "SELECT ts  FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(defaultSession, "SELECT ts  FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
         assertThat(query(millisSession, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
         assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
 
         // Presto view created with config property set to MILLIS and session property set to NANOS
-        String prestoViewNameNanos = "presto_view_ts_nanos_" + randomTableSuffix();
+        String prestoViewNameNanos = "presto_view_ts_nanos_" + randomNameSuffix();
         assertUpdate(nanosSessions, "CREATE VIEW " + prestoViewNameNanos + " AS SELECT *  FROM " + tableName);
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
         assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(defaultSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(defaultSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(millisSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
         assertThat(query(millisSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
         assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) Presto view schema is fixed on creation
-        // should be: assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
+    }
+
+    @Test
+    public void testTimestampWithTimeZone()
+    {
+        assertUpdate("CREATE TABLE test_timestamptz_base (t timestamp) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO test_timestamptz_base (t) VALUES" +
+                     "(timestamp '2022-07-26 12:13')", 1);
+
+        // Writing TIMESTAMP WITH LOCAL TIME ZONE is not supported, so we first create Parquet object by writing unzoned
+        // timestamp (which is converted to UTC using default timezone) and then creating another table that reads from the same file.
+        String tableLocation = getTableLocation("test_timestamptz_base");
+
+        // TIMESTAMP WITH LOCAL TIME ZONE is not mapped to any Trino type, so we need to create the metastore entry manually
+        FileHiveMetastore metastore = createTestingFileHiveMetastore(new File(getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile(), "hive_data"));
+        metastore.createTable(
+                new Table(
+                        "tpch",
+                        "test_timestamptz",
+                        Optional.of("hive"),
+                        "EXTERNAL_TABLE",
+                        new Storage(
+                                StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET),
+                                Optional.of(tableLocation),
+                                Optional.empty(),
+                                false,
+                                Collections.emptyMap()),
+                        List.of(new Column("t", HiveType.HIVE_TIMESTAMPLOCALTZ, Optional.empty())),
+                        List.of(),
+                        Collections.emptyMap(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        OptionalLong.empty()),
+                PrincipalPrivileges.fromHivePrivilegeInfos(Collections.emptySet()));
+
+        assertThat(query("SELECT * FROM test_timestamptz"))
+                .matches("VALUES TIMESTAMP '2022-07-26 17:13:00.000 UTC'");
+
+        assertUpdate("DROP TABLE test_timestamptz");
     }
 
     @Test(dataProvider = "legalUseColumnNamesProvider")
@@ -7987,7 +8418,7 @@ public abstract class BaseHiveConnectorTest
             builder.setCatalogSessionProperty(catalog, lowerCaseFormat + "_use_column_names", String.valueOf(formatUseColumnNames));
         }
         Session admin = builder.build();
-        String tableName = format("test_renames_%s_%s_%s", lowerCaseFormat, formatUseColumnNames, randomTableSuffix());
+        String tableName = format("test_renames_%s_%s_%s", lowerCaseFormat, formatUseColumnNames, randomNameSuffix());
         assertUpdate(admin, format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, state VARCHAR) WITH (format = '%s', partitioned_by = ARRAY['state'])", tableName, format));
         assertUpdate(admin, format("INSERT INTO %s VALUES(111, 'Katy', 57, 'CA')", tableName), 1);
         assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA')");
@@ -8042,7 +8473,7 @@ public abstract class BaseHiveConnectorTest
             builder.setCatalogSessionProperty(catalog, lowerCaseFormat + "_use_column_names", String.valueOf(formatUseColumnNames));
         }
         Session admin = builder.build();
-        String tableName = format("test_add_drop_%s_%s_%s", lowerCaseFormat, formatUseColumnNames, randomTableSuffix());
+        String tableName = format("test_add_drop_%s_%s_%s", lowerCaseFormat, formatUseColumnNames, randomNameSuffix());
         assertUpdate(admin, format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, state VARCHAR) WITH (format = '%s')", tableName, format));
         assertUpdate(admin, format("INSERT INTO %s VALUES(111, 'Katy', 57, 'CA')", tableName), 1);
         assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA')");
@@ -8114,11 +8545,166 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testExplainAnalyzePhysicalInputSize()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE SELECT * FROM nation a",
+                "Physical input: .*B");
+    }
+
+    @Test
     public void testExplainAnalyzePhysicalReadWallTime()
     {
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
-                "'Physical input read time' = \\{duration=.*}");
+                "Physical input time: .*s");
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation WHERE nationkey > 1",
+                "Physical input time: .*s");
+    }
+
+    @Test
+    public void testExplainAnalyzeScanFilterProjectWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT nationkey * 2 FROM nation WHERE nationkey > 0",
+                "'Filter CPU time' = \\{duration=.*}",
+                "'Projection CPU time' = \\{duration=.*}");
+    }
+
+    @Test
+    public void testExplainAnalyzeFilterProjectWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM (SELECT nationkey, count(*) cnt FROM nation GROUP BY 1) where cnt > 0",
+                "'Filter CPU time' = \\{duration=.*}",
+                "'Projection CPU time' = \\{duration=.*}");
+    }
+
+    @Test
+    public void testCreateAcidTableUnsupported()
+    {
+        assertQueryFails("CREATE TABLE acid_unsupported (x int) WITH (transactional = true)", "FileHiveMetastore does not support ACID tables");
+        assertQueryFails("CREATE TABLE acid_unsupported WITH (transactional = true) AS SELECT 123 x", "FileHiveMetastore does not support ACID tables");
+    }
+
+    @Test
+    public void testExtraProperties()
+    {
+        String tableName = "create_table_with_multiple_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE %s (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))".formatted(tableName));
+
+        assertQuery(
+                "SELECT \"extra.property.one\", \"extra.property.two\" FROM \"%s$properties\"".formatted(tableName),
+                "SELECT 'one', 'two'");
+        assertThat(computeActual("SHOW CREATE TABLE %s".formatted(tableName)).getOnlyValue())
+                .isEqualTo("CREATE TABLE hive.tpch.%s (\n".formatted(tableName) +
+                        "   c1 integer\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")");
+        assertUpdate("DROP TABLE %s".formatted(tableName));
+    }
+
+    @Test
+    public void testExtraPropertiesWithCtas()
+    {
+        String tableName = "create_table_ctas_with_multiple_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE %s (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))".formatted(tableName));
+
+        assertQuery(
+                "SELECT \"extra.property.one\", \"extra.property.two\" FROM \"%s$properties\"".formatted(tableName),
+                "SELECT 'one', 'two'");
+        assertThat(computeActual("SHOW CREATE TABLE %s".formatted(tableName)).getOnlyValue())
+                .isEqualTo("CREATE TABLE hive.tpch.%s (\n".formatted(tableName) +
+                        "   c1 integer\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")");
+
+        assertUpdate("DROP TABLE %s".formatted(tableName));
+    }
+
+    @Test
+    public void testShowCreateWithExtraProperties()
+    {
+        String tableName = format("%s.%s.show_create_table_with_extra_properties_%s", getSession().getCatalog().get(), getSession().getSchema().get(), randomNameSuffix());
+        assertUpdate("CREATE TABLE %s (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))".formatted(tableName));
+
+        assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                .isEqualTo("CREATE TABLE %s (\n".formatted(tableName) +
+                        "   c1 integer\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")");
+
+        assertUpdate("DROP TABLE %s".formatted(tableName));
+    }
+
+    @Test
+    public void testDuplicateExtraProperties()
+    {
+        assertQueryFails(
+                "CREATE TABLE create_table_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']))",
+                "Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
+        assertQueryFails(
+                "CREATE TABLE create_table_select_as_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']))",
+                "Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
+    }
+
+    @Test
+    public void testOverwriteExistingPropertyWithExtraProperties()
+    {
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE create_table_with_overwrite_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['transactional'], ARRAY['true']))"))
+                .isInstanceOf(QueryFailedException.class)
+                .hasMessage("Illegal keys in extra_properties: [transactional]");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE create_table_as_select_with_extra_properties WITH (extra_properties = MAP(ARRAY['rawDataSize'], ARRAY['1'])) AS SELECT 1 as c1"))
+                .isInstanceOf(QueryFailedException.class)
+                .hasMessage("Illegal keys in extra_properties: [rawDataSize]");
+    }
+
+    @Test
+    public void testNullExtraProperty()
+    {
+        assertQueryFails(
+                "CREATE TABLE create_table_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['null.property'], ARRAY[null]))",
+                ".*Extra table property value cannot be null '\\{null.property=null}'.*");
+        assertQueryFails(
+                "CREATE TABLE create_table_as_select_with_extra_properties WITH (extra_properties = MAP(ARRAY['null.property'], ARRAY[null])) AS SELECT 1 as c1",
+                ".*Extra table property value cannot be null '\\{null.property=null}'.*");
+    }
+
+    @Test
+    public void testCollidingMixedCaseProperty()
+    {
+        String tableName = "create_table_with_mixed_case_extra_properties" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE %s (c1 integer) WITH (extra_properties = MAP(ARRAY['one', 'ONE'], ARRAY['one', 'ONE']))".formatted(tableName));
+        // TODO: (https://github.com/trinodb/trino/issues/17) This should run successfully
+        assertThatThrownBy(() -> query("SELECT * FROM \"%s$properties\"".formatted(tableName)))
+                .isInstanceOf(QueryFailedException.class)
+                .hasMessageContaining("Multiple entries with same key: one=one and one=one");
+
+        assertUpdate("DROP TABLE %s".formatted(tableName));
+    }
+
+    @Test
+    public void testSelectWithShortZoneId()
+    {
+        String resourceLocation = getPathFromClassPathResource("with_short_zone_id/data");
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_select_with_short_zone_id_",
+                "(id INT, firstName VARCHAR, lastName VARCHAR) WITH (external_location = '%s')".formatted(resourceLocation))) {
+            assertThatThrownBy(() -> query("SELECT * FROM %s".formatted(testTable.getName())))
+                    .hasMessageMatching(".*Failed to read ORC file: .*")
+                    .hasStackTraceContaining("Unknown time-zone ID: EST");
+        }
     }
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
@@ -8144,6 +8730,8 @@ public abstract class BaseHiveConnectorTest
     {
         return Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "4")
+                .setSystemProperty("task_partitioned_writer_count", "4")
+                .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
     }
 
@@ -8175,7 +8763,8 @@ public abstract class BaseHiveConnectorTest
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) " + query);
         Set<ColumnConstraint> constraints = getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))
                 .getInputTableColumnInfos().stream()
-                .findFirst().get()
+                .collect(onlyElement())
+                .getConstraint()
                 .getColumnConstraints();
 
         assertTrue(constraints.containsAll(expected));
@@ -8229,7 +8818,7 @@ public abstract class BaseHiveConnectorTest
     private boolean isNativeParquetWriter(Session session, HiveStorageFormat storageFormat)
     {
         return storageFormat == HiveStorageFormat.PARQUET &&
-                "true".equals(session.getCatalogProperties("hive").get("experimental_parquet_optimized_writer_enabled"));
+                "true".equals(session.getCatalogProperties("hive").get("parquet_optimized_writer_enabled"));
     }
 
     private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
@@ -8242,15 +8831,19 @@ public abstract class BaseHiveConnectorTest
                 // CSV supports only unbounded VARCHAR type
                 continue;
             }
+            if (hiveStorageFormat == REGEX) {
+                // REGEX format is read-only
+                continue;
+            }
             if (hiveStorageFormat == HiveStorageFormat.PARQUET) {
                 formats.add(new TestingHiveStorageFormat(
                         Session.builder(session)
-                                .setCatalogSessionProperty(catalog, "experimental_parquet_optimized_writer_enabled", "false")
+                                .setCatalogSessionProperty(catalog, "parquet_optimized_writer_enabled", "false")
                                 .build(),
                         hiveStorageFormat));
                 formats.add(new TestingHiveStorageFormat(
                         Session.builder(session)
-                                .setCatalogSessionProperty(catalog, "experimental_parquet_optimized_writer_enabled", "true")
+                                .setCatalogSessionProperty(catalog, "parquet_optimized_writer_enabled", "true")
                                 .build(),
                         hiveStorageFormat));
                 continue;
@@ -8335,16 +8928,29 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        // This value depends on metastore type
+        return OptionalInt.of(128);
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Schema name must be shorter than or equal to '128' characters but got '129'");
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         // This value depends on metastore type
-        return OptionalInt.of(255);
+        return OptionalInt.of(128);
     }
 
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Failed to create directory");
+        assertThat(e).hasMessageMatching("Table name must be shorter than or equal to '128' characters but got .*");
     }
 
     private Session withTimestampPrecision(Session session, HiveTimestampPrecision precision)
@@ -8352,5 +8958,66 @@ public abstract class BaseHiveConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(catalog, "timestamp_precision", precision.name())
                 .build();
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName);
+    }
+
+    @Override
+    protected boolean supportsPhysicalPushdown()
+    {
+        // Hive table is created using default format which is ORC. Currently ORC reader has issue
+        // pruning dereferenced struct fields https://github.com/trinodb/trino/issues/17201
+        return false;
+    }
+
+    private static final class BucketedFilterTestSetup
+    {
+        private final String typeName;
+        private final List<String> values;
+        private final String filterValue;
+        private final long expectedPhysicalInputRows;
+        private final long expectedResult;
+
+        private BucketedFilterTestSetup(
+                String typeName,
+                List<String> values,
+                String filterValue,
+                long expectedPhysicalInputRows,
+                long expectedResult)
+        {
+            this.typeName = requireNonNull(typeName, "typeName is null");
+            this.values = requireNonNull(values, "values is null");
+            this.filterValue = requireNonNull(filterValue, "filterValue is null");
+            this.expectedPhysicalInputRows = expectedPhysicalInputRows;
+            this.expectedResult = expectedResult;
+        }
+
+        private String getTypeName()
+        {
+            return typeName;
+        }
+
+        private List<String> getValues()
+        {
+            return values;
+        }
+
+        private String getFilterValue()
+        {
+            return filterValue;
+        }
+
+        private long getExpectedPhysicalInputRows()
+        {
+            return expectedPhysicalInputRows;
+        }
+
+        private long getExpectedResult()
+        {
+            return expectedResult;
+        }
     }
 }

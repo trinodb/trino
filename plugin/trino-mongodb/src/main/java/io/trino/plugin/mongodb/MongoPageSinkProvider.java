@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.mongodb;
 
+import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-
-import javax.inject.Inject;
 
 public class MongoPageSinkProvider
         implements ConnectorPageSinkProvider
@@ -36,16 +36,16 @@ public class MongoPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
     {
         MongoOutputTableHandle handle = (MongoOutputTableHandle) outputTableHandle;
-        return new MongoPageSink(config, mongoSession, handle.getSchemaTableName(), handle.getColumns());
+        return new MongoPageSink(config, mongoSession, handle.getTemporaryRemoteTableName().orElseGet(handle::getRemoteTableName), handle.getColumns(), handle.getPageSinkIdColumnName(), pageSinkId);
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
     {
         MongoInsertTableHandle handle = (MongoInsertTableHandle) insertTableHandle;
-        return new MongoPageSink(config, mongoSession, handle.getSchemaTableName(), handle.getColumns());
+        return new MongoPageSink(config, mongoSession, handle.getTemporaryRemoteTableName().orElseGet(handle::getRemoteTableName), handle.getColumns(), handle.getPageSinkIdColumnName(), pageSinkId);
     }
 }

@@ -54,8 +54,6 @@ public class HivePageSinkMetadataProvider
         if (modifiedPartition == null) {
             return delegate.getPartition(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues);
         }
-        else {
-            return modifiedPartition;
-        }
+        return modifiedPartition;
     }
 }

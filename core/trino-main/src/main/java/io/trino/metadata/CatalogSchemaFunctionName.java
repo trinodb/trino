@@ -13,6 +13,8 @@
  */
 package io.trino.metadata;
 
+import io.trino.spi.function.SchemaFunctionName;
+
 import java.util.Objects;
 
 public final class CatalogSchemaFunctionName

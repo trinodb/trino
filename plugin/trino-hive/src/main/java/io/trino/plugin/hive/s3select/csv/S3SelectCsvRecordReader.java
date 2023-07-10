@@ -15,22 +15,21 @@ package io.trino.plugin.hive.s3select.csv;
 
 import com.amazonaws.services.s3.model.CSVInput;
 import com.amazonaws.services.s3.model.CSVOutput;
-import com.amazonaws.services.s3.model.ExpressionType;
+import com.amazonaws.services.s3.model.CompressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
-import io.trino.plugin.hive.s3.TrinoS3FileSystem;
 import io.trino.plugin.hive.s3select.S3SelectLineRecordReader;
 import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
+import io.trino.plugin.hive.util.SerdeConstants;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
-import java.net.URI;
+import java.util.Optional;
 import java.util.Properties;
 
-import static org.apache.hadoop.hive.serde.serdeConstants.ESCAPE_CHAR;
-import static org.apache.hadoop.hive.serde.serdeConstants.FIELD_DELIM;
-import static org.apache.hadoop.hive.serde.serdeConstants.QUOTE_CHAR;
+import static io.trino.plugin.hive.util.SerdeConstants.ESCAPE_CHAR;
+import static io.trino.plugin.hive.util.SerdeConstants.FIELD_DELIM;
+import static io.trino.plugin.hive.util.SerdeConstants.QUOTE_CHAR;
 
 public class S3SelectCsvRecordReader
         extends S3SelectLineRecordReader
@@ -59,46 +58,57 @@ public class S3SelectCsvRecordReader
     }
 
     @Override
-    public SelectObjectContentRequest buildSelectObjectRequest(Properties schema, String query, Path path)
+    public InputSerialization buildInputSerialization()
     {
-        SelectObjectContentRequest selectObjectRequest = new SelectObjectContentRequest();
-        URI uri = path.toUri();
-        selectObjectRequest.setBucketName(TrinoS3FileSystem.extractBucketName(uri));
-        selectObjectRequest.setKey(TrinoS3FileSystem.keyFromPath(path));
-        selectObjectRequest.setExpression(query);
-        selectObjectRequest.setExpressionType(ExpressionType.SQL);
-
-        String fieldDelimiter = getFieldDelimiter(schema);
+        Properties schema = getSchema();
+        String fieldDelimiter = schema.getProperty(FIELD_DELIM, DEFAULT_FIELD_DELIMITER);
         String quoteChar = schema.getProperty(QUOTE_CHAR, null);
         String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
 
         CSVInput selectObjectCSVInputSerialization = new CSVInput();
-        selectObjectCSVInputSerialization.setRecordDelimiter(lineDelimiter);
+        selectObjectCSVInputSerialization.setRecordDelimiter(getLineDelimiter());
         selectObjectCSVInputSerialization.setFieldDelimiter(fieldDelimiter);
         selectObjectCSVInputSerialization.setComments(COMMENTS_CHAR_STR);
         selectObjectCSVInputSerialization.setQuoteCharacter(quoteChar);
         selectObjectCSVInputSerialization.setQuoteEscapeCharacter(escapeChar);
 
         InputSerialization selectObjectInputSerialization = new InputSerialization();
-        selectObjectInputSerialization.setCompressionType(getCompressionType(path));
+        selectObjectInputSerialization.setCompressionType(getCompressionType());
         selectObjectInputSerialization.setCsv(selectObjectCSVInputSerialization);
-        selectObjectRequest.setInputSerialization(selectObjectInputSerialization);
+
+        return selectObjectInputSerialization;
+    }
+
+    @Override
+    public OutputSerialization buildOutputSerialization()
+    {
+        Properties schema = getSchema();
+        String fieldDelimiter = schema.getProperty(FIELD_DELIM, DEFAULT_FIELD_DELIMITER);
+        String quoteChar = schema.getProperty(QUOTE_CHAR, null);
+        String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
 
         OutputSerialization selectObjectOutputSerialization = new OutputSerialization();
         CSVOutput selectObjectCSVOutputSerialization = new CSVOutput();
-        selectObjectCSVOutputSerialization.setRecordDelimiter(lineDelimiter);
+        selectObjectCSVOutputSerialization.setRecordDelimiter(getLineDelimiter());
         selectObjectCSVOutputSerialization.setFieldDelimiter(fieldDelimiter);
         selectObjectCSVOutputSerialization.setQuoteCharacter(quoteChar);
         selectObjectCSVOutputSerialization.setQuoteEscapeCharacter(escapeChar);
         selectObjectOutputSerialization.setCsv(selectObjectCSVOutputSerialization);
-        selectObjectRequest.setOutputSerialization(selectObjectOutputSerialization);
 
-        return selectObjectRequest;
+        return selectObjectOutputSerialization;
     }
 
-    protected String getFieldDelimiter(Properties schema)
+    @Override
+    public boolean shouldEnableScanRange()
     {
-        // Use the field delimiter only if it is specified in the schema. If not, use a default field delimiter ','
-        return schema.getProperty(FIELD_DELIM, DEFAULT_FIELD_DELIMITER);
+        // Works for CSV if AllowQuotedRecordDelimiter is disabled.
+        boolean isQuotedRecordDelimiterAllowed = Boolean.TRUE.equals(
+                buildInputSerialization().getCsv().getAllowQuotedRecordDelimiter());
+        return CompressionType.NONE.equals(getCompressionType()) && !isQuotedRecordDelimiterAllowed;
+    }
+
+    public static Optional<String> nullCharacterEncoding(Properties schema)
+    {
+        return Optional.ofNullable(schema.getProperty(SerdeConstants.SERIALIZATION_NULL_FORMAT));
     }
 }

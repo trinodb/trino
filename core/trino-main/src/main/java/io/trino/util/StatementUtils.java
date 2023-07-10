@@ -19,6 +19,7 @@ import io.trino.execution.AddColumnTask;
 import io.trino.execution.CallTask;
 import io.trino.execution.CommentTask;
 import io.trino.execution.CommitTask;
+import io.trino.execution.CreateCatalogTask;
 import io.trino.execution.CreateMaterializedViewTask;
 import io.trino.execution.CreateRoleTask;
 import io.trino.execution.CreateSchemaTask;
@@ -27,6 +28,7 @@ import io.trino.execution.CreateViewTask;
 import io.trino.execution.DataDefinitionTask;
 import io.trino.execution.DeallocateTask;
 import io.trino.execution.DenyTask;
+import io.trino.execution.DropCatalogTask;
 import io.trino.execution.DropColumnTask;
 import io.trino.execution.DropMaterializedViewTask;
 import io.trino.execution.DropRoleTask;
@@ -45,6 +47,7 @@ import io.trino.execution.ResetSessionTask;
 import io.trino.execution.RevokeRolesTask;
 import io.trino.execution.RevokeTask;
 import io.trino.execution.RollbackTask;
+import io.trino.execution.SetColumnTypeTask;
 import io.trino.execution.SetPathTask;
 import io.trino.execution.SetPropertiesTask;
 import io.trino.execution.SetRoleTask;
@@ -62,6 +65,7 @@ import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
@@ -73,6 +77,7 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
@@ -84,6 +89,7 @@ import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GrantRoles;
 import io.trino.sql.tree.Insert;
+import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
@@ -96,6 +102,7 @@ import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
+import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -139,6 +146,7 @@ import static io.trino.spi.resourcegroups.QueryType.DELETE;
 import static io.trino.spi.resourcegroups.QueryType.DESCRIBE;
 import static io.trino.spi.resourcegroups.QueryType.EXPLAIN;
 import static io.trino.spi.resourcegroups.QueryType.INSERT;
+import static io.trino.spi.resourcegroups.QueryType.MERGE;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
 import static io.trino.spi.resourcegroups.QueryType.UPDATE;
 import static java.lang.String.format;
@@ -176,6 +184,7 @@ public final class StatementUtils
             .add(basicStatement(Insert.class, INSERT))
             .add(basicStatement(Update.class, UPDATE))
             .add(basicStatement(Delete.class, DELETE))
+            .add(basicStatement(Merge.class, MERGE))
             .add(basicStatement(Analyze.class, ANALYZE))
             // DDL
             .add(dataDefinitionStatement(AddColumn.class, AddColumnTask.class))
@@ -183,12 +192,14 @@ public final class StatementUtils
             .add(dataDefinitionStatement(Comment.class, CommentTask.class))
             .add(dataDefinitionStatement(Commit.class, CommitTask.class))
             .add(dataDefinitionStatement(CreateMaterializedView.class, CreateMaterializedViewTask.class))
+            .add(dataDefinitionStatement(CreateCatalog.class, CreateCatalogTask.class))
             .add(dataDefinitionStatement(CreateRole.class, CreateRoleTask.class))
             .add(dataDefinitionStatement(CreateSchema.class, CreateSchemaTask.class))
             .add(dataDefinitionStatement(CreateTable.class, CreateTableTask.class))
             .add(dataDefinitionStatement(CreateView.class, CreateViewTask.class))
             .add(dataDefinitionStatement(Deallocate.class, DeallocateTask.class))
             .add(dataDefinitionStatement(Deny.class, DenyTask.class))
+            .add(dataDefinitionStatement(DropCatalog.class, DropCatalogTask.class))
             .add(dataDefinitionStatement(DropColumn.class, DropColumnTask.class))
             .add(dataDefinitionStatement(DropMaterializedView.class, DropMaterializedViewTask.class))
             .add(dataDefinitionStatement(DropRole.class, DropRoleTask.class))
@@ -208,6 +219,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(Revoke.class, RevokeTask.class))
             .add(dataDefinitionStatement(RevokeRoles.class, RevokeRolesTask.class))
             .add(dataDefinitionStatement(Rollback.class, RollbackTask.class))
+            .add(dataDefinitionStatement(SetColumnType.class, SetColumnTypeTask.class))
             .add(dataDefinitionStatement(SetPath.class, SetPathTask.class))
             .add(dataDefinitionStatement(SetRole.class, SetRoleTask.class))
             .add(dataDefinitionStatement(SetSchemaAuthorization.class, SetSchemaAuthorizationTask.class))
@@ -268,11 +280,10 @@ public final class StatementUtils
     private static <T extends Statement> void verifyTaskInterfaceType(Class<T> statementType, Class<?> taskType, Class<?> expectedInterfaceType)
     {
         for (Type genericInterface : taskType.getGenericInterfaces()) {
-            if (genericInterface instanceof ParameterizedType) {
-                ParameterizedType parameterizedInterface = (ParameterizedType) genericInterface;
+            if (genericInterface instanceof ParameterizedType parameterizedInterface) {
                 if (parameterizedInterface.getRawType().equals(expectedInterfaceType)) {
                     Type actualStatementType = parameterizedInterface.getActualTypeArguments()[0];
-                    checkArgument(actualStatementType.equals(statementType), format("Expected %s statement type to be %s", statementType.getSimpleName(), taskType.getSimpleName()));
+                    checkArgument(actualStatementType.equals(statementType), "Expected %s statement type to be %s", statementType.getSimpleName(), taskType.getSimpleName());
                     return;
                 }
             }

@@ -21,30 +21,17 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 import java.util.UUID;
 
 public interface StorageManager
 {
-    default ConnectorPageSource getPageSource(
-            UUID shardUuid,
-            OptionalInt bucketNumber,
-            List<Long> columnIds,
-            List<Type> columnTypes,
-            TupleDomain<RaptorColumnHandle> effectivePredicate,
-            OrcReaderOptions orcReaderOptions)
-    {
-        return getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, effectivePredicate, orcReaderOptions, OptionalLong.empty());
-    }
-
     ConnectorPageSource getPageSource(
             UUID shardUuid,
             OptionalInt bucketNumber,
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            OrcReaderOptions orcReaderOptions,
-            OptionalLong transactionId);
+            OrcReaderOptions orcReaderOptions);
 
     StoragePageSink createStoragePageSink(
             long transactionId,
@@ -52,4 +39,9 @@ public interface StorageManager
             List<Long> columnIds,
             List<Type> columnTypes,
             boolean checkSpace);
+
+    ShardRewriter createShardRewriter(
+            long transactionId,
+            OptionalInt bucketNumber,
+            UUID shardUuid);
 }

@@ -22,9 +22,9 @@ To connect to Oracle, you need:
 Configuration
 -------------
 
-To configure the Oracle connector as the ``oracle`` catalog, create a file named
-``oracle.properties`` in ``etc/catalog``. Include the following connection
-properties in the file:
+To configure the Oracle connector as the ``example`` catalog, create a file
+named ``example.properties`` in ``etc/catalog``. Include the following
+connection properties in the file:
 
 .. code-block:: text
 
@@ -73,6 +73,8 @@ To disable connection pooling, update properties to include the following:
 
     oracle.connection-pool.enabled=false
 
+.. include:: jdbc-authentication.fragment
+
 Multiple Oracle servers
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -84,6 +86,11 @@ you name the property file ``sales.properties``, Trino creates a catalog named
 ``sales``.
 
 .. include:: jdbc-common-configurations.fragment
+
+.. include:: query-comment-format.fragment
+
+.. |default_domain_compaction_threshold| replace:: ``32``
+.. include:: jdbc-domain-compaction-threshold.fragment
 
 .. include:: jdbc-procedures.fragment
 
@@ -98,10 +105,10 @@ The Oracle connector provides a schema for every Oracle database.
 
 Run ``SHOW SCHEMAS`` to see the available Oracle databases::
 
-    SHOW SCHEMAS FROM oracle;
+    SHOW SCHEMAS FROM example;
 
 If you used a different name for your catalog properties file, use that catalog
-name instead of ``oracle``.
+name instead of ``example``.
 
 .. note::
     The Oracle user must have access to the table in order to access it from Trino.
@@ -114,25 +121,28 @@ Examples
 If you have an Oracle database named ``web``, run ``SHOW TABLES`` to see the
 tables it contains::
 
-    SHOW TABLES FROM oracle.web;
+    SHOW TABLES FROM example.web;
 
 To see a list of the columns in the ``clicks`` table in the ``web``
 database, run either of the following::
 
-    DESCRIBE oracle.web.clicks;
-    SHOW COLUMNS FROM oracle.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 To access the clicks table in the web database, run the following::
 
-    SELECT * FROM oracle.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 .. _oracle-type-mapping:
 
 Type mapping
 ------------
 
-Both Oracle and Trino have types that are not supported by the Oracle
-connector. The following sections explain their type mapping.
+Because Trino and Oracle each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
 Oracle to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -140,9 +150,8 @@ Oracle to Trino type mapping
 Trino supports selecting Oracle database types. This table shows the Oracle to
 Trino data type mapping:
 
-
 .. list-table:: Oracle to Trino type mapping
-  :widths: 20, 20, 60
+  :widths: 30, 25, 50
   :header-rows: 1
 
   * - Oracle database type
@@ -200,6 +209,8 @@ Trino data type mapping:
     - ``TIMESTAMP WITH TIME ZONE``
     - See :ref:`datetime mapping`
 
+No other types are supported.
+
 Trino to Oracle type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -209,10 +220,10 @@ The table shows the mappings from Trino to Oracle data types:
 .. note::
    For types not listed in the table below, Trino can't perform the ``CREATE
    TABLE <table> AS SELECT`` operations. When data is inserted into existing
-   tables ``Oracle to Trino`` type mapping is used.
+   tables, ``Oracle to Trino`` type mapping is used.
 
 .. list-table:: Trino to Oracle Type Mapping
-  :widths: 20, 20, 60
+  :widths: 30, 25, 50
   :header-rows: 1
 
   * - Trino type
@@ -260,6 +271,8 @@ The table shows the mappings from Trino to Oracle data types:
   * - ``TIMESTAMP WITH TIME ZONE``
     - ``TIMESTAMP(3) WITH TIME ZONE``
     - See :ref:`datetime mapping`
+
+No other types are supported.
 
 .. _number mapping:
 
@@ -400,6 +413,14 @@ supports the following statements:
 
 .. include:: alter-table-limitation.fragment
 
+.. _oracle-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -417,13 +438,15 @@ processed in Oracle. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-As a simple example, to select an entire table::
+.. include:: query-passthrough-warning.fragment
+
+As a simple example, query the ``example`` catalog and select an entire table::
 
     SELECT
       *
     FROM
       TABLE(
-        oracle.system.query(
+        example.system.query(
           query => 'SELECT
             *
           FROM
@@ -441,7 +464,7 @@ As a practical example, you can use the
       sales
     FROM
       TABLE(
-        oracle.system.query(
+        example.system.query(
           query => 'SELECT
             *
           FROM
@@ -462,6 +485,8 @@ As a practical example, you can use the
             country'
         )
       );
+
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------
@@ -512,6 +537,8 @@ with the following functions:
 
 * :func:`covar_samp()`
 * :func:`covar_pop()`
+
+.. include:: pushdown-correctness-behavior.fragment
 
 .. include:: join-pushdown-enabled-false.fragment
 

@@ -47,11 +47,9 @@ public class TestHiveConnectorFactory
 
     private static void assertCreateConnector(String metastoreUri)
     {
-        Map<String, String> config = ImmutableMap.<String, String>builder()
-                .put("hive.metastore.uri", metastoreUri)
-                .buildOrThrow();
+        Map<String, String> config = ImmutableMap.of("hive.metastore.uri", metastoreUri);
 
-        Connector connector = new HiveConnectorFactory("hive").create("hive-test", config, new TestingConnectorContext());
+        Connector connector = new HiveConnectorFactory().create("hive-test", config, new TestingConnectorContext());
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_UNCOMMITTED, true, true);
         assertInstanceOf(connector.getMetadata(SESSION, transaction), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);

@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.client.NodeVersion;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryPerformanceFetcher;
 import io.trino.execution.StageId;
@@ -44,6 +45,7 @@ public class ExplainAnalyzeOperator
         private final Metadata metadata;
         private final FunctionManager functionManager;
         private final boolean verbose;
+        private final NodeVersion version;
         private boolean closed;
 
         public ExplainAnalyzeOperatorFactory(
@@ -52,7 +54,8 @@ public class ExplainAnalyzeOperator
                 QueryPerformanceFetcher queryPerformanceFetcher,
                 Metadata metadata,
                 FunctionManager functionManager,
-                boolean verbose)
+                boolean verbose,
+                NodeVersion version)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -60,6 +63,7 @@ public class ExplainAnalyzeOperator
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.functionManager = requireNonNull(functionManager, "functionManager is null");
             this.verbose = verbose;
+            this.version = requireNonNull(version, "version is null");
         }
 
         @Override
@@ -67,7 +71,7 @@ public class ExplainAnalyzeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ExplainAnalyzeOperator.class.getSimpleName());
-            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, metadata, functionManager, verbose);
+            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, metadata, functionManager, verbose, version);
         }
 
         @Override
@@ -79,7 +83,7 @@ public class ExplainAnalyzeOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, metadata, functionManager, verbose);
+            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, metadata, functionManager, verbose, version);
         }
     }
 
@@ -88,6 +92,7 @@ public class ExplainAnalyzeOperator
     private final Metadata metadata;
     private final FunctionManager functionManager;
     private final boolean verbose;
+    private final NodeVersion version;
     private boolean finishing;
     private boolean outputConsumed;
 
@@ -96,13 +101,15 @@ public class ExplainAnalyzeOperator
             QueryPerformanceFetcher queryPerformanceFetcher,
             Metadata metadata,
             FunctionManager functionManager,
-            boolean verbose)
+            boolean verbose,
+            NodeVersion version)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.verbose = verbose;
+        this.version = requireNonNull(version, "version is null");
     }
 
     @Override
@@ -158,7 +165,8 @@ public class ExplainAnalyzeOperator
                 metadata,
                 functionManager,
                 operatorContext.getSession(),
-                verbose);
+                verbose,
+                version);
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1);
         VARCHAR.writeString(builder, plan);
 

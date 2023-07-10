@@ -13,17 +13,15 @@
  */
 package io.trino.server.ui;
 
+import com.google.inject.Inject;
 import io.trino.server.security.InsecureAuthenticatorConfig;
 import io.trino.server.security.SecurityConfig;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
 
-import javax.inject.Inject;
-
 import java.util.Optional;
 
 import static io.trino.server.security.UserMapping.createUserMapping;
-import static java.util.Objects.requireNonNull;
 
 public class InsecureFormAuthenticator
         implements FormAuthenticator
@@ -35,7 +33,7 @@ public class InsecureFormAuthenticator
     public InsecureFormAuthenticator(InsecureAuthenticatorConfig config, SecurityConfig securityConfig)
     {
         userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
-        insecureAuthenticationOverHttpAllowed = requireNonNull(securityConfig, "securityConfig is null").isInsecureAuthenticationOverHttpAllowed();
+        insecureAuthenticationOverHttpAllowed = securityConfig.isInsecureAuthenticationOverHttpAllowed();
     }
 
     @Override

@@ -13,16 +13,16 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.spi.security.ConnectorIdentity;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
-import javax.inject.Inject;
-
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -31,7 +31,7 @@ public class ThriftHiveMetastoreFactory
         implements ThriftMetastoreFactory
 {
     private final HdfsEnvironment hdfsEnvironment;
-    private final TokenDelegationThriftMetastoreFactory metastoreFactory;
+    private final IdentityAwareMetastoreClientFactory metastoreClientFactory;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
     private final Duration maxBackoffDelay;
@@ -42,17 +42,20 @@ public class ThriftHiveMetastoreFactory
     private final boolean deleteFilesOnDrop;
     private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
+    private final boolean useSparkTableStatisticsFallback;
+    private final ExecutorService writeStatisticsExecutor;
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
 
     @Inject
     public ThriftHiveMetastoreFactory(
-            TokenDelegationThriftMetastoreFactory metastoreFactory,
+            IdentityAwareMetastoreClientFactory metastoreClientFactory,
             @HideDeltaLakeTables boolean hideDeltaLakeTables,
             @TranslateHiveViews boolean translateHiveViews,
             ThriftMetastoreConfig thriftConfig,
-            HdfsEnvironment hdfsEnvironment)
+            HdfsEnvironment hdfsEnvironment,
+            @ThriftHiveWriteStatisticsExecutor ExecutorService writeStatisticsExecutor)
     {
-        this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
+        this.metastoreClientFactory = requireNonNull(metastoreClientFactory, "metastoreClientFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.backoffScaleFactor = thriftConfig.getBackoffScaleFactor();
         this.minBackoffDelay = thriftConfig.getMinBackoffDelay();
@@ -66,6 +69,8 @@ public class ThriftHiveMetastoreFactory
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
 
         this.assumeCanonicalPartitionKeys = thriftConfig.isAssumeCanonicalPartitionKeys();
+        this.useSparkTableStatisticsFallback = thriftConfig.isUseSparkTableStatisticsFallback();
+        this.writeStatisticsExecutor = requireNonNull(writeStatisticsExecutor, "writeStatisticsExecutor is null");
     }
 
     @Managed
@@ -87,7 +92,7 @@ public class ThriftHiveMetastoreFactory
         return new ThriftHiveMetastore(
                 identity,
                 hdfsEnvironment,
-                metastoreFactory,
+                metastoreClientFactory,
                 backoffScaleFactor,
                 minBackoffDelay,
                 maxBackoffDelay,
@@ -97,6 +102,8 @@ public class ThriftHiveMetastoreFactory
                 deleteFilesOnDrop,
                 translateHiveViews,
                 assumeCanonicalPartitionKeys,
-                stats);
+                useSparkTableStatisticsFallback,
+                stats,
+                writeStatisticsExecutor);
     }
 }

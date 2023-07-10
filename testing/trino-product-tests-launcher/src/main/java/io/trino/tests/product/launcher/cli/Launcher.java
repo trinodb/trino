@@ -23,9 +23,13 @@ import picocli.CommandLine.IFactory;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ListResourceBundle;
+import java.util.ResourceBundle;
 
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.tests.product.launcher.cli.Launcher.EnvironmentCommand;
@@ -58,20 +62,22 @@ public class Launcher
     public static void main(String[] args)
     {
         Launcher launcher = new Launcher();
-        run(launcher, args);
+        // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
+        System.exit(execute(launcher, new LauncherBundle(), new FileOutputStream(FileDescriptor.out), args));
     }
 
-    public static void run(Launcher launcher, String[] args)
+    public static int execute(Launcher launcher, ResourceBundle bundle, OutputStream outputStream, String[] args)
     {
-        IFactory factory = createFactory(launcher.getExtensions());
-        System.exit(new CommandLine(launcher, factory)
+        IFactory factory = createFactory(outputStream, launcher.getExtensions());
+        return new CommandLine(launcher, factory)
                 .setCaseInsensitiveEnumValuesAllowed(true)
                 .registerConverter(Duration.class, Duration::valueOf)
                 .registerConverter(Path.class, Paths::get)
-                .setResourceBundle(new LauncherBundle()).execute(args));
+                .setResourceBundle(bundle)
+                .execute(args);
     }
 
-    private static IFactory createFactory(Extensions extensions)
+    private static IFactory createFactory(OutputStream outputStream, Extensions extensions)
     {
         requireNonNull(extensions, "extensions is null");
         return new IFactory()
@@ -81,7 +87,7 @@ public class Launcher
                     throws Exception
             {
                 try {
-                    return clazz.getConstructor(Extensions.class).newInstance(extensions);
+                    return clazz.getConstructor(OutputStream.class, Extensions.class).newInstance(outputStream, extensions);
                 }
                 catch (NoSuchMethodException ignore) {
                     return CommandLine.defaultFactory().create(clazz);
@@ -155,7 +161,7 @@ public class Launcher
         }
     }
 
-    private static class LauncherBundle
+    static class LauncherBundle
             extends ListResourceBundle
     {
         @Override

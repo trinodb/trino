@@ -78,10 +78,8 @@ public class SplitAssignment
                     newSplits,
                     assignment.isNoMoreSplits());
         }
-        else {
-            // the specified assignment is older than this one
-            return this;
-        }
+        // the specified assignment is older than this one
+        return this;
     }
 
     private boolean isNewer(SplitAssignment assignment)

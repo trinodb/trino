@@ -16,6 +16,7 @@ package io.trino.testing;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
@@ -24,6 +25,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
+import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -63,13 +65,15 @@ public interface QueryRunner
 
     SplitManager getSplitManager();
 
+    ExchangeManager getExchangeManager();
+
     PageSourceManager getPageSourceManager();
 
     NodePartitioningManager getNodePartitioningManager();
 
     StatsCalculator getStatsCalculator();
 
-    TestingGroupProvider getGroupProvider();
+    TestingGroupProviderManager getGroupProvider();
 
     TestingAccessControlManager getAccessControl();
 
@@ -82,7 +86,7 @@ public interface QueryRunner
         throw new UnsupportedOperationException();
     }
 
-    default Plan createPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
+    default Plan createPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         throw new UnsupportedOperationException();
     }

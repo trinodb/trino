@@ -26,6 +26,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -65,14 +66,12 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -86,6 +85,7 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Collections.nCopies;
 
 public class H2QueryRunner
@@ -95,17 +95,17 @@ public class H2QueryRunner
 
     public H2QueryRunner()
     {
-        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong() + ";NON_KEYWORDS=KEY,VALUE"); // key and value are reserved keywords in H2 2.x
         TpchMetadata tpchMetadata = new TpchMetadata();
 
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT PRIMARY KEY,\n" +
                 "  custkey BIGINT NOT NULL,\n" +
-                "  orderstatus CHAR(1) NOT NULL,\n" +
+                "  orderstatus VARCHAR(1) NOT NULL,\n" +
                 "  totalprice DOUBLE NOT NULL,\n" +
                 "  orderdate DATE NOT NULL,\n" +
-                "  orderpriority CHAR(15) NOT NULL,\n" +
-                "  clerk CHAR(15) NOT NULL,\n" +
+                "  orderpriority VARCHAR(15) NOT NULL,\n" +
+                "  clerk VARCHAR(15) NOT NULL,\n" +
                 "  shippriority INTEGER NOT NULL,\n" +
                 "  comment VARCHAR(79) NOT NULL\n" +
                 ")");
@@ -280,22 +280,13 @@ public class H2QueryRunner
                         row.add(jsonParse(utf8Slice(stringValue)).toStringUtf8());
                     }
                 }
-                else if (type instanceof VarcharType) {
+                else if (type instanceof VarcharType || type instanceof CharType) {
                     String stringValue = resultSet.getString(i);
                     if (resultSet.wasNull()) {
                         row.add(null);
                     }
                     else {
                         row.add(stringValue);
-                    }
-                }
-                else if (type instanceof CharType) {
-                    String stringValue = resultSet.getString(i);
-                    if (resultSet.wasNull()) {
-                        row.add(null);
-                    }
-                    else {
-                        row.add(padSpaces(stringValue, (CharType) type));
                     }
                 }
                 else if (VARBINARY.equals(type)) {
@@ -327,7 +318,7 @@ public class H2QueryRunner
                         row.add(timeValue);
                     }
                 }
-                else if (TIME_WITH_TIME_ZONE.equals(type)) {
+                else if (type instanceof TimeWithTimeZoneType) {
                     throw new UnsupportedOperationException("H2 does not support TIME WITH TIME ZONE");
                 }
                 else if (type instanceof TimestampType) {
@@ -353,7 +344,7 @@ public class H2QueryRunner
                         row.add(timestampValue);
                     }
                 }
-                else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
                     // H2 supports TIMESTAMP WITH TIME ZONE via org.h2.api.TimestampWithTimeZone, but it represent only a fixed-offset TZ (not named)
                     // This means H2 is unsuitable for testing TIMESTAMP WITH TIME ZONE-bearing queries. Those need to be tested manually.
                     throw new UnsupportedOperationException();
@@ -367,15 +358,14 @@ public class H2QueryRunner
                     checkState(resultSet.wasNull(), "Expected a null value, but got %s", objectValue);
                     row.add(null);
                 }
-                else if (type instanceof DecimalType) {
-                    DecimalType decimalType = (DecimalType) type;
+                else if (type instanceof DecimalType decimalType) {
                     BigDecimal decimalValue = resultSet.getBigDecimal(i);
                     if (resultSet.wasNull()) {
                         row.add(null);
                     }
                     else {
                         row.add(decimalValue
-                                .setScale(decimalType.getScale(), BigDecimal.ROUND_HALF_UP)
+                                .setScale(decimalType.getScale(), HALF_UP)
                                 .round(new MathContext(decimalType.getPrecision())));
                     }
                 }

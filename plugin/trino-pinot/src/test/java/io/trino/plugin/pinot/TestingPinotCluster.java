@@ -56,18 +56,18 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
-import static org.apache.pinot.common.utils.FileUploadDownloadClient.DEFAULT_SOCKET_TIMEOUT_MS;
+import static org.apache.pinot.common.utils.http.HttpClient.DEFAULT_SOCKET_TIMEOUT_MS;
 import static org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT;
 import static org.testcontainers.utility.DockerImageName.parse;
 
 public class TestingPinotCluster
         implements Closeable
 {
-    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:0.10.0";
-    public static final String PINOT_PREVIOUS_IMAGE_NAME = "apachepinot/pinot:0.9.3-jdk11";
+    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:0.12.1";
+    public static final String PINOT_PREVIOUS_IMAGE_NAME = "apachepinot/pinot:0.11.0";
 
     private static final String ZOOKEEPER_INTERNAL_HOST = "zookeeper";
     private static final JsonCodec<List<String>> LIST_JSON_CODEC = listJsonCodec(String.class);
@@ -92,6 +92,7 @@ public class TestingPinotCluster
     {
         httpClient = closer.register(new JettyHttpClient());
         zookeeper = new GenericContainer<>(parse("zookeeper:3.5.6"))
+                .withStartupAttempts(3)
                 .withNetwork(network)
                 .withNetworkAliases(ZOOKEEPER_INTERNAL_HOST)
                 .withEnv("ZOOKEEPER_CLIENT_PORT", String.valueOf(ZOOKEEPER_PORT))
@@ -100,6 +101,7 @@ public class TestingPinotCluster
 
         String controllerConfig = secured ? "/var/pinot/controller/config/pinot-controller-secured.conf" : "/var/pinot/controller/config/pinot-controller.conf";
         controller = new GenericContainer<>(parse(pinotImageName))
+                .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-controller", "/var/pinot/controller/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-controller-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
@@ -110,6 +112,7 @@ public class TestingPinotCluster
 
         String brokerConfig = secured ? "/var/pinot/broker/config/pinot-broker-secured.conf" : "/var/pinot/broker/config/pinot-broker.conf";
         broker = new GenericContainer<>(parse(pinotImageName))
+                .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-broker", "/var/pinot/broker/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-broker-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
@@ -118,11 +121,13 @@ public class TestingPinotCluster
                 .withExposedPorts(BROKER_PORT);
         closer.register(broker::stop);
 
+        String serverConfig = secured ? "/var/pinot/server/config/pinot-server-secured.conf" : "/var/pinot/server/config/pinot-server.conf";
         server = new GenericContainer<>(parse(pinotImageName))
+                .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-server", "/var/pinot/server/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-server-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
-                .withCommand("StartServer", "-clusterName", "pinot", "-zkAddress", getZookeeperInternalHostPort(), "-configFileName", "/var/pinot/server/config/pinot-server.conf")
+                .withCommand("StartServer", "-clusterName", "pinot", "-zkAddress", getZookeeperInternalHostPort(), "-configFileName", serverConfig)
                 .withNetworkAliases("pinot-server", "localhost")
                 .withExposedPorts(SERVER_PORT, SERVER_ADMIN_PORT, GRPC_PORT);
         closer.register(server::stop);
@@ -152,22 +157,22 @@ public class TestingPinotCluster
 
     public String getControllerConnectString()
     {
-        return controller.getContainerIpAddress() + ":" + controller.getMappedPort(CONTROLLER_PORT);
+        return controller.getHost() + ":" + controller.getMappedPort(CONTROLLER_PORT);
     }
 
     public HostAndPort getBrokerHostAndPort()
     {
-        return HostAndPort.fromParts(broker.getContainerIpAddress(), broker.getMappedPort(BROKER_PORT));
+        return HostAndPort.fromParts(broker.getHost(), broker.getMappedPort(BROKER_PORT));
     }
 
     public HostAndPort getServerHostAndPort()
     {
-        return HostAndPort.fromParts(server.getContainerIpAddress(), server.getMappedPort(SERVER_PORT));
+        return HostAndPort.fromParts(server.getHost(), server.getMappedPort(SERVER_PORT));
     }
 
     public HostAndPort getServerGrpcHostAndPort()
     {
-        return HostAndPort.fromParts(server.getContainerIpAddress(), server.getMappedPort(GRPC_PORT));
+        return HostAndPort.fromParts(server.getHost(), server.getMappedPort(GRPC_PORT));
     }
 
     public void createSchema(InputStream tableSchemaSpec, String tableName)
@@ -220,7 +225,7 @@ public class TestingPinotCluster
 
         PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
         // Typo in response: https://github.com/apache/incubator-pinot/issues/5566
-        checkState(response.getStatus().equals(format("Table %s_REALTIME succesfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+        checkState(response.getStatus().startsWith(format("Table %s_REALTIME succes", tableName)), "Unexpected response: '%s'", response.getStatus());
     }
 
     public void addOfflineTable(InputStream offlineSpec, String tableName)
@@ -237,7 +242,7 @@ public class TestingPinotCluster
 
         PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
         // Typo in response: https://github.com/apache/incubator-pinot/issues/5566
-        checkState(response.getStatus().equals(format("Table %s_OFFLINE succesfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+        checkState(response.getStatus().startsWith(format("Table %s_OFFLINE succes", tableName)), "Unexpected response: '%s'", response.getStatus());
     }
 
     public void publishOfflineSegment(String tableName, Path segmentPath)
@@ -247,12 +252,8 @@ public class TestingPinotCluster
             String fileName = segmentPath.toFile().getName();
             checkArgument(fileName.endsWith(Constants.TAR_GZ_FILE_EXT));
             String segmentName = fileName.substring(0, fileName.length() - Constants.TAR_GZ_FILE_EXT.length());
-            List<NameValuePair> parameters = ImmutableList.<NameValuePair>builder()
-                    .add(new BasicNameValuePair(FileUploadDownloadClient.QueryParameters.TABLE_NAME, rawTableName))
-                    .build();
-            List<Header> headers = ImmutableList.<Header>builder()
-                    .add(new BasicHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : ""))
-                    .build();
+            List<NameValuePair> parameters = ImmutableList.of(new BasicNameValuePair(FileUploadDownloadClient.QueryParameters.TABLE_NAME, rawTableName));
+            List<Header> headers = ImmutableList.of(new BasicHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : ""));
             RetryPolicies.exponentialBackoffRetryPolicy(3, 1000, 5).attempt(() -> {
                 try (InputStream inputStream = Files.newInputStream(segmentPath)) {
                     SimpleHttpResponse response = FILE_UPLOAD_DOWNLOAD_CLIENT.uploadSegment(
@@ -271,9 +272,7 @@ public class TestingPinotCluster
                     if (statusCode >= 500) {
                         return false;
                     }
-                    else {
-                        throw e;
-                    }
+                    throw e;
                 }
             });
         }

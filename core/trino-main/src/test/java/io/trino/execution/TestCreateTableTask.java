@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
@@ -30,6 +29,7 @@ import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -75,12 +75,13 @@ import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
+import static io.trino.sql.tree.SaveMode.FAIL;
+import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
-import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.emptyList;
@@ -95,7 +96,6 @@ import static org.testng.Assert.assertTrue;
 public class TestCreateTableTask
 {
     private static final String OTHER_CATALOG_NAME = "other_catalog";
-    private static final CatalogHandle OTHER_CATALOG_HANDLE = createTestCatalogHandle("other_catalog");
     private static final ConnectorTableMetadata PARENT_TABLE = new ConnectorTableMetadata(
             new SchemaTableName("schema", "parent_table"),
             List.of(new ColumnMetadata("a", SMALLINT), new ColumnMetadata("b", BIGINT)),
@@ -108,6 +108,8 @@ public class TestCreateTableTask
     private TransactionManager transactionManager;
     private ColumnPropertyManager columnPropertyManager;
     private TablePropertyManager tablePropertyManager;
+    private CatalogHandle testCatalogHandle;
+    private CatalogHandle otherCatalogHandle;
 
     @BeforeMethod
     public void setUp()
@@ -122,10 +124,12 @@ public class TestCreateTableTask
                         .withTableProperties(() -> ImmutableList.of(stringProperty("baz", "test property", null, false)))
                         .build(),
                 ImmutableMap.of());
+        testCatalogHandle = queryRunner.getCatalogHandle(TEST_CATALOG_NAME);
         queryRunner.createCatalog(
                 OTHER_CATALOG_NAME,
                 MockConnectorFactory.builder().withName("other_mock").build(),
                 ImmutableMap.of());
+        otherCatalogHandle = queryRunner.getCatalogHandle(OTHER_CATALOG_NAME);
 
         tablePropertyManager = queryRunner.getTablePropertyManager();
         columnPropertyManager = queryRunner.getColumnPropertyManager();
@@ -142,6 +146,12 @@ public class TestCreateTableTask
         if (queryRunner != null) {
             queryRunner.close();
         }
+        queryRunner = null;
+        transactionManager = null;
+        tablePropertyManager = null;
+        columnPropertyManager = null;
+        metadata = null;
+        plannerContext = null;
     }
 
     @Test
@@ -149,7 +159,7 @@ public class TestCreateTableTask
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
                 ImmutableList.of(new ColumnDefinition(identifier("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
-                true,
+                IGNORE,
                 ImmutableList.of(),
                 Optional.empty());
 
@@ -163,7 +173,7 @@ public class TestCreateTableTask
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
                 ImmutableList.of(new ColumnDefinition(identifier("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
-                false,
+                FAIL,
                 ImmutableList.of(),
                 Optional.empty());
 
@@ -180,7 +190,7 @@ public class TestCreateTableTask
     {
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
                 ImmutableList.of(new ColumnDefinition(identifier("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
-                false,
+                FAIL,
                 ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))),
                 Optional.empty());
 
@@ -200,7 +210,7 @@ public class TestCreateTableTask
                 new ColumnDefinition(identifier("a"), toSqlType(DATE), true, emptyList(), Optional.empty()),
                 new ColumnDefinition(identifier("b"), toSqlType(VARCHAR), false, emptyList(), Optional.empty()),
                 new ColumnDefinition(identifier("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
-        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
@@ -231,7 +241,7 @@ public class TestCreateTableTask
         CreateTable statement = new CreateTable(
                 QualifiedName.of("test_table"),
                 inputColumns,
-                true,
+                IGNORE,
                 ImmutableList.of(),
                 Optional.empty());
 
@@ -333,12 +343,12 @@ public class TestCreateTableTask
         return new CreateTable(
                 name,
                 List.of(new LikeClause(QualifiedName.of(PARENT_TABLE.getTable().getTableName()), includingProperties ? Optional.of(INCLUDING) : Optional.empty())),
-                true,
+                IGNORE,
                 ImmutableList.of(),
                 Optional.empty());
     }
 
-    private static class MockMetadata
+    private class MockMetadata
             extends AbstractMockMetadata
     {
         private final List<ConnectorTableMetadata> tables = new CopyOnWriteArrayList<>();
@@ -357,10 +367,10 @@ public class TestCreateTableTask
         public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
         {
             if (catalogName.equals(TEST_CATALOG_NAME)) {
-                return Optional.of(TEST_CATALOG_HANDLE);
+                return Optional.of(testCatalogHandle);
             }
             if (catalogName.equals(OTHER_CATALOG_NAME)) {
-                return Optional.of(OTHER_CATALOG_HANDLE);
+                return Optional.of(otherCatalogHandle);
             }
             return Optional.empty();
         }

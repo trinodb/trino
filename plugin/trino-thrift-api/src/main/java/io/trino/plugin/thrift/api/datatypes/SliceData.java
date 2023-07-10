@@ -19,8 +19,7 @@ import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;

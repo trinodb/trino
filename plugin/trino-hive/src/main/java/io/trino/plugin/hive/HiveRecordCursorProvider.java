@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.filesystem.Location;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,7 +31,7 @@ public interface HiveRecordCursorProvider
     Optional<ReaderRecordCursorWithProjections> createRecordCursor(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
+            Location path,
             long start,
             long length,
             long fileSize,

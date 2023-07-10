@@ -15,6 +15,7 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.opentelemetry.api.trace.Span;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.dispatcher.DispatchManager;
@@ -30,6 +31,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.TestingSessionContext;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tracing.TracingMetadata;
 import io.trino.transaction.TransactionBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -80,15 +82,14 @@ public class TestMetadataManager
 
                             return new MockConnectorTableHandle(schemaTableName);
                         })
-                        .withListTables((session, schemaNameOrNull) ->
-                                ImmutableList.of(new SchemaTableName("UPPER_CASE_SCHEMA", "UPPER_CASE_TABLE")))
+                        .withListTables((session, schemaName) -> ImmutableList.of("UPPER_CASE_TABLE"))
                         .withGetViews((session, prefix) -> ImmutableMap.of(viewTableName, getConnectorViewDefinition()))
                         .build();
                 return ImmutableList.of(connectorFactory);
             }
         });
         queryRunner.createCatalog("upper_case_schema_catalog", "mock");
-        metadataManager = (MetadataManager) queryRunner.getMetadata();
+        metadataManager = (MetadataManager) ((TracingMetadata) queryRunner.getMetadata()).getDelegate();
     }
 
     @AfterClass(alwaysRun = true)
@@ -139,6 +140,7 @@ public class TestMetadataManager
         QueryId queryId = dispatchManager.createQueryId();
         dispatchManager.createQuery(
                 queryId,
+                Span.getInvalid(),
                 Slug.createNew(),
                 TestingSessionContext.fromSession(TEST_SESSION),
                 "SELECT * FROM lineitem")
@@ -212,7 +214,7 @@ public class TestMetadataManager
                 "test view SQL",
                 Optional.of("upper_case_schema_catalog"),
                 Optional.of("upper_case_schema"),
-                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col", BIGINT.getTypeId())),
+                ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of("test_owner"),
                 false);

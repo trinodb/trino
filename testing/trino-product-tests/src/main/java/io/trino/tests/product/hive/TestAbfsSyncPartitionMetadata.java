@@ -13,17 +13,16 @@
  */
 package io.trino.tests.product.hive;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.AZURE;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -33,16 +32,16 @@ import static org.apache.parquet.Strings.isNullOrEmpty;
 public class TestAbfsSyncPartitionMetadata
         extends BaseTestSyncPartitionMetadata
 {
-    private final String schema = "test_" + randomTableSuffix();
+    private final String schema = "test_" + randomNameSuffix();
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         removeHdfsDirectory(schemaLocation());
         makeHdfsDirectory(schemaLocation());
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void tearDown()
     {
         removeHdfsDirectory(schemaLocation());
@@ -57,7 +56,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testAddPartition()
     {
@@ -65,7 +64,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testAddPartitionContainingCharactersThatNeedUrlEncoding()
     {
@@ -73,7 +72,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testDropPartition()
     {
@@ -81,7 +80,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testDropPartitionContainingCharactersThatNeedUrlEncoding()
     {
@@ -89,7 +88,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testFullSyncPartition()
     {
@@ -97,7 +96,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testInvalidSyncMode()
     {
@@ -105,7 +104,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testMixedCasePartitionNames()
     {
@@ -113,11 +112,18 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testConflictingMixedCasePartitionNames()
     {
         super.testConflictingMixedCasePartitionNames();
+    }
+
+    @Test(groups = AZURE)
+    @Override
+    public void testSyncPartitionMetadataWithNullArgument()
+    {
+        super.testSyncPartitionMetadataWithNullArgument();
     }
 
     @Override
@@ -153,6 +159,6 @@ public class TestAbfsSyncPartitionMetadata
         onTrino().executeQuery("DROP TABLE IF EXISTS single_int_column");
         onTrino().executeQuery("CREATE TABLE single_int_column (payload bigint) WITH (format = 'ORC')");
         onTrino().executeQuery("INSERT INTO single_int_column VALUES (42)");
-        return getOnlyElement(onTrino().executeQuery("SELECT \"$path\" FROM single_int_column").row(0)).toString();
+        return (String) onTrino().executeQuery("SELECT \"$path\" FROM single_int_column").getOnlyValue();
     }
 }

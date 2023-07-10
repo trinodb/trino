@@ -1,4 +1,4 @@
-# Release 388 (29 June 2022)
+# Release 388 (29 Jun 2022)
 
 ## General
 

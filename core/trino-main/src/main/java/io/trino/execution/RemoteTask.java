@@ -17,6 +17,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.SpoolingOutputStats;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -37,6 +38,8 @@ public interface RemoteTask
     void noMoreSplits(PlanNodeId sourceId);
 
     void setOutputBuffers(OutputBuffers outputBuffers);
+
+    void setSpeculative(boolean speculative);
 
     /**
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
@@ -61,14 +64,29 @@ public interface RemoteTask
 
     PartitionedSplitsInfo getPartitionedSplitsInfo();
 
-    void fail(Throwable cause);
+    /**
+     * Fails task from the coordinator perspective immediately, without waiting for acknowledgement from the remote task
+     */
+    void failLocallyImmediately(Throwable cause);
 
     /**
-     * Fails task remotely; only transitions to failed state when we recevie confirmation that remote operation is completed
+     * Fails task remotely; only transitions to failed state when we receive confirmation that remote operation is completed
      */
     void failRemotely(Throwable cause);
 
     PartitionedSplitsInfo getQueuedPartitionedSplitsInfo();
 
     int getUnacknowledgedPartitionedSplitCount();
+
+    /**
+     * Retrieves spooling output stats. Stats are available only for tasks that are in the {@link TaskState#FINISHED} state
+     * and have received the final task info (see {@link #addFinalTaskInfoListener(StateChangeListener)}.
+     * Stats can be retrieved only once and are discarded upon retrieval. Subsequent calls to the method after initial retrieval will fail.
+     * <p>
+     * The retrieve-and-drop semantics is necessary to avoid unnecessary memory overhead of keeping the {@link SpoolingOutputStats.Snapshot}
+     * for every task as usually only the total output of the entire stage is of interest.
+     *
+     * @return spooling output statistics
+     */
+    SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats();
 }

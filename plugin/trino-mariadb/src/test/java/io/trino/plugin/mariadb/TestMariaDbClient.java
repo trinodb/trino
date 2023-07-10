@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.mariadb;
 
+import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
@@ -20,7 +21,7 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
-import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
@@ -36,8 +37,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestMariaDbClient
@@ -61,8 +62,9 @@ public class TestMariaDbClient
             session -> {
                 throw new UnsupportedOperationException();
             },
-            new DefaultQueryBuilder(),
-            new DefaultIdentifierMapping());
+            new DefaultQueryBuilder(RemoteQueryModifier.NONE),
+            new DefaultIdentifierMapping(),
+            RemoteQueryModifier.NONE);
 
     @Test
     public void testImplementCount()
@@ -132,7 +134,13 @@ public class TestMariaDbClient
         testImplementAggregation(
                 new AggregateFunction("sum", BIGINT, List.of(bigintVariable), List.of(), true, Optional.empty()),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
-                Optional.empty());  // distinct not supported
+                Optional.of("sum(DISTINCT `c_bigint`)"));
+
+        // sum(DISTINCT double)
+        testImplementAggregation(
+                new AggregateFunction("sum", DOUBLE, List.of(doubleVariable), List.of(), true, Optional.empty()),
+                Map.of(doubleVariable.getName(), DOUBLE_COLUMN),
+                Optional.of("sum(DISTINCT `c_double`)"));
 
         // sum(bigint) FILTER (WHERE ...)
         testImplementAggregation(

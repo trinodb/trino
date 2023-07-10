@@ -29,8 +29,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -262,13 +261,11 @@ public class ThriftIndexPageSource
             statusFuture = toCompletableFuture(nonCancellationPropagating(splitFuture));
             return false;
         }
-        else {
-            // no more splits
-            splitFuture = null;
-            statusFuture = null;
-            haveSplits = true;
-            return true;
-        }
+        // no more splits
+        splitFuture = null;
+        statusFuture = null;
+        haveSplits = true;
+        return true;
     }
 
     private void updateSignalAndStatusFutures()

@@ -14,11 +14,10 @@
 package io.trino.plugin.jmx;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.spi.connector.SchemaTableName;
-
-import javax.annotation.PostConstruct;
-import javax.inject.Inject;
+import jakarta.annotation.PostConstruct;
 
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
@@ -52,7 +51,6 @@ public class JmxPeriodicSampler
         this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxHistoricalData is null");
         requireNonNull(jmxMetadata, "jmxMetadata is null");
         this.jmxRecordSetProvider = requireNonNull(jmxRecordSetProvider, "jmxRecordSetProvider is null");
-        requireNonNull(jmxConfig, "jmxConfig is null");
         this.period = jmxConfig.getDumpPeriod().toMillis();
 
         ImmutableList.Builder<JmxTableHandle> tableHandleBuilder = ImmutableList.builder();

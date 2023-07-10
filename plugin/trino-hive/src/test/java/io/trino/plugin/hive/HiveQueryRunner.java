@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -23,9 +24,6 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.DecimalTypeMapping;
@@ -51,7 +49,7 @@ import java.util.function.Function;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.hive.security.HiveSecurityModule.ALLOW_ALL;
 import static io.trino.plugin.hive.security.HiveSecurityModule.SQL_STANDARD;
 import static io.trino.plugin.tpch.ColumnNaming.SIMPLIFIED;
@@ -105,18 +103,13 @@ public final class HiveQueryRunner
         private Function<Session, Session> initialTablesSessionMutator = Function.identity();
         private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-            return new FileHiveMetastore(
-                    new NodeVersion("test_version"),
-                    HDFS_ENVIRONMENT,
-                    new HiveMetastoreConfig().isHideDeltaLakeTables(),
-                    new FileHiveMetastoreConfig()
-                            .setCatalogDirectory(baseDir.toURI().toString())
-                            .setMetastoreUser("test"));
+            return createTestingFileHiveMetastore(baseDir);
         };
         private Module module = EMPTY_MODULE;
         private Optional<DirectoryLister> directoryLister = Optional.empty();
         private boolean tpcdsCatalogEnabled;
-        private String security = SQL_STANDARD;
+        private boolean tpchBucketedCatalogEnabled;
+        private boolean createTpchSchemas = true;
         private ColumnNaming tpchColumnNaming = SIMPLIFIED;
         private DecimalTypeMapping tpchDecimalTypeMapping = DOUBLE;
 
@@ -130,12 +123,14 @@ public final class HiveQueryRunner
             super(defaultSession);
         }
 
+        @CanIgnoreReturnValue
         public SELF setSkipTimezoneSetup(boolean skipTimezoneSetup)
         {
             this.skipTimezoneSetup = skipTimezoneSetup;
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setHiveProperties(Map<String, String> hiveProperties)
         {
             this.hiveProperties = ImmutableMap.<String, String>builder()
@@ -143,66 +138,84 @@ public final class HiveQueryRunner
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF addHiveProperty(String key, String value)
         {
             this.hiveProperties.put(key, value);
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
             this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setInitialSchemasLocationBase(String initialSchemasLocationBase)
         {
             this.initialSchemasLocationBase = Optional.of(initialSchemasLocationBase);
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setInitialTablesSessionMutator(Function<Session, Session> initialTablesSessionMutator)
         {
             this.initialTablesSessionMutator = requireNonNull(initialTablesSessionMutator, "initialTablesSessionMutator is null");
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
         {
             this.metastore = requireNonNull(metastore, "metastore is null");
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setModule(Module module)
         {
             this.module = requireNonNull(module, "module is null");
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setDirectoryLister(DirectoryLister directoryLister)
         {
             this.directoryLister = Optional.ofNullable(directoryLister);
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setTpcdsCatalogEnabled(boolean tpcdsCatalogEnabled)
         {
             this.tpcdsCatalogEnabled = tpcdsCatalogEnabled;
             return self();
         }
 
-        public SELF setSecurity(String security)
+        @CanIgnoreReturnValue
+        public SELF setTpchBucketedCatalogEnabled(boolean tpchBucketedCatalogEnabled)
         {
-            this.security = requireNonNull(security, "security is null");
+            this.tpchBucketedCatalogEnabled = tpchBucketedCatalogEnabled;
             return self();
         }
 
+        @CanIgnoreReturnValue
+        public SELF setCreateTpchSchemas(boolean createTpchSchemas)
+        {
+            this.createTpchSchemas = createTpchSchemas;
+            return self();
+        }
+
+        @CanIgnoreReturnValue
         public SELF setTpchColumnNaming(ColumnNaming tpchColumnNaming)
         {
             this.tpchColumnNaming = requireNonNull(tpchColumnNaming, "tpchColumnNaming is null");
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setTpchDecimalTypeMapping(DecimalTypeMapping tpchDecimalTypeMapping)
         {
             this.tpchDecimalTypeMapping = requireNonNull(tpchDecimalTypeMapping, "tpchDecimalTypeMapping is null");
@@ -240,20 +253,27 @@ public final class HiveQueryRunner
                     hiveProperties.put("hive.parquet.time-zone", TIME_ZONE.getID());
                 }
                 hiveProperties.put("hive.max-partitions-per-scan", "1000");
-                hiveProperties.put("hive.security", security);
+                hiveProperties.put("hive.max-partitions-for-eager-load", "1000");
+                hiveProperties.put("hive.security", SQL_STANDARD);
                 hiveProperties.putAll(this.hiveProperties.buildOrThrow());
 
-                Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
-                        .putAll(hiveProperties)
-                        .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
-                        .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
-                        .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
-                        .put("hive.compression-codec", "NONE") // so that the file is splittable
-                        .buildOrThrow();
-                queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
-                queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
+                if (tpchBucketedCatalogEnabled) {
+                    Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
+                            .putAll(hiveProperties)
+                            .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
+                            .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
+                            .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
+                            .buildOrThrow();
+                    hiveBucketedProperties = new HashMap<>(hiveBucketedProperties);
+                    hiveBucketedProperties.put("hive.compression-codec", "NONE"); // so that the file is splittable
+                    queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
+                }
 
-                populateData(queryRunner, metastore);
+                queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
+
+                if (createTpchSchemas) {
+                    populateData(queryRunner, metastore);
+                }
 
                 return queryRunner;
             }
@@ -267,11 +287,11 @@ public final class HiveQueryRunner
         {
             if (metastore.getDatabase(TPCH_SCHEMA).isEmpty()) {
                 metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA, initialSchemasLocationBase));
-                Session session = initialTablesSessionMutator.apply(createSession(Optional.empty()));
+                Session session = initialTablesSessionMutator.apply(queryRunner.getDefaultSession());
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables);
             }
 
-            if (metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
+            if (tpchBucketedCatalogEnabled && metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
                 metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA, initialSchemasLocationBase));
                 Session session = initialTablesSessionMutator.apply(createBucketedSession(Optional.empty()));
                 copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables, tpchColumnNaming);
@@ -299,9 +319,7 @@ public final class HiveQueryRunner
     {
         return testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
-                        .withConnectorRoles(role.map(selectedRole -> ImmutableMap.of(
-                                        HIVE_CATALOG, selectedRole,
-                                        HIVE_BUCKETED_CATALOG, selectedRole))
+                        .withConnectorRoles(role.map(selectedRole -> ImmutableMap.of(HIVE_CATALOG, selectedRole))
                                 .orElse(ImmutableMap.of()))
                         .build())
                 .setCatalog(HIVE_CATALOG)
@@ -391,12 +409,12 @@ public final class HiveQueryRunner
 
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .setHiveProperties(ImmutableMap.of("hive.security", ALLOW_ALL))
                 .setSkipTimezoneSetup(true)
                 .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())
                 .setBaseDataDir(baseDataDir)
                 .setTpcdsCatalogEnabled(true)
-                .setSecurity(ALLOW_ALL)
                 // Uncomment to enable standard column naming (column names to be prefixed with the first letter of the table name, e.g.: o_orderkey vs orderkey)
                 // and standard column types (decimals vs double for some columns). This will allow running unmodified tpch queries on the cluster.
                 //.setTpchColumnNaming(ColumnNaming.STANDARD)

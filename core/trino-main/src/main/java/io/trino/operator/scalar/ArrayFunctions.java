@@ -25,7 +25,7 @@ public final class ArrayFunctions
 {
     private ArrayFunctions() {}
 
-    @ScalarFunction(hidden = true)
+    @ScalarFunction(value = ArrayConstructor.NAME, hidden = true)
     @SqlType("array(unknown)")
     public static Block arrayConstructor()
     {

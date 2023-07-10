@@ -13,23 +13,17 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
@@ -52,9 +46,13 @@ import java.util.Optional;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
+import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -74,6 +72,7 @@ public class TestIcebergOrcMetricsCollection
                 .setSchema("test_schema")
                 .setSystemProperty(TASK_CONCURRENCY, "1")
                 .setSystemProperty(TASK_WRITER_COUNT, "1")
+                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "1")
                 .setSystemProperty(MAX_DRIVERS_PER_TASK, "1")
                 .setCatalogSessionProperty("iceberg", "orc_string_statistics_limit", Integer.MAX_VALUE + "B")
                 .build();
@@ -82,32 +81,24 @@ public class TestIcebergOrcMetricsCollection
                 .build();
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
+        HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
 
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE));
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of("iceberg.file-format", "ORC"));
 
-        HiveMetastore metastore = new FileHiveMetastore(
-                new NodeVersion("test_version"),
-                hdfsEnvironment,
-                new HiveMetastoreConfig().isHideDeltaLakeTables(),
-                new FileHiveMetastoreConfig()
-                        .setCatalogDirectory(baseDir.toURI().toString())
-                        .setMetastoreUser("test"));
-        tableOperationsProvider = new FileMetastoreTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment));
+        TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(queryRunner);
+        tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
         trinoCatalog = new TrinoHiveCatalog(
                 new CatalogName("catalog"),
-                memoizeMetastore(metastore, 1000),
-                hdfsEnvironment,
+                cachingHiveMetastore,
+                new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
+                fileSystemFactory,
                 new TestingTypeManager(),
                 tableOperationsProvider,
-                "trino-version",
                 false,
                 false,
                 false);
-
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty(), EMPTY_MODULE));
-        queryRunner.createCatalog("iceberg", "iceberg");
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

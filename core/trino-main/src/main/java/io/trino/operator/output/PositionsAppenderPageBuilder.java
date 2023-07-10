@@ -61,6 +61,16 @@ public class PositionsAppenderPageBuilder
         }
     }
 
+    public void appendToOutputPartition(Page page, int position)
+    {
+        declarePositions(1);
+
+        for (int channel = 0; channel < channelAppenders.length; channel++) {
+            Block block = page.getBlock(channel);
+            channelAppenders[channel].append(position, block);
+        }
+    }
+
     public long getRetainedSizeInBytes()
     {
         // We use a foreach loop instead of streams
@@ -98,10 +108,6 @@ public class PositionsAppenderPageBuilder
 
     public Page build()
     {
-        if (channelAppenders.length == 0) {
-            return new Page(declaredPositions);
-        }
-
         Block[] blocks = new Block[channelAppenders.length];
         for (int i = 0; i < blocks.length; i++) {
             blocks[i] = channelAppenders[i].build();

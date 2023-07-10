@@ -29,10 +29,10 @@ import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.iterators.FirstEntryInRowIterator;
 import org.apache.accumulo.core.iterators.user.WholeRowIterator;
-import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.io.Text;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
@@ -48,7 +48,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -196,7 +196,7 @@ public class AccumuloRecordCursor
     @Override
     public long getLong(int field)
     {
-        checkFieldType(field, BIGINT, DATE, INTEGER, REAL, SMALLINT, TIME, TIMESTAMP_MILLIS, TINYINT);
+        checkFieldType(field, BIGINT, DATE, INTEGER, REAL, SMALLINT, TIME_MILLIS, TIMESTAMP_MILLIS, TINYINT);
         Type type = getType(field);
         if (type.equals(BIGINT)) {
             return serializer.getLong(fieldToColumnName[field]);
@@ -213,7 +213,7 @@ public class AccumuloRecordCursor
         if (type.equals(SMALLINT)) {
             return serializer.getShort(fieldToColumnName[field]);
         }
-        if (type.equals(TIME)) {
+        if (type.equals(TIME_MILLIS)) {
             return serializer.getTime(fieldToColumnName[field]).getTime();
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
@@ -288,6 +288,6 @@ public class AccumuloRecordCursor
             }
         }
 
-        throw new IllegalArgumentException(format("Expected field %s to be a type of %s but is %s", field, StringUtils.join(expected, ","), actual));
+        throw new IllegalArgumentException(format("Expected field %s to be a type of %s but is %s", field, Arrays.toString(expected), actual));
     }
 }

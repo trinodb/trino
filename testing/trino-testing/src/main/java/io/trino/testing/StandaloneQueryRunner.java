@@ -15,19 +15,17 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
-import io.trino.metadata.AllNodes;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
+import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -40,14 +38,12 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static io.airlift.testing.Closeables.closeAll;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class StandaloneQueryRunner
         implements QueryRunner
@@ -64,8 +60,6 @@ public final class StandaloneQueryRunner
 
         this.server = createTestingTrinoServer();
         this.trinoClient = new TestingTrinoClient(server, defaultSession);
-
-        refreshNodes();
 
         server.addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
     }
@@ -160,6 +154,12 @@ public final class StandaloneQueryRunner
     }
 
     @Override
+    public ExchangeManager getExchangeManager()
+    {
+        return server.getExchangeManager();
+    }
+
+    @Override
     public PageSourceManager getPageSourceManager()
     {
         return server.getPageSourceManager();
@@ -178,7 +178,7 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public TestingGroupProvider getGroupProvider()
+    public TestingGroupProviderManager getGroupProvider()
     {
         return server.getGroupProvider();
     }
@@ -192,40 +192,6 @@ public final class StandaloneQueryRunner
     public TestingTrinoServer getServer()
     {
         return server;
-    }
-
-    public void refreshNodes()
-    {
-        AllNodes allNodes;
-
-        do {
-            try {
-                MILLISECONDS.sleep(10);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-            allNodes = server.refreshNodes();
-        }
-        while (allNodes.getActiveNodes().isEmpty());
-    }
-
-    private void refreshNodes(CatalogHandle catalogHandle)
-    {
-        Set<InternalNode> activeNodesWithConnector;
-
-        do {
-            try {
-                MILLISECONDS.sleep(10);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-            activeNodesWithConnector = server.getActiveNodesWithConnector(catalogHandle);
-        }
-        while (activeNodesWithConnector.isEmpty());
     }
 
     @Override
@@ -248,9 +214,7 @@ public final class StandaloneQueryRunner
     @Override
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        CatalogHandle catalog = server.createCatalog(catalogName, connectorName, properties);
-
-        refreshNodes(catalog);
+        server.createCatalog(catalogName, connectorName, properties);
     }
 
     @Override

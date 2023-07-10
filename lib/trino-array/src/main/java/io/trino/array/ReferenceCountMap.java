@@ -18,8 +18,8 @@ import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.MapHashTables;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
-import org.openjdk.jol.info.ClassLayout;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.String.format;
 import static java.lang.reflect.Array.getLength;
 
@@ -36,7 +36,7 @@ import static java.lang.reflect.Array.getLength;
 public final class ReferenceCountMap
         extends Long2IntOpenHashMap
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ReferenceCountMap.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(ReferenceCountMap.class);
 
     /**
      * Increments the reference count of an object by 1 and returns the updated reference count

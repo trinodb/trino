@@ -17,12 +17,12 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
@@ -31,7 +31,7 @@ import static java.lang.Math.max;
 public class Int128PositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int128PositionsAppender.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(Int128PositionsAppender.class);
     private static final Block NULL_VALUE_BLOCK = new Int128ArrayBlock(1, Optional.of(new boolean[] {true}), new long[2]);
 
     private boolean initialized;
@@ -101,9 +101,8 @@ public class Int128PositionsAppender
     }
 
     @Override
-    public void appendRle(RunLengthEncodedBlock block)
+    public void appendRle(Block block, int rlePositionCount)
     {
-        int rlePositionCount = block.getPositionCount();
         if (rlePositionCount == 0) {
             return;
         }
@@ -130,6 +129,25 @@ public class Int128PositionsAppender
     }
 
     @Override
+    public void append(int sourcePosition, Block source)
+    {
+        ensureCapacity(positionCount + 1);
+        if (source.isNull(sourcePosition)) {
+            valueIsNull[positionCount] = true;
+            hasNullValue = true;
+        }
+        else {
+            int positionIndex = positionCount * 2;
+            values[positionIndex] = source.getLong(sourcePosition, 0);
+            values[positionIndex + 1] = source.getLong(sourcePosition, SIZE_OF_LONG);
+            hasNonNullValue = true;
+        }
+        positionCount++;
+
+        updateSize(1);
+    }
+
+    @Override
     public Block build()
     {
         Block result;
@@ -137,7 +155,7 @@ public class Int128PositionsAppender
             result = new Int128ArrayBlock(positionCount, hasNullValue ? Optional.of(valueIsNull) : Optional.empty(), values);
         }
         else {
-            result = new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            result = RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
         reset();
         return result;

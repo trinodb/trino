@@ -21,15 +21,12 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
@@ -39,12 +36,12 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.gen.JoinCompiler.PagesHashStrategyFactory;
-import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.lang.Math.min;
@@ -56,7 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class MultiChannelGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelGroupByHash.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(MultiChannelGroupByHash.class);
     private static final float FILL_RATIO = 0.75f;
     private static final int BATCH_SIZE = 1024;
     // Max (page value count / cumulative dictionary size) to trigger the low cardinality case
@@ -89,8 +86,6 @@ public class MultiChannelGroupByHash
 
     private int nextGroupId;
     private DictionaryLookBack dictionaryLookBack;
-    private long hashCollisions;
-    private double expectedHashCollisions;
 
     // reserve enough memory before rehash
     private final UpdateMemory updateMemory;
@@ -174,19 +169,8 @@ public class MultiChannelGroupByHash
                 currentPageBuilder.getRetainedSizeInBytes() +
                 sizeOf(groupIdsByHash) +
                 sizeOf(rawHashByHashPosition) +
-                preallocatedMemoryInBytes;
-    }
-
-    @Override
-    public long getHashCollisions()
-    {
-        return hashCollisions;
-    }
-
-    @Override
-    public double getExpectedHashCollisions()
-    {
-        return expectedHashCollisions + estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
+                preallocatedMemoryInBytes +
+                (dictionaryLookBack != null ? dictionaryLookBack.getRetainedSizeInBytes() : 0);
     }
 
     @Override
@@ -227,7 +211,7 @@ public class MultiChannelGroupByHash
     }
 
     @Override
-    public Work<GroupByIdBlock> getGroupIds(Page page)
+    public Work<int[]> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
         if (isRunLengthEncoded(page)) {
@@ -296,7 +280,6 @@ public class MultiChannelGroupByHash
             }
             // increment position and mask to handle wrap around
             hashPosition = (hashPosition + 1) & mask;
-            hashCollisions++;
         }
 
         // did we find an existing group?
@@ -351,8 +334,7 @@ public class MultiChannelGroupByHash
     {
         if (currentPageBuilder != null) {
             completedPagesMemorySize += currentPageBuilder.getRetainedSizeInBytes();
-            // TODO: (https://github.com/trinodb/trino/issues/12484) pre-size new PageBuilder to OUTPUT_PAGE_SIZE
-            currentPageBuilder = currentPageBuilder.newPageBuilderLike();
+            currentPageBuilder.reset(currentPageBuilder.getPositionCount());
         }
         else {
             currentPageBuilder = new PageBuilder(types);
@@ -373,15 +355,12 @@ public class MultiChannelGroupByHash
 
         // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
         // This includes the new capacity for rawHashByHashPosition, groupIdsByHash as well as the size of the current page
-        preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Integer.BYTES + Byte.BYTES)
+        preallocatedMemoryInBytes = newCapacity * (long) (Integer.BYTES + Byte.BYTES)
                 + currentPageSizeInBytes;
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
             return false;
         }
-        preallocatedMemoryInBytes = 0;
-
-        expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
 
         int newMask = newCapacity - 1;
         byte[] rawHashes = new byte[newCapacity];
@@ -400,7 +379,6 @@ public class MultiChannelGroupByHash
             int pos = getHashPosition(rawHash, newMask);
             while (newGroupIdByHash[pos] != -1) {
                 pos = (pos + 1) & newMask;
-                hashCollisions++;
             }
 
             // record the mapping
@@ -413,6 +391,10 @@ public class MultiChannelGroupByHash
         this.maxFill = calculateMaxFill(newCapacity);
         this.rawHashByHashPosition = rawHashes;
         this.groupIdsByHash = newGroupIdByHash;
+
+        preallocatedMemoryInBytes = 0;
+        // release temporary memory reservation
+        updateMemory.update();
         return true;
     }
 
@@ -544,6 +526,7 @@ public class MultiChannelGroupByHash
 
     private static final class DictionaryLookBack
     {
+        private static final int INSTANCE_SIZE = instanceSize(DictionaryLookBack.class);
         private final Block dictionary;
         private final int[] processed;
 
@@ -572,6 +555,13 @@ public class MultiChannelGroupByHash
         public void setProcessed(int position, int groupId)
         {
             processed[position] = groupId;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE +
+                    sizeOf(processed) +
+                    dictionary.getRetainedSizeInBytes();
         }
     }
 
@@ -758,9 +748,9 @@ public class MultiChannelGroupByHash
 
     @VisibleForTesting
     class GetNonDictionaryGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
-        private final long[] groupIds;
+        private final int[] groupIds;
         private final Page page;
 
         private boolean finished;
@@ -770,7 +760,7 @@ public class MultiChannelGroupByHash
         {
             this.page = requireNonNull(page, "page is null");
             // we know the exact size required for the block
-            groupIds = new long[page.getPositionCount()];
+            groupIds = new int[page.getPositionCount()];
         }
 
         @Override
@@ -801,21 +791,21 @@ public class MultiChannelGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(lastPosition == page.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
+            return groupIds;
         }
     }
 
     @VisibleForTesting
     class GetLowCardinalityDictionaryGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
         private final Page page;
-        private final long[] groupIds;
+        private final int[] groupIds;
         @Nullable
         private short[] positionToCombinationId;
         @Nullable
@@ -826,7 +816,7 @@ public class MultiChannelGroupByHash
         public GetLowCardinalityDictionaryGroupIdsWork(Page page)
         {
             this.page = requireNonNull(page, "page is null");
-            groupIds = new long[page.getPositionCount()];
+            groupIds = new int[page.getPositionCount()];
         }
 
         @Override
@@ -864,19 +854,19 @@ public class MultiChannelGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
+            return groupIds;
         }
     }
 
     @VisibleForTesting
     class GetDictionaryGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
-        private final long[] groupIds;
+        private final int[] groupIds;
         private final Page page;
         private final Page dictionaryPage;
         private final DictionaryBlock dictionaryBlock;
@@ -892,7 +882,7 @@ public class MultiChannelGroupByHash
             this.dictionaryBlock = (DictionaryBlock) page.getBlock(channels[0]);
             updateDictionaryLookBack(dictionaryBlock.getDictionary());
             this.dictionaryPage = createPageWithExtractedDictionary(page);
-            groupIds = new long[page.getPositionCount()];
+            groupIds = new int[page.getPositionCount()];
         }
 
         @Override
@@ -919,18 +909,18 @@ public class MultiChannelGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(lastPosition == page.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
+            return groupIds;
         }
     }
 
     @VisibleForTesting
     class GetRunLengthEncodedGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
         private final Page page;
 
@@ -965,17 +955,15 @@ public class MultiChannelGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(processFinished);
             checkState(!resultProduced);
             resultProduced = true;
 
-            return new GroupByIdBlock(
-                    nextGroupId,
-                    new RunLengthEncodedBlock(
-                            BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
-                            page.getPositionCount()));
+            int[] groupIds = new int[page.getPositionCount()];
+            Arrays.fill(groupIds, groupId);
+            return groupIds;
         }
     }
 

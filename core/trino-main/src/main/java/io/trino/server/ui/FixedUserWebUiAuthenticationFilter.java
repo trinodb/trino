@@ -13,11 +13,10 @@
  */
 package io.trino.server.ui;
 
+import com.google.inject.Inject;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.redirectAllFormLoginToUi;
@@ -31,7 +30,7 @@ public class FixedUserWebUiAuthenticationFilter
     @Inject
     public FixedUserWebUiAuthenticationFilter(FixedUserWebUiConfig config)
     {
-        this(basicIdentity(requireNonNull(config, "config is null").getUsername()));
+        this(basicIdentity(config.getUsername()));
     }
 
     public FixedUserWebUiAuthenticationFilter(Identity webUiIdentity)

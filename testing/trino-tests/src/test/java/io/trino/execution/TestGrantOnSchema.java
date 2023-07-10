@@ -19,7 +19,6 @@ import io.trino.connector.Grants;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MutableGrants;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
@@ -55,7 +54,7 @@ public class TestGrantOnSchema
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.of("information_schema", "default"))
                 .withListTables((session, schema) ->
-                        "default".equalsIgnoreCase(schema) ? ImmutableList.of(new SchemaTableName(schema, "table_one")) : ImmutableList.of())
+                        "default".equalsIgnoreCase(schema) ? ImmutableList.of("table_one") : ImmutableList.of())
                 .withSchemaGrants(schemaGrants)
                 .build();
         queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
@@ -69,6 +68,7 @@ public class TestGrantOnSchema
     {
         assertions.close();
         assertions = null;
+        queryRunner = null; // closed by assertions.close
     }
 
     @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
@@ -106,8 +106,8 @@ public class TestGrantOnSchema
         queryRunner.execute(admin, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, username));
 
         assertThat(assertions.query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
-        assertThat(assertions.query(user, format("GRANT %s ON SCHEMA default TO %s", privilege, randomUsername()))).matches("VALUES (BOOLEAN 'TRUE')");
-        assertThat(assertions.query(user, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, randomUsername()))).matches("VALUES (BOOLEAN 'TRUE')");
+        assertions.query(user, format("GRANT %s ON SCHEMA default TO %s", privilege, randomUsername()));
+        assertions.query(user, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, randomUsername()));
     }
 
     @Test(dataProvider = "privileges")

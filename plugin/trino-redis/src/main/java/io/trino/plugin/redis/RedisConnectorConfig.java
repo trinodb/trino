@@ -21,17 +21,16 @@ import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import io.trino.spi.HostAddress;
-
-import javax.annotation.Nullable;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.io.File;
 import java.util.Set;
-import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -250,7 +249,7 @@ public class RedisConnectorConfig
     {
         Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
 
-        return StreamSupport.stream(splitter.split(nodes).spliterator(), false)
+        return stream(splitter.split(nodes))
                 .map(RedisConnectorConfig::toHostAddress)
                 .collect(toImmutableSet());
     }

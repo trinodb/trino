@@ -34,7 +34,8 @@ public final class AccumuloColumnHandle
     private final Optional<String> family;
     private final Optional<String> qualifier;
     private final Type type;
-    private final String comment;
+    private final String extraInfo;
+    private final Optional<String> comment;
     private final String name;
     private final int ordinal;
 
@@ -45,7 +46,8 @@ public final class AccumuloColumnHandle
             @JsonProperty("qualifier") Optional<String> qualifier,
             @JsonProperty("type") Type type,
             @JsonProperty("ordinal") int ordinal,
-            @JsonProperty("comment") String comment,
+            @JsonProperty("extraInfo") String extraInfo,
+            @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("indexed") boolean indexed)
     {
         this.name = requireNonNull(name, "name is null");
@@ -55,6 +57,7 @@ public final class AccumuloColumnHandle
         checkArgument(ordinal >= 0, "ordinal must be >= zero");
         this.ordinal = ordinal;
 
+        this.extraInfo = requireNonNull(extraInfo, "extraInfo is null");
         this.comment = requireNonNull(comment, "comment is null");
         this.indexed = indexed;
     }
@@ -90,7 +93,13 @@ public final class AccumuloColumnHandle
     }
 
     @JsonProperty
-    public String getComment()
+    public String getExtraInfo()
+    {
+        return extraInfo;
+    }
+
+    @JsonProperty
+    public Optional<String> getComment()
     {
         return comment;
     }
@@ -101,7 +110,8 @@ public final class AccumuloColumnHandle
         return ColumnMetadata.builder()
                 .setName(name)
                 .setType(type)
-                .setComment(Optional.ofNullable(comment))
+                .setExtraInfo(Optional.ofNullable(extraInfo))
+                .setComment(comment)
                 .build();
     }
 
@@ -114,7 +124,7 @@ public final class AccumuloColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(indexed, name, family, qualifier, type, ordinal, comment);
+        return Objects.hash(indexed, name, family, qualifier, type, ordinal, extraInfo, comment);
     }
 
     @Override
@@ -135,6 +145,7 @@ public final class AccumuloColumnHandle
                 && Objects.equals(this.qualifier, other.qualifier)
                 && Objects.equals(this.type, other.type)
                 && Objects.equals(this.ordinal, other.ordinal)
+                && Objects.equals(this.extraInfo, other.extraInfo)
                 && Objects.equals(this.comment, other.comment);
     }
 
@@ -147,8 +158,9 @@ public final class AccumuloColumnHandle
                 .add("columnQualifier", qualifier.orElse(null))
                 .add("type", type)
                 .add("ordinal", ordinal)
-                .add("comment", comment)
+                .add("extraInfo", extraInfo)
                 .add("indexed", indexed)
+                .add("comment", comment.orElse(null))
                 .toString();
     }
 

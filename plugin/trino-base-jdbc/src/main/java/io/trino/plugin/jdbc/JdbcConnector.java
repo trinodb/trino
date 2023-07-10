@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -26,12 +27,10 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
-import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -76,10 +75,10 @@ public class JdbcConnector
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.connectorTableFunctions = ImmutableSet.copyOf(requireNonNull(connectorTableFunctions, "connectorTableFunctions is null"));
-        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").stream()
+        this.sessionProperties = sessionProperties.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
-        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").stream()
+        this.tableProperties = tableProperties.stream()
                 .flatMap(tablePropertiesProvider -> tablePropertiesProvider.getTableProperties().stream())
                 .collect(toImmutableList());
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");

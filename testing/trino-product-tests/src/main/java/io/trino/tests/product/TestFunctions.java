@@ -17,9 +17,9 @@ import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.FUNCTIONS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestFunctions
@@ -42,7 +42,7 @@ public class TestFunctions
     public void testVersion()
     {
         assertEquals(
-                onTrino().executeQuery("SELECT version()").row(0).get(0),
-                onTrino().executeQuery("SELECT node_version FROM system.runtime.nodes WHERE coordinator = TRUE").row(0).get(0));
+                onTrino().executeQuery("SELECT version()").getOnlyValue(),
+                onTrino().executeQuery("SELECT node_version FROM system.runtime.nodes WHERE coordinator = TRUE").getOnlyValue());
     }
 }

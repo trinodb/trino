@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -80,7 +80,6 @@ public class TestPruneTableExecuteSourceColumns
                                     ImmutableList.of(partition, hash),
                                     ImmutableList.of(partition),
                                     hash)),
-                            Optional.empty(),
                             p.values(a, partition, hash));
                 })
                 .doesNotFire();

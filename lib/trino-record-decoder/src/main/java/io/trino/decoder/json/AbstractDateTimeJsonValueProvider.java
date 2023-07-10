@@ -27,8 +27,8 @@ import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.TimeType.TIME;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
@@ -62,7 +62,7 @@ public abstract class AbstractDateTimeJsonValueProvider
 
         Type type = columnHandle.getType();
 
-        if (type.equals(TIME) || type.equals(TIME_WITH_TIME_ZONE)) {
+        if (type.equals(TIME_MILLIS) || type.equals(TIME_TZ_MILLIS)) {
             if (millis < 0 || millis >= TimeUnit.DAYS.toMillis(1)) {
                 throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
@@ -73,7 +73,7 @@ public abstract class AbstractDateTimeJsonValueProvider
         if (type.equals(DATE)) {
             return TimeUnit.MILLISECONDS.toDays(millis);
         }
-        if (type.equals(TIME)) {
+        if (type.equals(TIME_MILLIS)) {
             return millis * PICOSECONDS_PER_MILLISECOND;
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
@@ -82,7 +82,7 @@ public abstract class AbstractDateTimeJsonValueProvider
         if (type.equals(TIMESTAMP_TZ_MILLIS)) {
             return packDateTimeWithZone(millis, getTimeZone());
         }
-        if (type.equals(TIME_WITH_TIME_ZONE)) {
+        if (type.equals(TIME_TZ_MILLIS)) {
             int offsetMinutes = getTimeZone().getZoneId().getRules().getOffset(Instant.ofEpochMilli(millis)).getTotalSeconds() / 60;
             return packTimeWithTimeZone((millis + (offsetMinutes * 60 * MILLISECONDS_PER_SECOND)) * NANOSECONDS_PER_MILLISECOND, offsetMinutes);
         }

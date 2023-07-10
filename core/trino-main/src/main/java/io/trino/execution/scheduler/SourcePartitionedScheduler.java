@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.log.Logger;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContext;
 import io.trino.execution.TableExecuteContextManager;
@@ -30,7 +30,6 @@ import io.trino.split.SplitSource;
 import io.trino.split.SplitSource.SplitBatch;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -49,9 +48,6 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
-import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
-import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.NO_ACTIVE_DRIVER_GROUP;
 import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
 import static java.util.Objects.requireNonNull;
@@ -59,12 +55,19 @@ import static java.util.Objects.requireNonNull;
 public class SourcePartitionedScheduler
         implements SourceScheduler
 {
+    private static final Logger log = Logger.get(SourcePartitionedScheduler.class);
+
     private enum State
     {
         /**
          * No splits have been added to pendingSplits set.
          */
         INITIALIZED,
+
+        /**
+         * At least one split has been added to pendingSplits set.
+         */
+        SPLITS_ADDED,
 
         /**
          * All splits from underlying SplitSource have been discovered.
@@ -89,13 +92,11 @@ public class SourcePartitionedScheduler
     private final BooleanSupplier anySourceTaskBlocked;
     private final PartitionIdAllocator partitionIdAllocator;
     private final Map<InternalNode, RemoteTask> scheduledTasks;
+    private final Set<Split> pendingSplits = new HashSet<>();
 
-    public ListenableFuture<SplitBatch> nextSplitBatchFuture;
-    public ListenableFuture<Void> placementFuture = immediateVoidFuture();
-    public final Set<Split> pendingSplits = new HashSet<>();
+    private ListenableFuture<SplitBatch> nextSplitBatchFuture;
+    private ListenableFuture<Void> placementFuture = immediateVoidFuture();
     private State state = State.INITIALIZED;
-
-    private SettableFuture<Void> whenFinished = SettableFuture.create();
 
     private SourcePartitionedScheduler(
             StageExecution stageExecution,
@@ -226,102 +227,93 @@ public class SourcePartitionedScheduler
     @Override
     public synchronized ScheduleResult schedule()
     {
-        dropListenersFromWhenFinished();
+        if (state == State.FINISHED) {
+            return new ScheduleResult(true, ImmutableSet.of(), 0);
+        }
 
         int overallSplitAssignmentCount = 0;
+        Multimap<InternalNode, Split> splitAssignment = ImmutableMultimap.of();
         ImmutableSet.Builder<RemoteTask> overallNewTasks = ImmutableSet.builder();
-        List<ListenableFuture<?>> overallBlockedFutures = new ArrayList<>();
-        boolean anyBlockedOnPlacements = false;
-        boolean anyBlockedOnNextSplitBatch = false;
-        boolean anyNotBlocked = false;
+        Optional<ListenableFuture<Void>> blockedFuture = Optional.empty();
+        boolean blockedOnPlacements = false;
+        boolean blockedOnNextSplitBatch = false;
 
-        if (state != State.FINISHED) {
-            if (state == State.SPLITS_SCHEDULED) {
-                verify(nextSplitBatchFuture == null);
+        if (state == State.SPLITS_SCHEDULED) {
+            verify(nextSplitBatchFuture == null);
+        }
+        else if (pendingSplits.isEmpty()) {
+            // try to get the next batch
+            if (nextSplitBatchFuture == null) {
+                nextSplitBatchFuture = splitSource.getNextBatch(splitBatchSize);
+
+                long start = System.nanoTime();
+                addSuccessCallback(nextSplitBatchFuture, () -> stageExecution.recordGetSplitTime(start));
             }
-            else if (pendingSplits.isEmpty()) {
-                // try to get the next batch
-                if (nextSplitBatchFuture == null) {
-                    nextSplitBatchFuture = splitSource.getNextBatch(splitBatchSize);
 
-                    long start = System.nanoTime();
-                    addSuccessCallback(nextSplitBatchFuture, () -> stageExecution.recordGetSplitTime(start));
-                }
-
-                if (nextSplitBatchFuture.isDone()) {
-                    SplitBatch nextSplits = getFutureValue(nextSplitBatchFuture);
-                    nextSplitBatchFuture = null;
-                    pendingSplits.addAll(nextSplits.getSplits());
-                    if (nextSplits.isLastBatch()) {
-                        if (state == State.INITIALIZED && pendingSplits.isEmpty()) {
-                            // Add an empty split in case no splits have been produced for the source.
-                            // For source operators, they never take input, but they may produce output.
-                            // This is well handled by the execution engine.
-                            // However, there are certain non-source operators that may produce output without any input,
-                            // for example, 1) an AggregationOperator, 2) a HashAggregationOperator where one of the grouping sets is ().
-                            // Scheduling an empty split kicks off necessary driver instantiation to make this work.
-                            pendingSplits.add(new Split(
-                                    splitSource.getCatalogHandle(),
-                                    new EmptySplit(splitSource.getCatalogHandle())));
-                        }
-                        state = State.SPLITS_SCHEDULED;
+            if (nextSplitBatchFuture.isDone()) {
+                SplitBatch nextSplits = getFutureValue(nextSplitBatchFuture);
+                nextSplitBatchFuture = null;
+                pendingSplits.addAll(nextSplits.getSplits());
+                if (nextSplits.isLastBatch()) {
+                    if (state == State.INITIALIZED && pendingSplits.isEmpty()) {
+                        // Add an empty split in case no splits have been produced for the source.
+                        // For source operators, they never take input, but they may produce output.
+                        // This is well handled by the execution engine.
+                        // However, there are certain non-source operators that may produce output without any input,
+                        // for example, 1) an AggregationOperator, 2) a HashAggregationOperator where one of the grouping sets is ().
+                        // Scheduling an empty split kicks off necessary driver instantiation to make this work.
+                        pendingSplits.add(new Split(
+                                splitSource.getCatalogHandle(),
+                                new EmptySplit(splitSource.getCatalogHandle())));
                     }
-                }
-                else {
-                    overallBlockedFutures.add(nextSplitBatchFuture);
-                    anyBlockedOnNextSplitBatch = true;
+                    log.debug("stage id: %s, node: %s; transitioning to SPLITS_SCHEDULED", stageExecution.getStageId(), partitionedNode);
+                    state = State.SPLITS_SCHEDULED;
                 }
             }
-            if (!anyBlockedOnNextSplitBatch) {
-                Multimap<InternalNode, Split> splitAssignment = ImmutableMultimap.of();
-                boolean skip = false;
+            else {
+                blockedFuture = Optional.of(asVoid(nextSplitBatchFuture));
+                blockedOnNextSplitBatch = true;
+                log.debug("stage id: %s, node: %s; blocked on next split batch", stageExecution.getStageId(), partitionedNode);
+            }
+        }
+
+        if (!pendingSplits.isEmpty() && state == State.INITIALIZED) {
+            log.debug("stage id: %s, node: %s; transitioning to SPLITS_ADDED", stageExecution.getStageId(), partitionedNode);
+            state = State.SPLITS_ADDED;
+        }
+
+        if (blockedFuture.isEmpty() && !pendingSplits.isEmpty()) {
+            if (!placementFuture.isDone()) {
+                blockedFuture = Optional.of(placementFuture);
+                blockedOnPlacements = true;
+            }
+            else {
+                // calculate placements for splits
+                SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(pendingSplits);
+                splitAssignment = splitPlacementResult.getAssignments(); // remove splits with successful placements
+                splitAssignment.values().forEach(pendingSplits::remove); // AbstractSet.removeAll performs terribly here.
+                overallSplitAssignmentCount += splitAssignment.size(); // if not completed placed, mark scheduleGroup as blocked on placement
                 if (!pendingSplits.isEmpty()) {
-                    if (!placementFuture.isDone()) {
-                        anyBlockedOnPlacements = true;
-                        skip = true;
-                    }
-                    else { // calculate placements for splits
-                        SplitPlacementResult splitPlacementResult = splitPlacementPolicy.computeAssignments(pendingSplits);
-                        splitAssignment = splitPlacementResult.getAssignments(); // remove splits with successful placements
-                        splitAssignment.values().forEach(pendingSplits::remove); // AbstractSet.removeAll performs terribly here.
-                        overallSplitAssignmentCount += splitAssignment.size(); // if not completed placed, mark scheduleGroup as blocked on placement
-                        if (!pendingSplits.isEmpty()) {
-                            placementFuture = splitPlacementResult.getBlocked();
-                            overallBlockedFutures.add(placementFuture);
-                            anyBlockedOnPlacements = true;
-                        }
-                    }
-                }
-                if (!skip) { // if no new splits will be assigned, update state and attach completion event
-                    if (pendingSplits.isEmpty() && state == State.SPLITS_SCHEDULED) {
-                        state = State.FINISHED;
-                    }
-
-                    // assign the splits with successful placements
-                    overallNewTasks.addAll(assignSplits(splitAssignment));
-
-                    // Assert that "placement future is not done" implies "pendingSplits is not empty".
-                    // The other way around is not true. One obvious reason is (un)lucky timing, where the placement is unblocked between `computeAssignments` and this line.
-                    // However, there are other reasons that could lead to this.
-                    // Note that `computeAssignments` is quite broken:
-                    // 1. It always returns a completed future when there are no tasks, regardless of whether all nodes are blocked.
-                    // 2. The returned future will only be completed when a node with an assigned task becomes unblocked. Other nodes don't trigger future completion.
-                    // As a result, to avoid busy loops caused by 1, we check pendingSplits.isEmpty() instead of placementFuture.isDone() here.
-                    if (nextSplitBatchFuture == null && pendingSplits.isEmpty() && state != State.FINISHED) {
-                        anyNotBlocked = true;
-                    }
+                    placementFuture = splitPlacementResult.getBlocked();
+                    blockedFuture = Optional.of(placementFuture);
+                    blockedOnPlacements = true;
                 }
             }
         }
 
-        // * `splitSource.isFinished` invocation may fail after `splitSource.close` has been invoked.
-        //   If state is FINISHED, splitSource.isFinished has previously returned true, and splitSource is closed now.
-        // * Even if `splitSource.isFinished()` return true, it is not necessarily safe to tear down the split source.
-        //   * If anyBlockedOnNextSplitBatch is true, it means we have not checked out the recently completed nextSplitBatch futures,
-        //     which may contain recently published splits. We must not ignore those.
-        if (state == State.FINISHED && splitSource.isFinished()) {
-            Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
+        if (blockedOnPlacements) {
+            log.debug("stage id: %s, node: %s; blocked on placements", stageExecution.getStageId(), partitionedNode);
+        }
 
+        // assign the splits with successful placements
+        overallNewTasks.addAll(assignSplits(splitAssignment));
+
+        // if no new splits will be assigned, update state and attach completion event
+        if (pendingSplits.isEmpty() && state == State.SPLITS_SCHEDULED) {
+            log.debug("stage id: %s, node: %s; transitioning to FINISHED", stageExecution.getStageId(), partitionedNode);
+            state = State.FINISHED;
+
+            Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
             // Here we assume that we can get non-empty tableExecuteSplitsInfo only for queries which facilitate single split source.
             tableExecuteSplitsInfo.ifPresent(info -> {
                 TableExecuteContext tableExecuteContext = tableExecuteContextManager.getTableExecuteContextForQuery(stageExecution.getStageId().getQueryId());
@@ -335,52 +327,39 @@ public class SourcePartitionedScheduler
                     overallSplitAssignmentCount);
         }
 
-        if (anyNotBlocked) {
+        if (blockedFuture.isEmpty()) {
+            log.debug("stage id: %s, node: %s; assigned %s splits (not blocked)", stageExecution.getStageId(), partitionedNode, overallSplitAssignmentCount);
             return new ScheduleResult(false, overallNewTasks.build(), overallSplitAssignmentCount);
         }
 
-        boolean anySourceTaskBlocked = this.anySourceTaskBlocked.getAsBoolean();
-        if (anySourceTaskBlocked) {
+        if (anySourceTaskBlocked.getAsBoolean()) {
             // Dynamic filters might not be collected due to build side source tasks being blocked on full buffer.
             // In such case probe split generation that is waiting for dynamic filters should be unblocked to prevent deadlock.
+            log.debug("stage id: %s, node: %s; unblocking dynamic filters", stageExecution.getStageId(), partitionedNode);
             dynamicFilterService.unblockStageDynamicFilters(stageExecution.getStageId().getQueryId(), stageExecution.getAttemptId(), stageExecution.getFragment());
+
+            if (blockedOnPlacements) {
+                // In a broadcast join, output buffers of the tasks in build source stage have to
+                // hold onto all data produced before probe side task scheduling finishes,
+                // even if the data is acknowledged by all known consumers. This is because
+                // new consumers may be added until the probe side task scheduling finishes.
+                //
+                // As a result, the following line is necessary to prevent deadlock
+                // due to neither build nor probe can make any progress.
+                // The build side blocks due to a full output buffer.
+                // In the meantime the probe side split cannot be consumed since
+                // builder side hash table construction has not finished.
+                log.debug("stage id: %s, node: %s; finalize task creation if necessary", stageExecution.getStageId(), partitionedNode);
+                overallNewTasks.addAll(finalizeTaskCreationIfNecessary());
+            }
         }
 
-        if (anyBlockedOnPlacements && anySourceTaskBlocked) {
-            // In a broadcast join, output buffers of the tasks in build source stage have to
-            // hold onto all data produced before probe side task scheduling finishes,
-            // even if the data is acknowledged by all known consumers. This is because
-            // new consumers may be added until the probe side task scheduling finishes.
-            //
-            // As a result, the following line is necessary to prevent deadlock
-            // due to neither build nor probe can make any progress.
-            // The build side blocks due to a full output buffer.
-            // In the meantime the probe side split cannot be consumed since
-            // builder side hash table construction has not finished.
-            overallNewTasks.addAll(finalizeTaskCreationIfNecessary());
-        }
-
-        ScheduleResult.BlockedReason blockedReason;
-        if (anyBlockedOnNextSplitBatch) {
-            blockedReason = anyBlockedOnPlacements ? MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE : WAITING_FOR_SOURCE;
-        }
-        else {
-            blockedReason = anyBlockedOnPlacements ? SPLIT_QUEUES_FULL : NO_ACTIVE_DRIVER_GROUP;
-        }
-
-        overallBlockedFutures.add(whenFinished);
-
-        if (state == State.FINISHED && splitSource.isFinished()) {
-            // Wake up blocked caller so that it will invoke schedule() right away.
-            // Once schedule is invoked, state will be transitioned to FINISHED.
-            whenFinished.set(null);
-            whenFinished = SettableFuture.create();
-        }
-
+        ScheduleResult.BlockedReason blockedReason = blockedOnNextSplitBatch ? WAITING_FOR_SOURCE : SPLIT_QUEUES_FULL;
+        log.debug("stage id: %s, node: %s; assigned %s splits (blocked reason %s)", stageExecution.getStageId(), partitionedNode, overallSplitAssignmentCount, blockedReason);
         return new ScheduleResult(
                 false,
                 overallNewTasks.build(),
-                nonCancellationPropagating(asVoid(whenAnyComplete(overallBlockedFutures))),
+                nonCancellationPropagating(blockedFuture.get()),
                 blockedReason,
                 overallSplitAssignmentCount);
     }
@@ -388,25 +367,6 @@ public class SourcePartitionedScheduler
     private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
     {
         return Futures.transform(future, v -> null, directExecutor());
-    }
-
-    private synchronized void dropListenersFromWhenFinished()
-    {
-        // whenFinished may remain in a not-done state for an extended period of time.
-        // As a result, over time, it can retain a huge number of listener objects.
-
-        // Whenever schedule is called, holding onto the previous listener is not useful anymore.
-        // Therefore, we drop those listeners here by recreating the future.
-
-        // Note: The following implementation is thread-safe because whenFinished can only be completed
-        // while holding the monitor of this.
-
-        if (whenFinished.isDone()) {
-            return;
-        }
-
-        whenFinished.cancel(true);
-        whenFinished = SettableFuture.create();
     }
 
     @Override
@@ -419,9 +379,7 @@ public class SourcePartitionedScheduler
     {
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
 
-        ImmutableSet<InternalNode> nodes = ImmutableSet.<InternalNode>builder()
-                .addAll(splitAssignment.keySet())
-                .build();
+        ImmutableSet<InternalNode> nodes = ImmutableSet.copyOf(splitAssignment.keySet());
         for (InternalNode node : nodes) {
             // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
             ImmutableMultimap<PlanNodeId, Split> splits = ImmutableMultimap.<PlanNodeId, Split>builder()

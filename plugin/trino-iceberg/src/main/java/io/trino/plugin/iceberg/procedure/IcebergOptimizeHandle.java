@@ -20,9 +20,11 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergFileFormat;
+import io.trino.plugin.iceberg.TrinoSortField;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -30,10 +32,11 @@ import static java.util.Objects.requireNonNull;
 public class IcebergOptimizeHandle
         extends IcebergProcedureHandle
 {
-    private final long snapshotId;
+    private final Optional<Long> snapshotId;
     private final String schemaAsJson;
     private final String partitionSpecAsJson;
     private final List<IcebergColumnHandle> tableColumns;
+    private final List<TrinoSortField> sortOrder;
     private final IcebergFileFormat fileFormat;
     private final Map<String, String> tableStorageProperties;
     private final DataSize maxScannedFileSize;
@@ -41,10 +44,11 @@ public class IcebergOptimizeHandle
 
     @JsonCreator
     public IcebergOptimizeHandle(
-            long snapshotId,
+            Optional<Long> snapshotId,
             String schemaAsJson,
             String partitionSpecAsJson,
             List<IcebergColumnHandle> tableColumns,
+            List<TrinoSortField> sortOrder,
             IcebergFileFormat fileFormat,
             Map<String, String> tableStorageProperties,
             DataSize maxScannedFileSize,
@@ -54,6 +58,7 @@ public class IcebergOptimizeHandle
         this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
         this.partitionSpecAsJson = requireNonNull(partitionSpecAsJson, "partitionSpecAsJson is null");
         this.tableColumns = ImmutableList.copyOf(requireNonNull(tableColumns, "tableColumns is null"));
+        this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.tableStorageProperties = ImmutableMap.copyOf(requireNonNull(tableStorageProperties, "tableStorageProperties is null"));
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
@@ -61,7 +66,7 @@ public class IcebergOptimizeHandle
     }
 
     @JsonProperty
-    public long getSnapshotId()
+    public Optional<Long> getSnapshotId()
     {
         return snapshotId;
     }
@@ -82,6 +87,12 @@ public class IcebergOptimizeHandle
     public List<IcebergColumnHandle> getTableColumns()
     {
         return tableColumns;
+    }
+
+    @JsonProperty
+    public List<TrinoSortField> getSortOrder()
+    {
+        return sortOrder;
     }
 
     @JsonProperty

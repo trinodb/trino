@@ -15,24 +15,29 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import io.trino.Session;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -51,15 +56,26 @@ public class TestMetadataQueryOptimization
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema(SCHEMA_NAME)
+                // optimize_metadata_queries doesn't work when files are written by different writers
+                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "1")
                 .build();
 
-        baseDir = Files.createTempDir();
+        try {
+            baseDir = Files.createTempDirectory(null).toFile();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
 
+        InternalFunctionBundle.InternalFunctionBundleBuilder functions = InternalFunctionBundle.builder();
+        new IcebergPlugin().getFunctions().forEach(functions::functions);
+        queryRunner.addFunctions(functions.build());
+
         queryRunner.createCatalog(
                 ICEBERG_CATALOG,
-                new TestingIcebergConnectorFactory(Optional.of(metastore), Optional.empty(), EMPTY_MODULE),
+                new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE),
                 ImmutableMap.of());
 
         Database database = Database.builder()
@@ -108,7 +124,7 @@ public class TestMetadataQueryOptimization
                         values(ImmutableList.of("b", "c"), ImmutableList.of())));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws Exception
     {

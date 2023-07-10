@@ -14,9 +14,8 @@
 package io.trino.plugin.kafka.encoder;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

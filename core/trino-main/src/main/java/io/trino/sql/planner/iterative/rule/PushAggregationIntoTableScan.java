@@ -19,7 +19,6 @@ import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.BoundSignature;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.AggregateFunction;
@@ -29,6 +28,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.function.BoundSignature;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -147,9 +147,7 @@ public class PushAggregationIntoTableScan
                 .entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().getName(), Entry::getValue));
 
-        List<Entry<Symbol, AggregationNode.Aggregation>> aggregationsList = aggregations
-                .entrySet().stream()
-                .collect(toImmutableList());
+        List<Entry<Symbol, AggregationNode.Aggregation>> aggregationsList = ImmutableList.copyOf(aggregations.entrySet());
 
         List<AggregateFunction> aggregateFunctions = aggregationsList.stream()
                 .map(Entry::getValue)

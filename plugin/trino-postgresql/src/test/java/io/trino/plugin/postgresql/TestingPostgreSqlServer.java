@@ -15,6 +15,7 @@ package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
+import io.trino.testing.ResourcePresence;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.PostgreSQLContainer;
 
@@ -26,12 +27,17 @@ import java.sql.Statement;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
+import static io.trino.testing.containers.TestContainers.exposeFixedPorts;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
 
@@ -43,13 +49,20 @@ public class TestingPostgreSqlServer
     private static final String DATABASE = "tpch";
 
     private static final String LOG_PREFIX_REGEXP = "^([-:0-9. ]+UTC \\[[0-9]+\\] )";
-    private static final String LOG_RUNNING_STATEMENT_PREFIX = "LOG:  execute <unnamed>: ";
+    private static final String LOG_RUNNING_STATEMENT_PREFIX = "LOG:  execute <unnamed>";
     private static final String LOG_CANCELLATION_EVENT = "ERROR:  canceling statement due to user request";
+
+    private static final Pattern SQL_QUERY_FIND_PATTERN = Pattern.compile("^(: |/C_\\d: )(.*)"); //In PgSQL cursor queries and non-cursor queries are logged differently
     private static final String LOG_CANCELLED_STATEMENT_PREFIX = "STATEMENT:  ";
 
     private final PostgreSQLContainer<?> dockerContainer;
 
     public TestingPostgreSqlServer()
+    {
+        this(false);
+    }
+
+    public TestingPostgreSqlServer(boolean shouldExposeFixedPorts)
     {
         // Use the oldest supported PostgreSQL version
         dockerContainer = new PostgreSQLContainer<>("postgres:10.20")
@@ -58,6 +71,9 @@ public class TestingPostgreSqlServer
                 .withUsername(USER)
                 .withPassword(PASSWORD)
                 .withCommand("postgres", "-c", "log_destination=stderr", "-c", "log_statement=all");
+        if (shouldExposeFixedPorts) {
+            exposeFixedPorts(dockerContainer);
+        }
         dockerContainer.start();
 
         execute("CREATE SCHEMA tpch");
@@ -79,6 +95,13 @@ public class TestingPostgreSqlServer
         }
     }
 
+    DatabaseEventsRecorder recordEventsForOperations(Runnable operation)
+    {
+        DatabaseEventsRecorder events = DatabaseEventsRecorder.startRecording(this);
+        operation.run();
+        return events;
+    }
+
     protected List<RemoteDatabaseEvent> getRemoteDatabaseEvents()
     {
         List<String> logs = getLogs();
@@ -87,7 +110,11 @@ public class TestingPostgreSqlServer
         while (logsIterator.hasNext()) {
             String logLine = logsIterator.next().replaceAll(LOG_PREFIX_REGEXP, "");
             if (logLine.startsWith(LOG_RUNNING_STATEMENT_PREFIX)) {
-                events.add(new RemoteDatabaseEvent(logLine.substring(LOG_RUNNING_STATEMENT_PREFIX.length()), RUNNING));
+                Matcher matcher = SQL_QUERY_FIND_PATTERN.matcher(logLine.substring(LOG_RUNNING_STATEMENT_PREFIX.length()));
+                if (matcher.find()) {
+                    String sqlStatement = matcher.group(2);
+                    events.add(new RemoteDatabaseEvent(sqlStatement, RUNNING));
+                }
             }
             if (logLine.equals(LOG_CANCELLATION_EVENT)) {
                 // next line must be present
@@ -129,12 +156,53 @@ public class TestingPostgreSqlServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:postgresql://%s:%s/%s", dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE);
+        return format("jdbc:postgresql://%s:%s/%s", dockerContainer.getHost(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE);
     }
 
     @Override
     public void close()
     {
         dockerContainer.close();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return dockerContainer.getContainerId() != null;
+    }
+
+    public static class DatabaseEventsRecorder
+    {
+        private final Supplier<Stream<String>> loggedQueriesSource;
+
+        private DatabaseEventsRecorder(Supplier<Stream<String>> loggedQueriesSource)
+        {
+            this.loggedQueriesSource = requireNonNull(loggedQueriesSource, "loggedQueriesSource is null");
+        }
+
+        static DatabaseEventsRecorder startRecording(TestingPostgreSqlServer server)
+        {
+            int startingEventsCount = server.getRemoteDatabaseEvents().size();
+            return new DatabaseEventsRecorder(() ->
+                    server.getRemoteDatabaseEvents().stream()
+                            .skip(startingEventsCount)
+                            .map(RemoteDatabaseEvent::getQuery));
+        }
+
+        public DatabaseEventsRecorder stopEventsRecording()
+        {
+            List<String> queries = loggedQueriesSource.get().collect(toImmutableList());
+            return new DatabaseEventsRecorder(queries::stream);
+        }
+
+        public Stream<String> streamQueriesContaining(String queryPart, String... alternativeQueryParts)
+        {
+            ImmutableList<String> queryParts = ImmutableList.<String>builder()
+                    .add(queryPart)
+                    .addAll(ImmutableList.copyOf(alternativeQueryParts))
+                    .build();
+            return loggedQueriesSource.get()
+                    .filter(query -> queryParts.stream().anyMatch(query::contains));
+        }
     }
 }

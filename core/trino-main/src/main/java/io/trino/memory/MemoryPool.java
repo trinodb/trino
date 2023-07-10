@@ -17,15 +17,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryAllocation;
 import io.trino.spi.memory.MemoryPoolInfo;
+import jakarta.annotation.Nullable;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -126,7 +125,7 @@ public class MemoryPool
      */
     public ListenableFuture<Void> reserve(TaskId taskId, String allocationTag, long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes >= 0, "'%s' is negative", bytes);
         ListenableFuture<Void> result;
         synchronized (this) {
             if (bytes != 0) {
@@ -159,7 +158,7 @@ public class MemoryPool
 
     public ListenableFuture<Void> reserveRevocable(TaskId taskId, long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes >= 0, "'%s' is negative", bytes);
 
         ListenableFuture<Void> result;
         synchronized (this) {
@@ -189,7 +188,7 @@ public class MemoryPool
      */
     public boolean tryReserve(TaskId taskId, String allocationTag, long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes >= 0, "'%s' is negative", bytes);
         synchronized (this) {
             if (getFreeBytes() - bytes < 0) {
                 return false;
@@ -207,9 +206,23 @@ public class MemoryPool
         return true;
     }
 
+    public boolean tryReserveRevocable(long bytes)
+    {
+        checkArgument(bytes >= 0, "'%s' is negative", bytes);
+        synchronized (this) {
+            if (getFreeBytes() - bytes < 0) {
+                return false;
+            }
+            reservedRevocableBytes += bytes;
+        }
+
+        onMemoryReserved();
+        return true;
+    }
+
     public synchronized void free(TaskId taskId, String allocationTag, long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes >= 0, "'%s' is negative", bytes);
         checkArgument(reservedBytes >= bytes, "tried to free more memory than is reserved");
         if (bytes == 0) {
             // Freeing zero bytes is a no-op
@@ -252,7 +265,7 @@ public class MemoryPool
 
     public synchronized void freeRevocable(TaskId taskId, long bytes)
     {
-        checkArgument(bytes >= 0, "bytes is negative");
+        checkArgument(bytes >= 0, "'%s' is negative", bytes);
         checkArgument(reservedRevocableBytes >= bytes, "tried to free more revocable memory than is reserved");
         if (bytes == 0) {
             // Freeing zero bytes is a no-op
@@ -282,6 +295,22 @@ public class MemoryPool
         }
         else {
             taskRevocableMemoryReservations.put(taskId, taskReservation);
+        }
+
+        reservedRevocableBytes -= bytes;
+        if (getFreeBytes() > 0 && future != null) {
+            future.set(null);
+            future = null;
+        }
+    }
+
+    public synchronized void freeRevocable(long bytes)
+    {
+        checkArgument(bytes >= 0, "'%s' is negative", bytes);
+        checkArgument(reservedRevocableBytes >= bytes, "tried to free more revocable memory than is reserved");
+        if (bytes == 0) {
+            // Freeing zero bytes is a no-op
+            return;
         }
 
         reservedRevocableBytes -= bytes;

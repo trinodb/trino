@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.parquet.ParquetRecordWriter;
@@ -28,7 +27,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
-import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -36,8 +34,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspect
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
-import org.openjdk.jol.info.ClassLayout;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -46,9 +44,11 @@ import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
+import static io.trino.plugin.hive.util.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createRecordWriter;
@@ -61,7 +61,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 public class RecordFileWriter
         implements FileWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RecordFileWriter.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(RecordFileWriter.class);
 
     private final Path path;
     private final JobConf conf;
@@ -105,7 +105,7 @@ public class RecordFileWriter
         List<ObjectInspector> objectInspectors = getRowColumnInspectors(fileColumnTypes);
         tableInspector = getStandardStructObjectInspector(fileColumnNames, objectInspectors);
 
-        if (storageFormat.getOutputFormat().equals(HiveIgnoreKeyTextOutputFormat.class.getName())) {
+        if (storageFormat.getOutputFormat().equals(HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS)) {
             Optional<TextHeaderWriter> textHeaderWriter = Optional.of(new TextHeaderWriter(serializer, typeManager, session, fileColumnNames));
             recordWriter = createRecordWriter(path, conf, schema, storageFormat.getOutputFormat(), session, textHeaderWriter);
         }
@@ -114,9 +114,9 @@ public class RecordFileWriter
         }
 
         // reorder (and possibly reduce) struct fields to match input
-        structFields = ImmutableList.copyOf(inputColumnNames.stream()
+        structFields = inputColumnNames.stream()
                 .map(tableInspector::getStructFieldRef)
-                .collect(toImmutableList()));
+                .collect(toImmutableList());
 
         row = tableInspector.create();
 
@@ -191,7 +191,7 @@ public class RecordFileWriter
     }
 
     @Override
-    public void commit()
+    public Closeable commit()
     {
         try {
             recordWriter.close(false);
@@ -200,23 +200,25 @@ public class RecordFileWriter
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
+
+        return createRollbackAction(path, conf);
     }
 
     @Override
     public void rollback()
     {
-        try {
-            try {
-                recordWriter.close(true);
-            }
-            finally {
-                // perform explicit deletion here as implementations of RecordWriter.close() often ignore the abort flag.
-                path.getFileSystem(conf).delete(path, false);
-            }
+        Closeable rollbackAction = createRollbackAction(path, conf);
+        try (rollbackAction) {
+            recordWriter.close(true);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
         }
+    }
+
+    private static Closeable createRollbackAction(Path path, JobConf conf)
+    {
+        return () -> path.getFileSystem(conf).delete(path, false);
     }
 
     @Override

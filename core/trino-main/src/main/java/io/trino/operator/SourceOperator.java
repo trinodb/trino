@@ -14,18 +14,14 @@
 package io.trino.operator;
 
 import io.trino.metadata.Split;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import java.util.Optional;
-import java.util.function.Supplier;
 
 public interface SourceOperator
         extends Operator
 {
     PlanNodeId getSourceId();
 
-    Supplier<Optional<UpdatablePageSource>> addSplit(Split split);
+    void addSplit(Split split);
 
     void noMoreSplits();
 }

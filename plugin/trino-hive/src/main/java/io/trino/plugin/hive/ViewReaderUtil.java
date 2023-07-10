@@ -36,7 +36,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.TypeManager;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.Base64;
 import java.util.List;
@@ -47,20 +46,21 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.linkedin.coral.trino.rel2trino.functions.TrinoKeywordsConverter.quoteWordIfNotQuoted;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveSessionProperties.isHiveViewsLegacyTranslation;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 public final class ViewReaderUtil
 {
@@ -79,7 +79,8 @@ public final class ViewReaderUtil
             TypeManager typeManager,
             BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> tableRedirectionResolver,
             MetadataProvider metadataProvider,
-            boolean runHiveViewRunAsInvoker)
+            boolean runHiveViewRunAsInvoker,
+            HiveTimestampPrecision hiveViewsTimestampPrecision)
     {
         if (isPrestoView(table)) {
             return new PrestoViewReader();
@@ -91,7 +92,8 @@ public final class ViewReaderUtil
         return new HiveViewReader(
                 new CoralSemiTransactionalHiveMSCAdapter(metastore, coralTableRedirectionResolver(session, tableRedirectionResolver, metadataProvider)),
                 typeManager,
-                runHiveViewRunAsInvoker);
+                runHiveViewRunAsInvoker,
+                hiveViewsTimestampPrecision);
     }
 
     private static CoralTableRedirectionResolver coralTableRedirectionResolver(
@@ -135,6 +137,7 @@ public final class ViewReaderUtil
 
     public static boolean isPrestoView(Map<String, String> tableParameters)
     {
+        // TODO isPrestoView should not return true for materialized views
         return "true".equals(tableParameters.get(PRESTO_VIEW_FLAG));
     }
 
@@ -145,18 +148,26 @@ public final class ViewReaderUtil
 
     public static boolean isHiveOrPrestoView(String tableType)
     {
-        return tableType.equals(TableType.VIRTUAL_VIEW.name());
+        // TODO isHiveOrPrestoView should not return true for materialized views
+        return tableType.equals(VIRTUAL_VIEW.name());
+    }
+
+    public static boolean isTrinoMaterializedView(Table table)
+    {
+        return isTrinoMaterializedView(table.getTableType(), table.getParameters());
     }
 
     public static boolean isTrinoMaterializedView(String tableType, Map<String, String> tableParameters)
     {
+        // TODO isHiveOrPrestoView should not return true for materialized views
         return isHiveOrPrestoView(tableType) && isPrestoView(tableParameters) && tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(ICEBERG_MATERIALIZED_VIEW_COMMENT);
     }
 
     public static boolean canDecodeView(Table table)
     {
         // we can decode Hive or Presto view
-        return table.getTableType().equals(VIRTUAL_VIEW.name());
+        return table.getTableType().equals(VIRTUAL_VIEW.name()) &&
+                !isTrinoMaterializedView(table.getTableType(), table.getParameters());
     }
 
     public static String encodeViewData(ConnectorViewDefinition definition)
@@ -198,12 +209,14 @@ public final class ViewReaderUtil
         private final HiveMetastoreClient metastoreClient;
         private final TypeManager typeManager;
         private final boolean hiveViewsRunAsInvoker;
+        private final HiveTimestampPrecision hiveViewsTimestampPrecision;
 
-        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typeManager, boolean hiveViewsRunAsInvoker)
+        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typeManager, boolean hiveViewsRunAsInvoker, HiveTimestampPrecision hiveViewsTimestampPrecision)
         {
             this.metastoreClient = requireNonNull(hiveMetastoreClient, "hiveMetastoreClient is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.hiveViewsRunAsInvoker = hiveViewsRunAsInvoker;
+            this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
         }
 
         @Override
@@ -218,7 +231,8 @@ public final class ViewReaderUtil
                 List<ViewColumn> columns = rowType.getFieldList().stream()
                         .map(field -> new ViewColumn(
                                 field.getName(),
-                                typeManager.fromSqlType(getTypeString(field.getType())).getTypeId()))
+                                typeManager.fromSqlType(getTypeString(field.getType(), hiveViewsTimestampPrecision)).getTypeId(),
+                                Optional.empty()))
                         .collect(toImmutableList());
                 return new ConnectorViewDefinition(
                         trinoSql,
@@ -226,10 +240,10 @@ public final class ViewReaderUtil
                         Optional.of(table.getDatabaseName()),
                         columns,
                         Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
-                        Optional.empty(),
+                        Optional.empty(), // will be filled in later by HiveMetadata
                         hiveViewsRunAsInvoker);
             }
-            catch (RuntimeException e) {
+            catch (Throwable e) {
                 throw new TrinoException(HIVE_VIEW_TRANSLATION_ERROR,
                         format("Failed to translate Hive view '%s': %s",
                                 table.getSchemaTableName(),
@@ -240,17 +254,20 @@ public final class ViewReaderUtil
 
         // Calcite does not provide correct type strings for non-primitive types.
         // We add custom code here to make it work. Goal is for calcite/coral to handle this
-        private String getTypeString(RelDataType type)
+        private static String getTypeString(RelDataType type, HiveTimestampPrecision timestampPrecision)
         {
             switch (type.getSqlTypeName()) {
                 case ROW: {
                     verify(type.isStruct(), "expected ROW type to be a struct: %s", type);
+                    // There is no API in RelDataType for Coral to add quotes for rowType.
+                    // We add the Coral function here to parse data types successfully.
+                    // Goal is to use data type mapping instead of translating to strings
                     return type.getFieldList().stream()
-                            .map(field -> field.getName().toLowerCase(Locale.ENGLISH) + " " + getTypeString(field.getType()))
+                            .map(field -> quoteWordIfNotQuoted(field.getName().toLowerCase(Locale.ENGLISH)) + " " + getTypeString(field.getType(), timestampPrecision))
                             .collect(joining(",", "row(", ")"));
                 }
                 case CHAR:
-                    return "varchar";
+                    return "char(" + type.getPrecision() + ")";
                 case FLOAT:
                     return "real";
                 case BINARY:
@@ -259,14 +276,16 @@ public final class ViewReaderUtil
                 case MAP: {
                     RelDataType keyType = type.getKeyType();
                     RelDataType valueType = type.getValueType();
-                    return format("map(%s,%s)", getTypeString(keyType), getTypeString(valueType));
+                    return "map(" + getTypeString(keyType, timestampPrecision) + "," + getTypeString(valueType, timestampPrecision) + ")";
                 }
                 case ARRAY: {
-                    return format("array(%s)", getTypeString(type.getComponentType()));
+                    return "array(" + getTypeString(type.getComponentType(), timestampPrecision) + ")";
                 }
                 case DECIMAL: {
-                    return format("decimal(%s,%s)", type.getPrecision(), type.getScale());
+                    return "decimal(" + type.getPrecision() + "," + type.getScale() + ")";
                 }
+                case TIMESTAMP:
+                    return "timestamp(" + timestampPrecision.getPrecision() + ")";
                 default:
                     return type.getSqlTypeName().toString();
             }

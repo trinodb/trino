@@ -16,8 +16,6 @@ package io.trino.operator.aggregation.partial;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.CompletedWork;
-import io.trino.operator.GroupByIdBlock;
-import io.trino.operator.HashCollisionsCounter;
 import io.trino.operator.Work;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.aggregation.AggregatorFactory;
@@ -26,9 +24,7 @@ import io.trino.operator.aggregation.builder.HashAggregationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.LongArrayBlock;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -58,8 +54,7 @@ public class SkipAggregationBuilder
             LocalMemoryContext memoryContext)
     {
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
-        this.groupedAggregators = requireNonNull(aggregatorFactories, "aggregatorFactories is null")
-                .stream()
+        this.groupedAggregators = aggregatorFactories.stream()
                 .map(AggregatorFactory::createGroupedAggregator)
                 .collect(toImmutableList());
         this.hashChannels = new int[groupByChannels.size() + (inputHashChannel.isPresent() ? 1 : 0)];
@@ -104,12 +99,6 @@ public class SkipAggregationBuilder
     }
 
     @Override
-    public void recordHashCollisions(HashCollisionsCounter hashCollisionsCounter)
-    {
-        // no op
-    }
-
-    @Override
     public void close()
     {
     }
@@ -137,17 +126,14 @@ public class SkipAggregationBuilder
 
     private void populateInitialAccumulatorState(Page page)
     {
-        GroupByIdBlock groupByIdBlock = getGroupByIdBlock(page.getPositionCount());
-        for (GroupedAggregator groupedAggregator : groupedAggregators) {
-            groupedAggregator.processPage(groupByIdBlock, page);
+        int[] groupIds = new int[page.getPositionCount()];
+        for (int position = 0; position < page.getPositionCount(); position++) {
+            groupIds[position] = position;
         }
-    }
 
-    private GroupByIdBlock getGroupByIdBlock(int positionCount)
-    {
-        return new GroupByIdBlock(
-                positionCount,
-                new LongArrayBlock(positionCount, Optional.empty(), consecutive(positionCount)));
+        for (GroupedAggregator groupedAggregator : groupedAggregators) {
+            groupedAggregator.processPage(page.getPositionCount(), groupIds, page);
+        }
     }
 
     private BlockBuilder[] serializeAccumulatorState(int positionCount)
@@ -177,14 +163,5 @@ public class SkipAggregationBuilder
             outputBlocks[hashChannels.length + i] = outputBuilders[i].build();
         }
         return new Page(page.getPositionCount(), outputBlocks);
-    }
-
-    private static long[] consecutive(int positionCount)
-    {
-        long[] longs = new long[positionCount];
-        for (int i = 0; i < positionCount; i++) {
-            longs[i] = i;
-        }
-        return longs;
     }
 }

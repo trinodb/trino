@@ -15,13 +15,12 @@ package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -31,10 +30,10 @@ import static java.util.Objects.requireNonNull;
 public class RleAwarePositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RleAwarePositionsAppender.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(RleAwarePositionsAppender.class);
     private static final int NO_RLE = -1;
 
-    private final BlockPositionEqual equalOperator;
+    private final BlockPositionIsDistinctFrom isDistinctFromOperator;
     private final PositionsAppender delegate;
 
     @Nullable
@@ -43,49 +42,57 @@ public class RleAwarePositionsAppender
     // NO_RLE means flat state, 0 means initial empty state, positive means RLE state and the current RLE position count.
     private int rlePositionCount;
 
-    public RleAwarePositionsAppender(BlockPositionEqual equalOperator, PositionsAppender delegate)
+    public RleAwarePositionsAppender(BlockPositionIsDistinctFrom isDistinctFromOperator, PositionsAppender delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.equalOperator = requireNonNull(equalOperator, "equalOperator is null");
+        this.isDistinctFromOperator = requireNonNull(isDistinctFromOperator, "isDistinctFromOperator is null");
     }
 
     @Override
     public void append(IntArrayList positions, Block source)
     {
-        // RleAwarePositionsAppender should be used with FlatteningPositionsAppender that makes sure
+        // RleAwarePositionsAppender should be used with UnnestingPositionsAppender that makes sure
         // append is called only with flat block
-        checkArgument(!(source instanceof RunLengthEncodedBlock));
+        checkArgument(!(source instanceof RunLengthEncodedBlock), "Append should be called with non-RLE block but got %s", source);
         switchToFlat();
         delegate.append(positions, source);
     }
 
     @Override
-    public void appendRle(RunLengthEncodedBlock source)
+    public void appendRle(Block value, int positionCount)
     {
-        if (source.getPositionCount() == 0) {
+        if (positionCount == 0) {
             return;
         }
+        checkArgument(value.getPositionCount() == 1, "Expected value to contain a single position but has %d positions".formatted(value.getPositionCount()));
 
         if (rlePositionCount == 0) {
             // initial empty state, switch to RLE state
-            rleValue = source.getValue();
-            rlePositionCount = source.getPositionCount();
+            rleValue = value;
+            rlePositionCount = positionCount;
         }
         else if (rleValue != null) {
             // we are in the RLE state
-            if (equalOperator.equalNullSafe(rleValue, 0, source.getValue(), 0)) {
+            if (!isDistinctFromOperator.isDistinctFrom(rleValue, 0, value, 0)) {
                 // the values match. we can just add positions.
-                this.rlePositionCount += source.getPositionCount();
+                this.rlePositionCount += positionCount;
                 return;
             }
             // RLE values do not match. switch to flat state
             switchToFlat();
-            delegate.appendRle(source);
+            delegate.appendRle(value, positionCount);
         }
         else {
             // flat state
-            delegate.appendRle(source);
+            delegate.appendRle(value, positionCount);
         }
+    }
+
+    @Override
+    public void append(int position, Block value)
+    {
+        switchToFlat();
+        delegate.append(position, value);
     }
 
     @Override
@@ -93,7 +100,7 @@ public class RleAwarePositionsAppender
     {
         Block result;
         if (rleValue != null) {
-            result = new RunLengthEncodedBlock(rleValue, rlePositionCount);
+            result = RunLengthEncodedBlock.create(rleValue, rlePositionCount);
         }
         else {
             result = delegate.build();
@@ -127,7 +134,7 @@ public class RleAwarePositionsAppender
     {
         if (rleValue != null) {
             // we are in the RLE state, flatten all RLE blocks
-            delegate.appendRle(new RunLengthEncodedBlock(rleValue, rlePositionCount));
+            delegate.appendRle(rleValue, rlePositionCount);
             rleValue = null;
         }
         rlePositionCount = NO_RLE;

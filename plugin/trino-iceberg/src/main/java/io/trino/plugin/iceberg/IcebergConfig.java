@@ -15,34 +15,41 @@ package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
-
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
-import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+@DefunctConfig({
+        "iceberg.allow-legacy-snapshot-syntax",
+        "iceberg.experimental.extended-statistics.enabled",
+})
 public class IcebergConfig
 {
     public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
     public static final int FORMAT_VERSION_SUPPORT_MAX = 2;
+    public static final String EXTENDED_STATISTICS_CONFIG = "iceberg.extended-statistics.enabled";
+    public static final String EXTENDED_STATISTICS_DESCRIPTION = "Enable collection (ANALYZE) and use of extended statistics.";
+    public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION = "Collect extended statistics during writes";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire_snapshots.min-retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove_orphan_files.min-retention";
 
-    private IcebergFileFormat fileFormat = ORC;
+    private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionCodec compressionCodec = ZSTD;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
@@ -50,7 +57,10 @@ public class IcebergConfig
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
+    private boolean extendedStatisticsEnabled = true;
+    private boolean collectExtendedStatisticsOnWrite = true;
     private boolean projectionPushdownEnabled = true;
+    private boolean registerTableProcedureEnabled;
     private Optional<String> hiveCatalogName = Optional.empty();
     private int formatVersion = FORMAT_VERSION_SUPPORT_MAX;
     private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
@@ -61,8 +71,8 @@ public class IcebergConfig
     // to avoid deleting those files if Trino is unable to check.
     private boolean deleteSchemaLocationsFallback;
     private double minimumAssignedSplitWeight = 0.05;
-    private boolean allowLegacySnapshotSyntax;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
+    private boolean sortedWritingEnabled = true;
 
     public CatalogType getCatalogType()
     {
@@ -164,6 +174,11 @@ public class IcebergConfig
         return this;
     }
 
+    public boolean isTableStatisticsEnabled()
+    {
+        return tableStatisticsEnabled;
+    }
+
     // In case of some queries / tables, retrieving table statistics from Iceberg
     // can take 20+ seconds. This config allows the user / operator the option
     // to opt out of retrieving table statistics in those cases to speed up query planning.
@@ -175,9 +190,30 @@ public class IcebergConfig
         return this;
     }
 
-    public boolean isTableStatisticsEnabled()
+    public boolean isExtendedStatisticsEnabled()
     {
-        return tableStatisticsEnabled;
+        return extendedStatisticsEnabled;
+    }
+
+    @Config(EXTENDED_STATISTICS_CONFIG)
+    @ConfigDescription(EXTENDED_STATISTICS_DESCRIPTION)
+    public IcebergConfig setExtendedStatisticsEnabled(boolean extendedStatisticsEnabled)
+    {
+        this.extendedStatisticsEnabled = extendedStatisticsEnabled;
+        return this;
+    }
+
+    public boolean isCollectExtendedStatisticsOnWrite()
+    {
+        return collectExtendedStatisticsOnWrite;
+    }
+
+    @Config("iceberg.extended-statistics.collect-on-write")
+    @ConfigDescription(COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION)
+    public IcebergConfig setCollectExtendedStatisticsOnWrite(boolean collectExtendedStatisticsOnWrite)
+    {
+        this.collectExtendedStatisticsOnWrite = collectExtendedStatisticsOnWrite;
+        return this;
     }
 
     public boolean isProjectionPushdownEnabled()
@@ -186,10 +222,23 @@ public class IcebergConfig
     }
 
     @Config("iceberg.projection-pushdown-enabled")
-    @ConfigDescription("Read only required fields from a struct")
+    @ConfigDescription("Read only required fields from a row type")
     public IcebergConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
+        return this;
+    }
+
+    public boolean isRegisterTableProcedureEnabled()
+    {
+        return registerTableProcedureEnabled;
+    }
+
+    @Config("iceberg.register-table-procedure.enabled")
+    @ConfigDescription("Allow users to call the register_table procedure")
+    public IcebergConfig setRegisterTableProcedureEnabled(boolean registerTableProcedureEnabled)
+    {
+        this.registerTableProcedureEnabled = registerTableProcedureEnabled;
         return this;
     }
 
@@ -292,20 +341,6 @@ public class IcebergConfig
         return minimumAssignedSplitWeight;
     }
 
-    @Config("iceberg.allow-legacy-snapshot-syntax")
-    @Deprecated
-    public IcebergConfig setAllowLegacySnapshotSyntax(boolean allowLegacySnapshotSyntax)
-    {
-        this.allowLegacySnapshotSyntax = allowLegacySnapshotSyntax;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isAllowLegacySnapshotSyntax()
-    {
-        return allowLegacySnapshotSyntax;
-    }
-
     @NotNull
     public Optional<String> getMaterializedViewsStorageSchema()
     {
@@ -317,6 +352,19 @@ public class IcebergConfig
     public IcebergConfig setMaterializedViewsStorageSchema(String materializedViewsStorageSchema)
     {
         this.materializedViewsStorageSchema = Optional.ofNullable(materializedViewsStorageSchema);
+        return this;
+    }
+
+    public boolean isSortedWritingEnabled()
+    {
+        return sortedWritingEnabled;
+    }
+
+    @Config("iceberg.sorted-writing-enabled")
+    @ConfigDescription("Enable sorted writing to tables with a specified sort order")
+    public IcebergConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
+    {
+        this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
     }
 }

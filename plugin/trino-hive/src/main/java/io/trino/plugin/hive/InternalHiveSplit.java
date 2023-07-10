@@ -14,36 +14,30 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.spi.HostAddress;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.function.BooleanSupplier;
-import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
 public class InternalHiveSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize() +
-            ClassLayout.parseClass(Properties.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize() +
-            ClassLayout.parseClass(OptionalInt.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(InternalHiveSplit.class) + instanceSize(Properties.class) + instanceSize(OptionalInt.class);
 
     private final String path;
     private final long end;
@@ -55,10 +49,6 @@ public class InternalHiveSplit
     private final String partitionName;
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
-    // This supplier returns an unused statementId, to guarantee that created split
-    // files do not collide.  Successive calls return the the next sequential integer,
-    // starting with zero.
-    private final Supplier<Integer> statementIdSupplier;
     private final boolean splittable;
     private final boolean forceLocalScheduling;
     private final TableToPartitionMapping tableToPartitionMapping;
@@ -70,7 +60,6 @@ public class InternalHiveSplit
 
     private long start;
     private int currentBlockIndex;
-    private int statementId;
 
     public InternalHiveSplit(
             String partitionName,
@@ -84,7 +73,6 @@ public class InternalHiveSplit
             List<InternalHiveBlock> blocks,
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
-            Supplier<Integer> statementIdSupplier,
             boolean splittable,
             boolean forceLocalScheduling,
             TableToPartitionMapping tableToPartitionMapping,
@@ -104,7 +92,6 @@ public class InternalHiveSplit
         requireNonNull(blocks, "blocks is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
-        requireNonNull(statementIdSupplier, "statementIdSupplier is null");
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
@@ -122,8 +109,6 @@ public class InternalHiveSplit
         this.blocks = ImmutableList.copyOf(blocks);
         this.readBucketNumber = readBucketNumber;
         this.tableBucketNumber = tableBucketNumber;
-        this.statementIdSupplier = statementIdSupplier;
-        this.statementId = statementIdSupplier.get();
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
         this.tableToPartitionMapping = tableToPartitionMapping;
@@ -189,11 +174,6 @@ public class InternalHiveSplit
         return tableBucketNumber;
     }
 
-    public int getStatementId()
-    {
-        return statementId;
-    }
-
     public boolean isSplittable()
     {
         return splittable;
@@ -232,7 +212,6 @@ public class InternalHiveSplit
 
     public void increaseStart(long value)
     {
-        statementId = statementIdSupplier.get();
         start += value;
         if (start == currentBlock().getEnd()) {
             currentBlockIndex++;
@@ -277,9 +256,8 @@ public class InternalHiveSplit
 
     public static class InternalHiveBlock
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveBlock.class).instanceSize();
-        private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
-                ClassLayout.parseClass(String.class).instanceSize();
+        private static final int INSTANCE_SIZE = instanceSize(InternalHiveBlock.class);
+        private static final int HOST_ADDRESS_INSTANCE_SIZE = instanceSize(HostAddress.class);
 
         private final long start;
         private final long end;

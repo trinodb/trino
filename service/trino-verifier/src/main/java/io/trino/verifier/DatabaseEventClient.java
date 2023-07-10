@@ -13,12 +13,11 @@
  */
 package io.trino.verifier;
 
+import com.google.inject.Inject;
 import io.airlift.event.client.AbstractEventClient;
 import io.airlift.json.JsonCodec;
-
-import javax.annotation.Nullable;
-import javax.annotation.PostConstruct;
-import javax.inject.Inject;
+import jakarta.annotation.Nullable;
+import jakarta.annotation.PostConstruct;
 
 import java.util.List;
 import java.util.Optional;

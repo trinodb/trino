@@ -15,23 +15,29 @@ package io.trino.plugin.hive.metastore.recording;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.RateLimiter;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.trino.spi.procedure.Procedure;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class WriteHiveMetastoreRecordingProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle WRITE_HIVE_METASTORE_RECORDING = methodHandle(
-            WriteHiveMetastoreRecordingProcedure.class,
-            "writeHiveMetastoreRecording");
+    private static final MethodHandle WRITE_HIVE_METASTORE_RECORDING;
+
+    static {
+        try {
+            WRITE_HIVE_METASTORE_RECORDING = lookup().unreflect(WriteHiveMetastoreRecordingProcedure.class.getMethod("writeHiveMetastoreRecording"));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final RateLimiter rateLimiter = RateLimiter.create(0.2);
     private final HiveMetastoreRecording hiveMetastoreRecording;

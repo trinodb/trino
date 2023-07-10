@@ -22,6 +22,7 @@ import com.nimbusds.jose.KeyLengthException;
 import com.nimbusds.jose.Payload;
 import com.nimbusds.jose.crypto.AESDecrypter;
 import com.nimbusds.jose.crypto.AESEncrypter;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.CompressionCodec;
@@ -38,7 +39,6 @@ import java.text.ParseException;
 import java.time.Clock;
 import java.util.Date;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
@@ -49,20 +49,18 @@ import static java.util.Objects.requireNonNull;
 public class JweTokenSerializer
         implements TokenPairSerializer
 {
-    private static final JWEAlgorithm ALGORITHM = JWEAlgorithm.A256KW;
-    private static final EncryptionMethod ENCRYPTION_METHOD = EncryptionMethod.A256CBC_HS512;
+    private static final Logger LOG = Logger.get(JweTokenSerializer.class);
     private static final CompressionCodec COMPRESSION_CODEC = new ZstdCodec();
     private static final String ACCESS_TOKEN_KEY = "access_token";
     private static final String EXPIRATION_TIME_KEY = "expiration_time";
     private static final String REFRESH_TOKEN_KEY = "refresh_token";
+    private final JweEncryptedSerializer jweSerializer;
     private final OAuth2Client client;
     private final Clock clock;
     private final String issuer;
     private final String audience;
     private final Duration tokenExpiration;
     private final JwtParser parser;
-    private final AESEncrypter jweEncrypter;
-    private final AESDecrypter jweDecrypter;
     private final String principalField;
 
     public JweTokenSerializer(
@@ -73,11 +71,8 @@ public class JweTokenSerializer
             String principalField,
             Clock clock,
             Duration tokenExpiration)
-            throws KeyLengthException, NoSuchAlgorithmException
     {
-        SecretKey secretKey = createKey(requireNonNull(config, "config is null"));
-        this.jweEncrypter = new AESEncrypter(secretKey);
-        this.jweDecrypter = new AESDecrypter(secretKey);
+        this.jweSerializer = new JweEncryptedSerializer(getOrGenerateKey(config));
         this.client = requireNonNull(client, "client is null");
         this.issuer = requireNonNull(issuer, "issuer is null");
         this.principalField = requireNonNull(principalField, "principalField is null");
@@ -99,19 +94,14 @@ public class JweTokenSerializer
         requireNonNull(token, "token is null");
 
         try {
-            JWEObject jwe = JWEObject.parse(token);
-            jwe.decrypt(jweDecrypter);
-            Claims claims = parser.parseClaimsJwt(jwe.getPayload().toString()).getBody();
-            return TokenPair.accessAndRefreshTokens(
+            Claims claims = parser.parseClaimsJwt(jweSerializer.deserialize(token)).getBody();
+            return TokenPair.withAccessAndRefreshTokens(
                     claims.get(ACCESS_TOKEN_KEY, String.class),
                     claims.get(EXPIRATION_TIME_KEY, Date.class),
                     claims.get(REFRESH_TOKEN_KEY, String.class));
         }
         catch (ParseException ex) {
-            throw new IllegalArgumentException("Malformed jwt token", ex);
-        }
-        catch (JOSEException ex) {
-            throw new IllegalArgumentException("Decryption failed", ex);
+            return TokenPair.withAccessToken(token);
         }
     }
 
@@ -120,11 +110,7 @@ public class JweTokenSerializer
     {
         requireNonNull(tokenPair, "tokenPair is null");
 
-        Optional<Map<String, Object>> accessTokenClaims = client.getClaims(tokenPair.getAccessToken());
-        if (accessTokenClaims.isEmpty()) {
-            throw new IllegalArgumentException("Claims are missing");
-        }
-        Map<String, Object> claims = accessTokenClaims.get();
+        Map<String, Object> claims = client.getClaims(tokenPair.accessToken()).orElseThrow(() -> new IllegalArgumentException("Claims are missing"));
         if (!claims.containsKey(principalField)) {
             throw new IllegalArgumentException(format("%s field is missing", principalField));
         }
@@ -133,41 +119,36 @@ public class JweTokenSerializer
                 .claim(principalField, claims.get(principalField).toString())
                 .setAudience(audience)
                 .setIssuer(issuer)
-                .claim(ACCESS_TOKEN_KEY, tokenPair.getAccessToken())
-                .claim(EXPIRATION_TIME_KEY, tokenPair.getExpiration())
-                .claim(REFRESH_TOKEN_KEY, tokenPair.getRefreshToken().orElseThrow(JweTokenSerializer::throwExceptionForNonExistingRefreshToken))
+                .claim(ACCESS_TOKEN_KEY, tokenPair.accessToken())
+                .claim(EXPIRATION_TIME_KEY, tokenPair.expiration())
                 .compressWith(COMPRESSION_CODEC);
 
-        try {
-            JWEObject jwe = new JWEObject(
-                    new JWEHeader(ALGORITHM, ENCRYPTION_METHOD),
-                    new Payload(jwt.compact()));
-            jwe.encrypt(jweEncrypter);
-            return jwe.serialize();
+        if (tokenPair.refreshToken().isPresent()) {
+            jwt.claim(REFRESH_TOKEN_KEY, tokenPair.refreshToken().orElseThrow());
         }
-        catch (JOSEException ex) {
-            throw new IllegalStateException("Encryption failed", ex);
+        else {
+            LOG.info("No refresh token has been issued, although coordinator expects one. Please check your IdP whether that is correct behaviour");
         }
+        return jweSerializer.serialize(jwt.compact());
     }
 
-    private static SecretKey createKey(RefreshTokensConfig config)
-            throws NoSuchAlgorithmException
+    private static SecretKey getOrGenerateKey(RefreshTokensConfig config)
     {
         SecretKey signingKey = config.getSecretKey();
         if (signingKey == null) {
-            KeyGenerator generator = KeyGenerator.getInstance("AES");
-            generator.init(256);
-            return generator.generateKey();
+            try {
+                KeyGenerator generator = KeyGenerator.getInstance("AES");
+                generator.init(256);
+                return generator.generateKey();
+            }
+            catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException(e);
+            }
         }
         return signingKey;
     }
 
-    private static RuntimeException throwExceptionForNonExistingRefreshToken()
-    {
-        throw new IllegalStateException("Expected refresh token to be present. Please check your identity provider setup, or disable refresh tokens");
-    }
-
-    private static CompressionCodec resolveCompressionCodec(Header header)
+    private static CompressionCodec resolveCompressionCodec(Header<?> header)
             throws CompressionException
     {
         if (header.getCompressionAlgorithm() != null) {
@@ -175,5 +156,60 @@ public class JweTokenSerializer
             return COMPRESSION_CODEC;
         }
         return null;
+    }
+
+    private static class JweEncryptedSerializer
+    {
+        private final AESEncrypter jweEncrypter;
+        private final AESDecrypter jweDecrypter;
+        private final JWEHeader encryptionHeader;
+
+        private JweEncryptedSerializer(SecretKey secretKey)
+        {
+            try {
+                this.encryptionHeader = createEncryptionHeader(secretKey);
+                this.jweEncrypter = new AESEncrypter(secretKey);
+                this.jweDecrypter = new AESDecrypter(secretKey);
+            }
+            catch (KeyLengthException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private JWEHeader createEncryptionHeader(SecretKey key)
+        {
+            int keyLength = key.getEncoded().length;
+            return switch (keyLength) {
+                case 16 -> new JWEHeader(JWEAlgorithm.A128GCMKW, EncryptionMethod.A128GCM);
+                case 24 -> new JWEHeader(JWEAlgorithm.A192GCMKW, EncryptionMethod.A192GCM);
+                case 32 -> new JWEHeader(JWEAlgorithm.A256GCMKW, EncryptionMethod.A256GCM);
+                default -> throw new IllegalArgumentException("Secret key size must be either 16, 24 or 32 bytes but was %d".formatted(keyLength));
+            };
+        }
+
+        private String serialize(String payload)
+        {
+            try {
+                JWEObject jwe = new JWEObject(encryptionHeader, new Payload(payload));
+                jwe.encrypt(jweEncrypter);
+                return jwe.serialize();
+            }
+            catch (JOSEException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private String deserialize(String token)
+                throws ParseException
+        {
+            try {
+                JWEObject jwe = JWEObject.parse(token);
+                jwe.decrypt(jweDecrypter);
+                return jwe.getPayload().toString();
+            }
+            catch (JOSEException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 }

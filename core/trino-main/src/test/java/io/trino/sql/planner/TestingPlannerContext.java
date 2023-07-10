@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import io.trino.FeaturesConfig;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
@@ -45,6 +46,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.client.NodeVersion.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
@@ -131,7 +133,7 @@ public final class TestingPlannerContext
                 metadata = builder.build();
             }
 
-            FunctionManager functionManager = new FunctionManager(globalFunctionCatalog);
+            FunctionManager functionManager = new FunctionManager(CatalogServiceProvider.fail(), globalFunctionCatalog);
             globalFunctionCatalog.addFunctions(new InternalFunctionBundle(
                     new JsonExistsFunction(functionManager, metadata, typeManager),
                     new JsonValueFunction(functionManager, metadata, typeManager),
@@ -143,7 +145,8 @@ public final class TestingPlannerContext
                     typeOperators,
                     blockEncodingSerde,
                     typeManager,
-                    functionManager);
+                    functionManager,
+                    noopTracer());
         }
     }
 }

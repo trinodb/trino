@@ -39,7 +39,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
-import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Option;
@@ -137,6 +136,9 @@ public class ClientOptions
     @Option(names = "--debug", paramLabel = "<debug>", description = "Enable debug information")
     public boolean debug;
 
+    @Option(names = "--history-file", paramLabel = "<historyFile>", defaultValue = "${env:TRINO_HISTORY_FILE:-${sys:user.home}/.trino_history}", description = "Path to the history file " + DEFAULT_VALUE)
+    public String historyFile;
+
     @Option(names = "--network-logging", paramLabel = "<level>", defaultValue = "NONE", description = "Network logging level [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public HttpLoggingInterceptor.Level networkLogging;
 
@@ -148,6 +150,12 @@ public class ClientOptions
 
     @Option(names = "--output-format", paramLabel = "<format>", defaultValue = "CSV", description = "Output format for batch mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public OutputFormat outputFormat;
+
+    @Option(names = "--output-format-interactive", paramLabel = "<format>", defaultValue = "ALIGNED", description = "Output format for interactive mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
+    public OutputFormat outputFormatInteractive;
+
+    @Option(names = "--pager", paramLabel = "<pager>", defaultValue = "${env:TRINO_PAGER}", description = "Path to the pager program used to display the query results")
+    public Optional<String> pager;
 
     @Option(names = "--resource-estimate", paramLabel = "<estimate>", description = "Resource estimate (property can be used multiple times; format is key=value)")
     public final List<ClientResourceEstimate> resourceEstimates = new ArrayList<>();
@@ -187,6 +195,7 @@ public class ClientOptions
 
     public enum OutputFormat
     {
+        AUTO,
         ALIGNED,
         VERTICAL,
         TSV,
@@ -219,27 +228,25 @@ public class ClientOptions
 
     public ClientSession toClientSession()
     {
-        return new ClientSession(
-                parseServer(server),
-                user,
-                sessionUser,
-                source,
-                Optional.ofNullable(traceToken),
-                parseClientTags(nullToEmpty(clientTags)),
-                clientInfo,
-                catalog,
-                schema,
-                null,
-                timeZone,
-                Locale.getDefault(),
-                toResourceEstimates(resourceEstimates),
-                toProperties(sessionProperties),
-                emptyMap(),
-                emptyMap(),
-                toExtraCredentials(extraCredentials),
-                null,
-                clientRequestTimeout,
-                disableCompression);
+        return ClientSession.builder()
+                .server(parseServer(server))
+                .principal(user)
+                .user(sessionUser)
+                .source(source)
+                .traceToken(Optional.ofNullable(traceToken))
+                .clientTags(parseClientTags(nullToEmpty(clientTags)))
+                .clientInfo(clientInfo)
+                .catalog(catalog)
+                .schema(schema)
+                .timeZone(timeZone)
+                .locale(Locale.getDefault())
+                .resourceEstimates(toResourceEstimates(resourceEstimates))
+                .properties(toProperties(sessionProperties))
+                .credentials(toExtraCredentials(extraCredentials))
+                .transactionId(null)
+                .clientRequestTimeout(clientRequestTimeout)
+                .compressionDisabled(disableCompression)
+                .build();
     }
 
     public static URI parseServer(String server)

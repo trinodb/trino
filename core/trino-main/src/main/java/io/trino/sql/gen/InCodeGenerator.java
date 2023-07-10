@@ -124,9 +124,9 @@ public class InCodeGenerator
 
         SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, testExpressions);
 
-        MethodHandle equalsMethodHandle = generatorContext.getScalarFunctionInvoker(resolvedEqualsFunction, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle();
-        MethodHandle hashCodeMethodHandle = generatorContext.getScalarFunctionInvoker(resolvedHashCodeFunction, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
-        MethodHandle indeterminateMethodHandle = generatorContext.getScalarFunctionInvoker(resolvedIsIndeterminate, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
+        MethodHandle equalsMethodHandle = generatorContext.getScalarFunctionImplementation(resolvedEqualsFunction, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle();
+        MethodHandle hashCodeMethodHandle = generatorContext.getScalarFunctionImplementation(resolvedHashCodeFunction, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
+        MethodHandle indeterminateMethodHandle = generatorContext.getScalarFunctionImplementation(resolvedIsIndeterminate, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
 
         ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
         ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
@@ -365,10 +365,9 @@ public class InCodeGenerator
 
     private static boolean isDeterminateConstant(RowExpression expression, MethodHandle isIndeterminateFunction)
     {
-        if (!(expression instanceof ConstantExpression)) {
+        if (!(expression instanceof ConstantExpression constantExpression)) {
             return false;
         }
-        ConstantExpression constantExpression = (ConstantExpression) expression;
         Object value = constantExpression.getValue();
         if (value == null) {
             return false;

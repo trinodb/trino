@@ -30,11 +30,11 @@ import java.util.stream.Stream;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static io.trino.plugin.hive.HiveToTrinoTranslator.translateHiveViewToTrino;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveQlTranslation
 {

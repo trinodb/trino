@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message schema {
+  repeated uint64 a_array = 1;
+  map<string, double> a_map = 2;
+}

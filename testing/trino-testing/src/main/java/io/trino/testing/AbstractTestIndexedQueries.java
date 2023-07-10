@@ -404,19 +404,50 @@ public abstract class AbstractTestIndexedQueries
     }
 
     @Test
-    public void testReducedIndexProbeKey()
+    public void testReducedIndexProjection()
     {
-        assertQuery("" +
-                "SELECT *\n" +
-                "FROM (\n" +
-                "  SELECT orderkey % 64 AS a, suppkey % 2 AS b\n" +
-                "  FROM lineitem\n" +
-                "  WHERE partkey % 8 = 0) l\n" +
-                "JOIN (\n" +
-                "  SELECT orderkey AS a, SUM(LENGTH(comment)) % 2 AS b\n" +
-                "  FROM orders\n" +
-                "  GROUP BY orderkey) o\n" +
-                "  ON l.a = o.a AND l.b = o.b");
+        assertQuery("""
+                SELECT *
+                FROM lineitem l
+                INNER JOIN (
+                    SELECT orderkey, (orderkey + custkey) % 107 some_projection
+                    FROM orders
+                ) o
+                ON l.orderkey = o.orderkey AND l.linenumber % 407 = o.some_projection
+                """);
+    }
+
+    @Test
+    public void testReducedIndexAggregation()
+    {
+        assertQuery("""
+                SELECT *
+                FROM (
+                  SELECT orderkey % 64 AS a, suppkey % 107 AS b
+                  FROM lineitem
+                  WHERE partkey % 8 = 0) l
+                JOIN (
+                  SELECT orderkey AS a, SUM(LENGTH(comment)) % 407 AS b
+                  FROM orders
+                  GROUP BY orderkey) o
+                  ON l.a = o.a AND l.b = o.b
+                """);
+    }
+
+    @Test
+    public void testReducedIndexWindow()
+    {
+        assertQuery("""
+                SELECT *
+                FROM lineitem l
+                INNER JOIN (
+                    SELECT
+                      orderkey,
+                      SUM(custkey) OVER (PARTITION BY orderkey) % 107 some_window
+                    FROM orders
+                ) o
+                ON l.orderkey = o.orderkey AND l.linenumber % 407 = o.some_window
+                """);
     }
 
     @Test

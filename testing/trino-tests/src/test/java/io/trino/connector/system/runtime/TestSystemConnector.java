@@ -48,6 +48,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,7 +59,6 @@ import static org.testng.Assert.assertTrue;
 public class TestSystemConnector
         extends AbstractTestQueryFramework
 {
-    private static final SchemaTableName SCHEMA_TABLE_NAME = new SchemaTableName("default", "test_table");
     private static final Function<SchemaTableName, List<ColumnMetadata>> DEFAULT_GET_COLUMNS = table -> ImmutableList.of(new ColumnMetadata("c", VARCHAR));
     private static final AtomicLong counter = new AtomicLong();
 
@@ -86,7 +86,7 @@ public class TestSystemConnector
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                         .withGetViews((session, schemaTablePrefix) -> ImmutableMap.of())
-                        .withListTables((session, s) -> ImmutableList.of(SCHEMA_TABLE_NAME))
+                        .withListTables((session, s) -> ImmutableList.of("test_table"))
                         .withGetColumns(tableName -> getColumns.apply(tableName))
                         .build();
                 return ImmutableList.of(connectorFactory);
@@ -234,12 +234,12 @@ public class TestSystemConnector
                 format("SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
                 "VALUES 'FINISHED'",
                 new Duration(10, SECONDS));
-        assertTrue(queryFuture.isDone());
+        // Client should receive query result immediately afterwards
+        assertEventually(new Duration(5, SECONDS), () -> assertTrue(queryFuture.isDone()));
     }
 
     @Test(timeOut = 60_000)
     public void testQueryKillingDuringAnalysis()
-            throws InterruptedException
     {
         SettableFuture<List<ColumnMetadata>> metadataFuture = SettableFuture.create();
         getColumns = schemaTableName -> {
@@ -260,7 +260,12 @@ public class TestSystemConnector
             getQueryRunner().execute(format("EXPLAIN SELECT 1 AS %s FROM test_table", testQueryId));
         });
 
-        Thread.sleep(100);
+        // Wait for query to start
+        assertQueryEventually(
+                getSession(),
+                format("SELECT count(*) FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
+                "VALUES 1",
+                new Duration(5, SECONDS));
 
         Optional<Object> queryId = computeActual(format("SELECT query_id FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId))
                 .getOnlyColumn()
@@ -270,10 +275,10 @@ public class TestSystemConnector
         assertTrue(queryId.isPresent());
 
         getQueryRunner().execute(format("CALL system.runtime.kill_query('%s', 'because')", queryId.get()));
-
-        Thread.sleep(100);
-        assertTrue(queryFuture.isDone());
-        assertTrue(metadataFuture.isCancelled());
+        // Cancellation should happen within kill_query, but it still needs to be propagated to the thread performing analysis.
+        assertEventually(new Duration(5, SECONDS), () -> assertTrue(metadataFuture.isCancelled()));
+        // Client should receive query result (failure) immediately afterwards
+        assertEventually(new Duration(5, SECONDS), () -> assertTrue(queryFuture.isDone()));
     }
 
     @Test

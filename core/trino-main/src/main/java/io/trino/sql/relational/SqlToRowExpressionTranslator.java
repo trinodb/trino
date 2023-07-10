@@ -206,10 +206,10 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitLongLiteral(LongLiteral node, Void context)
         {
-            if (node.getValue() >= Integer.MIN_VALUE && node.getValue() <= Integer.MAX_VALUE) {
-                return constant(node.getValue(), INTEGER);
+            if (node.getParsedValue() >= Integer.MIN_VALUE && node.getParsedValue() <= Integer.MAX_VALUE) {
+                return constant(node.getParsedValue(), INTEGER);
             }
-            return constant(node.getValue(), BIGINT);
+            return constant(node.getParsedValue(), BIGINT);
         }
 
         @Override
@@ -688,9 +688,8 @@ public final class SqlToRowExpressionTranslator
             RowExpression min = process(node.getMin(), context);
             RowExpression max = process(node.getMax(), context);
 
-            List<ResolvedFunction> functionDependencies = ImmutableList.<ResolvedFunction>builder()
-                    .add(metadata.resolveOperator(session, LESS_THAN_OR_EQUAL, ImmutableList.of(value.getType(), max.getType())))
-                    .build();
+            List<ResolvedFunction> functionDependencies = ImmutableList.of(
+                    metadata.resolveOperator(session, LESS_THAN_OR_EQUAL, ImmutableList.of(value.getType(), max.getType())));
 
             return new SpecialForm(
                     BETWEEN,

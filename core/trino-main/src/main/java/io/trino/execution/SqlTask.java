@@ -17,11 +17,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
@@ -30,19 +35,20 @@ import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.memory.QueryContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.tracing.TrinoAttributes;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
-
-import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
@@ -65,10 +71,11 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_DOMAINS;
-import static io.trino.execution.TaskState.ABORTED;
 import static io.trino.execution.TaskState.FAILED;
+import static io.trino.execution.TaskState.FAILING;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.util.Failures.toFailures;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -80,9 +87,11 @@ public class SqlTask
     private final String taskInstanceId;
     private final URI location;
     private final String nodeId;
+    private final AtomicBoolean speculative = new AtomicBoolean(false);
     private final TaskStateMachine taskStateMachine;
     private final OutputBuffer outputBuffer;
     private final QueryContext queryContext;
+    private final Tracer tracer;
 
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
     private final Executor taskNotificationExecutor;
@@ -90,16 +99,21 @@ public class SqlTask
     private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
     private final AtomicLong taskStatusVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
     private final FutureStateChange<?> taskStatusVersionChange = new FutureStateChange<>();
-
+    // Must be synchronized when updating the current task holder reference, but not when only reading the current reference value
+    private final Object taskHolderLock = new Object();
+    @GuardedBy("taskHolderLock")
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
+    private final AtomicReference<Span> taskSpan = new AtomicReference<>(Span.getInvalid());
     private final AtomicReference<String> traceToken = new AtomicReference<>();
+    private final AtomicReference<Set<CatalogHandle>> catalogs = new AtomicReference<>();
 
     public static SqlTask createSqlTask(
             TaskId taskId,
             URI location,
             String nodeId,
             QueryContext queryContext,
+            Tracer tracer,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             Consumer<SqlTask> onDone,
@@ -108,7 +122,7 @@ public class SqlTask
             ExchangeManagerRegistry exchangeManagerRegistry,
             CounterStat failedTasks)
     {
-        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize, exchangeManagerRegistry);
+        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, tracer, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize, exchangeManagerRegistry);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -118,6 +132,7 @@ public class SqlTask
             URI location,
             String nodeId,
             QueryContext queryContext,
+            Tracer tracer,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             DataSize maxBufferSize,
@@ -129,6 +144,7 @@ public class SqlTask
         this.location = requireNonNull(location, "location is null");
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.sqlTaskExecutionFactory = requireNonNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
         this.taskNotificationExecutor = requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
@@ -142,7 +158,7 @@ public class SqlTask
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the memory context yet.
                 () -> queryContext.getTaskContextByTaskId(taskId).localMemoryContext(),
-                () -> notifyStatusChanged(),
+                this::notifyStatusChanged,
                 exchangeManagerRegistry);
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
     }
@@ -152,61 +168,74 @@ public class SqlTask
     {
         requireNonNull(onDone, "onDone is null");
         requireNonNull(failedTasks, "failedTasks is null");
+
+        AtomicBoolean outputBufferCleanedUp = new AtomicBoolean();
         taskStateMachine.addStateChangeListener(newState -> {
-            if (!newState.isDone()) {
-                if (newState != RUNNING) {
-                    // notify that task state changed (apart from initial RUNNING state notification)
-                    notifyStatusChanged();
+            taskSpan.get().addEvent("task_state", Attributes.of(
+                    TrinoAttributes.EVENT_STATE, newState.toString()));
+
+            if (newState.isTerminatingOrDone()) {
+                if (newState.isTerminating()) {
+                    // This section must be synchronized to lock out any threads that might be attempting to create a SqlTaskExecution
+                    synchronized (taskHolderLock) {
+                        // If a SqlTaskExecution exists, it decides when termination is complete. Otherwise, we can mark termination completed immediately
+                        if (taskHolderReference.get().getTaskExecution() == null) {
+                            taskStateMachine.terminationComplete();
+                        }
+                    }
                 }
-                return;
-            }
-
-            // Update failed tasks counter
-            if (newState == FAILED) {
-                failedTasks.update(1);
-            }
-
-            // store final task info
-            while (true) {
-                TaskHolder taskHolder = taskHolderReference.get();
-                if (taskHolder.isFinished()) {
-                    // another concurrent worker already set the final state
-                    return;
+                else if (newState.isDone()) {
+                    // Update failed tasks counter
+                    if (newState == FAILED) {
+                        failedTasks.update(1);
+                    }
+                    // store final task info
+                    boolean finished = false;
+                    synchronized (taskHolderLock) {
+                        TaskHolder taskHolder = taskHolderReference.get();
+                        if (!taskHolder.isFinished()) {
+                            TaskHolder newHolder = new TaskHolder(
+                                    createTaskInfo(taskHolder),
+                                    taskHolder.getIoStats(),
+                                    taskHolder.getDynamicFilterDomains());
+                            checkState(taskHolderReference.compareAndSet(taskHolder, newHolder), "unsynchronized concurrent task holder update");
+                            finished = true;
+                        }
+                    }
+                    // Successfully set the final task info, cleanup the output buffer and call the completion handler
+                    if (finished) {
+                        try {
+                            onDone.accept(this);
+                        }
+                        catch (Exception e) {
+                            log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
+                        }
+                    }
                 }
-
-                if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(
-                        createTaskInfo(taskHolder),
-                        taskHolder.getIoStats(),
-                        taskHolder.getDynamicFilterDomains()))) {
-                    break;
+                // make sure buffers are cleaned up
+                if (outputBufferCleanedUp.compareAndSet(false, true)) {
+                    switch (newState) {
+                        // don't close buffers for a failed query
+                        // closed buffers signal to upstream tasks that everything finished cleanly
+                        case FAILED, FAILING, ABORTED, ABORTING ->
+                                outputBuffer.abort();
+                        case FINISHED, CANCELED, CANCELING ->
+                                outputBuffer.destroy();
+                        default ->
+                                throw new IllegalStateException(format("Invalid state for output buffer destruction: %s", newState));
+                    }
                 }
             }
 
-            // make sure buffers are cleaned up
-            if (newState == FAILED || newState == ABORTED) {
-                // don't close buffers for a failed query
-                // closed buffers signal to upstream tasks that everything finished cleanly
-                outputBuffer.abort();
-            }
-            else {
-                outputBuffer.destroy();
+            // notify that task state changed (apart from initial RUNNING state notification)
+            if (newState != RUNNING) {
+                notifyStatusChanged();
             }
 
-            try {
-                onDone.accept(this);
+            if (newState.isDone()) {
+                taskSpan.get().end();
             }
-            catch (Exception e) {
-                log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
-            }
-
-            // notify that task is finished
-            notifyStatusChanged();
         });
-    }
-
-    public boolean isOutputBufferOverutilized()
-    {
-        return outputBuffer.isOverutilized();
     }
 
     public SqlTaskIoStats getIoStats()
@@ -253,6 +282,17 @@ public class SqlTask
         }
     }
 
+    public Optional<Set<CatalogHandle>> getCatalogs()
+    {
+        return Optional.ofNullable(catalogs.get());
+    }
+
+    public boolean setCatalogs(Set<CatalogHandle> catalogs)
+    {
+        requireNonNull(catalogs, "catalogs is null");
+        return this.catalogs.compareAndSet(null, requireNonNull(catalogs, "catalogs is null"));
+    }
+
     public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)
     {
         return taskHolderReference.get().acknowledgeAndGetNewDynamicFilterDomains(callersDynamicFiltersVersion);
@@ -273,7 +313,7 @@ public class SqlTask
 
         TaskState state = taskStateMachine.getState();
         List<ExecutionFailureInfo> failures = ImmutableList.of();
-        if (state == FAILED) {
+        if (state == FAILED || state == FAILING) {
             failures = toFailures(taskStateMachine.getFailureCauses());
         }
 
@@ -281,7 +321,10 @@ public class SqlTask
         long queuedPartitionedSplitsWeight = 0L;
         int runningPartitionedDrivers = 0;
         long runningPartitionedSplitsWeight = 0L;
+        DataSize outputDataSize = DataSize.ofBytes(0);
+        DataSize writerInputDataSize = DataSize.ofBytes(0);
         DataSize physicalWrittenDataSize = DataSize.ofBytes(0);
+        Optional<Integer> writerCount = Optional.empty();
         DataSize userMemoryReservation = DataSize.ofBytes(0);
         DataSize peakUserMemoryReservation = DataSize.ofBytes(0);
         DataSize revocableMemoryReservation = DataSize.ofBytes(0);
@@ -295,10 +338,13 @@ public class SqlTask
             queuedPartitionedSplitsWeight = taskStats.getQueuedPartitionedSplitsWeight();
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
             runningPartitionedSplitsWeight = taskStats.getRunningPartitionedSplitsWeight();
+            writerInputDataSize = taskStats.getWriterInputDataSize();
             physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
+            writerCount = taskStats.getMaxWriterCount();
             userMemoryReservation = taskStats.getUserMemoryReservation();
             peakUserMemoryReservation = taskStats.getPeakUserMemoryReservation();
             revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
+            outputDataSize = taskStats.getOutputDataSize();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTime = taskStats.getFullGcTime();
             dynamicFiltersVersion = taskHolder.getDynamicFiltersVersion();
@@ -314,25 +360,34 @@ public class SqlTask
                 runningPartitionedSplitsWeight += pipelineStatus.getRunningPartitionedSplitsWeight();
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
             }
+            writerInputDataSize = succinctBytes(taskContext.getWriterInputDataSize());
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
+            writerCount = taskContext.getMaxWriterCount();
             userMemoryReservation = taskContext.getMemoryReservation();
+            peakUserMemoryReservation = taskContext.getPeakMemoryReservation();
             revocableMemoryReservation = taskContext.getRevocableMemoryReservation();
+            outputDataSize = DataSize.ofBytes(taskContext.getOutputDataSize().getTotalCount());
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
             dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
         }
 
-        return new TaskStatus(taskStateMachine.getTaskId(),
+        return new TaskStatus(
+                taskStateMachine.getTaskId(),
                 taskInstanceId,
                 versionNumber,
                 state,
                 location,
                 nodeId,
+                speculative.get(),
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
-                isOutputBufferOverutilized(),
+                outputBuffer.getStatus(),
+                outputDataSize,
+                writerInputDataSize,
                 physicalWrittenDataSize,
+                writerCount,
                 userMemoryReservation,
                 peakUserMemoryReservation,
                 revocableMemoryReservation,
@@ -414,10 +469,12 @@ public class SqlTask
 
     public TaskInfo updateTask(
             Session session,
+            Span stageSpan,
             Optional<PlanFragment> fragment,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains)
+            Map<DynamicFilterId, Domain> dynamicFilterDomains,
+            boolean speculative)
     {
         try {
             // trace token must be set first to make sure failure injection for getTaskResults requests works as expected
@@ -428,46 +485,81 @@ public class SqlTask
             // a VALUES query).
             outputBuffer.setOutputBuffers(outputBuffers);
 
-            // assure the task execution is only created once
-            SqlTaskExecution taskExecution;
-            synchronized (this) {
-                // is task already complete?
-                TaskHolder taskHolder = taskHolderReference.get();
-                if (taskHolder.isFinished()) {
-                    return taskHolder.getFinalTaskInfo();
-                }
-                taskExecution = taskHolder.getTaskExecution();
-                if (taskExecution == null) {
-                    checkState(fragment.isPresent(), "fragment must be present");
-                    taskExecution = sqlTaskExecutionFactory.create(
-                            session,
-                            queryContext,
-                            taskStateMachine,
-                            outputBuffer,
-                            fragment.get(),
-                            this::notifyStatusChanged);
-                    taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
-                    needsPlan.set(false);
-                }
+            // is task already complete?
+            TaskHolder taskHolder = taskHolderReference.get();
+            if (taskHolder.isFinished()) {
+                return taskHolder.getFinalTaskInfo();
             }
 
+            SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
+            if (taskExecution == null) {
+                checkState(fragment.isPresent(), "fragment must be present");
+                taskExecution = tryCreateSqlTaskExecution(session, stageSpan, fragment.get());
+            }
+            // taskExecution can still be null if the creation was skipped
             if (taskExecution != null) {
                 taskExecution.addSplitAssignments(splitAssignments);
                 taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
             }
+
+            // update speculative flag
+            this.speculative.set(speculative);
         }
         catch (Error e) {
             failed(e);
             throw e;
         }
         catch (RuntimeException e) {
-            failed(e);
+            return failed(e);
         }
 
         return getTaskInfo();
     }
 
-    public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    @Nullable
+    private SqlTaskExecution tryCreateSqlTaskExecution(Session session, Span stageSpan, PlanFragment fragment)
+    {
+        synchronized (taskHolderLock) {
+            // Recheck holder for task execution after acquiring the lock
+            TaskHolder taskHolder = taskHolderReference.get();
+            if (taskHolder.isFinished()) {
+                return null;
+            }
+            SqlTaskExecution execution = taskHolder.getTaskExecution();
+            if (execution != null) {
+                return execution;
+            }
+
+            // Don't create SqlTaskExecution once termination has started
+            if (taskStateMachine.getState().isTerminatingOrDone()) {
+                return null;
+            }
+
+            taskSpan.set(tracer.spanBuilder("task")
+                    .setParent(Context.current().with(stageSpan))
+                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
+                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                    .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
+                    .startSpan());
+
+            execution = sqlTaskExecutionFactory.create(
+                    session,
+                    taskSpan.get(),
+                    queryContext,
+                    taskStateMachine,
+                    outputBuffer,
+                    fragment,
+                    this::notifyStatusChanged);
+            needsPlan.set(false);
+            execution.start();
+            // this must happen after taskExecution.start(), otherwise it could become visible to a
+            // concurrent update without being fully initialized
+            checkState(taskHolderReference.compareAndSet(taskHolder, new TaskHolder(execution)), "unsynchronized concurrent task holder update");
+            return execution;
+        }
+    }
+
+    public ListenableFuture<BufferResult> getTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
@@ -475,14 +567,14 @@ public class SqlTask
         return outputBuffer.get(bufferId, startingSequenceId, maxSize);
     }
 
-    public void acknowledgeTaskResults(OutputBufferId bufferId, long sequenceId)
+    public void acknowledgeTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId, long sequenceId)
     {
         requireNonNull(bufferId, "bufferId is null");
 
         outputBuffer.acknowledge(bufferId, sequenceId);
     }
 
-    public TaskInfo destroyTaskResults(OutputBufferId bufferId)
+    public TaskInfo destroyTaskResults(PipelinedOutputBuffers.OutputBufferId bufferId)
     {
         requireNonNull(bufferId, "bufferId is null");
 

@@ -16,11 +16,10 @@ package io.trino.plugin.base.ldap;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import org.testng.annotations.Test;
-
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -105,6 +104,6 @@ public class TestLdapConfig
         assertFailsValidation(new LdapClientConfig().setLdapUrl("localhost"), "ldapUrl", "Invalid LDAP server URL. Expected ldap:// or ldaps://", Pattern.class);
         assertFailsValidation(new LdapClientConfig().setLdapUrl("ldaps:/localhost"), "ldapUrl", "Invalid LDAP server URL. Expected ldap:// or ldaps://", Pattern.class);
 
-        assertFailsValidation(new LdapClientConfig(), "ldapUrl", "may not be null", NotNull.class);
+        assertFailsValidation(new LdapClientConfig(), "ldapUrl", "must not be null", NotNull.class);
     }
 }

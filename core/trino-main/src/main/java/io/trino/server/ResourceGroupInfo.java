@@ -20,8 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.ResourceGroupState;
 import io.trino.spi.resourcegroups.SchedulingPolicy;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -93,8 +92,8 @@ public class ResourceGroupInfo
         this.numRunningQueries = numRunningQueries;
         this.numEligibleSubGroups = numEligibleSubGroups;
 
-        this.subGroups = requireNonNull(subGroups, "subGroups is null").map(ImmutableList::copyOf);
-        this.runningQueries = requireNonNull(runningQueries, "runningQueries is null").map(ImmutableList::copyOf);
+        this.subGroups = subGroups.map(ImmutableList::copyOf);
+        this.runningQueries = runningQueries.map(ImmutableList::copyOf);
     }
 
     @JsonProperty

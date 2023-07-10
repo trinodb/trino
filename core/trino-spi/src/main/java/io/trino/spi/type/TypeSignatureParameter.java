@@ -13,7 +13,7 @@
  */
 package io.trino.spi.type;
 
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -77,8 +77,7 @@ public final class TypeSignatureParameter
         }
 
         String valueJson;
-        if (value instanceof TypeSignature) {
-            TypeSignature typeSignature = (TypeSignature) value;
+        if (value instanceof TypeSignature typeSignature) {
             valueJson = typeSignature.jsonValue();
         }
         else {

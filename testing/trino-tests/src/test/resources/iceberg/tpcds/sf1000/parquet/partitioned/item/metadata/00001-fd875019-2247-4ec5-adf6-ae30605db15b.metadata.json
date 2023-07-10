@@ -1,0 +1,309 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "d3145aa2-14b1-4f61-b97e-27bdc0450b94",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/item",
+  "last-updated-ms" : 1663712714685,
+  "last-column-id" : 22,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "i_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "i_item_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "i_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "i_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "i_item_desc",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 6,
+      "name" : "i_current_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 7,
+      "name" : "i_wholesale_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 8,
+      "name" : "i_brand_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "i_brand",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "i_class_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 11,
+      "name" : "i_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "i_category_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 13,
+      "name" : "i_category",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "i_manufact_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 15,
+      "name" : "i_manufact",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "i_size",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "i_formulation",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "i_color",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "i_units",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "i_container",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 21,
+      "name" : "i_manager_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 22,
+      "name" : "i_product_name",
+      "required" : false,
+      "type" : "string"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "i_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "i_item_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "i_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "i_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "i_item_desc",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 6,
+      "name" : "i_current_price",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 7,
+      "name" : "i_wholesale_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 8,
+      "name" : "i_brand_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "i_brand",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "i_class_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 11,
+      "name" : "i_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "i_category_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 13,
+      "name" : "i_category",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "i_manufact_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 15,
+      "name" : "i_manufact",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "i_size",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "i_formulation",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "i_color",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "i_units",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "i_container",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 21,
+      "name" : "i_manager_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 22,
+      "name" : "i_product_name",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.22.ndv" : "292928",
+    "trino.stats.ndv.7.ndv" : "7170",
+    "trino.stats.ndv.2.ndv" : "152758",
+    "trino.stats.ndv.16.ndv" : "7",
+    "trino.stats.ndv.4.ndv" : "3",
+    "trino.stats.ndv.19.ndv" : "21",
+    "trino.stats.ndv.5.ndv" : "221708",
+    "trino.stats.ndv.18.ndv" : "92",
+    "trino.stats.ndv.9.ndv" : "723",
+    "trino.stats.ndv.14.ndv" : "1008",
+    "trino.stats.ndv.12.ndv" : "10",
+    "trino.stats.ndv.10.ndv" : "16",
+    "trino.stats.ndv.21.ndv" : "100",
+    "trino.stats.ndv.8.ndv" : "953",
+    "trino.stats.ndv.1.ndv" : "297612",
+    "trino.stats.ndv.15.ndv" : "1023",
+    "trino.stats.ndv.6.ndv" : "9801",
+    "trino.stats.ndv.3.ndv" : "4",
+    "write.format.default" : "PARQUET",
+    "trino.stats.ndv.17.ndv" : "220425",
+    "trino.stats.ndv.13.ndv" : "10",
+    "trino.stats.ndv.20.ndv" : "1",
+    "trino.stats.ndv.11.ndv" : "99"
+  },
+  "current-snapshot-id" : 6799978105221820475,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 6799978105221820475,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 6799978105221820475,
+    "timestamp-ms" : 1648081251209,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "6",
+      "added-records" : "300000",
+      "added-files-size" : "17850415",
+      "changed-partition-count" : "1",
+      "total-records" : "300000",
+      "total-files-size" : "17850415",
+      "total-data-files" : "6",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/item/metadata/snap-6799978105221820475-1-6683e1a0-079d-42fe-87f6-ff23a0840a5c.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648081251209,
+    "snapshot-id" : 6799978105221820475
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648081251209,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet-part/item/metadata/00000-57d39fc8-b62f-45d9-bd4b-80157291472a.metadata.json"
+  } ]
+}

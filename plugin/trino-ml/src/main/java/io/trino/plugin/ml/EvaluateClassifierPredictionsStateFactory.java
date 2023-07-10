@@ -16,15 +16,16 @@ package io.trino.plugin.ml;
 import io.trino.array.ObjectBigArray;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.GroupedAccumulatorState;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+
 public class EvaluateClassifierPredictionsStateFactory
         implements AccumulatorStateFactory<EvaluateClassifierPredictionsState>
 {
-    private static final long HASH_MAP_SIZE = ClassLayout.parseClass(HashMap.class).instanceSize();
+    private static final long HASH_MAP_SIZE = instanceSize(HashMap.class);
 
     @Override
     public EvaluateClassifierPredictionsState createSingleState()

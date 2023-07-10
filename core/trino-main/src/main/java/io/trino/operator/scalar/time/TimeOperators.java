@@ -13,8 +13,8 @@
  */
 package io.trino.operator.scalar.time;
 
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -39,8 +39,6 @@ import static io.trino.type.DateTimes.parseTime;
 import static io.trino.type.DateTimes.rescaleWithRounding;
 import static io.trino.type.DateTimes.round;
 import static io.trino.type.DateTimes.scaleFactor;
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class TimeOperators
 {
@@ -120,26 +118,46 @@ public final class TimeOperators
     @SqlType("varchar(x)")
     public static Slice castToVarchar(@LiteralParameter("p") long precision, @SqlType("time(p)") long value)
     {
-        int size = (int) (8 + // hour:minute:second
-                (precision > 0 ? 1 : 0) + // period
-                precision); // fraction
+        if (precision < 0 || precision > MAX_PRECISION) {
+            throw new IllegalArgumentException("Invalid precision: " + precision);
+        }
+        int precisionInt = (int) precision;
+        int size = (8 + // hour:minute:second
+                (precisionInt > 0 ? 1 : 0) + // period
+                precisionInt); // fraction
 
-        DynamicSliceOutput output = new DynamicSliceOutput(size);
+        int hours = (int) (value / PICOSECONDS_PER_HOUR);
+        int minutes = (int) ((value / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR);
+        int seconds = (int) ((value / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE);
 
-        String formatted = format(
-                "%02d:%02d:%02d",
-                value / PICOSECONDS_PER_HOUR,
-                (value / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR,
-                (value / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE);
-        output.appendBytes(formatted.getBytes(UTF_8));
+        byte[] bytes = new byte[size];
+        appendTwoDecimalDigits(0, bytes, hours);
+        bytes[2] = ':';
+        appendTwoDecimalDigits(3, bytes, minutes);
+        bytes[5] = ':';
+        appendTwoDecimalDigits(6, bytes, seconds);
 
-        if (precision > 0) {
-            long scaledFraction = (value % PICOSECONDS_PER_SECOND) / scaleFactor((int) precision, MAX_PRECISION);
-            output.appendByte('.');
-            output.appendBytes(format("%0" + precision + "d", scaledFraction).getBytes(UTF_8));
+        if (precisionInt > 0) {
+            long scaledFraction = (value % PICOSECONDS_PER_SECOND) / scaleFactor(precisionInt, MAX_PRECISION);
+            bytes[8] = '.';
+
+            for (int index = 8 + precisionInt; index > 8; index--) {
+                long temp = scaledFraction / 10;
+                int digit = (int) (scaledFraction - (temp * 10));
+                scaledFraction = temp;
+                bytes[index] = (byte) ('0' + digit);
+            }
         }
 
-        return output.slice();
+        return Slices.wrappedBuffer(bytes);
+    }
+
+    private static void appendTwoDecimalDigits(int index, byte[] bytes, int value)
+    {
+        int tens = value / 10;
+        int ones = value - (tens * 10);
+        bytes[index] = (byte) ('0' + tens);
+        bytes[index + 1] = (byte) ('0' + ones);
     }
 
     public static long add(long picos, long delta)

@@ -318,6 +318,7 @@ public class TestScalarStatsCalculator
                         .setNullsFraction(0.2)
                         .setAverageRowSize(2.0)
                         .build())
+                .addSymbolStatistics(new Symbol("unknown"), SymbolStatsEstimate.unknown())
                 .setOutputRowCount(10)
                 .build();
 
@@ -327,6 +328,11 @@ public class TestScalarStatsCalculator
                 .highValue(15.0)
                 .nullsFraction(0.28)
                 .averageRowSize(2.0);
+
+        assertCalculate(expression("x + unknown"), relationStats)
+                .isEqualTo(SymbolStatsEstimate.unknown());
+        assertCalculate(expression("unknown + unknown"), relationStats)
+                .isEqualTo(SymbolStatsEstimate.unknown());
 
         assertCalculate(expression("x - y"), relationStats)
                 .distinctValuesCount(10.0)

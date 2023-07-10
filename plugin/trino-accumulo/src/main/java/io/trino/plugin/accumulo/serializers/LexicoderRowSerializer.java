@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.accumulo.serializers;
 
+import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Table;
 import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.Types;
 import io.trino.spi.TrinoException;
@@ -45,7 +47,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -63,7 +65,7 @@ public class LexicoderRowSerializer
     private static final Map<Type, ListLexicoder<?>> LIST_LEXICODERS = new HashMap<>();
     private static final Map<Type, MapLexicoder<?, ?>> MAP_LEXICODERS = new HashMap<>();
 
-    private final Map<String, Map<String, String>> familyQualifierColumnMap = new HashMap<>();
+    private final Table<String, String, String> familyQualifierColumnMap = HashBasedTable.create();
     private final Map<String, byte[]> columnValues = new HashMap<>();
     private final Text rowId = new Text();
     private final Text family = new Text();
@@ -83,7 +85,7 @@ public class LexicoderRowSerializer
         LEXICODER_MAP.put(INTEGER, longLexicoder);
         LEXICODER_MAP.put(REAL, doubleLexicoder);
         LEXICODER_MAP.put(SMALLINT, longLexicoder);
-        LEXICODER_MAP.put(TIME, longLexicoder);
+        LEXICODER_MAP.put(TIME_MILLIS, longLexicoder);
         LEXICODER_MAP.put(TIMESTAMP_MILLIS, longLexicoder);
         LEXICODER_MAP.put(TINYINT, longLexicoder);
         LEXICODER_MAP.put(VARBINARY, new BytesLexicoder());
@@ -106,13 +108,7 @@ public class LexicoderRowSerializer
     public void setMapping(String name, String family, String qualifier)
     {
         columnValues.put(name, null);
-        Map<String, String> qualifierToNameMap = familyQualifierColumnMap.get(family);
-        if (qualifierToNameMap == null) {
-            qualifierToNameMap = new HashMap<>();
-            familyQualifierColumnMap.put(family, qualifierToNameMap);
-        }
-
-        qualifierToNameMap.put(qualifier, name);
+        familyQualifierColumnMap.put(family, qualifier, name);
     }
 
     @Override
@@ -141,7 +137,7 @@ public class LexicoderRowSerializer
         }
 
         value.set(entry.getValue().get());
-        columnValues.put(familyQualifierColumnMap.get(family.toString()).get(qualifier.toString()), value.copyBytes());
+        columnValues.put(familyQualifierColumnMap.get(family.toString(), qualifier.toString()), value.copyBytes());
     }
 
     @Override
@@ -280,7 +276,7 @@ public class LexicoderRowSerializer
     @Override
     public void setTime(Text text, Time value)
     {
-        text.set(encode(TIME, value));
+        text.set(encode(TIME_MILLIS, value));
     }
 
     @Override
@@ -349,7 +345,7 @@ public class LexicoderRowSerializer
         else if (type.equals(SMALLINT) && value instanceof Short) {
             toEncode = ((Short) value).longValue();
         }
-        else if (type.equals(TIME) && value instanceof Time) {
+        else if (type.equals(TIME_MILLIS) && value instanceof Time) {
             toEncode = ((Time) value).getTime();
         }
         else if (type.equals(TIMESTAMP_MILLIS) && value instanceof Timestamp) {
@@ -382,19 +378,17 @@ public class LexicoderRowSerializer
         if (Types.isArrayType(type)) {
             return getListLexicoder(type);
         }
-        else if (Types.isMapType(type)) {
+        if (Types.isMapType(type)) {
             return getMapLexicoder(type);
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return LEXICODER_MAP.get(VARCHAR);
         }
-        else {
-            Lexicoder lexicoder = LEXICODER_MAP.get(type);
-            if (lexicoder == null) {
-                throw new TrinoException(NOT_SUPPORTED, "No lexicoder for type " + type);
-            }
-            return lexicoder;
+        Lexicoder lexicoder = LEXICODER_MAP.get(type);
+        if (lexicoder == null) {
+            throw new TrinoException(NOT_SUPPORTED, "No lexicoder for type " + type);
         }
+        return lexicoder;
     }
 
     private static ListLexicoder getListLexicoder(Type elementType)

@@ -26,4 +26,12 @@ public interface EventListener
     default void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
     }
+
+    /**
+     * Specify whether the plan included in QueryCompletedEvent should be anonymized or not
+     */
+    default boolean requiresAnonymizedPlan()
+    {
+        return false;
+    }
 }

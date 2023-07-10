@@ -28,8 +28,7 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpiller;
 import io.trino.spiller.PartitioningSpillerFactory;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -384,9 +383,7 @@ public class DefaultPageJoiner
         if (joinPosition >= 0) {
             return lookupSourceProvider.withLease(lookupSourceLease -> lookupSourceLease.getLookupSource().joinPositionWithinPartition(joinPosition));
         }
-        else {
-            return -1;
-        }
+        return -1;
     }
 
     private Page buildOutputPage()

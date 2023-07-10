@@ -16,23 +16,32 @@ package io.trino.plugin.sqlserver;
 import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
+import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
+import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcProcedureHandle;
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -41,6 +50,7 @@ import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectReadFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -51,7 +61,10 @@ import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.expression.RewriteComparison;
+import io.trino.plugin.jdbc.expression.RewriteIn;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -60,7 +73,10 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
-import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -75,18 +91,17 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
-import javax.inject.Inject;
-
 import java.sql.CallableStatement;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -102,23 +117,28 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
+import static io.trino.plugin.jdbc.PredicatePushdownController.CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTime;
@@ -146,6 +166,7 @@ import static io.trino.plugin.sqlserver.SqlServerTableProperties.getDataCompress
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
@@ -187,6 +208,8 @@ public class SqlServerClient
     // SqlServer supports 2100 parameters in prepared statement, let's create a space for about 4 big IN predicates
     public static final int SQL_SERVER_MAX_LIST_EXPRESSIONS = 500;
 
+    public static final int SQL_SERVER_DEADLOCK_ERROR_CODE = 1205;
+
     public static final JdbcTypeHandle BIGINT_TYPE = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
@@ -195,10 +218,30 @@ public class SqlServerClient
 
     private final boolean statisticsEnabled;
 
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
+
+    private static final PredicatePushdownController SQLSERVER_CHARACTER_PUSHDOWN = (session, domain) -> {
+        if (domain.isNullableSingleValue()) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
+
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Push down inequality predicate
+            ValueSet complement = simplifiedDomain.getValues().complement();
+            if (complement.isDiscreteSet()) {
+                return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+            }
+            // Domain#simplify can turn a discrete set into a range predicate
+            // Push down of range predicate for varchar/char types could lead to incorrect results
+            // when the remote database is case insensitive
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+    };
 
     @Inject
     public SqlServerClient(
@@ -206,19 +249,35 @@ public class SqlServerClient
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
 
-        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
+        this.statisticsEnabled = statisticsConfig.isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
+                .add(new RewriteComparison(ImmutableSet.of(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL)))
+                .add(new RewriteIn())
+                .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
+                .map("$add(left: integer_type, right: integer_type)").to("left + right")
+                .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
+                .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
+                .map("$divide(left: integer_type, right: integer_type)").to("left / right")
+                .map("$modulus(left: integer_type, right: integer_type)").to("left % right")
+                .map("$negate(value: integer_type)").to("-value")
+                .map("$like(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
+                .map("$like(value: varchar, pattern: varchar, escape: varchar(1)): boolean").to("value LIKE pattern ESCAPE escape")
+                .map("$not($is_null(value))").to("value IS NOT NULL")
+                .map("$not(value: boolean)").to("NOT value")
+                .map("$is_null(value)").to("value IS NULL")
+                .map("$nullif(first, second)").to("NULLIF(first, second)")
                 .build();
 
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
                         .add(new ImplementSqlServerCountBigAll())
                         .add(new ImplementSqlServerCountBig())
                         .add(new ImplementMinMax(false))
@@ -260,7 +319,7 @@ public class SqlServerClient
             // note: this is not a request to lock a table immediately
             String sql = format("EXEC sp_tableoption '%s', 'table lock on bulk load', '1'",
                     quoted(table.getCatalogName(), table.getSchemaName(), table.getTemporaryTableName().orElseGet(table::getTableName)));
-            execute(connection, sql);
+            execute(session, connection, sql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -278,27 +337,76 @@ public class SqlServerClient
     }
 
     @Override
-    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    protected void verifyTableName(DatabaseMetaData databaseMetadata, String tableName)
+            throws SQLException
     {
-        if (!schemaName.equals(newTable.getSchemaName())) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
+        // SQL Server truncates table name to the max length silently when renaming a table
+        if (tableName.length() > databaseMetadata.getMaxTableNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", databaseMetadata.getMaxTableNameLength(), tableName.length()));
         }
-
-        String sql = format(
-                "sp_rename %s, %s",
-                singleQuote(catalogName, schemaName, tableName),
-                singleQuote(newTable.getTableName()));
-        execute(session, sql);
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    protected void verifyColumnName(DatabaseMetaData databaseMetadata, String columnName)
+            throws SQLException
     {
-        String sql = format(
-                "sp_rename %s, %s, 'COLUMN'",
-                singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
-                singleQuote(newColumnName));
-        execute(session, sql);
+        // SQL Server truncates table name to the max length silently when renaming a column
+        // SQL Server driver doesn't communicate with a server in getMaxColumnNameLength. The cost to call this method per column is low.
+        if (columnName.length() > databaseMetadata.getMaxColumnNameLength()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Column name must be shorter than or equal to '%s' characters but got '%s': '%s'", databaseMetadata.getMaxColumnNameLength(), columnName.length(), columnName));
+        }
+    }
+
+    @Override
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
+    {
+        // sp_rename treats first argument as SQL object name, so it needs to be properly quoted and escaped.
+        // The second argument is treated literally.
+        if (!remoteSchemaName.equals(newRemoteSchemaName)) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
+        }
+        String fullTableFromName = DOT_JOINER.join(
+                quoted(catalogName),
+                quoted(remoteSchemaName),
+                quoted(remoteTableName));
+
+        try (CallableStatement renameTable = connection.prepareCall("exec sp_rename ?, ?")) {
+            renameTable.setString(1, fullTableFromName);
+            renameTable.setString(2, newRemoteTableName);
+            renameTable.execute();
+        }
+    }
+
+    @Override
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
+    {
+        // sp_rename treats first argument as SQL object name, so it needs to be properly quoted and escaped.
+        // The second arqgument is treated literally.
+        String columnFrom = DOT_JOINER.join(
+                quoted(remoteTableName.getCatalogName().orElseThrow()),
+                quoted(remoteTableName.getSchemaName().orElseThrow()),
+                quoted(remoteTableName.getTableName()),
+                quoted(remoteColumnName));
+
+        try (CallableStatement renameColumn = connection.prepareCall("exec sp_rename ?, ?, 'COLUMN'")) {
+            renameColumn.setString(1, columnFrom);
+            renameColumn.setString(2, newRemoteColumnName);
+            renameColumn.execute();
+        }
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
+    @Override
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
     @Override
@@ -308,7 +416,7 @@ public class SqlServerClient
     }
 
     @Override
-    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         String sql = format(
                 "SELECT %s INTO %s FROM %s WHERE 0 = 1",
@@ -317,7 +425,41 @@ public class SqlServerClient
                         .collect(joining(", ")),
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
-        execute(connection, sql);
+        try {
+            execute(session, connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, JdbcTableHandle tableHandle)
+    {
+        if (tableHandle.isSynthetic()) {
+            return ImmutableMap.of();
+        }
+        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(tableHandle.asPlainTable().getRemoteTableName())), ImmutableList.of());
+
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
+            ResultSetMetaData metadata = preparedStatement.getMetaData();
+            ImmutableMap.Builder<String, CaseSensitivity> columns = ImmutableMap.builder();
+            for (int column = 1; column <= metadata.getColumnCount(); column++) {
+                String name = metadata.getColumnName(column);
+                columns.put(name, metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE);
+            }
+            return columns.buildOrThrow();
+        }
+        catch (SQLException e) {
+            if (e instanceof SQLServerException sqlServerException && sqlServerException.getSQLServerError().getErrorNumber() == 208) {
+                // The 208 indicates that the object doesn't exist or lack of permission.
+                // Throw TableNotFoundException because users shouldn't see such tables if they don't have the permission.
+                // TableNotFoundException will be suppressed when listing information_schema.
+                // https://learn.microsoft.com/sql/relational-databases/errors-events/mssqlserver-208-database-engine-error
+                throw new TableNotFoundException(tableHandle.asPlainTable().getSchemaTableName());
+            }
+            throw new TrinoException(JDBC_ERROR, "Failed to get case sensitivity for columns. " + firstNonNull(e.getMessage(), e), e);
+        }
     }
 
     @Override
@@ -377,11 +519,11 @@ public class SqlServerClient
 
             case Types.CHAR:
             case Types.NCHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(charColumnMapping(typeHandle.getRequiredColumnSize(), typeHandle.getCaseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(varcharColumnMapping(typeHandle.getRequiredColumnSize(), typeHandle.getCaseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE));
 
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
@@ -442,8 +584,7 @@ public class SqlServerClient
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
@@ -451,8 +592,7 @@ public class SqlServerClient
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded() || varcharType.getBoundedLength() > 4000) {
                 dataType = "nvarchar(max)";
@@ -463,8 +603,7 @@ public class SqlServerClient
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
 
-        if (type instanceof CharType) {
-            CharType charType = (CharType) type;
+        if (type instanceof CharType charType) {
             String dataType;
             if (charType.getLength() > 4000) {
                 dataType = "nvarchar(max)";
@@ -483,15 +622,13 @@ public class SqlServerClient
             return WriteMapping.longMapping("date", sqlServerDateWriteFunction());
         }
 
-        if (type instanceof TimeType) {
-            TimeType timeType = (TimeType) type;
+        if (type instanceof TimeType timeType) {
             int precision = min(timeType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
             String dataType = format("time(%d)", precision);
             return WriteMapping.longMapping(dataType, sqlServerTimeWriteFunction(precision));
         }
 
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             int precision = min(timestampType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
             String dataType = format("datetime2(%d)", precision);
             if (timestampType.getPrecision() <= MAX_SHORT_PRECISION) {
@@ -521,6 +658,29 @@ public class SqlServerClient
         }
     }
 
+    @Override
+    public JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureQuery procedureQuery)
+    {
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            try (Statement statement = connection.createStatement();
+                    // When FMTONLY is ON , a rowset is returned with the column names for the query
+                    ResultSet resultSet = statement.executeQuery("set fmtonly on %s \nset fmtonly off".formatted(procedureQuery.query()))) {
+                ResultSetMetaData metadata = resultSet.getMetaData();
+                if (metadata == null) {
+                    throw new TrinoException(NOT_SUPPORTED, "Procedure not supported: ResultSetMetaData not available for query: " + procedureQuery.query());
+                }
+                JdbcProcedureHandle procedureHandle = new JdbcProcedureHandle(procedureQuery, getColumns(session, connection, metadata));
+                if (statement.getMoreResults()) {
+                    throw new TrinoException(NOT_SUPPORTED, "Procedure has multiple ResultSets for query: " + procedureQuery.query());
+                }
+                return procedureHandle;
+            }
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, "Failed to get table handle for procedure query. " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
     private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
@@ -528,9 +688,10 @@ public class SqlServerClient
 
         try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
-            String catalog = table.getCatalogName();
-            String schema = table.getSchemaName();
-            String tableName = table.getTableName();
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
+            String catalog = remoteTableName.getCatalogName().orElse(null);
+            String schema = remoteTableName.getSchemaName().orElse(null);
+            String tableName = remoteTableName.getTableName();
 
             StatisticsDao statisticsDao = new StatisticsDao(handle);
             Long tableObjectId = statisticsDao.getTableObjectId(catalog, schema, tableName);
@@ -640,6 +801,26 @@ public class SqlServerClient
             }
         }
         return columnNameToStatisticsName;
+    }
+
+    // SQL Server has non-standard LIKE semantics:
+    // https://learn.microsoft.com/en-us/sql/t-sql/language-elements/like-transact-sql?redirectedfrom=MSDN&view=sql-server-ver16#arguments
+    // and apparently this applies to DatabaseMetaData calls too.@Override
+    @Override
+    protected String escapeObjectNameForMetadataQuery(String name, String escape)
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(escape, "escape is null");
+        checkArgument(!escape.isEmpty(), "Escape string must not be empty");
+        checkArgument(!escape.equals("_"), "Escape string must not be '_'");
+        checkArgument(!escape.equals("%"), "Escape string must not be '%'");
+        name = name.replace(escape, escape + escape);
+        name = name.replace("_", escape + "_");
+        name = name.replace("%", escape + "%");
+        // SQLServer also treats [ and ] as wildcard characters
+        name = name.replace("]", escape + "]");
+        name = name.replace("[", escape + "[");
+        return name;
     }
 
     @Override
@@ -848,10 +1029,24 @@ public class SqlServerClient
             return false;
         }
 
-        // Remote database can be case insensitive.
-        return Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
+        boolean isVarcharJoinColumn = Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
                 .map(JdbcColumnHandle::getColumnType)
-                .noneMatch(type -> type instanceof CharType || type instanceof VarcharType);
+                .allMatch(type -> type instanceof CharType || type instanceof VarcharType);
+        if (isVarcharJoinColumn) {
+            JoinCondition.Operator operator = joinCondition.getOperator();
+            return switch (operator) {
+                case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> false;
+                case EQUAL, NOT_EQUAL -> isCaseSensitiveVarchar(joinCondition.getLeftColumn()) && isCaseSensitiveVarchar(joinCondition.getRightColumn());
+                default -> false;
+            };
+        }
+
+        return true;
+    }
+
+    private boolean isCaseSensitiveVarchar(JdbcColumnHandle columnHandle)
+    {
+        return columnHandle.getJdbcTypeHandle().getCaseSensitivity().orElse(CASE_INSENSITIVE) == CASE_SENSITIVE;
     }
 
     @Override
@@ -870,17 +1065,9 @@ public class SqlServerClient
     }
 
     @Override
-    protected String buildInsertSql(ConnectorSession session, RemoteTableName targetTable, RemoteTableName sourceTable, List<String> columnNames)
+    protected String postProcessInsertTableNameClause(ConnectorSession session, String tableName)
     {
-        String columns = columnNames.stream()
-                .map(this::quoted)
-                .collect(joining(", "));
-        return format("INSERT INTO %s %s (%s) SELECT %s FROM %s",
-                targetTable,
-                isTableLockNeeded(session) ? "WITH (TABLOCK)" : "", // TABLOCK is a prerequisite for minimal logging in SQL Server
-                columns,
-                columns,
-                sourceTable);
+        return tableName + (isTableLockNeeded(session) ? " WITH (TABLOCK)" : "");
     }
 
     @Override
@@ -927,16 +1114,6 @@ public class SqlServerClient
         return connection;
     }
 
-    private static String singleQuote(String... objects)
-    {
-        return singleQuote(DOT_JOINER.join(objects));
-    }
-
-    private static String singleQuote(String literal)
-    {
-        return "\'" + literal + "\'";
-    }
-
     public static ColumnMapping varbinaryColumnMapping()
     {
         return ColumnMapping.sliceMapping(
@@ -975,6 +1152,31 @@ public class SqlServerClient
         return ColumnMapping.sliceMapping(createVarcharType(columnSize), varcharReadFunction(createVarcharType(columnSize)), nvarcharWriteFunction(), DISABLE_PUSHDOWN);
     }
 
+    private static ColumnMapping charColumnMapping(int charLength, boolean isCaseSensitive)
+    {
+        if (charLength > CharType.MAX_LENGTH) {
+            return varcharColumnMapping(charLength, isCaseSensitive);
+        }
+        CharType charType = createCharType(charLength);
+        return ColumnMapping.sliceMapping(
+                charType,
+                charReadFunction(charType),
+                charWriteFunction(),
+                isCaseSensitive ? SQLSERVER_CHARACTER_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
+    }
+
+    private static ColumnMapping varcharColumnMapping(int varcharLength, boolean isCaseSensitive)
+    {
+        VarcharType varcharType = varcharLength <= VarcharType.MAX_LENGTH
+                ? createVarcharType(varcharLength)
+                : createUnboundedVarcharType();
+        return ColumnMapping.sliceMapping(
+                varcharType,
+                varcharReadFunction(varcharType),
+                varcharWriteFunction(),
+                isCaseSensitive ? SQLSERVER_CHARACTER_PUSHDOWN : CASE_INSENSITIVE_CHARACTER_PUSHDOWN);
+    }
+
     private static SliceWriteFunction nvarcharWriteFunction()
     {
         return (statement, index, value) -> statement.setNString(index, value.toStringUtf8());
@@ -982,6 +1184,7 @@ public class SqlServerClient
 
     private static Optional<DataCompression> getTableDataCompression(Handle handle, JdbcTableHandle table)
     {
+        RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
         return handle.createQuery("" +
                         "SELECT data_compression_desc FROM sys.partitions p " +
                         "INNER JOIN sys.tables t ON p.object_id = t.object_id " +
@@ -991,8 +1194,8 @@ public class SqlServerClient
                         "AND p.index_id = 0 " + // Heap
                         "AND i.type = 0 " + // Heap index type
                         "AND i.data_space_id NOT IN (SELECT data_space_id FROM sys.partition_schemes)")
-                .bind("schema", table.getSchemaName())
-                .bind("table_name", table.getTableName())
+                .bind("schema", remoteTableName.getSchemaName().orElse(null))
+                .bind("table_name", remoteTableName.getTableName())
                 .mapTo(String.class)
                 .findOne()
                 .flatMap(dataCompression -> Enums.getIfPresent(DataCompression.class, dataCompression).toJavaUtil());
@@ -1000,22 +1203,27 @@ public class SqlServerClient
 
     private static Optional<DataCompression> getTableDataCompressionWithRetries(Handle handle, JdbcTableHandle table)
     {
-        // DDL operations can take out locks against system tables causing the `getTableDataCompression` query to deadlock
-        final int maxAttemptCount = 3;
-        RetryPolicy<Optional<DataCompression>> retryPolicy = new RetryPolicy<Optional<DataCompression>>()
+        return retryOnDeadlock(() -> getTableDataCompression(handle, table), "error when getting table compression info for '%s'".formatted(table));
+    }
+
+    public static <T> T retryOnDeadlock(CheckedSupplier<T> supplier, String attemptLogMessage)
+    {
+        // DDL operations can take out locks against system tables causing queries against them to deadlock
+        int maxAttemptCount = 3;
+        RetryPolicy<T> retryPolicy = RetryPolicy.<T>builder()
                 .withMaxAttempts(maxAttemptCount)
                 .handleIf(throwable ->
                 {
-                    final int deadlockErrorCode = 1205;
                     Throwable rootCause = Throwables.getRootCause(throwable);
                     return rootCause instanceof SQLServerException &&
-                            ((SQLServerException) (rootCause)).getSQLServerError().getErrorNumber() == deadlockErrorCode;
+                            ((SQLServerException) (rootCause)).getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;
                 })
-                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Attempt %d of %d: error when getting table compression info for '%s'", event.getAttemptCount(), maxAttemptCount, table));
+                .onFailedAttempt(event -> log.warn(event.getLastException(), "Attempt %d of %d: %s", event.getAttemptCount(), maxAttemptCount, attemptLogMessage))
+                .build();
 
         return Failsafe
                 .with(retryPolicy)
-                .get(() -> getTableDataCompression(handle, table));
+                .get(supplier);
     }
 
     private static class StatisticsDao
@@ -1032,7 +1240,7 @@ public class SqlServerClient
             return handle.createQuery("SELECT object_id(:table)")
                     .bind("table", format("%s.%s.%s", catalog, schema, tableName))
                     .mapTo(Long.class)
-                    .findOnly();
+                    .one();
         }
 
         Long getRowCount(long tableObjectId)
@@ -1044,7 +1252,7 @@ public class SqlServerClient
                             "AND index_id IN (0, 1)") // 0 = heap, 1 = clustered index, 2 or greater = non-clustered index
                     .bind("object_id", tableObjectId)
                     .mapTo(Long.class)
-                    .findOnly();
+                    .one();
         }
 
         List<String> getSingleColumnStatistics(long tableObjectId)

@@ -30,7 +30,7 @@ public final class MoreLists
 {
     public static <T> List<List<T>> listOfListsCopy(List<List<T>> lists)
     {
-        return requireNonNull(lists, "lists is null").stream()
+        return lists.stream()
                 .map(ImmutableList::copyOf)
                 .collect(toImmutableList());
     }

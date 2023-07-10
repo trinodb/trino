@@ -1,0 +1,53 @@
+Data source authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector can provide credentials for the data source connection
+in multiple ways:
+
+* inline, in the connector configuration file
+* in a separate properties file
+* in a key store file
+* as extra credentials set when connecting to Trino
+
+You can use :doc:`secrets </security/secrets>` to avoid storing sensitive
+values in the catalog properties files.
+
+The following table describes configuration properties
+for connection credentials:
+
+.. list-table::
+  :widths: 40, 60
+  :header-rows: 1
+
+  * - Property name
+    - Description
+  * - ``credential-provider.type``
+    - Type of the credential provider. Must be one of ``INLINE``, ``FILE``, or
+      ``KEYSTORE``; defaults to ``INLINE``.
+  * - ``connection-user``
+    - Connection user name.
+  * - ``connection-password``
+    - Connection password.
+  * - ``user-credential-name``
+    - Name of the extra credentials property, whose value to use as the user
+      name. See ``extraCredentials`` in :ref:`jdbc-parameter-reference`.
+  * - ``password-credential-name``
+    - Name of the extra credentials property, whose value to use as the
+      password.
+  * - ``connection-credential-file``
+    - Location of the properties file where credentials are present. It must
+      contain the ``connection-user`` and ``connection-password`` properties.
+  * - ``keystore-file-path``
+    - The location of the Java Keystore file, from which to read credentials.
+  * - ``keystore-type``
+    - File format of the keystore file, for example ``JKS`` or ``PEM``.
+  * - ``keystore-password``
+    - Password for the key store.
+  * - ``keystore-user-credential-name``
+    - Name of the key store entity to use as the user name.
+  * - ``keystore-user-credential-password``
+    - Password for the user name key store entity.
+  * - ``keystore-password-credential-name``
+    - Name of the key store entity to use as the password.
+  * - ``keystore-password-credential-password``
+    - Password for the password key store entity.

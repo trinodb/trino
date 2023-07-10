@@ -14,6 +14,7 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AllowAllAccessControl;
@@ -44,8 +45,6 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.SymbolReference;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.OptionalDouble;
@@ -224,6 +223,9 @@ public class ScalarStatsCalculator
             requireNonNull(node, "node is null");
             SymbolStatsEstimate left = process(node.getLeft());
             SymbolStatsEstimate right = process(node.getRight());
+            if (left.isUnknown() || right.isUnknown()) {
+                return SymbolStatsEstimate.unknown();
+            }
 
             SymbolStatsEstimate.Builder result = SymbolStatsEstimate.builder()
                     .setAverageRowSize(Math.max(left.getAverageRowSize(), right.getAverageRowSize()))
@@ -312,20 +314,18 @@ public class ScalarStatsCalculator
             if (left.getNullsFraction() == 0) {
                 return left;
             }
-            else if (left.getNullsFraction() == 1.0) {
+            if (left.getNullsFraction() == 1.0) {
                 return right;
             }
-            else {
-                return SymbolStatsEstimate.builder()
-                        .setLowValue(min(left.getLowValue(), right.getLowValue()))
-                        .setHighValue(max(left.getHighValue(), right.getHighValue()))
-                        .setDistinctValuesCount(left.getDistinctValuesCount() +
-                                min(right.getDistinctValuesCount(), input.getOutputRowCount() * left.getNullsFraction()))
-                        .setNullsFraction(left.getNullsFraction() * right.getNullsFraction())
-                        // TODO check if dataSize estimation method is correct
-                        .setAverageRowSize(max(left.getAverageRowSize(), right.getAverageRowSize()))
-                        .build();
-            }
+            return SymbolStatsEstimate.builder()
+                    .setLowValue(min(left.getLowValue(), right.getLowValue()))
+                    .setHighValue(max(left.getHighValue(), right.getHighValue()))
+                    .setDistinctValuesCount(left.getDistinctValuesCount() +
+                            min(right.getDistinctValuesCount(), input.getOutputRowCount() * left.getNullsFraction()))
+                    .setNullsFraction(left.getNullsFraction() * right.getNullsFraction())
+                    // TODO check if dataSize estimation method is correct
+                    .setAverageRowSize(max(left.getAverageRowSize(), right.getAverageRowSize()))
+                    .build();
         }
     }
 

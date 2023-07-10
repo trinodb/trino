@@ -14,20 +14,20 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.Duration;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
 
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -36,6 +36,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 final class EventsCollector
 {
     private final ConcurrentHashMap<QueryId, QueryEvents> queryEvents = new ConcurrentHashMap<>();
+    private final AtomicBoolean requiresAnonymizedPlan = new AtomicBoolean(false);
 
     public synchronized void addQueryCreated(QueryCreatedEvent event)
     {
@@ -50,6 +51,16 @@ final class EventsCollector
     public synchronized void addSplitCompleted(SplitCompletedEvent event)
     {
         getQueryEvents(new QueryId(event.getQueryId())).addSplitCompleted(event);
+    }
+
+    public void setRequiresAnonymizedPlan(boolean value)
+    {
+        requiresAnonymizedPlan.set(value);
+    }
+
+    public boolean requiresAnonymizedPlan()
+    {
+        return requiresAnonymizedPlan.get();
     }
 
     public QueryEvents getQueryEvents(QueryId queryId)
@@ -139,7 +150,12 @@ final class EventsCollector
 
             boolean finished = latch.await(timeout.toMillis(), MILLISECONDS);
             if (!finished) {
-                throw new TimeoutException("Query did not complete in " + timeout);
+                synchronized (this) {
+                    TimeoutException exception = new TimeoutException("Query did not complete in %s. Currently, queryCreatedEvent=%s queryCompletedEvent=%s queryCompleteLatch=%s"
+                                    .formatted(timeout, queryCreatedEvent, queryCompletedEvent, queryCompleteLatch));
+                    failures.forEach(exception::addSuppressed);
+                    throw exception;
+                }
             }
         }
 

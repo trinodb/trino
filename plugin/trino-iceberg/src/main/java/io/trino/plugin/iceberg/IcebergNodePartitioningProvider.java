@@ -13,58 +13,31 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.spi.NodeManager;
+import com.google.inject.Inject;
 import io.trino.spi.connector.BucketFunction;
-import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import org.apache.iceberg.Schema;
 
-import javax.inject.Inject;
-
 import java.util.List;
-import java.util.function.ToIntFunction;
 
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
-import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
-import static java.util.Objects.requireNonNull;
 
 public class IcebergNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
     private final TypeOperators typeOperators;
-    private final NodeManager nodeManager;
 
     @Inject
-    public IcebergNodePartitioningProvider(TypeManager typeManager, NodeManager nodeManager)
+    public IcebergNodePartitioningProvider(TypeManager typeManager)
     {
-        this.typeOperators = requireNonNull(typeManager, "typeManager is null").getTypeOperators();
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-    }
-
-    @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
-    {
-        return createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size());
-    }
-
-    @Override
-    public ToIntFunction<ConnectorSplit> getSplitBucketFunction(
-            ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session,
-            ConnectorPartitioningHandle partitioningHandle)
-    {
-        return split -> {
-            // Not currently used, likely because IcebergMetadata.getTableProperties currently does not expose partitioning.
-            throw new UnsupportedOperationException();
-        };
+        this.typeOperators = typeManager.getTypeOperators();
     }
 
     @Override
@@ -75,6 +48,10 @@ public class IcebergNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
+        if (partitioningHandle instanceof IcebergUpdateHandle) {
+            return new IcebergUpdateBucketFunction(bucketCount);
+        }
+
         IcebergPartitioningHandle handle = (IcebergPartitioningHandle) partitioningHandle;
         Schema schema = schemaFromHandles(handle.getPartitioningColumns());
         return new IcebergBucketFunction(

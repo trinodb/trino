@@ -15,10 +15,12 @@ package io.trino.plugin.base.session;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 
 import java.util.function.Consumer;
 
+import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public final class PropertyMetadataUtil
@@ -45,6 +47,20 @@ public final class PropertyMetadataUtil
                     return value;
                 },
                 DataSize::toString);
+    }
+
+    public static void validateMinDataSize(String name, DataSize value, DataSize min)
+    {
+        if (value.compareTo(min) < 0) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be at least %s: %s".formatted(name, min, value));
+        }
+    }
+
+    public static void validateMaxDataSize(String name, DataSize value, DataSize max)
+    {
+        if (value.compareTo(max) > 0) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "%s must be at most %s: %s".formatted(name, max, value));
+        }
     }
 
     public static PropertyMetadata<Duration> durationProperty(String name, String description, Duration defaultValue, boolean hidden)

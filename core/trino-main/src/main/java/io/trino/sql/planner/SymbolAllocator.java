@@ -23,8 +23,7 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.SymbolReference;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -110,15 +109,14 @@ public class SymbolAllocator
     public Symbol newSymbol(Expression expression, Type type, String suffix)
     {
         String nameHint = "expr";
-        if (expression instanceof Identifier) {
-            nameHint = ((Identifier) expression).getValue();
+        if (expression instanceof Identifier identifier) {
+            nameHint = identifier.getValue();
         }
-        else if (expression instanceof FunctionCall) {
-            FunctionCall functionCall = (FunctionCall) expression;
+        else if (expression instanceof FunctionCall functionCall) {
             nameHint = ResolvedFunction.extractFunctionName(functionCall.getName());
         }
-        else if (expression instanceof SymbolReference) {
-            nameHint = ((SymbolReference) expression).getName();
+        else if (expression instanceof SymbolReference symbolReference) {
+            nameHint = symbolReference.getName();
         }
         else if (expression instanceof GroupingOperation) {
             nameHint = "grouping";

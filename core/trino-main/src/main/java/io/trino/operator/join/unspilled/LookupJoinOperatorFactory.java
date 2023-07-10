@@ -19,6 +19,7 @@ import io.trino.operator.HashGenerator;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactories.JoinOperatorType;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.ProcessorContext;
@@ -29,9 +30,9 @@ import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperat
 import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.JoinOperatorFactory;
-import io.trino.operator.join.JoinProbe.JoinProbeFactory;
 import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.LookupOuterOperator.LookupOuterOperatorFactory;
+import io.trino.operator.join.unspilled.JoinProbe.JoinProbeFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -72,9 +73,7 @@ public class LookupJoinOperatorFactory
             List<Type> probeTypes,
             List<Type> probeOutputTypes,
             List<Type> buildOutputTypes,
-            JoinType joinType,
-            boolean outputSingleMatch,
-            boolean waitForBuild,
+            JoinOperatorType joinOperatorType,
             JoinProbeFactory joinProbeFactory,
             BlockTypeOperators blockTypeOperators,
             List<Integer> probeJoinChannels,
@@ -84,9 +83,9 @@ public class LookupJoinOperatorFactory
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.probeTypes = ImmutableList.copyOf(requireNonNull(probeTypes, "probeTypes is null"));
         this.buildOutputTypes = ImmutableList.copyOf(requireNonNull(buildOutputTypes, "buildOutputTypes is null"));
-        this.joinType = requireNonNull(joinType, "joinType is null");
-        this.outputSingleMatch = outputSingleMatch;
-        this.waitForBuild = waitForBuild;
+        this.joinType = requireNonNull(joinOperatorType.getType(), "joinType is null");
+        this.outputSingleMatch = joinOperatorType.isOutputSingleMatch();
+        this.waitForBuild = joinOperatorType.isWaitForBuild();
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
 
         this.joinBridgeManager = lookupSourceFactoryManager;

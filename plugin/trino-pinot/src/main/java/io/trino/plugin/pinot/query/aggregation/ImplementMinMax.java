@@ -39,6 +39,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -48,7 +49,7 @@ public class ImplementMinMax
         implements AggregateFunctionRule<AggregateExpression, Void>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
-    private static final Set<Type> SUPPORTED_ARGUMENT_TYPES = ImmutableSet.of(INTEGER, BIGINT, REAL, DOUBLE);
+    private static final Set<Type> SUPPORTED_ARGUMENT_TYPES = ImmutableSet.of(INTEGER, BIGINT, REAL, DOUBLE, TIMESTAMP_MILLIS);
 
     private final Function<String, String> identifierQuote;
 

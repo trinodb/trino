@@ -15,6 +15,7 @@ package io.trino.connector.system.jdbc;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.slice.Slices;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
@@ -46,8 +47,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-
-import javax.inject.Inject;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
@@ -309,29 +308,53 @@ public class ColumnJdbcTable
                 continue;
             }
             builder.addRow(
+                    // table_cat
                     catalog,
+                    // table_schem
                     tableName.getSchemaName(),
+                    // table_name
                     tableName.getTableName(),
+                    // column_name
                     column.getName(),
+                    // data_type
                     jdbcDataType(column.getType()),
+                    // type_name
                     getDisplayLabel(column.getType(), isOmitTimestampPrecision),
+                    // column_size
                     columnSize(column.getType()),
+                    // buffer_length
                     0,
+                    // decimal_digits
                     decimalDigits(column.getType()),
+                    // num_prec_radix
                     numPrecRadix(column.getType()),
-                    DatabaseMetaData.columnNullableUnknown,
+                    // nullable
+                    column.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls,
+                    // remarks
                     column.getComment(),
+                    // column_def
                     null,
+                    // sql_data_type
                     null,
+                    // sql_datetime_sub
                     null,
+                    // char_octet_length
                     charOctetLength(column.getType()),
+                    // ordinal_position
                     ordinalPosition,
+                    // is_nullable
                     column.isNullable() ? "YES" : "NO",
+                    // scope_catalog
                     null,
+                    // scope_schema
                     null,
+                    // scope_table
                     null,
+                    // source_data_type
                     null,
+                    // is_autoincrement
                     null,
+                    // is_generatedcolumn
                     null);
             ordinalPosition++;
         }

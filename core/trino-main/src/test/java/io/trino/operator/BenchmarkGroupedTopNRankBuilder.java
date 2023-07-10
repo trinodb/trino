@@ -23,7 +23,6 @@ import io.trino.tpch.LineItemGenerator;
 import io.trino.type.BlockTypeOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
@@ -60,40 +59,46 @@ public class BenchmarkGroupedTopNRankBuilder
     public static class BenchmarkData
     {
         @Param({"1", "10", "100"})
-        private String topN = "1";
+        private int topN = 1;
 
         @Param({"10000", "1000000"})
-        private String positions = "1";
+        private int positions = 1;
 
+        // when positions is evenly divisible by groupCount, each row will end up in the same group on each processPage call,
+        // which means it will stop inserting after topN is saturated which may or may not be desirable for any given benchmark scenario
         @Param({"1", "10000", "1000000"})
-        private String groupCount = "1";
+        private int groupCount = 1;
 
+        @Param("100")
+        private int addPageCalls = 100;
+
+        private List<Type> types;
+        private PageWithPositionComparator comparator;
+        private PageWithPositionEqualsAndHash equalsAndHash;
         private Page page;
-        private GroupedTopNRankBuilder topNBuilder;
 
-        @Setup(value = Level.Invocation)
+        @Setup
         public void setup()
         {
-            List<Type> types = ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, BIGINT);
+            types = ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, BIGINT);
             TypeOperators typeOperators = new TypeOperators();
             BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
-            PageWithPositionComparator comparator = new SimplePageWithPositionComparator(
+            comparator = new SimplePageWithPositionComparator(
                     types,
                     ImmutableList.of(EXTENDED_PRICE, STATUS),
                     ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST),
                     typeOperators);
-            PageWithPositionEqualsAndHash equalsAndHash = new SimplePageWithPositionEqualsAndHash(
+            equalsAndHash = new SimplePageWithPositionEqualsAndHash(
                     types,
                     ImmutableList.of(EXTENDED_PRICE, STATUS),
                     blockTypeOperators);
 
-            page = createInputPage(Integer.valueOf(positions), types);
-            topNBuilder = new GroupedTopNRankBuilder(types, comparator, equalsAndHash, Integer.valueOf(topN), true, new CyclingGroupByHash(Integer.valueOf(groupCount)));
+            page = createInputPage(positions, types);
         }
 
-        public GroupedTopNBuilder getTopNBuilder()
+        public GroupedTopNBuilder newTopNBuilder()
         {
-            return topNBuilder;
+            return new GroupedTopNRankBuilder(types, comparator, equalsAndHash, topN, true, new CyclingGroupByHash(groupCount));
         }
 
         public Page getPage()
@@ -103,10 +108,29 @@ public class BenchmarkGroupedTopNRankBuilder
     }
 
     @Benchmark
+    public long processTopNInput(BenchmarkData data)
+    {
+        GroupedTopNBuilder builder = data.newTopNBuilder();
+        Page inputPage = data.getPage();
+        for (int i = 0; i < data.addPageCalls; i++) {
+            if (!builder.processPage(inputPage).process()) {
+                throw new IllegalStateException("Work did not complete");
+            }
+        }
+        return builder.getEstimatedSizeInBytes();
+    }
+
+    @Benchmark
     public List<Page> topN(BenchmarkData data)
     {
-        data.getTopNBuilder().processPage(data.getPage()).process();
-        return ImmutableList.copyOf(data.getTopNBuilder().buildResult());
+        GroupedTopNBuilder builder = data.newTopNBuilder();
+        Page inputPage = data.getPage();
+        for (int i = 0; i < data.addPageCalls; i++) {
+            if (!builder.processPage(inputPage).process()) {
+                throw new IllegalStateException("Work did not complete");
+            }
+        }
+        return ImmutableList.copyOf(builder.buildResult());
     }
 
     public static void main(String[] args)
@@ -114,7 +138,10 @@ public class BenchmarkGroupedTopNRankBuilder
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();
-        new BenchmarkGroupedTopNRankBuilder().topN(data);
+
+        BenchmarkGroupedTopNRankBuilder benchmark = new BenchmarkGroupedTopNRankBuilder();
+        benchmark.topN(data);
+        benchmark.processTopNInput(data);
 
         benchmark(BenchmarkGroupedTopNRankBuilder.class).run();
     }

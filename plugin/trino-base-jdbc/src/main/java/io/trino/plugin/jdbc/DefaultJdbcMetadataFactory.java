@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
-
-import javax.inject.Inject;
 
 import java.util.Set;
 
@@ -26,11 +26,13 @@ public class DefaultJdbcMetadataFactory
         implements JdbcMetadataFactory
 {
     private final JdbcClient jdbcClient;
+    private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     @Inject
-    public DefaultJdbcMetadataFactory(JdbcClient jdbcClient)
+    public DefaultJdbcMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
     }
 
     @Override
@@ -49,6 +51,6 @@ public class DefaultJdbcMetadataFactory
 
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new DefaultJdbcMetadata(transactionCachingJdbcClient, true);
+        return new DefaultJdbcMetadata(transactionCachingJdbcClient, true, jdbcQueryEventListeners);
     }
 }

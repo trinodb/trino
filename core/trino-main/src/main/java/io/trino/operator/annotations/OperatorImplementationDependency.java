@@ -15,11 +15,11 @@ package io.trino.operator.annotations;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.trino.metadata.FunctionInvoker;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
@@ -62,10 +62,10 @@ public final class OperatorImplementationDependency
     }
 
     @Override
-    protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
+    protected ScalarFunctionImplementation getImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
         List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding);
-        return functionDependencies.getOperatorSignatureInvoker(operator, types, invocationConvention);
+        return functionDependencies.getOperatorImplementationSignature(operator, types, invocationConvention);
     }
 
     @Override

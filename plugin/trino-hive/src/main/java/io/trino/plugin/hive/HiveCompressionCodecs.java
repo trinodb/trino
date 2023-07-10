@@ -26,7 +26,7 @@ public final class HiveCompressionCodecs
         HiveCompressionOption compressionOption = HiveSessionProperties.getCompressionCodec(session);
         return HiveStorageFormat.getHiveStorageFormat(storageFormat)
                 .map(format -> selectCompressionCodec(compressionOption, format))
-                .orElse(selectCompressionCodecForUnknownStorageFormat(compressionOption));
+                .orElseGet(() -> selectCompressionCodecForUnknownStorageFormat(compressionOption));
     }
 
     public static HiveCompressionCodec selectCompressionCodec(ConnectorSession session, HiveStorageFormat storageFormat)
@@ -48,35 +48,23 @@ public final class HiveCompressionCodecs
 
     private static HiveCompressionCodec selectCompressionCodec(HiveCompressionOption compressionOption)
     {
-        switch (compressionOption) {
-            case NONE:
-                return HiveCompressionCodec.NONE;
-            case SNAPPY:
-                return HiveCompressionCodec.SNAPPY;
-            case LZ4:
-                return HiveCompressionCodec.LZ4;
-            case ZSTD:
-                return HiveCompressionCodec.ZSTD;
-            case GZIP:
-                return HiveCompressionCodec.GZIP;
-        }
-        throw new IllegalArgumentException("Unknown compressionOption " + compressionOption);
+        return switch (compressionOption) {
+            case NONE -> HiveCompressionCodec.NONE;
+            case SNAPPY -> HiveCompressionCodec.SNAPPY;
+            case LZ4 -> HiveCompressionCodec.LZ4;
+            case ZSTD -> HiveCompressionCodec.ZSTD;
+            case GZIP -> HiveCompressionCodec.GZIP;
+        };
     }
 
     private static HiveCompressionCodec selectCompressionCodecForUnknownStorageFormat(HiveCompressionOption compressionOption)
     {
-        switch (compressionOption) {
-            case NONE:
-                return HiveCompressionCodec.NONE;
-            case SNAPPY:
-                return HiveCompressionCodec.SNAPPY;
-            case LZ4:
-                return HiveCompressionCodec.LZ4;
-            case ZSTD:
-                return HiveCompressionCodec.ZSTD;
-            case GZIP:
-                return HiveCompressionCodec.GZIP;
-        }
-        throw new IllegalArgumentException("Unknown compressionOption " + compressionOption);
+        return switch (compressionOption) {
+            case NONE -> HiveCompressionCodec.NONE;
+            case SNAPPY -> HiveCompressionCodec.SNAPPY;
+            case LZ4 -> HiveCompressionCodec.LZ4;
+            case ZSTD -> HiveCompressionCodec.ZSTD;
+            case GZIP -> HiveCompressionCodec.GZIP;
+        };
     }
 }

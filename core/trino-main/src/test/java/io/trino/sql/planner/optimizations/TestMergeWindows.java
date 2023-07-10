@@ -25,15 +25,14 @@ import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.WindowFrame;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
@@ -48,6 +47,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestMergeWindows
         extends BasePlanTest
@@ -95,17 +95,12 @@ public class TestMergeWindows
 
     private static final Optional<WindowFrame> UNSPECIFIED_FRAME = Optional.empty();
 
-    private final ExpectedValueProvider<WindowNode.Specification> specificationA;
-    private final ExpectedValueProvider<WindowNode.Specification> specificationB;
+    private final ExpectedValueProvider<DataOrganizationSpecification> specificationA;
+    private final ExpectedValueProvider<DataOrganizationSpecification> specificationB;
 
     public TestMergeWindows()
     {
-        this(ImmutableMap.of());
-    }
-
-    public TestMergeWindows(Map<String, String> sessionProperties)
-    {
-        super(sessionProperties);
+        super(ImmutableMap.of());
 
         specificationA = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
@@ -305,12 +300,12 @@ public class TestMergeWindows
     @Test
     public void testIdenticalWindowSpecificationsDefaultFrame()
     {
-        ExpectedValueProvider<WindowNode.Specification> specificationC = specification(
+        ExpectedValueProvider<DataOrganizationSpecification> specificationC = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
                 ImmutableList.of(ORDERKEY_ALIAS),
                 ImmutableMap.of(ORDERKEY_ALIAS, SortOrder.ASC_NULLS_LAST));
 
-        ExpectedValueProvider<WindowNode.Specification> specificationD = specification(
+        ExpectedValueProvider<DataOrganizationSpecification> specificationD = specification(
                 ImmutableList.of(ORDERKEY_ALIAS),
                 ImmutableList.of(SHIPDATE_ALIAS),
                 ImmutableMap.of(SHIPDATE_ALIAS, SortOrder.ASC_NULLS_LAST));
@@ -348,7 +343,7 @@ public class TestMergeWindows
                 ImmutableList.of(),
                 ImmutableList.of()));
 
-        ExpectedValueProvider<WindowNode.Specification> specificationC = specification(
+        ExpectedValueProvider<DataOrganizationSpecification> specificationC = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
                 ImmutableList.of(ORDERKEY_ALIAS),
                 ImmutableMap.of(ORDERKEY_ALIAS, SortOrder.ASC_NULLS_LAST));
@@ -394,7 +389,7 @@ public class TestMergeWindows
                 ImmutableList.of(),
                 ImmutableList.of()));
 
-        ExpectedValueProvider<WindowNode.Specification> specificationD = specification(
+        ExpectedValueProvider<DataOrganizationSpecification> specificationD = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
                 ImmutableList.of(ORDERKEY_ALIAS),
                 ImmutableMap.of(ORDERKEY_ALIAS, SortOrder.ASC_NULLS_LAST));
@@ -436,12 +431,12 @@ public class TestMergeWindows
                 ")" +
                 "SELECT * FROM foo, bar WHERE foo.a = bar.b";
 
-        ExpectedValueProvider<WindowNode.Specification> leftSpecification = specification(
+        ExpectedValueProvider<DataOrganizationSpecification> leftSpecification = specification(
                 ImmutableList.of(ORDERKEY_ALIAS),
                 ImmutableList.of(SHIPDATE_ALIAS, QUANTITY_ALIAS),
                 ImmutableMap.of(SHIPDATE_ALIAS, SortOrder.ASC_NULLS_LAST, QUANTITY_ALIAS, SortOrder.DESC_NULLS_LAST));
 
-        ExpectedValueProvider<WindowNode.Specification> rightSpecification = specification(
+        ExpectedValueProvider<DataOrganizationSpecification> rightSpecification = specification(
                 ImmutableList.of(rOrderkeyAlias),
                 ImmutableList.of(rShipdateAlias, rQuantityAlias),
                 ImmutableMap.of(rShipdateAlias, SortOrder.ASC_NULLS_LAST, rQuantityAlias, SortOrder.DESC_NULLS_LAST));
@@ -469,19 +464,19 @@ public class TestMergeWindows
         assertUnitPlan(sql,
                 anyTree(
                         filter("SUM = AVG",
-                                join(JoinNode.Type.INNER, ImmutableList.of(),
-                                        any(
-                                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                                .specification(leftSpecification)
-                                                                .addFunction("SUM", functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
-                                                        any(
-                                                                leftTableScan))),
-                                        any(
-                                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                                .specification(rightSpecification)
-                                                                .addFunction("AVG", functionCall("avg", COMMON_FRAME, ImmutableList.of(rQuantityAlias))),
-                                                        any(
-                                                                rightTableScan)))))));
+                                join(INNER, builder -> builder
+                                        .left(
+                                                any(
+                                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                        .specification(leftSpecification)
+                                                                        .addFunction("SUM", functionCall("sum", COMMON_FRAME, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                                any(leftTableScan))))
+                                        .right(
+                                                any(
+                                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                                        .specification(rightSpecification)
+                                                                        .addFunction("AVG", functionCall("avg", COMMON_FRAME, ImmutableList.of(rQuantityAlias))),
+                                                                any(rightTableScan))))))));
     }
 
     @Test
@@ -492,7 +487,7 @@ public class TestMergeWindows
                 "SUM(quantity) over (PARTITION BY quantity ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_C " +
                 "FROM lineitem";
 
-        ExpectedValueProvider<WindowNode.Specification> specificationC = specification(
+        ExpectedValueProvider<DataOrganizationSpecification> specificationC = specification(
                 ImmutableList.of(QUANTITY_ALIAS),
                 ImmutableList.of(ORDERKEY_ALIAS),
                 ImmutableMap.of(ORDERKEY_ALIAS, SortOrder.ASC_NULLS_LAST));
@@ -517,7 +512,7 @@ public class TestMergeWindows
                 "SUM(quantity) OVER (PARTITION BY suppkey ORDER BY quantity ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_quantity_C " +
                 "FROM lineitem";
 
-        ExpectedValueProvider<WindowNode.Specification> specificationC = specification(
+        ExpectedValueProvider<DataOrganizationSpecification> specificationC = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
                 ImmutableList.of(QUANTITY_ALIAS),
                 ImmutableMap.of(QUANTITY_ALIAS, SortOrder.ASC_NULLS_LAST));
@@ -543,7 +538,7 @@ public class TestMergeWindows
                 "SUM(discount) over (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
                 "FROM lineitem";
 
-        ExpectedValueProvider<WindowNode.Specification> specificationC = specification(
+        ExpectedValueProvider<DataOrganizationSpecification> specificationC = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
                 ImmutableList.of(ORDERKEY_ALIAS),
                 ImmutableMap.of(ORDERKEY_ALIAS, SortOrder.DESC_NULLS_LAST));
@@ -570,7 +565,7 @@ public class TestMergeWindows
                 "SUM(discount) OVER (PARTITION BY suppkey ORDER BY orderkey ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) sum_discount_A " +
                 "FROM lineitem";
 
-        ExpectedValueProvider<WindowNode.Specification> specificationC = specification(
+        ExpectedValueProvider<DataOrganizationSpecification> specificationC = specification(
                 ImmutableList.of(SUPPKEY_ALIAS),
                 ImmutableList.of(ORDERKEY_ALIAS),
                 ImmutableMap.of(ORDERKEY_ALIAS, SortOrder.ASC_NULLS_FIRST));

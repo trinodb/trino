@@ -56,7 +56,7 @@ public class TestDbResourceGroupConfigurationManager
 
     static H2DaoProvider setup(String prefix)
     {
-        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_" + prefix + System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_" + prefix + System.nanoTime() + ThreadLocalRandom.current().nextLong() + ";NON_KEYWORDS=KEY,VALUE");
         return new H2DaoProvider(config);
     }
 
@@ -296,7 +296,7 @@ public class TestDbResourceGroupConfigurationManager
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 listener -> {},
-                new DbResourceGroupConfig().setMaxRefreshInterval(new io.airlift.units.Duration(1, MILLISECONDS)),
+                new DbResourceGroupConfig().setMaxRefreshInterval(new io.airlift.units.Duration(2, MILLISECONDS)).setRefreshInterval(new io.airlift.units.Duration(1, MILLISECONDS)),
                 daoProvider.get(),
                 ENVIRONMENT);
 
@@ -316,7 +316,7 @@ public class TestDbResourceGroupConfigurationManager
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 listener -> {},
-                new DbResourceGroupConfig().setMaxRefreshInterval(new io.airlift.units.Duration(1, MILLISECONDS)),
+                new DbResourceGroupConfig().setMaxRefreshInterval(new io.airlift.units.Duration(2, MILLISECONDS)).setRefreshInterval(new io.airlift.units.Duration(1, MILLISECONDS)),
                 daoProvider.get(),
                 ENVIRONMENT);
 
@@ -345,7 +345,7 @@ public class TestDbResourceGroupConfigurationManager
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 listener -> {},
-                new DbResourceGroupConfig().setMaxRefreshInterval(new io.airlift.units.Duration(1, MILLISECONDS)),
+                new DbResourceGroupConfig().setMaxRefreshInterval(new io.airlift.units.Duration(2, MILLISECONDS)).setRefreshInterval(new io.airlift.units.Duration(1, MILLISECONDS)),
                 daoProvider.get(),
                 ENVIRONMENT);
 
@@ -368,7 +368,7 @@ public class TestDbResourceGroupConfigurationManager
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 listener -> {},
-                new DbResourceGroupConfig().setMaxRefreshInterval(new io.airlift.units.Duration(1, MILLISECONDS)),
+                new DbResourceGroupConfig().setMaxRefreshInterval(new io.airlift.units.Duration(2, MILLISECONDS)).setRefreshInterval(new io.airlift.units.Duration(1, MILLISECONDS)),
                 daoProvider.get(),
                 ENVIRONMENT);
 

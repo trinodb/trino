@@ -14,6 +14,7 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
@@ -23,12 +24,10 @@ import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
-import javax.inject.Inject;
-
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -49,15 +48,15 @@ public class EnvSinglenodeLdapAndFile
         builder.addPasswordAuthenticator(
                 "file",
                 forHostPath(configDir.getPath("file-authenticator.properties")),
-                CONTAINER_PRESTO_ETC + "/file-authenticator.properties");
+                CONTAINER_TRINO_ETC + "/file-authenticator.properties");
         builder.configureContainer(COORDINATOR, dockerContainer -> {
             dockerContainer
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("config.properties")),
-                            CONTAINER_PRESTO_CONFIG_PROPERTIES)
+                            CONTAINER_TRINO_CONFIG_PROPERTIES)
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("password.db")),
-                            CONTAINER_PRESTO_ETC + "/password.db");
+                            CONTAINER_TRINO_ETC + "/password.db");
         });
 
         configureTempto(builder, configDir);

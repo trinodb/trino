@@ -45,11 +45,9 @@ public class UnnestedSymbolMatcher
     @Override
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        if (!(node instanceof UnnestNode)) {
+        if (!(node instanceof UnnestNode unnestNode)) {
             return Optional.empty();
         }
-
-        UnnestNode unnestNode = (UnnestNode) node;
 
         Symbol unnestSymbol = Symbol.from(symbolAliases.get(symbol));
         List<Mapping> matches = unnestNode.getMappings().stream()

@@ -15,21 +15,24 @@ package io.trino.server.remotetask;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.SpanBuilder;
 import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
+import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
-
-import javax.annotation.concurrent.GuardedBy;
+import io.trino.execution.buffer.SpoolingOutputStats;
 
 import java.net.URI;
 import java.util.Optional;
@@ -38,8 +41,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
@@ -51,6 +57,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TaskInfoFetcher
 {
+    private static final Logger log = Logger.get(TaskInfoFetcher.class);
+
     private final TaskId taskId;
     private final Consumer<Throwable> onFail;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
@@ -64,11 +72,14 @@ public class TaskInfoFetcher
 
     private final Executor executor;
     private final HttpClient httpClient;
+    private final Supplier<SpanBuilder> spanBuilderFactory;
     private final RequestErrorTracker errorTracker;
 
     private final boolean summarizeTaskInfo;
     private final RemoteTaskStats stats;
     private final Optional<DataSize> estimatedMemory;
+
+    private final AtomicReference<SpoolingOutputStats.Snapshot> spoolingOutputStats = new AtomicReference<>();
 
     @GuardedBy("this")
     private boolean running;
@@ -84,6 +95,7 @@ public class TaskInfoFetcher
             ContinuousTaskStatusFetcher taskStatusFetcher,
             TaskInfo initialTask,
             HttpClient httpClient,
+            Supplier<SpanBuilder> spanBuilderFactory,
             Duration updateInterval,
             JsonCodec<TaskInfo> taskInfoCodec,
             Duration maxErrorDuration,
@@ -104,7 +116,7 @@ public class TaskInfoFetcher
         this.finalTaskInfo = new StateMachine<>("task-" + taskId, executor, Optional.empty());
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
 
-        this.updateIntervalMillis = requireNonNull(updateInterval, "updateInterval is null").toMillis();
+        this.updateIntervalMillis = updateInterval.toMillis();
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         this.errorTracker = new RequestErrorTracker(taskId, initialTask.getTaskStatus().getSelf(), maxErrorDuration, errorScheduledExecutor, "getting info for task");
 
@@ -112,6 +124,7 @@ public class TaskInfoFetcher
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.spanBuilderFactory = requireNonNull(spanBuilderFactory, "spanBuilderFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.estimatedMemory = requireNonNull(estimatedMemory, "estimatedMemory is null");
     }
@@ -161,17 +174,34 @@ public class TaskInfoFetcher
         fireOnceStateChangeListener.stateChanged(finalTaskInfo.get());
     }
 
+    public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
+    {
+        Optional<TaskInfo> finalTaskInfo = this.finalTaskInfo.get();
+        checkState(finalTaskInfo.isPresent(), "finalTaskInfo must be present");
+        TaskState taskState = finalTaskInfo.get().getTaskStatus().getState();
+        checkState(taskState == TaskState.FINISHED, "task must be FINISHED, got: %s", taskState);
+        SpoolingOutputStats.Snapshot result = spoolingOutputStats.getAndSet(null);
+        checkState(result != null, "spooling output stats is not available");
+        return result;
+    }
+
     private synchronized void scheduleUpdate()
     {
         scheduledFuture = updateScheduledExecutor.scheduleWithFixedDelay(() -> {
-            synchronized (this) {
-                // if the previous request still running, don't schedule a new request
-                if (future != null && !future.isDone()) {
-                    return;
+            try {
+                synchronized (this) {
+                    // if the previous request still running, don't schedule a new request
+                    if (future != null && !future.isDone()) {
+                        return;
+                    }
+                }
+                if (nanosSince(lastUpdateNanos.get()).toMillis() >= updateIntervalMillis) {
+                    sendNextRequest();
                 }
             }
-            if (nanosSince(lastUpdateNanos.get()).toMillis() >= updateIntervalMillis) {
-                sendNextRequest();
+            catch (Throwable e) {
+                // ignore to avoid getting unscheduled
+                log.error(e, "Unexpected error while getting task info");
             }
         }, 0, 100, MILLISECONDS);
     }
@@ -207,6 +237,7 @@ public class TaskInfoFetcher
         Request request = prepareGet()
                 .setUri(uri)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
+                .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 
         errorTracker.startRequest();
@@ -228,6 +259,11 @@ public class TaskInfoFetcher
             newTaskInfo = newTaskInfo.withEstimatedMemory(estimatedMemory.get());
         }
 
+        if (newTaskInfo.getTaskStatus().getState().isDone()) {
+            spoolingOutputStats.compareAndSet(null, newTaskInfo.getOutputBuffers().getSpoolingOutputStats().orElse(null));
+            newTaskInfo = newTaskInfo.pruneSpoolingOutputStats();
+        }
+
         TaskInfo newValue = newTaskInfo;
         boolean updated = taskInfo.setIf(newValue, oldValue -> {
             TaskStatus oldTaskStatus = oldValue.getTaskStatus();
@@ -241,6 +277,7 @@ public class TaskInfoFetcher
         });
 
         if (updated && newValue.getTaskStatus().getState().isDone()) {
+            taskStatusFetcher.updateTaskStatus(newTaskInfo.getTaskStatus());
             finalTaskInfo.compareAndSet(Optional.empty(), Optional.of(newValue));
             stop();
         }

@@ -24,8 +24,8 @@ You shouldn't rely on the content of such rows.
 Configuration
 -------------
 
-To configure the Black Hole connector, create a catalog properties file
-``etc/catalog/blackhole.properties`` with the following contents:
+Create ``etc/catalog/example.properties`` to mount the ``blackhole`` connector
+as the ``example`` catalog, with the following contents:
 
 .. code-block:: text
 
@@ -36,23 +36,23 @@ Examples
 
 Create a table using the blackhole connector::
 
-    CREATE TABLE blackhole.test.nation AS
+    CREATE TABLE example.test.nation AS
     SELECT * from tpch.tiny.nation;
 
 Insert data into a table in the blackhole connector::
 
-    INSERT INTO blackhole.test.nation
+    INSERT INTO example.test.nation
     SELECT * FROM tpch.tiny.nation;
 
 Select from the blackhole connector::
 
-    SELECT count(*) FROM blackhole.test.nation;
+    SELECT count(*) FROM example.test.nation;
 
 The above query always returns zero.
 
 Create a table with a constant number of rows (500 * 1000 * 2000)::
 
-    CREATE TABLE blackhole.test.nation (
+    CREATE TABLE example.test.nation (
       nationkey bigint,
       name varchar
     )
@@ -64,14 +64,14 @@ Create a table with a constant number of rows (500 * 1000 * 2000)::
 
 Now query it::
 
-    SELECT count(*) FROM blackhole.test.nation;
+    SELECT count(*) FROM example.test.nation;
 
 The above query returns 1,000,000,000.
 
 Length of variable length columns can be controlled using the ``field_length``
 table property (default value is equal to 16)::
 
-    CREATE TABLE blackhole.test.nation (
+    CREATE TABLE example.test.nation (
       nationkey bigint,
       name varchar
     )
@@ -87,7 +87,7 @@ using the ``page_processing_delay`` table property.
 Setting this property to ``5s`` leads to a 5 second
 delay before consuming or producing a new page::
 
-    CREATE TABLE blackhole.test.delay (
+    CREATE TABLE example.test.delay (
       dummy bigint
     )
     WITH (
@@ -107,6 +107,9 @@ The connector provides :ref:`globally available <sql-globally-available>`,
 additional features:
 
 * :doc:`/sql/insert`
+* :doc:`/sql/update`
+* :doc:`/sql/delete`
+* :doc:`/sql/merge`
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`

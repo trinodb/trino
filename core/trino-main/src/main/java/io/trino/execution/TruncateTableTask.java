@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -23,10 +24,7 @@ import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.TruncateTable;
 
-import javax.inject.Inject;
-
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -72,14 +70,12 @@ public class TruncateTableTask
             throw semanticException(NOT_SUPPORTED, statement, "Cannot truncate a view");
         }
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        if (tableHandle.isEmpty()) {
-            throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
-        }
+        TableHandle tableHandle = metadata.getTableHandle(session, tableName)
+                .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName));
 
         accessControl.checkCanTruncateTable(session.toSecurityContext(), tableName);
 
-        metadata.truncateTable(session, tableHandle.get());
+        metadata.truncateTable(session, tableHandle);
 
         return immediateFuture(null);
     }

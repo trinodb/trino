@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.raptor.legacy.util.MetadataUtil.checkSchemaName;
@@ -41,10 +40,8 @@ public final class RaptorTableHandle
     private final Optional<String> distributionName;
     private final OptionalInt bucketCount;
     private final boolean organized;
-    private final OptionalLong transactionId;
     private final TupleDomain<RaptorColumnHandle> constraint;
     private final Optional<List<String>> bucketAssignments;
-    private final boolean delete;
 
     @JsonCreator
     public RaptorTableHandle(
@@ -55,11 +52,9 @@ public final class RaptorTableHandle
             @JsonProperty("distributionName") Optional<String> distributionName,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("organized") boolean organized,
-            @JsonProperty("transactionId") OptionalLong transactionId,
             @JsonProperty("constraint") TupleDomain<RaptorColumnHandle> constraint,
             // this field will not be in the JSON, but keep it here to avoid duplicating the constructor
-            @JsonProperty("bucketAssignments") Optional<List<String>> bucketAssignments,
-            @JsonProperty("delete") boolean delete)
+            @JsonProperty("bucketAssignments") Optional<List<String>> bucketAssignments)
     {
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
@@ -71,11 +66,9 @@ public final class RaptorTableHandle
         this.distributionId = requireNonNull(distributionId, "distributionId is null");
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.organized = organized;
-        this.transactionId = requireNonNull(transactionId, "transactionId is null");
 
         this.constraint = requireNonNull(constraint, "constraint is null");
-        this.bucketAssignments = requireNonNull(bucketAssignments, "bucketAssignments is null").map(ImmutableList::copyOf);
-        this.delete = delete;
+        this.bucketAssignments = bucketAssignments.map(ImmutableList::copyOf);
     }
 
     public boolean isBucketed()
@@ -131,18 +124,6 @@ public final class RaptorTableHandle
         return constraint;
     }
 
-    @JsonProperty
-    public OptionalLong getTransactionId()
-    {
-        return transactionId;
-    }
-
-    @JsonProperty
-    public boolean isDelete()
-    {
-        return delete;
-    }
-
     @JsonIgnore
     public Optional<List<String>> getBucketAssignments()
     {
@@ -158,7 +139,7 @@ public final class RaptorTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tableId, distributionId, distributionName, bucketCount, organized, transactionId, constraint, bucketAssignments, delete);
+        return Objects.hash(schemaName, tableName, tableId, distributionId, distributionName, bucketCount, organized, constraint, bucketAssignments);
     }
 
     @Override
@@ -178,10 +159,8 @@ public final class RaptorTableHandle
                 Objects.equals(this.distributionName, other.distributionName) &&
                 Objects.equals(this.bucketCount, other.bucketCount) &&
                 this.organized == other.organized &&
-                Objects.equals(this.transactionId, other.transactionId) &&
                 Objects.equals(this.constraint, other.constraint) &&
-                Objects.equals(this.bucketAssignments, other.bucketAssignments) &&
-                this.delete == other.delete;
+                Objects.equals(this.bucketAssignments, other.bucketAssignments);
     }
 
     @JsonIgnore

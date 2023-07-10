@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryStats;
@@ -53,8 +54,10 @@ import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.testing.DataProviders.toDataProvider;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
@@ -64,8 +67,7 @@ import static org.testng.Assert.assertTrue;
 public class TestDeltaLakeDynamicFiltering
         extends AbstractTestQueryFramework
 {
-    private static final String BUCKET_NAME = "delta-lake-test-dynamic-filtering";
-
+    private final String bucketName = "delta-lake-test-dynamic-filtering-" + randomNameSuffix();
     private HiveMinioDataLake hiveMinioDataLake;
 
     @Override
@@ -73,24 +75,24 @@ public class TestDeltaLakeDynamicFiltering
             throws Exception
     {
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(BUCKET_NAME));
+        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
 
-        QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
+        QueryRunner queryRunner = createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 "default",
-                ImmutableMap.of(),
-                hiveMinioDataLake.getMinioAddress(),
+                ImmutableMap.of("delta.register-table-procedure.enabled", "true"),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
 
         ImmutableList.of(LINE_ITEM, ORDERS).forEach(table -> {
             String tableName = table.getTableName();
             hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/databricks/" + tableName, tableName);
-            queryRunner.execute(format("CREATE TABLE %s.%s.%s (dummy int) WITH (location = 's3://%s/%3$s')",
+            queryRunner.execute(format("CALL %1$s.system.register_table('%2$s', '%3$s', 's3://%4$s/%3$s')",
                     DELTA_CATALOG,
                     "default",
                     tableName,
-                    BUCKET_NAME));
+                    bucketName));
         });
         return queryRunner;
     }
@@ -131,7 +133,7 @@ public class TestDeltaLakeDynamicFiltering
         Optional<TableHandle> tableHandle = runner.getMetadata().getTableHandle(session, tableName);
         assertTrue(tableHandle.isPresent());
         SplitSource splitSource = runner.getSplitManager()
-                .getSplits(session, tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
+                .getSplits(session, Span.getInvalid(), tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
         List<Split> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
             splits.addAll(splitSource.getNextBatch(1000).get().getSplits());

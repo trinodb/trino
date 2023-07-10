@@ -14,7 +14,7 @@
 package io.trino.plugin.sqlserver;
 
 import com.google.common.cache.CacheBuilder;
-import io.trino.collect.cache.NonEvictableCache;
+import io.trino.cache.NonEvictableCache;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -26,7 +26,7 @@ import java.sql.SQLException;
 import java.util.concurrent.ExecutionException;
 
 import static com.microsoft.sqlserver.jdbc.ISQLServerConnection.TRANSACTION_SNAPSHOT;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;

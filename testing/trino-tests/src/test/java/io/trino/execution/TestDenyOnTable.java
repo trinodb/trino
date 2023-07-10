@@ -85,7 +85,7 @@ public class TestDenyOnTable
                 .build();
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.of("default"))
-                .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName) ? ImmutableList.of(table) : ImmutableList.of())
+                .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName) ? ImmutableList.of(table.getTableName()) : ImmutableList.of())
                 .withGetTableHandle((session, tableName) -> tableName.equals(table) ? new MockConnectorTableHandle(tableName) : null)
                 .build();
         queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
@@ -99,6 +99,7 @@ public class TestDenyOnTable
     {
         assertions.close();
         assertions = null;
+        queryRunner = null; // closed by assertions.close
     }
 
     @Test(dataProvider = "privileges")

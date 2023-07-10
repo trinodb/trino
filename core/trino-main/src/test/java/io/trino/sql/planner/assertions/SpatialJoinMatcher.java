@@ -51,11 +51,10 @@ public class SpatialJoinMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        if (!(node instanceof SpatialJoinNode)) {
+        if (!(node instanceof SpatialJoinNode joinNode)) {
             return false;
         }
 
-        SpatialJoinNode joinNode = (SpatialJoinNode) node;
         return joinNode.getType() == type;
     }
 

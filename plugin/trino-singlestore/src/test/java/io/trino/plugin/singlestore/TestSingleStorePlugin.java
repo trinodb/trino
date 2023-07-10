@@ -34,15 +34,4 @@ public class TestSingleStorePlugin
                 .orElseThrow();
         factory.create("test", ImmutableMap.of("connection-url", "jdbc:singlestore://test"), new TestingConnectorContext()).shutdown();
     }
-
-    @Test
-    public void testCreateConnectorLegacyName()
-    {
-        Plugin plugin = new SingleStorePlugin();
-        ConnectorFactory factory = stream(plugin.getConnectorFactories())
-                .filter(connectorFactory -> connectorFactory.getName().equals("memsql"))
-                .collect(toOptional())
-                .orElseThrow();
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:singlestore://test"), new TestingConnectorContext()).shutdown();
-    }
 }

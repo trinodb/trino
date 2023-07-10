@@ -41,16 +41,16 @@ public class TestShortArrayBlock
     {
         Slice[] expectedValues = alternatingNullValues(createTestValue(17));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 2, 4, 6, 7, 9, 10, 16);
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 2, 4, 6, 7, 9, 10, 16);
     }
 
     @Test
     public void testLazyBlockBuilderInitialization()
     {
         Slice[] expectedValues = createTestValue(100);
-        BlockBuilder emptyBlockBuilder = new ShortArrayBlockBuilder(null, 0);
+        ShortArrayBlockBuilder emptyBlockBuilder = new ShortArrayBlockBuilder(null, 0);
 
-        BlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, expectedValues.length);
+        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, expectedValues.length);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
 
@@ -58,7 +58,7 @@ public class TestShortArrayBlock
         assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
         assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
 
-        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = (ShortArrayBlockBuilder) blockBuilder.newBlockBuilderLike(null);
         assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
         assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
     }
@@ -84,8 +84,8 @@ public class TestShortArrayBlock
     private void assertFixedWithValues(Slice[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
-        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
+        assertBlock(blockBuilder, expectedValues);
+        assertBlock(blockBuilder.build(), expectedValues);
     }
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
@@ -95,14 +95,14 @@ public class TestShortArrayBlock
         return blockBuilder;
     }
 
-    private static void writeValues(Slice[] expectedValues, BlockBuilder blockBuilder)
+    private static void writeValues(Slice[] expectedValues, ShortArrayBlockBuilder blockBuilder)
     {
         for (Slice expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeShort(expectedValue.getShort(0)).closeEntry();
+                blockBuilder.writeShort(expectedValue.getShort(0));
             }
         }
     }

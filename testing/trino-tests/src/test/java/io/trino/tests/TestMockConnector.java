@@ -33,7 +33,6 @@ import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.metrics.Metrics;
-import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -84,7 +83,7 @@ public class TestMockConnector
                                                 "SELECT nationkey FROM mock.default.test_table",
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
-                                                ImmutableList.of(new ViewColumn("nationkey", BIGINT.getTypeId())),
+                                                ImmutableList.of(new ViewColumn("nationkey", BIGINT.getTypeId(), Optional.empty())),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
                                                 false)))
@@ -115,12 +114,10 @@ public class TestMockConnector
                                 .withProcedures(ImmutableSet.of(new TestProcedure().get()))
                                 .withTableProcedures(ImmutableSet.of(new TableProcedureMetadata("TESTING_TABLE_PROCEDURE", coordinatorOnly(), ImmutableList.of())))
                                 .withTableFunctions(ImmutableSet.of(new SimpleTableFunction()))
-                                .withSchemaProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
-                                        .add(booleanProperty("boolean_schema_property", "description", false, false))
-                                        .build())
-                                .withTableProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
-                                        .add(integerProperty("integer_table_property", "description", 0, false))
-                                        .build())
+                                .withSchemaProperties(() -> ImmutableList.of(
+                                        booleanProperty("boolean_schema_property", "description", false, false)))
+                                .withTableProperties(() -> ImmutableList.of(
+                                        integerProperty("integer_table_property", "description", 0, false)))
                                 .build()));
         queryRunner.createCatalog("mock", "mock");
         return queryRunner;
@@ -214,9 +211,7 @@ public class TestMockConnector
         assertQuery("SELECT count(*) FROM mock.default.nation WHERE name = 'ALGERIA'", "SELECT 1");
         assertUpdate("UPDATE mock.default.nation SET name = 'ALGERIA'", 25);
         assertUpdate("UPDATE mock.default.nation SET name = 'ALGERIA' WHERE nationkey = 1", 1);
-        assertThatThrownBy(() -> assertUpdate("UPDATE mock.default.nation SET name = 'x' WHERE false", 0))
-                // TODO https://github.com/trinodb/trino/issues/8855 - UPDATE with WHERE false currently is not supported
-                .hasMessage("Invalid descendant for DeleteNode or UpdateNode: io.trino.sql.planner.plan.ExchangeNode");
+        assertUpdate("UPDATE mock.default.nation SET name = 'x' WHERE false", 0);
         // Mock connector only pretends support for UPDATE, it does not manipulate any data
         assertQuery("SELECT count(*) FROM mock.default.nation WHERE name = 'ALGERIA'", "SELECT 1");
     }
@@ -240,7 +235,7 @@ public class TestMockConnector
     public void testTableFunction()
     {
         assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.simple_table_function())"))
-                .hasMessage("execution by operator is not yet implemented for table function simple_table_function");
+                .hasMessage("missing ConnectorSplitSource for table function handle SimpleTableFunctionHandle");
         assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.non_existing_table_function())"))
                 .hasMessageContaining("Table function mock.system.non_existing_table_function not registered");
     }

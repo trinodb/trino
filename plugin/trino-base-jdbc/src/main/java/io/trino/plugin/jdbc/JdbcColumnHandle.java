@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
@@ -24,11 +25,16 @@ import io.trino.spi.type.Type;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcColumnHandle
         implements ColumnHandle
 {
+    private static final int INSTANCE_SIZE = instanceSize(JdbcColumnHandle.class);
+
     private final String columnName;
     private final JdbcTypeHandle jdbcTypeHandle;
     private final Type columnType;
@@ -134,6 +140,16 @@ public final class JdbcColumnHandle
                 columnName,
                 columnType.getDisplayName(),
                 jdbcTypeHandle.getJdbcTypeName().orElse(null));
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // columnType is not accounted for as the instances are cached (by TypeRegistry) and shared
+        return INSTANCE_SIZE
+                + sizeOf(nullable)
+                + estimatedSizeOf(columnName)
+                + sizeOf(comment, SizeOf::estimatedSizeOf)
+                + jdbcTypeHandle.getRetainedSizeInBytes();
     }
 
     public static Builder builder()

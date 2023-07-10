@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -35,10 +37,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 import io.trino.spi.type.ArrayType;
-import org.apache.hadoop.hive.common.FileUtils;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -46,26 +44,29 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class CreateEmptyPartitionProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle CREATE_EMPTY_PARTITION = methodHandle(
-            CreateEmptyPartitionProcedure.class,
-            "createEmptyPartition",
-            ConnectorSession.class,
-            ConnectorAccessControl.class,
-            String.class,
-            String.class,
-            List.class,
-            List.class);
+    private static final MethodHandle CREATE_EMPTY_PARTITION;
+
+    static {
+        try {
+            CREATE_EMPTY_PARTITION = lookup().unreflect(CreateEmptyPartitionProcedure.class.getMethod("createEmptyPartition", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, List.class, List.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final TransactionalMetadataFactory hiveMetadataFactory;
     private final LocationService locationService;
@@ -102,6 +103,11 @@ public class CreateEmptyPartitionProcedure
 
     private void doCreateEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumnNames, List<String> partitionValues)
     {
+        checkProcedureArgument(schemaName != null, "schema_name cannot be null");
+        checkProcedureArgument(tableName != null, "table_name cannot be null");
+        checkProcedureArgument(partitionColumnNames != null, "partition_columns cannot be null");
+        checkProcedureArgument(partitionValues != null, "partition_values cannot be null");
+
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create(session.getIdentity(), true);
         HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
         if (tableHandle == null) {
@@ -123,7 +129,7 @@ public class CreateEmptyPartitionProcedure
             throw new TrinoException(ALREADY_EXISTS, "Partition already exists");
         }
         HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
-        String partitionName = FileUtils.makePartName(actualPartitionColumnNames, partitionValues);
+        String partitionName = makePartName(actualPartitionColumnNames, partitionValues);
 
         WriteInfo writeInfo = locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName);
         Slice serializedPartitionUpdate = Slices.wrappedBuffer(
@@ -131,8 +137,8 @@ public class CreateEmptyPartitionProcedure
                         new PartitionUpdate(
                                 partitionName,
                                 UpdateMode.NEW,
-                                writeInfo.getWritePath(),
-                                writeInfo.getTargetPath(),
+                                writeInfo.writePath().toString(),
+                                writeInfo.targetPath().toString(),
                                 ImmutableList.of(),
                                 0,
                                 0,

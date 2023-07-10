@@ -14,27 +14,25 @@
 package io.trino.plugin.hive.acid;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.orc.OrcWriter.OrcOperation;
-import org.apache.hadoop.hive.metastore.api.DataOperationType;
 
 import java.util.Map;
 import java.util.Optional;
 
 public enum AcidOperation
 {
-    // UPDATE and MERGE will be added when they are implemented
     NONE,
     CREATE_TABLE,
-    DELETE,
     INSERT,
-    UPDATE;
+    MERGE,
+    /**/;
 
     private static final Map<AcidOperation, DataOperationType> DATA_OPERATION_TYPES = ImmutableMap.of(
-            DELETE, DataOperationType.DELETE,
-            INSERT, DataOperationType.INSERT);
+            INSERT, DataOperationType.INSERT,
+            MERGE, DataOperationType.UPDATE);
 
     private static final Map<AcidOperation, OrcOperation> ORC_OPERATIONS = ImmutableMap.of(
-            DELETE, OrcOperation.DELETE,
             INSERT, OrcOperation.INSERT);
 
     public Optional<DataOperationType> getMetastoreOperationType()

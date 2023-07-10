@@ -17,10 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.SampledRelation;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
@@ -42,13 +41,10 @@ public class SampleNode
 
         public static Type fromType(SampledRelation.Type sampleType)
         {
-            switch (sampleType) {
-                case BERNOULLI:
-                    return Type.BERNOULLI;
-                case SYSTEM:
-                    return Type.SYSTEM;
-            }
-            throw new UnsupportedOperationException("Unsupported sample type: " + sampleType);
+            return switch (sampleType) {
+                case BERNOULLI -> Type.BERNOULLI;
+                case SYSTEM -> Type.SYSTEM;
+            };
         }
     }
 

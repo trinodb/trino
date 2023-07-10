@@ -28,6 +28,7 @@ import static io.trino.sql.planner.plan.Patterns.topN;
 public class TopNStatsRule
         extends SimpleStatsRule<TopNNode>
 {
+    private static final int ESTIMATED_PARTIAL_TOPN_INPUT_PER_DRIVER = 1_000_000;
     private static final Pattern<TopNNode> PATTERN = topN();
 
     public TopNStatsRule(StatsNormalizer normalizer)
@@ -47,8 +48,16 @@ public class TopNStatsRule
         PlanNodeStatsEstimate sourceStats = statsProvider.getStats(node.getSource());
         double rowCount = sourceStats.getOutputRowCount();
 
-        if (node.getStep() != TopNNode.Step.SINGLE) {
-            return Optional.empty();
+        /* CreatePartialTopN rule runs after ReorderJoins but before DetermineJoinDistributionType and DetermineSemiJoinDistributionType.
+         * Therefore, it is useful to provide estimates for partial and final topN nodes.
+         * If, for example, the partial topN is part of a source stage, then it's overall output will depend on the number of splits that get created at runtime,
+         * and that's not known in advance. We populate a rough estimate for partial topN by assuming an input of 1 million rows per driver.
+         */
+        if (node.getStep() == TopNNode.Step.PARTIAL) {
+            double estimatedOutputRowCount = Math.max(rowCount / ESTIMATED_PARTIAL_TOPN_INPUT_PER_DRIVER, 1) * node.getCount();
+            return Optional.of(PlanNodeStatsEstimate.buildFrom(sourceStats)
+                    .setOutputRowCount(Math.min(estimatedOutputRowCount, rowCount))
+                    .build());
         }
 
         if (rowCount <= node.getCount()) {

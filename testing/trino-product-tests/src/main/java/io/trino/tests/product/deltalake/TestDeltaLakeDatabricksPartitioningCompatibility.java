@@ -15,21 +15,26 @@ package io.trino.tests.product.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.assertions.QueryAssert;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeDatabricksPartitioningCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumn()
     {
         testDatabricksCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
@@ -38,7 +43,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
 
     private void testDatabricksCanReadFromCtasTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
     {
-        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomTableSuffix());
+        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
@@ -75,11 +80,12 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoCanReadFromCtasTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumn()
     {
         testTrinoCanReadFromCtasTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
@@ -88,7 +94,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
 
     private void testTrinoCanReadFromCtasTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
     {
-        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomTableSuffix());
+        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
@@ -128,11 +134,12 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumn()
     {
         testDatabricksCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
@@ -141,7 +148,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
 
     private void testDatabricksCanReadTableCreatedByTrinoWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
     {
-        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomTableSuffix());
+        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
@@ -180,11 +187,12 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoCanReadTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumn()
     {
         testTrinoCanReadTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(1);
@@ -193,7 +201,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
 
     private void testTrinoCanReadTableCreatedByDatabricksWithSpecialCharactersInPartitioningColumnWithCpIntervalSet(int interval)
     {
-        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomTableSuffix());
+        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
@@ -235,11 +243,12 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDatabricksCanReadFromTableUpdatedByTrino()
     {
         testDatabricksCanReadFromTableUpdatedByTrinoWithCpIntervalSet(1);
@@ -248,7 +257,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
 
     private void testDatabricksCanReadFromTableUpdatedByTrinoWithCpIntervalSet(int interval)
     {
-        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomTableSuffix());
+        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
@@ -287,11 +296,12 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoCanReadFromTableUpdatedByDatabricks()
     {
         testTrinoCanReadFromTableUpdatedByDatabricksWithCpIntervalSet(1);
@@ -300,7 +310,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
 
     private void testTrinoCanReadFromTableUpdatedByDatabricksWithCpIntervalSet(int interval)
     {
-        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomTableSuffix());
+        String tableName = format("test_dl_create_table_partition_by_special_char_with_%d_partitions_%s", interval, randomNameSuffix());
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         ImmutableList<QueryAssert.Row> expected = ImmutableList.of(
@@ -342,7 +352,71 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testTrinoCanReadFromTablePartitionChangedByDatabricks()
+    {
+        String tableName = "test_dl_create_table_partition_changed_by_databricks_" + randomNameSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        ImmutableList<QueryAssert.Row> expected = ImmutableList.of(row(1, "part"));
+
+        onDelta().executeQuery(format("CREATE TABLE default.%s " +
+                        "USING DELTA " +
+                        "PARTITIONED BY (`original_part_col`) LOCATION 's3://%s/%s' AS " +
+                        "SELECT 1 AS original_part_col, 'part' AS new_part_col",
+                tableName,
+                bucketName,
+                tableDirectory));
+
+        try {
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
+
+            onDelta().executeQuery("REPLACE TABLE default." + tableName + " USING DELTA PARTITIONED BY (new_part_col) AS SELECT * FROM " + tableName);
+
+            // This 2nd SELECT query caused NPE when the connector had cache for partitions and the column was changed remotely
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testPartitionedByNonLowercaseColumn()
+    {
+        String tableName = "test_dl_partitioned_by_non_lowercase_" + randomNameSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery(format("CREATE TABLE default.%s " +
+                        "USING DELTA " +
+                        "PARTITIONED BY (`PART`) LOCATION 's3://%s/%s' AS " +
+                        "SELECT 1 AS data, 2 AS `PART`",
+                tableName,
+                bucketName,
+                tableDirectory));
+        try {
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 2));
+
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (3, 4)");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 2), row(3, 4));
+
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE data = 3");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 2));
+
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET part = 20");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 20));
+
+            onTrino().executeQuery("MERGE INTO delta.default." + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).hasNoRows();
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 }

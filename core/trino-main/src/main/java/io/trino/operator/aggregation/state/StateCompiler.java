@@ -28,6 +28,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
+import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.trino.array.BlockBigArray;
 import io.trino.array.BooleanBigArray;
@@ -39,6 +40,8 @@ import io.trino.array.ObjectBigArray;
 import io.trino.array.SliceBigArray;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.RowValueBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateMetadata;
@@ -50,7 +53,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
@@ -91,14 +93,17 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.defaultValue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
 import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
+import static io.airlift.bytecode.expression.BytecodeExpressions.setStatic;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.CompilerUtils.defineClass;
@@ -281,7 +286,7 @@ public final class StateCompiler
         Scope scope = method.getScope();
         BytecodeBlock serializerBody = method.getBody();
 
-        if (fields.size() == 0) {
+        if (fields.isEmpty()) {
             serializerBody.append(out.invoke("appendNull", BlockBuilder.class).pop());
         }
         else if (fields.size() == 1) {
@@ -300,27 +305,50 @@ public final class StateCompiler
                 serializerBody.append(sqlType.writeValue(out, fieldValue.cast(getOnlyElement(fields).getSqlType().getJavaType())));
             }
         }
-        else if (fields.size() > 1) {
-            Variable rowBuilder = scope.declareVariable(BlockBuilder.class, "rowBuilder");
-            serializerBody.append(rowBuilder.set(out.invoke("beginBlockEntry", BlockBuilder.class)));
-            for (StateField field : fields) {
-                Method getter = getGetter(clazz, field);
-                SqlTypeBytecodeExpression sqlType = constantType(binder, field.getSqlType());
-                Variable fieldValue = scope.createTempVariable(getter.getReturnType());
-                serializerBody.append(fieldValue.set(state.cast(getter.getDeclaringClass()).invoke(getter)));
-                if (!field.isPrimitiveType()) {
-                    serializerBody.append(new IfStatement().condition(equal(fieldValue, constantNull(getter.getReturnType())))
-                            .ifTrue(rowBuilder.invoke("appendNull", BlockBuilder.class).pop())
-                            .ifFalse(sqlType.writeValue(rowBuilder, fieldValue)));
-                }
-                else {
-                    // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
-                    serializerBody.append(sqlType.writeValue(rowBuilder, fieldValue.cast(field.getSqlType().getJavaType())));
-                }
-            }
-            serializerBody.append(out.invoke("closeEntry", BlockBuilder.class).pop());
+        else {
+            MethodDefinition serializeToRow = generateSerializeToRow(definition, binder, clazz, fields);
+            BytecodeExpression rowEntryBuilder = generateMetafactory(RowValueBuilder.class, serializeToRow, ImmutableList.of(state));
+            serializerBody.append(out.cast(RowBlockBuilder.class).invoke("buildEntry", void.class, rowEntryBuilder));
         }
         serializerBody.ret();
+    }
+
+    private static MethodDefinition generateSerializeToRow(
+            ClassDefinition definition,
+            CallSiteBinder binder,
+            Class<?> clazz,
+            List<StateField> fields)
+    {
+        Parameter state = arg("state", AccumulatorState.class);
+        Parameter fieldBuilders = arg("fieldBuilders", type(List.class, BlockBuilder.class));
+        MethodDefinition method = definition.declareMethod(a(PRIVATE, STATIC), "serialize", type(void.class), state, fieldBuilders);
+        Scope scope = method.getScope();
+        BytecodeBlock body = method.getBody();
+
+        Variable fieldBuilder = scope.createTempVariable(BlockBuilder.class);
+        for (int i = 0; i < fields.size(); i++) {
+            StateField field = fields.get(i);
+            Method getter = getGetter(clazz, field);
+
+            SqlTypeBytecodeExpression sqlType = constantType(binder, field.getSqlType());
+
+            Variable fieldValue = scope.createTempVariable(getter.getReturnType());
+            body.append(fieldValue.set(state.cast(getter.getDeclaringClass()).invoke(getter)));
+
+            body.append(fieldBuilder.set(fieldBuilders.invoke("get", Object.class, constantInt(i)).cast(BlockBuilder.class)));
+
+            if (!field.isPrimitiveType()) {
+                body.append(new IfStatement().condition(equal(fieldValue, constantNull(getter.getReturnType())))
+                        .ifTrue(fieldBuilder.invoke("appendNull", BlockBuilder.class).pop())
+                        .ifFalse(sqlType.writeValue(fieldBuilder, fieldValue)));
+            }
+            else {
+                // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
+                body.append(sqlType.writeValue(fieldBuilder, fieldValue.cast(field.getSqlType().getJavaType())));
+            }
+        }
+        body.ret();
+        return method;
     }
 
     private static Method getSetter(Class<?> clazz, StateField field)
@@ -830,12 +858,7 @@ public final class StateCompiler
         FieldDefinition instanceSize = definition.declareField(a(PRIVATE, STATIC, FINAL), "INSTANCE_SIZE", long.class);
         definition.getClassInitializer()
                 .getBody()
-                .comment("INSTANCE_SIZE = ClassLayout.parseClass(%s.class).instanceSize()", definition.getName())
-                .push(definition.getType())
-                .invokeStatic(ClassLayout.class, "parseClass", ClassLayout.class, Class.class)
-                .invokeVirtual(ClassLayout.class, "instanceSize", int.class)
-                .intToLong()
-                .putStaticField(instanceSize);
+                .append(setStatic(instanceSize, invokeStatic(SizeOf.class, "instanceSize", int.class, constantClass(definition.getType())).cast(long.class)));
         return instanceSize;
     }
 
@@ -1151,10 +1174,7 @@ public final class StateCompiler
 
         Type getSqlType()
         {
-            if (sqlType.isEmpty()) {
-                throw new IllegalArgumentException("Unsupported type: " + type);
-            }
-            return sqlType.get();
+            return sqlType.orElseThrow(() -> new IllegalArgumentException("Unsupported type: " + type));
         }
 
         boolean isPrimitiveType()

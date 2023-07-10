@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.LongTimestamp;
@@ -31,9 +31,9 @@ import static java.lang.String.format;
 public class Int64TimestampMillisColumnReader
         extends PrimitiveColumnReader
 {
-    public Int64TimestampMillisColumnReader(RichColumnDescriptor descriptor)
+    public Int64TimestampMillisColumnReader(PrimitiveField field)
     {
-        super(descriptor);
+        super(field);
     }
 
     @Override
@@ -56,7 +56,7 @@ public class Int64TimestampMillisColumnReader
             type.writeLong(blockBuilder, epochMillis);
         }
         else {
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, field.getDescriptor()));
         }
     }
 }

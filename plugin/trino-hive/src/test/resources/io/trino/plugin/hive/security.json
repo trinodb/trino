@@ -10,7 +10,7 @@
   ],
   "schemas": [
     {
-      "owner": false
+      "owner": true
     }
   ]
 }

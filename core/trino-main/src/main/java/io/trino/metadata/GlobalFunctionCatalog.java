@@ -17,13 +17,26 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
-import io.trino.operator.aggregation.AggregationMetadata;
-import io.trino.operator.window.WindowFunctionSupplier;
+import com.google.errorprone.annotations.ThreadSafe;
+import io.trino.operator.table.ExcludeColumns.ExcludeColumnsFunctionHandle;
+import io.trino.operator.table.Sequence.SequenceFunctionHandle;
+import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.function.Signature;
+import io.trino.spi.function.WindowFunctionSupplier;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.type.TypeSignature;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -34,8 +47,10 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.metadata.Signature.isOperatorName;
-import static io.trino.metadata.Signature.unmangleOperator;
+import static io.trino.metadata.OperatorNameUtil.isOperatorName;
+import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
+import static io.trino.operator.table.ExcludeColumns.getExcludeColumnsFunctionProcessorProvider;
+import static io.trino.operator.table.Sequence.getSequenceFunctionProcessorProvider;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -44,9 +59,9 @@ import static java.util.Locale.ENGLISH;
 
 @ThreadSafe
 public class GlobalFunctionCatalog
+        implements FunctionProvider
 {
-    public static final String GLOBAL_CATALOG = "system";
-    public static final String GLOBAL_SCHEMA = "global";
+    public static final String BUILTIN_SCHEMA = "builtin";
     private volatile FunctionMap functions = new FunctionMap();
 
     public final synchronized void addFunctions(FunctionBundle functionBundle)
@@ -119,7 +134,7 @@ public class GlobalFunctionCatalog
 
     public Collection<FunctionMetadata> getFunctions(SchemaFunctionName name)
     {
-        if (!GLOBAL_SCHEMA.equals(name.getSchemaName())) {
+        if (!BUILTIN_SCHEMA.equals(name.getSchemaName())) {
             return ImmutableList.of();
         }
         return functions.get(name.getFunctionName());
@@ -135,14 +150,16 @@ public class GlobalFunctionCatalog
         return functions.getFunctionBundle(functionId).getAggregationFunctionMetadata(functionId);
     }
 
-    public WindowFunctionSupplier getWindowFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    @Override
+    public WindowFunctionSupplier getWindowFunctionSupplier(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        return functions.getFunctionBundle(functionId).getWindowFunctionImplementation(functionId, boundSignature, functionDependencies);
+        return functions.getFunctionBundle(functionId).getWindowFunctionSupplier(functionId, boundSignature, functionDependencies);
     }
 
-    public AggregationMetadata getAggregateFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    @Override
+    public AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        return functions.getFunctionBundle(functionId).getAggregateFunctionImplementation(functionId, boundSignature, functionDependencies);
+        return functions.getFunctionBundle(functionId).getAggregationImplementation(functionId, boundSignature, functionDependencies);
     }
 
     public FunctionDependencyDeclaration getFunctionDependencies(FunctionId functionId, BoundSignature boundSignature)
@@ -150,13 +167,27 @@ public class GlobalFunctionCatalog
         return functions.getFunctionBundle(functionId).getFunctionDependencies(functionId, boundSignature);
     }
 
-    public FunctionInvoker getScalarFunctionInvoker(
+    @Override
+    public ScalarFunctionImplementation getScalarFunctionImplementation(
             FunctionId functionId,
             BoundSignature boundSignature,
             FunctionDependencies functionDependencies,
             InvocationConvention invocationConvention)
     {
-        return functions.getFunctionBundle(functionId).getScalarFunctionInvoker(functionId, boundSignature, functionDependencies, invocationConvention);
+        return functions.getFunctionBundle(functionId).getScalarFunctionImplementation(functionId, boundSignature, functionDependencies, invocationConvention);
+    }
+
+    @Override
+    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
+    {
+        if (functionHandle instanceof ExcludeColumnsFunctionHandle) {
+            return getExcludeColumnsFunctionProcessorProvider();
+        }
+        if (functionHandle instanceof SequenceFunctionHandle) {
+            return getSequenceFunctionProcessorProvider();
+        }
+
+        return null;
     }
 
     private static class FunctionMap

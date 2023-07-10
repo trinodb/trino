@@ -19,20 +19,28 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
+import io.trino.parquet.Field;
+import io.trino.parquet.ParquetCorruptionException;
+import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.reader.MetadataReader;
+import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.writer.ColumnWriter.BufferData;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.format.ColumnMetaData;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.KeyValue;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.hadoop.metadata.BlockMetaData;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -40,19 +48,26 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.ParquetTypeUtils.constructField;
+import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
+import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
+import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport.WRITER_TIMEZONE;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
@@ -60,9 +75,7 @@ import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_
 public class ParquetWriter
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetWriter.class).instanceSize();
-
-    private static final int CHUNK_MAX_BYTES = toIntExact(DataSize.of(128, MEGABYTE).toBytes());
+    private static final int INSTANCE_SIZE = instanceSize(ParquetWriter.class);
 
     private final OutputStreamSliceOutput outputStream;
     private final ParquetWriterOptions writerOption;
@@ -70,10 +83,12 @@ public class ParquetWriter
     private final String createdBy;
     private final int chunkMaxLogicalBytes;
     private final Map<List<String>, Type> primitiveTypes;
-    private final CompressionCodecName compressionCodecName;
+    private final CompressionCodec compressionCodec;
+    private final boolean useBatchColumnReadersForVerification;
     private final Optional<DateTimeZone> parquetTimeZone;
 
     private final ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
+    private final Optional<ParquetWriteValidationBuilder> validationBuilder;
 
     private List<ColumnWriter> columnWriters;
     private int rows;
@@ -88,19 +103,27 @@ public class ParquetWriter
             MessageType messageType,
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions writerOption,
-            CompressionCodecName compressionCodecName,
+            CompressionCodec compressionCodec,
             String trinoVersion,
-            Optional<DateTimeZone> parquetTimeZone)
+            boolean useBatchColumnReadersForVerification,
+            Optional<DateTimeZone> parquetTimeZone,
+            Optional<ParquetWriteValidationBuilder> validationBuilder)
     {
+        this.validationBuilder = requireNonNull(validationBuilder, "validationBuilder is null");
         this.outputStream = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputstream is null"));
         this.messageType = requireNonNull(messageType, "messageType is null");
         this.primitiveTypes = requireNonNull(primitiveTypes, "primitiveTypes is null");
         this.writerOption = requireNonNull(writerOption, "writerOption is null");
-        this.compressionCodecName = requireNonNull(compressionCodecName, "compressionCodecName is null");
+        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+        this.useBatchColumnReadersForVerification = useBatchColumnReadersForVerification;
         this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
-        initColumnWriters();
-        this.chunkMaxLogicalBytes = max(1, CHUNK_MAX_BYTES / 2);
         this.createdBy = formatCreatedBy(requireNonNull(trinoVersion, "trinoVersion is null"));
+
+        recordValidation(validation -> validation.setTimeZone(parquetTimeZone.map(DateTimeZone::getID)));
+        recordValidation(validation -> validation.setColumns(messageType.getColumns()));
+        recordValidation(validation -> validation.setCreatedBy(createdBy));
+        initColumnWriters();
+        this.chunkMaxLogicalBytes = max(1, writerOption.getMaxRowGroupSize() / 2);
     }
 
     public long getWrittenBytes()
@@ -117,7 +140,8 @@ public class ParquetWriter
     {
         return INSTANCE_SIZE +
                 outputStream.getRetainedSize() +
-                columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
+                columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum() +
+                validationBuilder.map(ParquetWriteValidationBuilder::getRetainedSize).orElse(0L);
     }
 
     public void write(Page page)
@@ -131,24 +155,19 @@ public class ParquetWriter
 
         checkArgument(page.getChannelCount() == columnWriters.size());
 
-        while (page != null) {
-            int chunkRows = min(page.getPositionCount(), writerOption.getBatchSize());
-            Page chunk = page.getRegion(0, chunkRows);
+        Page validationPage = page;
+        recordValidation(validation -> validation.addPage(validationPage));
+
+        int writeOffset = 0;
+        while (writeOffset < page.getPositionCount()) {
+            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, writerOption.getBatchSize()));
 
             // avoid chunk with huge logical size
-            while (chunkRows > 1 && chunk.getLogicalSizeInBytes() > chunkMaxLogicalBytes) {
-                chunkRows /= 2;
-                chunk = chunk.getRegion(0, chunkRows);
+            while (chunk.getPositionCount() > 1 && chunk.getLogicalSizeInBytes() > chunkMaxLogicalBytes) {
+                chunk = page.getRegion(writeOffset, chunk.getPositionCount() / 2);
             }
 
-            // Remove chunk from current page
-            if (chunkRows < page.getPositionCount()) {
-                page = page.getRegion(chunkRows, page.getPositionCount() - chunkRows);
-            }
-            else {
-                page = null;
-            }
-
+            writeOffset += chunk.getPositionCount();
             writeChunk(chunk);
         }
     }
@@ -190,6 +209,70 @@ public class ParquetWriter
         bufferedBytes = 0;
     }
 
+    public void validate(ParquetDataSource input)
+            throws ParquetCorruptionException
+    {
+        checkState(validationBuilder.isPresent(), "validation is not enabled");
+        ParquetWriteValidation writeValidation = validationBuilder.get().build();
+        try {
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(input, Optional.of(writeValidation));
+            try (ParquetReader parquetReader = createParquetReader(input, parquetMetadata, writeValidation)) {
+                for (Page page = parquetReader.nextPage(); page != null; page = parquetReader.nextPage()) {
+                    // fully load the page
+                    page.getLoadedPage();
+                }
+            }
+        }
+        catch (IOException e) {
+            if (e instanceof ParquetCorruptionException) {
+                throw (ParquetCorruptionException) e;
+            }
+            throw new ParquetCorruptionException(input.getId(), "Validation failed with exception %s", e);
+        }
+    }
+
+    private ParquetReader createParquetReader(ParquetDataSource input, ParquetMetadata parquetMetadata, ParquetWriteValidation writeValidation)
+            throws IOException
+    {
+        org.apache.parquet.hadoop.metadata.FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
+        MessageColumnIO messageColumnIO = getColumnIO(fileMetaData.getSchema(), fileMetaData.getSchema());
+        ImmutableList.Builder<Field> columnFields = ImmutableList.builder();
+        for (int i = 0; i < writeValidation.getTypes().size(); i++) {
+            columnFields.add(constructField(
+                    writeValidation.getTypes().get(i),
+                    lookupColumnByName(messageColumnIO, writeValidation.getColumnNames().get(i)))
+                    .orElseThrow());
+        }
+        long nextStart = 0;
+        ImmutableList.Builder<Long> blockStartsBuilder = ImmutableList.builder();
+        for (BlockMetaData block : parquetMetadata.getBlocks()) {
+            blockStartsBuilder.add(nextStart);
+            nextStart += block.getRowCount();
+        }
+        List<Long> blockStarts = blockStartsBuilder.build();
+        return new ParquetReader(
+                Optional.ofNullable(fileMetaData.getCreatedBy()),
+                columnFields.build(),
+                parquetMetadata.getBlocks(),
+                blockStarts,
+                input,
+                parquetTimeZone.orElseThrow(),
+                newSimpleAggregatedMemoryContext(),
+                new ParquetReaderOptions().withBatchColumnReaders(useBatchColumnReadersForVerification),
+                exception -> {
+                    throwIfUnchecked(exception);
+                    return new RuntimeException(exception);
+                },
+                Optional.empty(),
+                nCopies(blockStarts.size(), Optional.empty()),
+                Optional.of(writeValidation));
+    }
+
+    private void recordValidation(Consumer<ParquetWriteValidationBuilder> task)
+    {
+        validationBuilder.ifPresent(task);
+    }
+
     // Parquet File Layout:
     //
     // MAGIC
@@ -223,23 +306,31 @@ public class ParquetWriter
 
         // update stats
         long stripeStartOffset = outputStream.longSize();
-        List<ColumnMetaData> metadatas = bufferDataList.stream()
+        List<ColumnMetaData> columns = bufferDataList.stream()
                 .map(BufferData::getMetaData)
                 .collect(toImmutableList());
-        updateRowGroups(updateColumnMetadataOffset(metadatas, stripeStartOffset));
+
+        long currentOffset = stripeStartOffset;
+        for (ColumnMetaData columnMetaData : columns) {
+            columnMetaData.setData_page_offset(currentOffset);
+            currentOffset += columnMetaData.getTotal_compressed_size();
+        }
+        updateRowGroups(columns);
 
         // flush pages
-        bufferDataList.stream()
-                .map(BufferData::getData)
-                .flatMap(List::stream)
-                .forEach(data -> data.writeData(outputStream));
+        for (BufferData bufferData : bufferDataList) {
+            bufferData.getData()
+                    .forEach(data -> data.writeData(outputStream));
+        }
     }
 
     private void writeFooter()
             throws IOException
     {
         checkState(closed);
-        Slice footer = getFooter(rowGroupBuilder.build(), messageType);
+        List<RowGroup> rowGroups = rowGroupBuilder.build();
+        Slice footer = getFooter(rowGroups, messageType);
+        recordValidation(validation -> validation.setRowGroups(rowGroups));
         createDataOutput(footer).writeData(outputStream);
 
         Slice footerSize = Slices.allocate(SIZE_OF_INT);
@@ -270,9 +361,10 @@ public class ParquetWriter
 
     private void updateRowGroups(List<ColumnMetaData> columnMetaData)
     {
-        long totalBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_compressed_size).sum();
+        long totalCompressedBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_compressed_size).sum();
+        long totalBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_uncompressed_size).sum();
         ImmutableList<org.apache.parquet.format.ColumnChunk> columnChunks = columnMetaData.stream().map(ParquetWriter::toColumnChunk).collect(toImmutableList());
-        rowGroupBuilder.add(new RowGroup(columnChunks, totalBytes, rows));
+        rowGroupBuilder.add(new RowGroup(columnChunks, totalBytes, rows).setTotal_compressed_size(totalCompressedBytes));
     }
 
     private static org.apache.parquet.format.ColumnChunk toColumnChunk(ColumnMetaData metaData)
@@ -281,20 +373,6 @@ public class ParquetWriter
         org.apache.parquet.format.ColumnChunk columnChunk = new org.apache.parquet.format.ColumnChunk(0);
         columnChunk.setMeta_data(metaData);
         return columnChunk;
-    }
-
-    private List<ColumnMetaData> updateColumnMetadataOffset(List<ColumnMetaData> columns, long offset)
-    {
-        ImmutableList.Builder<ColumnMetaData> builder = ImmutableList.builder();
-        long currentOffset = offset;
-        for (ColumnMetaData column : columns) {
-            ColumnMetaData columnMetaData = new ColumnMetaData(column.type, column.encodings, column.path_in_schema, column.codec, column.num_values, column.total_uncompressed_size, column.total_compressed_size, currentOffset);
-            columnMetaData.setStatistics(column.getStatistics());
-            columnMetaData.setEncoding_stats(column.getEncoding_stats());
-            builder.add(columnMetaData);
-            currentOffset += column.getTotal_compressed_size();
-        }
-        return builder.build();
     }
 
     @VisibleForTesting
@@ -313,6 +391,6 @@ public class ParquetWriter
                 .withPageSize(writerOption.getMaxPageSize())
                 .build();
 
-        this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodecName, parquetTimeZone);
+        this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodec, parquetTimeZone);
     }
 }

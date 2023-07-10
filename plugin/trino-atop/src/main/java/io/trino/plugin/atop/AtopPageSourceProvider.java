@@ -14,6 +14,7 @@
 package io.trino.plugin.atop;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.atop.AtopTable.AtopColumn;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -25,8 +26,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -46,7 +45,7 @@ public final class AtopPageSourceProvider
     @Inject
     public AtopPageSourceProvider(AtopConnectorConfig config, AtopFactory atopFactory, TypeManager typeManager)
     {
-        readerPermits = new Semaphore(requireNonNull(config, "config is null").getConcurrentReadersPerNode());
+        readerPermits = new Semaphore(config.getConcurrentReadersPerNode());
         this.atopFactory = requireNonNull(atopFactory, "atopFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }

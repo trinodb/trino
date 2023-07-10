@@ -14,6 +14,7 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
@@ -24,8 +25,6 @@ import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
-
-import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
@@ -51,7 +50,7 @@ public class EnvSinglenodeSparkHive
         super(ImmutableList.of(standard, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        this.hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
+        this.hadoopImagesVersion = config.getHadoopImagesVersion();
     }
 
     @Override
@@ -82,7 +81,7 @@ public class EnvSinglenodeSparkHive
     private DockerContainer createSpark()
     {
         // TODO: Switch to pure Spark 3 image once it's available (https://github.com/trinodb/trino/issues/7063)
-        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3.0-iceberg:" + hadoopImagesVersion, "spark")
+        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3-iceberg:" + hadoopImagesVersion, "spark")
                 .withEnv("HADOOP_USER_NAME", "hive")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-hive/spark-defaults.conf")),

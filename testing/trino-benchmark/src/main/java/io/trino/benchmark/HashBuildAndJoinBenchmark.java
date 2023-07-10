@@ -43,6 +43,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunnerHashEnabled;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
+import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -140,14 +141,12 @@ public class HashBuildAndJoinBenchmark
             hashChannel = OptionalInt.of(sourceTypes.size() - 1);
         }
 
-        OperatorFactory joinOperator = operatorFactories.innerJoin(
+        OperatorFactory joinOperator = operatorFactories.spillingJoin(
+                innerJoin(false, false),
                 2,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
                 false,
-                false,
-                false,
-                true,
                 sourceTypes,
                 Ints.asList(0),
                 hashChannel,

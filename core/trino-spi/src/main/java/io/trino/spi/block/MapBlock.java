@@ -15,13 +15,12 @@
 package io.trino.spi.block;
 
 import io.trino.spi.type.MapType;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
@@ -32,11 +31,12 @@ import static java.util.Objects.requireNonNull;
 public class MapBlock
         extends AbstractMapBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(MapBlock.class);
 
     private final int startOffset;
     private final int positionCount;
 
+    @Nullable
     private final boolean[] mapIsNull;
     private final int[] offsets;
     private final Block keyBlock;
@@ -58,9 +58,18 @@ public class MapBlock
             Block valueBlock,
             MapType mapType)
     {
-        validateConstructorArguments(mapType, 0, offsets.length - 1, mapIsNull.orElse(null), offsets, keyBlock, valueBlock);
+        return fromKeyValueBlock(mapIsNull, offsets, offsets.length - 1, keyBlock, valueBlock, mapType);
+    }
 
-        int mapCount = offsets.length - 1;
+    public static MapBlock fromKeyValueBlock(
+            Optional<boolean[]> mapIsNull,
+            int[] offsets,
+            int mapCount,
+            Block keyBlock,
+            Block valueBlock,
+            MapType mapType)
+    {
+        validateConstructorArguments(mapType, 0, mapCount, mapIsNull.orElse(null), offsets, keyBlock, valueBlock);
 
         return createMapBlockInternal(
                 mapType,
@@ -202,6 +211,12 @@ public class MapBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return mapIsNull != null;
+    }
+
+    @Override
     public int getPositionCount()
     {
         return positionCount;
@@ -244,7 +259,7 @@ public class MapBlock
             consumer.accept(mapIsNull, sizeOf(mapIsNull));
         }
         consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

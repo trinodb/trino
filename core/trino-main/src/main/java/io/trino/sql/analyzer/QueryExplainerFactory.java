@@ -13,13 +13,13 @@
  */
 package io.trino.sql.analyzer;
 
+import com.google.inject.Inject;
+import io.trino.client.NodeVersion;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizersFactory;
-
-import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,6 +31,7 @@ public class QueryExplainerFactory
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final NodeVersion version;
 
     @Inject
     public QueryExplainerFactory(
@@ -39,7 +40,8 @@ public class QueryExplainerFactory
             PlannerContext plannerContext,
             StatementAnalyzerFactory statementAnalyzerFactory,
             StatsCalculator statsCalculator,
-            CostCalculator costCalculator)
+            CostCalculator costCalculator,
+            NodeVersion version)
     {
         this.planOptimizersFactory = requireNonNull(planOptimizersFactory, "planOptimizersFactory is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
@@ -47,6 +49,7 @@ public class QueryExplainerFactory
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.version = requireNonNull(version, "version is null");
     }
 
     public QueryExplainer createQueryExplainer(AnalyzerFactory analyzerFactory)
@@ -58,6 +61,7 @@ public class QueryExplainerFactory
                 analyzerFactory,
                 statementAnalyzerFactory,
                 statsCalculator,
-                costCalculator);
+                costCalculator,
+                version);
     }
 }

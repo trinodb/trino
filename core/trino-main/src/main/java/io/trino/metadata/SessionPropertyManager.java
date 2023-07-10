@@ -21,11 +21,11 @@ import io.airlift.json.JsonCodecFactory;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
@@ -41,8 +41,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -79,7 +78,7 @@ public final class SessionPropertyManager
 
     public SessionPropertyManager(Set<SystemSessionPropertiesProvider> systemSessionProperties, CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorSessionProperties)
     {
-        addSystemSessionProperties(requireNonNull(systemSessionProperties, "systemSessionProperties is null")
+        addSystemSessionProperties(systemSessionProperties
                 .stream()
                 .flatMap(provider -> provider.getSessionProperties().stream())
                 .collect(toImmutableList()));

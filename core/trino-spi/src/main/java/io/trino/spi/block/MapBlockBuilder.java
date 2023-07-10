@@ -15,16 +15,14 @@
 package io.trino.spi.block;
 
 import io.trino.spi.type.MapType;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
@@ -35,7 +33,12 @@ public class MapBlockBuilder
         extends AbstractMapBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(MapBlockBuilder.class);
+
+    private enum HashBuildMode
+    {
+        DUPLICATE_NOT_CHECKED, STRICT_EQUALS, STRICT_NOT_DISTINCT_FROM
+    }
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -43,12 +46,13 @@ public class MapBlockBuilder
     private int positionCount;
     private int[] offsets;
     private boolean[] mapIsNull;
+    private boolean hasNullValue;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
     private final MapHashTables hashTables;
 
     private boolean currentEntryOpened;
-    private boolean strict;
+    private HashBuildMode hashBuildMode = HashBuildMode.DUPLICATE_NOT_CHECKED;
 
     public MapBlockBuilder(MapType mapType, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
@@ -86,7 +90,13 @@ public class MapBlockBuilder
 
     public MapBlockBuilder strict()
     {
-        this.strict = true;
+        this.hashBuildMode = HashBuildMode.STRICT_EQUALS;
+        return this;
+    }
+
+    public MapBlockBuilder strictNotDistinctFrom()
+    {
+        this.hashBuildMode = HashBuildMode.STRICT_NOT_DISTINCT_FROM;
         return this;
     }
 
@@ -120,10 +130,17 @@ public class MapBlockBuilder
         return 0;
     }
 
+    @Nullable
     @Override
     protected boolean[] getMapIsNull()
     {
-        return mapIsNull;
+        return hasNullValue ? mapIsNull : null;
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullValue;
     }
 
     @Override
@@ -163,26 +180,18 @@ public class MapBlockBuilder
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(mapIsNull, sizeOf(mapIsNull));
         consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
-    @Override
-    public SingleMapBlockWriter beginBlockEntry()
+    public <E extends Throwable> void buildEntry(MapValueBuilder<E> builder)
+            throws E
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
+
         currentEntryOpened = true;
-        return new SingleMapBlockWriter(keyBlockBuilder.getPositionCount() * 2, keyBlockBuilder, valueBlockBuilder, this::strict);
-    }
-
-    @Override
-    public BlockBuilder closeEntry()
-    {
-        if (!currentEntryOpened) {
-            throw new IllegalStateException("Expected entry to be opened but was closed");
-        }
-
+        builder.build(keyBlockBuilder, valueBlockBuilder);
         entryAdded(false);
         currentEntryOpened = false;
 
@@ -190,40 +199,11 @@ public class MapBlockBuilder
         int previousAggregatedEntryCount = offsets[positionCount - 1];
         int aggregatedEntryCount = offsets[positionCount];
         int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-        if (strict) {
-            hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+        switch (hashBuildMode) {
+            case DUPLICATE_NOT_CHECKED -> hashTables.buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+            case STRICT_EQUALS -> hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+            case STRICT_NOT_DISTINCT_FROM -> hashTables.buildDistinctHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
         }
-        else {
-            hashTables.buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
-        }
-        return this;
-    }
-
-    /**
-     * This method will check duplicate keys and close entry.
-     * <p>
-     * When duplicate keys are discovered, the block is guaranteed to be in
-     * a consistent state before {@link DuplicateMapKeyException} is thrown.
-     * In other words, one can continue to use this BlockBuilder.
-     *
-     * @deprecated use strict method instead
-     */
-    @Deprecated
-    public void closeEntryStrict()
-            throws DuplicateMapKeyException
-    {
-        if (!currentEntryOpened) {
-            throw new IllegalStateException("Expected entry to be opened but was closed");
-        }
-
-        entryAdded(false);
-        currentEntryOpened = false;
-
-        ensureHashTableSize();
-        int previousAggregatedEntryCount = offsets[positionCount - 1];
-        int aggregatedEntryCount = offsets[positionCount];
-        int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-        hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
     }
 
     @Override
@@ -249,6 +229,7 @@ public class MapBlockBuilder
         }
         offsets[positionCount + 1] = keyBlockBuilder.getPositionCount();
         mapIsNull[positionCount] = isNull;
+        hasNullValue |= isNull;
         positionCount++;
 
         if (blockBuilderStatus != null) {
@@ -279,7 +260,7 @@ public class MapBlockBuilder
                 getMapType(),
                 0,
                 positionCount,
-                Optional.of(mapIsNull),
+                hasNullValue ? Optional.of(mapIsNull) : Optional.empty(),
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),
@@ -295,16 +276,15 @@ public class MapBlockBuilder
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
-        int newSize = calculateBlockResetSize(getPositionCount());
         return new MapBlockBuilder(
                 getMapType(),
                 blockBuilderStatus,
                 keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
                 valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
-                new int[newSize + 1],
-                new boolean[newSize]);
+                new int[expectedEntries + 1],
+                new boolean[expectedEntries]);
     }
 
     @Override

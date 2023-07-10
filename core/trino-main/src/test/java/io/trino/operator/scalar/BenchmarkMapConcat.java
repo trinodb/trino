@@ -169,7 +169,7 @@ public class BenchmarkMapConcat
             for (int i = 0; i < keyIds.length; i++) {
                 keyIds[i] = i % keys.size();
             }
-            return new DictionaryBlock(keyDictionaryBlock, keyIds);
+            return DictionaryBlock.create(keyIds.length, keyDictionaryBlock, keyIds);
         }
 
         private static Block createValueBlock(int positionCount, int mapSize)

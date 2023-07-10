@@ -13,13 +13,12 @@
  */
 package io.trino.spi.block;
 
-import org.openjdk.jol.info.ClassLayout;
-
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class BlockBuilderStatus
 {
-    public static final int INSTANCE_SIZE = ClassLayout.parseClass(BlockBuilderStatus.class).instanceSize() + PageBuilderStatus.INSTANCE_SIZE;
+    public static final int INSTANCE_SIZE = instanceSize(BlockBuilderStatus.class) + PageBuilderStatus.INSTANCE_SIZE;
 
     private final PageBuilderStatus pageBuilderStatus;
 

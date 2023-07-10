@@ -14,6 +14,7 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Debug;
 import io.trino.tests.product.launcher.env.DockerContainer;
@@ -21,12 +22,10 @@ import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.ServerPackage;
-import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
-
-import javax.inject.Inject;
+import io.trino.tests.product.launcher.env.jdk.JdkProvider;
 
 import java.io.File;
 import java.util.Objects;
@@ -34,10 +33,10 @@ import java.util.Objects;
 import static com.google.common.base.Verify.verify;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.worker;
-import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.createPrestoContainer;
+import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_HIVE_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_ICEBERG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.createTrinoContainer;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -47,8 +46,8 @@ public final class EnvMultinodeTlsKerberos
 {
     private final DockerFiles dockerFiles;
 
-    private final String prestoDockerImageName;
-    private final SupportedTrinoJdk jdkVersion;
+    private final String trinoDockerImageName;
+    private final JdkProvider jdkProvider;
     private final File serverPackage;
     private final boolean debug;
 
@@ -59,15 +58,15 @@ public final class EnvMultinodeTlsKerberos
             HadoopKerberos hadoopKerberos,
             EnvironmentConfig config,
             @ServerPackage File serverPackage,
-            SupportedTrinoJdk jdkVersion,
+            JdkProvider jdkProvider,
             @Debug boolean debug)
     {
         super(ImmutableList.of(standard, hadoopKerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        String hadoopBaseImage = requireNonNull(config, "config is null").getHadoopBaseImage();
-        String hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
-        this.prestoDockerImageName = hadoopBaseImage + "-kerberized:" + hadoopImagesVersion;
-        this.jdkVersion = requireNonNull(jdkVersion, "jdkVersion is null");
+        String hadoopBaseImage = config.getHadoopBaseImage();
+        String hadoopImagesVersion = config.getHadoopImagesVersion();
+        this.trinoDockerImageName = hadoopBaseImage + "-kerberized:" + hadoopImagesVersion;
+        this.jdkProvider = requireNonNull(jdkProvider, "jdkProvider is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
     }
@@ -77,23 +76,23 @@ public final class EnvMultinodeTlsKerberos
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainer(COORDINATOR, container -> {
-            verify(Objects.equals(container.getDockerImageName(), prestoDockerImageName), "Expected image '%s', but is '%s'", prestoDockerImageName, container.getDockerImageName());
+            verify(Objects.equals(container.getDockerImageName(), trinoDockerImageName), "Expected image '%s', but is '%s'", trinoDockerImageName, container.getDockerImageName());
             container
-                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-master.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
-                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
-                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES);
+                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-master.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES)
+                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties")), CONTAINER_TRINO_HIVE_PROPERTIES)
+                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/iceberg.properties")), CONTAINER_TRINO_ICEBERG_PROPERTIES);
         });
 
-        builder.addContainers(createPrestoWorker(worker(1)), createPrestoWorker(worker(2)));
+        builder.addContainers(createTrinoWorker(worker(1)), createTrinoWorker(worker(2)));
     }
 
     @SuppressWarnings("resource")
-    private DockerContainer createPrestoWorker(String workerName)
+    private DockerContainer createTrinoWorker(String workerName)
     {
-        return createPrestoContainer(dockerFiles, serverPackage, jdkVersion, debug, prestoDockerImageName, workerName)
+        return createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, trinoDockerImageName, workerName)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-worker.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES);
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-worker.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties")), CONTAINER_TRINO_HIVE_PROPERTIES)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/iceberg.properties")), CONTAINER_TRINO_ICEBERG_PROPERTIES);
     }
 }

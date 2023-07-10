@@ -1,0 +1,176 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "ea5cb3fb-9277-4724-a5fb-f2743fd883ff",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-ORC-part/orders",
+  "last-updated-ms" : 1663698100179,
+  "last-column-id" : 9,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "orderkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "custkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "orderstatus",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "totalprice",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 5,
+      "name" : "orderpriority",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 6,
+      "name" : "clerk",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "shippriority",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 8,
+      "name" : "comment",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "orderdate",
+      "required" : false,
+      "type" : "date"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "orderkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "custkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "orderstatus",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "totalprice",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 5,
+      "name" : "orderpriority",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 6,
+      "name" : "clerk",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "shippriority",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 8,
+      "name" : "comment",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "orderdate",
+      "required" : false,
+      "type" : "date"
+    } ]
+  } ],
+  "partition-spec" : [ {
+    "name" : "orderdate",
+    "transform" : "identity",
+    "source-id" : 9,
+    "field-id" : 1000
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ {
+      "name" : "orderdate",
+      "transform" : "identity",
+      "source-id" : 9,
+      "field-id" : 1000
+    } ]
+  } ],
+  "last-partition-id" : 1000,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.2.ndv" : "101809026",
+    "trino.stats.ndv.7.ndv" : "1",
+    "trino.stats.ndv.8.ndv" : "270910389",
+    "trino.stats.ndv.1.ndv" : "1485693109",
+    "trino.stats.ndv.6.ndv" : "993687",
+    "trino.stats.ndv.3.ndv" : "3",
+    "write.format.default" : "ORC",
+    "trino.stats.ndv.4.ndv" : "41505504",
+    "trino.stats.ndv.5.ndv" : "5",
+    "trino.stats.ndv.9.ndv" : "2449"
+  },
+  "current-snapshot-id" : 8400893575492285,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 8400893575492285,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 8400893575492285,
+    "timestamp-ms" : 1647962200917,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "2406",
+      "added-records" : "1500000000",
+      "added-files-size" : "43618959872",
+      "changed-partition-count" : "2406",
+      "total-records" : "1500000000",
+      "total-files-size" : "43618959872",
+      "total-data-files" : "2406",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-ORC-part/orders/metadata/snap-8400893575492285-1-367513f4-29a3-4499-9f24-b7df6ed65323.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1647962200917,
+    "snapshot-id" : 8400893575492285
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1647962200917,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-ORC-part/orders/metadata/00000-c1e62e10-141c-465b-8350-6e27e6092d25.metadata.json"
+  } ]
+}

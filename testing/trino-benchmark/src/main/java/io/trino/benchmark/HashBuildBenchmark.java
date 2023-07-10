@@ -41,6 +41,7 @@ import java.util.OptionalInt;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
+import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static java.util.Objects.requireNonNull;
@@ -99,14 +100,12 @@ public class HashBuildBenchmark
         // empty join so build finishes
         ImmutableList.Builder<OperatorFactory> joinDriversBuilder = ImmutableList.builder();
         joinDriversBuilder.add(new ValuesOperatorFactory(0, new PlanNodeId("values"), ImmutableList.of()));
-        OperatorFactory joinOperator = operatorFactories.innerJoin(
+        OperatorFactory joinOperator = operatorFactories.spillingJoin(
+                innerJoin(false, false),
                 2,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
                 false,
-                false,
-                false,
-                true,
                 ImmutableList.of(BIGINT),
                 Ints.asList(0),
                 OptionalInt.empty(),

@@ -20,6 +20,9 @@ import org.testng.annotations.Test;
 import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -47,12 +50,17 @@ public class TestExchangeS3Config
                 .setAsyncClientConcurrency(100)
                 .setAsyncClientMaxPendingConnectionAcquires(10000)
                 .setConnectionAcquisitionTimeout(new Duration(1, MINUTES))
-                .setGcsJsonKeyFilePath(null));
+                .setS3PathStyleAccess(false)
+                .setGcsJsonKeyFilePath(null)
+                .setGcsJsonKey(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path jsonKeyFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("exchange.s3.aws-access-key", "access")
                 .put("exchange.s3.aws-secret-key", "secret")
@@ -67,7 +75,9 @@ public class TestExchangeS3Config
                 .put("exchange.s3.async-client-concurrency", "202")
                 .put("exchange.s3.async-client-max-pending-connection-acquires", "999")
                 .put("exchange.s3.async-client-connection-acquisition-timeout", "5m")
-                .put("exchange.gcs.json-key-file-path", "/path/to/gcs_keyfile.json")
+                .put("exchange.s3.path-style-access", "true")
+                .put("exchange.gcs.json-key-file-path", jsonKeyFile.toString())
+                .put("exchange.gcs.json-key", "{}")
                 .buildOrThrow();
 
         ExchangeS3Config expected = new ExchangeS3Config()
@@ -84,7 +94,9 @@ public class TestExchangeS3Config
                 .setAsyncClientConcurrency(202)
                 .setAsyncClientMaxPendingConnectionAcquires(999)
                 .setConnectionAcquisitionTimeout(new Duration(5, MINUTES))
-                .setGcsJsonKeyFilePath("/path/to/gcs_keyfile.json");
+                .setS3PathStyleAccess(true)
+                .setGcsJsonKeyFilePath(jsonKeyFile.toString())
+                .setGcsJsonKey("{}");
 
         assertFullMapping(properties, expected);
     }

@@ -27,6 +27,12 @@ public interface DeltaLakeFileStatistics
 {
     Optional<Long> getNumRecords();
 
+    Optional<Map<String, Object>> getMinValues();
+
+    Optional<Map<String, Object>> getMaxValues();
+
+    Optional<Map<String, Object>> getNullCount();
+
     Optional<Long> getNullCount(String columnName);
 
     Optional<Object> getMinColumnValue(DeltaLakeColumnHandle columnHandle);

@@ -20,8 +20,8 @@ import io.trino.spi.type.SqlDecimal;
 
 import java.math.BigDecimal;
 
-import static java.math.BigDecimal.ROUND_DOWN;
-import static java.math.BigDecimal.ROUND_HALF_UP;
+import static java.math.RoundingMode.DOWN;
+import static java.math.RoundingMode.HALF_UP;
 
 public abstract class AbstractTestDecimalAverageAggregation
         extends AbstractTestAggregationFunction
@@ -45,7 +45,7 @@ public abstract class AbstractTestDecimalAverageAggregation
     private static BigDecimal getBigDecimalForCounter(int i)
     {
         String iAsString = String.valueOf(Math.abs(i));
-        return new BigDecimal(String.valueOf(i) + "." + iAsString + iAsString).setScale(2, ROUND_DOWN);
+        return new BigDecimal(String.valueOf(i) + "." + iAsString + iAsString).setScale(2, DOWN);
     }
 
     @Override
@@ -58,7 +58,7 @@ public abstract class AbstractTestDecimalAverageAggregation
         for (int i = start; i < start + length; i++) {
             avg = avg.add(getBigDecimalForCounter(i));
         }
-        avg = avg.divide(BigDecimal.valueOf(length), ROUND_HALF_UP);
+        avg = avg.divide(BigDecimal.valueOf(length), HALF_UP);
         DecimalType expectedType = getExpectedType();
         return new SqlDecimal(avg.unscaledValue(), expectedType.getPrecision(), expectedType.getScale());
     }

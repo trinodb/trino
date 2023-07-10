@@ -36,7 +36,7 @@ public class KuduTableHandle
     private transient KuduTable table;
     private final TupleDomain<ColumnHandle> constraint;
     private final Optional<List<ColumnHandle>> desiredColumns;
-    private final boolean isDeleteHandle;
+    private final boolean requiresRowId;
     private final OptionalInt bucketCount;
     private final OptionalLong limit;
 
@@ -45,11 +45,11 @@ public class KuduTableHandle
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("desiredColumns") Optional<List<ColumnHandle>> desiredColumns,
-            @JsonProperty("isDeleteHandle") boolean isDeleteHandle,
+            @JsonProperty("requiresRowId") boolean requiresRowId,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("limit") OptionalLong limit)
     {
-        this(schemaTableName, null, constraint, desiredColumns, isDeleteHandle, bucketCount, limit);
+        this(schemaTableName, null, constraint, desiredColumns, requiresRowId, bucketCount, limit);
     }
 
     public KuduTableHandle(
@@ -57,7 +57,7 @@ public class KuduTableHandle
             KuduTable table,
             TupleDomain<ColumnHandle> constraint,
             Optional<List<ColumnHandle>> desiredColumns,
-            boolean isDeleteHandle,
+            boolean requiresRowId,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("limit") OptionalLong limit)
     {
@@ -65,9 +65,21 @@ public class KuduTableHandle
         this.table = table;
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.desiredColumns = requireNonNull(desiredColumns, "desiredColumns is null");
-        this.isDeleteHandle = isDeleteHandle;
+        this.requiresRowId = requiresRowId;
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is empty");
         this.limit = requireNonNull(limit, "limit is null");
+    }
+
+    public KuduTableHandle withRequiresRowId(boolean requiresRowId)
+    {
+        return new KuduTableHandle(
+            schemaTableName,
+            table,
+            constraint,
+            desiredColumns,
+            requiresRowId,
+            bucketCount,
+            limit);
     }
 
     public KuduTable getTable(KuduClientSession session)
@@ -97,9 +109,9 @@ public class KuduTableHandle
     }
 
     @JsonProperty
-    public boolean isDeleteHandle()
+    public boolean isRequiresRowId()
     {
-        return isDeleteHandle;
+        return requiresRowId;
     }
 
     @JsonProperty
@@ -117,7 +129,7 @@ public class KuduTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, constraint, desiredColumns, isDeleteHandle, bucketCount, limit);
+        return Objects.hash(schemaTableName, constraint, desiredColumns, requiresRowId, bucketCount, limit);
     }
 
     @Override
@@ -134,7 +146,7 @@ public class KuduTableHandle
         return Objects.equals(this.schemaTableName, other.schemaTableName) &&
                 Objects.equals(this.constraint, other.constraint) &&
                 Objects.equals(this.desiredColumns, other.desiredColumns) &&
-                Objects.equals(this.isDeleteHandle, other.isDeleteHandle) &&
+                Objects.equals(this.requiresRowId, other.requiresRowId) &&
                 Objects.equals(this.bucketCount, other.bucketCount) &&
                 Objects.equals(this.limit, other.limit);
     }

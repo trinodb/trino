@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
+import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
@@ -25,7 +26,7 @@ import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
@@ -47,7 +48,10 @@ public class GlueMetastoreModule
     @Override
     protected void setup(Binder binder)
     {
-        configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
+        GlueHiveMetastoreConfig glueConfig = buildConfigObject(GlueHiveMetastoreConfig.class);
+        glueConfig.getGlueProxyApiId().ifPresent(glueProxyApiId -> binder
+                .bind(Key.get(RequestHandler2.class, ForGlueHiveMetastore.class))
+                .toInstance(new ProxyApiRequestHandler(glueProxyApiId)));
         configBinder(binder).bindConfig(HiveConfig.class);
         binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(RequestHandler2.class, ForGlueHiveMetastore.class));
@@ -56,14 +60,18 @@ public class GlueMetastoreModule
                 .setDefault().toProvider(DefaultGlueMetastoreTableFilterProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(HiveMetastoreFactory.class)
-                .annotatedWith(RawHiveMetastoreFactory.class)
+        newOptionalBinder(binder, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class))
+                .setDefault()
                 .to(GlueHiveMetastoreFactory.class)
                 .in(Scopes.SINGLETON);
 
         // export under the old name, for backwards compatibility
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
+        binder.bind(Key.get(GlueMetastoreStats.class, ForGlueHiveMetastore.class)).toInstance(new GlueMetastoreStats());
+        binder.bind(AWSGlueAsync.class).toProvider(HiveGlueClientProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueHiveMetastoreFactory.class).as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
+
+        binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(false);
 
         install(conditionalModule(
                 HiveConfig.class,
@@ -83,7 +91,7 @@ public class GlueMetastoreModule
     @Provides
     @Singleton
     @ForGlueHiveMetastore
-    public Executor createExecutor(CatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
+    public Executor createExecutor(GlueHiveMetastoreConfig hiveConfig)
     {
         return createExecutor("hive-glue-partitions-%s", hiveConfig.getGetPartitionThreads());
     }
@@ -91,7 +99,7 @@ public class GlueMetastoreModule
     @Provides
     @Singleton
     @ForGlueColumnStatisticsRead
-    public Executor createStatisticsReadExecutor(CatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
+    public Executor createStatisticsReadExecutor(GlueHiveMetastoreConfig hiveConfig)
     {
         return createExecutor("hive-glue-statistics-read-%s", hiveConfig.getReadStatisticsThreads());
     }
@@ -99,7 +107,7 @@ public class GlueMetastoreModule
     @Provides
     @Singleton
     @ForGlueColumnStatisticsWrite
-    public Executor createStatisticsWriteExecutor(CatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
+    public Executor createStatisticsWriteExecutor(GlueHiveMetastoreConfig hiveConfig)
     {
         return createExecutor("hive-glue-statistics-write-%s", hiveConfig.getWriteStatisticsThreads());
     }

@@ -330,60 +330,49 @@ class SubqueryPlanner
 
         Analysis.PredicateCoercions predicateCoercions = analysis.getPredicateCoercions(quantifiedComparison);
 
-        switch (operator) {
-            case EQUAL:
-                switch (quantifier) {
-                    case ALL:
-                        subPlan = planQuantifiedComparison(subPlan, operator, quantifier, value, subquery, output, predicateCoercions);
-                        return new PlanBuilder(
-                                subPlan.getTranslations()
-                                        .withAdditionalMappings(ImmutableMap.of(scopeAwareKey(quantifiedComparison, analysis, subPlan.getScope()), output)),
-                                subPlan.getRoot());
-                    case ANY:
-                    case SOME:
-                        // A = ANY B <=> A IN B
-                        subPlan = planInPredicate(subPlan, value, subquery, output, quantifiedComparison, predicateCoercions);
-
-                        return new PlanBuilder(
-                                subPlan.getTranslations()
-                                        .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
-                                subPlan.getRoot());
+        return switch (operator) {
+            case EQUAL -> switch (quantifier) {
+                case ALL -> {
+                    subPlan = planQuantifiedComparison(subPlan, operator, quantifier, value, subquery, output, predicateCoercions);
+                    yield new PlanBuilder(
+                            subPlan.getTranslations()
+                                    .withAdditionalMappings(ImmutableMap.of(scopeAwareKey(quantifiedComparison, analysis, subPlan.getScope()), output)),
+                            subPlan.getRoot());
                 }
-                break;
-
-            case NOT_EQUAL:
-                switch (quantifier) {
-                    case ALL: {
-                        // A <> ALL B <=> !(A IN B)
-                        subPlan = planInPredicate(subPlan, value, subquery, output, quantifiedComparison, predicateCoercions);
-                        return addNegation(subPlan, cluster, output);
-                    }
-                    case ANY:
-                    case SOME: {
-                        // A <> ANY B <=> min B <> max B || A <> min B <=> !(min B = max B && A = min B) <=> !(A = ALL B)
-                        // "A <> ANY B" is equivalent to "NOT (A = ALL B)" so add a rewrite for the initial quantifiedComparison to notAll
-                        subPlan = planQuantifiedComparison(subPlan, EQUAL, Quantifier.ALL, value, subquery, output, predicateCoercions);
-                        return addNegation(subPlan, cluster, output);
-                    }
+                case ANY, SOME -> {
+                    // A = ANY B <=> A IN B
+                    subPlan = planInPredicate(subPlan, value, subquery, output, quantifiedComparison, predicateCoercions);
+                    yield new PlanBuilder(
+                            subPlan.getTranslations()
+                                    .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
+                            subPlan.getRoot());
                 }
-                break;
-
-            case LESS_THAN:
-            case LESS_THAN_OR_EQUAL:
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
+            };
+            case NOT_EQUAL -> switch (quantifier) {
+                case ALL ->
+                    // A <> ALL B <=> !(A IN B)
+                        addNegation(
+                                planInPredicate(subPlan, value, subquery, output, quantifiedComparison, predicateCoercions),
+                                cluster,
+                                output);
+                case ANY, SOME ->
+                    // A <> ANY B <=> min B <> max B || A <> min B <=> !(min B = max B && A = min B) <=> !(A = ALL B)
+                    // "A <> ANY B" is equivalent to "NOT (A = ALL B)" so add a rewrite for the initial quantifiedComparison to notAll
+                        addNegation(
+                                planQuantifiedComparison(subPlan, EQUAL, Quantifier.ALL, value, subquery, output, predicateCoercions),
+                                cluster,
+                                output);
+            };
+            case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> {
                 subPlan = planQuantifiedComparison(subPlan, operator, quantifier, value, subquery, output, predicateCoercions);
-                return new PlanBuilder(
+                yield new PlanBuilder(
                         subPlan.getTranslations()
                                 .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
                         subPlan.getRoot());
-
-            case IS_DISTINCT_FROM:
-                // Cannot be used with quantified comparison
-        }
-        // all cases are checked, so this exception should never be thrown
-        throw new IllegalArgumentException(
-                format("Unexpected quantified comparison: '%s %s'", operator.getValue(), quantifier));
+            }
+            case IS_DISTINCT_FROM -> // Cannot be used with quantified comparison
+                    throw new IllegalArgumentException(format("Unexpected quantified comparison: '%s %s'", operator.getValue(), quantifier));
+        };
     }
 
     /**

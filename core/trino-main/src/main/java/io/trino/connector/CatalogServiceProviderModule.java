@@ -14,8 +14,10 @@
 package io.trino.connector;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.CatalogProcedures;
@@ -34,9 +36,7 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import io.trino.spi.function.FunctionProvider;
 
 import java.util.Optional;
 import java.util.Set;
@@ -160,6 +160,13 @@ public class CatalogServiceProviderModule
     public static CatalogServiceProvider<Optional<ConnectorAccessControl>> createAccessControlProvider(ConnectorServicesProvider connectorServicesProvider)
     {
         return new ConnectorCatalogServiceProvider<>("access control", connectorServicesProvider, ConnectorServices::getAccessControl);
+    }
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<FunctionProvider> createFunctionProvider(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("function provider", connectorServicesProvider, ConnectorServices::getFunctionProvider);
     }
 
     private static class ConnectorAccessControlLazyRegister

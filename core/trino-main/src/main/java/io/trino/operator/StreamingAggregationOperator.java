@@ -27,8 +27,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import javax.annotation.Nullable;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import jakarta.annotation.Nullable;
 
 import java.util.Deque;
 import java.util.LinkedList;
@@ -199,7 +199,7 @@ public class StreamingAggregationOperator
             pagesHashStrategy = joinCompiler.compilePagesHashStrategyFactory(sourceTypes, groupByChannels, Optional.empty())
                     .createPagesHashStrategy(
                             sourceTypes.stream()
-                                    .map(type -> ImmutableList.<Block>of())
+                                    .map(type -> new ObjectArrayList<Block>())
                                     .collect(toImmutableList()), OptionalInt.empty());
         }
 

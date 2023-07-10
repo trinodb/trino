@@ -25,7 +25,6 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -53,12 +52,6 @@ public class DisabledSystemSecurityMetadata
 
     @Override
     public Set<String> listRoles(Session session)
-    {
-        return ImmutableSet.of();
-    }
-
-    @Override
-    public Set<RoleGrant> listAllRoleGrants(Session session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
     {
         return ImmutableSet.of();
     }
@@ -190,6 +183,15 @@ public class DisabledSystemSecurityMetadata
 
     @Override
     public void tableDropped(Session session, CatalogSchemaTableName table) {}
+
+    @Override
+    public void columnCreated(Session session, CatalogSchemaTableName table, String column) {}
+
+    @Override
+    public void columnRenamed(Session session, CatalogSchemaTableName table, String oldName, String newName) {}
+
+    @Override
+    public void columnDropped(Session session, CatalogSchemaTableName table, String column) {}
 
     private static TrinoException notSupportedException(String catalogName)
     {

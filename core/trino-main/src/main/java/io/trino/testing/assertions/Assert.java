@@ -14,47 +14,13 @@
 package io.trino.testing.assertions;
 
 import io.airlift.units.Duration;
-import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-/**
- * This class provides replacements for TestNG's faulty assertion methods.
- * <p>
- * So far, the reason for having this class is the
- * <a href="https://github.com/cbeust/testng/issues/543"> TestNG #543 -
- * Unexpected Behaviour: assertEquals for Iterable</a> bug,
- * which boils down to {@code assertEquals(Iterable, Iterable)} neglecting
- * any fields on the Iterable itself (only comparing its elements). This can
- * lead to false positive results in tests using the faulty assertion.
- */
-@SuppressWarnings({"MethodOverridesStaticMethodOfSuperclass", "ExtendsUtilityClass"})
-public class Assert
-        extends org.testng.Assert
+public final class Assert
 {
     private Assert() {}
-
-    @SuppressModernizer // Assert.assertEquals(Iterable, Iterable) is forbidden, advising to use this class as a safety-adding wrapper.
-    public static void assertEquals(Iterable<?> actual, Iterable<?> expected)
-    {
-        assertEquals(actual, expected, null);
-    }
-
-    @SuppressModernizer // Assert.assertEquals(Iterable, Iterable, String) is forbidden, advising to use this class as a safety-adding wrapper.
-    public static void assertEquals(Iterable<?> actual, Iterable<?> expected, String message)
-    {
-        try {
-            //do a full, equals-based check first
-            org.testng.Assert.assertEquals((Object) actual, (Object) expected, message);
-        }
-        catch (AssertionError error) {
-            //do the check again using Iterable-dedicated variant for a better error message.
-            org.testng.Assert.assertEquals(actual, expected, message);
-            //if we're here, the Iterables differ on their fields. Use the original error message.
-            throw error;
-        }
-    }
 
     public static <E extends Exception> void assertEventually(CheckedRunnable<E> assertion)
             throws E

@@ -27,7 +27,6 @@ import io.trino.plugin.thrift.ThriftTableHandle;
 import io.trino.plugin.thrift.ThriftTransactionHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
@@ -36,8 +35,9 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.util.List;
@@ -51,23 +51,17 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.Collectors.joining;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestThriftProjectionPushdown
         extends BaseRuleTest
 {
     private static final String TINY_SCHEMA = "tiny";
     private List<DriftServer> servers;
-
-    private static final ThriftTableHandle NATION_THRIFT_TABLE = new ThriftTableHandle(new SchemaTableName(TINY_SCHEMA, "nation"));
-
-    private static final TableHandle NATION_TABLE = new TableHandle(
-            TEST_CATALOG_HANDLE,
-            NATION_THRIFT_TABLE,
-            ThriftTransactionHandle.INSTANCE);
 
     private static final Session SESSION = testSessionBuilder()
             .setCatalog(TEST_CATALOG_NAME)
@@ -107,7 +101,7 @@ public class TestThriftProjectionPushdown
         return Optional.of(runner);
     }
 
-    @AfterClass
+    @AfterAll
     public void cleanup()
     {
         if (servers != null) {
@@ -150,7 +144,7 @@ public class TestThriftProjectionPushdown
                                     orderStatusSymbol.toSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
-                                            TEST_CATALOG_HANDLE,
+                                            tester().getCurrentCatalogHandle(),
                                             tableWithColumns,
                                             ThriftTransactionHandle.INSTANCE),
                                     ImmutableList.of(orderStatusSymbol),
@@ -167,7 +161,6 @@ public class TestThriftProjectionPushdown
                 tester().getTypeAnalyzer(),
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
-        TableHandle inputTableHandle = NATION_TABLE;
         String columnName = "orderstatus";
 
         ColumnHandle columnHandle = new ThriftColumnHandle(columnName, VARCHAR, "", false);
@@ -186,7 +179,7 @@ public class TestThriftProjectionPushdown
                                     p.symbol("expr_2", VARCHAR),
                                     orderStatusSymbol.toSymbolReference()),
                             p.tableScan(
-                                    inputTableHandle,
+                                    tester().getCurrentCatalogTableHandle(TINY_SCHEMA, "nation"),
                                     ImmutableList.of(orderStatusSymbol),
                                     ImmutableMap.of(orderStatusSymbol, columnHandle)));
                 })
@@ -216,7 +209,7 @@ public class TestThriftProjectionPushdown
                                     p.symbol("expr", VARCHAR),
                                     nationKey.toSymbolReference()),
                             p.tableScan(
-                                    NATION_TABLE,
+                                    tester().getCurrentCatalogTableHandle(TINY_SCHEMA, "nation"),
                                     ImmutableList.of(nationKey, name),
                                     ImmutableMap.<Symbol, ColumnHandle>builder()
                                             .put(nationKey, nationKeyColumn)

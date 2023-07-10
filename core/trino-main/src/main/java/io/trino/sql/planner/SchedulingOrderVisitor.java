@@ -15,12 +15,9 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.planner.plan.IndexJoinNode;
-import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.planner.plan.SemiJoinNode;
-import io.trino.sql.planner.plan.SpatialJoinNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
@@ -40,7 +37,7 @@ public final class SchedulingOrderVisitor
     private SchedulingOrderVisitor() {}
 
     private static class Visitor
-            extends SimplePlanVisitor<Void>
+            extends BuildSideJoinPlanVisitor<Void>
     {
         private final Consumer<PlanNodeId> schedulingOrder;
 
@@ -50,41 +47,21 @@ public final class SchedulingOrderVisitor
         }
 
         @Override
-        public Void visitJoin(JoinNode node, Void context)
-        {
-            node.getRight().accept(this, context);
-            node.getLeft().accept(this, context);
-            return null;
-        }
-
-        @Override
-        public Void visitSemiJoin(SemiJoinNode node, Void context)
-        {
-            node.getFilteringSource().accept(this, context);
-            node.getSource().accept(this, context);
-            return null;
-        }
-
-        @Override
-        public Void visitSpatialJoin(SpatialJoinNode node, Void context)
-        {
-            node.getRight().accept(this, context);
-            node.getLeft().accept(this, context);
-            return null;
-        }
-
-        @Override
-        public Void visitIndexJoin(IndexJoinNode node, Void context)
-        {
-            node.getIndexSource().accept(this, context);
-            node.getProbeSource().accept(this, context);
-            return null;
-        }
-
-        @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
             schedulingOrder.accept(node.getId());
+            return null;
+        }
+
+        @Override
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
+        {
+            if (node.getSource().isEmpty()) {
+                schedulingOrder.accept(node.getId());
+            }
+            else {
+                node.getSource().orElseThrow().accept(this, context);
+            }
             return null;
         }
     }

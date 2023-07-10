@@ -55,19 +55,14 @@ public final class Patterns
         return typeOf(ApplyNode.class);
     }
 
-    public static Pattern<DeleteNode> delete()
-    {
-        return typeOf(DeleteNode.class);
-    }
-
-    public static Pattern<UpdateNode> update()
-    {
-        return typeOf(UpdateNode.class);
-    }
-
     public static Pattern<TableExecuteNode> tableExecute()
     {
         return typeOf(TableExecuteNode.class);
+    }
+
+    public static Pattern<MergeWriterNode> mergeWriter()
+    {
+        return typeOf(MergeWriterNode.class);
     }
 
     public static Pattern<ExchangeNode> exchange()
@@ -213,6 +208,11 @@ public final class Patterns
     public static Pattern<TableFunctionNode> tableFunction()
     {
         return typeOf(TableFunctionNode.class);
+    }
+
+    public static Pattern<TableFunctionProcessorNode> tableFunctionProcessor()
+    {
+        return typeOf(TableFunctionProcessorNode.class);
     }
 
     public static Pattern<RowNumberNode> rowNumber()

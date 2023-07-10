@@ -13,10 +13,13 @@
  */
 package io.trino.connector;
 
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
@@ -30,6 +33,8 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorContextInstance
         implements ConnectorContext
 {
+    private final OpenTelemetry openTelemetry;
+    private final Tracer tracer;
     private final NodeManager nodeManager;
     private final VersionEmbedder versionEmbedder;
     private final TypeManager typeManager;
@@ -38,8 +43,12 @@ public class ConnectorContextInstance
     private final PageIndexerFactory pageIndexerFactory;
     private final Supplier<ClassLoader> duplicatePluginClassLoaderFactory;
     private final AtomicBoolean pluginClassLoaderDuplicated = new AtomicBoolean();
+    private final CatalogHandle catalogHandle;
 
     public ConnectorContextInstance(
+            CatalogHandle catalogHandle,
+            OpenTelemetry openTelemetry,
+            Tracer tracer,
             NodeManager nodeManager,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager,
@@ -48,6 +57,8 @@ public class ConnectorContextInstance
             PageIndexerFactory pageIndexerFactory,
             Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
     {
+        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -55,6 +66,25 @@ public class ConnectorContextInstance
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.duplicatePluginClassLoaderFactory = requireNonNull(duplicatePluginClassLoaderFactory, "duplicatePluginClassLoaderFactory is null");
+        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
+    }
+
+    @Override
+    public OpenTelemetry getOpenTelemetry()
+    {
+        return openTelemetry;
+    }
+
+    @Override
+    public Tracer getTracer()
+    {
+        return tracer;
+    }
+
+    @Override
+    public CatalogHandle getCatalogHandle()
+    {
+        return catalogHandle;
     }
 
     @Override

@@ -17,12 +17,13 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
 import org.testng.annotations.Test;
 
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseOracleConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -41,7 +42,7 @@ public abstract class BaseOracleConnectorSmokeTest
     @Test
     public void testCommentColumn()
     {
-        String tableName = "test_comment_column_" + randomTableSuffix();
+        String tableName = "test_comment_column_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 

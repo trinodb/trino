@@ -113,8 +113,10 @@ public class TestProxyServer
             throws IOException
     {
         server.close();
+        server = null;
         lifeCycleManager.stop();
         executorService.shutdownNow();
+        executorService = null;
         Files.delete(sharedSecretFile);
     }
 

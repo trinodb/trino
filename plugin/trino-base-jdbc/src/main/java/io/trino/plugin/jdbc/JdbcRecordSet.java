@@ -29,13 +29,13 @@ public class JdbcRecordSet
 {
     private final JdbcClient jdbcClient;
     private final ExecutorService executor;
-    private final JdbcTableHandle table;
+    private final BaseJdbcConnectorTableHandle table;
     private final List<JdbcColumnHandle> columnHandles;
     private final List<Type> columnTypes;
     private final JdbcSplit split;
     private final ConnectorSession session;
 
-    public JdbcRecordSet(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordSet(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.executor = requireNonNull(executor, "executor is null");

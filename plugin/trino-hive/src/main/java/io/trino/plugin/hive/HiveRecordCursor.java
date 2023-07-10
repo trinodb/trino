@@ -20,6 +20,7 @@ import io.trino.plugin.hive.util.ForwardingRecordCursor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -32,8 +33,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -128,10 +127,10 @@ public class HiveRecordCursor
                 else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
                     longs[columnIndex] = (long) prefilledValue;
                 }
-                else if (isShortDecimal(type)) {
+                else if (type instanceof DecimalType decimalType && decimalType.isShort()) {
                     longs[columnIndex] = (long) prefilledValue;
                 }
-                else if (isLongDecimal(type)) {
+                else if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
                     objects[columnIndex] = prefilledValue;
                 }
                 else {

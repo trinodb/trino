@@ -40,7 +40,7 @@ import static java.lang.invoke.MethodHandles.lookup;
 /**
  * Encodes time with time zone up to p = 9.
  */
-class ShortTimeWithTimeZoneType
+final class ShortTimeWithTimeZoneType
         extends TimeWithTimeZoneType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortTimeWithTimeZoneType.class, lookup(), long.class);
@@ -81,7 +81,7 @@ class ShortTimeWithTimeZoneType
     @Override
     public final void writeLong(BlockBuilder blockBuilder, long value)
     {
-        blockBuilder.writeLong(value).closeEntry();
+        ((LongArrayBlockBuilder) blockBuilder).writeLong(value);
     }
 
     @Override
@@ -91,7 +91,7 @@ class ShortTimeWithTimeZoneType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+            writeLong(blockBuilder, block.getLong(position, 0));
         }
     }
 

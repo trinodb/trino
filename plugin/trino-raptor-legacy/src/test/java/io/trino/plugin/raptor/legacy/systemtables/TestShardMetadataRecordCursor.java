@@ -92,6 +92,7 @@ public class TestShardMetadataRecordCursor
     public void teardown()
     {
         dummyHandle.close();
+        dummyHandle = null;
     }
 
     @Test
@@ -163,9 +164,7 @@ public class TestShardMetadataRecordCursor
                 .build());
 
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
-                ImmutableMap.<Integer, Domain>builder()
-                        .put(1, Domain.singleValue(createVarcharType(10), utf8Slice("orders")))
-                        .buildOrThrow());
+                ImmutableMap.of(1, Domain.singleValue(createVarcharType(10), utf8Slice("orders"))));
 
         MetadataDao metadataDao = dummyHandle.attach(MetadataDao.class);
         Set<Long> actual = ImmutableSet.copyOf(ShardMetadataRecordCursor.getTableIds(dbi, tupleDomain));
@@ -189,9 +188,7 @@ public class TestShardMetadataRecordCursor
                 .build());
 
         TupleDomain<Integer> tupleDomain = TupleDomain.withColumnDomains(
-                ImmutableMap.<Integer, Domain>builder()
-                        .put(0, Domain.singleValue(createVarcharType(10), utf8Slice("test")))
-                        .buildOrThrow());
+                ImmutableMap.of(0, Domain.singleValue(createVarcharType(10), utf8Slice("test"))));
 
         MetadataDao metadataDao = dummyHandle.attach(MetadataDao.class);
         Set<Long> actual = ImmutableSet.copyOf(ShardMetadataRecordCursor.getTableIds(dbi, tupleDomain));

@@ -16,9 +16,11 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
+import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.BooleanWriteFunction;
@@ -33,6 +35,7 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
@@ -49,13 +52,14 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -64,10 +68,7 @@ import io.trino.spi.type.VarcharType;
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleTypes;
 
-import javax.inject.Inject;
-
 import java.math.RoundingMode;
-import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -85,6 +86,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -130,28 +133,22 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static java.lang.Character.MAX_RADIX;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.abs;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 
 public class OracleClient
         extends BaseJdbcClient
 {
     public static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
-
-    // Oracle before 12.2 doesn't allow identifiers over 30 characters
-    private static final int ORACLE_MAX_IDENTIFIER_LENGTH = 30;
-    private static final SecureRandom RANDOM = new SecureRandom();
 
     private static final int MAX_BYTES_PER_CHAR = 4;
 
@@ -199,8 +196,8 @@ public class OracleClient
             .buildOrThrow();
 
     private final boolean synonymsEnabled;
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     @Inject
     public OracleClient(
@@ -208,21 +205,21 @@ public class OracleClient
             OracleConfig oracleConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
 
-        requireNonNull(oracleConfig, "oracleConfig is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .build();
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(TRINO_BIGINT_TYPE, Optional.of("NUMBER"), 0, 0, Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(TRINO_BIGINT_TYPE, Optional.of("NUMBER"), Optional.of(0), Optional.of(0), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 connectorExpressionRewriter,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementCountDistinct(bigintTypeHandle, true))
@@ -258,40 +255,31 @@ public class OracleClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql, Optional<Integer> columnCount)
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(1000);
+        // This is a heuristic, not exact science. A better formula can perhaps be found with measurements.
+        // Column count is not known for non-SELECT queries. Not setting fetch size for these.
+        if (columnCount.isPresent()) {
+            statement.setFetchSize(max(100_000 / columnCount.get(), 1_000));
+        }
         return statement;
     }
 
     @Override
-    protected String generateTemporaryTableName()
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
     {
-        String tableName = "tmp_trino_" + System.nanoTime() + Long.toString(abs(RANDOM.nextLong()), MAX_RADIX);
-        return tableName.substring(0, min(ORACLE_MAX_IDENTIFIER_LENGTH, tableName.length()));
-    }
-
-    @Override
-    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
-    {
-        if (!schemaName.equalsIgnoreCase(newTable.getSchemaName())) {
+        if (!remoteSchemaName.equals(newRemoteSchemaName)) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
-        String newTableName = newTable.getTableName().toUpperCase(ENGLISH);
-        String sql = format(
+        String newTableName = newRemoteTableName.toUpperCase(ENGLISH);
+        execute(session, connection, format(
                 "ALTER TABLE %s RENAME TO %s",
-                quoted(catalogName, schemaName, tableName),
-                quoted(newTableName));
-
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
+                quoted(catalogName, remoteSchemaName, remoteTableName),
+                quoted(newTableName)));
     }
 
     @Override
@@ -308,6 +296,37 @@ public class OracleClient
     }
 
     @Override
+    protected void dropTable(ConnectorSession session, RemoteTableName remoteTableName, boolean temporaryTable)
+    {
+        String quotedTable = quoted(remoteTableName);
+        String dropTableSql = "DROP TABLE " + quotedTable;
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            if (temporaryTable) {
+                // Turn off auto-commit so the lock is held until after the DROP
+                connection.setAutoCommit(false);
+                // By default, when dropping a table, oracle does not wait for the table lock.
+                // If another transaction is using the table at the same time, DROP TABLE will throw.
+                // The solution is to first lock the table, waiting for other active transactions to complete.
+                // In Oracle, DDL automatically commits, so DROP TABLE will release the lock afterwards.
+                // NOTE: We can only lock tables owned by trino, hence only doing this for temporary tables.
+                execute(session, connection, "LOCK TABLE " + quotedTable + " IN EXCLUSIVE MODE");
+                // Oracle puts dropped tables into a recycling bin, which keeps them accessible for a period of time.
+                // PURGE will bypass the bin and completely delete the table immediately.
+                // We should only PURGE the table if it is a temporary table that trino created,
+                // as purging all dropped tables may be unexpected behavior for our clients.
+                dropTableSql += " PURGE";
+            }
+            execute(session, connection, dropTableSql);
+            // Commit the transaction (for temporaryTables), or a no-op for regular tables.
+            // This is better than connection.commit() because you're not supposed to commit() if autoCommit is true.
+            connection.setAutoCommit(true);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
     public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
@@ -315,9 +334,36 @@ public class OracleClient
 
     @Override
     public Optional<String> getTableComment(ResultSet resultSet)
+            throws SQLException
     {
-        // Don't return a comment until the connector supports creating tables with comment
-        return Optional.empty();
+        return Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
+    }
+
+    @Override
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    {
+        checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
+        ImmutableList.Builder<String> createTableSqlsBuilder = ImmutableList.builder();
+        createTableSqlsBuilder.add(format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns)));
+        Optional<String> tableComment = tableMetadata.getComment();
+        if (tableComment.isPresent()) {
+            createTableSqlsBuilder.add(buildTableCommentSql(remoteTableName, tableComment));
+        }
+        return createTableSqlsBuilder.build();
+    }
+
+    @Override
+    public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
+    {
+        execute(session, buildTableCommentSql(handle.asPlainTable().getRemoteTableName(), comment));
+    }
+
+    private String buildTableCommentSql(RemoteTableName remoteTableName, Optional<String> comment)
+    {
+        return format(
+                "COMMENT ON TABLE %s IS %s",
+                quoted(remoteTableName),
+                varcharLiteral(comment.orElse("")));
     }
 
     @Override
@@ -458,7 +504,7 @@ public class OracleClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(OracleTypes.NUMBER, Optional.of("NUMBER"), decimalType.getPrecision(), decimalType.getScale(), Optional.empty()));
+        return Optional.of(new JdbcTypeHandle(OracleTypes.NUMBER, Optional.of("NUMBER"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
     @Override
@@ -597,7 +643,7 @@ public class OracleClient
     {
         return LongWriteFunction.of(OracleTypes.TIMESTAMPTZ, (statement, index, encodedTimeWithZone) -> {
             Instant time = Instant.ofEpochMilli(unpackMillisUtc(encodedTimeWithZone));
-            ZoneId zone = ZoneId.of(unpackZoneKey(encodedTimeWithZone).getId());
+            ZoneId zone = unpackZoneKey(encodedTimeWithZone).getZoneId();
             statement.setObject(index, time.atZone(zone));
         });
     }
@@ -632,9 +678,8 @@ public class OracleClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType varcharType) {
             String dataType;
-            VarcharType varcharType = (VarcharType) type;
             if (varcharType.isUnbounded() || varcharType.getBoundedLength() > ORACLE_VARCHAR2_MAX_CHARS) {
                 dataType = "nclob";
             }
@@ -643,22 +688,22 @@ public class OracleClient
             }
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
-        if (type instanceof CharType) {
+        if (type instanceof CharType charType) {
             String dataType;
-            if (((CharType) type).getLength() > ORACLE_CHAR_MAX_CHARS) {
+            if (charType.getLength() > ORACLE_CHAR_MAX_CHARS) {
                 dataType = "nclob";
             }
             else {
-                dataType = "char(" + ((CharType) type).getLength() + " CHAR)";
+                dataType = "char(" + charType.getLength() + " CHAR)";
             }
             return WriteMapping.sliceMapping(dataType, oracleCharWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            String dataType = format("number(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
-            if (((DecimalType) type).isShort()) {
-                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction((DecimalType) type));
+        if (type instanceof DecimalType decimalType) {
+            String dataType = format("number(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
-            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction((DecimalType) type));
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
         if (type.equals(TIMESTAMP_SECONDS)) {
             // Specify 'date' instead of 'timestamp(0)' to propagate the type in case of CTAS from date columns
@@ -678,11 +723,18 @@ public class OracleClient
     @Override
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
+        // Oracle doesn't support prepared statement for COMMENT statement
         String sql = format(
-                "COMMENT ON COLUMN %s.%s IS '%s'",
+                "COMMENT ON COLUMN %s.%s IS %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 quoted(column.getColumnName()),
-                comment.orElse(""));
+                varcharLiteral(comment.orElse("")));
         execute(session, sql);
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 }

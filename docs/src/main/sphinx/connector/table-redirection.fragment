@@ -1,0 +1,67 @@
+Trino offers the possibility to transparently redirect operations on an existing
+table to the appropriate catalog based on the format of the table and catalog configuration.
+
+In the context of connectors which depend on a metastore service
+(for example, :doc:`/connector/hive`, :doc:`/connector/iceberg` and :doc:`/connector/delta-lake`),
+the metastore (Hive metastore service, `AWS Glue Data Catalog <https://aws.amazon.com/glue/>`_)
+can be used to accustom tables with different table formats.
+Therefore, a metastore database can hold a variety of tables with different table formats.
+
+As a concrete example, let's use the following
+simple scenario which makes use of table redirection::
+
+    USE example.example_schema;
+
+    EXPLAIN SELECT * FROM example_table;
+
+.. code-block:: text
+
+                                   Query Plan
+    -------------------------------------------------------------------------
+    Fragment 0 [SOURCE]
+         ...
+         Output[columnNames = [...]]
+         │   ...
+         └─ TableScan[table = another_catalog:example_schema:example_table]
+                ...
+
+The output of the ``EXPLAIN`` statement points out the actual
+catalog which is handling the ``SELECT`` query over the table ``example_table``.
+
+The table redirection functionality works also when using
+fully qualified names for the tables::
+
+    EXPLAIN SELECT * FROM example.example_schema.example_table;
+
+.. code-block:: text
+
+                                   Query Plan
+    -------------------------------------------------------------------------
+    Fragment 0 [SOURCE]
+         ...
+         Output[columnNames = [...]]
+         │   ...
+         └─ TableScan[table = another_catalog:example_schema:example_table]
+                ...
+
+Trino offers table redirection support for the following operations:
+
+* Table read operations
+
+  * :doc:`/sql/select`
+  * :doc:`/sql/describe`
+  * :doc:`/sql/show-stats`
+  * :doc:`/sql/show-create-table`
+* Table write operations
+
+  * :doc:`/sql/insert`
+  * :doc:`/sql/update`
+  * :doc:`/sql/merge`
+  * :doc:`/sql/delete`
+* Table management operations
+
+  * :doc:`/sql/alter-table`
+  * :doc:`/sql/drop-table`
+  * :doc:`/sql/comment`
+
+Trino does not offer view redirection support.

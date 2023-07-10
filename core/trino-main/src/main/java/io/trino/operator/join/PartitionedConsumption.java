@@ -18,10 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.Iterator;
@@ -106,9 +105,7 @@ public final class PartitionedConsumption<T>
                 if (next != null) {
                     return next;
                 }
-                else {
-                    return endOfData();
-                }
+                return endOfData();
             }
         };
     }

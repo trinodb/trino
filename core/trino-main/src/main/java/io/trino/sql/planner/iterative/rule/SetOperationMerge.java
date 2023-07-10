@@ -29,9 +29,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 class SetOperationMerge
 {
@@ -56,8 +56,8 @@ class SetOperationMerge
     {
         Lookup lookup = context.getLookup();
         List<PlanNode> sources = node.getSources().stream()
-                .flatMap(lookup::resolveGroup)
-                .collect(Collectors.toList());
+                .map(lookup::resolve)
+                .collect(toImmutableList());
 
         PlanNode child = sources.get(0);
 
@@ -101,8 +101,8 @@ class SetOperationMerge
 
         Lookup lookup = context.getLookup();
         List<PlanNode> sources = node.getSources().stream()
-                .flatMap(lookup::resolveGroup)
-                .collect(Collectors.toList());
+                .map(lookup::resolve)
+                .collect(toImmutableList());
 
         ImmutableListMultimap.Builder<Symbol, Symbol> newMappingsBuilder = ImmutableListMultimap.builder();
         boolean resultIsDistinct = false;

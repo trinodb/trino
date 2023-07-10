@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy.storage;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.Duration;
@@ -24,12 +25,10 @@ import io.trino.plugin.raptor.legacy.metadata.ShardManager;
 import io.trino.plugin.raptor.legacy.metadata.ShardMetadata;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.util.ArrayDeque;
@@ -57,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
 
 public class ShardEjector
@@ -205,13 +204,11 @@ public class ShardEjector
         nodes = new HashMap<>(filterValues(nodes, size -> size <= averageSize));
 
         // get non-bucketed node shards by size, largest to smallest
-        List<ShardMetadata> shards = shardManager.getNodeShards(currentNode).stream()
+        Queue<ShardMetadata> queue = shardManager.getNodeShards(currentNode).stream()
                 .filter(shard -> shard.getBucketNumber().isEmpty())
                 .sorted(comparingLong(ShardMetadata::getCompressedSize).reversed())
-                .collect(toList());
-
-        // eject shards while current node is above max
-        Queue<ShardMetadata> queue = new ArrayDeque<>(shards);
+                // eject shards while current node is above max
+                .collect(toCollection(ArrayDeque::new));
         while ((nodeSize > maxSize) && !queue.isEmpty()) {
             ShardMetadata shard = queue.remove();
             long shardSize = shard.getCompressedSize();

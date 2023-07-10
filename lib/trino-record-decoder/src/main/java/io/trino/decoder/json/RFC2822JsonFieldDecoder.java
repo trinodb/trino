@@ -31,7 +31,7 @@ import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED
 import static io.trino.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -43,7 +43,7 @@ import static java.util.Objects.requireNonNull;
 public class RFC2822JsonFieldDecoder
         implements JsonFieldDecoder
 {
-    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE);
+    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS);
 
     /**
      * Todo - configurable time zones and locales.

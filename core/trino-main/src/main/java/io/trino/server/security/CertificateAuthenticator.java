@@ -14,10 +14,9 @@
 package io.trino.server.security;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.security.Identity;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.security.Principal;
 import java.security.cert.X509Certificate;
@@ -29,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class CertificateAuthenticator
         implements Authenticator
 {
-    private static final String X509_ATTRIBUTE = "javax.servlet.request.X509Certificate";
+    private static final String X509_ATTRIBUTE = "jakarta.servlet.request.X509Certificate";
 
     private final CertificateAuthenticatorManager authenticatorManager;
     private final UserMapping userMapping;
@@ -37,7 +36,6 @@ public class CertificateAuthenticator
     @Inject
     public CertificateAuthenticator(CertificateAuthenticatorManager authenticatorManager, CertificateConfig config)
     {
-        requireNonNull(config, "config is null");
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
         this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");
         authenticatorManager.setRequired();

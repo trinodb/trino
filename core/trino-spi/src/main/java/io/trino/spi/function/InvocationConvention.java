@@ -110,7 +110,13 @@ public class InvocationConvention
          */
         NEVER_NULL(false, 1),
         /**
-         * Argument is always an object type. A SQL null will be passed a Java null.
+         * Argument is passed a Block followed by the integer position in the block.
+         * If the actual block position passed to the function argument is null, the
+         * results are undefined.
+         */
+        BLOCK_POSITION_NOT_NULL(false, 2),
+        /**
+         * Argument is always an object type. An SQL null will be passed a Java null.
          */
         BOXED_NULLABLE(true, 1),
         /**
@@ -154,19 +160,51 @@ public class InvocationConvention
 
     public enum InvocationReturnConvention
     {
-        FAIL_ON_NULL(false),
-        NULLABLE_RETURN(true);
+        /**
+         * The function will never return a null value.
+         * It is not possible to adapt a NEVER_NULL argument to a
+         * BOXED_NULLABLE or NULL_FLAG argument when this return
+         * convention is used.
+         */
+        FAIL_ON_NULL(false, 0),
+        /**
+         * When a null is passed to a never null argument, the function
+         * will not be invoked, and the Java default value for the return
+         * type will be returned.
+         * This can not be used as an actual function return convention,
+         * and instead is only used for adaptation.
+         */
+        DEFAULT_ON_NULL(false, 0),
+        /**
+         * The function may return a null value.
+         * When a null is passed to a never null argument, the function
+         * will not be invoked, and a null value is returned.
+         */
+        NULLABLE_RETURN(true, 0),
+        /**
+         * Return value is witten to a BlockBuilder passed as the last argument.
+         * When a null is passed to a never null argument, the function
+         * will not be invoked, and a null is written to the block builder.
+         */
+        BLOCK_BUILDER(true, 1);
 
         private final boolean nullable;
+        private final int parameterCount;
 
-        InvocationReturnConvention(boolean nullable)
+        InvocationReturnConvention(boolean nullable, int parameterCount)
         {
             this.nullable = nullable;
+            this.parameterCount = parameterCount;
         }
 
         public boolean isNullable()
         {
             return nullable;
+        }
+
+        public int getParameterCount()
+        {
+            return parameterCount;
         }
     }
 }

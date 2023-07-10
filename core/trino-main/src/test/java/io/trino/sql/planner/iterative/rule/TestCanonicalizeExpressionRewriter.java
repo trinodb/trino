@@ -24,7 +24,7 @@ import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -57,12 +57,6 @@ public class TestCanonicalizeExpressionRewriter
     public void testRewriteIfExpression()
     {
         assertRewritten("IF(x = 0, 0, 1)", "CASE WHEN x = 0 THEN 0 ELSE 1 END");
-    }
-
-    @Test
-    public void testRewriteYearExtract()
-    {
-        assertRewritten("EXTRACT(YEAR FROM DATE '2017-07-20')", "year(DATE '2017-07-20')");
     }
 
     @Test

@@ -14,8 +14,8 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.parquet.writer.repdef.DefLevelIterable;
-import io.trino.parquet.writer.repdef.RepLevelIterable;
+import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
+import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
 import io.trino.spi.block.Block;
 
 import java.util.List;
@@ -25,29 +25,29 @@ import static java.util.Objects.requireNonNull;
 public class ColumnChunk
 {
     private final Block block;
-    private final List<DefLevelIterable> defLevelIterables;
-    private final List<RepLevelIterable> repLevelIterables;
+    private final List<DefLevelWriterProvider> defLevelWriterProviders;
+    private final List<RepLevelWriterProvider> repLevelWriterProviders;
 
     ColumnChunk(Block block)
     {
         this(block, ImmutableList.of(), ImmutableList.of());
     }
 
-    ColumnChunk(Block block, List<DefLevelIterable> defLevelIterables, List<RepLevelIterable> repLevelIterables)
+    ColumnChunk(Block block, List<DefLevelWriterProvider> defLevelWriterProviders, List<RepLevelWriterProvider> repLevelWriterProviders)
     {
         this.block = requireNonNull(block, "block is null");
-        this.defLevelIterables = ImmutableList.copyOf(defLevelIterables);
-        this.repLevelIterables = ImmutableList.copyOf(repLevelIterables);
+        this.defLevelWriterProviders = ImmutableList.copyOf(defLevelWriterProviders);
+        this.repLevelWriterProviders = ImmutableList.copyOf(repLevelWriterProviders);
     }
 
-    List<DefLevelIterable> getDefLevelIterables()
+    List<DefLevelWriterProvider> getDefLevelWriterProviders()
     {
-        return defLevelIterables;
+        return defLevelWriterProviders;
     }
 
-    List<RepLevelIterable> getRepLevelIterables()
+    public List<RepLevelWriterProvider> getRepLevelWriterProviders()
     {
-        return repLevelIterables;
+        return repLevelWriterProviders;
     }
 
     public Block getBlock()

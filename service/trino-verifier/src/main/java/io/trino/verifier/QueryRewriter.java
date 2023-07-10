@@ -58,6 +58,7 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
+import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.verifier.QueryType.READ;
 import static io.trino.verifier.VerifyCommand.statementToQueryType;
 import static java.lang.String.format;
@@ -110,7 +111,7 @@ public class QueryRewriter
             if (statement instanceof CreateTableAsSelect) {
                 return rewriteCreateTableAsSelect(connection, query, (CreateTableAsSelect) statement);
             }
-            else if (statement instanceof Insert) {
+            if (statement instanceof Insert) {
                 return rewriteInsertQuery(connection, query, (Insert) statement);
             }
         }
@@ -122,7 +123,7 @@ public class QueryRewriter
             throws SQLException, QueryRewriteException
     {
         QualifiedName temporaryTableName = generateTemporaryTableName(statement.getName());
-        Statement rewritten = new CreateTableAsSelect(temporaryTableName, statement.getQuery(), statement.isNotExists(), statement.getProperties(), statement.isWithData(), statement.getColumnAliases(), Optional.empty());
+        Statement rewritten = new CreateTableAsSelect(temporaryTableName, statement.getQuery(), statement.getSaveMode(), statement.getProperties(), statement.isWithData(), statement.getColumnAliases(), Optional.empty());
         String createTableAsSql = formatSql(rewritten);
         String checksumSql = checksumSql(getColumns(connection, statement), temporaryTableName);
         String dropTableSql = dropTableSql(temporaryTableName);
@@ -133,7 +134,7 @@ public class QueryRewriter
             throws SQLException, QueryRewriteException
     {
         QualifiedName temporaryTableName = generateTemporaryTableName(statement.getTarget());
-        Statement createTemporaryTable = new CreateTable(temporaryTableName, ImmutableList.of(new LikeClause(statement.getTarget(), Optional.of(INCLUDING))), true, ImmutableList.of(), Optional.empty());
+        Statement createTemporaryTable = new CreateTable(temporaryTableName, ImmutableList.of(new LikeClause(statement.getTarget(), Optional.of(INCLUDING))), IGNORE, ImmutableList.of(), Optional.empty());
         String createTemporaryTableSql = formatSql(createTemporaryTable);
         String insertSql = formatSql(new Insert(new Table(temporaryTableName), statement.getColumns(), statement.getQuery()));
         String checksumSql = checksumSql(getColumnsForTable(connection, query.getCatalog(), query.getSchema(), statement.getTarget().toString()), temporaryTableName);
@@ -195,8 +196,7 @@ public class QueryRewriter
         // Rewrite the query to select zero rows, so that we can get the column names and types
         QueryBody innerQuery = createSelectClause.getQueryBody();
         io.trino.sql.tree.Query zeroRowsQuery;
-        if (innerQuery instanceof QuerySpecification) {
-            QuerySpecification querySpecification = (QuerySpecification) innerQuery;
+        if (innerQuery instanceof QuerySpecification querySpecification) {
             innerQuery = new QuerySpecification(
                     querySpecification.getSelect(),
                     querySpecification.getFrom(),

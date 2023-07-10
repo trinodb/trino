@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.inject.Inject;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
@@ -25,9 +26,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 
-import javax.inject.Inject;
-
 import java.util.List;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
@@ -45,7 +45,7 @@ public class HiveNodePartitioningProvider
     public HiveNodePartitioningProvider(NodeManager nodeManager, TypeManager typeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.typeOperators = requireNonNull(typeManager, "typeManager is null").getTypeOperators();
+        this.typeOperators = typeManager.getTypeOperators();
     }
 
     @Override
@@ -56,6 +56,9 @@ public class HiveNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
+        if (partitioningHandle instanceof HiveUpdateHandle) {
+            return new HiveUpdateBucketFunction(bucketCount);
+        }
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         List<HiveType> hiveBucketTypes = handle.getHiveTypes();
         if (!handle.isUsePartitionedBucketing()) {
@@ -71,24 +74,24 @@ public class HiveNodePartitioningProvider
     }
 
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         if (!handle.isUsePartitionedBucketing()) {
-            return createBucketNodeMap(handle.getBucketCount());
+            return Optional.of(createBucketNodeMap(handle.getBucketCount()));
         }
 
         // Allocate a fixed number of buckets. Trino will assign consecutive buckets
-        // to shuffled nodes (e.g "1 -> node2, 2 -> node1, 3 -> node2, 4 -> node1, ...").
+        // to shuffled nodes (e.g. "1 -> node2, 2 -> node1, 3 -> node2, 4 -> node1, ...").
         // Hash function generates consecutive bucket numbers within a partition
-        // (e.g "(part1, bucket1) -> 1234, (part1, bucket2) -> 1235, ...").
+        // (e.g. "(part1, bucket1) -> 1234, (part1, bucket2) -> 1235, ...").
         // Thus single partition insert will be distributed across all worker nodes
         // (if number of workers is greater or equal to number of buckets within a partition).
         // We can write to (number of partitions P) * (number of buckets B) in parallel.
         // However, number of partitions is not known here
         // If number of workers < ( P * B), we need multiple writers per node to fully
         // parallelize the write within a worker
-        return createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size() * PARTITIONED_BUCKETS_PER_NODE);
+        return Optional.of(createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size() * PARTITIONED_BUCKETS_PER_NODE));
     }
 
     @Override

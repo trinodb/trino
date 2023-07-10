@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.Multimap;
+import io.opentelemetry.api.trace.Span;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.StageId;
@@ -35,6 +36,8 @@ public interface StageExecution
     StageId getStageId();
 
     int getAttemptId();
+
+    Span getStageSpan();
 
     PlanFragment getFragment();
 
@@ -66,8 +69,6 @@ public interface StageExecution
             Multimap<PlanNodeId, Split> initialSplits);
 
     void failTask(TaskId taskId, Throwable failureCause);
-
-    void failTaskRemotely(TaskId taskId, Throwable failureCause);
 
     List<RemoteTask> getAllTasks();
 

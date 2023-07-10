@@ -13,14 +13,13 @@
  */
 package io.trino.operator.scalar;
 
+import com.google.common.math.DoubleMath;
 import com.google.common.math.LongMath;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Convention;
@@ -29,13 +28,14 @@ import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import io.trino.type.Constraint;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.special.Erf;
@@ -45,14 +45,13 @@ import java.math.RoundingMode;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -815,9 +814,9 @@ public final class MathFunctions
     @Description("Round to given number of decimal places")
     @ScalarFunction("round")
     @SqlType(StandardTypes.REAL)
-    public static long roundFloat(@SqlType(StandardTypes.REAL) long num)
+    public static long roundReal(@SqlType(StandardTypes.REAL) long num)
     {
-        return roundFloat(num, 0);
+        return roundReal(num, 0);
     }
 
     @Description("Round to given number of decimal places")
@@ -830,17 +829,26 @@ public final class MathFunctions
         }
 
         double factor = Math.pow(10, decimals);
-        if (num < 0) {
-            return -(Math.round(-num * factor) / factor);
+        int sign = (num < 0) ? -1 : 1;
+        double rescaled = sign * num * factor;
+        long rescaledRound = Math.round(rescaled);
+        if (rescaledRound != Long.MAX_VALUE) {
+            return sign * (rescaledRound / factor);
         }
-
-        return Math.round(num * factor) / factor;
+        if (Double.isInfinite(rescaled)) {
+            // num has max 17 precisions, so to make round actually do something, decimals must be smaller than 17.
+            // then factor must be smaller than 10^17
+            // then in order for rescaled to be greater than Double.MAX_VALUE, num must be greater than 1.8E291 with many trailing zeros
+            // in which case, rounding is no op anyway
+            return num;
+        }
+        return sign * DoubleMath.roundToBigInteger(rescaled, RoundingMode.HALF_UP).doubleValue() / factor;
     }
 
     @Description("Round to given number of decimal places")
     @ScalarFunction("round")
     @SqlType(StandardTypes.REAL)
-    public static long roundFloat(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.INTEGER) long decimals)
+    public static long roundReal(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
         float numInFloat = intBitsToFloat((int) num);
         if (Float.isNaN(numInFloat) || Float.isInfinite(numInFloat)) {
@@ -848,11 +856,24 @@ public final class MathFunctions
         }
 
         double factor = Math.pow(10, decimals);
-        if (numInFloat < 0) {
-            return floatToRawIntBits((float) -(Math.round(-numInFloat * factor) / factor));
+        int sign = (numInFloat < 0) ? -1 : 1;
+        double result;
+        double rescaled = sign * numInFloat * factor;
+        long rescaledRound = Math.round(rescaled);
+        if (rescaledRound != Long.MAX_VALUE) {
+            result = sign * (rescaledRound / factor);
         }
-
-        return floatToRawIntBits((float) (Math.round(numInFloat * factor) / factor));
+        else if (Double.isInfinite(rescaled)) {
+            // numInFloat is max at 3.4028235e+38f, to make rescale greater than Double.MAX_VALUE, decimals must be greater than 270
+            // but numInFloat has max 8 precision, so rounding is no op
+            return num;
+        }
+        else {
+            result = sign * (DoubleMath.roundToBigInteger(rescaled, RoundingMode.HALF_UP).doubleValue() / factor);
+        }
+        @SuppressWarnings("NumericCastThatLosesPrecision")
+        float resultAsFloat = (float) result;
+        return floatToRawIntBits(resultAsFloat);
     }
 
     @ScalarFunction("round")
@@ -1144,6 +1165,14 @@ public final class MathFunctions
         return Math.sin(num);
     }
 
+    @Description("Hyperbolic sine")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double sinh(@SqlType(StandardTypes.DOUBLE) double num)
+    {
+        return Math.sinh(num);
+    }
+
     @Description("Square root")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
@@ -1174,6 +1203,15 @@ public final class MathFunctions
     public static boolean isNaN(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Double.isNaN(num);
+    }
+
+    @Description("Test if value is not-a-number")
+    @ScalarFunction("is_nan")
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean isNaNReal(@SqlType(StandardTypes.REAL) long value)
+    {
+        float floatValue = intBitsToFloat(toIntExact(value));
+        return Float.isNaN(floatValue);
     }
 
     @Description("Test if value is finite")
@@ -1321,9 +1359,9 @@ public final class MathFunctions
     @SqlType(StandardTypes.DOUBLE)
     public static Double cosineSimilarity(
             @OperatorDependency(
-                    operator = EQUAL,
+                    operator = IS_DISTINCT_FROM,
                     argumentTypes = {"varchar", "varchar"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionEqual varcharEqual,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionIsDistinctFrom varcharDistinct,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "varchar",
@@ -1338,14 +1376,14 @@ public final class MathFunctions
             return null;
         }
 
-        double dotProduct = mapDotProduct(varcharEqual, varcharHashCode, leftMap, rightMap);
+        double dotProduct = mapDotProduct(varcharDistinct, varcharHashCode, leftMap, rightMap);
 
         return dotProduct / (normLeftMap * normRightMap);
     }
 
-    private static double mapDotProduct(BlockPositionEqual varcharEqual, BlockPositionHashCode varcharHashCode, Block leftMap, Block rightMap)
+    private static double mapDotProduct(BlockPositionIsDistinctFrom varcharDistinct, BlockPositionHashCode varcharHashCode, Block leftMap, Block rightMap)
     {
-        TypedSet rightMapKeys = createEqualityTypedSet(VARCHAR, varcharEqual, varcharHashCode, rightMap.getPositionCount(), "cosine_similarity");
+        BlockSet rightMapKeys = new BlockSet(VARCHAR, varcharDistinct, varcharHashCode, rightMap.getPositionCount() / 2);
 
         for (int i = 0; i < rightMap.getPositionCount(); i += 2) {
             rightMapKeys.add(rightMap, i);

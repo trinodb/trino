@@ -31,6 +31,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.util.Failures.checkCondition;
+import static java.lang.Math.abs;
 import static java.lang.Math.toIntExact;
 
 public final class SequenceFunction
@@ -92,8 +93,7 @@ public final class SequenceFunction
     {
         checkValidStep(start, stop, step);
 
-        int length = toIntExact(diffDate(MONTH, start, stop) / step + 1);
-        checkMaxEntry(length);
+        int length = checkMaxEntry(diffDate(MONTH, start, stop) / step + 1);
 
         BlockBuilder blockBuilder = DATE.createBlockBuilder(null, length);
 
@@ -110,14 +110,43 @@ public final class SequenceFunction
     {
         checkValidStep(start, stop, step);
 
-        int length = toIntExact((stop - start) / step + 1L);
-        checkMaxEntry(length);
+        int length = getLength(start, stop, step);
 
         BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (long i = 0, value = start; i < length; ++i, value += step) {
             type.writeLong(blockBuilder, value);
         }
         return blockBuilder.build();
+    }
+
+    private static int getLength(long start, long stop, long step)
+    {
+        // handle the case when start and stop are either both positive, or both negative
+        if ((start > 0 && stop > 0) || (start < 0 && stop < 0)) {
+            int length = checkMaxEntry((stop - start) / step);
+            return checkMaxEntry(length + 1);
+        }
+
+        // handle small step
+        if (step == -1 || step == 1) {
+            checkMaxEntry(start);
+            checkMaxEntry(stop);
+            return checkMaxEntry((stop - start) / step + 1);
+        }
+
+        // handle the remaining cases: start and step are of different sign or zero; step absolute value is greater than 1
+        int startLength = abs(checkMaxEntry(start / step));
+        int stopLength = abs(checkMaxEntry(stop / step));
+        long startRemain = start % step;
+        long stopRemain = stop % step;
+        int remainLength;
+        if (step > 0) {
+            remainLength = startRemain + step <= stopRemain ? 2 : 1;
+        }
+        else {
+            remainLength = startRemain + step >= stopRemain ? 2 : 1;
+        }
+        return checkMaxEntry(startLength + stopLength + remainLength);
     }
 
     public static void checkValidStep(long start, long stop, long step)
@@ -132,11 +161,13 @@ public final class SequenceFunction
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
     }
 
-    public static void checkMaxEntry(int length)
+    public static int checkMaxEntry(long length)
     {
         checkCondition(
-                length <= MAX_RESULT_ENTRIES,
+                -MAX_RESULT_ENTRIES <= length && length <= MAX_RESULT_ENTRIES,
                 INVALID_FUNCTION_ARGUMENT,
-                "result of sequence function must not have more than 10000 entries");
+                "result of sequence function must not have more than %d entries".formatted(MAX_RESULT_ENTRIES));
+
+        return toIntExact(length);
     }
 }

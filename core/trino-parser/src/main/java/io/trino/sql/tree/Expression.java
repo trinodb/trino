@@ -13,10 +13,12 @@
  */
 package io.trino.sql.tree;
 
+import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.ExpressionFormatter;
 
 import java.util.Optional;
 
+@Immutable
 public abstract class Expression
         extends Node
 {

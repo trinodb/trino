@@ -36,22 +36,20 @@ public class RangeBoundValueDeserializer
         if (node.isNull()) {
             return null;
         }
-        else {
-            List<Object> list;
-            if (node.isArray()) {
-                list = new ArrayList<>();
-                Iterator<JsonNode> iter = node.elements();
-                while (iter.hasNext()) {
-                    Object v = toValue(iter.next());
-                    list.add(v);
-                }
+        List<Object> list;
+        if (node.isArray()) {
+            list = new ArrayList<>();
+            Iterator<JsonNode> iter = node.elements();
+            while (iter.hasNext()) {
+                Object v = toValue(iter.next());
+                list.add(v);
             }
-            else {
-                Object v = toValue(node);
-                list = ImmutableList.of(v);
-            }
-            return new RangeBoundValue(list);
         }
+        else {
+            Object v = toValue(node);
+            list = ImmutableList.of(v);
+        }
+        return new RangeBoundValue(list);
     }
 
     private Object toValue(JsonNode node)
@@ -60,17 +58,15 @@ public class RangeBoundValueDeserializer
         if (node.isTextual()) {
             return node.asText();
         }
-        else if (node.isNumber()) {
+        if (node.isNumber()) {
             return node.numberValue();
         }
-        else if (node.isBoolean()) {
+        if (node.isBoolean()) {
             return node.asBoolean();
         }
-        else if (node.isBinary()) {
+        if (node.isBinary()) {
             return node.binaryValue();
         }
-        else {
-            throw new IllegalStateException("Unexpected range bound value: " + node);
-        }
+        throw new IllegalStateException("Unexpected range bound value: " + node);
     }
 }

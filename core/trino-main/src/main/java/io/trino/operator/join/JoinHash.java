@@ -15,12 +15,12 @@ package io.trino.operator.join;
 
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public final class JoinHash
         implements LookupSource
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(JoinHash.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(JoinHash.class);
     private final PagesHash pagesHash;
 
     // we unwrap Optional<JoinFilterFunction> to actual verifier or null in constructor for performance reasons
@@ -41,11 +41,14 @@ public final class JoinHash
     @Nullable
     private final PositionLinks positionLinks;
 
-    public JoinHash(PagesHash pagesHash, Optional<JoinFilterFunction> filterFunction, Optional<PositionLinks> positionLinks)
+    private final long pageInstancesRetainedSizeInBytes;
+
+    public JoinHash(PagesHash pagesHash, Optional<JoinFilterFunction> filterFunction, Optional<PositionLinks> positionLinks, long pageInstancesRetainedSizeInBytes)
     {
         this.pagesHash = requireNonNull(pagesHash, "pagesHash is null");
-        this.filterFunction = requireNonNull(filterFunction, "filterFunction cannot be null").orElse(null);
-        this.positionLinks = requireNonNull(positionLinks, "positionLinks is null").orElse(null);
+        this.filterFunction = filterFunction.orElse(null);
+        this.positionLinks = positionLinks.orElse(null);
+        this.pageInstancesRetainedSizeInBytes = pageInstancesRetainedSizeInBytes;
     }
 
     @Override
@@ -63,7 +66,7 @@ public final class JoinHash
     @Override
     public long getInMemorySizeInBytes()
     {
-        return INSTANCE_SIZE + pagesHash.getInMemorySizeInBytes() + (positionLinks == null ? 0 : positionLinks.getSizeInBytes());
+        return INSTANCE_SIZE + pagesHash.getInMemorySizeInBytes() + (positionLinks == null ? 0 : positionLinks.getSizeInBytes()) + pageInstancesRetainedSizeInBytes;
     }
 
     @Override
@@ -86,6 +89,20 @@ public final class JoinHash
         return startJoinPosition(addressIndex, position, allChannelsPage);
     }
 
+    @Override
+    public void getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes, long[] result)
+    {
+        int[] addressIndexex = pagesHash.getAddressIndex(positions, hashChannelsPage, rawHashes);
+        startJoinPosition(addressIndexex, positions, allChannelsPage, result);
+    }
+
+    @Override
+    public void getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] result)
+    {
+        int[] addressIndexex = pagesHash.getAddressIndex(positions, hashChannelsPage);
+        startJoinPosition(addressIndexex, positions, allChannelsPage, result);
+    }
+
     private long startJoinPosition(int currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
         if (currentJoinPosition == -1) {
@@ -95,6 +112,33 @@ public final class JoinHash
             return currentJoinPosition;
         }
         return positionLinks.start(currentJoinPosition, probePosition, allProbeChannelsPage);
+    }
+
+    private long[] startJoinPosition(int[] currentJoinPositions, int[] probePositions, Page allProbeChannelsPage, long[] result)
+    {
+        checkArgument(currentJoinPositions.length == probePositions.length,
+                "currentJoinPositions and probePositions arrays must have the same size, %s != %s",
+                currentJoinPositions.length,
+                probePositions.length);
+        int positionCount = currentJoinPositions.length;
+
+        if (positionLinks == null) {
+            for (int i = 0; i < positionCount; i++) {
+                result[probePositions[i]] = currentJoinPositions[i];
+            }
+            return result;
+        }
+
+        for (int i = 0; i < positionCount; i++) {
+            if (currentJoinPositions[i] == -1) {
+                result[probePositions[i]] = -1;
+            }
+            else {
+                result[probePositions[i]] = positionLinks.start(currentJoinPositions[i], probePositions[i], allProbeChannelsPage);
+            }
+        }
+
+        return result;
     }
 
     @Override

@@ -16,41 +16,37 @@ package io.trino.plugin.iceberg;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
-import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.orc.HdfsOrcDataSource;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.types.Types;
 import org.weakref.jmx.Managed;
 
-import javax.inject.Inject;
-
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -92,7 +88,6 @@ public class IcebergFileWriterFactory
     private static final MetricsConfig FULL_METRICS_CONFIG = MetricsConfig.fromProperties(ImmutableMap.of(DEFAULT_WRITE_METRICS_MODE, "full"));
     private static final Splitter COLUMN_NAMES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
     private final FileFormatDataSourceStats readStats;
@@ -101,14 +96,12 @@ public class IcebergFileWriterFactory
 
     @Inject
     public IcebergFileWriterFactory(
-            HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
             FileFormatDataSourceStats readStats,
             OrcWriterConfig orcWriterConfig)
     {
-        checkArgument(!requireNonNull(orcWriterConfig, "orcWriterConfig is null").isUseLegacyVersion(), "the ORC writer shouldn't be configured to use a legacy version");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        checkArgument(!orcWriterConfig.isUseLegacyVersion(), "the ORC writer shouldn't be configured to use a legacy version");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.readStats = requireNonNull(readStats, "readStats is null");
@@ -122,12 +115,10 @@ public class IcebergFileWriterFactory
     }
 
     public IcebergFileWriter createDataFileWriter(
-            Path outputPath,
+            TrinoFileSystem fileSystem,
+            Location outputPath,
             Schema icebergSchema,
-            JobConf jobConf,
             ConnectorSession session,
-            HdfsContext hdfsContext,
-            FileIoProvider fileIoProvider,
             IcebergFileFormat fileFormat,
             MetricsConfig metricsConfig,
             Map<String, String> storageProperties)
@@ -135,32 +126,30 @@ public class IcebergFileWriterFactory
         switch (fileFormat) {
             case PARQUET:
                 // TODO use metricsConfig https://github.com/trinodb/trino/issues/9791
-                return createParquetWriter(MetricsConfig.getDefault(), outputPath, icebergSchema, jobConf, session, hdfsContext);
+                return createParquetWriter(MetricsConfig.getDefault(), fileSystem, outputPath, icebergSchema, session);
             case ORC:
-                return createOrcWriter(metricsConfig, outputPath, icebergSchema, jobConf, session, storageProperties, getOrcStringStatisticsLimit(session));
+                return createOrcWriter(metricsConfig, fileSystem, outputPath, icebergSchema, session, storageProperties, getOrcStringStatisticsLimit(session));
             case AVRO:
-                return createAvroWriter(fileIoProvider.createFileIo(hdfsContext, session.getQueryId()), outputPath, icebergSchema, jobConf, session);
+                return createAvroWriter(fileSystem, outputPath, icebergSchema, session);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
         }
     }
 
     public IcebergFileWriter createPositionDeleteWriter(
-            Path outputPath,
-            JobConf jobConf,
+            TrinoFileSystem fileSystem,
+            Location outputPath,
             ConnectorSession session,
-            HdfsContext hdfsContext,
-            FileIoProvider fileIoProvider,
             IcebergFileFormat fileFormat,
             Map<String, String> storageProperties)
     {
         switch (fileFormat) {
             case PARQUET:
-                return createParquetWriter(FULL_METRICS_CONFIG, outputPath, POSITION_DELETE_SCHEMA, jobConf, session, hdfsContext);
+                return createParquetWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session);
             case ORC:
-                return createOrcWriter(FULL_METRICS_CONFIG, outputPath, POSITION_DELETE_SCHEMA, jobConf, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE));
+                return createOrcWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE));
             case AVRO:
-                return createAvroWriter(fileIoProvider.createFileIo(hdfsContext, session.getQueryId()), outputPath, POSITION_DELETE_SCHEMA, jobConf, session);
+                return createAvroWriter(fileSystem, outputPath, POSITION_DELETE_SCHEMA, session);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported: " + fileFormat);
         }
@@ -168,11 +157,10 @@ public class IcebergFileWriterFactory
 
     private IcebergFileWriter createParquetWriter(
             MetricsConfig metricsConfig,
-            Path outputPath,
+            TrinoFileSystem fileSystem,
+            Location outputPath,
             Schema icebergSchema,
-            JobConf jobConf,
-            ConnectorSession session,
-            HdfsContext hdfsContext)
+            ConnectorSession session)
     {
         List<String> fileColumnNames = icebergSchema.columns().stream()
                 .map(Types.NestedField::name)
@@ -182,12 +170,9 @@ public class IcebergFileWriterFactory
                 .collect(toImmutableList());
 
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), outputPath, jobConf);
+            TrinoOutputFile outputFile = fileSystem.newOutputFile(outputPath);
 
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(outputPath, false);
-                return null;
-            };
+            Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                     .setMaxPageSize(getParquetWriterPageSize(session))
@@ -197,18 +182,17 @@ public class IcebergFileWriterFactory
 
             return new IcebergParquetFileWriter(
                     metricsConfig,
-                    hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.create(outputPath)),
+                    outputFile,
                     rollbackAction,
                     fileColumnTypes,
+                    fileColumnNames,
                     convert(icebergSchema, "table"),
                     makeTypeMap(fileColumnTypes, fileColumnNames),
                     parquetWriterOptions,
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     getCompressionCodec(session).getParquetCompressionCodec(),
                     nodeVersion.toString(),
-                    outputPath,
-                    hdfsEnvironment,
-                    hdfsContext);
+                    fileSystem);
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);
@@ -217,20 +201,17 @@ public class IcebergFileWriterFactory
 
     private IcebergFileWriter createOrcWriter(
             MetricsConfig metricsConfig,
-            Path outputPath,
+            TrinoFileSystem fileSystem,
+            Location outputPath,
             Schema icebergSchema,
-            JobConf jobConf,
             ConnectorSession session,
             Map<String, String> storageProperties,
             DataSize stringStatisticsLimit)
     {
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), outputPath, jobConf);
-            OrcDataSink orcDataSink = hdfsEnvironment.doAs(session.getIdentity(), () -> new OutputStreamOrcDataSink(fileSystem.create(outputPath)));
-            Callable<Void> rollbackAction = () -> {
-                hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.delete(outputPath, false));
-                return null;
-            };
+            OrcDataSink orcDataSink = OutputStreamOrcDataSink.create(fileSystem.newOutputFile(outputPath));
+
+            Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
             List<Types.NestedField> columnFields = icebergSchema.columns();
             List<String> fileColumnNames = columnFields.stream()
@@ -245,12 +226,8 @@ public class IcebergFileWriterFactory
             if (isOrcWriterValidate(session)) {
                 validationInputFactory = Optional.of(() -> {
                     try {
-                        return new HdfsOrcDataSource(
-                                new OrcDataSourceId(outputPath.toString()),
-                                hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.getFileStatus(outputPath).getLen()),
-                                new OrcReaderOptions(),
-                                hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.open(outputPath)),
-                                readStats);
+                        TrinoInputFile inputFile = fileSystem.newInputFile(outputPath);
+                        return new TrinoOrcDataSource(inputFile, new OrcReaderOptions(), readStats);
                     }
                     catch (IOException e) {
                         throw new TrinoException(ICEBERG_WRITE_VALIDATION_FAILED, e);
@@ -308,34 +285,22 @@ public class IcebergFileWriterFactory
     }
 
     private IcebergFileWriter createAvroWriter(
-            FileIO fileIo,
-            Path outputPath,
+            TrinoFileSystem fileSystem,
+            Location outputPath,
             Schema icebergSchema,
-            JobConf jobConf,
             ConnectorSession session)
     {
-        try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), outputPath, jobConf);
+        Closeable rollbackAction = () -> fileSystem.deleteFile(outputPath);
 
-            Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(outputPath, false);
-                return null;
-            };
+        List<Type> columnTypes = icebergSchema.columns().stream()
+                .map(column -> toTrinoType(column.type(), typeManager))
+                .collect(toImmutableList());
 
-            List<Type> columnTypes = icebergSchema.columns().stream()
-                    .map(column -> toTrinoType(column.type(), typeManager))
-                    .collect(toImmutableList());
-
-            return new IcebergAvroFileWriter(
-                    fileIo,
-                    outputPath,
-                    rollbackAction,
-                    icebergSchema,
-                    columnTypes,
-                    getCompressionCodec(session));
-        }
-        catch (IOException e) {
-            throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating AVRO file", e);
-        }
+        return new IcebergAvroFileWriter(
+                new ForwardingOutputFile(fileSystem, outputPath.toString()),
+                rollbackAction,
+                icebergSchema,
+                columnTypes,
+                getCompressionCodec(session));
     }
 }

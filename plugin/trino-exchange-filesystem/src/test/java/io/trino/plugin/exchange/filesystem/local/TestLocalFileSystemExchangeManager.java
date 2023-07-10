@@ -29,6 +29,7 @@ public class TestLocalFileSystemExchangeManager
         return new FileSystemExchangeManagerFactory().create(ImmutableMap.of(
                 "exchange.base-directories", baseDirectory1 + "," + baseDirectory2,
                 // to trigger file split in some tests
-                "exchange.sink-max-file-size", "16MB"));
+                "exchange.sink-max-file-size", "16MB",
+                "exchange.source-handle-target-data-size", "1MB"));
     }
 }

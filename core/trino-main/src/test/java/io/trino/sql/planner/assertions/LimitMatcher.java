@@ -52,11 +52,9 @@ public class LimitMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        if (!(node instanceof LimitNode)) {
+        if (!(node instanceof LimitNode limitNode)) {
             return false;
         }
-
-        LimitNode limitNode = (LimitNode) node;
 
         return limitNode.getCount() == limit
                 && limitNode.isWithTies() == !tiesResolvers.isEmpty()

@@ -13,17 +13,17 @@
  */
 package io.trino.connector.system;
 
+import com.google.inject.Inject;
 import io.trino.metadata.MaterializedViewPropertyManager;
-import io.trino.transaction.TransactionManager;
-
-import javax.inject.Inject;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
 
 public class MaterializedViewPropertiesSystemTable
         extends AbstractPropertiesSystemTable
 {
     @Inject
-    public MaterializedViewPropertiesSystemTable(TransactionManager transactionManager, MaterializedViewPropertyManager materializedViewPropertyManager)
+    public MaterializedViewPropertiesSystemTable(Metadata metadata, AccessControl accessControl, MaterializedViewPropertyManager materializedViewPropertyManager)
     {
-        super("materialized_view_properties", transactionManager, materializedViewPropertyManager::getAllProperties);
+        super("materialized_view_properties", metadata, accessControl, materializedViewPropertyManager::getAllProperties);
     }
 }

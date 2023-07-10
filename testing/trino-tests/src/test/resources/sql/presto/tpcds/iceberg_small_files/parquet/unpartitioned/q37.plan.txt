@@ -1,0 +1,22 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (i_current_price, i_item_desc, i_item_id)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["i_current_price", "i_item_desc", "i_item_id"])
+                    partial aggregation over (i_current_price, i_item_desc, i_item_id)
+                        join (INNER, PARTITIONED, can skip output duplicates):
+                            remote exchange (REPARTITION, HASH, ["inv_item_sk"])
+                                join (INNER, REPLICATED, can skip output duplicates):
+                                    join (INNER, REPLICATED, can skip output duplicates):
+                                        dynamic filter (["inv_date_sk", "inv_item_sk", "inv_item_sk"])
+                                            scan inventory
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                dynamic filter (["i_item_sk"])
+                                                    scan item
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan date_dim
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["cs_item_sk"])
+                                    scan catalog_sales

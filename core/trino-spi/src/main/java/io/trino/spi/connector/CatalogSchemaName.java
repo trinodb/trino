@@ -13,27 +13,34 @@
  */
 package io.trino.spi.connector;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 
 public final class CatalogSchemaName
 {
     private final String catalogName;
     private final String schemaName;
 
-    public CatalogSchemaName(String catalogName, String schemaName)
+    @JsonCreator
+    public CatalogSchemaName(
+            @JsonProperty("catalogName") String catalogName,
+            @JsonProperty("schemaName") String schemaName)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null").toLowerCase(ENGLISH);
-        this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(ENGLISH);
+        this.catalogName = catalogName.toLowerCase(ENGLISH);
+        this.schemaName = schemaName.toLowerCase(ENGLISH);
     }
 
+    @JsonProperty
     public String getCatalogName()
     {
         return catalogName;
     }
 
+    @JsonProperty
     public String getSchemaName()
     {
         return schemaName;

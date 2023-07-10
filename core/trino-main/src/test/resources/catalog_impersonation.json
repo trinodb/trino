@@ -21,6 +21,26 @@
         {
             "original_user": ".*",
             "new_user": "test"
+        },
+        {
+            "original_user": "svc_(.*)",
+            "new_user": "svc_$1_prod",
+            "allow": true
+        },
+        {
+            "original_user": "external_(.*)_(.*)",
+            "new_user": "internal-$2-$1-sandbox",
+            "allow": true
+        },
+        {
+            "original_user": "missing_replacement_(.*)",
+            "new_user": ".*",
+            "allow": true
+        },
+        {
+            "original_user": "incorrect_number_of_replacements_groups_(.*)",
+            "new_user": "$2_$1_prod",
+            "allow": true
         }
     ]
 }

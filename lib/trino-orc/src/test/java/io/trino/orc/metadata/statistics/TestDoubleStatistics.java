@@ -13,9 +13,9 @@
  */
 package io.trino.orc.metadata.statistics;
 
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestDoubleStatistics
         extends AbstractRangeStatisticsTest<DoubleStatistics, Double>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleStatistics.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(DoubleStatistics.class);
 
     @Override
     protected DoubleStatistics getCreateStatistics(Double min, Double max)

@@ -62,10 +62,9 @@ public class IcebergInputInfo
         if (this == o) {
             return true;
         }
-        if (!(o instanceof IcebergInputInfo)) {
+        if (!(o instanceof IcebergInputInfo that)) {
             return false;
         }
-        IcebergInputInfo that = (IcebergInputInfo) o;
         return partitioned.equals(that.partitioned)
                 && snapshotId.equals(that.snapshotId)
                 && tableDefaultFileFormat.equals(that.tableDefaultFileFormat);

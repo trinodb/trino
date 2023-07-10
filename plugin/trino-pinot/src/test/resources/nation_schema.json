@@ -1,0 +1,31 @@
+{
+    "schemaName": "nation",
+    "dimensionFieldSpecs": [
+        {
+            "name": "nationkey",
+            "dataType": "LONG"
+        },
+        {
+            "name": "name",
+            "dataType": "STRING"
+        },
+        {
+            "name": "comment",
+            "dataType": "STRING"
+        },
+        {
+            "name": "regionkey",
+            "dataType": "LONG"
+        }
+    ],
+    "dateTimeFieldSpecs": [
+        {
+            "name": "updated_at_seconds",
+            "dataType": "LONG",
+            "defaultNullValue": 0,
+            "format": "1:SECONDS:EPOCH",
+            "transformFunction": "toEpochSeconds(updated_at)",
+            "granularity": "1:SECONDS"
+        }
+    ]
+}

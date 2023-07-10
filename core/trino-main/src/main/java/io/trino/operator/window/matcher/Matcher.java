@@ -19,10 +19,10 @@ import io.trino.operator.window.pattern.LabelEvaluator;
 import io.trino.operator.window.pattern.MatchAggregation.MatchAggregationInstantiator;
 import io.trino.operator.window.pattern.PhysicalValueAccessor;
 import io.trino.sql.planner.LocalExecutionPlanner.MatchAggregationLabelDependency;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.operator.window.matcher.MatchResult.NO_MATCH;
 
 public class Matcher
@@ -33,11 +33,14 @@ public class Matcher
 
     private static class Runtime
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(Runtime.class).instanceSize();
+        private static final int INSTANCE_SIZE = instanceSize(java.lang.Runtime.class);
 
         // a helper structure for identifying equivalent threads
         // program pointer (instruction) --> list of threads that have reached this instruction
         private final IntMultimap threadsAtInstructions;
+        // threads that should be killed as determined by the current iteration of the main loop
+        // they are killed after the iteration so that they can be used to kill other threads while the iteration lasts
+        private final IntList threadsToKill;
 
         private final IntList threads;
         private final IntStack freeThreadIds;
@@ -60,6 +63,7 @@ public class Matcher
             this.aggregations = new MatchAggregations(initialCapacity, aggregationInstantiators, aggregationsMemoryContext);
 
             this.threadsAtInstructions = new IntMultimap(program.size(), program.size());
+            this.threadsToKill = new IntList(initialCapacity);
         }
 
         private int forkThread(int parent)
@@ -78,6 +82,19 @@ public class Matcher
             return newThreadId++;
         }
 
+        private void scheduleKill(int threadId)
+        {
+            threadsToKill.add(threadId);
+        }
+
+        private void killThreads()
+        {
+            for (int i = 0; i < threadsToKill.size(); i++) {
+                killThread(threadsToKill.get(i));
+            }
+            threadsToKill.clear();
+        }
+
         private void killThread(int threadId)
         {
             freeThreadIds.push(threadId);
@@ -87,7 +104,7 @@ public class Matcher
 
         private long getSizeInBytes()
         {
-            return INSTANCE_SIZE + threadsAtInstructions.getSizeInBytes() + threads.getSizeInBytes() + freeThreadIds.getSizeInBytes() + captures.getSizeInBytes() + aggregations.getSizeInBytes();
+            return INSTANCE_SIZE + threadsAtInstructions.getSizeInBytes() + threadsToKill.getSizeInBytes() + threads.getSizeInBytes() + freeThreadIds.getSizeInBytes() + captures.getSizeInBytes() + aggregations.getSizeInBytes();
         }
     }
 
@@ -124,6 +141,7 @@ public class Matcher
 
             // clear the structure for new input index
             runtime.threadsAtInstructions.clear();
+            runtime.killThreads();
 
             for (int i = 0; i < current.size(); i++) {
                 int threadId = current.get(i);
@@ -140,13 +158,13 @@ public class Matcher
                             advanceAndSchedule(next, threadId, pointer + 1, index + 1, runtime);
                         }
                         else {
-                            runtime.killThread(threadId);
+                            runtime.scheduleKill(threadId);
                         }
                         break;
                     case DONE:
                         matched = true;
                         result = new MatchResult(true, runtime.captures.getLabels(threadId), runtime.captures.getCaptures(threadId));
-                        runtime.killThread(threadId);
+                        runtime.scheduleKill(threadId);
                         break;
                     default:
                         throw new UnsupportedOperationException("not yet implemented");
@@ -154,7 +172,7 @@ public class Matcher
                 if (matched) {
                     // do not process the following threads, because they are on less preferred paths than the match found
                     for (int j = i + 1; j < current.size(); j++) {
-                        runtime.killThread(current.get(j));
+                        runtime.scheduleKill(current.get(j));
                     }
                     break;
                 }
@@ -202,7 +220,7 @@ public class Matcher
                     runtime.aggregations.get(threadId),
                     pointer)) {
                 // in case of equivalent threads, kill the one that comes later, because it is on a less preferred path
-                runtime.killThread(threadId);
+                runtime.scheduleKill(threadId);
                 return;
             }
         }
@@ -215,7 +233,7 @@ public class Matcher
                     advanceAndSchedule(next, threadId, pointer + 1, inputIndex, runtime);
                 }
                 else {
-                    runtime.killThread(threadId);
+                    runtime.scheduleKill(threadId);
                 }
                 break;
             case MATCH_END:
@@ -223,7 +241,7 @@ public class Matcher
                     advanceAndSchedule(next, threadId, pointer + 1, inputIndex, runtime);
                 }
                 else {
-                    runtime.killThread(threadId);
+                    runtime.scheduleKill(threadId);
                 }
                 break;
             case JUMP:

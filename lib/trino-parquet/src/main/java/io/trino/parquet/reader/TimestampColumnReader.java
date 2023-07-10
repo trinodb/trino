@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.block.BlockBuilder;
@@ -35,9 +35,9 @@ public class TimestampColumnReader
 {
     private final DateTimeZone timeZone;
 
-    public TimestampColumnReader(RichColumnDescriptor descriptor, DateTimeZone timeZone)
+    public TimestampColumnReader(PrimitiveField field, DateTimeZone timeZone)
     {
-        super(descriptor);
+        super(field);
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
@@ -47,7 +47,7 @@ public class TimestampColumnReader
     {
         if (type instanceof TimestampWithTimeZoneType) {
             DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(valuesReader.readBytes());
-            long utcMillis = decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.getNanosOfSecond() / NANOSECONDS_PER_MILLISECOND;
+            long utcMillis = decodedTimestamp.epochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.nanosOfSecond() / NANOSECONDS_PER_MILLISECOND;
             type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
         }
         else {

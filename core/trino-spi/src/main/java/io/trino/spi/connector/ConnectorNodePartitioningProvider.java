@@ -16,13 +16,22 @@ package io.trino.spi.connector;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 public interface ConnectorNodePartitioningProvider
 {
-    ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);
+    default Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        return Optional.empty();
+    }
 
-    ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle);
+    default ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        return split -> {
+            throw new UnsupportedOperationException();
+        };
+    }
 
     BucketFunction getBucketFunction(
             ConnectorTransactionHandle transactionHandle,

@@ -16,6 +16,7 @@ package io.trino.execution;
 
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
+import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
@@ -35,6 +36,7 @@ import java.util.concurrent.Future;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_IN_TRANSACTION;
@@ -134,7 +136,10 @@ public class TestCommitTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                createPlanOptimizersStatsCollector(),
+                Optional.empty(),
+                true,
+                new NodeVersion("test"));
     }
 
     private static SessionBuilder sessionBuilder()

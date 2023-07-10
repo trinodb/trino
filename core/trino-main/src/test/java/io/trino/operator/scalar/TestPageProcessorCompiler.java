@@ -22,6 +22,7 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
@@ -36,7 +37,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
-import static io.trino.block.BlockAssertions.createRLEBlock;
+import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
@@ -146,7 +147,7 @@ public class TestPageProcessorCompiler
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT)), MAX_BATCH_SIZE).get();
 
-        Page page = new Page(createRLEBlock(5L, 100));
+        Page page = new Page(createRepeatedValuesBlock(5L, 100));
         Page outputPage = getOnlyElement(
                 processor.process(
                         null,
@@ -208,7 +209,7 @@ public class TestPageProcessorCompiler
         assertFalse(outputPage.getBlock(0) instanceof DictionaryBlock);
     }
 
-    private static DictionaryBlock createDictionaryBlock(Slice[] expectedValues, int positionCount)
+    private static Block createDictionaryBlock(Slice[] expectedValues, int positionCount)
     {
         int dictionarySize = expectedValues.length;
         int[] ids = new int[positionCount];
@@ -216,7 +217,7 @@ public class TestPageProcessorCompiler
         for (int i = 0; i < positionCount; i++) {
             ids[i] = i % dictionarySize;
         }
-        return new DictionaryBlock(createSlicesBlock(expectedValues), ids);
+        return DictionaryBlock.create(ids.length, createSlicesBlock(expectedValues), ids);
     }
 
     private static Slice[] createExpectedValues(int positionCount)

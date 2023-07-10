@@ -27,6 +27,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
@@ -61,7 +62,7 @@ public final class MapAggregationFunction
             @TypeParameter("V") Type valueType,
             @AggregationState({"K", "V"}) KeyValuePairsState state,
             @BlockPosition @SqlType("K") Block key,
-            @NullablePosition @BlockPosition @SqlType("V") Block value,
+            @SqlNullable @BlockPosition @SqlType("V") Block value,
             @BlockIndex int position)
     {
         KeyValuePairs pairs = state.get();

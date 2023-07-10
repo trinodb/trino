@@ -40,8 +40,7 @@ import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.spi.TrinoException;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -250,9 +249,7 @@ public final class ProtoUtils
                     getTotalSizeInBytes(averageColumnLength, rowCount, nullsCount),
                     nullsCount);
         }
-        else {
-            throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
-        }
+        throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
     }
 
     static Column fromProto(alluxio.grpc.table.FieldSchema column)

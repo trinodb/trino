@@ -15,30 +15,15 @@ package io.trino.plugin.pinot;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
-import org.apache.pinot.core.operator.transform.TransformResultMetadata;
-import org.apache.pinot.spi.data.FieldSpec;
 
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
-import static io.trino.plugin.pinot.PinotMetadata.PINOT_COLUMN_NAME_PROPERTY;
-import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class PinotColumnHandle
@@ -81,60 +66,6 @@ public class PinotColumnHandle
         checkState((pushedDownAggregateFunctionName.isPresent() && aggregate) || pushedDownAggregateFunctionName.isEmpty(), "Unexpected arguments: aggregate is false but pushed down aggregation is present");
         this.pushedDownAggregateFunctionName = pushedDownAggregateFunctionName;
         this.pushedDownAggregateFunctionArgument = pushedDownAggregateFunctionArgument;
-    }
-
-    public static PinotColumnHandle fromNonAggregateColumnHandle(PinotColumnHandle columnHandle)
-    {
-        return new PinotColumnHandle(columnHandle.getColumnName(), columnHandle.getDataType(), quoteIdentifier(columnHandle.getColumnName()), false, false, true, Optional.empty(), Optional.empty());
-    }
-
-    public static PinotColumnHandle fromColumnMetadata(ColumnMetadata columnMetadata)
-    {
-        String columnName = (String) requireNonNull(columnMetadata.getProperties().get(PINOT_COLUMN_NAME_PROPERTY), format("Missing required column property '%s'", PINOT_COLUMN_NAME_PROPERTY));
-        return new PinotColumnHandle(columnName, columnMetadata.getType());
-    }
-
-    public static Type getTrinoTypeFromPinotType(FieldSpec field)
-    {
-        Type type = getTrinoTypeFromPinotType(field.getDataType());
-        if (field.isSingleValueField()) {
-            return type;
-        }
-        else {
-            return new ArrayType(type);
-        }
-    }
-
-    public static Type getTrinoTypeFromPinotType(TransformResultMetadata transformResultMetadata)
-    {
-        Type type = getTrinoTypeFromPinotType(transformResultMetadata.getDataType());
-        if (transformResultMetadata.isSingleValue()) {
-            return type;
-        }
-        return new ArrayType(type);
-    }
-
-    public static Type getTrinoTypeFromPinotType(FieldSpec.DataType dataType)
-    {
-        switch (dataType) {
-            case BOOLEAN:
-                return BooleanType.BOOLEAN;
-            case FLOAT:
-                return RealType.REAL;
-            case DOUBLE:
-                return DoubleType.DOUBLE;
-            case INT:
-                return IntegerType.INTEGER;
-            case LONG:
-                return BigintType.BIGINT;
-            case STRING:
-                return VarcharType.VARCHAR;
-            case BYTES:
-                return VarbinaryType.VARBINARY;
-            default:
-                break;
-        }
-        throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "Unsupported type conversion for pinot data type: " + dataType);
     }
 
     @JsonProperty
@@ -205,9 +136,6 @@ public class PinotColumnHandle
         return ColumnMetadata.builder()
                 .setName(columnName)
                 .setType(dataType)
-                .setProperties(ImmutableMap.<String, Object>builder()
-                        .put(PINOT_COLUMN_NAME_PROPERTY, columnName)
-                        .buildOrThrow())
                 .build();
     }
 

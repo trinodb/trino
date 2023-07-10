@@ -15,9 +15,8 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.connector.SchemaTablePrefix;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -100,12 +99,10 @@ public class QualifiedTablePrefix
         if (schemaName.isEmpty()) {
             return new SchemaTablePrefix();
         }
-        else if (tableName.isEmpty()) {
+        if (tableName.isEmpty()) {
             return new SchemaTablePrefix(schemaName.get());
         }
-        else {
-            return new SchemaTablePrefix(schemaName.get(), tableName.get());
-        }
+        return new SchemaTablePrefix(schemaName.get(), tableName.get());
     }
 
     public Optional<QualifiedObjectName> asQualifiedObjectName()

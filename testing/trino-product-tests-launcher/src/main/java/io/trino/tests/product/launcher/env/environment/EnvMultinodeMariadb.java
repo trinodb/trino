@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.launcher.env.environment;
 
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.DockerContainer;
@@ -22,8 +23,6 @@ import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
-
-import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
@@ -44,7 +43,7 @@ public class EnvMultinodeMariadb
     public EnvMultinodeMariadb(StandardMultinode standardMultinode, DockerFiles dockerFiles, PortBinder portBinder)
     {
         super(standardMultinode);
-        this.configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/multinode-mariadb/");
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-mariadb/");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
 

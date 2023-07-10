@@ -25,13 +25,13 @@ import io.trino.json.ir.IrCeilingMethod;
 import io.trino.json.ir.IrComparisonPredicate;
 import io.trino.json.ir.IrConjunctionPredicate;
 import io.trino.json.ir.IrContextVariable;
+import io.trino.json.ir.IrDescendantMemberAccessor;
 import io.trino.json.ir.IrDisjunctionPredicate;
 import io.trino.json.ir.IrDoubleMethod;
 import io.trino.json.ir.IrExistsPredicate;
 import io.trino.json.ir.IrFilter;
 import io.trino.json.ir.IrFloorMethod;
 import io.trino.json.ir.IrIsUnknownPredicate;
-import io.trino.json.ir.IrJsonNull;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
@@ -59,6 +59,7 @@ import io.trino.sql.jsonpath.tree.ComparisonPredicate;
 import io.trino.sql.jsonpath.tree.ConjunctionPredicate;
 import io.trino.sql.jsonpath.tree.ContextVariable;
 import io.trino.sql.jsonpath.tree.DatetimeMethod;
+import io.trino.sql.jsonpath.tree.DescendantMemberAccessor;
 import io.trino.sql.jsonpath.tree.DisjunctionPredicate;
 import io.trino.sql.jsonpath.tree.DoubleMethod;
 import io.trino.sql.jsonpath.tree.ExistsPredicate;
@@ -101,6 +102,7 @@ import static io.trino.json.ir.IrComparisonPredicate.Operator.GREATER_THAN_OR_EQ
 import static io.trino.json.ir.IrComparisonPredicate.Operator.LESS_THAN;
 import static io.trino.json.ir.IrComparisonPredicate.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.json.ir.IrComparisonPredicate.Operator.NOT_EQUAL;
+import static io.trino.json.ir.IrJsonNull.JSON_NULL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
@@ -169,36 +171,23 @@ class JsonPathTranslator
 
         private Operator binaryOperator(ArithmeticBinary.Operator operator)
         {
-            switch (operator) {
-                case ADD:
-                    return ADD;
-                case SUBTRACT:
-                    return SUBTRACT;
-                case MULTIPLY:
-                    return MULTIPLY;
-                case DIVIDE:
-                    return DIVIDE;
-                case MODULUS:
-                    return MODULUS;
-            }
-            throw new UnsupportedOperationException("Unexpected operator: " + operator);
+            return switch (operator) {
+                case ADD -> ADD;
+                case SUBTRACT -> SUBTRACT;
+                case MULTIPLY -> MULTIPLY;
+                case DIVIDE -> DIVIDE;
+                case MODULUS -> MODULUS;
+            };
         }
 
         @Override
         protected IrPathNode visitArithmeticUnary(ArithmeticUnary node, Void context)
         {
             IrPathNode base = process(node.getBase());
-            Sign sign;
-            switch (node.getSign()) {
-                case PLUS:
-                    sign = PLUS;
-                    break;
-                case MINUS:
-                    sign = MINUS;
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unexpected sign: " + node.getSign());
-            }
+            Sign sign = switch (node.getSign()) {
+                case PLUS -> PLUS;
+                case MINUS -> MINUS;
+            };
             return new IrArithmeticUnary(sign, base, Optional.ofNullable(types.get(PathNodeRef.of(node))));
         }
 
@@ -240,6 +229,13 @@ class JsonPathTranslator
         }
 
         @Override
+        protected IrPathNode visitDescendantMemberAccessor(DescendantMemberAccessor node, Void context)
+        {
+            IrPathNode base = process(node.getBase());
+            return new IrDescendantMemberAccessor(base, node.getKey(), Optional.ofNullable(types.get(PathNodeRef.of(node))));
+        }
+
+        @Override
         protected IrPathNode visitDoubleMethod(DoubleMethod node, Void context)
         {
             IrPathNode base = process(node.getBase());
@@ -264,7 +260,7 @@ class JsonPathTranslator
         @Override
         protected IrPathNode visitJsonNullLiteral(JsonNullLiteral node, Void context)
         {
-            return new IrJsonNull();
+            return JSON_NULL;
         }
 
         @Override
@@ -313,7 +309,7 @@ class JsonPathTranslator
         protected IrPathNode visitSqlValueLiteral(SqlValueLiteral node, Void context)
         {
             Expression value = node.getValue();
-            return new IrLiteral(types.get(PathNodeRef.of(node)), literalInterpreter.evaluate(value, types.get(PathNodeRef.of(node))));
+            return new IrLiteral(Optional.of(types.get(PathNodeRef.of(node))), literalInterpreter.evaluate(value, types.get(PathNodeRef.of(node))));
         }
 
         @Override
@@ -338,21 +334,14 @@ class JsonPathTranslator
 
         private IrComparisonPredicate.Operator comparisonOperator(ComparisonPredicate.Operator operator)
         {
-            switch (operator) {
-                case EQUAL:
-                    return EQUAL;
-                case NOT_EQUAL:
-                    return NOT_EQUAL;
-                case LESS_THAN:
-                    return LESS_THAN;
-                case GREATER_THAN:
-                    return GREATER_THAN;
-                case LESS_THAN_OR_EQUAL:
-                    return LESS_THAN_OR_EQUAL;
-                case GREATER_THAN_OR_EQUAL:
-                    return GREATER_THAN_OR_EQUAL;
-            }
-            throw new UnsupportedOperationException("Unexpected comparison operator: " + operator);
+            return switch (operator) {
+                case EQUAL -> EQUAL;
+                case NOT_EQUAL -> NOT_EQUAL;
+                case LESS_THAN -> LESS_THAN;
+                case GREATER_THAN -> GREATER_THAN;
+                case LESS_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL;
+                case GREATER_THAN_OR_EQUAL -> GREATER_THAN_OR_EQUAL;
+            };
         }
 
         @Override

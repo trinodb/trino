@@ -21,12 +21,12 @@ import java.time.format.DateTimeFormatter;
 import static io.trino.spi.type.TimestampType.MAX_PRECISION;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 
 public class Timestamps
 {
-    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
+    private static final String TIMESTAMP_FORMAT_PATTERN = "uuuu-MM-dd HH:mm:ss";
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern(TIMESTAMP_FORMAT_PATTERN);
 
     static final long[] POWERS_OF_TEN = {
             1L,
@@ -141,7 +141,14 @@ public class Timestamps
         long picoFraction = ((long) floorMod(epochMicros, MICROSECONDS_PER_SECOND)) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
         LocalDateTime dateTime = LocalDateTime.ofInstant(instant, UTC);
 
-        return formatTimestamp(precision, dateTime, picoFraction).toString();
+        StringBuilder builder = new StringBuilder(timestampFormatLength(precision));
+        formatTimestamp(precision, dateTime, picoFraction, builder);
+        return builder.toString();
+    }
+
+    private static int timestampFormatLength(int precision)
+    {
+        return TIMESTAMP_FORMAT_PATTERN.length() + (precision == 0 ? 0 : precision + 1);
     }
 
     static String formatTimestampWithTimeZone(int precision, long epochMillis, int picosOfMilli, ZoneId zoneId)
@@ -150,20 +157,29 @@ public class Timestamps
         long picoFraction = (long) floorMod(epochMillis, MILLISECONDS_PER_SECOND) * PICOSECONDS_PER_MILLISECOND + picosOfMilli;
         LocalDateTime dateTime = LocalDateTime.ofInstant(instant, zoneId);
 
-        return formatTimestamp(precision, dateTime, picoFraction)
-                .append(" ")
-                .append(zoneId.getId()).toString();
+        String zoneIdString = zoneId.getId();
+        StringBuilder builder = new StringBuilder(timestampFormatLength(precision) + zoneIdString.length() + 1);
+        formatTimestamp(precision, dateTime, picoFraction, builder);
+        return builder.append(' ').append(zoneIdString).toString();
     }
 
-    private static StringBuilder formatTimestamp(int precision, LocalDateTime dateTime, long picoFraction)
+    private static void formatTimestamp(int precision, LocalDateTime dateTime, long picoFraction, StringBuilder builder)
     {
-        StringBuilder builder = new StringBuilder();
-        builder.append(TIMESTAMP_FORMATTER.format(dateTime));
+        TIMESTAMP_FORMATTER.formatTo(dateTime, builder);
         if (precision > 0) {
             long scaledFraction = picoFraction / POWERS_OF_TEN[MAX_PRECISION - precision];
-            builder.append(".");
-            builder.append(format("%0" + precision + "d", scaledFraction));
+            builder.append('.');
+            builder.setLength(builder.length() + precision);
+            int index = builder.length() - 1;
+
+            // Append the fractional the decimal digits in reverse order
+            // comparable to format("%0" + precision + "d", scaledFraction);
+            for (int i = 0; i < precision; i++) {
+                long temp = scaledFraction / 10;
+                int digit = (int) (scaledFraction - (temp * 10));
+                scaledFraction = temp;
+                builder.setCharAt(index - i, (char) ('0' + digit));
+            }
         }
-        return builder;
     }
 }

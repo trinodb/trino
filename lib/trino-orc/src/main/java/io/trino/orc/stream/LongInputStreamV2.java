@@ -23,7 +23,7 @@ import java.io.InputStream;
 import static java.lang.Math.min;
 
 /**
- * @see {@link org.apache.orc.impl.RunLengthIntegerWriterV2} for description of various lightweight compression techniques.
+ * See {@link org.apache.orc.impl.RunLengthIntegerWriterV2} for description of various lightweight compression techniques.
  */
 // This comes from the Apache Hive ORC code
 public class LongInputStreamV2

@@ -14,13 +14,15 @@
 
 package io.trino.plugin.deltalake.transactionlog;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import org.testng.annotations.Test;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
+import static io.trino.filesystem.Locations.appendPath;
+import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static org.testng.Assert.assertEquals;
 
 public class TestTransactionLogParser
@@ -29,12 +31,12 @@ public class TestTransactionLogParser
     public void testGetCurrentVersion()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
-        Path basePath = new Path(getClass().getClassLoader().getResource("databricks").toURI());
-        FileSystem filesystem = basePath.getFileSystem(conf);
+        TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
 
-        assertEquals(getMandatoryCurrentVersion(filesystem, new Path(basePath, "simple_table_without_checkpoint")), 9);
-        assertEquals(getMandatoryCurrentVersion(filesystem, new Path(basePath, "simple_table_ending_on_checkpoint")), 10);
-        assertEquals(getMandatoryCurrentVersion(filesystem, new Path(basePath, "simple_table_past_checkpoint")), 11);
+        String basePath = getClass().getClassLoader().getResource("databricks").toURI().toString();
+
+        assertEquals(getMandatoryCurrentVersion(fileSystem, appendPath(basePath, "simple_table_without_checkpoint")), 9);
+        assertEquals(getMandatoryCurrentVersion(fileSystem, appendPath(basePath, "simple_table_ending_on_checkpoint")), 10);
+        assertEquals(getMandatoryCurrentVersion(fileSystem, appendPath(basePath, "simple_table_past_checkpoint")), 11);
     }
 }

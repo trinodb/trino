@@ -1,0 +1,9 @@
+<configuration>
+
+    <property>
+        <!-- Required to enable full schema evolution. See https://github.com/apache/iceberg/issues/1092#issuecomment-638432848 -->
+        <name>hive.metastore.disallow.incompatible.col.type.changes</name>
+        <value>false</value>
+    </property>
+
+</configuration>

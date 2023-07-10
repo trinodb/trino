@@ -22,11 +22,12 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.cost.TableStatsProvider;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.BoundSignature;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.ResolvedIndex;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.function.BoundSignature;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
@@ -81,7 +82,15 @@ public class IndexJoinOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(
+            PlanNode plan,
+            Session session,
+            TypeProvider types,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            TableStatsProvider tableStatsProvider)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -355,7 +364,7 @@ public class IndexJoinOptimizer
                     .map(Symbol::from)
                     .collect(toImmutableSet());
 
-            if (newLookupSymbols.isEmpty()) {
+            if (newLookupSymbols.size() != context.get().getLookupSymbols().size()) {
                 return node;
             }
 
@@ -397,15 +406,12 @@ public class IndexJoinOptimizer
             }
 
             // Lookup symbols can only be passed through if they are part of the partitioning
-            Set<Symbol> partitionByLookupSymbols = context.get().getLookupSymbols().stream()
-                    .filter(node.getPartitionBy()::contains)
-                    .collect(toImmutableSet());
 
-            if (partitionByLookupSymbols.isEmpty()) {
+            if (!node.getPartitionBy().containsAll(context.get().getLookupSymbols())) {
                 return node;
             }
 
-            return context.defaultRewrite(node, new Context(partitionByLookupSymbols, context.get().getSuccess()));
+            return context.defaultRewrite(node, new Context(context.get().getLookupSymbols(), context.get().getSuccess()));
         }
 
         @Override
@@ -418,15 +424,11 @@ public class IndexJoinOptimizer
         public PlanNode visitIndexJoin(IndexJoinNode node, RewriteContext<Context> context)
         {
             // Lookup symbols can only be passed through the probe side of an index join
-            Set<Symbol> probeLookupSymbols = context.get().getLookupSymbols().stream()
-                    .filter(node.getProbeSource().getOutputSymbols()::contains)
-                    .collect(toImmutableSet());
-
-            if (probeLookupSymbols.isEmpty()) {
+            if (!node.getProbeSource().getOutputSymbols().containsAll(context.get().getLookupSymbols())) {
                 return node;
             }
 
-            PlanNode rewrittenProbeSource = context.rewrite(node.getProbeSource(), new Context(probeLookupSymbols, context.get().getSuccess()));
+            PlanNode rewrittenProbeSource = context.rewrite(node.getProbeSource(), new Context(context.get().getLookupSymbols(), context.get().getSuccess()));
 
             PlanNode source = node;
             if (rewrittenProbeSource != node.getProbeSource()) {
@@ -440,15 +442,11 @@ public class IndexJoinOptimizer
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Context> context)
         {
             // Lookup symbols can only be passed through if they are part of the group by columns
-            Set<Symbol> groupByLookupSymbols = context.get().getLookupSymbols().stream()
-                    .filter(node.getGroupingKeys()::contains)
-                    .collect(toImmutableSet());
-
-            if (groupByLookupSymbols.isEmpty()) {
+            if (!node.getGroupingKeys().containsAll(context.get().getLookupSymbols())) {
                 return node;
             }
 
-            return context.defaultRewrite(node, new Context(groupByLookupSymbols, context.get().getSuccess()));
+            return context.defaultRewrite(node, new Context(context.get().getLookupSymbols(), context.get().getSuccess()));
         }
 
         @Override

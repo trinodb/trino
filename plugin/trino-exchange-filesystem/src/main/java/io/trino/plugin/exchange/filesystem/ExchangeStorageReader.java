@@ -14,9 +14,8 @@
 package io.trino.plugin.exchange.filesystem;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -25,7 +24,8 @@ import java.io.IOException;
 public interface ExchangeStorageReader
         extends Closeable
 {
-    Slice read() throws IOException;
+    Slice read()
+            throws IOException;
 
     ListenableFuture<Void> isBlocked();
 

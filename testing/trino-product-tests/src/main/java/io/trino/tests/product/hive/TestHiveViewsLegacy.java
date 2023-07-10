@@ -13,20 +13,26 @@
  */
 package io.trino.tests.product.hive;
 
-import io.trino.tempto.BeforeTestWithContext;
+import com.google.common.collect.ImmutableList;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.Requires;
+import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
 import io.trino.tempto.query.QueryExecutor;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Requires({
@@ -36,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestHiveViewsLegacy
         extends AbstractTestHiveViews
 {
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         setSessionProperty("hive.hive_views_legacy_translation", "true");
@@ -115,6 +121,8 @@ public class TestHiveViewsLegacy
     }
 
     @Override
+    @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testArrayConstructionInView()
     {
         assertThatThrownBy(super::testArrayConstructionInView)
@@ -122,6 +130,8 @@ public class TestHiveViewsLegacy
     }
 
     @Override
+    @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testMapConstructionInView()
     {
         assertThatThrownBy(super::testMapConstructionInView)
@@ -129,13 +139,29 @@ public class TestHiveViewsLegacy
     }
 
     @Override
+    @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testPmodFunction()
     {
         assertThatThrownBy(super::testPmodFunction)
                 .hasMessageContaining("Function 'pmod' not registered");
     }
 
+    // When doing legacy Hive View translation, Trino columns type signature corresponds one to one with the Hive view columns type
     @Override
+    protected List<QueryAssert.Row> getExpectedHiveViewTextualColumnsTypes()
+    {
+        return ImmutableList.of(
+                row("a_char_1", "char(1)"),
+                row("a_char_255", "char(255)"),
+                row("a_varchar_1", "varchar(1)"),
+                row("a_varchar_65535", "varchar(65535)"),
+                row("a_string", "varchar"));
+    }
+
+    @Override
+    @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNestedHiveViews()
     {
         assertThatThrownBy(super::testNestedHiveViews)

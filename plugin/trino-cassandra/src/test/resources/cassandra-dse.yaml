@@ -1,0 +1,20 @@
+endpoint_snitch: SimpleSnitch
+
+commitlog_sync: periodic
+commitlog_sync_period_in_ms: 10000
+
+partitioner: org.apache.cassandra.dht.Murmur3Partitioner
+
+seed_provider:
+    - class_name: org.apache.cassandra.locator.SimpleSeedProvider
+      parameters:
+          - seeds: "127.0.0.1"
+
+native_transport_port: 9142
+
+read_request_timeout_in_ms: 30000
+range_request_timeout_in_ms: 30000
+write_request_timeout_in_ms: 30000
+cas_contention_timeout_in_ms: 30000
+truncate_request_timeout_in_ms: 60000
+request_timeout_in_ms: 30000

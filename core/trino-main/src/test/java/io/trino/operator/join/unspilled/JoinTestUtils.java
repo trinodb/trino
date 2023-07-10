@@ -34,6 +34,7 @@ import io.trino.operator.join.StandardJoinFilterFunction;
 import io.trino.operator.join.unspilled.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -54,6 +55,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
+import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
@@ -80,20 +82,16 @@ public final class JoinTestUtils
             boolean outputSingleMatch,
             boolean hasFilter)
     {
-        return operatorFactories.innerJoin(
+        return operatorFactories.join(
+                innerJoin(outputSingleMatch, false),
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
-                outputSingleMatch,
-                false,
                 hasFilter,
-                false,
                 probePages.getTypes(),
                 probePages.getHashChannels().orElseThrow(),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
-                OptionalInt.of(1),
-                null,
                 TYPE_OPERATOR_FACTORY);
     }
 
@@ -123,21 +121,37 @@ public final class JoinTestUtils
             RowPagesBuilder buildPages,
             Optional<InternalJoinFilterFunction> filterFunction)
     {
+        return setupBuildSide(nodePartitioningManager, parallelBuild, taskContext, buildPages, filterFunction, true);
+    }
+
+    public static BuildSideSetup setupBuildSide(
+            NodePartitioningManager nodePartitioningManager,
+            boolean parallelBuild,
+            TaskContext taskContext,
+            RowPagesBuilder buildPages,
+            Optional<InternalJoinFilterFunction> filterFunction,
+            boolean enableSingleChannelBigintLookupSource)
+    {
         Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory = filterFunction
                 .map(function -> (session, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
         List<Integer> hashChannels = buildPages.getHashChannels().orElseThrow();
+        List<Type> types = buildPages.getTypes();
+        List<Type> hashChannelTypes = hashChannels.stream()
+                .map(types::get)
+                .collect(toImmutableList());
         LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
                 taskContext.getSession(),
                 partitionCount,
                 FIXED_HASH_DISTRIBUTION,
                 hashChannels,
-                buildPages.getTypes(),
+                hashChannelTypes,
                 buildPages.getHashChannel(),
                 DataSize.of(32, DataSize.Unit.MEGABYTE),
-                TYPE_OPERATOR_FACTORY);
+                TYPE_OPERATOR_FACTORY,
+                DataSize.of(32, DataSize.Unit.MEGABYTE));
 
         // collect input data into the partitioned exchange
         DriverContext collectDriverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
@@ -184,7 +198,7 @@ public final class JoinTestUtils
                 Optional.empty(),
                 ImmutableList.of(),
                 100,
-                new PagesIndex.TestingFactory(false),
+                new PagesIndex.TestingFactory(false, enableSingleChannelBigintLookupSource),
                 incrementalLoadFactorHashArraySizeSupplier(taskContext.getSession()));
         return new BuildSideSetup(lookupSourceFactoryManager, buildOperatorFactory, sourceOperatorFactory, partitionCount);
     }

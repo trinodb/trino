@@ -16,9 +16,11 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Booleans;
 import io.trino.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 
 import java.lang.reflect.Method;
@@ -32,8 +34,9 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static java.util.Arrays.asList;
@@ -59,7 +62,7 @@ public final class PolymorphicScalarFunctionBuilder
     public PolymorphicScalarFunctionBuilder signature(Signature signature)
     {
         this.signature = requireNonNull(signature, "signature is null");
-        this.hidden = Optional.of(hidden.orElse(isOperator(signature)));
+        this.hidden = Optional.of(hidden.orElseGet(() -> isOperator(signature)));
         return this;
     }
 
@@ -254,9 +257,9 @@ public final class PolymorphicScalarFunctionBuilder
             Iterator<Optional<Class<?>>> typesIterator = types.iterator();
             while (argumentConventionIterator.hasNext() && typesIterator.hasNext()) {
                 Optional<Class<?>> classOptional = typesIterator.next();
-                InvocationArgumentConvention argumentProperty = argumentConventionIterator.next();
-                checkState((argumentProperty == BLOCK_POSITION) == classOptional.isPresent(),
-                        "Explicit type is not set when null convention is BLOCK_AND_POSITION");
+                InvocationArgumentConvention argumentConvention = argumentConventionIterator.next();
+                checkState((argumentConvention == BLOCK_POSITION || argumentConvention == BLOCK_POSITION_NOT_NULL) == classOptional.isPresent(),
+                        "Explicit type is not set when argument convention is block and position");
             }
             methodAndNativeContainerTypesList.add(methodAndNativeContainerTypes);
             return this;

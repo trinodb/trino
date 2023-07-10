@@ -14,8 +14,8 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.BoundSignature;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.BoundSignature;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;

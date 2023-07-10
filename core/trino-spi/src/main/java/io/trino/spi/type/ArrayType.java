@@ -13,7 +13,6 @@
  */
 package io.trino.spi.type;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.block.AbstractArrayBlock;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -33,6 +32,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
@@ -119,7 +119,7 @@ public class ArrayType
         if (!elementType.isComparable()) {
             return emptyList();
         }
-        MethodHandle equalOperator = typeOperators.getEqualOperator(elementType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+        MethodHandle equalOperator = typeOperators.getEqualOperator(elementType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(EQUAL_CONVENTION, EQUAL.bindTo(equalOperator)));
     }
 
@@ -128,7 +128,7 @@ public class ArrayType
         if (!elementType.isComparable()) {
             return emptyList();
         }
-        MethodHandle elementHashCodeOperator = typeOperators.getHashCodeOperator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        MethodHandle elementHashCodeOperator = typeOperators.getHashCodeOperator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(elementHashCodeOperator)));
     }
 
@@ -137,7 +137,7 @@ public class ArrayType
         if (!elementType.isComparable()) {
             return emptyList();
         }
-        MethodHandle elementHashCodeOperator = typeOperators.getXxHash64Operator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        MethodHandle elementHashCodeOperator = typeOperators.getXxHash64Operator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(elementHashCodeOperator)));
     }
 
@@ -155,7 +155,7 @@ public class ArrayType
         if (!elementType.isComparable()) {
             return emptyList();
         }
-        MethodHandle elementIndeterminateOperator = typeOperators.getIndeterminateOperator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        MethodHandle elementIndeterminateOperator = typeOperators.getIndeterminateOperator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(INDETERMINATE_CONVENTION, INDETERMINATE.bindTo(elementIndeterminateOperator)));
     }
 
@@ -164,7 +164,7 @@ public class ArrayType
         if (!elementType.isOrderable()) {
             return emptyList();
         }
-        MethodHandle elementComparisonOperator = comparisonOperatorFactory.apply(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        MethodHandle elementComparisonOperator = comparisonOperatorFactory.apply(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, COMPARISON.bindTo(elementComparisonOperator)));
     }
 
@@ -195,10 +195,8 @@ public class ArrayType
         if (block instanceof AbstractArrayBlock) {
             return ((AbstractArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
         }
-        else {
-            Block arrayBlock = block.getObject(position, Block.class);
-            return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
-        }
+        Block arrayBlock = block.getObject(position, Block.class);
+        return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
     }
 
     private List<Object> arrayBlockToObjectValues(ConnectorSession session, Block block, int start, int length)
@@ -224,24 +222,6 @@ public class ArrayType
     }
 
     @Override
-    public Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, block.getSliceLength(position));
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
-    {
-        writeSlice(blockBuilder, value, 0, value.length());
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
-    {
-        blockBuilder.writeBytes(value, offset, length).closeEntry();
-    }
-
-    @Override
     public Block getObject(Block block, int position)
     {
         return block.getObject(position, Block.class);
@@ -251,22 +231,21 @@ public class ArrayType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         Block arrayBlock = (Block) value;
-
-        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            elementType.appendTo(arrayBlock, i, entryBuilder);
-        }
-        blockBuilder.closeEntry();
+        ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+            for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+                elementType.appendTo(arrayBlock, i, elementBuilder);
+            }
+        });
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public ArrayBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         return new ArrayBlockBuilder(elementType, blockBuilderStatus, expectedEntries, expectedBytesPerEntry);
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public ArrayBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, 100);
     }

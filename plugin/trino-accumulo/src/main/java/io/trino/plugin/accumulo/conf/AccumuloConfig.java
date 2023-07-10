@@ -17,9 +17,8 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
@@ -40,7 +39,7 @@ public class AccumuloConfig
     private String zooKeepers;
     private String username;
     private String password;
-    private String zkMetadataRoot = "/presto-accumulo";
+    private String zkMetadataRoot = "/trino-accumulo";
     private int cardinalityCacheSize = 100_000;
     private Duration cardinalityCacheExpiration = new Duration(5, TimeUnit.MINUTES);
 

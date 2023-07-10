@@ -14,16 +14,14 @@
 package io.trino.memory;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
-
-import javax.inject.Inject;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
 
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public final class LocalMemoryManager
 {
@@ -38,9 +36,8 @@ public final class LocalMemoryManager
     }
 
     @VisibleForTesting
-    LocalMemoryManager(NodeMemoryConfig config, long availableMemory)
+    public LocalMemoryManager(NodeMemoryConfig config, long availableMemory)
     {
-        requireNonNull(config, "config is null");
         validateHeapHeadroom(config, availableMemory);
         DataSize memoryPoolSize = DataSize.ofBytes(availableMemory - config.getHeapHeadroom().toBytes());
         verify(memoryPoolSize.toBytes() > 0, "memory pool size is 0");

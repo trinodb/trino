@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.array.IntBigArray;
 import io.trino.operator.GroupByHash;
-import io.trino.operator.HashCollisionsCounter;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.TransformWork;
 import io.trino.operator.UpdateMemory;
@@ -138,17 +137,16 @@ public class InMemoryHashAggregationBuilder
         if (groupedAggregators.isEmpty()) {
             return groupByHash.addPage(page);
         }
-        else {
-            return new TransformWork<>(
-                    groupByHash.getGroupIds(page),
-                    groupByIdBlock -> {
-                        for (GroupedAggregator groupedAggregator : groupedAggregators) {
-                            groupedAggregator.processPage(groupByIdBlock, page);
-                        }
-                        // we do not need any output from TransformWork for this case
-                        return null;
-                    });
-        }
+        return new TransformWork<>(
+                groupByHash.getGroupIds(page),
+                groupByIdBlock -> {
+                    int groupCount = groupByHash.getGroupCount();
+                    for (GroupedAggregator groupedAggregator : groupedAggregators) {
+                        groupedAggregator.processPage(groupCount, groupByIdBlock, page);
+                    }
+                    // we do not need any output from TransformWork for this case
+                    return null;
+                });
     }
 
     @Override
@@ -161,22 +159,6 @@ public class InMemoryHashAggregationBuilder
     public boolean isFull()
     {
         return full;
-    }
-
-    @Override
-    public void recordHashCollisions(HashCollisionsCounter hashCollisionsCounter)
-    {
-        hashCollisionsCounter.recordHashCollision(groupByHash.getHashCollisions(), groupByHash.getExpectedHashCollisions());
-    }
-
-    public long getHashCollisions()
-    {
-        return groupByHash.getHashCollisions();
-    }
-
-    public double getExpectedHashCollisions()
-    {
-        return groupByHash.getExpectedHashCollisions();
     }
 
     @Override

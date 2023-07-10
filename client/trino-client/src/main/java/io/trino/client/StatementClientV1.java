@@ -18,16 +18,15 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
+import jakarta.annotation.Nullable;
+import okhttp3.Call;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -48,14 +47,16 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static io.trino.client.HttpStatusCodes.shouldRetry;
 import static io.trino.client.JsonCodec.jsonCodec;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
+import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -72,7 +73,7 @@ class StatementClientV1
             firstNonNull(StatementClientV1.class.getPackage().getImplementationVersion(), "unknown");
     private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
 
-    private final OkHttpClient httpClient;
+    private final Call.Factory httpCallFactory;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
@@ -93,13 +94,13 @@ class StatementClientV1
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
-    public StatementClientV1(OkHttpClient httpClient, ClientSession session, String query)
+    public StatementClientV1(Call.Factory httpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
-        requireNonNull(httpClient, "httpClient is null");
+        requireNonNull(httpCallFactory, "httpCallFactory is null");
         requireNonNull(session, "session is null");
         requireNonNull(query, "query is null");
 
-        this.httpClient = httpClient;
+        this.httpCallFactory = httpCallFactory;
         this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
@@ -107,13 +108,15 @@ class StatementClientV1
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
-        this.clientCapabilities = Joiner.on(",").join(ClientCapabilities.values());
+        this.clientCapabilities = Joiner.on(",").join(clientCapabilities.orElseGet(() -> stream(ClientCapabilities.values())
+                .map(Enum::name)
+                .collect(toImmutableSet())));
         this.compressionDisabled = session.isCompressionDisabled();
 
         Request request = buildQueryRequest(session, query);
 
         // Always materialize the first response to avoid losing the response body if the initial response parsing fails
-        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.empty());
+        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, OptionalLong.empty());
         if ((response.getStatusCode() != HTTP_OK) || !response.hasValue()) {
             state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
             throw requestFailedException("starting query", request, response);
@@ -375,7 +378,7 @@ class StatementClientV1
 
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
+                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
             }
             catch (RuntimeException e) {
                 cause = e;
@@ -387,7 +390,7 @@ class StatementClientV1
                 return true;
             }
 
-            if (response.getStatusCode() != HTTP_UNAVAILABLE) {
+            if (!shouldRetry(response.getStatusCode())) {
                 state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                 throw requestFailedException("fetching next", request, response);
             }
@@ -444,7 +447,7 @@ class StatementClientV1
         if (!response.hasValue()) {
             if (response.getStatusCode() == HTTP_UNAUTHORIZED) {
                 return new ClientException("Authentication failed" +
-                        Optional.ofNullable(response.getStatusMessage())
+                        response.getResponseBody()
                                 .map(message -> ": " + message)
                                 .orElse(""));
             }
@@ -484,7 +487,7 @@ class StatementClientV1
                 .delete()
                 .build();
         try {
-            httpClient.newCall(request)
+            httpCallFactory.newCall(request)
                     .execute()
                     .close();
         }

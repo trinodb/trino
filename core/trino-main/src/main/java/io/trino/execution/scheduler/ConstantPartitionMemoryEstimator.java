@@ -25,9 +25,7 @@ public class ConstantPartitionMemoryEstimator
     @Override
     public MemoryRequirements getInitialMemoryRequirements(Session session, DataSize defaultMemoryLimit)
     {
-        return new MemoryRequirements(
-                defaultMemoryLimit,
-                true);
+        return new MemoryRequirements(defaultMemoryLimit);
     }
 
     @Override

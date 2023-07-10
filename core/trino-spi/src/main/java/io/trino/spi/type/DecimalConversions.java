@@ -122,7 +122,17 @@ public final class DecimalConversions
         }
     }
 
+    /**
+     * @deprecated Use {@link #realToShortDecimal(float, long, long)} instead
+     */
+    @Deprecated(forRemoval = true)
     public static long realToShortDecimal(long value, long precision, long scale)
+    {
+        float floatValue = intBitsToFloat(intScale(value));
+        return realToShortDecimal(floatValue, precision, scale);
+    }
+
+    public static long realToShortDecimal(float value, long precision, long scale)
     {
         // TODO: implement specialized version for short decimals
         Int128 decimal = realToLongDecimal(value, precision, scale);
@@ -135,9 +145,18 @@ public final class DecimalConversions
         return low;
     }
 
+    /**
+     * @deprecated Use {@link #realToLongDecimal(float, long, long)} instead
+     */
+    @Deprecated(forRemoval = true)
     public static Int128 realToLongDecimal(long value, long precision, long scale)
     {
         float floatValue = intBitsToFloat(intScale(value));
+        return realToLongDecimal(floatValue, precision, scale);
+    }
+
+    public static Int128 realToLongDecimal(float floatValue, long precision, long scale)
+    {
         if (Float.isInfinite(floatValue) || Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
         }

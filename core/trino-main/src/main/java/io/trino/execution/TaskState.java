@@ -25,42 +25,56 @@ public enum TaskState
      * be in the planned state until, the dependencies of the task
      * have begun producing output.
      */
-    PLANNED(false),
+    PLANNED(false, false),
     /**
      * Task is running.
      */
-    RUNNING(false),
+    RUNNING(false, false),
     /**
      * Task has finished executing and output is left to be consumed.
      * In this state, there will be no new drivers, the existing drivers have finished
      * and the output buffer of the task is at-least in a 'no-more-pages' state.
      */
-    FLUSHING(false),
+    FLUSHING(false, false),
     /**
      * Task has finished executing and all output has been consumed.
      */
-    FINISHED(true),
+    FINISHED(true, false),
+    /**
+     * Task was canceled, but not all drivers have finishing exiting
+     */
+    CANCELING(false, true),
     /**
      * Task was canceled by a user.
      */
-    CANCELED(true),
+    CANCELED(true, false),
+    /**
+     * Task was told to abort, but not all drivers have finishing exiting
+     */
+    ABORTING(false, true),
     /**
      * Task was aborted due to a failure in the query.  The failure
      * was not in this task.
      */
-    ABORTED(true),
+    ABORTED(true, false),
+    /**
+     * Task has been marked as failed, but not all drivers have finishing exiting
+     */
+    FAILING(false, true),
     /**
      * Task execution failed.
      */
-    FAILED(true);
+    FAILED(true, false);
 
     public static final Set<TaskState> TERMINAL_TASK_STATES = Stream.of(TaskState.values()).filter(TaskState::isDone).collect(toImmutableSet());
 
     private final boolean doneState;
+    private final boolean terminating;
 
-    TaskState(boolean doneState)
+    TaskState(boolean doneState, boolean terminating)
     {
         this.doneState = doneState;
+        this.terminating = terminating;
     }
 
     /**
@@ -69,5 +83,15 @@ public enum TaskState
     public boolean isDone()
     {
         return doneState;
+    }
+
+    public boolean isTerminating()
+    {
+        return terminating;
+    }
+
+    public boolean isTerminatingOrDone()
+    {
+        return terminating | doneState;
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.plugin.tpcds;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
@@ -26,12 +27,13 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.ToIntFunction;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.tpcds.TpcdsSplitManager.getSplitCount;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -40,19 +42,15 @@ public class TpcdsNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
     private final NodeManager nodeManager;
-    private final int splitsPerNode;
 
-    public TpcdsNodePartitioningProvider(NodeManager nodeManager, int splitsPerNode)
+    @Inject
+    public TpcdsNodePartitioningProvider(NodeManager nodeManager)
     {
-        requireNonNull(nodeManager, "nodeManager is null");
-        checkArgument(splitsPerNode > 0, "splitsPerNode must be at least 1");
-
-        this.nodeManager = nodeManager;
-        this.splitsPerNode = splitsPerNode;
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
         checkState(!nodes.isEmpty(), "No TPCDS nodes available");
@@ -60,13 +58,12 @@ public class TpcdsNodePartitioningProvider
         List<Node> sortedNodes = nodes.stream()
                 .sorted(comparing(node -> node.getHostAndPort().toString()))
                 .collect(toImmutableList());
+        int splitCount = getSplitCount(session, nodes.size());
         ImmutableList.Builder<Node> bucketToNode = ImmutableList.builder();
-        for (Node node : sortedNodes) {
-            for (int i = 0; i < splitsPerNode; i++) {
-                bucketToNode.add(node);
-            }
+        for (int i = 0; i < splitCount; i++) {
+            bucketToNode.add(sortedNodes.get(i % nodes.size()));
         }
-        return createBucketNodeMap(bucketToNode.build());
+        return Optional.of(createBucketNodeMap(bucketToNode.build()));
     }
 
     @Override

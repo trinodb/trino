@@ -1,0 +1,243 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "aec8c417-ef0a-4aac-9b3e-11aaeee872ee",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/lineitem",
+  "last-updated-ms" : 1663699717964,
+  "last-column-id" : 16,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "orderkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "partkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "suppkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "linenumber",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "quantity",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 6,
+      "name" : "extendedprice",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 7,
+      "name" : "discount",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 8,
+      "name" : "tax",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 9,
+      "name" : "returnflag",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "linestatus",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "shipdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 12,
+      "name" : "commitdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 13,
+      "name" : "receiptdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 14,
+      "name" : "shipinstruct",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "shipmode",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "comment",
+      "required" : false,
+      "type" : "string"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "orderkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "partkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "suppkey",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "linenumber",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "quantity",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 6,
+      "name" : "extendedprice",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 7,
+      "name" : "discount",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 8,
+      "name" : "tax",
+      "required" : false,
+      "type" : "decimal(12, 2)"
+    }, {
+      "id" : 9,
+      "name" : "returnflag",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "linestatus",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "shipdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 12,
+      "name" : "commitdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 13,
+      "name" : "receiptdate",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 14,
+      "name" : "shipinstruct",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "shipmode",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "comment",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.2.ndv" : "205115671",
+    "trino.stats.ndv.7.ndv" : "11",
+    "trino.stats.ndv.16.ndv" : "153538485",
+    "trino.stats.ndv.4.ndv" : "7",
+    "trino.stats.ndv.5.ndv" : "50",
+    "trino.stats.ndv.9.ndv" : "3",
+    "trino.stats.ndv.14.ndv" : "4",
+    "trino.stats.ndv.12.ndv" : "2493",
+    "trino.stats.ndv.10.ndv" : "2",
+    "trino.stats.ndv.8.ndv" : "9",
+    "trino.stats.ndv.1.ndv" : "1485693109",
+    "trino.stats.ndv.15.ndv" : "7",
+    "trino.stats.ndv.3.ndv" : "10311101",
+    "trino.stats.ndv.6.ndv" : "3790825",
+    "write.format.default" : "PARQUET",
+    "trino.stats.ndv.13.ndv" : "2576",
+    "trino.stats.ndv.11.ndv" : "2551"
+  },
+  "current-snapshot-id" : 2010185327452057859,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 2010185327452057859,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 2010185327452057859,
+    "timestamp-ms" : 1647888451977,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "158",
+      "added-records" : "5999989709",
+      "added-files-size" : "166117086581",
+      "changed-partition-count" : "1",
+      "total-records" : "5999989709",
+      "total-files-size" : "166117086581",
+      "total-data-files" : "158",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/lineitem/metadata/snap-2010185327452057859-1-9eb45a05-f72f-48d1-82f9-b6ea7baffaee.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1647888451977,
+    "snapshot-id" : 2010185327452057859
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1647888451977,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpch-sf1000-parquet/lineitem/metadata/00000-04c30506-895c-40fc-8e48-8318d08195cb.metadata.json"
+  } ]
+}

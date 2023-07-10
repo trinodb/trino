@@ -16,39 +16,26 @@ package io.trino.plugin.jdbc;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.SizeOf;
 
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcTypeHandle
 {
+    private static final int INSTANCE_SIZE = instanceSize(JdbcTypeHandle.class);
+
     private final int jdbcType;
     private final Optional<String> jdbcTypeName;
     private final Optional<Integer> columnSize;
     private final Optional<Integer> decimalDigits;
     private final Optional<Integer> arrayDimensions;
     private final Optional<CaseSensitivity> caseSensitivity;
-
-    @Deprecated
-    public JdbcTypeHandle(int jdbcType, Optional<String> jdbcTypeName, int columnSize, int decimalDigits, Optional<Integer> arrayDimensions)
-    {
-        this(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions, Optional.empty());
-    }
-
-    @Deprecated
-    public JdbcTypeHandle(
-            int jdbcType,
-            Optional<String> jdbcTypeName,
-            int columnSize,
-            int decimalDigits,
-            Optional<Integer> arrayDimensions,
-            Optional<CaseSensitivity> caseSensitivity)
-    {
-        this(jdbcType, jdbcTypeName, Optional.of(columnSize), Optional.of(decimalDigits), arrayDimensions, caseSensitivity);
-    }
 
     @JsonCreator
     public JdbcTypeHandle(
@@ -118,7 +105,7 @@ public final class JdbcTypeHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions);
+        return Objects.hash(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions, caseSensitivity);
     }
 
     @Override
@@ -135,7 +122,8 @@ public final class JdbcTypeHandle
                 Objects.equals(columnSize, that.columnSize) &&
                 Objects.equals(decimalDigits, that.decimalDigits) &&
                 Objects.equals(jdbcTypeName, that.jdbcTypeName) &&
-                Objects.equals(arrayDimensions, that.arrayDimensions);
+                Objects.equals(arrayDimensions, that.arrayDimensions) &&
+                Objects.equals(caseSensitivity, that.caseSensitivity);
     }
 
     @Override
@@ -145,9 +133,21 @@ public final class JdbcTypeHandle
                 .omitNullValues()
                 .add("jdbcType", jdbcType)
                 .add("jdbcTypeName", jdbcTypeName.orElse(null))
-                .add("columnSize", columnSize)
-                .add("decimalDigits", decimalDigits)
+                .add("columnSize", columnSize.orElse(null))
+                .add("decimalDigits", decimalDigits.orElse(null))
                 .add("arrayDimensions", arrayDimensions.orElse(null))
+                .add("caseSensitivity", caseSensitivity.orElse(null))
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(jdbcType)
+                + sizeOf(jdbcTypeName, SizeOf::estimatedSizeOf)
+                + sizeOf(columnSize, SizeOf::sizeOf)
+                + sizeOf(decimalDigits, SizeOf::sizeOf)
+                + sizeOf(arrayDimensions, SizeOf::sizeOf)
+                + sizeOf(caseSensitivity, ignored -> 0);
     }
 }

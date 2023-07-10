@@ -17,8 +17,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.operator.aggregation.BlockBuilderCopier.copyBlockBuilder;
 import static io.trino.type.TypeUtils.expectedValueSize;
 import static java.util.Objects.requireNonNull;
@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class SingleMultimapAggregationState
         implements MultimapAggregationState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMultimapAggregationState.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(SingleMultimapAggregationState.class);
     private static final int EXPECTED_ENTRIES = 10;
     private static final int EXPECTED_ENTRY_SIZE = 16;
     private final Type keyType;

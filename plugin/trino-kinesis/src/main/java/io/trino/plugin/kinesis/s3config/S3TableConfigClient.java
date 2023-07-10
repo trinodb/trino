@@ -31,8 +31,7 @@ import io.trino.plugin.kinesis.KinesisClientProvider;
 import io.trino.plugin.kinesis.KinesisConfig;
 import io.trino.plugin.kinesis.KinesisStreamDescription;
 import io.trino.spi.connector.SchemaTableName;
-
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -80,7 +79,6 @@ public class S3TableConfigClient
             KinesisClientProvider clientManager,
             JsonCodec<KinesisStreamDescription> jsonCodec)
     {
-        requireNonNull(connectorConfig, "connectorConfig is null");
         this.tableDescriptionRefreshInterval = connectorConfig.getTableDescriptionRefreshInterval();
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
         this.streamDescriptionCodec = requireNonNull(jsonCodec, "jsonCodec is null");

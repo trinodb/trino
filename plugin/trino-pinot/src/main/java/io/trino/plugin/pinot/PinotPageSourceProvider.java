@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.pinot;
 
+import com.google.inject.Inject;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.client.PinotDataFetcher;
 import io.trino.plugin.pinot.query.DynamicTable;
@@ -25,8 +26,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +49,6 @@ public class PinotPageSourceProvider
             PinotClient clusterInfoFetcher,
             PinotDataFetcher.Factory pinotDataFetcherFactory)
     {
-        requireNonNull(pinotConfig, "pinotConfig is null");
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "clusterInfoFetcher is null");
         this.pinotDataFetcherFactory = requireNonNull(pinotDataFetcherFactory, "pinotDataFetcherFactory is null");
         this.limitForSegmentQueries = pinotDataFetcherFactory.getRowLimit();
@@ -90,7 +88,7 @@ public class PinotPageSourceProvider
                 if (pinotTableHandle.getQuery().isPresent()) {
                     DynamicTable dynamicTable = pinotTableHandle.getQuery().get();
                     pinotQueryInfo = new PinotQueryInfo(dynamicTable.getTableName(),
-                            extractPql(dynamicTable, pinotTableHandle.getConstraint(), handles),
+                            extractPql(dynamicTable, pinotTableHandle.getConstraint()),
                             dynamicTable.getGroupingColumns().size());
                 }
                 else {

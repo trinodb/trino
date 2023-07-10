@@ -44,6 +44,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.OkHttpUtil.basicAuth;
+import static io.trino.client.OkHttpUtil.setupAlternateHostnameVerification;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
 import static io.trino.client.OkHttpUtil.setupHttpProxy;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
@@ -58,11 +59,14 @@ import static io.trino.jdbc.ConnectionProperties.ASSUME_LITERAL_UNDERSCORE_IN_ME
 import static io.trino.jdbc.ConnectionProperties.CLIENT_INFO;
 import static io.trino.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static io.trino.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
+import static io.trino.jdbc.ConnectionProperties.DNS_RESOLVER;
+import static io.trino.jdbc.ConnectionProperties.DNS_RESOLVER_CONTEXT;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
 import static io.trino.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
+import static io.trino.jdbc.ConnectionProperties.HOSTNAME_IN_CERTIFICATE;
 import static io.trino.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
@@ -289,6 +293,11 @@ public final class TrinoDriverUri
                             SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
                 }
 
+                if (sslVerificationMode.equals(FULL)) {
+                    HOSTNAME_IN_CERTIFICATE.getValue(properties).ifPresent(certHostname ->
+                            setupAlternateHostnameVerification(builder, certHostname));
+                }
+
                 if (sslVerificationMode.equals(CA)) {
                     builder.hostnameVerifier((hostname, session) -> true);
                 }
@@ -348,12 +357,25 @@ public final class TrinoDriverUri
                 builder.authenticator(authenticator);
                 builder.addInterceptor(authenticator);
             }
+
+            Optional<String> resolverContext = DNS_RESOLVER_CONTEXT.getValue(properties);
+            DNS_RESOLVER.getValue(properties).ifPresent(resolverClass -> builder.dns(instantiateDnsResolver(resolverClass, resolverContext)::lookup));
         }
         catch (ClientException e) {
             throw new SQLException(e.getMessage(), e);
         }
         catch (RuntimeException e) {
             throw new SQLException("Error setting up connection", e);
+        }
+    }
+
+    private static DnsResolver instantiateDnsResolver(Class<? extends DnsResolver> resolverClass, Optional<String> context)
+    {
+        try {
+            return resolverClass.getConstructor(String.class).newInstance(context.orElse(null));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new ClientException("Unable to instantiate custom DNS resolver " + resolverClass.getName(), e);
         }
     }
 

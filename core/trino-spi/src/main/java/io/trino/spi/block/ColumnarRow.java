@@ -13,7 +13,7 @@
  */
 package io.trino.spi.block;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,21 +28,19 @@ public final class ColumnarRow
     {
         requireNonNull(block, "block is null");
 
-        if (block instanceof LazyBlock) {
-            block = ((LazyBlock) block).getBlock();
+        if (block instanceof LazyBlock lazyBlock) {
+            block = lazyBlock.getBlock();
         }
-        if (block instanceof DictionaryBlock) {
-            return toColumnarRow((DictionaryBlock) block);
+        if (block instanceof DictionaryBlock dictionaryBlock) {
+            return toColumnarRow(dictionaryBlock);
         }
-        if (block instanceof RunLengthEncodedBlock) {
-            return toColumnarRow((RunLengthEncodedBlock) block);
+        if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
+            return toColumnarRow(runLengthEncodedBlock);
         }
 
-        if (!(block instanceof AbstractRowBlock)) {
+        if (!(block instanceof AbstractRowBlock rowBlock)) {
             throw new IllegalArgumentException("Invalid row block: " + block.getClass().getName());
         }
-
-        AbstractRowBlock rowBlock = (AbstractRowBlock) block;
 
         // get fields for visible region
         int firstRowPosition = rowBlock.getFieldBlockOffset(0);
@@ -85,7 +83,7 @@ public final class ColumnarRow
         ColumnarRow columnarRow = toColumnarRow(dictionaryBlock.getDictionary());
         Block[] fields = new Block[columnarRow.getFieldCount()];
         for (int i = 0; i < columnarRow.getFieldCount(); i++) {
-            fields[i] = new DictionaryBlock(nonNullPositionCount, columnarRow.getField(i), dictionaryIds);
+            fields[i] = DictionaryBlock.create(nonNullPositionCount, columnarRow.getField(i), dictionaryIds);
         }
 
         int positionCount = dictionaryBlock.getPositionCount();
@@ -106,9 +104,7 @@ public final class ColumnarRow
                     dictionaryBlock.getRawIdsOffset(),
                     dictionaryBlock.getPositionCount(),
                     columnarRow.getField(i),
-                    dictionaryBlock.getRawIds(),
-                    false,
-                    DictionaryId.randomDictionaryId());
+                    dictionaryBlock.getRawIds());
         }
         return new ColumnarRow(dictionaryBlock.getPositionCount(), null, fields);
     }
@@ -129,7 +125,7 @@ public final class ColumnarRow
                 fields[i] = nullSuppressedField;
             }
             else {
-                fields[i] = new RunLengthEncodedBlock(nullSuppressedField, rleBlock.getPositionCount());
+                fields[i] = RunLengthEncodedBlock.create(nullSuppressedField, rleBlock.getPositionCount());
             }
         }
         return new ColumnarRow(rleBlock.getPositionCount(), rleBlock, fields);

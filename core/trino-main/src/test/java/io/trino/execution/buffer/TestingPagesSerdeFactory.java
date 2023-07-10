@@ -13,18 +13,8 @@
  */
 package io.trino.execution.buffer;
 
-import io.airlift.compress.Compressor;
-import io.airlift.compress.Decompressor;
-import io.airlift.compress.lz4.Lz4Compressor;
-import io.airlift.compress.lz4.Lz4Decompressor;
-import io.airlift.slice.Slice;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
-import io.trino.spi.Page;
-import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spiller.SpillCipher;
-
-import java.util.Optional;
 
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
@@ -37,41 +27,5 @@ public class TestingPagesSerdeFactory
     {
         // compression should be enabled in as many tests as possible
         super(BLOCK_ENCODING_SERDE, true);
-    }
-
-    public static PagesSerde testingPagesSerde()
-    {
-        return new SynchronizedPagesSerde(
-                BLOCK_ENCODING_SERDE,
-                Optional.of(new Lz4Compressor()),
-                Optional.of(new Lz4Decompressor()),
-                Optional.empty());
-    }
-
-    private static class SynchronizedPagesSerde
-            extends PagesSerde
-    {
-        public SynchronizedPagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor, Optional<SpillCipher> spillCipher)
-        {
-            super(blockEncodingSerde, compressor, decompressor, spillCipher);
-        }
-
-        @Override
-        public synchronized Slice serialize(PagesSerdeContext context, Page page)
-        {
-            return super.serialize(context, page);
-        }
-
-        @Override
-        public synchronized Page deserialize(Slice serializedPage)
-        {
-            return super.deserialize(serializedPage);
-        }
-
-        @Override
-        public synchronized Page deserialize(PagesSerdeContext context, Slice page)
-        {
-            return super.deserialize(context, page);
-        }
     }
 }

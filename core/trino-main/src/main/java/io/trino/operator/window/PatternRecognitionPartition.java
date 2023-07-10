@@ -397,7 +397,7 @@ public final class PatternRecognitionPartition
                 break;
             case LAST:
             case FIRST:
-                checkState(skipToNavigation.isPresent(), "skip to navigation is missing for SKIP TO ", skipToPosition.name());
+                checkState(skipToNavigation.isPresent(), "skip to navigation is missing for SKIP TO %s", skipToPosition.name());
                 int position = skipToNavigation.get().resolvePosition(patternStart + labels.length() - 1, labels, searchStart, searchEnd, patternStart);
                 if (position == -1) {
                     throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR, "AFTER MATCH SKIP failed: pattern variable is not present in match");

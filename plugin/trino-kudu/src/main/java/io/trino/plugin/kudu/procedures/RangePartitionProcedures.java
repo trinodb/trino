@@ -14,6 +14,7 @@
 package io.trino.plugin.kudu.procedures;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.kudu.KuduClientSession;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
 import io.trino.plugin.kudu.properties.RangePartition;
@@ -21,20 +22,26 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 
-import javax.inject.Inject;
-
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class RangePartitionProcedures
 {
-    private static final MethodHandle ADD = methodHandle(RangePartitionProcedures.class, "addRangePartition",
-            String.class, String.class, String.class);
-    private static final MethodHandle DROP = methodHandle(RangePartitionProcedures.class, "dropRangePartition",
-            String.class, String.class, String.class);
+    private static final MethodHandle ADD;
+    private static final MethodHandle DROP;
+
+    static {
+        try {
+            ADD = lookup().unreflect(RangePartitionProcedures.class.getMethod("addRangePartition", String.class, String.class, String.class));
+            DROP = lookup().unreflect(RangePartitionProcedures.class.getMethod("dropRangePartition", String.class, String.class, String.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final KuduClientSession clientSession;
 

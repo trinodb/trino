@@ -14,7 +14,6 @@
 package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.RunLengthEncodedBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 public interface PositionsAppender
@@ -22,12 +21,20 @@ public interface PositionsAppender
     void append(IntArrayList positions, Block source);
 
     /**
-     * Appends value from the {@code rleBlock} to this appender {@link RunLengthEncodedBlock#getPositionCount()} times.
+     * Appends the specified value positionCount times.
      * The result is the same as with using {@link PositionsAppender#append(IntArrayList, Block)} with
-     * positions list [0...{@link RunLengthEncodedBlock#getPositionCount()} -1]
-     * but with possible performance optimizations for {@link RunLengthEncodedBlock}.
+     * positions list [0...positionCount -1] but with possible performance optimizations.
      */
-    void appendRle(RunLengthEncodedBlock rleBlock);
+    void appendRle(Block value, int rlePositionCount);
+
+    /**
+     * Appends single position. The implementation must be conceptually equal to
+     * {@code append(IntArrayList.wrap(new int[] {position}), source)} but may be optimized.
+     * Caller should avoid using this method if {@link #append(IntArrayList, Block)} can be used
+     * as appending positions one by one can be significantly slower and may not support features
+     * like pushing RLE through the appender.
+     */
+    void append(int position, Block source);
 
     /**
      * Creates the block from the appender data.

@@ -19,6 +19,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -28,13 +29,11 @@ import io.trino.plugin.raptor.legacy.metadata.ShardMetadata;
 import io.trino.plugin.raptor.legacy.util.PrioritizedFifoExecutor;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -115,7 +114,7 @@ public class ShardRecoveryManager
     {
         this.storageService = requireNonNull(storageService, "storageService is null");
         this.backupStore = requireNonNull(backupStore, "backupStore is null");
-        this.nodeIdentifier = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
+        this.nodeIdentifier = nodeManager.getCurrentNode().getNodeIdentifier();
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.missingShardDiscoveryInterval = requireNonNull(missingShardDiscoveryInterval, "missingShardDiscoveryInterval is null");
         this.shardQueue = new MissingShardsQueue(new PrioritizedFifoExecutor<>(executorService, recoveryThreads, new MissingShardComparator()));

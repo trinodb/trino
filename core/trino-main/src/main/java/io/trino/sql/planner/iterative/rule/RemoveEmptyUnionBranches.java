@@ -53,21 +53,9 @@ public class RemoveEmptyUnionBranches
     @Override
     public Result apply(UnionNode node, Captures captures, Context context)
     {
-        long emptyBranches = node.getSources().stream()
-                .filter(source -> isEmpty(source, context.getLookup()))
-                .count();
-
-        if (emptyBranches == 0) {
-            return Result.empty();
-        }
-
-        if (emptyBranches == node.getSources().size()) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
-        }
-
+        int emptyBranches = 0;
         ImmutableList.Builder<PlanNode> newSourcesBuilder = ImmutableList.builder();
         ImmutableListMultimap.Builder<Symbol, Symbol> outputsToInputsBuilder = ImmutableListMultimap.builder();
-
         for (int i = 0; i < node.getSources().size(); i++) {
             PlanNode source = node.getSources().get(i);
             if (!isEmpty(source, context.getLookup())) {
@@ -77,6 +65,17 @@ public class RemoveEmptyUnionBranches
                     outputsToInputsBuilder.put(column, node.getSymbolMapping().get(column).get(i));
                 }
             }
+            else {
+                emptyBranches++;
+            }
+        }
+
+        if (emptyBranches == 0) {
+            return Result.empty();
+        }
+
+        if (emptyBranches == node.getSources().size()) {
+            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
         }
 
         List<PlanNode> newSources = newSourcesBuilder.build();
@@ -85,7 +84,7 @@ public class RemoveEmptyUnionBranches
         if (newSources.size() == 1) {
             Assignments.Builder assignments = Assignments.builder();
 
-            outputsToInputs.entries().stream()
+            outputsToInputs.entries()
                     .forEach(entry -> assignments.put(entry.getKey(), entry.getValue().toSymbolReference()));
 
             return Result.ofPlanNode(

@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.Node;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.BucketFunction;
@@ -25,10 +26,9 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -48,8 +48,12 @@ public class RaptorNodePartitioningProvider
     }
 
     @Override
-    public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning)
+    public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioning)
     {
+        if (partitioning instanceof RaptorUnbucketedUpdateHandle) {
+            return Optional.empty();
+        }
+
         RaptorPartitioningHandle handle = (RaptorPartitioningHandle) partitioning;
 
         Map<String, Node> nodesById = uniqueIndex(nodeSupplier.getWorkerNodes(), Node::getNodeIdentifier);
@@ -62,7 +66,7 @@ public class RaptorNodePartitioningProvider
             }
             bucketToNode.add(node);
         }
-        return createBucketNodeMap(bucketToNode.build());
+        return Optional.of(createBucketNodeMap(bucketToNode.build()));
     }
 
     @Override
@@ -74,6 +78,12 @@ public class RaptorNodePartitioningProvider
     @Override
     public BucketFunction getBucketFunction(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning, List<Type> partitionChannelTypes, int bucketCount)
     {
+        if (partitioning instanceof RaptorUnbucketedUpdateHandle) {
+            return new RaptorUnbucketedUpdateFunction(bucketCount);
+        }
+        if (partitioning instanceof RaptorBucketedUpdateHandle) {
+            return new RaptorBucketedUpdateFunction();
+        }
         return new RaptorBucketFunction(bucketCount, partitionChannelTypes);
     }
 }

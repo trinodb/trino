@@ -22,11 +22,10 @@ To connect to MySQL, you need:
 Configuration
 -------------
 
-To configure the MySQL connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``mysql.properties``, to
-mount the MySQL connector as the ``mysql`` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+To configure the MySQL connector, create a catalog properties file in
+``etc/catalog`` named, for example, ``example.properties``, to mount the MySQL
+connector as the ``mysql`` catalog. Create the file with the following contents,
+replacing the connection properties as appropriate for your setup:
 
 .. code-block:: text
 
@@ -38,16 +37,14 @@ connection properties as appropriate for your setup:
 The ``connection-url`` defines the connection information and parameters to pass
 to the MySQL JDBC driver. The supported parameters for the URL are
 available in the `MySQL Developer Guide
-<https://dev.mysql.com/doc/connector-j/8.0/en/>`_.
+<https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html>`_.
 
-For example, the following ``connection-url`` allows you to
-configure the JDBC driver to interpret time values based on UTC as a timezone on
-the server, and serves as a `workaround for a known issue
-<https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-usagenotes-known-issues-limitations.html>`_.
+For example, the following ``connection-url`` allows you to require encrypted
+connections to the MySQL server:
 
 .. code-block:: text
 
-    connection-url=jdbc:mysql://example.net:3306?serverTimezone=UTC
+    connection-url=jdbc:mysql://example.net:3306?sslMode=REQUIRED
 
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
@@ -70,7 +67,7 @@ parameter to secure the connection with TLS. By default the parameter is set to
 also set this parameter to ``REQUIRED`` which causes the connection to fail if
 TLS is not established.
 
-You can set the ``sslMode`` paremeter in the catalog configuration file by
+You can set the ``sslMode`` parameter in the catalog configuration file by
 appending it to the ``connection-url`` configuration property:
 
 .. code-block:: properties
@@ -79,6 +76,8 @@ appending it to the ``connection-url`` configuration property:
 
 For more information on TLS configuration options, see the `MySQL JDBC security
 documentation <https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-connp-props-security.html#cj-conn-prop_sslMode>`_.
+
+.. include:: jdbc-authentication.fragment
 
 Multiple MySQL servers
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -90,6 +89,11 @@ example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
+
+.. include:: query-comment-format.fragment
+
+.. |default_domain_compaction_threshold| replace:: ``32``
+.. include:: jdbc-domain-compaction-threshold.fragment
 
 .. include:: jdbc-procedures.fragment
 
@@ -103,14 +107,16 @@ Type mapping
 ------------
 
 Because Trino and MySQL each support types that the other does not, this
-connector modifies some types when reading or writing data.
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
-MySQL to Trino read type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+MySQL to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This connector supports reading the following MySQL types and performs
-conversion to Trino types with the detailed mappings as shown in the following
-table.
+The connector maps MySQL types to the corresponding Trino types following
+this table:
 
 .. list-table:: MySQL to Trino type mapping
   :widths: 30, 20, 50
@@ -128,14 +134,26 @@ table.
   * - ``TINYINT``
     - ``TINYINT``
     -
+  * - ``TINYINT UNSIGNED``
+    - ``SMALLINT``
+    -
   * - ``SMALLINT``
     - ``SMALLINT``
+    -
+  * - ``SMALLINT UNSIGNED``
+    - ``INTEGER``
     -
   * - ``INTEGER``
     - ``INTEGER``
     -
+  * - ``INTEGER UNSIGNED``
+    - ``BIGINT``
+    -
   * - ``BIGINT``
     - ``BIGINT``
+    -
+  * - ``BIGINT UNSIGNED``
+    - ``DECIMAL(20, 0)``
     -
   * - ``DOUBLE PRECISION``
     - ``DOUBLE``
@@ -173,6 +191,9 @@ table.
   * - ``BINARY``, ``VARBINARY``, ``TINYBLOB``, ``BLOB``, ``MEDIUMBLOB``, ``LONGBLOB``
     - ``VARBINARY``
     -
+  * - ``JSON``
+    - ``JSON``
+    -
   * - ``DATE``
     - ``DATE``
     -
@@ -188,12 +209,11 @@ table.
 
 No other types are supported.
 
-Trino to MySQL write type mapping
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Trino to MySQL type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This connector supports writing the following Trino types and performs
-conversion to MySQL types with the detailed mappings as shown in the
-following table.
+The connector maps Trino types to the corresponding MySQL types following
+this table:
 
 .. list-table:: Trino to MySQL type mapping
   :widths: 30, 20, 50
@@ -232,6 +252,9 @@ following table.
   * - ``VARCHAR(n)``
     - ``VARCHAR(n)``
     -
+  * - ``JSON``
+    - ``JSON``
+    -
   * - ``DATE``
     - ``DATE``
     -
@@ -246,19 +269,7 @@ No other types are supported.
 
 .. _mysql-decimal-handling:
 
-Decimal type handling
-^^^^^^^^^^^^^^^^^^^^^
-
-``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
-by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
-``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
-configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.
-
-By default, values that require rounding or truncation to fit will cause a failure at runtime. This behavior
-is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
-property, which can be set to ``UNNECESSARY`` (the default),
-``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
-(see `RoundingMode <https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+.. include:: decimal-type-handling.fragment
 
 .. include:: jdbc-type-mapping.fragment
 
@@ -268,25 +279,25 @@ Querying MySQL
 The MySQL connector provides a schema for every MySQL *database*.
 You can see the available MySQL databases by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM mysql;
+    SHOW SCHEMAS FROM example;
 
 If you have a MySQL database named ``web``, you can view the tables
 in this database by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM mysql.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web`` database
 using either of the following::
 
-    DESCRIBE mysql.web.clicks;
-    SHOW COLUMNS FROM mysql.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` database::
 
-    SELECT * FROM mysql.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``mysql`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _mysql-sql-support:
 
@@ -309,6 +320,14 @@ the following statements:
 
 .. include:: sql-delete-limitation.fragment
 
+.. _mysql-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -326,13 +345,16 @@ processed in MySQL. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-For example, group and concatenate all employee IDs by manager ID::
+.. include:: query-passthrough-warning.fragment
+
+For example, query the ``example`` catalog and group and concatenate all
+employee IDs by manager ID::
 
     SELECT
       *
     FROM
       TABLE(
-        mysql.system.query(
+        example.system.query(
           query => 'SELECT
             manager_id, GROUP_CONCAT(employee_id)
           FROM
@@ -341,6 +363,8 @@ For example, group and concatenate all employee IDs by manager ID::
             manager_id'
         )
       );
+
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------
@@ -417,6 +441,8 @@ The connector supports pushdown for a number of operations:
 * :func:`variance`
 * :func:`var_pop`
 * :func:`var_samp`
+
+.. include:: pushdown-correctness-behavior.fragment
 
 .. include:: join-pushdown-enabled-true.fragment
 

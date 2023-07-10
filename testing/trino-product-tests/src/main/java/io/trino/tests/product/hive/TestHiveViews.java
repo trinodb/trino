@@ -14,20 +14,25 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.jdbc.Row;
 import io.trino.tempto.Requires;
+import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
-import org.assertj.core.api.Assertions;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Requires({
@@ -37,7 +42,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestHiveViews
         extends AbstractTestHiveViews
 {
+    // Currently, Trino columns type signature does not correspond one to one with the Hive view columns type in case of `varchar` and `string` columns
+    @Override
+    protected List<QueryAssert.Row> getExpectedHiveViewTextualColumnsTypes()
+    {
+        return ImmutableList.of(
+                row("a_char_1", "char(1)"),
+                row("a_char_255", "char(255)"),
+                row("a_varchar_1", "varchar"),
+                row("a_varchar_65535", "varchar"),
+                row("a_string", "varchar"));
+    }
+
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testFailingHiveViewsWithMetadataListing()
     {
         setupBrokenView();
@@ -60,7 +78,7 @@ public class TestHiveViews
         }
         else {
             assertThat(onTrino().executeQuery(withSchemaFilter)).hasNoRows();
-            Assertions.assertThat(onTrino().executeQuery(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
+            assertThat(onTrino().executeQuery(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
         }
 
         // Queries with filters on table_schema and table_name are optimized to only fetch the specified table and uses
@@ -102,7 +120,7 @@ public class TestHiveViews
         }
         else {
             assertThat(onTrino().executeQuery(withSchemaFilter)).hasNoRows();
-            Assertions.assertThat(onTrino().executeQuery(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
+            assertThat(onTrino().executeQuery(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
         }
 
         // Queries with filters on table_schema and table_name are optimized to only fetch the specified table and uses
@@ -149,6 +167,7 @@ public class TestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testLateralViewExplode()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS pageAds");
@@ -184,6 +203,7 @@ public class TestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testLateralViewExplodeArrayOfStructs()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS pageAdsStructs");
@@ -220,6 +240,7 @@ public class TestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testLateralViewJsonTupleAs()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_json_tuple_table");
@@ -238,6 +259,7 @@ public class TestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testFromUtcTimestamp()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_from_utc_timestamp_source");
@@ -373,6 +395,7 @@ public class TestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testFromUtcTimestampInvalidTimeZone()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_from_utc_timestamp_invalid_time_zone_source");
@@ -398,6 +421,41 @@ public class TestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    public void testNestedFieldWithReservedKeyNames()
+    {
+        onTrino().executeQuery("DROP TABLE IF EXISTS test_nested_field_with_reserved_key_names_source");
+        onHive().executeQuery("CREATE TABLE test_nested_field_with_reserved_key_names_source (nested_field_key_word_lower_case struct<`from`:BIGINT>, " +
+                "nested_field_key_word_upper_case struct<`FROM`:BIGINT>, nested_field_quote struct<`do...from`:BIGINT>)");
+
+        onTrino().executeQuery("INSERT INTO test_nested_field_with_reserved_key_names_source VALUES (row(row(1), row(2), row(3)))");
+
+        onHive().executeQuery("DROP VIEW IF EXISTS test_nested_field_with_reserved_key_names_view");
+        onHive().executeQuery("CREATE VIEW " +
+                "test_nested_field_with_reserved_key_names_view " +
+                "AS SELECT nested_field_key_word_lower_case, nested_field_key_word_upper_case, nested_field_quote " +
+                "FROM test_nested_field_with_reserved_key_names_source");
+
+        assertThat(onHive().executeQuery("SELECT nested_field_key_word_lower_case, nested_field_key_word_upper_case, nested_field_quote FROM test_nested_field_with_reserved_key_names_view"))
+                .containsOnly(row("{\"from\":1}", "{\"from\":2}", "{\"do...from\":3}"));
+
+        assertThat(onHive().executeQuery("SELECT nested_field_key_word_lower_case.`from`, nested_field_key_word_upper_case.`from`, nested_field_quote.`do...from` FROM test_nested_field_with_reserved_key_names_view"))
+                .containsOnly(row(1L, 2L, 3L));
+
+        assertThat(onTrino().executeQuery("SELECT nested_field_key_word_lower_case, nested_field_key_word_upper_case, nested_field_quote FROM test_nested_field_with_reserved_key_names_view"))
+                .containsOnly(row(Row.builder().addField("from", 1L).build(),
+                        Row.builder().addField("from", 2L).build(),
+                        Row.builder().addField("do...from", 3L).build()));
+
+        assertThat(onTrino().executeQuery("SELECT nested_field_key_word_lower_case.\"from\", nested_field_key_word_upper_case.\"from\", nested_field_quote.\"do...from\" FROM test_nested_field_with_reserved_key_names_view"))
+                .containsOnly(row(1L, 2L, 3L));
+
+        onHive().executeQuery("DROP VIEW test_nested_field_with_reserved_key_names_view");
+        onHive().executeQuery("DROP TABLE test_nested_field_with_reserved_key_names_source");
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testFromUtcTimestampCornerCases()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_from_utc_timestamp_corner_cases_source");
@@ -458,6 +516,7 @@ public class TestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testCastTimestampAsDecimal()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS cast_timestamp_as_decimal");

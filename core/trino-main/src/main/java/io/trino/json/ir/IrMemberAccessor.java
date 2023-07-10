@@ -13,56 +13,25 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IrMemberAccessor
-        extends IrAccessor
+public record IrMemberAccessor(IrPathNode base, Optional<String> key, Optional<Type> type)
+        implements IrPathNode
 {
-    // object member key or Optional.empty for wildcard member accessor
-    private final Optional<String> key;
-
-    @JsonCreator
-    public IrMemberAccessor(@JsonProperty("base") IrPathNode base, @JsonProperty("key") Optional<String> key, @JsonProperty("type") Optional<Type> type)
+    public IrMemberAccessor
     {
-        super(base, type);
-        this.key = requireNonNull(key, "key is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(base, "member accessor base is null");
+        requireNonNull(key, "key is null"); // object member key or Optional.empty for wildcard member accessor
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrMemberAccessor(this, context);
-    }
-
-    @JsonProperty
-    public Optional<String> getKey()
-    {
-        return key;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrMemberAccessor other = (IrMemberAccessor) obj;
-        return Objects.equals(this.base, other.base) && Objects.equals(this.key, other.key);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(base, key);
     }
 }

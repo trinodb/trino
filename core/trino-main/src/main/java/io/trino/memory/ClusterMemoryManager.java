@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.common.io.Closer;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -28,7 +30,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.QueryExecution;
-import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskId;
@@ -45,13 +46,10 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.memory.MemoryPoolInfo;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -135,16 +133,11 @@ public class ClusterMemoryManager
             LocationFactory locationFactory,
             MBeanExporter exporter,
             JsonCodec<MemoryInfo> memoryInfoCodec,
-            QueryIdGenerator queryIdGenerator,
             @ForTaskLowMemoryKiller LowMemoryKiller taskLowMemoryKiller,
             @ForQueryLowMemoryKiller LowMemoryKiller queryLowMemoryKiller,
             ServerConfig serverConfig,
-            MemoryManagerConfig config,
-            NodeMemoryConfig nodeMemoryConfig)
+            MemoryManagerConfig config)
     {
-        requireNonNull(config, "config is null");
-        requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
-        requireNonNull(serverConfig, "serverConfig is null");
         checkState(serverConfig.isCoordinator(), "ClusterMemoryManager must not be bound on worker");
 
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");

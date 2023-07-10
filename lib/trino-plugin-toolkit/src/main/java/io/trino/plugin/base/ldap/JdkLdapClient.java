@@ -14,12 +14,12 @@
 package io.trino.plugin.base.ldap;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.ssl.SslUtils;
 import io.trino.spi.security.AccessDeniedException;
 
-import javax.inject.Inject;
 import javax.naming.AuthenticationException;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;

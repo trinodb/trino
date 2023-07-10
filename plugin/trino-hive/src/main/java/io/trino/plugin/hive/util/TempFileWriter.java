@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.orc.OrcDataSink;
@@ -22,17 +23,21 @@ import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterStats;
 import io.trino.orc.metadata.OrcType;
 import io.trino.spi.Page;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.orc.metadata.CompressionKind.LZ4;
+import static io.trino.orc.reader.ColumnReaders.ICEBERG_BINARY_TYPE;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
 
 public class TempFileWriter
         implements Closeable
@@ -76,7 +81,17 @@ public class TempFileWriter
                 sink,
                 columnNames,
                 types,
-                OrcType.createRootOrcType(columnNames, types),
+                OrcType.createRootOrcType(columnNames, types, Optional.of(type -> {
+                    if (type.equals(TIME_MICROS)) {
+                        // Currently used by Iceberg only. Iceberg-specific attribute is required by the ORC writer.
+                        return Optional.of(new OrcType(OrcType.OrcTypeKind.LONG, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableMap.of("iceberg.long-type", "TIME")));
+                    }
+                    if (type.getBaseName().equals(StandardTypes.UUID)) {
+                        // Currently used by Iceberg only. Iceberg-specific attribute is required by the ORC reader.
+                        return Optional.of(new OrcType(OrcType.OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableMap.of(ICEBERG_BINARY_TYPE, "UUID")));
+                    }
+                    return Optional.empty();
+                })),
                 LZ4,
                 new OrcWriterOptions()
                         .withMaxStringStatisticsLimit(DataSize.ofBytes(0))

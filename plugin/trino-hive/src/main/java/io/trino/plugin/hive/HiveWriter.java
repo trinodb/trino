@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
 import io.trino.spi.Page;
 
+import java.io.Closeable;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -57,6 +58,11 @@ public class HiveWriter
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
     }
 
+    public FileWriter getFileWriter()
+    {
+        return fileWriter;
+    }
+
     public long getWrittenBytes()
     {
         return fileWriter.getWrittenBytes();
@@ -81,10 +87,11 @@ public class HiveWriter
         inputSizeInBytes += dataPage.getSizeInBytes();
     }
 
-    public void commit()
+    public Closeable commit()
     {
-        fileWriter.commit();
+        Closeable rollbackAction = fileWriter.commit();
         onCommit.accept(this);
+        return rollbackAction;
     }
 
     long getValidationCpuNanos()

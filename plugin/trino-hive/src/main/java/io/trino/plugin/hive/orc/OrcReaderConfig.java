@@ -17,8 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.trino.orc.OrcReaderOptions;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public class OrcReaderConfig
 {
@@ -150,6 +149,19 @@ public class OrcReaderConfig
     public OrcReaderConfig setNestedLazy(boolean nestedLazy)
     {
         options = options.withNestedLazy(nestedLazy);
+        return this;
+    }
+
+    public boolean isReadLegacyShortZoneId()
+    {
+        return options.isReadLegacyShortZoneId();
+    }
+
+    @Config("hive.orc.read-legacy-short-zone-id")
+    @ConfigDescription("Allow reads on ORC files with short zone ID in the stripe footer")
+    public OrcReaderConfig setReadLegacyShortZoneId(boolean readLegacyShortZoneId)
+    {
+        options = options.withReadLegacyShortZoneId(readLegacyShortZoneId);
         return this;
     }
 }

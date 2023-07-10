@@ -13,6 +13,9 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.Experimental;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+
 public interface ConnectorSplitManager
 {
     default ConnectorSplitSource getSplits(
@@ -21,6 +24,15 @@ public interface ConnectorSplitManager
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter,
             Constraint constraint)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Experimental(eta = "2023-07-31")
+    default ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableFunctionHandle function)
     {
         throw new UnsupportedOperationException();
     }

@@ -14,7 +14,9 @@
 package io.trino.plugin.deltalake.metastore.thrift;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 
 public class DeltaLakeThriftMetastoreModule
@@ -24,5 +26,6 @@ public class DeltaLakeThriftMetastoreModule
     protected void setup(Binder binder)
     {
         install(new ThriftMetastoreModule());
+        binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(false);
     }
 }

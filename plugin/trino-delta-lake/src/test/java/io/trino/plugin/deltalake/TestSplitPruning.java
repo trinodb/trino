@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.execution.QueryStats;
 import io.trino.operator.OperatorStats;
@@ -46,6 +47,7 @@ public class TestSplitPruning
             "float_nan",
             "float_inf",
             "no_stats",
+            "nested_fields",
             "timestamp",
             "test_partitioning",
             "parquet_struct_statistics",
@@ -57,7 +59,7 @@ public class TestSplitPruning
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(DELTA_CATALOG);
+        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of("delta.register-table-procedure.enabled", "true"));
     }
 
     @BeforeClass
@@ -66,7 +68,7 @@ public class TestSplitPruning
         for (String table : TABLES) {
             String dataPath = Resources.getResource("databricks/pruning/" + table).toExternalForm();
             getQueryRunner().execute(
-                    format("CREATE TABLE %s (part_key double, name varchar, val double) WITH (location = '%s')", table, dataPath));
+                    format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), table, dataPath));
         }
     }
 
@@ -274,7 +276,7 @@ public class TestSplitPruning
         // log entry with invalid stats (low > high)
         String dataPath = Resources.getResource("databricks/pruning/invalid_log").toExternalForm();
         getQueryRunner().execute(
-                format("CREATE TABLE person (part_key double, name VARCHAR, val double) WITH (location = '%s')", dataPath));
+                format("CALL system.register_table('%s', 'person', '%s')", getSession().getSchema().orElseThrow(), dataPath));
         assertQueryFails("SELECT name FROM person WHERE income < 1000", "Failed to generate splits for tpch.person");
     }
 
@@ -355,6 +357,32 @@ public class TestSplitPruning
         testCountQuery("SELECT count(*) FROM parquet_struct_statistics WHERE arr = ARRAY[5]", 3, 9);
         testCountQuery("SELECT count(*) FROM parquet_struct_statistics WHERE m = MAP(ARRAY[1], ARRAY['a'])", 3, 9);
         testCountQuery("SELECT count(*) FROM parquet_struct_statistics WHERE row = ROW(2, 'b')", 3, 9);
+    }
+
+    @Test
+    public void testPrimitiveFieldsInsideRowColumnPruning()
+    {
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE id > 6",
+                Set.of(70.99, 80.99, 90.99, 100.99),
+                1);
+
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE id > 10",
+                Set.of(),
+                0);
+
+        // TODO pruning does not work on primitive fields inside a struct, expected splits should be 1 after file pruning (https://github.com/trinodb/trino/issues/17164)
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE parent.child1 > 600",
+                Set.of(70.99, 80.99, 90.99, 100.99),
+                2);
+
+        // TODO pruning does not work on primitive fields inside a struct, expected splits should be 0 after file pruning (https://github.com/trinodb/trino/issues/17164)
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE parent.child1 > 1000",
+                Set.of(),
+                2);
     }
 
     @Test

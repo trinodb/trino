@@ -31,9 +31,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128Math;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.time.ZoneId;
@@ -41,6 +39,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
@@ -56,7 +55,7 @@ import static java.util.Objects.requireNonNull;
 public class DecimalColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(DecimalColumnReader.class);
 
     private final DecimalType type;
     private final OrcColumn column;

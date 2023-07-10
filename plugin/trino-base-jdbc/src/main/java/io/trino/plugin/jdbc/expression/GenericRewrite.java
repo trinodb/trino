@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.jdbc.expression;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
+import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.Map;
@@ -28,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 
 public class GenericRewrite
-        implements ConnectorExpressionRule<ConnectorExpression, String>
+        implements ConnectorExpressionRule<ConnectorExpression, ParameterizedExpression>
 {
     // Matches words in the `rewritePattern`
     private static final Pattern REWRITE_TOKENS = Pattern.compile("(?<![a-zA-Z0-9_$])[a-zA-Z_$][a-zA-Z0-9_$]*(?![a-zA-Z0-9_$])");
@@ -52,12 +54,13 @@ public class GenericRewrite
     }
 
     @Override
-    public Optional<String> rewrite(ConnectorExpression expression, Captures captures, RewriteContext<String> context)
+    public Optional<ParameterizedExpression> rewrite(ConnectorExpression expression, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         MatchContext matchContext = new MatchContext();
         expressionPattern.resolve(captures, matchContext);
 
-        StringBuilder rewritten = new StringBuilder();
+        StringBuilder result = new StringBuilder();
+        ImmutableList.Builder<QueryParameter> parameters = ImmutableList.builder();
         Matcher matcher = REWRITE_TOKENS.matcher(rewritePattern);
         while (matcher.find()) {
             String identifier = matcher.group(0);
@@ -69,11 +72,12 @@ public class GenericRewrite
                     replacement = Long.toString((Long) value);
                 }
                 else if (value instanceof ConnectorExpression) {
-                    Optional<String> rewrittenExpression = context.defaultRewrite((ConnectorExpression) value);
-                    if (rewrittenExpression.isEmpty()) {
+                    Optional<ParameterizedExpression> rewritten = context.defaultRewrite((ConnectorExpression) value);
+                    if (rewritten.isEmpty()) {
                         return Optional.empty();
                     }
-                    replacement = format("(%s)", rewrittenExpression.get());
+                    replacement = format("(%s)", rewritten.get().expression());
+                    parameters.addAll(rewritten.get().parameters());
                 }
                 else {
                     throw new UnsupportedOperationException(format("Unsupported value: %s (%s)", value, value.getClass()));
@@ -82,11 +86,11 @@ public class GenericRewrite
             else {
                 replacement = identifier;
             }
-            matcher.appendReplacement(rewritten, quoteReplacement(replacement));
+            matcher.appendReplacement(result, quoteReplacement(replacement));
         }
-        matcher.appendTail(rewritten);
+        matcher.appendTail(result);
 
-        return Optional.of(rewritten.toString());
+        return Optional.of(new ParameterizedExpression(result.toString(), parameters.build()));
     }
 
     @Override

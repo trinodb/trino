@@ -23,15 +23,15 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 import io.trino.util.PowerOfTwo;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
 import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 @DefunctConfig({
@@ -63,21 +63,42 @@ public class TaskManagerConfig
     private DataSize sinkMaxBufferSize = DataSize.of(32, Unit.MEGABYTE);
     private DataSize sinkMaxBroadcastBufferSize = DataSize.of(200, Unit.MEGABYTE);
     private DataSize maxPagePartitioningBufferSize = DataSize.of(32, Unit.MEGABYTE);
+    private int pagePartitioningBufferPoolSize = 8;
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
 
     private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
     private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
+    private Duration taskTerminationTimeout = new Duration(1, TimeUnit.MINUTES);
 
     private boolean interruptStuckSplitTasksEnabled = true;
     private Duration interruptStuckSplitTasksWarningThreshold = new Duration(10, TimeUnit.MINUTES);
     private Duration interruptStuckSplitTasksTimeout = new Duration(15, TimeUnit.MINUTES);
     private Duration interruptStuckSplitTasksDetectionInterval = new Duration(2, TimeUnit.MINUTES);
 
+    private boolean scaleWritersEnabled = true;
+    // Set the value of default max writer count to 2 * max(the number of processors, 32). We can do this
+    // because preferred write partitioning is always enabled for local exchange thus partitioned inserts will never
+    // use this property. Hence, there is no risk in terms of more numbers of physical writers which can cause high
+    // resource utilization.
+    private int scaleWritersMaxWriterCount = min(getAvailablePhysicalProcessorCount(), 32) * 2;
     private int writerCount = 1;
-    // cap task concurrency to 32 in order to avoid small pages produced by local partitioning exchanges
-    private int taskConcurrency = min(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 32);
+    // Default value of partitioned task writer count should be above 1, otherwise it can create a plan
+    // with a single gather exchange node on the coordinator due to a single available processor. Whereas,
+    // on the worker nodes due to more available processors, the default value could be above 1. Therefore,
+    // it can cause error due to config mismatch during execution. Additionally, cap it to 32 in order to
+    // avoid small pages produced by local partitioning exchanges.
+    private int partitionedWriterCount = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32) * 2;
+    // Default value of task concurrency should be above 1, otherwise it can create a plan with a single gather
+    // exchange node on the coordinator due to a single available processor. Whereas, on the worker nodes due to
+    // more available processors, the default value could be above 1. Therefore, it can cause error due to config
+    // mismatch during execution. Additionally, cap it to 32 in order to avoid small pages produced by local
+    // partitioning exchanges.
+    /**
+     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
+     */
+    private int taskConcurrency = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32);
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
 
@@ -114,6 +135,21 @@ public class TaskManagerConfig
     public TaskManagerConfig setInfoUpdateInterval(Duration infoUpdateInterval)
     {
         this.infoUpdateInterval = infoUpdateInterval;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    @NotNull
+    public Duration getTaskTerminationTimeout()
+    {
+        return taskTerminationTimeout;
+    }
+
+    @Config("task.termination-timeout")
+    @ConfigDescription("Maximum duration to wait for a task to complete termination before failing the task on the coordinator")
+    public TaskManagerConfig setTaskTerminationTimeout(Duration taskTerminationTimeout)
+    {
+        this.taskTerminationTimeout = taskTerminationTimeout;
         return this;
     }
 
@@ -358,6 +394,20 @@ public class TaskManagerConfig
         return this;
     }
 
+    @Min(0)
+    public int getPagePartitioningBufferPoolSize()
+    {
+        return pagePartitioningBufferPoolSize;
+    }
+
+    @Config("driver.page-partitioning-buffer-pool-size")
+    @ConfigDescription("Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool")
+    public TaskManagerConfig setPagePartitioningBufferPoolSize(int pagePartitioningBufferPoolSize)
+    {
+        this.pagePartitioningBufferPoolSize = pagePartitioningBufferPoolSize;
+        return this;
+    }
+
     @MinDuration("5s")
     @NotNull
     public Duration getClientTimeout()
@@ -385,18 +435,59 @@ public class TaskManagerConfig
         return this;
     }
 
+    public boolean isScaleWritersEnabled()
+    {
+        return scaleWritersEnabled;
+    }
+
+    @Config("task.scale-writers.enabled")
+    @ConfigDescription("Scale the number of concurrent table writers per task based on throughput")
+    public TaskManagerConfig setScaleWritersEnabled(boolean scaleWritersEnabled)
+    {
+        this.scaleWritersEnabled = scaleWritersEnabled;
+        return this;
+    }
+
     @Min(1)
-    @PowerOfTwo
+    public int getScaleWritersMaxWriterCount()
+    {
+        return scaleWritersMaxWriterCount;
+    }
+
+    @Config("task.scale-writers.max-writer-count")
+    @ConfigDescription("Maximum number of writers per task up to which scaling will happen if task.scale-writers.enabled is set")
+    public TaskManagerConfig setScaleWritersMaxWriterCount(int scaleWritersMaxWriterCount)
+    {
+        this.scaleWritersMaxWriterCount = scaleWritersMaxWriterCount;
+        return this;
+    }
+
+    @Min(1)
     public int getWriterCount()
     {
         return writerCount;
     }
 
     @Config("task.writer-count")
-    @ConfigDescription("Number of writers per task")
+    @ConfigDescription("Number of local parallel table writers per task when prefer partitioning and task writer scaling are not used")
     public TaskManagerConfig setWriterCount(int writerCount)
     {
         this.writerCount = writerCount;
+        return this;
+    }
+
+    @Min(1)
+    @PowerOfTwo
+    public int getPartitionedWriterCount()
+    {
+        return partitionedWriterCount;
+    }
+
+    @Config("task.partitioned-writer-count")
+    @ConfigDescription("Number of local parallel table writers per task when prefer partitioning is used")
+    public TaskManagerConfig setPartitionedWriterCount(int partitionedWriterCount)
+    {
+        this.partitionedWriterCount = partitionedWriterCount;
         return this;
     }
 
@@ -521,5 +612,10 @@ public class TaskManagerConfig
     {
         this.interruptStuckSplitTasksDetectionInterval = interruptStuckSplitTasksDetectionInterval;
         return this;
+    }
+
+    public void applyFaultTolerantExecutionDefaults()
+    {
+        taskConcurrency = 8;
     }
 }

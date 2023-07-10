@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.metadata.BoundSignature;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.jsonpath.PathNodeRef;
@@ -36,6 +36,7 @@ import io.trino.sql.jsonpath.tree.ComparisonPredicate;
 import io.trino.sql.jsonpath.tree.ConjunctionPredicate;
 import io.trino.sql.jsonpath.tree.ContextVariable;
 import io.trino.sql.jsonpath.tree.DatetimeMethod;
+import io.trino.sql.jsonpath.tree.DescendantMemberAccessor;
 import io.trino.sql.jsonpath.tree.DisjunctionPredicate;
 import io.trino.sql.jsonpath.tree.DoubleMethod;
 import io.trino.sql.jsonpath.tree.ExistsPredicate;
@@ -252,6 +253,13 @@ public class JsonPathAnalyzer
             }
             // TODO process the format template, record the processed format, and deduce the returned type
             throw semanticException(NOT_SUPPORTED, pathNode, "datetime method in JSON path is not yet supported");
+        }
+
+        @Override
+        protected Type visitDescendantMemberAccessor(DescendantMemberAccessor node, Void context)
+        {
+            process(node.getBase());
+            return null;
         }
 
         @Override

@@ -14,14 +14,13 @@
 
 package io.trino.plugin.hive.security;
 
+import com.google.inject.Inject;
 import io.trino.plugin.base.security.ForwardingConnectorAccessControl;
 import io.trino.plugin.hive.SystemTableProvider;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.Set;

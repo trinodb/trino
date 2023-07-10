@@ -16,7 +16,6 @@ package io.trino.plugin.elasticsearch;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 import io.trino.Session;
 import io.trino.spi.type.VarcharType;
@@ -42,16 +41,15 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -59,12 +57,14 @@ public abstract class BaseElasticsearchConnectorTest
         extends BaseConnectorTest
 {
     private final String image;
+    private final String catalogName;
     private ElasticsearchServer elasticsearch;
     protected RestHighLevelClient client;
 
-    BaseElasticsearchConnectorTest(String image)
+    BaseElasticsearchConnectorTest(String image, String catalogName)
     {
         this.image = image;
+        this.catalogName = catalogName;
     }
 
     @Override
@@ -76,35 +76,61 @@ public abstract class BaseElasticsearchConnectorTest
         HostAndPort address = elasticsearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
-        return createElasticsearchQueryRunner(elasticsearch.getAddress(), TpchTable.getTables(), ImmutableMap.of(), ImmutableMap.of(), 3);
+        return createElasticsearchQueryRunner(
+                elasticsearch.getAddress(),
+                TpchTable.getTables(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                3,
+                catalogName);
     }
 
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+            throws IOException
+    {
+        elasticsearch.stop();
+        elasticsearch = null;
+        client.close();
+        client = null;
+    }
+
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_INSERT:
+            case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
                 return false;
 
-            case SUPPORTS_CREATE_TABLE:
-                return false;
-
-            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_LIMIT_PUSHDOWN:
+            case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_RENAME_TABLE:
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
-            case SUPPORTS_INSERT:
+            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
-            case SUPPORTS_LIMIT_PUSHDOWN:
-            case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             default:
@@ -133,21 +159,13 @@ public abstract class BaseElasticsearchConnectorTest
         };
     }
 
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-            throws IOException
-    {
-        elasticsearch.stop();
-        client.close();
-    }
-
     @Test
     public void testWithoutBackpressure()
     {
         assertQuerySucceeds("SELECT * FROM orders");
         // Check that JMX stats show no sign of backpressure
-        assertQueryReturnsEmptyResult("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*\" WHERE \"backpressurestats.alltime.count\" > 0");
-        assertQueryReturnsEmptyResult("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*\" WHERE \"backpressurestats.alltime.max\" > 0");
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", catalogName));
+        assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.elasticsearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.max\" > 0", catalogName));
     }
 
     @Test
@@ -158,15 +176,12 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
     }
 
-    /**
-     * The column metadata for the Elasticsearch connector tables are provided
-     * based on the column name in alphabetical order.
-     */
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        // The column metadata for the Elasticsearch connector tables are provided
+        // based on the column name in alphabetical order.
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("clerk", "varchar", "", "")
                 .row("comment", "varchar", "", "")
                 .row("custkey", "bigint", "", "")
@@ -177,8 +192,6 @@ public abstract class BaseElasticsearchConnectorTest
                 .row("shippriority", "bigint", "", "")
                 .row("totalprice", "real", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
@@ -208,7 +221,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE elasticsearch.tpch.orders (\n" +
+                .isEqualTo(format("CREATE TABLE %s.tpch.orders (\n", catalogName) +
                         "   clerk varchar,\n" +
                         "   comment varchar,\n" +
                         "   custkey bigint,\n" +
@@ -225,20 +238,7 @@ public abstract class BaseElasticsearchConnectorTest
     @Override
     public void testShowColumns()
     {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("clerk", "varchar", "", "")
-                .row("comment", "varchar", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderdate", "timestamp(3)", "", "")
-                .row("orderkey", "bigint", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("shippriority", "bigint", "", "")
-                .row("totalprice", "real", "", "")
-                .build();
-
-        assertEquals(expected, actual);
+        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
     @Test
@@ -283,9 +283,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "  }" +
                 "}";
         createIndex(indexName, properties);
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("custkey", 1301)
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("custkey", 1301));
 
         // not null filter
         assertQueryReturnsEmptyResult("SELECT * FROM null_predicate2 WHERE null_keyword IS NOT NULL");
@@ -471,7 +469,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAsRawJson()
             throws IOException
     {
-        String indexName = "raw_json_" + randomTableSuffix();
+        String indexName = "raw_json_" + randomNameSuffix();
 
         @Language("JSON")
         String mapping = "" +
@@ -721,7 +719,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAsRawJsonForAllPrimitiveTypes()
             throws IOException
     {
-        String indexName = "raw_json_primitive_" + randomTableSuffix();
+        String indexName = "raw_json_primitive_" + randomNameSuffix();
 
         @Language("JSON")
         String mapping = "" +
@@ -827,7 +825,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAsRawJsonCases()
             throws IOException
     {
-        String indexName = "raw_json_cases_" + randomTableSuffix();
+        String indexName = "raw_json_cases_" + randomNameSuffix();
 
         @Language("JSON")
         String mapping = "" +
@@ -888,7 +886,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAsRawJsonAndIsArraySameFieldException()
             throws IOException
     {
-        String indexName = "raw_json_array_exception" + randomTableSuffix();
+        String indexName = "raw_json_array_exception" + randomNameSuffix();
 
         @Language("JSON")
         String mapping = "" +
@@ -910,9 +908,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         createIndex(indexName, mapping);
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("array_raw_field", "test")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("array_raw_field", "test"));
 
         assertThatThrownBy(() -> computeActual("SELECT array_raw_field FROM " + indexName))
                 .hasMessage("A column, (array_raw_field) cannot be declared as a Trino array and also be rendered as json.");
@@ -947,13 +943,9 @@ public abstract class BaseElasticsearchConnectorTest
 
         index(indexName, ImmutableMap.of());
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("a", "hello")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("a", "hello"));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("a", ImmutableList.of("foo", "bar"))
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("a", ImmutableList.of("foo", "bar")));
 
         assertQuery(
                 "SELECT a FROM test_mixed_arrays",
@@ -1226,25 +1218,15 @@ public abstract class BaseElasticsearchConnectorTest
 
         createIndex(indexName, mappings);
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("boolean_column", true)
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("boolean_column", true));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("boolean_column", "true")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("boolean_column", "true"));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("boolean_column", false)
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("boolean_column", false));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("boolean_column", "false")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("boolean_column", "false"));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("boolean_column", "")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("boolean_column", ""));
 
         MaterializedResult rows = computeActual("SELECT boolean_column FROM booleans");
 
@@ -1275,21 +1257,13 @@ public abstract class BaseElasticsearchConnectorTest
 
         createIndex(indexName, mappings);
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("timestamp_column", "2015-01-01")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("timestamp_column", "2015-01-01"));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("timestamp_column", "2015-01-01T12:10:30Z")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("timestamp_column", "2015-01-01T12:10:30Z"));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("timestamp_column", 1420070400001L)
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("timestamp_column", 1420070400001L));
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("timestamp_column", "1420070400001")
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("timestamp_column", "1420070400001"));
 
         MaterializedResult rows = computeActual("SELECT timestamp_column FROM timestamps");
 
@@ -1367,13 +1341,12 @@ public abstract class BaseElasticsearchConnectorTest
                 .buildOrThrow());
 
         // Trino query filters in the engine, so the rounding (dependent on scaling factor) does not impact results
-        assertEquals(
-                computeActual("" +
-                        "SELECT " +
-                        "text_column, " +
-                        "scaled_float_column " +
-                        "FROM scaled_float_type WHERE scaled_float_column = 123.46"),
-                resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
+        assertThat(query("""
+                SELECT text_column, scaled_float_column
+                FROM scaled_float_type
+                WHERE scaled_float_column = 123.46
+                """))
+                .matches(resultBuilder(getSession(), ImmutableList.of(VARCHAR, DOUBLE))
                         .row("bar", 123.46d)
                         .build());
     }
@@ -1688,13 +1661,7 @@ public abstract class BaseElasticsearchConnectorTest
     @Test
     public void testQueryString()
     {
-        MaterializedResult actual = computeActual("SELECT count(*) FROM \"orders: +packages -slyly\"");
-
-        MaterializedResult expected = resultBuilder(getSession(), ImmutableList.of(BIGINT))
-                .row(1639L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertQuery("SELECT count(*) FROM \"orders: +packages -slyly\"", "VALUES 1639");
     }
 
     @Test
@@ -1729,9 +1696,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "  }" +
                 "}";
         createIndex(indexName, properties);
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("numeric_keyword", 20)
-                .buildOrThrow());
+        index(indexName, ImmutableMap.of("numeric_keyword", 20));
 
         assertQuery(
                 "SELECT numeric_keyword FROM numeric_keyword",
@@ -1752,7 +1717,7 @@ public abstract class BaseElasticsearchConnectorTest
     public void testAlias()
             throws IOException
     {
-        String aliasName = format("alias_%s", randomTableSuffix());
+        String aliasName = format("alias_%s", randomNameSuffix());
         addAlias("orders", aliasName);
 
         assertQuery(
@@ -1782,49 +1747,6 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery(
                 "SELECT count(*) FROM multi_alias",
                 "SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
-    }
-
-    @Test
-    public void testPassthroughQuery()
-    {
-        @Language("JSON")
-        String query = "{\n" +
-                "    \"size\": 0,\n" +
-                "    \"aggs\" : {\n" +
-                "        \"max_orderkey\" : { \"max\" : { \"field\" : \"orderkey\" } },\n" +
-                "        \"sum_orderkey\" : { \"sum\" : { \"field\" : \"orderkey\" } }\n" +
-                "    }\n" +
-                "}";
-
-        assertQuery(
-                format("WITH data(r) AS (" +
-                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
-                        "   FROM \"orders$query:%s\") " +
-                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
-                        "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8))),
-                "VALUES (60000, 449872500)");
-
-        // assert that query pass-through returns the same result as the raw_query table function
-        assertThat(query(format("WITH data(r) AS (" +
-                "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
-                "   FROM \"orders$query:%s\") " +
-                "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
-                "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8)))))
-                .matches(format("WITH data(r) AS (" +
-                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
-                        "   FROM TABLE(elasticsearch.system.raw_query(" +
-                        "                        schema => 'tpch', " +
-                        "                        index => 'orders', " +
-                        "                        query => '%s'))) " +
-                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
-                        "FROM data", query));
-
-        assertQueryFails(
-                "SELECT * FROM \"orders$query:invalid-base32-encoding\"",
-                "Elasticsearch query for 'orders' is not base32-encoded correctly");
-        assertQueryFails(
-                format("SELECT * FROM \"orders$query:%s\"", BaseEncoding.base32().encode("invalid json".getBytes(UTF_8))),
-                "Elasticsearch query for 'orders' is not valid JSON");
     }
 
     @Test
@@ -1881,7 +1803,7 @@ public abstract class BaseElasticsearchConnectorTest
     {
         // select single record
         assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
-                        "FROM TABLE(elasticsearch.system.raw_query(" +
+                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
                         "schema => 'tpch', " +
                         "index => 'nation', " +
                         "query => '{\"query\": {\"match\": {\"name\": \"ALGERIA\"}}}')) t(result)",
@@ -1891,7 +1813,7 @@ public abstract class BaseElasticsearchConnectorTest
         Session session = Session.builder(getSession())
                 .addPreparedStatement(
                         "my_query",
-                        "SELECT json_query(result, 'lax $[0][0].hits.hits._source') FROM TABLE(elasticsearch.system.raw_query(schema => ?, index => ?, query => ?))")
+                        format("SELECT json_query(result, 'lax $[0][0].hits.hits._source') FROM TABLE(%s.system.raw_query(schema => ?, index => ?, query => ?))", catalogName))
                 .build();
         assertQuery(
                 session,
@@ -1900,15 +1822,36 @@ public abstract class BaseElasticsearchConnectorTest
 
         // select multiple records by range. Use array wrapper to wrap multiple results
         assertQuery("SELECT array_sort(CAST(json_parse(json_query(result, 'lax $[0][0].hits.hits._source.name' WITH ARRAY WRAPPER)) AS array(varchar))) " +
-                        "FROM TABLE(elasticsearch.system.raw_query(" +
+                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
                         "schema => 'tpch', " +
                         "index => 'nation', " +
                         "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)",
                 "VALUES ARRAY['ALGERIA', 'ARGENTINA', 'BRAZIL', 'CANADA']");
 
+        // use aggregations
+        @Language("JSON")
+        String query = "{\n" +
+                "    \"size\": 0,\n" +
+                "    \"aggs\" : {\n" +
+                "        \"max_orderkey\" : { \"max\" : { \"field\" : \"orderkey\" } },\n" +
+                "        \"sum_orderkey\" : { \"sum\" : { \"field\" : \"orderkey\" } }\n" +
+                "    }\n" +
+                "}";
+
+        assertQuery(
+                format("WITH data(r) AS (" +
+                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
+                        "   FROM TABLE(%s.system.raw_query(" +
+                        "                        schema => 'tpch', " +
+                        "                        index => 'orders', " +
+                        "                        query => '%s'))) " +
+                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
+                        "FROM data", catalogName, query),
+                "VALUES (60000, 449872500)");
+
         // no matches
         assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits') " +
-                        "FROM TABLE(elasticsearch.system.raw_query(" +
+                        format("FROM TABLE(%s.system.raw_query(", catalogName) +
                         "schema => 'tpch', " +
                         "index => 'nation', " +
                         "query => '{\"query\": {\"match\": {\"name\": \"UTOPIA\"}}}')) t(result)",
@@ -1916,7 +1859,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         // syntax error
         assertThatThrownBy(() -> query("SELECT * " +
-                "FROM TABLE(elasticsearch.system.raw_query(" +
+                format("FROM TABLE(%s.system.raw_query(", catalogName) +
                 "schema => 'tpch', " +
                 "index => 'nation', " +
                 "query => 'wrong syntax')) t(result)"))
@@ -1927,7 +1870,7 @@ public abstract class BaseElasticsearchConnectorTest
     {
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
         assertFalse(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name));
-        assertQueryFails("SELECT * FROM " + name, ".*Table 'elasticsearch.tpch." + name + "' does not exist");
+        assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 
     protected abstract String indexEndpoint(String index, String docId);

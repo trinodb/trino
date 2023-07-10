@@ -23,9 +23,10 @@ import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static java.lang.String.format;
 
-public abstract class DecimalType
+public abstract sealed class DecimalType
         extends AbstractType
         implements FixedWidthType
+        permits LongDecimalType, ShortDecimalType
 {
     public static final int DEFAULT_SCALE = 0;
     public static final int DEFAULT_PRECISION = MAX_PRECISION;
@@ -41,11 +42,9 @@ public abstract class DecimalType
         }
 
         if (precision <= MAX_SHORT_PRECISION) {
-            return new ShortDecimalType(precision, scale);
+            return ShortDecimalType.getInstance(precision, scale);
         }
-        else {
-            return new LongDecimalType(precision, scale);
-        }
+        return new LongDecimalType(precision, scale);
     }
 
     public static DecimalType createDecimalType(int precision)

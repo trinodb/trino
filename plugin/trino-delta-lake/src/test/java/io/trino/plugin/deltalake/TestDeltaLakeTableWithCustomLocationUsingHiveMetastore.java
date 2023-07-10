@@ -13,19 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
-import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
@@ -34,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDeltaLakeTableWithCustomLocationUsingHiveMetastore
@@ -52,19 +41,8 @@ public class TestDeltaLakeTableWithCustomLocationUsingHiveMetastore
         DistributedQueryRunner queryRunner = builder.build();
 
         Map<String, String> connectorProperties = new HashMap<>();
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         metastoreDir = Files.createTempDirectory("test_delta_lake").toFile();
-        FileHiveMetastoreConfig config = new FileHiveMetastoreConfig()
-                .setCatalogDirectory(metastoreDir.toURI().toString())
-                .setMetastoreUser("test");
-        hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
-        metastore = new FileHiveMetastore(
-                new NodeVersion("testversion"),
-                hdfsEnvironment,
-                false,
-                config);
+        metastore = createTestingFileHiveMetastore(metastoreDir);
         connectorProperties.putIfAbsent("delta.unique-table-location", "true");
         connectorProperties.putIfAbsent("hive.metastore", "file");
         connectorProperties.putIfAbsent("hive.metastore.catalog.dir", metastoreDir.getPath());

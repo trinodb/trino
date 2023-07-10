@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -54,9 +56,6 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import org.roaringbitmap.RoaringBitmap;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -109,7 +108,8 @@ public class DynamicFilterService
     private final Metadata metadata;
     private final FunctionManager functionManager;
     private final TypeOperators typeOperators;
-    private final DynamicFilterConfig dynamicFilterConfig;
+    private final DataSize largeMaxSizePerFilter;
+    private final DataSize smallMaxSizePerFilter;
     private final Map<QueryId, DynamicFilterContext> dynamicFilterContexts = new ConcurrentHashMap<>();
 
     @Inject
@@ -118,7 +118,8 @@ public class DynamicFilterService
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.dynamicFilterConfig = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null");
+        this.largeMaxSizePerFilter = dynamicFilterConfig.getLargeMaxSizePerFilter();
+        this.smallMaxSizePerFilter = dynamicFilterConfig.getSmallMaxSizePerFilter();
     }
 
     public void registerQuery(SqlQueryExecution sqlQueryExecution, SubPlan fragmentedPlan)
@@ -162,9 +163,9 @@ public class DynamicFilterService
     private DataSize getDynamicFilterSizeLimit(Session session)
     {
         if (isEnableLargeDynamicFilters(session)) {
-            return dynamicFilterConfig.getLargeMaxSizePerFilter();
+            return largeMaxSizePerFilter;
         }
-        return dynamicFilterConfig.getSmallMaxSizePerFilter();
+        return smallMaxSizePerFilter;
     }
 
     public void registerQueryRetry(QueryId queryId, int attemptId)
@@ -229,7 +230,7 @@ public class DynamicFilterService
     {
         DynamicFilterContext context = dynamicFilterContexts.get(queryId);
         if (context == null) {
-            // query has been removed or not registered (e.g dynamic filtering is disabled)
+            // query has been removed or not registered (e.g. dynamic filtering is disabled)
             return false;
         }
 
@@ -241,7 +242,7 @@ public class DynamicFilterService
     {
         DynamicFilterContext context = dynamicFilterContexts.get(queryId);
         if (context == null) {
-            // query has been removed or not registered (e.g dynamic filtering is disabled)
+            // query has been removed or not registered (e.g. dynamic filtering is disabled)
             return false;
         }
 
@@ -326,7 +327,7 @@ public class DynamicFilterService
             public boolean isComplete()
             {
                 return dynamicFilters.stream()
-                        .allMatch(context.getDynamicFilterSummaries()::containsKey);
+                        .allMatch(filterId -> context.getDynamicFilterSummary(filterId).isPresent());
             }
 
             @Override
@@ -339,9 +340,12 @@ public class DynamicFilterService
             @Override
             public TupleDomain<ColumnHandle> getCurrentPredicate()
             {
-                Set<DynamicFilterId> completedDynamicFilters = dynamicFilters.stream()
-                        .filter(filter -> context.getDynamicFilterSummaries().containsKey(filter))
-                        .collect(toImmutableSet());
+                ImmutableMap.Builder<DynamicFilterId, Domain> completedFiltersBuilder = ImmutableMap.builder();
+                for (DynamicFilterId filterId : dynamicFilters) {
+                    Optional<Domain> summary = context.getDynamicFilterSummary(filterId);
+                    summary.ifPresent(domain -> completedFiltersBuilder.put(filterId, domain));
+                }
+                Map<DynamicFilterId, Domain> completedDynamicFilters = completedFiltersBuilder.buildOrThrow();
 
                 CurrentDynamicFilter currentFilter = currentDynamicFilter.get();
                 if (currentFilter.getCompletedDynamicFiltersCount() >= completedDynamicFilters.size()) {
@@ -350,8 +354,8 @@ public class DynamicFilterService
                 }
 
                 TupleDomain<ColumnHandle> dynamicFilter = TupleDomain.intersect(
-                        completedDynamicFilters.stream()
-                                .map(filter -> translateSummaryToTupleDomain(filter, context, symbolsMap, columnHandles, typeProvider))
+                        completedDynamicFilters.entrySet().stream()
+                                .map(filter -> translateSummaryToTupleDomain(context.getSession(), filter.getKey(), filter.getValue(), symbolsMap, columnHandles, typeProvider))
                                 .collect(toImmutableList()));
 
                 // It could happen that two threads update currentDynamicFilter concurrently.
@@ -423,18 +427,18 @@ public class DynamicFilterService
     @VisibleForTesting
     Optional<Domain> getSummary(QueryId queryId, DynamicFilterId filterId)
     {
-        return Optional.ofNullable(dynamicFilterContexts.get(queryId).getDynamicFilterSummaries().get(filterId));
+        return dynamicFilterContexts.get(queryId).getDynamicFilterSummary(filterId);
     }
 
     private TupleDomain<ColumnHandle> translateSummaryToTupleDomain(
+            Session session,
             DynamicFilterId filterId,
-            DynamicFilterContext dynamicFilterContext,
+            Domain summary,
             Multimap<DynamicFilterId, DynamicFilters.Descriptor> descriptorMultimap,
             Map<Symbol, ColumnHandle> columnHandles,
             TypeProvider typeProvider)
     {
         Collection<DynamicFilters.Descriptor> descriptors = descriptorMultimap.get(filterId);
-        Domain summary = dynamicFilterContext.getDynamicFilterSummaries().get(filterId);
         return TupleDomain.withColumnDomains(descriptors.stream()
                 .collect(toImmutableMap(
                         descriptor -> {
@@ -445,7 +449,7 @@ public class DynamicFilterService
                             Type targetType = typeProvider.get(Symbol.from(descriptor.getInput()));
                             Domain updatedSummary = descriptor.applyComparison(summary);
                             if (!updatedSummary.getType().equals(targetType)) {
-                                return applySaturatedCasts(metadata, functionManager, typeOperators, dynamicFilterContext.getSession(), updatedSummary, targetType);
+                                return applySaturatedCasts(metadata, functionManager, typeOperators, session, updatedSummary, targetType);
                             }
                             return updatedSummary;
                         })));
@@ -1001,6 +1005,15 @@ public class DynamicFilterService
             return dynamicFilterCollectionContexts.entrySet().stream()
                     .filter(entry -> entry.getValue().getCollectedDomainFuture().isDone())
                     .collect(toImmutableMap(Map.Entry::getKey, entry -> getFutureValue(entry.getValue().getCollectedDomainFuture())));
+        }
+
+        private Optional<Domain> getDynamicFilterSummary(DynamicFilterId filterId)
+        {
+            DynamicFilterCollectionContext context = dynamicFilterCollectionContexts.get(filterId);
+            if (context == null || !context.getCollectedDomainFuture().isDone()) {
+                return Optional.empty();
+            }
+            return Optional.of(getFutureValue(context.getCollectedDomainFuture()));
         }
 
         private Map<DynamicFilterId, SettableFuture<Void>> getLazyDynamicFilters()

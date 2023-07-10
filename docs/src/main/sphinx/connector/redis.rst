@@ -29,8 +29,8 @@ Configuration
 -------------
 
 To configure the Redis connector, create a catalog properties file
-``etc/catalog/redis.properties`` with the following content,
-replacing the properties as appropriate:
+``etc/catalog/example.properties`` with the following content, replacing the
+properties as appropriate:
 
 .. code-block:: text
 
@@ -285,21 +285,23 @@ following sections.
 Pushdown
 ^^^^^^^^
 
+.. include:: pushdown-correctness-behavior.fragment
+
 .. _redis-predicate-pushdown:
 
 Predicate pushdown support
 """"""""""""""""""""""""""
 
-The connector supports pushdown of keys, only Redis key of string type supports
-pushdown, the zset type does not support. Currently, key pushdown is not supported
-when multiple key fields are defined in the table definition file.
+The connector supports pushdown of keys of ``string`` type only, the ``zset``
+type is not supported. Key pushdown is not supported when multiple key fields
+are defined in the table definition file.
 
 The connector supports pushdown of equality predicates, such as ``IN`` or ``=``.
-Range predicates, such as ``>``, ``<``, or ``BETWEEN``, and inequality predicates,
-such as ``!=`` are not pushed down.
+Inequality predicates, such as ``!=``, and range predicates, such as ``>``,
+``<``, or ``BETWEEN`` are not pushed down.
 
 In the following example, the predicate of the first query is not pushed down
-since ``>`` is a range predicate. The other queries are pushed down.
+since ``>`` is a range predicate. The other queries are pushed down:
 
 .. code-block:: sql
 

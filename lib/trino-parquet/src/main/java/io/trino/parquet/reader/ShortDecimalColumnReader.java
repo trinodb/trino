@@ -13,24 +13,20 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.io.ParquetDecodingException;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalConversions.shortToLongCast;
 import static io.trino.spi.type.DecimalConversions.shortToShortCast;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -44,48 +40,45 @@ public class ShortDecimalColumnReader
         extends PrimitiveColumnReader
 {
     private final DecimalType parquetDecimalType;
-    private final int typeLength;
 
-    ShortDecimalColumnReader(RichColumnDescriptor descriptor, DecimalType parquetDecimalType)
+    ShortDecimalColumnReader(PrimitiveField field, DecimalType parquetDecimalType)
     {
-        super(descriptor);
+        super(field);
         this.parquetDecimalType = requireNonNull(parquetDecimalType, "parquetDecimalType is null");
-        typeLength = descriptor.getPrimitiveType().getTypeLength();
-        checkArgument(typeLength <= 16, "Type length %s should be <= 16 for short decimal column %s", typeLength, descriptor);
+        int typeLength = field.getDescriptor().getPrimitiveType().getTypeLength();
+        checkArgument(typeLength <= 16, "Type length %s should be <= 16 for short decimal column %s", typeLength, field.getDescriptor());
     }
 
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type trinoType)
     {
         if (!((trinoType instanceof DecimalType) || isIntegerType(trinoType))) {
-            throw new ParquetDecodingException(format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, columnDescriptor));
+            throw new ParquetDecodingException(format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, field.getDescriptor()));
         }
 
         long value;
 
         // When decimals are encoded with primitive types Parquet stores unscaled values
-        if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT32) {
+        if (field.getDescriptor().getPrimitiveType().getPrimitiveTypeName() == INT32) {
             value = valuesReader.readInteger();
         }
-        else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT64) {
+        else if (field.getDescriptor().getPrimitiveType().getPrimitiveTypeName() == INT64) {
             value = valuesReader.readLong();
         }
         else {
             byte[] bytes = valuesReader.readBytes().getBytes();
-            if (typeLength <= Long.BYTES) {
+            if (bytes.length <= Long.BYTES) {
                 value = getShortDecimalValue(bytes);
             }
             else {
                 int startOffset = bytes.length - Long.BYTES;
-                checkBytesFitInShortDecimal(bytes, startOffset, trinoType);
+                checkBytesFitInShortDecimal(bytes, 0, startOffset, field.getDescriptor());
                 value = getShortDecimalValue(bytes, startOffset, Long.BYTES);
             }
         }
 
-        if (trinoType instanceof DecimalType) {
-            DecimalType trinoDecimalType = (DecimalType) trinoType;
-
-            if (isShortDecimal(trinoDecimalType)) {
+        if (trinoType instanceof DecimalType trinoDecimalType) {
+            if (trinoDecimalType.isShort()) {
                 long rescale = longTenToNth(Math.abs(trinoDecimalType.getScale() - parquetDecimalType.getScale()));
                 long convertedValue = shortToShortCast(
                         value,
@@ -98,7 +91,7 @@ public class ShortDecimalColumnReader
 
                 trinoType.writeLong(blockBuilder, convertedValue);
             }
-            else if (isLongDecimal(trinoDecimalType)) {
+            else {
                 trinoType.writeObject(blockBuilder, shortToLongCast(
                         value,
                         parquetDecimalType.getPrecision(),
@@ -109,7 +102,7 @@ public class ShortDecimalColumnReader
         }
         else {
             if (parquetDecimalType.getScale() != 0) {
-                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, columnDescriptor));
+                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, field.getDescriptor()));
             }
 
             if (!isInValidNumberRange(trinoType, value)) {
@@ -140,20 +133,5 @@ public class ShortDecimalColumnReader
         }
 
         throw new IllegalArgumentException("Unsupported type: " + type);
-    }
-
-    private void checkBytesFitInShortDecimal(byte[] bytes, int endOffset, Type trinoType)
-    {
-        // Equivalent to expectedValue = bytes[endOffset] < 0 ? -1 : 0
-        byte expectedValue = (byte) (bytes[endOffset] >> 7);
-        for (int i = 0; i < endOffset; i++) {
-            if (bytes[i] != expectedValue) {
-                throw new TrinoException(NOT_SUPPORTED, format(
-                        "Could not read fixed_len_byte_array(%d) value %s into %s",
-                        typeLength,
-                        new BigDecimal(new BigInteger(bytes), parquetDecimalType.getScale()),
-                        trinoType));
-            }
-        }
     }
 }

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -28,7 +28,6 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -132,12 +131,16 @@ public class TestWindow
                                         .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
                                 exchange(LOCAL, GATHER,
                                         project(
-                                                join(INNER, ImmutableList.of(equiJoinClause("orderstatus", "linestatus")), Optional.empty(), Optional.of(PARTITIONED),
-                                                        exchange(REMOTE, REPARTITION,
-                                                                anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderkey", "orderkey")))),
-                                                        exchange(LOCAL, GATHER,
+                                                join(INNER, builder -> builder
+                                                        .equiCriteria("orderstatus", "linestatus")
+                                                        .distributionType(PARTITIONED)
+                                                        .left(
                                                                 exchange(REMOTE, REPARTITION,
-                                                                        anyTree(tableScan("lineitem", ImmutableMap.of("linestatus", "linestatus")))))))))));
+                                                                        anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderkey", "orderkey")))))
+                                                        .right(
+                                                                exchange(LOCAL, GATHER,
+                                                                        exchange(REMOTE, REPARTITION,
+                                                                                anyTree(tableScan("lineitem", ImmutableMap.of("linestatus", "linestatus"))))))))))));
 
         // Window partition key is not a super set of join key.
         assertDistributedPlan("SELECT rank() OVER (PARTITION BY o.orderkey) FROM orders o JOIN lineitem l ON o.orderstatus = l.linestatus",
@@ -148,12 +151,17 @@ public class TestWindow
                                         .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
-                                                anyTree(join(INNER, ImmutableList.of(equiJoinClause("orderstatus", "linestatus")), Optional.empty(), Optional.of(PARTITIONED),
-                                                        exchange(REMOTE, REPARTITION,
-                                                                anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderkey", "orderkey")))),
-                                                        exchange(LOCAL, GATHER,
-                                                                exchange(REMOTE, REPARTITION,
-                                                                        anyTree(tableScan("lineitem", ImmutableMap.of("linestatus", "linestatus"))))))))))));
+                                                anyTree(
+                                                        join(INNER, builder -> builder
+                                                                .equiCriteria("orderstatus", "linestatus")
+                                                                .distributionType(PARTITIONED)
+                                                                .left(
+                                                                        exchange(REMOTE, REPARTITION,
+                                                                                anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "orderkey", "orderkey")))))
+                                                                .right(
+                                                                        exchange(LOCAL, GATHER,
+                                                                                exchange(REMOTE, REPARTITION,
+                                                                                        anyTree(tableScan("lineitem", ImmutableMap.of("linestatus", "linestatus")))))))))))));
 
         // Test broadcast join
         Session broadcastJoin = Session.builder(disableCbo)
@@ -168,11 +176,15 @@ public class TestWindow
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
                                                 project(
-                                                        join(INNER, ImmutableList.of(equiJoinClause("orderstatus", "linestatus")), Optional.empty(), Optional.of(REPLICATED),
-                                                                anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey"))),
-                                                                exchange(LOCAL, GATHER,
-                                                                        exchange(REMOTE, REPLICATE,
-                                                                                anyTree(tableScan("lineitem", ImmutableMap.of("linestatus", "linestatus"))))))))))));
+                                                        join(INNER, builder -> builder
+                                                                .equiCriteria("orderstatus", "linestatus")
+                                                                .distributionType(REPLICATED)
+                                                                .left(
+                                                                        anyTree(tableScan("orders", ImmutableMap.of("orderstatus", "orderstatus", "custkey", "custkey"))))
+                                                                .right(
+                                                                        exchange(LOCAL, GATHER,
+                                                                                exchange(REMOTE, REPLICATE,
+                                                                                        anyTree(tableScan("lineitem", ImmutableMap.of("linestatus", "linestatus")))))))))))));
     }
 
     @Test
@@ -195,11 +207,10 @@ public class TestWindow
                         window(pattern -> pattern
                                         .specification(specification(ImmutableList.of("custkey"), ImmutableList.of(), ImmutableMap.of()))
                                         .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
-                                exchange(LOCAL, GATHER,
-                                        exchange(REMOTE, REPARTITION,
-                                                project(aggregation(singleGroupingSet("shippriority", "custkey"), ImmutableMap.of(), Optional.empty(), FINAL,
-                                                        exchange(LOCAL, GATHER,
-                                                                exchange(REMOTE, REPARTITION,
-                                                                        anyTree(tableScan("orders", ImmutableMap.of("custkey", "custkey", "shippriority", "shippriority"))))))))))));
+                                project(aggregation(singleGroupingSet("shippriority", "custkey"), ImmutableMap.of(), Optional.empty(), FINAL,
+                                        exchange(LOCAL, GATHER,
+                                                project(
+                                                        exchange(REMOTE, REPARTITION,
+                                                                anyTree(tableScan("orders", ImmutableMap.of("custkey", "custkey", "shippriority", "shippriority")))))))))));
     }
 }

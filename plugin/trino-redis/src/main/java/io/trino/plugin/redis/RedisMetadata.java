@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.decoder.dummy.DummyRowDecoder;
 import io.trino.spi.connector.ColumnHandle;
@@ -25,7 +26,6 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
@@ -37,9 +37,7 @@ import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-
-import javax.annotation.Nullable;
-import javax.inject.Inject;
+import jakarta.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -73,7 +71,6 @@ public class RedisMetadata
             RedisConnectorConfig redisConnectorConfig,
             Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier)
     {
-        requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
         hideInternalColumns = redisConnectorConfig.isHideInternalColumns();
 
         log.debug("Loading redis table definitions from %s", redisConnectorConfig.getTableDescriptionDir().getAbsolutePath());
@@ -275,12 +272,6 @@ public class RedisMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         return ((RedisColumnHandle) columnHandle).getColumnMetadata();
-    }
-
-    @Override
-    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return new ConnectorTableProperties();
     }
 
     @VisibleForTesting

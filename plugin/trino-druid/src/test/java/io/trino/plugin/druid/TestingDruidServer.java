@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.druid;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.io.Closer;
 import com.google.common.io.MoreFiles;
-import io.trino.testing.assertions.Assert;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -38,10 +40,12 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -212,13 +216,19 @@ public class TestingDruidServer
 
     public void execute(String sql)
     {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl());
+        try (Connection connection = getConnection();
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public Connection getConnection()
+            throws SQLException
+    {
+        return DriverManager.getConnection(getJdbcUrl());
     }
 
     public int getCoordinatorOverlordPort()
@@ -231,19 +241,42 @@ public class TestingDruidServer
         return format("jdbc:avatica:remote:url=http://localhost:%s/druid/v2/sql/avatica/", port);
     }
 
-    void ingestData(String datasource, String indexTask, String dataFilePath)
+    void ingestData(String datasource, Optional<String> fileName, String indexTask, String dataFilePath)
             throws IOException, InterruptedException
     {
         middleManager.withCopyFileToContainer(forHostPath(dataFilePath),
                 getMiddleManagerContainerPathForDataFile(dataFilePath));
 
+        indexTask = getReplacedIndexTask(datasource, fileName, indexTask);
         Request.Builder requestBuilder = new Request.Builder();
         requestBuilder.addHeader("content-type", "application/json;charset=utf-8")
                 .url("http://localhost:" + getCoordinatorOverlordPort() + "/druid/indexer/v1/task")
                 .post(RequestBody.create(null, indexTask));
         Request ingestionRequest = requestBuilder.build();
         try (Response ignored = httpClient.newCall(ingestionRequest).execute()) {
-            Assert.assertTrue(checkDatasourceAvailable(datasource), "Datasource " + datasource + " not loaded");
+            assertThat(checkDatasourceAvailable(datasource)).as("Datasource %s not loaded", datasource).isTrue();
+        }
+    }
+
+    private String getReplacedIndexTask(String targetDataSource, Optional<String> fileName, String indexTask)
+    {
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            JsonNode jsonNode = mapper.readTree(indexTask);
+            // get the nested node and modify it
+            ((ObjectNode) jsonNode
+                    .get("spec")
+                    .get("dataSchema"))
+                    .put("dataSource", targetDataSource);
+            ((ObjectNode) jsonNode
+                    .get("spec")
+                    .get("ioConfig")
+                    .get("firehose"))
+                    .put("filter", fileName.orElse(targetDataSource) + ".tsv");
+            return mapper.writeValueAsString(jsonNode);
+        }
+        catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
         }
     }
 

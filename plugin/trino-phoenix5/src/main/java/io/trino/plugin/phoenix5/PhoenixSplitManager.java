@@ -15,6 +15,7 @@ package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -39,8 +40,6 @@ import org.apache.phoenix.compile.QueryPlan;
 import org.apache.phoenix.jdbc.PhoenixPreparedStatement;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 import org.apache.phoenix.query.KeyRange;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.sql.Connection;

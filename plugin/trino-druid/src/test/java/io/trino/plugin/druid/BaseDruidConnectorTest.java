@@ -26,13 +26,15 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.assertions.Assert;
 import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.sql.DatabaseMetaData;
+import java.sql.SQLException;
 
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_ORDERS;
@@ -57,25 +59,44 @@ public abstract class BaseDruidConnectorTest
     {
         if (druidServer != null) {
             druidServer.close();
+            druidServer = null;
         }
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
-            case SUPPORTS_INSERT:
-            case SUPPORTS_CREATE_SCHEMA:
-            case SUPPORTS_CREATE_TABLE:
-            case SUPPORTS_CREATE_TABLE_WITH_DATA:
-            case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_RENAME_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_TOPN_PUSHDOWN:
             case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_CREATE_SCHEMA:
+                return false;
+
+            case SUPPORTS_CREATE_TABLE:
+            case SUPPORTS_RENAME_TABLE:
+                return false;
+
+            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
+            case SUPPORTS_INSERT:
+            case SUPPORTS_DELETE:
+                return false;
+            case SUPPORTS_TRUNCATE:
+                return true; // TODO ATM Truncate doesn't work in Druid, but testTruncateTable doesn't fail as CREATE TABLE is not supported
+
+            case SUPPORTS_ROW_TYPE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -87,11 +108,10 @@ public abstract class BaseDruidConnectorTest
         return druidServer::execute;
     }
 
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")
@@ -103,29 +123,21 @@ public abstract class BaseDruidConnectorTest
                 .row("shippriority", "bigint", "", "") // Druid doesn't support int type
                 .row("totalprice", "double", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        Assert.assertEquals(actualColumns, expectedColumns);
     }
 
     @Override
     public void testShowColumns()
     {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
+    }
 
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("__time", "timestamp(3)", "", "")
-                .row("clerk", "varchar", "", "")
-                .row("comment", "varchar", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderdate", "varchar", "", "")
-                .row("orderkey", "bigint", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("shippriority", "bigint", "", "")
-                .row("totalprice", "double", "", "")
-                .build();
-
-        assertThat(actual).isEqualTo(expected);
+    @Test
+    public void testDriverBehaviorForStoredUpperCaseIdentifiers()
+            throws SQLException
+    {
+        DatabaseMetaData metadata = druidServer.getConnection().getMetaData();
+        // if this fails we need to revisit the RemoteIdentifierSupplier implementation since the driver has probably been fixed - today it returns true even though identifiers are stored in lowercase
+        assertThat(metadata.storesUpperCaseIdentifiers()).isTrue();
     }
 
     @Test
@@ -225,8 +237,7 @@ public abstract class BaseDruidConnectorTest
                 .row("shippriority", "bigint", "", "") // Druid doesn't support int type
                 .row("totalprice", "double", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE " + datasourceA);
-        Assert.assertEquals(actualColumns, expectedColumns);
+        assertThat(query("DESCRIBE " + datasourceA)).matches(expectedColumns);
 
         // Assert that only columns from datsourceB are returned
         expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
@@ -241,8 +252,7 @@ public abstract class BaseDruidConnectorTest
                 .row("shippriority_x", "bigint", "", "") // Druid doesn't support int type
                 .row("totalprice_x", "double", "", "")
                 .build();
-        actualColumns = computeActual("DESCRIBE " + datasourceB);
-        Assert.assertEquals(actualColumns, expectedColumns);
+        assertThat(query("DESCRIBE " + datasourceB)).matches(expectedColumns);
     }
 
     @Test

@@ -14,6 +14,8 @@
 
 package io.trino.cost;
 
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.GroupReference;
@@ -26,9 +28,6 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.UnionNode;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -280,12 +279,10 @@ public class CostCalculatorWithEstimatedExchanges
             LocalCostEstimate localRepartitionCost = calculateLocalRepartitionCost(buildSizeInBytes);
             return addPartialComponents(replicateCost, localRepartitionCost);
         }
-        else {
-            LocalCostEstimate probeCost = calculateRemoteRepartitionCost(probeSizeInBytes);
-            LocalCostEstimate buildRemoteRepartitionCost = calculateRemoteRepartitionCost(buildSizeInBytes);
-            LocalCostEstimate buildLocalRepartitionCost = calculateLocalRepartitionCost(buildSizeInBytes);
-            return addPartialComponents(probeCost, buildRemoteRepartitionCost, buildLocalRepartitionCost);
-        }
+        LocalCostEstimate probeCost = calculateRemoteRepartitionCost(probeSizeInBytes);
+        LocalCostEstimate buildRemoteRepartitionCost = calculateRemoteRepartitionCost(buildSizeInBytes);
+        LocalCostEstimate buildLocalRepartitionCost = calculateLocalRepartitionCost(buildSizeInBytes);
+        return addPartialComponents(probeCost, buildRemoteRepartitionCost, buildLocalRepartitionCost);
     }
 
     public static LocalCostEstimate calculateJoinInputCost(

@@ -30,10 +30,10 @@ import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.failuredetector.HeartbeatFailureDetector.Stats;
 import io.trino.server.InternalCommunicationConfig;
+import io.trino.server.security.SecurityConfig;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
 import org.testng.annotations.Test;
-
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
 
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -61,6 +61,7 @@ public class TestHeartbeatFailureDetector
                 new JaxrsModule(),
                 new FailureDetectorModule(),
                 binder -> {
+                    configBinder(binder).bindConfig(SecurityConfig.class);
                     configBinder(binder).bindConfig(InternalCommunicationConfig.class);
                     configBinder(binder).bindConfig(QueryManagerConfig.class);
                     discoveryBinder(binder).bindSelector("trino");

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.prometheus;
 
+import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
@@ -59,12 +60,18 @@ public class PrometheusServer
 
     public URI getUri()
     {
-        return URI.create("http://" + dockerContainer.getContainerIpAddress() + ":" + dockerContainer.getMappedPort(PROMETHEUS_PORT) + "/");
+        return URI.create("http://" + dockerContainer.getHost() + ":" + dockerContainer.getMappedPort(PROMETHEUS_PORT) + "/");
     }
 
     @Override
     public void close()
     {
         dockerContainer.close();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return dockerContainer.getContainerId() != null;
     }
 }

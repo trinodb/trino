@@ -13,15 +13,14 @@
  */
 package io.trino.plugin.iceberg.catalog.file;
 
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.iceberg.FileIoProvider;
+import com.google.inject.Inject;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 
@@ -30,12 +29,12 @@ import static java.util.Objects.requireNonNull;
 public class FileMetastoreTableOperationsProvider
         implements IcebergTableOperationsProvider
 {
-    private final FileIoProvider fileIoProvider;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     @Inject
-    public FileMetastoreTableOperationsProvider(FileIoProvider fileIoProvider)
+    public FileMetastoreTableOperationsProvider(TrinoFileSystemFactory fileSystemFactory)
     {
-        this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
     @Override
@@ -48,7 +47,7 @@ public class FileMetastoreTableOperationsProvider
             Optional<String> location)
     {
         return new FileMetastoreTableOperations(
-                fileIoProvider.createFileIo(new HdfsContext(session), session.getQueryId()),
+                new ForwardingFileIo(fileSystemFactory.create(session)),
                 ((TrinoHiveCatalog) catalog).getMetastore(),
                 session,
                 database,

@@ -31,13 +31,13 @@ import io.trino.spi.type.TypeSignatureParameter;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.type.StandardTypes.ARRAY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toList;
 
 public class BlackHoleConnector
         implements Connector
@@ -136,10 +136,10 @@ public class BlackHoleConnector
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ImmutableList.copyOf(((List<?>) value).stream()
+                        value -> ((List<?>) value).stream()
                                 .map(String.class::cast)
                                 .map(name -> name.toLowerCase(ENGLISH))
-                                .collect(toList())),
+                                .collect(toImmutableList()),
                         List.class::cast),
                 durationProperty(
                         PAGE_PROCESSING_DELAY,

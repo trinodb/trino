@@ -49,6 +49,7 @@ public final class ScyllaQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
+            // note: additional copy via ImmutableList so that if fails on nulls
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("cassandra.contact-points", server.getHost());
             connectorProperties.putIfAbsent("cassandra.native-protocol-port", Integer.toString(server.getPort()));

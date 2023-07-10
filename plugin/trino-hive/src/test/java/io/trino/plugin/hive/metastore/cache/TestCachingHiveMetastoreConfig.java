@@ -31,9 +31,11 @@ public class TestCachingHiveMetastoreConfig
     {
         assertRecordedDefaults(recordDefaults(CachingHiveMetastoreConfig.class)
                 .setMetastoreCacheTtl(new Duration(0, TimeUnit.SECONDS))
+                .setStatsCacheTtl(new Duration(5, TimeUnit.MINUTES))
                 .setMetastoreRefreshInterval(null)
                 .setMetastoreCacheMaximumSize(10000)
                 .setMaxMetastoreRefreshThreads(10)
+                .setCacheMissing(true)
                 .setPartitionCacheEnabled(true));
     }
 
@@ -42,17 +44,21 @@ public class TestCachingHiveMetastoreConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore-cache-ttl", "2h")
+                .put("hive.metastore-stats-cache-ttl", "10m")
                 .put("hive.metastore-refresh-interval", "30m")
                 .put("hive.metastore-cache-maximum-size", "5000")
                 .put("hive.metastore-refresh-max-threads", "2500")
                 .put("hive.metastore-cache.cache-partitions", "false")
+                .put("hive.metastore-cache.cache-missing", "false")
                 .buildOrThrow();
 
         CachingHiveMetastoreConfig expected = new CachingHiveMetastoreConfig()
                 .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
+                .setStatsCacheTtl(new Duration(10, TimeUnit.MINUTES))
                 .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
                 .setMetastoreCacheMaximumSize(5000)
                 .setMaxMetastoreRefreshThreads(2500)
+                .setCacheMissing(false)
                 .setPartitionCacheEnabled(false);
 
         assertFullMapping(properties, expected);

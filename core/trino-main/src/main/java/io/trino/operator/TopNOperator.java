@@ -137,7 +137,7 @@ public class TopNOperator
             TypeOperators typeOperators)
     {
         this.topNProcessor = new TopNProcessor(
-                requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateUserMemoryContext(),
+                memoryTrackingContext.aggregateUserMemoryContext(),
                 types,
                 n,
                 sortChannels,

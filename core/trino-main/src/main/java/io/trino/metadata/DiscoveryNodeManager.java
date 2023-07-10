@@ -20,6 +20,9 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.discovery.client.ServiceType;
@@ -27,16 +30,14 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogManagerConfig;
+import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.server.InternalCommunicationConfig;
+import io.trino.spi.connector.CatalogHandle;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -80,9 +81,10 @@ public final class DiscoveryNodeManager
     private final ExecutorService nodeStateEventExecutor;
     private final boolean httpsRequired;
     private final InternalNode currentNode;
+    private final boolean allCatalogsOnAllNodes;
 
     @GuardedBy("this")
-    private SetMultimap<CatalogHandle, InternalNode> activeNodesByCatalogHandle;
+    private Optional<SetMultimap<CatalogHandle, InternalNode>> activeNodesByCatalogHandle = Optional.empty();
 
     @GuardedBy("this")
     private AllNodes allNodes;
@@ -100,7 +102,8 @@ public final class DiscoveryNodeManager
             FailureDetector failureDetector,
             NodeVersion expectedNodeVersion,
             @ForNodeManager HttpClient httpClient,
-            InternalCommunicationConfig internalCommunicationConfig)
+            InternalCommunicationConfig internalCommunicationConfig,
+            CatalogManagerConfig catalogManagerConfig)
     {
         this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
@@ -109,10 +112,11 @@ public final class DiscoveryNodeManager
         this.nodeStateUpdateExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("node-state-poller-%s"));
         this.nodeStateEventExecutor = newCachedThreadPool(daemonThreadsNamed("node-state-events-%s"));
         this.httpsRequired = internalCommunicationConfig.isHttpsRequired();
+        this.allCatalogsOnAllNodes = catalogManagerConfig.getCatalogMangerKind() != CatalogMangerKind.STATIC;
 
         this.currentNode = findCurrentNode(
                 serviceSelector.selectAllServices(),
-                requireNonNull(nodeInfo, "nodeInfo is null").getNodeId(),
+                nodeInfo.getNodeId(),
                 expectedNodeVersion,
                 httpsRequired);
 
@@ -264,7 +268,9 @@ public final class DiscoveryNodeManager
         }
 
         // nodes by catalog handle changes anytime a node adds or removes a catalog (note: this is not part of the listener system)
-        activeNodesByCatalogHandle = byCatalogHandleBuilder.build();
+        if (!allCatalogsOnAllNodes) {
+            activeNodesByCatalogHandle = Optional.of(byCatalogHandleBuilder.build());
+        }
 
         AllNodes allNodes = new AllNodes(activeNodesBuilder.build(), inactiveNodesBuilder.build(), shuttingDownNodesBuilder.build(), coordinatorsBuilder.build());
         // only update if all nodes actually changed (note: this does not include the connectors registered with the nodes)
@@ -339,8 +345,10 @@ public final class DiscoveryNodeManager
     @Override
     public synchronized Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle)
     {
-        // activeNodesByCatalogHandle is immutable
-        return activeNodesByCatalogHandle.get(catalogHandle);
+        // activeNodesByCatalogName is immutable
+        return activeNodesByCatalogHandle
+                .map(map -> map.get(catalogHandle))
+                .orElseGet(() -> allNodes.getActiveNodes());
     }
 
     @Override

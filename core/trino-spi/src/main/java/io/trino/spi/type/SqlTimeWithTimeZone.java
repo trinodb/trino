@@ -26,6 +26,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.POWERS_OF_TEN;
 import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
 import static io.trino.spi.type.Timestamps.rescale;
+import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 
@@ -71,6 +72,11 @@ public final class SqlTimeWithTimeZone
         return offsetMinutes;
     }
 
+    public SqlTimeWithTimeZone roundTo(int precision)
+    {
+        return new SqlTimeWithTimeZone(precision, round(picos, 12 - precision) % PICOSECONDS_PER_DAY, offsetMinutes);
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -97,20 +103,38 @@ public final class SqlTimeWithTimeZone
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder();
-        builder.append(format(
-                "%02d:%02d:%02d",
-                picos / PICOSECONDS_PER_HOUR,
-                (picos / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR,
-                (picos / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE));
+        StringBuilder builder = new StringBuilder(14 + (precision == 0 ? 0 : 1 + precision));
+        appendTwoDigits((int) (picos / PICOSECONDS_PER_HOUR), builder);
+        builder.append(':');
+        appendTwoDigits((int) ((picos / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR), builder);
+        builder.append(':');
+        appendTwoDigits((int) ((picos / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE), builder);
 
         if (precision > 0) {
             long scaledFraction = (picos % PICOSECONDS_PER_SECOND) / POWERS_OF_TEN[MAX_PRECISION - precision];
-            builder.append(".");
-            builder.append(format("%0" + precision + "d", scaledFraction));
+            builder.append('.');
+            builder.setLength(builder.length() + precision);
+
+            for (int index = builder.length() - 1; index > 8; index--) {
+                long temp = scaledFraction / 10;
+                int digit = (int) (scaledFraction - (temp * 10));
+                scaledFraction = temp;
+                builder.setCharAt(index, (char) ('0' + digit));
+            }
         }
-        builder.append(format("%s%02d:%02d", offsetMinutes >= 0 ? '+' : '-', abs(offsetMinutes / 60), abs(offsetMinutes % 60)));
+        builder.append(offsetMinutes >= 0 ? '+' : '-');
+        appendTwoDigits(abs(offsetMinutes / 60), builder);
+        builder.append(':');
+        appendTwoDigits(abs(offsetMinutes % 60), builder);
 
         return builder.toString();
+    }
+
+    private static void appendTwoDigits(int value, StringBuilder builder)
+    {
+        if (value < 10) {
+            builder.append('0');
+        }
+        builder.append(value);
     }
 }

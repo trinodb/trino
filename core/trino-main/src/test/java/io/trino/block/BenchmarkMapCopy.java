@@ -15,7 +15,7 @@ package io.trino.block;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.type.MapType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -72,8 +72,7 @@ public class BenchmarkMapCopy
         private int mapSize;
 
         private Block dataBlock;
-        private BlockBuilder blockBuilder;
-        private BlockBuilderStatus status;
+        private MapBlockBuilder blockBuilder;
 
         @Setup
         public void setup()
@@ -81,12 +80,12 @@ public class BenchmarkMapCopy
             MapType mapType = mapType(VARCHAR, BIGINT);
             blockBuilder = mapType.createBlockBuilder(null, POSITIONS);
             for (int position = 0; position < POSITIONS; position++) {
-                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-                for (int i = 0; i < mapSize; i++) {
-                    VARCHAR.writeString(entryBuilder, String.valueOf(ThreadLocalRandom.current().nextInt()));
-                    BIGINT.writeLong(entryBuilder, ThreadLocalRandom.current().nextInt());
-                }
-                blockBuilder.closeEntry();
+                blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                    for (int i = 0; i < mapSize; i++) {
+                        VARCHAR.writeString(keyBuilder, String.valueOf(ThreadLocalRandom.current().nextInt()));
+                        BIGINT.writeLong(valueBuilder, ThreadLocalRandom.current().nextInt());
+                    }
+                });
             }
 
             dataBlock = blockBuilder.build();
@@ -99,7 +98,7 @@ public class BenchmarkMapCopy
 
         public BlockBuilder getBlockBuilder()
         {
-            return blockBuilder.newBlockBuilderLike(status);
+            return blockBuilder.newBlockBuilderLike(null);
         }
     }
 

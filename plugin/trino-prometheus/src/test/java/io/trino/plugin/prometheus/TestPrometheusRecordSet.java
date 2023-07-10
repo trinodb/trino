@@ -105,6 +105,7 @@ public class TestPrometheusRecordSet
     {
         if (prometheusHttpServer != null) {
             prometheusHttpServer.stop();
+            prometheusHttpServer = null;
         }
     }
 }

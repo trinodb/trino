@@ -14,9 +14,8 @@
 package io.trino.plugin.jdbc.expression;
 
 import com.google.common.collect.ImmutableMap;
+import jakarta.annotation.Nullable;
 import org.antlr.v4.runtime.ParserRuleContext;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Map;

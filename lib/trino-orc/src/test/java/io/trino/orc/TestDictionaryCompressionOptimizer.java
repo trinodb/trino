@@ -622,9 +622,7 @@ public class TestDictionaryCompressionOptimizer
                 direct = true;
                 return OptionalInt.of(toIntExact(directBytes));
             }
-            else {
-                return OptionalInt.empty();
-            }
+            return OptionalInt.empty();
         }
 
         public boolean isDirect()

@@ -16,6 +16,7 @@ package io.trino.spi.eventlistener;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.ErrorCode;
+import io.trino.spi.Unstable;
 
 import java.util.Optional;
 
@@ -34,6 +35,7 @@ public class QueryFailureInfo
     private final String failuresJson;
 
     @JsonCreator
+    @Unstable
     public QueryFailureInfo(
             ErrorCode errorCode,
             Optional<String> failureType,

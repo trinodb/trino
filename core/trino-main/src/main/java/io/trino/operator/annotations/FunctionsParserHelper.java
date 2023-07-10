@@ -16,23 +16,22 @@ package io.trino.operator.annotations;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.Signature;
-import io.trino.metadata.Signature.Builder;
-import io.trino.metadata.TypeVariableConstraint;
-import io.trino.metadata.TypeVariableConstraint.TypeVariableConstraintBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.Signature;
+import io.trino.spi.function.Signature.Builder;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.TypeParameterSpecialization;
+import io.trino.spi.function.TypeVariableConstraint;
+import io.trino.spi.function.TypeVariableConstraint.TypeVariableConstraintBuilder;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.type.Constraint;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
@@ -63,6 +62,7 @@ import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
@@ -96,8 +96,7 @@ public final class FunctionsParserHelper
         HashMultimap<String, String> castableTo = HashMultimap.create();
         HashMultimap<String, String> castableFrom = HashMultimap.create();
         for (ImplementationDependency dependency : dependencies) {
-            if (dependency instanceof OperatorImplementationDependency) {
-                OperatorImplementationDependency operatorDependency = (OperatorImplementationDependency) dependency;
+            if (dependency instanceof OperatorImplementationDependency operatorDependency) {
                 OperatorType operator = operatorDependency.getOperator();
                 List<TypeSignature> argumentTypes = operatorDependency.getArgumentTypes();
                 if (COMPARABLE_TYPE_OPERATORS.contains(operator)) {
@@ -120,13 +119,14 @@ public final class FunctionsParserHelper
                         verifyTypeSignatureDoesNotContainAnyTypeParameters(typeSignature, typeSignature, typeParameterNames);
                     }
                 }
+                else if (operator == READ_VALUE) {
+                    verifyOperatorSignature(operator, argumentTypes);
+                }
                 else {
                     throw new IllegalArgumentException("Operator dependency on " + operator + " is not allowed");
                 }
             }
-            else if (dependency instanceof CastImplementationDependency) {
-                CastImplementationDependency castImplementationDependency = (CastImplementationDependency) dependency;
-
+            else if (dependency instanceof CastImplementationDependency castImplementationDependency) {
                 TypeSignature fromType = castImplementationDependency.getFromType();
                 TypeSignature toType = castImplementationDependency.getToType();
                 if (typeParameterNames.contains(fromType.getBase())) {

@@ -44,11 +44,6 @@ public final class Range
     private final MethodHandle comparisonOperator;
     private final boolean isSingleValue;
 
-    Range(Type type, boolean lowInclusive, Optional<Object> lowValue, boolean highInclusive, Optional<Object> highValue)
-    {
-        this(type, lowInclusive, lowValue, highInclusive, highValue, getComparisonOperator(type));
-    }
-
     Range(Type type, boolean lowInclusive, Optional<Object> lowValue, boolean highInclusive, Optional<Object> highValue, MethodHandle comparisonOperator)
     {
         requireNonNull(type, "type is null");
@@ -96,7 +91,7 @@ public final class Range
         }
     }
 
-    protected static MethodHandle getComparisonOperator(Type type)
+    static MethodHandle getComparisonOperator(Type type)
     {
         // choice of placing unordered values first or last does not matter for this code
         return TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
@@ -104,45 +99,45 @@ public final class Range
 
     public static Range all(Type type)
     {
-        return new Range(type, false, Optional.empty(), false, Optional.empty());
+        return new Range(type, false, Optional.empty(), false, Optional.empty(), getComparisonOperator(type));
     }
 
     public static Range greaterThan(Type type, Object low)
     {
         requireNonNull(low, "low is null");
-        return new Range(type, false, Optional.of(low), false, Optional.empty());
+        return new Range(type, false, Optional.of(low), false, Optional.empty(), getComparisonOperator(type));
     }
 
     public static Range greaterThanOrEqual(Type type, Object low)
     {
         requireNonNull(low, "low is null");
-        return new Range(type, true, Optional.of(low), false, Optional.empty());
+        return new Range(type, true, Optional.of(low), false, Optional.empty(), getComparisonOperator(type));
     }
 
     public static Range lessThan(Type type, Object high)
     {
         requireNonNull(high, "high is null");
-        return new Range(type, false, Optional.empty(), false, Optional.of(high));
+        return new Range(type, false, Optional.empty(), false, Optional.of(high), getComparisonOperator(type));
     }
 
     public static Range lessThanOrEqual(Type type, Object high)
     {
         requireNonNull(high, "high is null");
-        return new Range(type, false, Optional.empty(), true, Optional.of(high));
+        return new Range(type, false, Optional.empty(), true, Optional.of(high), getComparisonOperator(type));
     }
 
     public static Range equal(Type type, Object value)
     {
         requireNonNull(value, "value is null");
         Optional<Object> valueAsOptional = Optional.of(value);
-        return new Range(type, true, valueAsOptional, true, valueAsOptional);
+        return new Range(type, true, valueAsOptional, true, valueAsOptional, getComparisonOperator(type));
     }
 
     public static Range range(Type type, Object low, boolean lowInclusive, Object high, boolean highInclusive)
     {
         requireNonNull(low, "low is null");
         requireNonNull(high, "high is null");
-        return new Range(type, lowInclusive, Optional.of(low), highInclusive, Optional.of(high));
+        return new Range(type, lowInclusive, Optional.of(low), highInclusive, Optional.of(high), getComparisonOperator(type));
     }
 
     public Type getType()
@@ -226,7 +221,8 @@ public final class Range
                 compareLowBound <= 0 ? this.lowInclusive : other.lowInclusive,
                 compareLowBound <= 0 ? this.lowValue : other.lowValue,
                 compareHighBound >= 0 ? this.highInclusive : other.highInclusive,
-                compareHighBound >= 0 ? this.highValue : other.highValue);
+                compareHighBound >= 0 ? this.highValue : other.highValue,
+                comparisonOperator);
     }
 
     public Optional<Range> intersect(Range other)
@@ -243,7 +239,8 @@ public final class Range
                 compareLowBound >= 0 ? this.lowInclusive : other.lowInclusive,
                 compareLowBound >= 0 ? this.lowValue : other.lowValue,
                 compareHighBound <= 0 ? this.highInclusive : other.highInclusive,
-                compareHighBound <= 0 ? this.highValue : other.highValue));
+                compareHighBound <= 0 ? this.highValue : other.highValue,
+                comparisonOperator));
     }
 
     public boolean overlaps(Range other)
@@ -284,7 +281,8 @@ public final class Range
                     this.lowValue,
                     // max of high bounds
                     compareHighBound <= 0 ? next.highInclusive : this.highInclusive,
-                    compareHighBound <= 0 ? next.highValue : this.highValue));
+                    compareHighBound <= 0 ? next.highValue : this.highValue,
+                    comparisonOperator));
         }
 
         return Optional.empty();

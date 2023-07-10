@@ -15,6 +15,8 @@ package io.trino.execution.resourcegroups;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.stats.CounterStat;
 import io.trino.execution.ManagedQueryExecution;
 import io.trino.execution.resourcegroups.WeightedFairQueue.Usage;
@@ -27,9 +29,6 @@ import io.trino.spi.resourcegroups.ResourceGroupState;
 import io.trino.spi.resourcegroups.SchedulingPolicy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.time.Duration;
 import java.util.Collection;
@@ -234,12 +233,10 @@ public class InternalResourceGroup
             if (canRunMore()) {
                 return CAN_RUN;
             }
-            else if (canQueueMore()) {
+            if (canQueueMore()) {
                 return CAN_QUEUE;
             }
-            else {
-                return FULL;
-            }
+            return FULL;
         }
     }
 
@@ -877,9 +874,7 @@ public class InternalResourceGroup
         if (policy == QUERY_PRIORITY) {
             return group.getHighestQueryPriority();
         }
-        else {
-            return group.computeSchedulingWeight();
-        }
+        return group.computeSchedulingWeight();
     }
 
     private long computeSchedulingWeight()

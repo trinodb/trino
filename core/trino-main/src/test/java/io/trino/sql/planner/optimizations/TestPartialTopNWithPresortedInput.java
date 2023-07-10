@@ -20,23 +20,18 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.Plan;
+import io.trino.spi.type.RowType;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
-import io.trino.sql.planner.sanity.ValidateLimitWithPresortedInput;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.testing.LocalQueryRunner;
-import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,13 +39,15 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
@@ -78,6 +75,8 @@ public class TestPartialTopNWithPresortedInput
     private static final ColumnHandle columnHandleA = new MockConnectorColumnHandle(columnNameA, VARCHAR);
     private static final String columnNameB = "col_b";
 
+    private static final SchemaTableName nestedField = new SchemaTableName(TEST_SCHEMA, "with_nested_field");
+
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
     {
@@ -94,8 +93,10 @@ public class TestPartialTopNWithPresortedInput
                                 TupleDomain.all(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty(),
                                 ImmutableList.of(new SortingProperty<>(columnHandleA, ASC_NULLS_FIRST)));
+                    }
+                    else if (tableHandle.getTableName().equals(nestedField)) {
+                        return new ConnectorTableProperties();
                     }
                     throw new IllegalArgumentException();
                 })
@@ -104,6 +105,10 @@ public class TestPartialTopNWithPresortedInput
                         return ImmutableList.of(
                                 new ColumnMetadata(columnNameA, VARCHAR),
                                 new ColumnMetadata(columnNameB, VARCHAR));
+                    }
+                    else if (schemaTableName.equals(nestedField)) {
+                        return ImmutableList.of(
+                                new ColumnMetadata("nested", RowType.from(ImmutableList.of(RowType.field("k", INTEGER)))));
                     }
                     throw new IllegalArgumentException();
                 })
@@ -116,9 +121,7 @@ public class TestPartialTopNWithPresortedInput
     public void testWithSortedTable()
     {
         List<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("t_col_a", ASCENDING, FIRST));
-        assertPlanWithValidation(
-                "SELECT col_a FROM table_a ORDER BY 1 ASC NULLS FIRST LIMIT 10",
-                output(
+        assertDistributedPlan("SELECT col_a FROM table_a ORDER BY 1 ASC NULLS FIRST LIMIT 10", output(
                         topN(10, orderBy, FINAL,
                                 exchange(LOCAL, GATHER, ImmutableList.of(),
                                         exchange(REMOTE, GATHER, ImmutableList.of(),
@@ -131,9 +134,7 @@ public class TestPartialTopNWithPresortedInput
                                                                 .collect(toImmutableList()),
                                                         tableScan("table_a", ImmutableMap.of("t_col_a", "col_a"))))))));
 
-        assertPlanWithValidation(
-                "SELECT col_a FROM table_a ORDER BY 1 ASC NULLS FIRST",
-                output(
+        assertDistributedPlan("SELECT col_a FROM table_a ORDER BY 1 ASC NULLS FIRST", output(
                         exchange(REMOTE, GATHER, orderBy,
                                 exchange(LOCAL, GATHER, orderBy,
                                         sort(orderBy,
@@ -141,9 +142,7 @@ public class TestPartialTopNWithPresortedInput
                                                         tableScan("table_a", ImmutableMap.of("t_col_a", "col_a"))))))));
 
         orderBy = ImmutableList.of(sort("t_col_a", ASCENDING, LAST));
-        assertPlanWithValidation(
-                "SELECT col_a FROM table_a ORDER BY 1 ASC NULLS LAST LIMIT 10",
-                output(
+        assertDistributedPlan("SELECT col_a FROM table_a ORDER BY 1 ASC NULLS LAST LIMIT 10", output(
                         topN(10, orderBy, FINAL,
                                 exchange(LOCAL, GATHER, ImmutableList.of(),
                                         exchange(REMOTE, GATHER, ImmutableList.of(),
@@ -155,9 +154,7 @@ public class TestPartialTopNWithPresortedInput
     public void testWithSortedWindowFunction()
     {
         List<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("col_b", ASCENDING, LAST));
-        assertPlanWithValidation(
-                "SELECT col_b, COUNT(*) OVER (ORDER BY col_b) FROM table_a ORDER BY col_b LIMIT 5",
-                output(
+        assertDistributedPlan("SELECT col_b, COUNT(*) OVER (ORDER BY col_b) FROM table_a ORDER BY col_b LIMIT 5", output(
                         topN(5, orderBy, FINAL,
                                 exchange(LOCAL, GATHER, ImmutableList.of(),
                                         limit(
@@ -180,9 +177,7 @@ public class TestPartialTopNWithPresortedInput
     @Test
     public void testWithConstantProperty()
     {
-        assertPlanWithValidation(
-                "SELECT * FROM (VALUES (1), (1)) AS t (id) WHERE id = 1 ORDER BY 1 LIMIT 1",
-                output(
+        assertDistributedPlan("SELECT * FROM (VALUES (1), (1)) AS t (id) WHERE id = 1 ORDER BY 1 LIMIT 1", output(
                         topN(1, ImmutableList.of(sort("id", ASCENDING, LAST)), FINAL,
                                 exchange(LOCAL, GATHER, ImmutableList.of(),
                                         limit(1, ImmutableList.of(), true, ImmutableList.of("id"),
@@ -194,15 +189,23 @@ public class TestPartialTopNWithPresortedInput
                                                                         ImmutableList.of(new LongLiteral("1"))))))))));
     }
 
-    private void assertPlanWithValidation(@Language("SQL") String sql, PlanMatchPattern pattern)
+    @Test
+    public void testNestedField()
     {
-        LocalQueryRunner queryRunner = getQueryRunner();
-        queryRunner.inTransaction(queryRunner.getDefaultSession(), transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
-            PlannerContext plannerContext = queryRunner.getPlannerContext();
-            new ValidateLimitWithPresortedInput().validate(actualPlan.getRoot(), transactionSession, plannerContext, createTestingTypeAnalyzer(plannerContext), actualPlan.getTypes(), WarningCollector.NOOP);
-            return null;
-        });
+        assertDistributedPlan(
+                """
+                        SELECT nested.k
+                        FROM with_nested_field
+                        WHERE nested.k = 1
+                        ORDER BY nested.k
+                        LIMIT 1
+                        """,
+                output(
+                        topN(1, ImmutableList.of(sort("k", ASCENDING, LAST)), FINAL,
+                                anyTree(
+                                        limit(1, ImmutableList.of(), true, ImmutableList.of("k"),
+                                                project(ImmutableMap.of("k", expression("nested[1]")),
+                                                        filter("nested[1] = 1",
+                                                                tableScan("with_nested_field", ImmutableMap.of("nested", "nested")))))))));
     }
 }

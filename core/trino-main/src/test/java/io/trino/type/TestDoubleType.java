@@ -59,7 +59,8 @@ public class TestDoubleType
     @Test
     public void testNaNHash()
     {
-        BlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 4);
+        LongArrayBlockBuilder blockBuilder = (LongArrayBlockBuilder) DOUBLE.createBlockBuilder(null, 5);
+        DOUBLE.writeDouble(blockBuilder, Double.NaN);
         blockBuilder.writeLong(doubleToLongBits(Double.NaN));
         blockBuilder.writeLong(doubleToRawLongBits(Double.NaN));
         // the following two are the long values of a double NaN
@@ -70,10 +71,12 @@ public class TestDoubleType
         assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 1));
         assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 2));
         assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 3));
+        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 4));
 
         BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(DOUBLE);
         assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 1));
         assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 2));
         assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 3));
+        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 4));
     }
 }

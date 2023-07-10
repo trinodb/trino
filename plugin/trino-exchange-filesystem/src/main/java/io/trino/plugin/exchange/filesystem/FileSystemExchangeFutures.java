@@ -33,9 +33,7 @@ public final class FileSystemExchangeFutures
             if (throwable instanceof Error || throwable instanceof IOException) {
                 return immediateFailedFuture(throwable);
             }
-            else {
-                return immediateFailedFuture(new IOException(throwable));
-            }
+            return immediateFailedFuture(new IOException(throwable));
         }, directExecutor()));
     }
 }

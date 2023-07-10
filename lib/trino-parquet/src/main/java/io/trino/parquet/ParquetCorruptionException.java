@@ -34,4 +34,14 @@ public class ParquetCorruptionException
     {
         super(format(messageFormat, args), cause);
     }
+
+    public ParquetCorruptionException(ParquetDataSourceId dataSourceId, String messageFormat, Object... args)
+    {
+        super(formatMessage(dataSourceId, messageFormat, args));
+    }
+
+    private static String formatMessage(ParquetDataSourceId dataSourceId, String messageFormat, Object[] args)
+    {
+        return "Malformed Parquet file. " + format(messageFormat, args) + " [" + dataSourceId + "]";
+    }
 }

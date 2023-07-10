@@ -43,8 +43,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createAbfsDeltaLakeQueryRunner;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.requiredNonEmptySystemProperty;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -87,21 +86,29 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
         Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", posixFilePermissions);
         hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
-        Files.write(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent.getBytes(UTF_8));
+        Files.writeString(hadoopCoreSiteXmlTempFile, abfsSpecificCoreSiteXmlContent);
 
         HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(
                 bucketName,
                 ImmutableMap.of("/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()),
                 HiveHadoop.HIVE3_IMAGE);
         hiveMinioDataLake.start();
-        return hiveMinioDataLake;
+        return hiveMinioDataLake;  // closed by superclass
     }
 
     @Override
-    protected QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
-            throws Exception
+    protected Map<String, String> hiveStorageConfiguration()
     {
-        return createAbfsDeltaLakeQueryRunner(DELTA_CATALOG, SCHEMA, ImmutableMap.of(), connectorProperties, hiveMinioDataLake.getHiveHadoop());
+        return ImmutableMap.<String, String>builder()
+                .put("hive.azure.abfs-storage-account", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-account"))
+                .put("hive.azure.abfs-access-key", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-access-key"))
+                .buildOrThrow();
+    }
+
+    @Override
+    protected Map<String, String> deltaStorageConfiguration()
+    {
+        return hiveStorageConfiguration();
     }
 
     @AfterClass(alwaysRun = true)
@@ -114,7 +121,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     }
 
     @Override
-    protected void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
+    protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
         String targetDirectory = bucketName + "/" + table;
 
@@ -134,7 +141,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
             throw new UncheckedIOException(e);
         }
 
-        queryRunner.execute(format("CREATE TABLE %s (dummy int) WITH (location = '%s')", table, getLocationForTable(bucketName, table)));
+        queryRunner.execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, table, getLocationForTable(bucketName, table)));
     }
 
     @Override

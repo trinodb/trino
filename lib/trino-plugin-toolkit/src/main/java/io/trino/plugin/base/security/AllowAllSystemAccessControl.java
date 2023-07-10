@@ -38,7 +38,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 
 public class AllowAllSystemAccessControl
         implements SystemAccessControl
@@ -59,7 +58,6 @@ public class AllowAllSystemAccessControl
         @Override
         public SystemAccessControl create(Map<String, String> config)
         {
-            requireNonNull(config, "config is null");
             checkArgument(config.isEmpty(), "This access controller does not support any configuration properties");
             return INSTANCE;
         }
@@ -133,13 +131,23 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateCatalog(SystemSecurityContext context, String catalog)
+    {
+    }
+
+    @Override
+    public void checkCanDropCatalog(SystemSecurityContext context, String catalog)
+    {
+    }
+
+    @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
         return catalogs;
     }
 
     @Override
-    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
+    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema, Map<String, Object> properties)
     {
     }
 
@@ -252,6 +260,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
     }
@@ -333,6 +346,11 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
     }
 
@@ -451,6 +469,12 @@ public class AllowAllSystemAccessControl
     public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
         return emptyList();
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    {
+        return Optional.empty();
     }
 
     @Override

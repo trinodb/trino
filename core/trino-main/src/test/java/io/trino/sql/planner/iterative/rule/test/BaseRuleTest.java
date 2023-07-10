@@ -16,16 +16,17 @@ package io.trino.sql.planner.iterative.rule.test;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Plugin;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test
+@TestInstance(PER_CLASS)
 public abstract class BaseRuleTest
 {
     private RuleTester tester;
@@ -36,7 +37,7 @@ public abstract class BaseRuleTest
         this.plugins = ImmutableList.copyOf(plugins);
     }
 
-    @BeforeClass
+    @BeforeAll
     public final void setUp()
     {
         Optional<LocalQueryRunner> localQueryRunner = createLocalQueryRunner();
@@ -57,7 +58,7 @@ public abstract class BaseRuleTest
         return Optional.empty();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void tearDown()
     {
         closeAllRuntimeException(tester);

@@ -14,17 +14,15 @@
 
 package io.trino.plugin.kafka;
 
+import com.google.inject.Inject;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
 import static io.trino.plugin.kafka.utils.PropertiesUtils.readProperties;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG;
 
@@ -38,7 +36,6 @@ public class DefaultKafkaAdminFactory
     public DefaultKafkaAdminFactory(KafkaConfig kafkaConfig)
             throws Exception
     {
-        requireNonNull(kafkaConfig, "kafkaConfig is null");
         nodes = kafkaConfig.getNodes();
         configurationProperties = readProperties(kafkaConfig.getResourceConfigFiles());
     }

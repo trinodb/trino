@@ -54,7 +54,7 @@ public class WithPattern<T>
         BiFunction<? super T, C, Optional<?>> property = (BiFunction<? super T, C, Optional<?>>) propertyPattern.getProperty().getFunction();
         Optional<?> propertyValue = property.apply((T) object, context);
         return propertyValue.map(value -> propertyPattern.getPattern().match(value, captures, context))
-                .orElse(Stream.of());
+                .orElseGet(Stream::of);
     }
 
     @Override

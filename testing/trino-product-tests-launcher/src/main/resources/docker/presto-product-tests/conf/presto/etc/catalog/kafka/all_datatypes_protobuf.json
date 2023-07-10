@@ -1,0 +1,55 @@
+{
+  "tableName": "all_datatypes_protobuf",
+  "schemaName": "product_tests",
+  "topicName": "all_datatypes_protobuf",
+  "message": {
+    "dataFormat": "protobuf",
+    "dataSchema": "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/all_datatypes.proto",
+    "fields": [
+      {
+        "name": "h_varchar",
+        "type": "VARCHAR",
+        "mapping": "a_varchar"
+      },
+      {
+        "name": "g_integer",
+        "type": "INTEGER",
+        "mapping": "b_integer"
+      },
+      {
+        "name": "f_bigint",
+        "type": "BIGINT",
+        "mapping": "c_bigint"
+      },
+      {
+        "name": "e_double",
+        "type": "DOUBLE",
+        "mapping": "d_double"
+      },
+      {
+        "name": "d_real",
+        "type": "REAL",
+        "mapping": "e_float"
+      },
+      {
+        "name": "c_boolean",
+        "type": "BOOLEAN",
+        "mapping": "f_boolean"
+      },
+      {
+        "name": "b_enum",
+        "type": "VARCHAR",
+        "mapping": "g_enum"
+      },
+      {
+        "name": "a_timestamp",
+        "type": "TIMESTAMP(6)",
+        "mapping": "h_timestamp"
+      }
+    ]
+  },
+  "key": {
+    "dataFormat": "raw",
+    "fields": []
+  }
+}

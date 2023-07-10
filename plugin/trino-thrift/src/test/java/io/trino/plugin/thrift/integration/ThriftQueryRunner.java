@@ -41,6 +41,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
+import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -50,7 +51,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingAccessControlManager;
-import io.trino.testing.TestingGroupProvider;
+import io.trino.testing.TestingGroupProviderManager;
 import io.trino.transaction.TransactionManager;
 
 import java.io.IOException;
@@ -144,7 +145,7 @@ public final class ThriftQueryRunner
                 .put("trino.thrift.client.connect-timeout", "30s")
                 .put("trino-thrift.lookup-requests-concurrency", "2")
                 .buildOrThrow();
-        queryRunner.createCatalog("thrift", "trino-thrift", connectorProperties);
+        queryRunner.createCatalog("thrift", "trino_thrift", connectorProperties);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -252,6 +253,12 @@ public final class ThriftQueryRunner
         }
 
         @Override
+        public ExchangeManager getExchangeManager()
+        {
+            return source.getExchangeManager();
+        }
+
+        @Override
         public PageSourceManager getPageSourceManager()
         {
             return source.getPageSourceManager();
@@ -270,7 +277,7 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public TestingGroupProvider getGroupProvider()
+        public TestingGroupProviderManager getGroupProvider()
         {
             return source.getGroupProvider();
         }

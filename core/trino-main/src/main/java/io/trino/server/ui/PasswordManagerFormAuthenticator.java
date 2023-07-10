@@ -13,6 +13,7 @@
  */
 package io.trino.server.ui;
 
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.server.security.PasswordAuthenticatorConfig;
 import io.trino.server.security.PasswordAuthenticatorManager;
@@ -21,8 +22,6 @@ import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.PasswordAuthenticator;
-
-import javax.inject.Inject;
 
 import java.security.Principal;
 import java.util.List;
@@ -45,7 +44,7 @@ public class PasswordManagerFormAuthenticator
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         passwordAuthenticatorManager.setRequired();
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
-        this.insecureAuthenticationOverHttpAllowed = requireNonNull(securityConfig, "securityConfig is null").isInsecureAuthenticationOverHttpAllowed();
+        this.insecureAuthenticationOverHttpAllowed = securityConfig.isInsecureAuthenticationOverHttpAllowed();
     }
 
     @Override

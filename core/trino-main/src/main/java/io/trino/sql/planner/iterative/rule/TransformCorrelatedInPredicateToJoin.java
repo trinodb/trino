@@ -50,8 +50,7 @@ import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.util.AstUtils;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -119,11 +118,10 @@ public class TransformCorrelatedInPredicateToJoin
             return Result.empty();
         }
         Expression assignmentExpression = getOnlyElement(subqueryAssignments.getExpressions());
-        if (!(assignmentExpression instanceof InPredicate)) {
+        if (!(assignmentExpression instanceof InPredicate inPredicate)) {
             return Result.empty();
         }
 
-        InPredicate inPredicate = (InPredicate) assignmentExpression;
         Symbol inPredicateOutputSymbol = getOnlyElement(subqueryAssignments.getSymbols());
 
         return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator(), context.getSession());
@@ -370,9 +368,7 @@ public class TransformCorrelatedInPredicateToJoin
             if (isCorrelatedRecursively(node)) {
                 return Optional.empty();
             }
-            else {
-                return Optional.of(new Decorrelated(ImmutableList.of(), reference));
-            }
+            return Optional.of(new Decorrelated(ImmutableList.of(), reference));
         }
 
         private boolean isCorrelatedRecursively(PlanNode node)

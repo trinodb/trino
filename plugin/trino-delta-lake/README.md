@@ -169,8 +169,8 @@ environment for Trino:
 ```
 env S3_BUCKET=my-s3-bucket \
     AWS_REGION=us-east-2 \
-    DATABRICKS_AWS_SECRET_ACCESS_KEY=xxx \
-    DATABRICKS_AWS_ACCESS_KEY_ID=xxx \
+    TRINO_AWS_SECRET_ACCESS_KEY=xxx \
+    TRINO_AWS_ACCESS_KEY_ID=xxx \
     DATABRICKS_91_JDBC_URL='xxx' \
     DATABRICKS_LOGIN=token \
     DATABRICKS_TOKEN=xxx \

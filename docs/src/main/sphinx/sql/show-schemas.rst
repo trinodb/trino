@@ -14,7 +14,7 @@ Description
 
 List the schemas in ``catalog`` or in the current catalog.
 
-:ref:`Specify a pattern <like_operator>` in the optional ``LIKE`` clause to
+:ref:`Specify a pattern <like-operator>` in the optional ``LIKE`` clause to
 filter the results to the desired subset. For example, the following query
 allows you to find schemas that have ``3`` as the third character::
 

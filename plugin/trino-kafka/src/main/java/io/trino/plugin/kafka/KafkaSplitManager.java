@@ -14,6 +14,7 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.kafka.schema.ContentSchemaReader;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
@@ -28,8 +29,6 @@ import io.trino.spi.connector.FixedSplitSource;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -52,7 +51,7 @@ public class KafkaSplitManager
     public KafkaSplitManager(KafkaConsumerFactory consumerFactory, KafkaConfig kafkaConfig, KafkaFilterManager kafkaFilterManager, ContentSchemaReader contentSchemaReader)
     {
         this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
-        this.messagesPerSplit = requireNonNull(kafkaConfig, "kafkaConfig is null").getMessagesPerSplit();
+        this.messagesPerSplit = kafkaConfig.getMessagesPerSplit();
         this.kafkaFilterManager = requireNonNull(kafkaFilterManager, "kafkaFilterManager is null");
         this.contentSchemaReader = requireNonNull(contentSchemaReader, "contentSchemaReader is null");
     }

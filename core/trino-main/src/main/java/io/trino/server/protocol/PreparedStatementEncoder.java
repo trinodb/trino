@@ -13,16 +13,14 @@
  */
 package io.trino.server.protocol;
 
+import com.google.inject.Inject;
 import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.compress.zstd.ZstdDecompressor;
 import io.trino.server.ProtocolConfig;
 
-import javax.inject.Inject;
-
 import static com.google.common.io.BaseEncoding.base64Url;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 
 public class PreparedStatementEncoder
 {
@@ -35,7 +33,6 @@ public class PreparedStatementEncoder
     @Inject
     public PreparedStatementEncoder(ProtocolConfig protocolConfig)
     {
-        requireNonNull(protocolConfig, "protocolConfig is null");
         this.compressionThreshold = protocolConfig.getPreparedStatementCompressionThreshold();
         this.compressionMinGain = protocolConfig.getPreparedStatementCompressionMinimalGain();
     }

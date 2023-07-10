@@ -20,78 +20,78 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class Merge
         extends Statement
 {
-    private final Table table;
-    private final Optional<Identifier> targetAlias;
-    private final Relation relation;
-    private final Expression expression;
+    private final Relation target;
+    private final Relation source;
+    private final Expression predicate;
     private final List<MergeCase> mergeCases;
 
     public Merge(
-            Table table,
-            Optional<Identifier> targetAlias,
-            Relation relation,
-            Expression expression,
-            List<MergeCase> mergeCases)
-
-    {
-        this(Optional.empty(), table, targetAlias, relation, expression, mergeCases);
-    }
-
-    public Merge(
             NodeLocation location,
-            Table table,
-            Optional<Identifier> targetAlias,
-            Relation relation,
-            Expression expression,
+            Relation target,
+            Relation source,
+            Expression predicate,
             List<MergeCase> mergeCases)
     {
-        this(Optional.of(location), table, targetAlias, relation, expression, mergeCases);
+        this(Optional.of(location), target, source, predicate, mergeCases);
     }
 
     public Merge(
             Optional<NodeLocation> location,
-            Table table,
-            Optional<Identifier> targetAlias,
-            Relation relation,
-            Expression expression,
+            Relation target,
+            Relation source,
+            Expression predicate,
             List<MergeCase> mergeCases)
     {
         super(location);
-        this.table = requireNonNull(table, "table is null");
-        this.targetAlias = requireNonNull(targetAlias, "targetAlias is null");
-        this.relation = requireNonNull(relation, "relation is null");
-        this.expression = requireNonNull(expression, "expression is null");
+        // Check that the target is either a Table or an AliasedRelation
+        this.target = requireNonNull(target, "target is null");
+        checkArgument(target instanceof Table || target instanceof AliasedRelation, "target (%s) is neither a Table nor an AliasedRelation", target);
+        this.source = requireNonNull(source, "source is null");
+        this.predicate = requireNonNull(predicate, "expression is null");
         this.mergeCases = ImmutableList.copyOf(requireNonNull(mergeCases, "mergeCases is null"));
     }
 
-    public Table getTable()
+    public Relation getTarget()
     {
-        return table;
+        return target;
     }
 
-    public Optional<Identifier> getTargetAlias()
+    public Relation getSource()
     {
-        return targetAlias;
+        return source;
     }
 
-    public Relation getRelation()
+    public Expression getPredicate()
     {
-        return relation;
-    }
-
-    public Expression getExpression()
-    {
-        return expression;
+        return predicate;
     }
 
     public List<MergeCase> getMergeCases()
     {
         return mergeCases;
+    }
+
+    public Table getTargetTable()
+    {
+        if (target instanceof Table) {
+            return (Table) target;
+        }
+        checkArgument(target instanceof AliasedRelation, "MERGE relation is neither a Table nor an AliasedRelation");
+        return (Table) ((AliasedRelation) target).getRelation();
+    }
+
+    public Optional<Identifier> getTargetAlias()
+    {
+        if (target instanceof AliasedRelation) {
+            return Optional.of(((AliasedRelation) target).getAlias());
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -104,9 +104,9 @@ public final class Merge
     public List<? extends Node> getChildren()
     {
         ImmutableList.Builder<Node> builder = ImmutableList.builder();
-        builder.add(table);
-        builder.add(relation);
-        builder.add(expression);
+        builder.add(target);
+        builder.add(source);
+        builder.add(predicate);
         builder.addAll(mergeCases);
         return builder.build();
     }
@@ -121,27 +121,25 @@ public final class Merge
             return false;
         }
         Merge merge = (Merge) o;
-        return Objects.equals(table, merge.table) &&
-                Objects.equals(targetAlias, merge.targetAlias) &&
-                Objects.equals(relation, merge.relation) &&
-                Objects.equals(expression, merge.expression) &&
+        return Objects.equals(target, merge.target) &&
+                Objects.equals(source, merge.source) &&
+                Objects.equals(predicate, merge.predicate) &&
                 Objects.equals(mergeCases, merge.mergeCases);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, targetAlias, relation, expression, mergeCases);
+        return Objects.hash(target, source, predicate, mergeCases);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("table", table)
-                .add("targetAlias", targetAlias.orElse(null))
-                .add("relation", relation)
-                .add("expression", expression)
+                .add("target", target)
+                .add("relation", source)
+                .add("expression", predicate)
                 .add("mergeCases", mergeCases)
                 .omitNullValues()
                 .toString();

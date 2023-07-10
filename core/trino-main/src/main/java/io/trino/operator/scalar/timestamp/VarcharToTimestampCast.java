@@ -24,6 +24,7 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.type.DateTimes;
 
 import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.regex.Matcher;
 
@@ -85,9 +86,14 @@ public final class VarcharToTimestampCast
         String minute = matcher.group("minute");
         String second = matcher.group("second");
         String fraction = matcher.group("fraction");
+        String timezone = matcher.group("timezone");
 
+        ZoneId zone = UTC;
         long epochSecond;
         try {
+            if (timezone != null) {
+                zone = ZoneId.of(timezone);
+            }
             epochSecond = ZonedDateTime.of(
                             Integer.parseInt(year),
                             Integer.parseInt(month),
@@ -96,8 +102,9 @@ public final class VarcharToTimestampCast
                             minute == null ? 0 : Integer.parseInt(minute),
                             second == null ? 0 : Integer.parseInt(second),
                             0,
-                            UTC)
-                    .toEpochSecond();
+                            zone)
+                    .toLocalDateTime()
+                    .toEpochSecond(UTC);
         }
         catch (DateTimeException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value, e);
@@ -135,9 +142,14 @@ public final class VarcharToTimestampCast
         String minute = matcher.group("minute");
         String second = matcher.group("second");
         String fraction = matcher.group("fraction");
+        String timezone = matcher.group("timezone");
 
+        ZoneId zone = UTC;
         long epochSecond;
         try {
+            if (timezone != null) {
+                zone = ZoneId.of(timezone);
+            }
             epochSecond = ZonedDateTime.of(
                             Integer.parseInt(year),
                             Integer.parseInt(month),
@@ -146,8 +158,9 @@ public final class VarcharToTimestampCast
                             minute == null ? 0 : Integer.parseInt(minute),
                             second == null ? 0 : Integer.parseInt(second),
                             0,
-                            UTC)
-                    .toEpochSecond();
+                            zone)
+                    .toLocalDateTime()
+                    .toEpochSecond(UTC);
         }
         catch (DateTimeException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value, e);

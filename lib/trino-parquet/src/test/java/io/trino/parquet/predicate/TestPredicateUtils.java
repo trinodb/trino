@@ -17,13 +17,16 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.BinaryStatistics;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
+import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Types;
 import org.testng.annotations.Test;
 
 import java.util.Set;
 
 import static com.google.common.collect.Sets.union;
-import static io.trino.parquet.predicate.PredicateUtils.isOnlyDictionaryEncodingPages;
+import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -108,7 +111,9 @@ public class TestPredicateUtils
                 .addDictEncoding(PLAIN)
                 .addDataEncodings(ImmutableSet.copyOf(dataEncodings)).build();
 
-        return ColumnChunkMetaData.get(fromDotString("column"), BINARY, UNCOMPRESSED, encodingStats, encodingStats.getDataEncodings(), new BinaryStatistics(), 0, 0, 1, 1, 1);
+        PrimitiveType type = Types.optional(BINARY).named("");
+        Statistics<?> stats = Statistics.createStats(type);
+        return ColumnChunkMetaData.get(fromDotString("column"), type, UNCOMPRESSED, encodingStats, encodingStats.getDataEncodings(), stats, 0, 0, 1, 1, 1);
     }
 
     @SuppressWarnings("deprecation")

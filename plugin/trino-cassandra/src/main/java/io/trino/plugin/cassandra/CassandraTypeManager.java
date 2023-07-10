@@ -28,14 +28,14 @@ import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.protocol.internal.util.Bytes;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.InetAddresses;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SingleRowBlockWriter;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -46,6 +46,7 @@ import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
@@ -63,6 +64,7 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -77,6 +79,7 @@ import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.cassandra.CassandraType.Kind.DATE;
+import static io.trino.plugin.cassandra.CassandraType.Kind.TIME;
 import static io.trino.plugin.cassandra.CassandraType.Kind.TIMESTAMP;
 import static io.trino.plugin.cassandra.CassandraType.Kind.TUPLE;
 import static io.trino.plugin.cassandra.CassandraType.Kind.UDT;
@@ -85,8 +88,11 @@ import static io.trino.plugin.cassandra.util.CassandraCqlUtils.quoteStringLitera
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
@@ -145,6 +151,8 @@ public class CassandraTypeManager
                 return Optional.of(CassandraTypes.SET);
             case ProtocolConstants.DataType.SMALLINT:
                 return Optional.of(CassandraTypes.SMALLINT);
+            case ProtocolConstants.DataType.TIME:
+                return Optional.of(CassandraTypes.TIME);
             case ProtocolConstants.DataType.TIMESTAMP:
                 return Optional.of(CassandraTypes.TIMESTAMP);
             case ProtocolConstants.DataType.TIMEUUID:
@@ -213,7 +221,7 @@ public class CassandraTypeManager
                         .map(field -> new RowType.Field(Optional.of(field.getKey()), field.getValue().getTrinoType()))
                         .collect(toImmutableList()));
 
-        return Optional.of(new CassandraType(UDT, trinoType, argumentTypes.buildOrThrow().values().stream().collect(toImmutableList())));
+        return Optional.of(new CassandraType(UDT, trinoType, ImmutableList.copyOf(argumentTypes.buildOrThrow().values())));
     }
 
     public NullableValue getColumnValue(CassandraType cassandraType, Row row, int position)
@@ -253,6 +261,8 @@ public class CassandraTypeManager
             case UUID:
             case TIMEUUID:
                 return NullableValue.of(trinoType, javaUuidToTrinoUuid(row.getUuid(position)));
+            case TIME:
+                return NullableValue.of(trinoType, row.getLocalTime(position).toNanoOfDay() * PICOSECONDS_PER_NANOSECOND);
             case TIMESTAMP:
                 return NullableValue.of(trinoType, packDateTimeWithZone(row.getInstant(position).toEpochMilli(), TimeZoneKey.UTC_KEY));
             case DATE:
@@ -334,37 +344,37 @@ public class CassandraTypeManager
     {
         verify(type.getKind() == TUPLE, "Not a TUPLE type");
         TupleValue tupleValue = row.getTupleValue(position);
-        RowBlockBuilder blockBuilder = (RowBlockBuilder) type.getTrinoType().createBlockBuilder(null, 1);
-        SingleRowBlockWriter singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        int tuplePosition = 0;
-        for (CassandraType argumentType : type.getArgumentTypes()) {
-            int finalTuplePosition = tuplePosition;
-            NullableValue value = getColumnValue(argumentType, tupleValue, tuplePosition, () -> tupleValue.getType().getComponentTypes().get(finalTuplePosition));
-            writeNativeValue(argumentType.getTrinoType(), singleRowBlockWriter, value.getValue());
-            tuplePosition++;
-        }
-        // can I just return singleRowBlockWriter here? It extends AbstractSingleRowBlock and tests pass.
-        blockBuilder.closeEntry();
-        return (Block) type.getTrinoType().getObject(blockBuilder, 0);
+        return buildRowValue((RowType) type.getTrinoType(), fieldBuilders -> {
+            int tuplePosition = 0;
+            List<CassandraType> argumentTypes = type.getArgumentTypes();
+            for (int i = 0; i < argumentTypes.size(); i++) {
+                CassandraType argumentType = argumentTypes.get(i);
+                BlockBuilder fieldBuilder = fieldBuilders.get(i);
+                int finalTuplePosition = tuplePosition;
+                NullableValue value = getColumnValue(argumentType, tupleValue, tuplePosition, () -> tupleValue.getType().getComponentTypes().get(finalTuplePosition));
+                writeNativeValue(argumentType.getTrinoType(), fieldBuilder, value.getValue());
+                tuplePosition++;
+            }
+        });
     }
 
     private Block buildUserTypeValue(CassandraType type, GettableByIndex row, int position)
     {
         verify(type.getKind() == UDT, "Not a user defined type: %s", type.getKind());
         UdtValue udtValue = row.getUdtValue(position);
-        RowBlockBuilder blockBuilder = (RowBlockBuilder) type.getTrinoType().createBlockBuilder(null, 1);
-        SingleRowBlockWriter singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        int tuplePosition = 0;
-        List<DataType> udtTypeFieldTypes = udtValue.getType().getFieldTypes();
-        for (CassandraType argumentType : type.getArgumentTypes()) {
-            int finalTuplePosition = tuplePosition;
-            NullableValue value = getColumnValue(argumentType, udtValue, tuplePosition, () -> udtTypeFieldTypes.get(finalTuplePosition));
-            writeNativeValue(argumentType.getTrinoType(), singleRowBlockWriter, value.getValue());
-            tuplePosition++;
-        }
-
-        blockBuilder.closeEntry();
-        return (Block) type.getTrinoType().getObject(blockBuilder, 0);
+        return buildRowValue((RowType) type.getTrinoType(), fieldBuilders -> {
+            int tuplePosition = 0;
+            List<DataType> udtTypeFieldTypes = udtValue.getType().getFieldTypes();
+            List<CassandraType> argumentTypes = type.getArgumentTypes();
+            for (int i = 0; i < argumentTypes.size(); i++) {
+                CassandraType argumentType = argumentTypes.get(i);
+                BlockBuilder fieldBuilder = fieldBuilders.get(i);
+                int finalTuplePosition = tuplePosition;
+                NullableValue value = getColumnValue(argumentType, udtValue, tuplePosition, () -> udtTypeFieldTypes.get(finalTuplePosition));
+                writeNativeValue(argumentType.getTrinoType(), fieldBuilder, value.getValue());
+                tuplePosition++;
+            }
+        });
     }
 
     // TODO unify with toCqlLiteral
@@ -399,6 +409,8 @@ public class CassandraTypeManager
             case UUID:
             case TIMEUUID:
                 return row.getUuid(position).toString();
+            case TIME:
+                return quoteStringLiteral(row.getLocalTime(position).toString());
             case TIMESTAMP:
                 return Long.toString(row.getInstant(position).toEpochMilli());
             case DATE:
@@ -429,6 +441,10 @@ public class CassandraTypeManager
         if (kind == DATE) {
             LocalDate date = LocalDate.ofEpochDay(toIntExact((long) trinoNativeValue));
             return quoteStringLiteral(date.toString());
+        }
+        if (kind == TIME) {
+            LocalTime time = LocalTime.ofNanoOfDay(roundDiv((long) trinoNativeValue, PICOSECONDS_PER_NANOSECOND));
+            return quoteStringLiteral(time.toString());
         }
         if (kind == TIMESTAMP) {
             return String.valueOf(unpackMillisUtc((Long) trinoNativeValue));
@@ -466,13 +482,15 @@ public class CassandraTypeManager
             case VARCHAR:
             case UUID:
             case TIMEUUID:
+            case TIME:
             case TIMESTAMP:
             case DATE:
             case INET:
             case VARINT:
             case TUPLE:
-            case UDT:
                 return quoteStringLiteralForJson(cassandraValue.toString());
+            case UDT:
+                return quoteStringLiteralForJson(((UdtValue) cassandraValue).getFormattedContents());
 
             case BLOB:
             case CUSTOM:
@@ -535,6 +553,8 @@ public class CassandraTypeManager
                 // Trino uses double for decimal, so to keep the floating point precision, convert it to string.
                 // Otherwise partition id doesn't match
                 return new BigDecimal(trinoNativeValue.toString());
+            case TIME:
+                return LocalTime.ofNanoOfDay(roundDiv((long) trinoNativeValue, PICOSECONDS_PER_NANOSECOND));
             case TIMESTAMP:
                 return Instant.ofEpochMilli(unpackMillisUtc((Long) trinoNativeValue));
             case DATE:
@@ -572,6 +592,7 @@ public class CassandraTypeManager
             case FLOAT:
             case DECIMAL:
             case DATE:
+            case TIME:
             case TIMESTAMP:
             case UUID:
             case TIMEUUID:
@@ -596,28 +617,27 @@ public class CassandraTypeManager
             return false;
         }
 
-        if (dataType instanceof UserDefinedType) {
-            return ((UserDefinedType) dataType).getFieldTypes().stream()
-                    .allMatch(fieldType -> isFullySupported(fieldType));
+        if (dataType instanceof UserDefinedType userDefinedType) {
+            return userDefinedType.getFieldTypes().stream()
+                    .allMatch(this::isFullySupported);
         }
 
-        if (dataType instanceof MapType) {
-            MapType mapType = (MapType) dataType;
+        if (dataType instanceof MapType mapType) {
             return Arrays.stream(new DataType[] {mapType.getKeyType(), mapType.getValueType()})
-                    .allMatch(type -> isFullySupported(type));
+                    .allMatch(this::isFullySupported);
         }
 
-        if (dataType instanceof ListType) {
-            return isFullySupported(((ListType) dataType).getElementType());
+        if (dataType instanceof ListType listType) {
+            return isFullySupported(listType.getElementType());
         }
 
-        if (dataType instanceof TupleType) {
-            return ((TupleType) dataType).getComponentTypes().stream()
-                    .allMatch(componentType -> isFullySupported(componentType));
+        if (dataType instanceof TupleType tupleType) {
+            return tupleType.getComponentTypes().stream()
+                    .allMatch(this::isFullySupported);
         }
 
-        if (dataType instanceof SetType) {
-            return isFullySupported(((SetType) dataType).getElementType());
+        if (dataType instanceof SetType setType) {
+            return isFullySupported(setType.getElementType());
         }
 
         return true;
@@ -656,6 +676,9 @@ public class CassandraTypeManager
         }
         if (type.equals(VarbinaryType.VARBINARY)) {
             return CassandraTypes.BLOB;
+        }
+        if (type.equals(TimeType.TIME_NANOS)) {
+            return CassandraTypes.TIME;
         }
         if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
             return CassandraTypes.TIMESTAMP;

@@ -15,14 +15,14 @@ package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import io.trino.spi.Experimental;
+import jakarta.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
@@ -34,7 +34,7 @@ import static io.trino.spi.block.BlockUtil.ensureCapacity;
 public class IntArrayBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntArrayBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(IntArrayBlock.class);
     public static final int SIZE_IN_BYTES_PER_POSITION = Integer.BYTES + Byte.BYTES;
 
     private final int arrayOffset;
@@ -117,7 +117,7 @@ public class IntArrayBlock
         if (valueIsNull != null) {
             consumer.accept(valueIsNull, sizeOf(valueIsNull));
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -231,5 +231,17 @@ public class IntArrayBlock
     Slice getValuesSlice()
     {
         return Slices.wrappedIntArray(values, arrayOffset, positionCount);
+    }
+
+    @Experimental(eta = "2023-12-31")
+    public int[] getRawValues()
+    {
+        return values;
+    }
+
+    @Experimental(eta = "2023-12-31")
+    public int getRawValuesOffset()
+    {
+        return arrayOffset;
     }
 }

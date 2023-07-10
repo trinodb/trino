@@ -27,16 +27,18 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     @Override
     protected HiveMinioDataLake createHiveMinioDataLake()
     {
-        hiveMinioDataLake = new HiveMinioDataLake(bucketName);
+        hiveMinioDataLake = new HiveMinioDataLake(bucketName); // closed by superclass
         hiveMinioDataLake.start();
         return hiveMinioDataLake;
     }
 
     @Override
-    protected void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
+    protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
         hiveMinioDataLake.copyResources(resourcePath, table);
-        queryRunner.execute(format("CREATE TABLE %s (dummy int) WITH (location = '%s')",
+        queryRunner.execute(format(
+                "CALL system.register_table('%s', '%s', '%s')",
+                SCHEMA,
                 table,
                 getLocationForTable(bucketName, table)));
     }

@@ -28,7 +28,8 @@ import io.trino.spi.connector.ConnectorFactory;
 import java.util.Map;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
-import static io.trino.plugin.base.Versions.checkSpiVersion;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
+import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
 public class AtopConnectorFactory
@@ -53,7 +54,7 @@ public class AtopConnectorFactory
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
-        checkSpiVersion(context, this);
+        checkStrictSpiVersionMatch(context, this);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
@@ -67,10 +68,9 @@ public class AtopConnectorFactory
                     conditionalModule(
                             AtopConnectorConfig.class,
                             config -> config.getSecurity() == AtopSecurity.FILE,
-                            binder -> {
-                                binder.install(new FileBasedAccessControlModule());
-                                binder.install(new JsonModule());
-                            }));
+                            combine(
+                                new FileBasedAccessControlModule(),
+                                new JsonModule())));
 
             Injector injector = app
                     .doNotInitializeLogging()

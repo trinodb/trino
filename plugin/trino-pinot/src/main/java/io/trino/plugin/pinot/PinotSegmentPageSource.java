@@ -17,17 +17,18 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.pinot.client.PinotDataFetcher;
 import io.trino.plugin.pinot.client.PinotDataTableWithSize;
+import io.trino.plugin.pinot.conversion.PinotTimestamps;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataSchema.ColumnDataType;
 
@@ -37,8 +38,13 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
+import static io.trino.plugin.pinot.decoders.VarbinaryDecoder.toBytes;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -166,7 +172,13 @@ public class PinotSegmentPageSource
             writeBooleanBlock(blockBuilder, columnType, columnIdx);
         }
         else if (javaType.equals(long.class)) {
-            writeLongBlock(blockBuilder, columnType, columnIdx);
+            if (columnType instanceof TimestampType) {
+                // Pinot TimestampType is always ShortTimestampType.
+                writeShortTimestampBlock(blockBuilder, columnType, columnIdx);
+            }
+            else {
+                writeLongBlock(blockBuilder, columnType, columnIdx);
+            }
         }
         else if (javaType.equals(double.class)) {
             writeDoubleBlock(blockBuilder, columnType, columnIdx);
@@ -228,6 +240,15 @@ public class PinotSegmentPageSource
         }
     }
 
+    private void writeShortTimestampBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
+    {
+        for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
+            // Trino is using micros since epoch for ShortTimestampType, Pinot uses millis since epoch.
+            columnType.writeLong(blockBuilder, PinotTimestamps.toMicros(getLong(i, columnIndex)));
+            completedBytes += Long.BYTES;
+        }
+    }
+
     private Type getType(int columnIndex)
     {
         checkArgument(columnIndex < columnHandles.size(), "Invalid field index");
@@ -253,6 +274,7 @@ public class PinotSegmentPageSource
             case FLOAT:
                 return floatToIntBits(currentDataTable.getDataTable().getFloat(rowIndex, columnIndex));
             case LONG:
+            case TIMESTAMP:
                 return currentDataTable.getDataTable().getLong(rowIndex, columnIndex);
             default:
                 throw new PinotException(PINOT_DECODE_ERROR, Optional.empty(), format("Unexpected pinot type: '%s'", dataType));
@@ -265,9 +287,7 @@ public class PinotSegmentPageSource
         if (dataType.equals(ColumnDataType.FLOAT)) {
             return currentDataTable.getDataTable().getFloat(rowIndex, columnIndex);
         }
-        else {
-            return currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
-        }
+        return currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
     }
 
     private Block getArrayBlock(int rowIndex, int columnIndex)
@@ -281,21 +301,21 @@ public class PinotSegmentPageSource
                 int[] intArray = currentDataTable.getDataTable().getIntArray(rowIndex, columnIndex);
                 blockBuilder = elementType.createBlockBuilder(null, intArray.length);
                 for (int element : intArray) {
-                    blockBuilder.writeInt(element);
+                    INTEGER.writeInt(blockBuilder, element);
                 }
                 break;
             case LONG_ARRAY:
                 long[] longArray = currentDataTable.getDataTable().getLongArray(rowIndex, columnIndex);
                 blockBuilder = elementType.createBlockBuilder(null, longArray.length);
                 for (long element : longArray) {
-                    blockBuilder.writeLong(element);
+                    BIGINT.writeLong(blockBuilder, element);
                 }
                 break;
             case FLOAT_ARRAY:
                 float[] floatArray = currentDataTable.getDataTable().getFloatArray(rowIndex, columnIndex);
                 blockBuilder = elementType.createBlockBuilder(null, floatArray.length);
                 for (float element : floatArray) {
-                    blockBuilder.writeInt(floatToIntBits(element));
+                    REAL.writeFloat(blockBuilder, element);
                 }
                 break;
             case DOUBLE_ARRAY:
@@ -326,20 +346,14 @@ public class PinotSegmentPageSource
             String field = currentDataTable.getDataTable().getString(rowIndex, columnIndex);
             return getUtf8Slice(field);
         }
-        else if (trinoType instanceof VarbinaryType) {
+        if (trinoType instanceof VarbinaryType) {
             return Slices.wrappedBuffer(toBytes(currentDataTable.getDataTable().getString(rowIndex, columnIndex)));
         }
+        if (trinoType.getTypeSignature().getBase() == StandardTypes.JSON) {
+            String field = currentDataTable.getDataTable().getString(rowIndex, columnIndex);
+            return jsonParse(getUtf8Slice(field));
+        }
         return Slices.EMPTY_SLICE;
-    }
-
-    private static byte[] toBytes(String stringValue)
-    {
-        try {
-            return Hex.decodeHex(stringValue.toCharArray());
-        }
-        catch (DecoderException e) {
-            throw new IllegalArgumentException("Value: " + stringValue + " is not Hex encoded", e);
-        }
     }
 
     private Slice getUtf8Slice(String value)

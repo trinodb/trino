@@ -13,8 +13,11 @@
  */
 package io.trino.type;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.CharacterStringCasts.varcharToCharSaturatedFloorCast;
@@ -23,41 +26,109 @@ import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 
+@TestInstance(PER_CLASS)
 public class TestCharacterStringCasts
-        extends AbstractTestFunctions
 {
     private static final String NON_BMP_CHARACTER = new String(Character.toChars(0x1F50D));
+
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
 
     @Test
     public void testVarcharToVarcharCast()
     {
-        assertFunction("cast('bar' as varchar(20))", createVarcharType(20), "bar");
-        assertFunction("cast(cast('bar' as varchar(20)) as varchar(30))", createVarcharType(30), "bar");
-        assertFunction("cast(cast('bar' as varchar(20)) as varchar)", VARCHAR, "bar");
+        assertThat(assertions.expression("cast(a as varchar(20))")
+                .binding("a", "'bar'"))
+                .hasType(createVarcharType(20))
+                .isEqualTo("bar");
 
-        assertFunction("cast('banana' as varchar(3))", createVarcharType(3), "ban");
-        assertFunction("cast(cast('banana' as varchar(20)) as varchar(3))", createVarcharType(3), "ban");
+        assertThat(assertions.expression("cast(cast(a as varchar(20)) as varchar(30))")
+                .binding("a", "'bar'"))
+                .hasType(createVarcharType(30))
+                .isEqualTo("bar");
+
+        assertThat(assertions.expression("cast(cast(a as varchar(20)) as varchar)")
+                .binding("a", "'bar'"))
+                .hasType(VARCHAR)
+                .isEqualTo("bar");
+
+        assertThat(assertions.expression("cast(a as varchar(3))")
+                .binding("a", "'banana'"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("ban");
+
+        assertThat(assertions.expression("cast(cast(a as varchar(20)) as varchar(3))")
+                .binding("a", "'banana'"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("ban");
     }
 
     @Test
     public void testVarcharToCharCast()
     {
-        assertFunction("cast('bar  ' as char(10))", createCharType(10), "bar       ");
-        assertFunction("cast('bar' as char)", createCharType(1), "b");
-        assertFunction("cast('   ' as char)", createCharType(1), " ");
+        assertThat(assertions.expression("cast(a as char(10))")
+                .binding("a", "'bar  '"))
+                .hasType(createCharType(10))
+                .isEqualTo("bar       ");
+
+        assertThat(assertions.expression("cast(a as char)")
+                .binding("a", "'bar'"))
+                .hasType(createCharType(1))
+                .isEqualTo("b");
+
+        assertThat(assertions.expression("cast(a as char)")
+                .binding("a", "'   '"))
+                .hasType(createCharType(1))
+                .isEqualTo(" ");
     }
 
     @Test
     public void testCharToVarcharCast()
     {
-        assertFunction("cast(cast('bar' as char(5)) as varchar(10))", createVarcharType(10), "bar  ");
-        assertFunction("cast(cast('bar' as char(5)) as varchar(1))", createVarcharType(1), "b");
-        assertFunction("cast(cast('b' as char(5)) as varchar(2))", createVarcharType(2), "b ");
-        assertFunction("cast(cast('b' as char(5)) as varchar(1))", createVarcharType(1), "b");
-        assertFunction("cast(cast('bar' as char(3)) as varchar(3))", createVarcharType(3), "bar");
-        assertFunction("cast(cast('b' as char(3)) as varchar(3))", createVarcharType(3), "b  ");
+        assertThat(assertions.expression("cast(cast(a as char(5)) as varchar(10))")
+                .binding("a", "'bar'"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("bar  ");
+
+        assertThat(assertions.expression("cast(cast(a as char(5)) as varchar(1))")
+                .binding("a", "'bar'"))
+                .hasType(createVarcharType(1))
+                .isEqualTo("b");
+
+        assertThat(assertions.expression("cast(cast(a as char(5)) as varchar(2))")
+                .binding("a", "'b'"))
+                .hasType(createVarcharType(2))
+                .isEqualTo("b ");
+
+        assertThat(assertions.expression("cast(cast(a as char(5)) as varchar(1))")
+                .binding("a", "'b'"))
+                .hasType(createVarcharType(1))
+                .isEqualTo("b");
+
+        assertThat(assertions.expression("cast(cast(a as char(3)) as varchar(3))")
+                .binding("a", "'bar'"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("bar");
+
+        assertThat(assertions.expression("cast(cast(a as char(3)) as varchar(3))")
+                .binding("a", "'b'"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("b  ");
     }
 
     @Test
@@ -66,6 +137,11 @@ public class TestCharacterStringCasts
         String nonBmpCharacterMinusOne = new String(Character.toChars(0x1F50C));
         String maxCodePoint = new String(Character.toChars(Character.MAX_CODE_POINT));
         String codePointBeforeSpace = new String(Character.toChars(' ' - 1));
+
+        assertEquals(varcharToCharSaturatedFloorCast(
+                5L,
+                utf8Slice("123" + new String(Character.toChars(0xE000)))),
+                utf8Slice("123" + new String(Character.toChars(0xD7FF)) + maxCodePoint));
 
         // Truncation
         assertEquals(varcharToCharSaturatedFloorCast(

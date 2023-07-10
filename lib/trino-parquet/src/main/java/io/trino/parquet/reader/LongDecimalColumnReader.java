@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
@@ -31,20 +31,18 @@ public class LongDecimalColumnReader
 {
     private final DecimalType parquetDecimalType;
 
-    LongDecimalColumnReader(RichColumnDescriptor descriptor, DecimalType parquetDecimalType)
+    LongDecimalColumnReader(PrimitiveField field, DecimalType parquetDecimalType)
     {
-        super(descriptor);
+        super(field);
         this.parquetDecimalType = requireNonNull(parquetDecimalType, "parquetDecimalType is null");
     }
 
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type trinoType)
     {
-        if (!(trinoType instanceof DecimalType)) {
-            throw new ParquetDecodingException(format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, columnDescriptor));
+        if (!(trinoType instanceof DecimalType trinoDecimalType)) {
+            throw new ParquetDecodingException(format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, field.getDescriptor()));
         }
-
-        DecimalType trinoDecimalType = (DecimalType) trinoType;
 
         Binary binary = valuesReader.readBytes();
         Int128 value = Int128.fromBigEndian(binary.getBytes());

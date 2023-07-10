@@ -24,12 +24,16 @@ import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBufferInfo;
+import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactory;
 import io.trino.operator.OutputFactory;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
@@ -70,8 +74,9 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongDictionaryBlock;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
-import static io.trino.block.BlockAssertions.createRLEBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
+import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -92,6 +97,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestPagePartitioner
@@ -103,7 +110,7 @@ public class TestPagePartitioner
     private static final int PARTITION_COUNT = 2;
 
     private static final PagesSerdeFactory PAGES_SERDE_FACTORY = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false);
-    private static final PagesSerde PAGES_SERDE = PAGES_SERDE_FACTORY.createPagesSerde();
+    private static final PageDeserializer PAGE_DESERIALIZER = PAGES_SERDE_FACTORY.createDeserializer(Optional.empty());
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -138,7 +145,7 @@ public class TestPagePartitioner
         Page page = new Page(createLongsBlock(ImmutableList.of()));
 
         pagePartitioner.partitionPage(page);
-        pagePartitioner.forceFlush();
+        pagePartitioner.close();
 
         List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
         assertThat(partitioned).isEmpty();
@@ -259,7 +266,7 @@ public class TestPagePartitioner
     public void testPartitionPositionsWithRleNotNull(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).build();
-        Page page = new Page(createRLEBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
+        Page page = new Page(createRepeatedValuesBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -274,7 +281,7 @@ public class TestPagePartitioner
     public void testPartitionPositionsWithRleNotNullWithReplication(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).replicate().build();
-        Page page = new Page(createRLEBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
+        Page page = new Page(createRepeatedValuesBlock(0, POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -288,7 +295,7 @@ public class TestPagePartitioner
     public void testPartitionPositionsWithRleNullWithNullChannel(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT, BIGINT).withNullChannel(0).build();
-        Page page = new Page(new RunLengthEncodedBlock(createLongsBlock((Long) null), POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
+        Page page = new Page(RunLengthEncodedBlock.create(createLongsBlock((Long) null), POSITIONS_PER_PAGE), createLongSequenceBlock(0, POSITIONS_PER_PAGE));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -316,7 +323,7 @@ public class TestPagePartitioner
     public void testOutputForOneValueDictionaryBlock(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
-        Page page = new Page(new DictionaryBlock(createLongsBlock(0), new int[] {0, 0, 0, 0}));
+        Page page = new Page(DictionaryBlock.create(4, createLongsBlock(0), new int[] {0, 0, 0, 0}));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -330,7 +337,7 @@ public class TestPagePartitioner
     public void testOutputForViewDictionaryBlock(PartitioningMode partitioningMode)
     {
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
-        Page page = new Page(new DictionaryBlock(createLongSequenceBlock(4, 8), new int[] {1, 0, 3, 2}));
+        Page page = new Page(DictionaryBlock.create(4, createLongSequenceBlock(4, 8), new int[] {1, 0, 3, 2}));
 
         processPages(pagePartitioner, partitioningMode, page);
 
@@ -362,6 +369,33 @@ public class TestPagePartitioner
         testOutputEqualsInput(type, PartitioningMode.ROW_WISE, PartitioningMode.COLUMNAR);
     }
 
+    @Test(dataProvider = "partitioningMode")
+    public void testMemoryReleased(PartitioningMode partitioningMode)
+    {
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).withMemoryContext(memoryContext).build();
+        Page page = new Page(createLongsBlock(0L, 1L, 2L, 3L, null));
+
+        processPages(pagePartitioner, partitioningMode, page);
+
+        assertEquals(memoryContext.getBytes(), 0);
+    }
+
+    @Test(dataProvider = "partitioningMode")
+    public void testMemoryReleasedOnFailure(PartitioningMode partitioningMode)
+    {
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        RuntimeException exception = new RuntimeException();
+        outputBuffer.throwOnEnqueue(exception);
+        PagePartitioner pagePartitioner = pagePartitioner(BIGINT).withMemoryContext(memoryContext).build();
+        Page page = new Page(createLongsBlock(0L, 1L, 2L, 3L, null));
+
+        partitioningMode.partitionPage(pagePartitioner, page);
+
+        assertThatThrownBy(pagePartitioner::close).isEqualTo(exception);
+        assertEquals(memoryContext.getBytes(), 0);
+    }
+
     private void testOutputEqualsInput(Type type, PartitioningMode mode1, PartitioningMode mode2)
     {
         PagePartitionerBuilder pagePartitionerBuilder = pagePartitioner(BIGINT, type, type);
@@ -376,7 +410,7 @@ public class TestPagePartitioner
         mode1.partitionPage(pagePartitioner, input);
         mode2.partitionPage(pagePartitioner, input);
 
-        pagePartitioner.forceFlush();
+        pagePartitioner.close();
 
         List<Object> partitioned = readChannel(outputBuffer.getEnqueuedDeserialized(), 1, type);
         assertThat(partitioned).containsExactlyInAnyOrderElementsOf(expected); // output of the PagePartitioner can be reordered
@@ -435,7 +469,7 @@ public class TestPagePartitioner
         for (Page page : pages) {
             partitioningMode.partitionPage(pagePartitioner, page);
         }
-        pagePartitioner.forceFlush();
+        pagePartitioner.close();
     }
 
     private static List<Object> readLongs(Stream<Page> pages, int channel)
@@ -509,6 +543,7 @@ public class TestPagePartitioner
         private boolean shouldReplicate;
         private OptionalInt nullChannel = OptionalInt.empty();
         private List<Type> types;
+        private AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
 
         PagePartitionerBuilder(ExecutorService executor, ScheduledExecutorService scheduledExecutor, OutputBuffer outputBuffer)
         {
@@ -578,6 +613,12 @@ public class TestPagePartitioner
             return this;
         }
 
+        public PagePartitionerBuilder withMemoryContext(AggregatedMemoryContext memoryContext)
+        {
+            this.memoryContext = memoryContext;
+            return this;
+        }
+
         public PartitionedOutputOperator buildPartitionedOutputOperator()
         {
             DriverContext driverContext = buildDriverContext();
@@ -590,11 +631,16 @@ public class TestPagePartitioner
                     nullChannel,
                     outputBuffer,
                     PARTITION_MAX_MEMORY,
-                    POSITIONS_APPENDER_FACTORY);
-
-            return (PartitionedOutputOperator) operatorFactory
-                    .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), PAGES_SERDE_FACTORY)
+                    POSITIONS_APPENDER_FACTORY,
+                    Optional.empty(),
+                    memoryContext,
+                    1,
+                    Optional.empty());
+            OperatorFactory factory = operatorFactory.createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), PAGES_SERDE_FACTORY);
+            PartitionedOutputOperator operator = (PartitionedOutputOperator) factory
                     .createOperator(driverContext);
+            factory.noMoreOperators();
+            return operator;
         }
 
         public PagePartitioner build()
@@ -603,7 +649,7 @@ public class TestPagePartitioner
 
             OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("plan-node-0"), PartitionedOutputOperator.class.getSimpleName());
 
-            return new PagePartitioner(
+            PagePartitioner pagePartitioner = new PagePartitioner(
                     partitionFunction,
                     partitionChannels,
                     partitionConstants,
@@ -613,8 +659,13 @@ public class TestPagePartitioner
                     PAGES_SERDE_FACTORY,
                     types,
                     PARTITION_MAX_MEMORY,
-                    operatorContext,
-                    POSITIONS_APPENDER_FACTORY);
+                    POSITIONS_APPENDER_FACTORY,
+                    Optional.empty(),
+                    memoryContext,
+                    true);
+            pagePartitioner.setupOperator(operatorContext);
+
+            return pagePartitioner;
         }
 
         private DriverContext buildDriverContext()
@@ -631,10 +682,11 @@ public class TestPagePartitioner
             implements OutputBuffer
     {
         private final Multimap<Integer, Slice> enqueued = ArrayListMultimap.create();
+        private RuntimeException throwOnEnqueue;
 
         public Stream<Page> getEnqueuedDeserialized()
         {
-            return getEnqueued().stream().map(PAGES_SERDE::deserialize);
+            return getEnqueued().stream().map(PAGE_DESERIALIZER::deserialize);
         }
 
         public List<Slice> getEnqueued()
@@ -649,7 +701,7 @@ public class TestPagePartitioner
 
         public Stream<Page> getEnqueuedDeserialized(int partition)
         {
-            return getEnqueued(partition).stream().map(PAGES_SERDE::deserialize);
+            return getEnqueued(partition).stream().map(PAGE_DESERIALIZER::deserialize);
         }
 
         public List<Slice> getEnqueued(int partition)
@@ -658,9 +710,17 @@ public class TestPagePartitioner
             return serializedPages == null ? ImmutableList.of() : ImmutableList.copyOf(serializedPages);
         }
 
+        public void throwOnEnqueue(RuntimeException throwOnEnqueue)
+        {
+            this.throwOnEnqueue = throwOnEnqueue;
+        }
+
         @Override
         public void enqueue(int partition, List<Slice> pages)
         {
+            if (throwOnEnqueue != null) {
+                throw throwOnEnqueue;
+            }
             enqueued.putAll(partition, pages);
         }
 
@@ -683,9 +743,9 @@ public class TestPagePartitioner
         }
 
         @Override
-        public boolean isOverutilized()
+        public OutputBufferStatus getStatus()
         {
-            return false;
+            return OutputBufferStatus.initial();
         }
 
         @Override
@@ -699,18 +759,18 @@ public class TestPagePartitioner
         }
 
         @Override
-        public ListenableFuture<BufferResult> get(OutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize)
+        public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
         {
             return null;
         }
 
         @Override
-        public void acknowledge(OutputBuffers.OutputBufferId bufferId, long token)
+        public void acknowledge(OutputBufferId bufferId, long token)
         {
         }
 
         @Override
-        public void destroy(OutputBuffers.OutputBufferId bufferId)
+        public void destroy(OutputBufferId bufferId)
         {
         }
 

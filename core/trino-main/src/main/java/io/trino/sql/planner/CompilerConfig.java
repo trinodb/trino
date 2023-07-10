@@ -14,10 +14,9 @@
 package io.trino.sql.planner;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import io.trino.spi.function.Description;
-
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Min;
 
 @DefunctConfig("compiler.interpreter-enabled")
 public class CompilerConfig
@@ -31,7 +30,7 @@ public class CompilerConfig
     }
 
     @Config("compiler.expression-cache-size")
-    @Description("Reuse compiled expressions across multiple queries")
+    @ConfigDescription("Reuse compiled expressions across multiple queries")
     public CompilerConfig setExpressionCacheSize(int expressionCacheSize)
     {
         this.expressionCacheSize = expressionCacheSize;

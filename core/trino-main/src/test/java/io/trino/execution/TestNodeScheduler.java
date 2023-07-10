@@ -39,6 +39,7 @@ import io.trino.execution.scheduler.UniformNodeSelector;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
+import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
@@ -46,7 +47,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSession;
 import io.trino.util.FinalizerService;
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -70,9 +70,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -110,8 +113,9 @@ public class TestNodeScheduler
 
         nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)
-                .setIncludeCoordinator(false)
-                .setMaxPendingSplitsPerTask(10);
+                .setMinPendingSplitsPerTask(10)
+                .setMaxAdjustedPendingSplitsWeightPerTask(100)
+                .setIncludeCoordinator(false);
 
         nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap));
         // contents of taskMap indicate the node-task map for the current stage
@@ -125,12 +129,10 @@ public class TestNodeScheduler
 
     private void setUpNodes()
     {
-        ImmutableList.Builder<InternalNode> nodeBuilder = ImmutableList.builder();
-        nodeBuilder.add(new InternalNode("other1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false));
-        nodeBuilder.add(new InternalNode("other2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false));
-        nodeBuilder.add(new InternalNode("other3", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false));
-        ImmutableList<InternalNode> nodes = nodeBuilder.build();
-        nodeManager.addNode(TEST_CATALOG_HANDLE, nodes);
+        nodeManager.addNodes(
+                new InternalNode("other1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false));
     }
 
     @AfterMethod(alwaysRun = true)
@@ -175,21 +177,17 @@ public class TestNodeScheduler
     public void testTopologyAwareScheduling()
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-
-        ImmutableList.Builder<InternalNode> nodeBuilder = ImmutableList.builder();
-        nodeBuilder.add(new InternalNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false));
-        nodeBuilder.add(new InternalNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false));
-        nodeBuilder.add(new InternalNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
-        ImmutableList<InternalNode> nodes = nodeBuilder.build();
-        nodeManager.addNode(TEST_CATALOG_HANDLE, nodes);
+        InternalNodeManager nodeManager = new InMemoryNodeManager(
+                new InternalNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
 
         // contents of taskMap indicate the node-task map for the current stage
         Map<InternalNode, RemoteTask> taskMap = new HashMap<>();
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(25)
                 .setIncludeCoordinator(false)
-                .setMaxPendingSplitsPerTask(20);
+                .setMinPendingSplitsPerTask(20);
 
         TestNetworkTopology topology = new TestNetworkTopology();
         NodeSelectorFactory nodeSelectorFactory = new TopologyAwareNodeSelectorFactory(topology, nodeManager, nodeSchedulerConfig, nodeTaskMap, getNetworkTopologyConfig());
@@ -297,14 +295,18 @@ public class TestNodeScheduler
     public void testBasicAssignment()
     {
         setUpNodes();
+        Set<InternalNode> activeCatalogNodes = nodeManager.getActiveCatalogNodes(TEST_CATALOG_HANDLE).stream()
+                .filter(node -> !node.isCoordinator())
+                .collect(toImmutableSet());
+
         // One split for each node
         Set<Split> splits = new HashSet<>();
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < activeCatalogNodes.size(); i++) {
             splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()));
         }
         Multimap<InternalNode, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
-        assertEquals(assignments.entries().size(), 3);
-        for (InternalNode node : nodeManager.getActiveCatalogNodes(TEST_CATALOG_HANDLE)) {
+        assertEquals(assignments.entries().size(), assignments.size());
+        for (InternalNode node : activeCatalogNodes) {
             assertTrue(assignments.keySet().contains(node));
         }
     }
@@ -314,7 +316,7 @@ public class TestNodeScheduler
     {
         setUpNodes();
         InternalNode newNode = new InternalNode("other4", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, newNode);
+        nodeManager.addNodes(newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
         for (int i = 0; i < 10; i++) {
@@ -353,15 +355,17 @@ public class TestNodeScheduler
         nodeSelector = nodeScheduler.createNodeSelector(sessionWithMaxUnacknowledgedSplitsPerTask(1), Optional.of(TEST_CATALOG_HANDLE));
         setUpNodes();
         // One split for each node, and one extra split that can't be placed
-        int nodeCount = nodeManager.getActiveCatalogNodes(TEST_CATALOG_HANDLE).size();
-        int splitCount = nodeCount + 1;
+        Set<InternalNode> activeCatalogNodes = nodeManager.getActiveCatalogNodes(TEST_CATALOG_HANDLE).stream()
+                .filter(node -> !node.isCoordinator())
+                .collect(toImmutableSet());
+        int splitCount = activeCatalogNodes.size() + 1;
         Set<Split> splits = new HashSet<>();
         for (int i = 0; i < splitCount; i++) {
             splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()));
         }
         Multimap<InternalNode, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
-        assertEquals(assignments.entries().size(), nodeCount);
-        for (InternalNode node : nodeManager.getActiveCatalogNodes(TEST_CATALOG_HANDLE)) {
+        assertEquals(assignments.entries().size(), activeCatalogNodes.size());
+        for (InternalNode node : activeCatalogNodes) {
             assertTrue(assignments.keySet().contains(node));
         }
     }
@@ -371,7 +375,7 @@ public class TestNodeScheduler
     {
         setUpNodes();
         InternalNode newNode = new InternalNode("other4", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, newNode);
+        nodeManager.addNodes(newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
         for (int i = 0; i < 20; i++) {
@@ -471,7 +475,7 @@ public class TestNodeScheduler
     public void testPrioritizedAssignmentOfLocalSplit()
     {
         InternalNode node = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, node);
+        nodeManager.addNodes(node);
 
         // Check for Split assignments till maxSplitsPerNode (20)
         Set<Split> splits = new LinkedHashSet<>();
@@ -510,7 +514,7 @@ public class TestNodeScheduler
     public void testAssignmentWhenMixedSplits()
     {
         InternalNode node = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, node);
+        nodeManager.addNodes(node);
 
         // Check for Split assignments till maxSplitsPerNode (20)
         Set<Split> splits = new LinkedHashSet<>();
@@ -553,9 +557,9 @@ public class TestNodeScheduler
     public void testOptimizedLocalScheduling()
     {
         InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, node1);
+        nodeManager.addNodes(node1);
         InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, node2);
+        nodeManager.addNodes(node2);
 
         Set<Split> splits = new LinkedHashSet<>();
         // 20 splits with node1 as local node to be assigned in the first iteration of computeAssignments
@@ -625,13 +629,13 @@ public class TestNodeScheduler
     public void testEquateDistribution()
     {
         InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, node1);
+        nodeManager.addNodes(node1);
         InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, node2);
+        nodeManager.addNodes(node2);
         InternalNode node3 = new InternalNode("node3", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, node3);
+        nodeManager.addNodes(node3);
         InternalNode node4 = new InternalNode("node4", URI.create("http://10.0.0.1:14"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, node4);
+        nodeManager.addNodes(node4);
 
         Set<Split> splits = new LinkedHashSet<>();
         // 20 splits with node1 as local node to be assigned in the first iteration of computeAssignments
@@ -673,7 +677,7 @@ public class TestNodeScheduler
         for (int i = 0; i < numberOfNodes; ++i) {
             InternalNode node = new InternalNode("node" + i, URI.create("http://10.0.0.1:" + (i + 10)), NodeVersion.UNKNOWN, false);
             nodesBuilder.add(node);
-            nodeManager.addNode(TEST_CATALOG_HANDLE, node);
+            nodeManager.addNodes(node);
         }
         List<InternalNode> nodes = nodesBuilder.build();
 
@@ -706,9 +710,9 @@ public class TestNodeScheduler
     public void testRedistributeSplit()
     {
         InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, node1);
+        nodeManager.addNodes(node1);
         InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, node2);
+        nodeManager.addNodes(node2);
 
         Multimap<InternalNode, Split> assignment = HashMultimap.create();
 
@@ -760,9 +764,9 @@ public class TestNodeScheduler
     public void testEmptyAssignmentWithFullNodes()
     {
         InternalNode node1 = new InternalNode("node1", URI.create("http://10.0.0.1:11"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, node1);
+        nodeManager.addNodes(node1);
         InternalNode node2 = new InternalNode("node2", URI.create("http://10.0.0.1:12"), NodeVersion.UNKNOWN, false);
-        nodeManager.addNode(TEST_CATALOG_HANDLE, node2);
+        nodeManager.addNodes(node2);
 
         Set<Split> splits = new LinkedHashSet<>();
         // 20 splits with node1 as local node to be assigned in the first iteration of computeAssignments
@@ -781,7 +785,7 @@ public class TestNodeScheduler
             TaskId taskId = new TaskId(new StageId("test", 1), task, 0);
             task++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments1.get(node)), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
-            remoteTask.startSplits(20);
+            remoteTask.startSplits(15); // 15 running, 5 queued, no maxSplitWeightPerTask adjustment
             nodeTaskMap.addTask(node, remoteTask);
             taskMap.put(node, remoteTask);
         }
@@ -796,7 +800,7 @@ public class TestNodeScheduler
                     .build());
         }
         unassignedSplits = Sets.difference(unassignedSplits, new HashSet<>(assignments2.values()));
-        assertEquals(unassignedSplits.size(), 10);
+        assertEquals(unassignedSplits.size(), 20); // 30 (unassignedSplits) - (10 (maxPendingSplitsPerTask) - 5(queued)) * 2 (nodes))
 
         Multimap<InternalNode, Split> assignments3 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         assertTrue(assignments3.isEmpty());
@@ -813,11 +817,13 @@ public class TestNodeScheduler
             initialSplits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()));
         }
 
-        List<InternalNode> nodes = new ArrayList<>();
+        List<InternalNode> nodes = nodeManager.getActiveCatalogNodes(TEST_CATALOG_HANDLE).stream()
+                .filter(node -> !node.isCoordinator())
+                .collect(toImmutableList());
         List<MockRemoteTaskFactory.MockRemoteTask> tasks = new ArrayList<>();
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         int counter = 1;
-        for (InternalNode node : nodeManager.getActiveCatalogNodes(TEST_CATALOG_HANDLE)) {
+        for (InternalNode node : nodes) {
             // Max out number of unacknowledged splits on each task
             TaskId taskId = new TaskId(new StageId("test", 1), counter, 0);
             counter++;
@@ -825,7 +831,6 @@ public class TestNodeScheduler
             nodeTaskMap.addTask(node, remoteTask);
             remoteTask.setMaxUnacknowledgedSplits(maxUnacknowledgedSplitsPerTask);
             remoteTask.setUnacknowledgedSplits(maxUnacknowledgedSplitsPerTask);
-            nodes.add(node);
             tasks.add(remoteTask);
         }
 
@@ -870,7 +875,7 @@ public class TestNodeScheduler
     private static class TestSplitLocal
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplitLocal.class).instanceSize();
+        private static final int INSTANCE_SIZE = instanceSize(TestSplitLocal.class);
 
         private final HostAddress address;
         private final SplitWeight splitWeight;
@@ -963,7 +968,7 @@ public class TestNodeScheduler
     private static class TestSplitRemote
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplitRemote.class).instanceSize();
+        private static final int INSTANCE_SIZE = instanceSize(TestSplitRemote.class);
 
         private final List<HostAddress> hosts;
         private final SplitWeight splitWeight;

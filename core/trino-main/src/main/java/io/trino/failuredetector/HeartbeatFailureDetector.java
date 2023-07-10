@@ -17,6 +17,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
@@ -34,16 +37,12 @@ import io.trino.client.FailureInfo;
 import io.trino.server.InternalCommunicationConfig;
 import io.trino.spi.HostAddress;
 import io.trino.util.Failures;
+import jakarta.annotation.Nullable;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.Nullable;
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
@@ -110,7 +109,6 @@ public class HeartbeatFailureDetector
         requireNonNull(selector, "selector is null");
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(nodeInfo, "nodeInfo is null");
-        requireNonNull(failureDetectorConfig, "failureDetectorConfig is null");
         checkArgument(failureDetectorConfig.getHeartbeatInterval().toMillis() >= 1, "heartbeat interval must be >= 1ms");
 
         this.selector = selector;
@@ -179,7 +177,7 @@ public class HeartbeatFailureDetector
                     return GONE;
                 }
                 if (lastFailureException instanceof SocketTimeoutException) {
-                    // TODO: distinguish between process unresponsiveness (e.g GC pause) and host reboot
+                    // TODO: distinguish between process unresponsiveness (e.g. GC pause) and host reboot
                     return UNRESPONSIVE;
                 }
 

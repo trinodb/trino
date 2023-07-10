@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -25,6 +26,7 @@ import io.trino.plugin.accumulo.model.TabletSplitMetadata;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import jakarta.annotation.PreDestroy;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Scanner;
@@ -34,9 +36,6 @@ import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.hadoop.io.Text;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -172,11 +171,9 @@ public class IndexLookup
 
             return true;
         }
-        else {
-            LOG.debug("Use of index metrics is enabled");
-            // Get ranges using the metrics
-            return getRangesWithMetrics(session, schema, table, constraintRanges, rowIdRanges, tabletSplits, auths);
-        }
+        LOG.debug("Use of index metrics is enabled");
+        // Get ranges using the metrics
+        return getRangesWithMetrics(session, schema, table, constraintRanges, rowIdRanges, tabletSplits, auths);
     }
 
     private static Multimap<AccumuloColumnConstraint, Range> getIndexedConstraintRanges(Collection<AccumuloColumnConstraint> constraints, AccumuloRowSerializer serializer)
@@ -279,10 +276,8 @@ public class IndexLookup
             LOG.debug("Number of splits for %s.%s is %d with %d ranges", schema, table, tabletSplits.size(), indexRanges.size());
             return true;
         }
-        else {
-            // We are going to do too much work to use the secondary index, so return false
-            return false;
-        }
+        // We are going to do too much work to use the secondary index, so return false
+        return false;
     }
 
     private static boolean smallestCardAboveThreshold(ConnectorSession session, long numRows, long smallestCardinality)

@@ -63,11 +63,9 @@ public class PushCastIntoRow
         @Override
         public Expression rewriteCast(Cast node, Boolean inRowCast, ExpressionTreeRewriter<Boolean> treeRewriter)
         {
-            if (!(node.getType() instanceof RowDataType)) {
+            if (!(node.getType() instanceof RowDataType type)) {
                 return treeRewriter.defaultRewrite(node, false);
             }
-
-            RowDataType type = (RowDataType) node.getType();
 
             // if inRowCast == true or row is anonymous, we're free to push Cast into Row. An enclosing CAST(... AS ROW) will take care of preserving field names
             // otherwise, apply recursively with inRowCast == true and don't push this one
@@ -75,9 +73,7 @@ public class PushCastIntoRow
             if (inRowCast || type.getFields().stream().allMatch(field -> field.getName().isEmpty())) {
                 Expression value = treeRewriter.rewrite(node.getExpression(), true);
 
-                if (value instanceof Row) {
-                    Row row = (Row) value;
-
+                if (value instanceof Row row) {
                     ImmutableList.Builder<Expression> items = ImmutableList.builder();
                     for (int i = 0; i < row.getItems().size(); i++) {
                         Expression item = row.getItems().get(i);

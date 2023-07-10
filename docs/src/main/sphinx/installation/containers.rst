@@ -1,9 +1,11 @@
-===================
-Trino in containers
-===================
+===========================
+Trino in a Docker container
+===========================
 
 The Trino project provides the `trinodb/trino <https://hub.docker.com/r/trinodb/trino>`_
-Docker image that includes the Trino server and a default configuration.
+Docker image that includes the Trino server and a default configuration. The
+Docker image is published to Docker Hub and can be used with the Docker runtime,
+among several others.
 
 Running the container
 ---------------------
@@ -23,7 +25,7 @@ from inside the container to port 8080 on your workstation.
 
 Without specifying the container image tag, it defaults to ``latest``,
 but a number of any released Trino version can be used, for example
-``trinodb/trino:390``.
+``trinodb/trino:|trino_version|``.
 
 Run ``docker ps`` to see all the containers running in the background.
 
@@ -35,6 +37,13 @@ Run ``docker ps`` to see all the containers running in the background.
 
 When Trino is still starting, it shows ``(health: starting)``,
 and ``(healthy)`` when it's ready.
+
+.. note::
+
+   There are multiple ways to use Trino within containers. You can either run
+   Trino in Docker containers locally, as explained in the following sections,
+   or use a container orchestration platform like Kubernetes. For the Kubernetes
+   instructions see :doc:`/installation/kubernetes`.
 
 Executing queries
 -----------------

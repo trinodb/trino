@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -68,14 +69,18 @@ public class TestLazyBlock
         List<Block> actualNotifications = new ArrayList<>();
         Block arrayBlock = new IntArrayBlock(1, Optional.empty(), new int[] {0});
         LazyBlock lazyArrayBlock = new LazyBlock(1, () -> arrayBlock);
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(lazyArrayBlock, new int[] {0});
-        LazyBlock lazyBlock = new LazyBlock(1, () -> dictionaryBlock);
+        Block dictionaryBlock = DictionaryBlock.create(2, lazyArrayBlock, new int[] {0, 0});
+        LazyBlock lazyBlock = new LazyBlock(2, () -> dictionaryBlock);
         LazyBlock.listenForLoads(lazyBlock, actualNotifications::add);
 
         Block loadedBlock = lazyBlock.getBlock();
+        assertThat(loadedBlock).isInstanceOf(DictionaryBlock.class);
+        assertThat(((DictionaryBlock) loadedBlock).getDictionary()).isInstanceOf(LazyBlock.class);
         assertEquals(actualNotifications, ImmutableList.of(loadedBlock));
 
-        lazyBlock.getLoadedBlock();
+        Block fullyLoadedBlock = lazyBlock.getLoadedBlock();
+        assertThat(fullyLoadedBlock).isInstanceOf(DictionaryBlock.class);
+        assertThat(((DictionaryBlock) fullyLoadedBlock).getDictionary()).isInstanceOf(IntArrayBlock.class);
         assertEquals(actualNotifications, ImmutableList.of(loadedBlock, arrayBlock));
         assertTrue(lazyBlock.isLoaded());
         assertTrue(dictionaryBlock.isLoaded());

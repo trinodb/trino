@@ -15,9 +15,13 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
+import io.trino.metadata.TableHandle;
 import io.trino.server.DynamicFilterService;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
@@ -28,7 +32,6 @@ import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -40,6 +43,8 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -51,24 +56,23 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -98,13 +102,13 @@ public class SplitSourceFactory
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
-    public Map<PlanNodeId, SplitSource> createSplitSources(Session session, PlanFragment fragment)
+    public Map<PlanNodeId, SplitSource> createSplitSources(Session session, Span stageSpan, PlanFragment fragment)
     {
         ImmutableList.Builder<SplitSource> allSplitSources = ImmutableList.builder();
         try {
             // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
             return fragment.getRoot().accept(
-                    new Visitor(session, TypeProvider.copyOf(fragment.getSymbols()), allSplitSources),
+                    new Visitor(session, stageSpan, TypeProvider.copyOf(fragment.getSymbols()), allSplitSources),
                     null);
         }
         catch (Throwable t) {
@@ -127,15 +131,18 @@ public class SplitSourceFactory
             extends PlanVisitor<Map<PlanNodeId, SplitSource>, Void>
     {
         private final Session session;
+        private final Span stageSpan;
         private final TypeProvider typeProvider;
         private final ImmutableList.Builder<SplitSource> splitSources;
 
         private Visitor(
                 Session session,
+                Span stageSpan,
                 TypeProvider typeProvider,
                 ImmutableList.Builder<SplitSource> allSplitSources)
         {
             this.session = session;
+            this.stageSpan = stageSpan;
             this.typeProvider = typeProvider;
             this.splitSources = allSplitSources;
         }
@@ -149,14 +156,15 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
-            return visitScanAndFilter(node, Optional.empty());
+            SplitSource splitSource = createSplitSource(node.getTable(), node.getAssignments(), Optional.empty());
+
+            splitSources.add(splitSource);
+
+            return ImmutableMap.of(node.getId(), splitSource);
         }
 
-        private Map<PlanNodeId, SplitSource> visitScanAndFilter(TableScanNode node, Optional<FilterNode> filter)
+        private SplitSource createSplitSource(TableHandle table, Map<Symbol, ColumnHandle> assignments, Optional<Expression> filterPredicate)
         {
-            Optional<Expression> filterPredicate = filter
-                    .map(FilterNode::getPredicate);
-
             List<DynamicFilters.Descriptor> dynamicFilters = filterPredicate
                     .map(DynamicFilters::extractDynamicFilters)
                     .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
@@ -165,25 +173,22 @@ public class SplitSourceFactory
             DynamicFilter dynamicFilter = EMPTY;
             if (!dynamicFilters.isEmpty()) {
                 log.debug("Dynamic filters: %s", dynamicFilters);
-                dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, node.getAssignments(), typeProvider);
+                dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, assignments, typeProvider);
             }
 
             Constraint constraint = filterPredicate
                     .map(predicate -> filterConjuncts(plannerContext.getMetadata(), predicate, expression -> !DynamicFilters.isDynamicFilter(expression)))
-                    .map(predicate -> new LayoutConstraintEvaluator(plannerContext, typeAnalyzer, session, typeProvider, node.getAssignments(), predicate))
+                    .map(predicate -> new LayoutConstraintEvaluator(plannerContext, typeAnalyzer, session, typeProvider, assignments, predicate))
                     .map(evaluator -> new Constraint(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments())) // we are interested only in functional predicate here, so we set the summary to ALL.
                     .orElse(alwaysTrue());
 
             // get dataSource for table
-            SplitSource splitSource = splitManager.getSplits(
+            return splitManager.getSplits(
                     session,
-                    node.getTable(),
+                    stageSpan,
+                    table,
                     dynamicFilter,
                     constraint);
-
-            splitSources.add(splitSource);
-
-            return ImmutableMap.of(node.getId(), splitSource);
         }
 
         @Override
@@ -248,9 +253,12 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Void context)
         {
-            if (node.getSource() instanceof TableScanNode) {
-                TableScanNode scan = (TableScanNode) node.getSource();
-                return visitScanAndFilter(scan, Optional.of(node));
+            if (node.getSource() instanceof TableScanNode scan) {
+                SplitSource splitSource = createSplitSource(scan.getTable(), scan.getAssignments(), Optional.of(node.getPredicate()));
+
+                splitSources.add(splitSource);
+
+                return ImmutableMap.of(scan.getId(), splitSource);
             }
 
             return node.getSource().accept(this, context);
@@ -259,21 +267,20 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitSample(SampleNode node, Void context)
         {
-            switch (node.getSampleType()) {
-                case BERNOULLI:
-                    return node.getSource().accept(this, context);
-                case SYSTEM:
+            return switch (node.getSampleType()) {
+                case BERNOULLI -> node.getSource().accept(this, context);
+                case SYSTEM -> {
                     Map<PlanNodeId, SplitSource> nodeSplits = node.getSource().accept(this, context);
                     // TODO: when this happens we should switch to either BERNOULLI or page sampling
                     if (nodeSplits.size() == 1) {
                         PlanNodeId planNodeId = getOnlyElement(nodeSplits.keySet());
                         SplitSource sampledSplitSource = new SampledSplitSource(nodeSplits.get(planNodeId), node.getSampleRatio());
-                        return ImmutableMap.of(planNodeId, sampledSplitSource);
+                        yield ImmutableMap.of(planNodeId, sampledSplitSource);
                     }
                     // table sampling on a sub query without splits is meaningless
-                    return nodeSplits;
-            }
-            throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
+                    yield nodeSplits;
+                }
+            };
         }
 
         @Override
@@ -304,6 +311,20 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitPatternRecognition(PatternRecognitionNode node, Void context)
         {
             return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
+        {
+            if (node.getSource().isEmpty()) {
+                // this is a source node, so produce splits
+                SplitSource splitSource = splitManager.getSplits(session, stageSpan, node.getHandle());
+                splitSources.add(splitSource);
+
+                return ImmutableMap.of(node.getId(), splitSource);
+            }
+
+            return node.getSource().orElseThrow().accept(this, context);
         }
 
         @Override
@@ -398,13 +419,13 @@ public class SplitSourceFactory
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitDelete(DeleteNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitMergeWriter(MergeWriterNode node, Void context)
         {
             return node.getSource().accept(this, context);
         }
 
         @Override
-        public Map<PlanNodeId, SplitSource> visitUpdate(UpdateNode node, Void context)
+        public Map<PlanNodeId, SplitSource> visitMergeProcessor(MergeProcessorNode node, Void context)
         {
             return node.getSource().accept(this, context);
         }
@@ -420,6 +441,13 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitTableExecute(TableExecuteNode node, Void context)
         {
             return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitSimpleTableExecuteNode(SimpleTableExecuteNode node, Void context)
+        {
+            // node does not have splits
+            return ImmutableMap.of();
         }
 
         @Override

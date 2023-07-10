@@ -23,6 +23,7 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.parquet.hadoop.DisabledMemoryManager;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
 
@@ -50,6 +51,8 @@ public final class ParquetRecordWriter
             REAL_WRITER_FIELD.setAccessible(true);
             INTERNAL_WRITER_FIELD.setAccessible(true);
             FILE_WRITER_FIELD.setAccessible(true);
+
+            replaceHadoopParquetMemoryManager();
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
@@ -70,6 +73,18 @@ public final class ParquetRecordWriter
         ParquetFileWriter fileWriter = (ParquetFileWriter) FILE_WRITER_FIELD.get(internalWriter);
 
         return new ParquetRecordWriter(recordWriter, fileWriter);
+    }
+
+    public static void replaceHadoopParquetMemoryManager()
+    {
+        try {
+            Field memoryManager = org.apache.parquet.hadoop.ParquetOutputFormat.class.getDeclaredField("memoryManager");
+            memoryManager.setAccessible(true);
+            memoryManager.set(null, new DisabledMemoryManager());
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
     }
 
     private final RecordWriter recordWriter;

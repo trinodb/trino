@@ -15,6 +15,7 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.io.Resources;
 import io.trino.spi.TrinoException;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -85,5 +86,15 @@ public class TestPrometheusQueryMatrixResponseParse
         URL promErrorResponse = Resources.getResource(getClass(), "/prometheus-data/prom_error_response.json");
         assertNotNull(promMatrixResponse, "metadataUrl is null");
         this.promErrorResponse = promErrorResponse.openStream();
+    }
+
+    @AfterMethod(alwaysRun = true)
+    public void tearDown()
+            throws Exception
+    {
+        promMatrixResponse.close();
+        promMatrixResponse = null;
+        promErrorResponse.close();
+        promErrorResponse = null;
     }
 }

@@ -32,41 +32,44 @@ public class TestFileSystemExchangeConfig
     {
         assertRecordedDefaults(recordDefaults(FileSystemExchangeConfig.class)
                 .setBaseDirectories(null)
-                .setExchangeEncryptionEnabled(true)
                 .setMaxPageStorageSize(DataSize.of(16, MEGABYTE))
                 .setExchangeSinkBufferPoolMinSize(10)
                 .setExchangeSinkBuffersPerPartition(2)
                 .setExchangeSinkMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setExchangeSourceConcurrentReaders(4)
+                .setExchangeSourceMaxFilesPerReader(25)
                 .setMaxOutputPartitionCount(50)
-                .setExchangeFileListingParallelism(50));
+                .setExchangeFileListingParallelism(50)
+                .setExchangeSourceHandleTargetDataSize(DataSize.of(256, MEGABYTE)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("exchange.base-directories", "s3n://exchange-spooling-test/")
-                .put("exchange.encryption-enabled", "false")
+                .put("exchange.base-directories", "s3://exchange-spooling-test/")
                 .put("exchange.max-page-storage-size", "32MB")
                 .put("exchange.sink-buffer-pool-min-size", "20")
                 .put("exchange.sink-buffers-per-partition", "3")
                 .put("exchange.sink-max-file-size", "2GB")
                 .put("exchange.source-concurrent-readers", "10")
+                .put("exchange.source-max-files-per-reader", "111")
                 .put("exchange.max-output-partition-count", "53")
                 .put("exchange.file-listing-parallelism", "20")
+                .put("exchange.source-handle-target-data-size", "1GB")
                 .buildOrThrow();
 
         FileSystemExchangeConfig expected = new FileSystemExchangeConfig()
-                .setBaseDirectories("s3n://exchange-spooling-test/")
-                .setExchangeEncryptionEnabled(false)
+                .setBaseDirectories("s3://exchange-spooling-test/")
                 .setMaxPageStorageSize(DataSize.of(32, MEGABYTE))
                 .setExchangeSinkBufferPoolMinSize(20)
                 .setExchangeSinkBuffersPerPartition(3)
                 .setExchangeSinkMaxFileSize(DataSize.of(2, GIGABYTE))
                 .setExchangeSourceConcurrentReaders(10)
+                .setExchangeSourceMaxFilesPerReader(111)
                 .setMaxOutputPartitionCount(53)
-                .setExchangeFileListingParallelism(20);
+                .setExchangeFileListingParallelism(20)
+                .setExchangeSourceHandleTargetDataSize(DataSize.of(1, GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

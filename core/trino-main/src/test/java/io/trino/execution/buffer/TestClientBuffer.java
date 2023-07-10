@@ -15,17 +15,16 @@ package io.trino.execution.buffer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.buffer.ClientBuffer.PagesSupplier;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.spi.Page;
 import io.trino.spi.type.BigintType;
 import org.testng.annotations.Test;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -439,17 +438,15 @@ public class TestClientBuffer
     {
         assertEquals(
                 buffer.getInfo(),
-                new BufferInfo(
+                new PipelinedBufferInfo(
                         BUFFER_ID,
-                        false,
+                        // every page has one row,
+                        bufferedPages + pagesSent,
+                        bufferedPages + pagesSent,
                         bufferedPages,
+                        sizeOfPages(bufferedPages).toBytes(),
                         pagesSent,
-                        new PageBufferInfo(
-                                BUFFER_ID.getId(),
-                                bufferedPages,
-                                sizeOfPages(bufferedPages).toBytes(),
-                                bufferedPages + pagesSent, // every page has one row
-                                bufferedPages + pagesSent)));
+                        false));
         assertFalse(buffer.isDestroyed());
     }
 
@@ -462,7 +459,7 @@ public class TestClientBuffer
     @SuppressWarnings("ConstantConditions")
     private static void assertBufferDestroyed(ClientBuffer buffer, int pagesSent)
     {
-        BufferInfo bufferInfo = buffer.getInfo();
+        PipelinedBufferInfo bufferInfo = buffer.getInfo();
         assertEquals(bufferInfo.getBufferedPages(), 0);
         assertEquals(bufferInfo.getPagesSent(), pagesSent);
         assertTrue(bufferInfo.isFinished());

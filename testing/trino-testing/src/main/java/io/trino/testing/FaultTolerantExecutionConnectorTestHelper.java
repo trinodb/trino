@@ -27,12 +27,26 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 .put("retry-policy", "TASK")
                 .put("retry-initial-delay", "50ms")
                 .put("retry-max-delay", "100ms")
-                .put("fault-tolerant-execution-partition-count", "5")
-                .put("fault-tolerant-execution-target-task-input-size", "10MB")
-                .put("fault-tolerant-execution-target-task-split-count", "4")
+                .put("fault-tolerant-execution-max-partition-count", "5")
+                .put("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-min", "5MB")
+                .put("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-max", "10MB")
+                .put("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-min", "10MB")
+                .put("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-max", "20MB")
+                .put("fault-tolerant-execution-hash-distribution-compute-task-target-size", "5MB")
+                .put("fault-tolerant-execution-hash-distribution-write-task-target-size", "10MB")
+                .put("fault-tolerant-execution-standard-split-size", "2.5MB")
+                .put("fault-tolerant-execution-hash-distribution-compute-task-to-node-min-ratio", "0.0")
+                .put("fault-tolerant-execution-hash-distribution-write-task-to-node-min-ratio", "0.0")
                 // to trigger spilling
                 .put("exchange.deduplication-buffer-size", "1kB")
                 .put("fault-tolerant-execution-task-memory", "1GB")
+                // limit number of threads to detect potential thread leaks
+                .put("query.executor-pool-size", "10")
+                // enable exchange compression to follow production deployment recommendations
+                .put("exchange.compression-enabled", "true")
+                .put("max-tasks-waiting-for-execution-per-query", "2")
+                .put("max-tasks-waiting-for-node-per-stage", "2")
+                .put("query.schedule-split-batch-size", "2")
                 .buildOrThrow();
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -23,6 +24,8 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -37,6 +40,7 @@ import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import io.trino.type.BlockTypeOperators.BlockPositionXxHash64;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -53,10 +57,14 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -65,6 +73,7 @@ import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableSortedMap;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -77,8 +86,12 @@ public abstract class AbstractTestType
 
     private final Class<?> objectValueType;
     private final Block testBlock;
-    private final Type type;
+    protected final Type type;
+
     private final TypeOperators typeOperators;
+    private final MethodHandle readBlockMethod;
+    private final MethodHandle writeBlockMethod;
+
     protected final BlockTypeOperators blockTypeOperators;
     private final BlockPositionEqual equalOperator;
     private final BlockPositionHashCode hashCodeOperator;
@@ -97,6 +110,9 @@ public abstract class AbstractTestType
     {
         this.type = requireNonNull(type, "type is null");
         typeOperators = new TypeOperators();
+        readBlockMethod = typeOperators.getReadValueOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
+        writeBlockMethod = typeOperators.getReadValueOperator(type, simpleConvention(BLOCK_BUILDER, NEVER_NULL));
+
         blockTypeOperators = new BlockTypeOperators(typeOperators);
         if (type.isComparable()) {
             equalOperator = blockTypeOperators.getEqualOperator(type);
@@ -176,6 +192,7 @@ public abstract class AbstractTestType
 
     @Test
     public void testBlock()
+            throws Throwable
     {
         for (Entry<Integer, Object> entry : expectedStackValues.entrySet()) {
             assertPositionEquals(testBlock, entry.getKey(), entry.getValue(), expectedObjectValues.get(entry.getKey()));
@@ -186,7 +203,48 @@ public abstract class AbstractTestType
         }
     }
 
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        Object sampleValue = getSampleValue();
+        if (!type.isOrderable()) {
+            assertThatThrownBy(() -> type.getPreviousValue(sampleValue))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Type is not orderable: " + type);
+            return;
+        }
+        assertThat(type.getPreviousValue(sampleValue))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        Object sampleValue = getSampleValue();
+        if (!type.isOrderable()) {
+            assertThatThrownBy(() -> type.getNextValue(sampleValue))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Type is not orderable: " + type);
+            return;
+        }
+        assertThat(type.getNextValue(sampleValue))
+                .isEmpty();
+    }
+
+    protected Object getSampleValue()
+    {
+        return requireNonNull(Iterables.get(expectedStackValues.values(), 0), "sample value is null");
+    }
+
     protected void assertPositionEquals(Block block, int position, Object expectedStackValue, Object expectedObjectValue)
+            throws Throwable
     {
         long hash = 0;
         if (type.isComparable()) {
@@ -201,9 +259,16 @@ public abstract class AbstractTestType
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         type.appendTo(block, position, blockBuilder);
         assertPositionValue(blockBuilder.build(), 0, expectedStackValue, hash, expectedObjectValue);
+
+        if (expectedStackValue != null) {
+            blockBuilder = type.createBlockBuilder(null, 1);
+            writeBlockMethod.invoke(expectedStackValue, blockBuilder);
+            assertPositionValue(blockBuilder.build(), 0, expectedStackValue, hash, expectedObjectValue);
+        }
     }
 
     private void assertPositionValue(Block block, int position, Object expectedStackValue, long expectedHash, Object expectedObjectValue)
+            throws Throwable
     {
         assertEquals(block.isNull(position), expectedStackValue == null);
 
@@ -229,6 +294,10 @@ public abstract class AbstractTestType
                     .hasMessageContaining("is not comparable");
 
             assertThatThrownBy(() -> typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION)))
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessageContaining("is not comparable");
+
+            assertThatThrownBy(() -> typeOperators.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)))
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessageContaining("is not comparable");
 
@@ -280,18 +349,21 @@ public abstract class AbstractTestType
             assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getObject(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertEquals((boolean) readBlockMethod.invokeExact(block, position), expectedStackValue);
         }
         else if (type.getJavaType() == long.class) {
             assertEquals(type.getLong(block, position), expectedStackValue);
             assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getObject(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertEquals((long) readBlockMethod.invokeExact(block, position), expectedStackValue);
         }
         else if (type.getJavaType() == double.class) {
             assertEquals(type.getDouble(block, position), expectedStackValue);
             assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getObject(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertEquals((double) readBlockMethod.invokeExact(block, position), expectedStackValue);
         }
         else if (type.getJavaType() == Slice.class) {
             assertEquals(type.getSlice(block, position), expectedStackValue);
@@ -299,24 +371,32 @@ public abstract class AbstractTestType
             assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertEquals((Slice) readBlockMethod.invokeExact(block, position), expectedStackValue);
         }
         else if (type.getJavaType() == Block.class) {
-            SliceOutput actualSliceOutput = new DynamicSliceOutput(100);
-            writeBlock(blockEncodingSerde, actualSliceOutput, (Block) type.getObject(block, position));
-            SliceOutput expectedSliceOutput = new DynamicSliceOutput(actualSliceOutput.size());
-            writeBlock(blockEncodingSerde, expectedSliceOutput, (Block) expectedStackValue);
-            assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
+            assertBlockEquals((Block) type.getObject(block, position), (Block) expectedStackValue);
             assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getSlice(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertBlockEquals((Block) readBlockMethod.invokeExact(block, position), (Block) expectedStackValue);
         }
         else {
             assertEquals(type.getObject(block, position), expectedStackValue);
             assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertEquals(readBlockMethod.invoke(block, position), expectedStackValue);
         }
+    }
+
+    private void assertBlockEquals(Block actualValue, Block expectedValue)
+    {
+        SliceOutput actualSliceOutput = new DynamicSliceOutput(100);
+        writeBlock(blockEncodingSerde, actualSliceOutput, actualValue);
+        SliceOutput expectedSliceOutput = new DynamicSliceOutput(actualSliceOutput.size());
+        writeBlock(blockEncodingSerde, expectedSliceOutput, expectedValue);
+        assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
     }
 
     private void verifyInvalidPositionHandling(Block block)
@@ -376,6 +456,14 @@ public abstract class AbstractTestType
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Invalid position %d in block with %d positions", block.getPositionCount(), block.getPositionCount());
         }
+
+        assertThatThrownBy(() -> readBlockMethod.invoke(block, -1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid position -1 in block with %d positions", block.getPositionCount());
+
+        assertThatThrownBy(() -> readBlockMethod.invoke(block, block.getPositionCount()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid position %d in block with %d positions", block.getPositionCount(), block.getPositionCount());
 
         if (type.getJavaType() == boolean.class) {
             assertThatThrownBy(() -> type.getBoolean(block, -1))
@@ -473,14 +561,18 @@ public abstract class AbstractTestType
         if (type.getJavaType() == Slice.class) {
             return Slices.utf8Slice("_");
         }
-        if (type instanceof ArrayType) {
-            ArrayType arrayType = (ArrayType) type;
+        if (type.getJavaType() == LongTimestamp.class) {
+            return new LongTimestamp(1, 0);
+        }
+        if (type.getJavaType() == LongTimestampWithTimeZone.class) {
+            return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(1, 0, UTC_KEY);
+        }
+        if (type instanceof ArrayType arrayType) {
             Type elementType = arrayType.getElementType();
             Object elementNonNullValue = getNonNullValueForType(elementType);
             return arrayBlockOf(elementType, elementNonNullValue);
         }
-        if (type instanceof MapType) {
-            MapType mapType = (MapType) type;
+        if (type instanceof MapType mapType) {
             Type keyType = mapType.getKeyType();
             Type valueType = mapType.getValueType();
             Object keyNonNullValue = getNonNullValueForType(keyType);
@@ -488,8 +580,7 @@ public abstract class AbstractTestType
             Map<?, ?> map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
             return mapBlockOf(keyType, valueType, map);
         }
-        if (type instanceof RowType) {
-            RowType rowType = (RowType) type;
+        if (type instanceof RowType rowType) {
             List<Type> elementTypes = rowType.getTypeParameters();
             Object[] elementNonNullValues = elementTypes.stream().map(AbstractTestType::getNonNullValueForType).toArray(Object[]::new);
             return toRow(elementTypes, elementNonNullValues);

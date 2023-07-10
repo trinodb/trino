@@ -35,7 +35,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
@@ -45,6 +44,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestQueries
@@ -305,7 +305,7 @@ public abstract class AbstractTestQueries
             Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
             assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
             Set<Object> result = computeActual("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
-            verify(allSchemas.stream().anyMatch(schema -> ((String) schema).contains("_")),
+            verify(allSchemas.stream().anyMatch(schema -> !((String) schema).contains("_")),
                     "This test expects at least one schema without underscore in it's name. Satisfy this assumption or override the test.");
             assertThat(result)
                     .isSubsetOf(allSchemas)
@@ -501,5 +501,11 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE 0=1");
         assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE null");
+    }
+
+    @Test
+    public void testUnionAllAboveBroadcastJoin()
+    {
+        assertQuery("SELECT COUNT(*) FROM region r JOIN (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n ON r.regionkey = n.nationkey", "VALUES 10");
     }
 }

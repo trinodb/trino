@@ -36,9 +36,12 @@ import io.airlift.json.JsonModule;
 import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
+import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
+import io.airlift.tracing.TracingModule;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogManagerConfig;
+import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
@@ -50,7 +53,6 @@ import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
-import io.trino.metadata.StaticCatalogStore;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AccessControlModule;
 import io.trino.security.GroupProviderManager;
@@ -59,6 +61,7 @@ import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.server.security.oauth2.OAuth2Client;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.transaction.TransactionManagerModule;
 import io.trino.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
@@ -78,6 +81,7 @@ import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
 import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 
 public class Server
@@ -106,8 +110,10 @@ public class Server
                 new PrefixObjectNameGeneratorModule("io.trino"),
                 new JmxModule(),
                 new JmxHttpModule(),
+                new JmxOpenMetricsModule(),
                 new LogJmxModule(),
                 new TraceTokenModule(),
+                new TracingModule("trino", trinoVersion),
                 new EventModule(),
                 new JsonEventModule(),
                 new ServerSecurityModule(),
@@ -132,19 +138,24 @@ public class Server
             logLocation(log, "Working directory", Paths.get("."));
             logLocation(log, "Etc directory", Paths.get("etc"));
 
-            injector.getInstance(PluginManager.class).loadPlugins();
+            injector.getInstance(PluginInstaller.class).loadPlugins();
 
-            injector.getInstance(StaticCatalogStore.class).loadCatalogs();
+            ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
+            connectorServicesProvider.loadInitialCatalogs();
 
+            // Only static catalog manager announces catalogs
             // Connector event listeners are only supported for statically loaded catalogs
             // TODO: remove connector event listeners or add support for dynamic loading from connector
-            addConnectorEventListeners(
-                    injector.getInstance(CatalogManager.class),
-                    injector.getInstance(ConnectorServicesProvider.class),
-                    injector.getInstance(EventListenerManager.class));
+            if (injector.getInstance(CatalogManagerConfig.class).getCatalogMangerKind() == CatalogMangerKind.STATIC) {
+                CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
+                addConnectorEventListeners(
+                        catalogManager,
+                        injector.getInstance(ConnectorServicesProvider.class),
+                        injector.getInstance(EventListenerManager.class));
 
-            // TODO: remove this huge hack
-            updateConnectorIds(injector.getInstance(Announcer.class), injector.getInstance(CatalogManager.class));
+                // TODO: remove this huge hack
+                updateConnectorIds(injector.getInstance(Announcer.class), catalogManager);
+            }
 
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
@@ -175,11 +186,11 @@ public class Server
             message.append("\n");
             message.append("==========");
             log.error("%s", message);
-            System.exit(1);
+            System.exit(100);
         }
         catch (Throwable e) {
             log.error(e);
-            System.exit(1);
+            System.exit(100);
         }
     }
 
@@ -192,6 +203,7 @@ public class Server
         catalogManager.getCatalogNames().stream()
                 .map(catalogManager::getCatalog)
                 .flatMap(Optional::stream)
+                .filter(not(Catalog::isFailed))
                 .map(Catalog::getCatalogHandle)
                 .map(connectorServicesProvider::getConnectorServices)
                 .map(ConnectorServices::getEventListeners)

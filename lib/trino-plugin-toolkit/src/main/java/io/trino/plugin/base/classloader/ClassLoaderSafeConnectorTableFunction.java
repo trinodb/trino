@@ -14,13 +14,14 @@
 package io.trino.plugin.base.classloader;
 
 import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.ptf.Argument;
-import io.trino.spi.ptf.ArgumentSpecification;
-import io.trino.spi.ptf.ConnectorTableFunction;
-import io.trino.spi.ptf.ReturnTypeSpecification;
-import io.trino.spi.ptf.TableFunctionAnalysis;
+import io.trino.spi.function.table.Argument;
+import io.trino.spi.function.table.ArgumentSpecification;
+import io.trino.spi.function.table.ConnectorTableFunction;
+import io.trino.spi.function.table.ReturnTypeSpecification;
+import io.trino.spi.function.table.TableFunctionAnalysis;
 
 import java.util.List;
 import java.util.Map;
@@ -72,10 +73,13 @@ public class ClassLoaderSafeConnectorTableFunction
     }
 
     @Override
-    public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+    public TableFunctionAnalysis analyze(ConnectorSession session,
+            ConnectorTransactionHandle transaction,
+            Map<String, Argument> arguments,
+            ConnectorAccessControl accessControl)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.analyze(session, transaction, arguments);
+            return delegate.analyze(session, transaction, arguments, accessControl);
         }
     }
 }

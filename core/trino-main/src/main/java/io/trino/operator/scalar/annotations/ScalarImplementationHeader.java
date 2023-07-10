@@ -27,7 +27,7 @@ import java.util.Optional;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseDescription;
 import static java.util.Objects.requireNonNull;
 

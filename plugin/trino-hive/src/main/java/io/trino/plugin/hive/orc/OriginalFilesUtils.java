@@ -13,18 +13,16 @@
  */
 package io.trino.plugin.hive.orc;
 
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 
 import java.util.Collection;
 
@@ -47,18 +45,19 @@ public final class OriginalFilesUtils
      */
     public static long getPrecedingRowCount(
             Collection<OriginalFileInfo> originalFileInfos,
-            Path splitPath,
-            HdfsEnvironment hdfsEnvironment,
+            Location splitPath,
+            TrinoFileSystemFactory fileSystemFactory,
             ConnectorIdentity identity,
             OrcReaderOptions options,
-            Configuration configuration,
             FileFormatDataSourceStats stats)
     {
         long rowCount = 0;
         for (OriginalFileInfo originalFileInfo : originalFileInfos) {
-            Path path = new Path(splitPath.getParent() + "/" + originalFileInfo.getName());
-            if (path.compareTo(splitPath) < 0) {
-                rowCount += getRowsInFile(path, hdfsEnvironment, identity, options, configuration, stats, originalFileInfo.getFileSize());
+            if (originalFileInfo.getName().compareTo(splitPath.fileName()) < 0) {
+                Location path = splitPath.parentDirectory().appendPath(originalFileInfo.getName());
+                TrinoInputFile inputFile = fileSystemFactory.create(identity)
+                        .newInputFile(path, originalFileInfo.getFileSize());
+                rowCount += getRowsInFile(inputFile, options, stats);
             }
         }
 
@@ -68,26 +67,17 @@ public final class OriginalFilesUtils
     /**
      * Returns number of rows present in the file, based on the ORC footer.
      */
-    private static Long getRowsInFile(
-            Path splitPath,
-            HdfsEnvironment hdfsEnvironment,
-            ConnectorIdentity identity,
-            OrcReaderOptions options,
-            Configuration configuration,
-            FileFormatDataSourceStats stats,
-            long fileSize)
+    private static Long getRowsInFile(TrinoInputFile inputFile, OrcReaderOptions options, FileFormatDataSourceStats stats)
     {
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, splitPath, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(splitPath));
             try (OrcDataSource orcDataSource = new HdfsOrcDataSource(
-                    new OrcDataSourceId(splitPath.toString()),
-                    fileSize,
+                    new OrcDataSourceId(inputFile.location().toString()),
+                    inputFile.length(),
                     options,
-                    inputStream,
+                    inputFile,
                     stats)) {
                 OrcReader reader = createOrcReader(orcDataSource, options)
-                        .orElseThrow(() -> new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Could not read ORC footer from empty file: " + splitPath));
+                        .orElseThrow(() -> new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Could not read ORC footer from empty file: " + inputFile.location()));
                 return reader.getFooter().getNumberOfRows();
             }
         }
@@ -95,7 +85,7 @@ public final class OriginalFilesUtils
             throw e;
         }
         catch (Exception e) {
-            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Could not read ORC footer from file: " + splitPath, e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Could not read ORC footer from file: " + inputFile.location(), e);
         }
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
@@ -23,54 +24,61 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.type.UnknownType.UNKNOWN;
-import static org.testng.Assert.assertFalse;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestBlockAndPositionNullConvention
-        extends AbstractTestFunctions
 {
-    @BeforeClass
-    public void setUp()
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
     {
-        registerParametricScalar(FunctionWithBlockAndPositionConvention.class);
+        assertions = new QueryAssertions();
+        assertions.addFunctions(InternalFunctionBundle.builder()
+                .scalar(FunctionWithBlockAndPositionConvention.class)
+                .build());
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @Test
     public void testBlockPosition()
     {
-        assertFunction("test_block_position(9876543210)", BIGINT, 9876543210L);
-        assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionBigint.get());
-
-        assertFunction("test_block_position(bound_long)", BIGINT, 1234L);
+        assertThat(assertions.function("test_block_position", "BIGINT '1234'"))
+                .isEqualTo(1234L);
         assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionBigint.get());
 
-        assertFunction("test_block_position(3.0E0)", DOUBLE, 3.0);
-        assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionDouble.get());
-
-        assertFunction("test_block_position(bound_double)", DOUBLE, 12.34);
+        assertThat(assertions.function("test_block_position", "12.34e0"))
+                .isEqualTo(12.34);
         assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionDouble.get());
 
-        assertFunction("test_block_position(bound_string)", VARCHAR, "hello");
+        assertThat(assertions.function("test_block_position", "'hello'"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("hello");
         assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionSlice.get());
 
-        assertFunction("test_block_position(null)", UNKNOWN, null);
-        assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionObject.get());
-
-        assertFunction("test_block_position(false)", BOOLEAN, false);
-        assertFalse(FunctionWithBlockAndPositionConvention.hitBlockPositionBoolean.get());
-
-        assertFunction("test_block_position(bound_boolean)", BOOLEAN, true);
+        assertThat(assertions.function("test_block_position", "true"))
+                .isEqualTo(true);
         assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionBoolean.get());
     }
 
@@ -97,7 +105,7 @@ public class TestBlockAndPositionNullConvention
         @TypeParameter("E")
         @SqlNullable
         @SqlType("E")
-        public static Object generic(@TypeParameter("E") Type type, @BlockPosition @SqlType("E") Block block, @BlockIndex int position)
+        public static Object generic(@TypeParameter("E") Type type, @SqlNullable @BlockPosition @SqlType("E") Block block, @BlockIndex int position)
         {
             hitBlockPositionObject.set(true);
             return readNativeValue(type, block, position);
@@ -116,7 +124,7 @@ public class TestBlockAndPositionNullConvention
         @TypeParameter("E")
         @SqlNullable
         @SqlType("E")
-        public static Slice specializedSlice(@TypeParameter("E") Type type, @BlockPosition @SqlType(value = "E", nativeContainerType = Slice.class) Block block, @BlockIndex int position)
+        public static Slice specializedSlice(@TypeParameter("E") Type type, @SqlNullable @BlockPosition @SqlType(value = "E", nativeContainerType = Slice.class) Block block, @BlockIndex int position)
         {
             hitBlockPositionSlice.set(true);
             return type.getSlice(block, position);
@@ -133,7 +141,7 @@ public class TestBlockAndPositionNullConvention
         @TypeParameter("E")
         @SqlNullable
         @SqlType("E")
-        public static Boolean speciailizedBoolean(@TypeParameter("E") Type type, @BlockPosition @SqlType(value = "E", nativeContainerType = boolean.class) Block block, @BlockIndex int position)
+        public static Boolean speciailizedBoolean(@TypeParameter("E") Type type, @SqlNullable @BlockPosition @SqlType(value = "E", nativeContainerType = boolean.class) Block block, @BlockIndex int position)
         {
             hitBlockPositionBoolean.set(true);
             return type.getBoolean(block, position);
@@ -150,7 +158,7 @@ public class TestBlockAndPositionNullConvention
 
         @SqlType(StandardTypes.BIGINT)
         @SqlNullable
-        public static Long getBlockPosition(@BlockPosition @SqlType(value = StandardTypes.BIGINT, nativeContainerType = long.class) Block block, @BlockIndex int position)
+        public static Long getBlockPosition(@SqlNullable @BlockPosition @SqlType(value = StandardTypes.BIGINT, nativeContainerType = long.class) Block block, @BlockIndex int position)
         {
             hitBlockPositionBigint.set(true);
             return BIGINT.getLong(block, position);
@@ -165,7 +173,7 @@ public class TestBlockAndPositionNullConvention
 
         @SqlType(StandardTypes.DOUBLE)
         @SqlNullable
-        public static Double getDouble(@BlockPosition @SqlType(value = StandardTypes.DOUBLE, nativeContainerType = double.class) Block block, @BlockIndex int position)
+        public static Double getDouble(@SqlNullable @BlockPosition @SqlType(value = StandardTypes.DOUBLE, nativeContainerType = double.class) Block block, @BlockIndex int position)
         {
             hitBlockPositionDouble.set(true);
             return DOUBLE.getDouble(block, position);

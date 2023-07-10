@@ -84,7 +84,6 @@ public class TestDeltaLakeSharedFileMetastoreWithTableRedirections
     protected String getExpectedHiveCreateSchema(String catalogName)
     {
         String expectedHiveCreateSchema = "CREATE SCHEMA %s.%s\n" +
-                "AUTHORIZATION USER user\n" +
                 "WITH (\n" +
                 "   location = '%s/%s'\n" +
                 ")";

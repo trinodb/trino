@@ -19,7 +19,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ColumnarRow;
-import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import org.testng.annotations.Test;
@@ -89,7 +88,7 @@ public class TestColumnarRow
 
     private static <T> void assertDictionaryBlock(Block block, T[] expectedValues)
     {
-        DictionaryBlock dictionaryBlock = createTestDictionaryBlock(block);
+        Block dictionaryBlock = createTestDictionaryBlock(block);
         T[] expectedDictionaryValues = createTestDictionaryExpectedValues(expectedValues);
 
         assertBlock(dictionaryBlock, expectedDictionaryValues);
@@ -132,28 +131,29 @@ public class TestColumnarRow
 
     public static BlockBuilder createBlockBuilderWithValues(Slice[][] expectedValues)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(null, 100);
+        RowBlockBuilder blockBuilder = createBlockBuilder(null, 100);
         for (Slice[] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-                for (Slice v : expectedValue) {
-                    if (v == null) {
-                        entryBuilder.appendNull();
+                blockBuilder.buildEntry(fieldBuilders -> {
+                    for (int i = 0; i < expectedValue.length; i++) {
+                        Slice v = expectedValue[i];
+                        if (v == null) {
+                            fieldBuilders.get(i).appendNull();
+                        }
+                        else {
+                            VARCHAR.writeSlice(fieldBuilders.get(i), v);
+                        }
                     }
-                    else {
-                        VARCHAR.writeSlice(entryBuilder, v);
-                    }
-                }
-                blockBuilder.closeEntry();
+                });
             }
         }
         return blockBuilder;
     }
 
-    private static BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    private static RowBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return new RowBlockBuilder(Collections.nCopies(FIELD_COUNT, VARCHAR), blockBuilderStatus, expectedEntries);
     }

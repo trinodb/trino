@@ -14,8 +14,6 @@
 package io.trino.plugin.kafka.encoder;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
@@ -47,8 +45,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -81,34 +77,34 @@ public abstract class AbstractRowEncoder
             appendNullValue();
         }
         else if (type == BOOLEAN) {
-            appendBoolean(type.getBoolean(block, position));
+            appendBoolean(BOOLEAN.getBoolean(block, position));
         }
         else if (type == BIGINT) {
-            appendLong(type.getLong(block, position));
+            appendLong(BIGINT.getLong(block, position));
         }
         else if (type == INTEGER) {
-            appendInt(toIntExact(type.getLong(block, position)));
+            appendInt(INTEGER.getInt(block, position));
         }
         else if (type == SMALLINT) {
-            appendShort(Shorts.checkedCast(type.getLong(block, position)));
+            appendShort(SMALLINT.getShort(block, position));
         }
         else if (type == TINYINT) {
-            appendByte(SignedBytes.checkedCast(type.getLong(block, position)));
+            appendByte(TINYINT.getByte(block, position));
         }
         else if (type == DOUBLE) {
-            appendDouble(type.getDouble(block, position));
+            appendDouble(DOUBLE.getDouble(block, position));
         }
         else if (type == REAL) {
-            appendFloat(intBitsToFloat(toIntExact(type.getLong(block, position))));
+            appendFloat(REAL.getFloat(block, position));
         }
-        else if (type instanceof VarcharType) {
-            appendString(type.getSlice(block, position).toStringUtf8());
+        else if (type instanceof VarcharType varcharType) {
+            appendString(varcharType.getSlice(block, position).toStringUtf8());
         }
-        else if (type instanceof VarbinaryType) {
-            appendByteBuffer(type.getSlice(block, position).toByteBuffer());
+        else if (type instanceof VarbinaryType varbinaryType) {
+            appendByteBuffer(varbinaryType.getSlice(block, position).toByteBuffer());
         }
         else if (type == DATE) {
-            appendSqlDate((SqlDate) type.getObjectValue(session, block, position));
+            appendSqlDate((SqlDate) DATE.getObjectValue(session, block, position));
         }
         else if (type instanceof TimeType) {
             appendSqlTime((SqlTime) type.getObjectValue(session, block, position));

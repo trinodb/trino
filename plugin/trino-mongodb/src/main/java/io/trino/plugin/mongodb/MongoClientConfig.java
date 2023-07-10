@@ -13,37 +13,21 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
-import com.mongodb.MongoCredential;
-import com.mongodb.ServerAddress;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
-
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.mongodb.MongoCredential.createCredential;
-
-@DefunctConfig({"mongodb.connection-per-host", "mongodb.socket-keep-alive"})
+@DefunctConfig({"mongodb.connection-per-host", "mongodb.socket-keep-alive", "mongodb.seeds", "mongodb.credentials"})
 public class MongoClientConfig
 {
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-    private static final Splitter PORT_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
-
     private String schemaCollection = "_schema";
     private boolean caseInsensitiveNameMatching;
-    private Optional<String> connectionUrl = Optional.empty();
-    private List<ServerAddress> seeds = ImmutableList.of();
-    private List<MongoCredential> credentials = ImmutableList.of();
+    private String connectionUrl;
 
     private int minConnectionsPerHost;
     private int connectionsPerHost = 100;
@@ -51,7 +35,7 @@ public class MongoClientConfig
     private int connectionTimeout = 10_000;
     private int socketTimeout;
     private int maxConnectionIdleTime;
-    private boolean sslEnabled;
+    private boolean tlsEnabled;
 
     // query configurations
     private int cursorBatchSize; // use driver default
@@ -60,16 +44,7 @@ public class MongoClientConfig
     private WriteConcernType writeConcern = WriteConcernType.ACKNOWLEDGED;
     private String requiredReplicaSetName;
     private String implicitRowFieldPrefix = "_pos";
-
-    @AssertTrue(message = "Exactly one of these 'mongodb.seed' or 'mongodb.connection-url' must be specified")
-    public boolean isConnectionPropertyValid()
-    {
-        if (seeds.isEmpty() && connectionUrl.isEmpty()) {
-            return false;
-        }
-
-        return seeds.isEmpty() || connectionUrl.isEmpty();
-    }
+    private boolean projectionPushDownEnabled = true;
 
     @NotNull
     public String getSchemaCollection()
@@ -97,7 +72,7 @@ public class MongoClientConfig
     }
 
     @NotNull
-    public Optional<@Pattern(message = "Invalid connection URL. Expected mongodb:// or mongodb+srv://", regexp = "^mongodb(\\+srv)?://.*") String> getConnectionUrl()
+    public @Pattern(message = "Invalid connection URL. Expected mongodb:// or mongodb+srv://", regexp = "^mongodb(\\+srv)?://.*") String getConnectionUrl()
     {
         return connectionUrl;
     }
@@ -106,80 +81,8 @@ public class MongoClientConfig
     @ConfigSecuritySensitive
     public MongoClientConfig setConnectionUrl(String connectionUrl)
     {
-        this.connectionUrl = Optional.ofNullable(connectionUrl);
+        this.connectionUrl = connectionUrl;
         return this;
-    }
-
-    @NotNull
-    @Deprecated
-    public List<ServerAddress> getSeeds()
-    {
-        return seeds;
-    }
-
-    @Config("mongodb.seeds")
-    @Deprecated
-    public MongoClientConfig setSeeds(String commaSeparatedList)
-    {
-        this.seeds = buildSeeds(SPLITTER.split(commaSeparatedList));
-        return this;
-    }
-
-    public MongoClientConfig setSeeds(String... seeds)
-    {
-        this.seeds = buildSeeds(Arrays.asList(seeds));
-        return this;
-    }
-
-    @NotNull
-    @Deprecated
-    public List<MongoCredential> getCredentials()
-    {
-        return credentials;
-    }
-
-    @Config("mongodb.credentials")
-    @ConfigSecuritySensitive
-    @Deprecated
-    public MongoClientConfig setCredentials(String credentials)
-    {
-        this.credentials = buildCredentials(SPLITTER.split(credentials));
-        return this;
-    }
-
-    private List<ServerAddress> buildSeeds(Iterable<String> hostPorts)
-    {
-        ImmutableList.Builder<ServerAddress> builder = ImmutableList.builder();
-        for (String hostPort : hostPorts) {
-            List<String> values = PORT_SPLITTER.splitToList(hostPort);
-            checkArgument(values.size() == 1 || values.size() == 2, "Invalid ServerAddress format. Requires host[:port]");
-            if (values.size() == 1) {
-                builder.add(new ServerAddress(values.get(0)));
-            }
-            else {
-                builder.add(new ServerAddress(values.get(0), Integer.parseInt(values.get(1))));
-            }
-        }
-        return builder.build();
-    }
-
-    private List<MongoCredential> buildCredentials(Iterable<String> userPasses)
-    {
-        ImmutableList.Builder<MongoCredential> builder = ImmutableList.builder();
-        for (String userPassDatabase : userPasses) {
-            int lastIndex = userPassDatabase.lastIndexOf('@');
-            checkArgument(lastIndex > 0, "Invalid Credential format. Requires user:password@database");
-            String userPass = userPassDatabase.substring(0, lastIndex);
-            String database = userPassDatabase.substring(lastIndex + 1);
-
-            int firstIndex = userPass.indexOf(':');
-            checkArgument(firstIndex > 0, "Invalid Credential format. Requires user:password@database");
-            String user = userPass.substring(0, firstIndex);
-            String password = userPass.substring(firstIndex + 1);
-
-            builder.add(createCredential(user, database, password.toCharArray()));
-        }
-        return builder.build();
     }
 
     @Min(0)
@@ -310,15 +213,16 @@ public class MongoClientConfig
         return this;
     }
 
-    public boolean getSslEnabled()
+    public boolean getTlsEnabled()
     {
-        return this.sslEnabled;
+        return this.tlsEnabled;
     }
 
-    @Config("mongodb.ssl.enabled")
-    public MongoClientConfig setSslEnabled(boolean sslEnabled)
+    @Config("mongodb.tls.enabled")
+    @LegacyConfig("mongodb.ssl.enabled")
+    public MongoClientConfig setTlsEnabled(boolean tlsEnabled)
     {
-        this.sslEnabled = sslEnabled;
+        this.tlsEnabled = tlsEnabled;
         return this;
     }
 
@@ -332,6 +236,19 @@ public class MongoClientConfig
     public MongoClientConfig setMaxConnectionIdleTime(int maxConnectionIdleTime)
     {
         this.maxConnectionIdleTime = maxConnectionIdleTime;
+        return this;
+    }
+
+    public boolean isProjectionPushdownEnabled()
+    {
+        return projectionPushDownEnabled;
+    }
+
+    @Config("mongodb.projection-pushdown-enabled")
+    @ConfigDescription("Read only required fields from a row type")
+    public MongoClientConfig setProjectionPushdownEnabled(boolean projectionPushDownEnabled)
+    {
+        this.projectionPushDownEnabled = projectionPushDownEnabled;
         return this;
     }
 }

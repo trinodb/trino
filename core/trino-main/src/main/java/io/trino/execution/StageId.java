@@ -16,11 +16,13 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.trino.spi.QueryId;
+import io.trino.sql.planner.plan.PlanFragmentId;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 
 public class StageId
@@ -38,6 +40,11 @@ public class StageId
         return new StageId(new QueryId(ids.get(0)), Integer.parseInt(ids.get(1)));
     }
 
+    public static StageId create(QueryId queryId, PlanFragmentId fragmentId)
+    {
+        return new StageId(queryId, parseInt(fragmentId.toString()));
+    }
+
     private final QueryId queryId;
     private final int id;
 
@@ -49,6 +56,7 @@ public class StageId
     public StageId(QueryId queryId, int id)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
+        checkArgument(id >= 0, "id is negative: %s", id);
         this.id = id;
     }
 

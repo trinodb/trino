@@ -331,7 +331,7 @@ public class PreAggregateCaseAggregations
 
         String name = aggregation.getResolvedFunction().getSignature().getName();
         if (!ALLOWED_FUNCTIONS.contains(name)) {
-            // only cumulative aggregations (e.g that can be split into aggregation of aggregations) are supported
+            // only cumulative aggregations (e.g. that can be split into aggregation of aggregations) are supported
             return Optional.empty();
         }
 
@@ -346,11 +346,10 @@ public class PreAggregateCaseAggregations
             unwrappedProjection = projection;
         }
 
-        if (!(unwrappedProjection instanceof SearchedCaseExpression)) {
+        if (!(unwrappedProjection instanceof SearchedCaseExpression caseExpression)) {
             return Optional.empty();
         }
 
-        SearchedCaseExpression caseExpression = (SearchedCaseExpression) unwrappedProjection;
         if (caseExpression.getWhenClauses().size() != 1) {
             return Optional.empty();
         }
@@ -407,7 +406,6 @@ public class PreAggregateCaseAggregations
                 aggregation.getResolvedFunction(),
                 cumulativeFunction,
                 name,
-                projectionSymbol,
                 caseExpression.getWhenClauses().get(0).getOperand(),
                 caseExpression.getWhenClauses().get(0).getResult(),
                 cumulativeAggregationDefaultValue));
@@ -431,12 +429,10 @@ public class PreAggregateCaseAggregations
         private final Symbol aggregationSymbol;
         // original aggregation function
         private final ResolvedFunction function;
-        // cumulative aggregation function (e.g aggregation of aggregations)
+        // cumulative aggregation function (e.g. aggregation of aggregations)
         private final ResolvedFunction cumulativeFunction;
         // aggregation function name
         private final String name;
-        // symbol of original CASE expression
-        private final Symbol projectionSymbol;
         // CASE expression only operand expression
         private final Expression operand;
         // CASE expression only result expression
@@ -449,7 +445,6 @@ public class PreAggregateCaseAggregations
                 ResolvedFunction function,
                 ResolvedFunction cumulativeFunction,
                 String name,
-                Symbol projectionSymbol,
                 Expression operand,
                 Expression result,
                 Optional<Expression> cumulativeAggregationDefaultValue)
@@ -458,7 +453,6 @@ public class PreAggregateCaseAggregations
             this.function = requireNonNull(function, "function is null");
             this.cumulativeFunction = requireNonNull(cumulativeFunction, "cumulativeFunction is null");
             this.name = requireNonNull(name, "name is null");
-            this.projectionSymbol = requireNonNull(projectionSymbol, "projectionSymbol is null");
             this.operand = requireNonNull(operand, "operand is null");
             this.result = requireNonNull(result, "result is null");
             this.cumulativeAggregationDefaultValue = requireNonNull(cumulativeAggregationDefaultValue, "cumulativeAggregationDefaultValue is null");
@@ -482,11 +476,6 @@ public class PreAggregateCaseAggregations
         public String getName()
         {
             return name;
-        }
-
-        public Symbol getProjectionSymbol()
-        {
-            return projectionSymbol;
         }
 
         public Expression getOperand()

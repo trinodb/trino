@@ -14,8 +14,10 @@
 package io.trino.plugin.base.security;
 
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.security.SystemSecurityContext;
@@ -27,7 +29,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
+import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class ReadOnlySystemAccessControl
         implements SystemAccessControl
@@ -48,7 +52,6 @@ public class ReadOnlySystemAccessControl
         @Override
         public SystemAccessControl create(Map<String, String> config)
         {
-            requireNonNull(config, "config is null");
             checkArgument(config.isEmpty(), "This access controller does not support any configuration properties");
             return INSTANCE;
         }
@@ -103,6 +106,20 @@ public class ReadOnlySystemAccessControl
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
     {
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, FunctionKind functionKind, CatalogSchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        switch (functionKind) {
+            case SCALAR, AGGREGATE, WINDOW:
+                return;
+            case TABLE:
+                // May not be read-only, so deny
+                String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(ENGLISH), grantee.getName());
+                denyGrantExecuteFunctionPrivilege(functionName.toString(), context.getIdentity(), granteeAsString);
+        }
+        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
 
     @Override

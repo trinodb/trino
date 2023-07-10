@@ -13,14 +13,15 @@
  */
 package io.trino.plugin.phoenix5;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
+import io.trino.testing.ResourcePresence;
+import io.trino.testing.SharedResource;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.MiniHBaseCluster;
 import org.apache.hadoop.hbase.zookeeper.MiniZooKeeperCluster;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -32,30 +33,17 @@ import static org.apache.hadoop.hbase.HConstants.MASTER_INFO_PORT;
 import static org.apache.hadoop.hbase.HConstants.REGIONSERVER_INFO_PORT;
 
 public final class TestingPhoenixServer
+        implements AutoCloseable
 {
     private static final Logger LOG = Logger.get(TestingPhoenixServer.class);
 
     @GuardedBy("this")
-    private static int referenceCount;
-    @GuardedBy("this")
-    private static TestingPhoenixServer instance;
+    private static final SharedResource<TestingPhoenixServer> sharedResource = new SharedResource<>(TestingPhoenixServer::new);
 
-    public static synchronized TestingPhoenixServer getInstance()
+    public static synchronized SharedResource.Lease<TestingPhoenixServer> getInstance()
+            throws Exception
     {
-        if (referenceCount == 0) {
-            instance = new TestingPhoenixServer();
-        }
-        referenceCount++;
-        return instance;
-    }
-
-    public static synchronized void shutDown()
-    {
-        referenceCount--;
-        if (referenceCount == 0) {
-            instance.shutdown();
-            instance = null;
-        }
+        return sharedResource.getInstanceLease();
     }
 
     private HBaseTestingUtility hbaseTestingUtility;
@@ -101,7 +89,8 @@ public final class TestingPhoenixServer
         }
     }
 
-    private void shutdown()
+    @Override
+    public void close()
     {
         if (hbaseTestingUtility == null) {
             return;
@@ -121,5 +110,11 @@ public final class TestingPhoenixServer
     public String getJdbcUrl()
     {
         return format("jdbc:phoenix:localhost:%d:/hbase;phoenix.schema.isNamespaceMappingEnabled=true", port);
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return hbaseTestingUtility != null;
     }
 }

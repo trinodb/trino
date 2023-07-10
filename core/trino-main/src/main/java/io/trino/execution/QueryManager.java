@@ -33,7 +33,7 @@ public interface QueryManager
      *
      * @throws NoSuchElementException if query does not exist
      */
-    void addOutputInfoListener(QueryId queryId, Consumer<QueryExecution.QueryOutputInfo> listener)
+    void setOutputInfoListener(QueryId queryId, Consumer<QueryExecution.QueryOutputInfo> listener)
             throws NoSuchElementException;
 
     /**
@@ -91,6 +91,8 @@ public interface QueryManager
      */
     QueryState getQueryState(QueryId queryId)
             throws NoSuchElementException;
+
+    boolean hasQuery(QueryId queryId);
 
     /**
      * Updates the client heartbeat time, to prevent the query from be automatically purged.

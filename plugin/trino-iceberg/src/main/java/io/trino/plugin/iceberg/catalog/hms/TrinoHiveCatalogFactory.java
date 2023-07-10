@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import com.google.inject.Inject;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergSecurityConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -25,12 +28,11 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
-import javax.inject.Inject;
-
 import java.util.Optional;
 
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.TRINO_CREATED_BY_VALUE;
 import static java.util.Objects.requireNonNull;
 
 public class TrinoHiveCatalogFactory
@@ -38,7 +40,7 @@ public class TrinoHiveCatalogFactory
 {
     private final CatalogName catalogName;
     private final HiveMetastoreFactory metastoreFactory;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
@@ -51,7 +53,7 @@ public class TrinoHiveCatalogFactory
             IcebergConfig config,
             CatalogName catalogName,
             HiveMetastoreFactory metastoreFactory,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             NodeVersion nodeVersion,
@@ -59,13 +61,11 @@ public class TrinoHiveCatalogFactory
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationProvider is null");
-        this.trinoVersion = requireNonNull(nodeVersion, "trinoVersion is null").toString();
-        requireNonNull(config, "config is null");
+        this.trinoVersion = nodeVersion.toString();
         this.isUniqueTableLocation = config.isUniqueTableLocation();
-        requireNonNull(securityConfig, "securityConfig is null");
         this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
         this.deleteSchemaLocationsFallback = config.isDeleteSchemaLocationsFallback();
     }
@@ -73,13 +73,14 @@ public class TrinoHiveCatalogFactory
     @Override
     public TrinoCatalog create(ConnectorIdentity identity)
     {
+        CachingHiveMetastore metastore = memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), 1000);
         return new TrinoHiveCatalog(
                 catalogName,
-                memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), 1000),
-                hdfsEnvironment,
+                metastore,
+                new TrinoViewHiveMetastore(metastore, isUsingSystemSecurity, trinoVersion, TRINO_CREATED_BY_VALUE),
+                fileSystemFactory,
                 typeManager,
                 tableOperationsProvider,
-                trinoVersion,
                 isUniqueTableLocation,
                 isUsingSystemSecurity,
                 deleteSchemaLocationsFallback);

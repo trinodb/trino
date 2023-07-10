@@ -13,23 +13,33 @@
  */
 package io.trino.parquet.reader;
 
-import io.trino.parquet.RichColumnDescriptor;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 
 public class FloatColumnReader
         extends PrimitiveColumnReader
 {
-    public FloatColumnReader(RichColumnDescriptor descriptor)
+    public FloatColumnReader(PrimitiveField field)
     {
-        super(descriptor);
+        super(field);
     }
 
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        type.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
+        if (type == REAL) {
+            type.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
+        }
+        else if (type == DOUBLE) {
+            type.writeDouble(blockBuilder, valuesReader.readFloat());
+        }
+        else {
+            throw new VerifyError("Unsupported type " + type);
+        }
     }
 }

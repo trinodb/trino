@@ -13,10 +13,9 @@
  */
 package io.trino.metadata;
 
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.inject.Inject;
 import io.trino.server.PluginClassLoader;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

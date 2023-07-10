@@ -14,6 +14,8 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
 import io.trino.server.security.UserMapping;
@@ -21,9 +23,7 @@ import io.trino.server.security.UserMappingException;
 import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.net.URI;
 import java.sql.Date;
@@ -42,6 +42,7 @@ import static java.util.Objects.requireNonNull;
 public class OAuth2Authenticator
         extends AbstractBearerAuthenticator
 {
+    private static final Logger log = Logger.get(OAuth2Authenticator.class);
     private final OAuth2Client client;
     private final String principalField;
     private final Optional<String> groupsField;
@@ -64,11 +65,16 @@ public class OAuth2Authenticator
     protected Optional<Identity> createIdentity(String token)
             throws UserMappingException
     {
-        TokenPair tokenPair = tokenPairSerializer.deserialize(token);
-        if (tokenPair.getExpiration().before(Date.from(Instant.now()))) {
+        Optional<TokenPair> deserializeToken = deserializeToken(token);
+        if (deserializeToken.isEmpty()) {
             return Optional.empty();
         }
-        Optional<Map<String, Object>> claims = client.getClaims(tokenPair.getAccessToken());
+
+        TokenPair tokenPair = deserializeToken.get();
+        if (tokenPair.expiration().before(Date.from(Instant.now()))) {
+            return Optional.empty();
+        }
+        Optional<Map<String, Object>> claims = client.getClaims(tokenPair.accessToken());
         if (claims.isEmpty()) {
             return Optional.empty();
         }
@@ -80,11 +86,22 @@ public class OAuth2Authenticator
         return Optional.of(builder.build());
     }
 
+    private Optional<TokenPair> deserializeToken(String token)
+    {
+        try {
+            return Optional.of(tokenPairSerializer.deserialize(token));
+        }
+        catch (RuntimeException ex) {
+            log.debug(ex, "Failed to deserialize token");
+            return Optional.empty();
+        }
+    }
+
     @Override
     protected AuthenticationException needAuthentication(ContainerRequestContext request, Optional<String> currentToken, String message)
     {
         return currentToken
-                .map(tokenPairSerializer::deserialize)
+                .flatMap(this::deserializeToken)
                 .flatMap(tokenRefresher::refreshToken)
                 .map(refreshId -> request.getUriInfo().getBaseUri().resolve(getTokenUri(refreshId)))
                 .map(tokenUri -> new AuthenticationException(message, format("Bearer x_token_server=\"%s\"", tokenUri)))

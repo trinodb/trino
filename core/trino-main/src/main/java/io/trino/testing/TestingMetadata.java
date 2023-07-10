@@ -32,7 +32,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
@@ -46,6 +45,8 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -61,12 +62,16 @@ import java.util.concurrent.ConcurrentMap;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static java.util.Collections.synchronizedSet;
 import static java.util.Objects.requireNonNull;
 
 public class TestingMetadata
         implements ConnectorMetadata
 {
+    public static final Duration STALE_MV_STALENESS = Duration.ofHours(7);
+
     private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
     private final ConcurrentMap<SchemaTableName, ConnectorViewDefinition> views = new ConcurrentHashMap<>();
     private final ConcurrentMap<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
@@ -270,12 +275,27 @@ public class TestingMetadata
     @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
-        return new MaterializedViewFreshness(freshMaterializedViews.contains(name));
+        boolean fresh = freshMaterializedViews.contains(name);
+        return new MaterializedViewFreshness(
+                fresh ? FRESH : STALE,
+                fresh ? Optional.empty() : Optional.of(Instant.now().minus(STALE_MV_STALENESS)));
     }
 
     public void markMaterializedViewIsFresh(SchemaTableName name)
     {
         freshMaterializedViews.add(name);
+    }
+
+    @Override
+    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode)
+    {
+        return TestingHandle.INSTANCE;
     }
 
     @Override
@@ -315,6 +335,17 @@ public class TestingMetadata
     }
 
     @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
+        SchemaTableName tableName = getTableName(tableHandle);
+        List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
+        ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, column);
+        columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builderFrom(columnMetadata).setType(type).build());
+        tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
+    }
+
+    @Override
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
@@ -330,12 +361,6 @@ public class TestingMetadata
 
     @Override
     public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption) {}
-
-    @Override
-    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
-    {
-        return new ConnectorTableProperties();
-    }
 
     public void clear()
     {
@@ -371,6 +396,12 @@ public class TestingMetadata
         public SchemaTableName getTableName()
         {
             return tableName;
+        }
+
+        @Override
+        public String toString()
+        {
+            return tableName.toString();
         }
     }
 

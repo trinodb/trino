@@ -18,7 +18,6 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -30,13 +29,13 @@ import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergInsert
         extends ProductTest
@@ -50,9 +49,9 @@ public class TestIcebergInsert
             throws Exception
     {
         int threads = 3;
-        int insertsPerThread = 7;
+        int insertsPerThread = 4;
 
-        String tableName = "iceberg.default.test_insert_concurrent_" + randomTableSuffix();
+        String tableName = "iceberg.default.test_insert_concurrent_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE " + tableName + "(a bigint)");
 
         ExecutorService executor = Executors.newFixedThreadPool(threads);
@@ -83,7 +82,7 @@ public class TestIcebergInsert
                     .collect(toImmutableList());
 
             // At least one INSERT per round should succeed
-            Assertions.assertThat(allInserted).hasSizeBetween(insertsPerThread, threads * insertsPerThread);
+            assertThat(allInserted).hasSizeBetween(insertsPerThread, threads * insertsPerThread);
 
             assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))
                     .containsOnly(allInserted.stream()

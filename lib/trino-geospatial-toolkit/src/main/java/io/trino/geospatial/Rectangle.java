@@ -15,19 +15,19 @@ package io.trino.geospatial;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public final class Rectangle
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Rectangle.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(Rectangle.class);
 
     private final double xMin;
     private final double yMin;

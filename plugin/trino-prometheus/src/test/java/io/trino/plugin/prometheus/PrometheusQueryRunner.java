@@ -41,6 +41,7 @@ public final class PrometheusQueryRunner
             queryRunner = DistributedQueryRunner.builder(createSession()).setExtraProperties(extraProperties).build();
 
             queryRunner.installPlugin(new PrometheusPlugin());
+            // note: additional copy via ImmutableList so that if fails on nulls
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("prometheus.uri", server.getUri().toString());
             queryRunner.createCatalog("prometheus", "prometheus", connectorProperties);

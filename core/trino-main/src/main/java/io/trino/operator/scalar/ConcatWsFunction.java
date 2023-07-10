@@ -17,21 +17,20 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collections;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -55,7 +54,6 @@ public final class ConcatWsFunction
         extends SqlScalarFunction
 {
     public static final ConcatWsFunction CONCAT_WS = new ConcatWsFunction();
-    private static final int MAX_INPUT_VALUES = 254;
     private static final int MAX_OUTPUT_LENGTH = DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 
     @ScalarFunction("concat_ws")
@@ -74,10 +72,8 @@ public final class ConcatWsFunction
                             if (elements.isNull(i)) {
                                 return null;
                             }
-                            else {
-                                int sliceLength = elements.getSliceLength(i);
-                                return elements.getSlice(i, 0, sliceLength);
-                            }
+                            int sliceLength = elements.getSliceLength(i);
+                            return elements.getSlice(i, 0, sliceLength);
                         }
 
                         @Override
@@ -105,7 +101,7 @@ public final class ConcatWsFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         int valueCount = boundSignature.getArity() - 1;
         if (valueCount < 1) {
@@ -115,7 +111,7 @@ public final class ConcatWsFunction
         MethodHandle arrayMethodHandle = methodHandle(ConcatWsFunction.class, "concatWs", Slice.class, Slice[].class);
         MethodHandle customMethodHandle = arrayMethodHandle.asCollector(Slice[].class, valueCount);
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.<InvocationConvention.InvocationArgumentConvention>builder()
@@ -148,10 +144,6 @@ public final class ConcatWsFunction
 
     private static Slice concatWs(Slice separator, SliceArray values)
     {
-        if (values.getCount() > MAX_INPUT_VALUES) {
-            throw new TrinoException(NOT_SUPPORTED, "Too many arguments for string concatenation");
-        }
-
         // Validate size of output
         int length = 0;
         boolean requiresSeparator = false;

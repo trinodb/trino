@@ -20,10 +20,12 @@ import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.Closeable;
@@ -32,19 +34,20 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.CONTROL_CONNECTION_AGREEMENT_TIMEOUT;
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES;
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOCOL_VERSION;
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
-import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectory;
 import static java.nio.file.Files.createTempDirectory;
+import static java.nio.file.Files.writeString;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -55,7 +58,7 @@ import static org.testng.Assert.assertEquals;
 public class CassandraServer
         implements Closeable
 {
-    private static Logger log = Logger.get(CassandraServer.class);
+    private static final Logger log = Logger.get(CassandraServer.class);
 
     private static final int PORT = 9142;
 
@@ -67,21 +70,29 @@ public class CassandraServer
     public CassandraServer()
             throws Exception
     {
-        this("2.2");
+        this("cassandra:3.0", "cu-cassandra.yaml");
     }
 
-    public CassandraServer(String cassandraVersion)
+    public CassandraServer(String imageName, String configFileName)
+            throws Exception
+    {
+        this(imageName, ImmutableMap.of(), "/etc/cassandra/cassandra.yaml", configFileName);
+    }
+
+    public CassandraServer(String imageName, Map<String, String> environmentVariables, String configPath, String configFileName)
             throws Exception
     {
         log.info("Starting cassandra...");
 
-        this.dockerContainer = new GenericContainer<>("cassandra:" + cassandraVersion)
+        this.dockerContainer = new GenericContainer<>(imageName)
                 .withExposedPorts(PORT)
-                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
+                .withCopyFileToContainer(forHostPath(prepareCassandraYaml(configFileName)), configPath)
+                .withEnv(environmentVariables)
+                .withStartupTimeout(java.time.Duration.ofMinutes(10));
         this.dockerContainer.start();
 
         ProgrammaticDriverConfigLoaderBuilder driverConfigLoaderBuilder = DriverConfigLoader.programmaticBuilder();
-        driverConfigLoaderBuilder.withDuration(REQUEST_TIMEOUT, java.time.Duration.ofSeconds(12));
+        driverConfigLoaderBuilder.withDuration(REQUEST_TIMEOUT, java.time.Duration.ofSeconds(30));
         driverConfigLoaderBuilder.withString(PROTOCOL_VERSION, ProtocolVersion.V3.name());
         driverConfigLoaderBuilder.withDuration(CONTROL_CONNECTION_AGREEMENT_TIMEOUT, java.time.Duration.ofSeconds(30));
         // allow the retrieval of metadata for the system keyspaces
@@ -89,7 +100,7 @@ public class CassandraServer
 
         CqlSessionBuilder cqlSessionBuilder = CqlSession.builder()
                 .withApplicationName("TestCluster")
-                .addContactPoint(new InetSocketAddress(this.dockerContainer.getContainerIpAddress(), this.dockerContainer.getMappedPort(PORT)))
+                .addContactPoint(new InetSocketAddress(this.dockerContainer.getHost(), this.dockerContainer.getMappedPort(PORT)))
                 .withLocalDatacenter("datacenter1")
                 .withConfigLoader(driverConfigLoaderBuilder.build());
 
@@ -111,10 +122,10 @@ public class CassandraServer
         this.session = session;
     }
 
-    private static String prepareCassandraYaml()
+    private static String prepareCassandraYaml(String fileName)
             throws IOException
     {
-        String original = Resources.toString(getResource("cu-cassandra.yaml"), UTF_8);
+        String original = Resources.toString(getResource(fileName), UTF_8);
 
         Path tmpDirPath = createTempDirectory(null);
         Path dataDir = tmpDirPath.resolve("data");
@@ -122,9 +133,9 @@ public class CassandraServer
 
         String modified = original.replaceAll("\\$\\{data_directory\\}", dataDir.toAbsolutePath().toString());
 
-        File yamlFile = tmpDirPath.resolve("cu-cassandra.yaml").toFile();
+        File yamlFile = tmpDirPath.resolve(fileName).toFile();
         yamlFile.deleteOnExit();
-        write(modified, yamlFile, UTF_8);
+        writeString(yamlFile.toPath(), modified, UTF_8);
 
         return yamlFile.getAbsolutePath();
     }
@@ -136,7 +147,7 @@ public class CassandraServer
 
     public String getHost()
     {
-        return dockerContainer.getContainerIpAddress();
+        return dockerContainer.getHost();
     }
 
     public int getPort()
@@ -186,9 +197,13 @@ public class CassandraServer
     @Override
     public void close()
     {
-        if (session != null) {
-            session.close();
-        }
+        session.close();
         dockerContainer.close();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return dockerContainer.getContainerId() != null;
     }
 }

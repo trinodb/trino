@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -27,6 +28,7 @@ import io.trino.sql.tree.SetTimeZone;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -38,6 +40,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField.HOUR;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField.MINUTE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
@@ -50,10 +53,11 @@ import static org.testng.Assert.assertEquals;
 
 public class TestSetTimeZoneTask
 {
-    private final LocalQueryRunner localQueryRunner;
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+    private LocalQueryRunner localQueryRunner;
 
-    public TestSetTimeZoneTask()
+    @BeforeClass
+    public void setUp()
     {
         localQueryRunner = LocalQueryRunner.create(TEST_SESSION);
     }
@@ -63,6 +67,8 @@ public class TestSetTimeZoneTask
     {
         executor.shutdownNow();
         executor = null;
+        localQueryRunner.close();
+        localQueryRunner = null;
     }
 
     @Test
@@ -74,9 +80,8 @@ public class TestSetTimeZoneTask
                 Optional.empty());
         executeSetTimeZone(setTimeZone, stateMachine);
 
-        Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();
-        assertThat(setSessionProperties).hasSize(1);
-        assertEquals(setSessionProperties.get(TIME_ZONE_ID), "America/Bahia_Banderas");
+        assertThat(stateMachine.getResetSessionProperties()).hasSize(1);
+        assertThat(stateMachine.getResetSessionProperties()).contains(TIME_ZONE_ID);
     }
 
     @Test
@@ -195,7 +200,7 @@ public class TestSetTimeZoneTask
                                         "3601s")))));
         assertThatThrownBy(() -> executeSetTimeZone(setTimeZone, stateMachine))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("Invalid time zone offset interval: interval contains seconds");
+                .hasMessage("Invalid TIME ZONE offset interval: interval contains seconds");
     }
 
     @Test
@@ -251,7 +256,10 @@ public class TestSetTimeZoneTask
                 executor,
                 localQueryRunner.getMetadata(),
                 WarningCollector.NOOP,
-                Optional.empty());
+                createPlanOptimizersStatsCollector(),
+                Optional.empty(),
+                true,
+                new NodeVersion("test"));
     }
 
     private void executeSetTimeZone(SetTimeZone setTimeZone, QueryStateMachine stateMachine)

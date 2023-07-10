@@ -14,16 +14,15 @@
 package io.trino.plugin.raptor.legacy.metadata;
 
 import com.google.common.base.Ticker;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.raptor.legacy.NodeSupplier;
 import io.trino.spi.Node;
 import io.trino.spi.TrinoException;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 import java.util.HashMap;
 import java.util.HashSet;

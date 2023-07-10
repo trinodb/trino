@@ -33,9 +33,10 @@ import io.trino.block.BlockAssertions;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageDeserializer;
+import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -48,6 +49,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -68,8 +70,8 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertLessThan;
-import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
-import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static io.trino.execution.TestSqlTaskExecution.TASK_ID;
+import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
@@ -91,14 +93,14 @@ public class TestDirectExchangeClient
 {
     private ScheduledExecutorService scheduler;
     private ExecutorService pageBufferClientCallbackExecutor;
-
-    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
+    private PagesSerdeFactory serdeFactory;
 
     @BeforeClass
     public void setUp()
     {
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
+        serdeFactory = new TestingPagesSerdeFactory();
     }
 
     @AfterClass(alwaysRun = true)
@@ -112,6 +114,7 @@ public class TestDirectExchangeClient
             pageBufferClientCallbackExecutor.shutdownNow();
             pageBufferClientCallbackExecutor = null;
         }
+        serdeFactory = null;
     }
 
     @Test
@@ -170,6 +173,7 @@ public class TestDirectExchangeClient
 
         // client should have sent only 3 requests: one to get all pages, one to acknowledge and one to get the done signal
         assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 3, 3, 3, "not scheduled");
+        assertEquals(status.getRequestDuration().getDigest().getCount(), 2.0);
 
         exchangeClient.close();
 
@@ -475,7 +479,7 @@ public class TestDirectExchangeClient
                 scheduler,
                 DataSize.of(1, Unit.MEGABYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()),
+                new ExchangeManagerRegistry(),
                 new QueryId("query"),
                 createRandomExchangeId());
 
@@ -535,7 +539,7 @@ public class TestDirectExchangeClient
                         scheduler,
                         DataSize.of(1, Unit.KILOBYTE),
                         RetryPolicy.QUERY,
-                        new ExchangeManagerRegistry(new ExchangeHandleResolver()),
+                        new ExchangeManagerRegistry(),
                         new QueryId("query"),
                         createRandomExchangeId()),
                 maxResponseSize,
@@ -565,12 +569,13 @@ public class TestDirectExchangeClient
         exchangeClient.isBlocked().get(10, SECONDS);
 
         List<Page> pages = new ArrayList<>();
+        PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
         while (!exchangeClient.isFinished()) {
             Slice page = exchangeClient.pollPage();
             if (page == null) {
                 break;
             }
-            pages.add(PAGES_SERDE.deserialize(page));
+            pages.add(deserializer.deserialize(page));
         }
 
         assertThat(pages).hasSize(2);
@@ -803,7 +808,7 @@ public class TestDirectExchangeClient
 
         assertThatThrownBy(() -> getNextPage(exchangeClient))
                 .isInstanceOf(TrinoException.class)
-                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0xdd450d930a94ddde, calculated checksum: 0x9bdc9de3ce57c972");
+                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0x3f7c49fcdc6f98ea, calculated checksum: 0xcb4f99c2d19a4b04");
 
         exchangeClient.close();
     }
@@ -943,14 +948,136 @@ public class TestDirectExchangeClient
         assertEquals(clientStatus.getHttpRequestState(), "not scheduled", "httpRequestState");
     }
 
+    @Test
+    public void testScheduleWhenOneClientFilledBuffer()
+    {
+        DataSize maxResponseSize = DataSize.of(8, Unit.MEGABYTE);
+
+        URI locationOne = URI.create("http://localhost:8080");
+        URI locationTwo = URI.create("http://localhost:8081");
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        HttpPageBufferClient clientToBeUsed = createHttpPageBufferClient(processor, maxResponseSize, locationOne, new MockClientCallback());
+        HttpPageBufferClient clientToBeSkipped = createHttpPageBufferClient(processor, maxResponseSize, locationTwo, new MockClientCallback());
+        clientToBeUsed.requestSucceeded(DataSize.of(33, Unit.MEGABYTE).toBytes());
+        clientToBeSkipped.requestSucceeded(DataSize.of(1, Unit.MEGABYTE).toBytes());
+
+        @SuppressWarnings("resource")
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
+                new StreamingDirectExchangeBuffer(scheduler, DataSize.of(32, Unit.MEGABYTE)),
+                maxResponseSize,
+                1,
+                new Duration(1, TimeUnit.MINUTES),
+                true,
+                new TestingHttpClient(processor, scheduler),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
+        exchangeClient.getAllClients().putAll(Map.of(locationOne, clientToBeUsed, locationTwo, clientToBeSkipped));
+        exchangeClient.getQueuedClients().addAll(ImmutableList.of(clientToBeUsed, clientToBeSkipped));
+
+        int clientCount = exchangeClient.scheduleRequestIfNecessary();
+        // The first client filled the buffer. There is no place for the another one
+        assertEquals(clientCount, 1);
+    }
+
+    @Test
+    public void testScheduleWhenAllClientsAreEmpty()
+    {
+        DataSize maxResponseSize = DataSize.of(8, Unit.MEGABYTE);
+
+        URI locationOne = URI.create("http://localhost:8080");
+        URI locationTwo = URI.create("http://localhost:8081");
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        HttpPageBufferClient firstClient = createHttpPageBufferClient(processor, maxResponseSize, locationOne, new MockClientCallback());
+        HttpPageBufferClient secondClient = createHttpPageBufferClient(processor, maxResponseSize, locationTwo, new MockClientCallback());
+
+        @SuppressWarnings("resource")
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
+                new StreamingDirectExchangeBuffer(scheduler, DataSize.of(32, Unit.MEGABYTE)),
+                maxResponseSize,
+                1,
+                new Duration(1, TimeUnit.MINUTES),
+                true,
+                new TestingHttpClient(processor, scheduler),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
+        exchangeClient.getAllClients().putAll(Map.of(locationOne, firstClient, locationTwo, secondClient));
+        exchangeClient.getQueuedClients().addAll(ImmutableList.of(firstClient, secondClient));
+
+        int clientCount = exchangeClient.scheduleRequestIfNecessary();
+        assertEquals(clientCount, 2);
+    }
+
+    @Test
+    public void testScheduleWhenThereIsPendingClient()
+    {
+        DataSize maxResponseSize = DataSize.of(8, Unit.MEGABYTE);
+
+        URI locationOne = URI.create("http://localhost:8080");
+        URI locationTwo = URI.create("http://localhost:8081");
+
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        HttpPageBufferClient pendingClient = createHttpPageBufferClient(processor, maxResponseSize, locationOne, new MockClientCallback());
+        HttpPageBufferClient clientToBeSkipped = createHttpPageBufferClient(processor, maxResponseSize, locationTwo, new MockClientCallback());
+
+        pendingClient.requestSucceeded(DataSize.of(33, Unit.MEGABYTE).toBytes());
+
+        @SuppressWarnings("resource")
+        DirectExchangeClient exchangeClient = new DirectExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
+                new StreamingDirectExchangeBuffer(scheduler, DataSize.of(32, Unit.MEGABYTE)),
+                maxResponseSize,
+                1,
+                new Duration(1, TimeUnit.MINUTES),
+                true,
+                new TestingHttpClient(processor, scheduler),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
+        exchangeClient.getAllClients().putAll(Map.of(locationOne, pendingClient, locationTwo, clientToBeSkipped));
+        exchangeClient.getQueuedClients().add(clientToBeSkipped);
+
+        int clientCount = exchangeClient.scheduleRequestIfNecessary();
+        // The first client is pending and it reserved the space in the buffer. There is no place for the another one
+        assertEquals(clientCount, 0);
+    }
+
+    private HttpPageBufferClient createHttpPageBufferClient(TestingHttpClient.Processor processor, DataSize expectedMaxSize, URI location, HttpPageBufferClient.ClientCallback callback)
+    {
+        return new HttpPageBufferClient(
+                "localhost",
+                new TestingHttpClient(processor, scheduler),
+                DataIntegrityVerification.ABORT,
+                expectedMaxSize,
+                new Duration(1, TimeUnit.MINUTES),
+                true,
+                TASK_ID,
+                location,
+                callback,
+                scheduler,
+                pageBufferClientCallbackExecutor);
+    }
+
     private static Page createPage(int size)
     {
         return new Page(BlockAssertions.createLongSequenceBlock(0, size));
     }
 
-    private static Slice createSerializedPage(int size)
+    private Slice createSerializedPage(int size)
     {
-        return PAGES_SERDE.serialize(PAGES_SERDE.newContext(), createPage(size));
+        return serdeFactory.createSerializer(Optional.empty()).serialize(createPage(size));
     }
 
     private static Slice getNextPage(DirectExchangeClient exchangeClient)
@@ -959,11 +1086,11 @@ public class TestDirectExchangeClient
         return tryGetFutureValue(futurePage, 100, TimeUnit.SECONDS).orElse(null);
     }
 
-    private static void assertPageEquals(Slice actualPage, Page expectedPage)
+    private void assertPageEquals(Slice actualPage, Page expectedPage)
     {
         assertNotNull(actualPage);
         assertEquals(getSerializedPagePositionCount(actualPage), expectedPage.getPositionCount());
-        assertEquals(PAGES_SERDE.deserialize(actualPage).getChannelCount(), expectedPage.getChannelCount());
+        assertEquals(serdeFactory.createDeserializer(Optional.empty()).deserialize(actualPage).getChannelCount(), expectedPage.getChannelCount());
     }
 
     private static void assertStatus(
@@ -981,5 +1108,30 @@ public class TestDirectExchangeClient
         assertEquals(clientStatus.getRequestsScheduled(), requestsScheduled, "requestsScheduled");
         assertEquals(clientStatus.getRequestsCompleted(), requestsCompleted, "requestsCompleted");
         assertEquals(clientStatus.getHttpRequestState(), httpRequestState, "httpRequestState");
+    }
+
+    private static class MockClientCallback
+            implements HttpPageBufferClient.ClientCallback
+    {
+        @Override
+        public boolean addPages(HttpPageBufferClient client, List<Slice> pages)
+        {
+            return false;
+        }
+
+        @Override
+        public void requestComplete(HttpPageBufferClient client)
+        {
+        }
+
+        @Override
+        public void clientFinished(HttpPageBufferClient client)
+        {
+        }
+
+        @Override
+        public void clientFailed(HttpPageBufferClient client, Throwable cause)
+        {
+        }
     }
 }

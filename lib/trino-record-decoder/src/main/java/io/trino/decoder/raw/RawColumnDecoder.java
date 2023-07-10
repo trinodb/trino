@@ -149,8 +149,9 @@ public class RawColumnDecoder
                 checkArgument(end.isEmpty() || end.getAsInt() - start == fieldType.getSize(),
                         "Bytes mapping for column '%s' does not match dataFormat '%s'; expected %s bytes but got %s",
                         columnName,
-                        fieldType.getSize(),
-                        end.getAsInt() - start);
+                        fieldType.name(),
+                        end.getAsInt() - start,
+                        fieldType.getSize());
             }
         }
         catch (IllegalArgumentException e) {

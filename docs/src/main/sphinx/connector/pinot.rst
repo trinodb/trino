@@ -14,7 +14,7 @@ Requirements
 
 To connect to Pinot, you need:
 
-* Pinot 0.9.3 or higher.
+* Pinot 0.11.0 or higher.
 * Network access from the Trino coordinator and workers to the Pinot controller
   nodes. Port 8098 is the default port.
 
@@ -22,7 +22,7 @@ Configuration
 -------------
 
 To configure the Pinot connector, create a catalog properties file
-e.g. ``etc/catalog/pinot.properties`` with at least the following contents:
+e.g. ``etc/catalog/example.properties`` with at least the following contents:
 
 .. code-block:: text
 
@@ -47,8 +47,6 @@ Property name                                             Required   Description
                                                                      Pinot returns hostnames and not IP addresses.
 ``pinot.connection-timeout``                              No         Pinot connection timeout, default is ``15s``.
 ``pinot.metadata-expiry``                                 No         Pinot metadata expiration time, default is ``2m``.
-``pinot.request-timeout``                                 No         The timeout for Pinot requests. Increasing this can reduce timeouts if DNS
-                                                                     resolution is slow.
 ``pinot.controller.authentication.type``                  No         Pinot authentication method for controller requests. Allowed values are
                                                                      ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no authentication.
 ``pinot.controller.authentication.user``                  No         Controller username for basic authentication method.
@@ -74,6 +72,7 @@ Property name                                             Required   Description
 ``pinot.aggregation-pushdown.enabled``                    No         Push down aggregation queries, default is ``true``.
 ``pinot.count-distinct-pushdown.enabled``                 No         Push down count distinct queries to Pinot, default is ``true``.
 ``pinot.target-segment-page-size``                        No         Max allowed page size for segment query, default is ``1MB``.
+``pinot.proxy.enabled``                                   No         Use Pinot Proxy for controller and broker requests, default is ``false``.
 ========================================================= ========== ==============================================================================
 
 If ``pinot.controller.authentication.type`` is set to ``PASSWORD`` then both ``pinot.controller.authentication.user`` and
@@ -81,6 +80,8 @@ If ``pinot.controller.authentication.type`` is set to ``PASSWORD`` then both ``p
 
 If ``pinot.broker.authentication.type`` is set to ``PASSWORD`` then both ``pinot.broker.authentication.user`` and
 ``pinot.broker.authentication.password`` are required.
+
+If ``pinot.controller-urls`` uses ``https`` scheme then TLS is enabled for all connections including brokers.
 
 gRPC configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -99,6 +100,7 @@ Property name                                             Required   Description
 ``pinot.grpc.tls.truststore-path``                        No         TLS truststore file location for gRPC connection, default is empty.
 ``pinot.grpc.tls.truststore-password``                    No         TLS truststore password, default is empty.
 ``pinot.grpc.tls.ssl-provider``                           No         SSL provider, default is ``JDK``.
+``pinot.grpc.proxy-uri``                                  No         Pinot Rest Proxy gRPC endpoint URI, default is null.
 ========================================================= ========== ==============================================================================
 
 For more Apache Pinot TLS configurations, please also refer to `Configuring TLS/SSL <https://docs.pinot.apache.org/operators/tutorials/configuring-tls-ssl>`_.
@@ -111,12 +113,12 @@ Querying Pinot tables
 The Pinot connector automatically exposes all tables in the default schema of the catalog.
 You can list all tables in the pinot catalog with the following query::
 
-    SHOW TABLES FROM pinot.default;
+    SHOW TABLES FROM example.default;
 
 You can list columns in the flight_status table::
 
-    DESCRIBE pinot.default.flight_status;
-    SHOW COLUMNS FROM pinot.default.flight_status;
+    DESCRIBE example.default.flight_status;
+    SHOW COLUMNS FROM example.default.flight_status;
 
 Queries written with SQL are fully supported and can include filters and limits::
 
@@ -133,7 +135,7 @@ Filters and limits in the outer query are pushed down to Pinot.
 Let's look at an example query::
 
     SELECT *
-    FROM pinot.default."SELECT MAX(col1), COUNT(col2) FROM pinot_table GROUP BY col3, col4"
+    FROM example.default."SELECT MAX(col1), COUNT(col2) FROM pinot_table GROUP BY col3, col4"
     WHERE col3 IN ('FOO', 'BAR') AND col4 > 50
     LIMIT 30000
 
@@ -151,27 +153,56 @@ The above query is translated to the following Pinot PQL query::
     WHERE col3 IN('FOO', 'BAR') and col4 > 50
     TOP 30000
 
+.. _pinot-type-mapping:
 
+Type mapping
+------------
 
-Data types
-----------
+Because Trino and Pinot each support types that the other does not, this
+connector :ref:`maps some types <type-mapping-overview>` when reading data.
 
-Pinot does not allow null values in any data type and supports the following primitive types:
+Pinot type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-==========================   ============
-Pinot                        Trino
-==========================   ============
-``INT``                      ``INTEGER``
-``LONG``                     ``BIGINT``
-``FLOAT``                    ``REAL``
-``DOUBLE``                   ``DOUBLE``
-``STRING``                   ``VARCHAR``
-``INT_ARRAY``                ``VARCHAR``
-``LONG_ARRAY``               ``VARCHAR``
-``FLOAT_ARRAY``              ``VARCHAR``
-``DOUBLE_ARRAY``             ``VARCHAR``
-``STRING_ARRAY``             ``VARCHAR``
-==========================   ============
+The connector maps Pinot types to the corresponding Trino types
+according to the following table:
+
+.. list-table:: Pinot type to Trino type mapping
+  :widths: 75,60
+  :header-rows: 1
+
+  * - Pinot type
+    - Trino type
+  * - ``INT``
+    - ``INTEGER``
+  * - ``LONG``
+    - ``BIGINT``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``STRING``
+    - ``VARCHAR``
+  * - ``BYTES``
+    - ``VARBINARY``
+  * - ``JSON``
+    - ``JSON``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP``
+  * - ``INT_ARRAY``
+    - ``VARCHAR``
+  * - ``LONG_ARRAY``
+    - ``VARCHAR``
+  * - ``FLOAT_ARRAY``
+    - ``VARCHAR``
+  * - ``DOUBLE_ARRAY``
+    - ``VARCHAR``
+  * - ``STRING_ARRAY``
+    - ``VARCHAR``
+
+Pinot does not allow null values in any data type.
+
+No other types are supported.
 
 .. _pinot-sql-support:
 
@@ -208,3 +239,5 @@ A ``count(distint)`` pushdown may cause Pinot to run a full table scan with
 significant performance impact. If you encounter this problem, you can disable
 it with the catalog property ``pinot.count-distinct-pushdown.enabled`` or the
 catalog session property ``count_distinct_pushdown_enabled``.
+
+.. include:: pushdown-correctness-behavior.fragment

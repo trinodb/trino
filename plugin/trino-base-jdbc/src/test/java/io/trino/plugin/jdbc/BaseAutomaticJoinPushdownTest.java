@@ -38,8 +38,8 @@ public abstract class BaseAutomaticJoinPushdownTest
     {
         Session session = joinPushdownAutomatic(getSession());
 
-        try (TestTable left = joinTestTable("left", 2_000, 500);
-                TestTable right = joinTestTable("right", 1_000, 1_000)) {
+        try (TestTable left = joinTestTable("left", 200, 50);
+                TestTable right = joinTestTable("right", 100, 100)) {
             // pushdown should not happen without stats even if allowed join_to_tables ration is extremely high
 
             // no stats on left and right
@@ -60,8 +60,8 @@ public abstract class BaseAutomaticJoinPushdownTest
     {
         Session session = joinPushdownAutomatic(getSession());
 
-        try (TestTable left = joinTestTable("left", 1_000, 1);
-                TestTable right = joinTestTable("right", 100, 1)) {
+        try (TestTable left = joinTestTable("left", 100, 1);
+                TestTable right = joinTestTable("right", 10, 1)) {
             gatherStats(left.getName());
             gatherStats(right.getName());
 
@@ -75,38 +75,38 @@ public abstract class BaseAutomaticJoinPushdownTest
     {
         Session session = joinPushdownAutomatic(getSession());
 
-        try (TestTable left = joinTestTable("left", 6_000, 750);
-                TestTable right = joinTestTable("right", 1_000, 1_000)) {
+        try (TestTable left = joinTestTable("left", 600, 75);
+                TestTable right = joinTestTable("right", 100, 100)) {
             gatherStats(left.getName());
             gatherStats(right.getName());
 
             String simpleJoinQuery = "SELECT * FROM %s l JOIN %s r ON l.key = r.key";
-            // estimated left table size is ~444_000 bytes
-            // estimated right table size is ~74_000 bytes
-            // estimated join size is ~834_000
+            // estimated left table size is ~44_400 bytes
+            // estimated right table size is ~7_400 bytes
+            // estimated join size is ~111_200
 
             // with default configuration such join should not be pushed down;
-            // allowed join_to_tables ratio is 1.25 hence join size need to be less than (444_000 + 74_000) * 1.25 == 647_500
+            // allowed join_to_tables ratio is 1.25 hence join size need to be less than (44_400 + 7_400) * 1.25 == 64_750
             assertThat(query(session, format(simpleJoinQuery, left.getName(), right.getName())))
                     .isNotFullyPushedDown(joinOverTableScans());
 
-            // relax allowed ratio to 2.0; base line is 834_000 / (444_000 + 74_000) == 1.61 but we add some margin to cover possible mistakes in NDV calculations.
-            assertThat(query(maxJoinToTablesRatio(session, 2.0), format(simpleJoinQuery, left.getName(), right.getName())))
+            // relax allowed ratio to 3.0; base line is 111_200 / (44_400 + 7_400) == 2.14 but we add some margin to cover possible mistakes in NDV calculations.
+            assertThat(query(maxJoinToTablesRatio(session, 3.0), format(simpleJoinQuery, left.getName(), right.getName())))
                     .isFullyPushedDown();
 
             // keep ratio on level which allows pushdown but allow only very small tables in join pushdown
-            Session onlySmallTablesAllowed = Session.builder(maxJoinToTablesRatio(session, 2.0))
-                    .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_automatic_max_table_size", "1kB")
+            Session onlySmallTablesAllowed = Session.builder(maxJoinToTablesRatio(session, 3.0))
+                    .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_automatic_max_table_size", "0.1kB")
                     .build();
             assertThat(query(onlySmallTablesAllowed, format(simpleJoinQuery, left.getName(), right.getName()))).isNotFullyPushedDown(joinOverTableScans());
 
             // a query which constraints size of join output; only join key is in output
             String smallJoinOutputQuery = format("SELECT l.key FROM %s l JOIN %s r ON l.key = r.key", left.getName(), right.getName());
-            // estimated left table size is ~54_000
-            // estimated right table size is ~9_000
-            // estimated join size is ~54_000 (same as left table)
+            // estimated left table size is ~5_400
+            // estimated right table size is ~900
+            // estimated join size is ~5_400 (same as left table)
 
-            // allowed join_to_tables ratio is 1.25 and join size is 54_000 which is less than (54_000 + 9_000) * 1.25 == 78_750 and is pushed down
+            // allowed join_to_tables ratio is 1.25 and join size is 5_4000 which is less than (5_400 + 900) * 1.25 == 7_875 and is pushed down
             assertThat(query(session, smallJoinOutputQuery)).isFullyPushedDown();
 
             // if we move threshold lower it will not be pushed down any more
@@ -124,8 +124,8 @@ public abstract class BaseAutomaticJoinPushdownTest
     {
         Session session = joinPushdownAutomatic(getSession());
 
-        try (TestTable left = joinTestTable("left", 1_000, 100);
-                TestTable right = joinTestTable("right", 100, 50)) {
+        try (TestTable left = joinTestTable("left", 100, 10);
+                TestTable right = joinTestTable("right", 10, 5)) {
             gatherStats(left.getName());
             gatherStats(right.getName());
 
@@ -148,9 +148,9 @@ public abstract class BaseAutomaticJoinPushdownTest
     {
         Session session = joinPushdownAutomatic(getSession());
 
-        try (TestTable first = joinTestTable("first", 1_000, 1_000);
-                TestTable second = joinTestTable("second", 1_000, 1_000);
-                TestTable third = joinTestTable("third", 1_000, 1_000)) {
+        try (TestTable first = joinTestTable("first", 100, 100);
+                TestTable second = joinTestTable("second", 100, 100);
+                TestTable third = joinTestTable("third", 100, 100)) {
             gatherStats(first.getName());
             gatherStats(second.getName());
             gatherStats(third.getName());

@@ -30,6 +30,7 @@ import io.trino.operator.WorkProcessorSourceOperatorAdapter.AdapterWorkProcessor
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.CursorProcessorOutput;
 import io.trino.operator.project.PageProcessor;
+import io.trino.operator.project.PageProcessorMetrics;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ColumnHandle;
@@ -39,19 +40,16 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
@@ -70,6 +68,7 @@ public class ScanFilterAndProjectOperator
         implements WorkProcessorSourceOperator
 {
     private final WorkProcessor<Page> pages;
+    private final PageProcessorMetrics pageProcessorMetrics = new PageProcessorMetrics();
 
     @Nullable
     private RecordCursor cursor;
@@ -111,21 +110,10 @@ public class ScanFilterAndProjectOperator
                         columns,
                         dynamicFilter,
                         types,
-                        requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateUserMemoryContext(),
+                        memoryTrackingContext.aggregateUserMemoryContext(),
                         minOutputPageSize,
                         minOutputPageRowCount,
                         avoidPageMaterialization));
-    }
-
-    @Override
-    public Supplier<Optional<UpdatablePageSource>> getUpdatablePageSourceSupplier()
-    {
-        return () -> {
-            if (pageSource instanceof UpdatablePageSource) {
-                return Optional.of((UpdatablePageSource) pageSource);
-            }
-            return Optional.empty();
-        };
     }
 
     @Override
@@ -168,6 +156,15 @@ public class ScanFilterAndProjectOperator
     public Metrics getConnectorMetrics()
     {
         return metrics;
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        if (cursor != null) {
+            return Metrics.EMPTY;
+        }
+        return pageProcessorMetrics.getMetrics();
     }
 
     @Override
@@ -272,10 +269,8 @@ public class ScanFilterAndProjectOperator
                 cursor = ((RecordPageSource) source).getCursor();
                 return ofResult(processColumnSource());
             }
-            else {
-                pageSource = source;
-                return ofResult(processPageSource());
-            }
+            pageSource = source;
+            return ofResult(processPageSource());
         }
 
         WorkProcessor<Page> processColumnSource()
@@ -296,6 +291,7 @@ public class ScanFilterAndProjectOperator
                             connectorSession,
                             yieldSignal,
                             outputMemoryContext,
+                            pageProcessorMetrics,
                             page,
                             avoidPageMaterialization))
                     .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
@@ -356,14 +352,12 @@ public class ScanFilterAndProjectOperator
                 outputMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
                 return ProcessState.ofResult(page);
             }
-            else if (finished) {
+            if (finished) {
                 checkState(pageBuilder.isEmpty());
                 return ProcessState.finished();
             }
-            else {
-                outputMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-                return ProcessState.yielded();
-            }
+            outputMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
+            return ProcessState.yielded();
         }
     }
 
@@ -396,9 +390,7 @@ public class ScanFilterAndProjectOperator
                 if (pageSource.isFinished()) {
                     return ProcessState.finished();
                 }
-                else {
-                    return ProcessState.yielded();
-                }
+                return ProcessState.yielded();
             }
 
             recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
@@ -498,33 +490,33 @@ public class ScanFilterAndProjectOperator
 
         @Override
         public WorkProcessorSourceOperator create(
-                Session session,
+                OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits)
         {
-            return create(session, memoryTrackingContext, yieldSignal, splits, true);
+            return create(operatorContext, memoryTrackingContext, yieldSignal, splits, true);
         }
 
         @Override
         public WorkProcessorSourceOperator createAdapterOperator(
-                Session session,
+                OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits)
         {
-            return create(session, memoryTrackingContext, yieldSignal, splits, false);
+            return create(operatorContext, memoryTrackingContext, yieldSignal, splits, false);
         }
 
         private ScanFilterAndProjectOperator create(
-                Session session,
+                OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits,
                 boolean avoidPageMaterialization)
         {
             return new ScanFilterAndProjectOperator(
-                    session,
+                    operatorContext.getSession(),
                     memoryTrackingContext,
                     yieldSignal,
                     splits,

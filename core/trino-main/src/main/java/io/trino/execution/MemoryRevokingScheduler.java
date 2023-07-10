@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
 import io.trino.memory.LocalMemoryManager;
@@ -25,11 +26,9 @@ import io.trino.memory.VoidTraversingQueryContextVisitor;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
-
-import javax.annotation.Nullable;
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
+import jakarta.annotation.Nullable;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 import java.util.Collection;
 import java.util.List;
@@ -72,8 +71,8 @@ public class MemoryRevokingScheduler
     {
         this(
                 localMemoryManager.getMemoryPool(),
-                requireNonNull(sqlTaskManager, "sqlTaskManager cannot be null")::getAllTasks,
-                requireNonNull(taskManagementExecutor, "taskManagementExecutor cannot be null").getExecutor(),
+                sqlTaskManager::getAllTasks,
+                taskManagementExecutor.getExecutor(),
                 config.getMemoryRevokingThreshold(),
                 config.getMemoryRevokingTarget());
     }

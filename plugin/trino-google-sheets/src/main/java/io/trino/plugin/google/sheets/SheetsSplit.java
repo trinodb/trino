@@ -20,45 +20,25 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class SheetsSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SheetsSplit.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(SheetsSplit.class);
 
-    private final String schemaName;
-    private final String tableName;
     private final List<List<String>> values;
-    private final List<HostAddress> hostAddresses;
 
     @JsonCreator
     public SheetsSplit(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
             @JsonProperty("values") List<List<String>> values)
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
         this.values = requireNonNull(values, "values is null");
-        this.hostAddresses = ImmutableList.of();
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
     }
 
     @JsonProperty
@@ -76,26 +56,20 @@ public class SheetsSplit
     @Override
     public List<HostAddress> getAddresses()
     {
-        return hostAddresses;
+        return ImmutableList.of();
     }
 
     @Override
     public Object getInfo()
     {
-        return ImmutableMap.builder()
-                .put("schemaName", schemaName)
-                .put("tableName", tableName)
-                .put("hostAddresses", hostAddresses)
-                .buildOrThrow();
+        ImmutableMap.Builder<Object, Object> builder = ImmutableMap.builder();
+        return builder.buildOrThrow();
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
-                + estimatedSizeOf(schemaName)
-                + estimatedSizeOf(tableName)
-                + estimatedSizeOf(values, value -> estimatedSizeOf(value, SizeOf::estimatedSizeOf))
-                + estimatedSizeOf(hostAddresses, HostAddress::getRetainedSizeInBytes);
+                + estimatedSizeOf(values, value -> estimatedSizeOf(value, SizeOf::estimatedSizeOf));
     }
 }

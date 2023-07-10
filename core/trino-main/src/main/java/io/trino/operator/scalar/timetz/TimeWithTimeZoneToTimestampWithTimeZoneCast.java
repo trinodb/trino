@@ -51,9 +51,10 @@ public final class TimeWithTimeZoneToTimestampWithTimeZoneCast
     {
         // source precision <= 9
         // target precision <= 3
-        long picos = normalizeAndRound(targetPrecision, rescale(unpackTimeNanos(packedTime), 9, 12), unpackOffsetMinutes(packedTime));
+        int offsetMinutes = unpackOffsetMinutes(packedTime);
+        long picos = normalizeAndRound(targetPrecision, rescale(unpackTimeNanos(packedTime), 9, 12), offsetMinutes);
 
-        return packDateTimeWithZone(calculateEpochMillis(session, picos), getTimeZoneKeyForOffset(unpackOffsetMinutes(packedTime)));
+        return packDateTimeWithZone(calculateEpochMillis(session, picos), getTimeZoneKeyForOffset(offsetMinutes));
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
@@ -79,12 +80,13 @@ public final class TimeWithTimeZoneToTimestampWithTimeZoneCast
     {
         // source precision <= 9
         // target precision > 3
-        long picos = normalizeAndRound(targetPrecision, rescale(unpackTimeNanos(packedTime), 9, 12), unpackOffsetMinutes(packedTime));
+        int offsetMinutes = unpackOffsetMinutes(packedTime);
+        long picos = normalizeAndRound(targetPrecision, rescale(unpackTimeNanos(packedTime), 9, 12), offsetMinutes);
 
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(
                 calculateEpochMillis(session, picos),
                 (int) (picos % PICOSECONDS_PER_MILLISECOND),
-                getTimeZoneKeyForOffset(unpackOffsetMinutes(packedTime)));
+                getTimeZoneKeyForOffset(offsetMinutes));
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})

@@ -50,9 +50,7 @@ public final class RandomPartitionerTokenRing
             if (start.equals(MIN_TOKEN)) {
                 return TOTAL_TOKEN_COUNT;
             }
-            else {
-                return ZERO;
-            }
+            return ZERO;
         }
 
         BigInteger result = end.subtract(start);

@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
@@ -25,18 +27,10 @@ import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.BlockMissingException;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -44,15 +38,14 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.orc.OrcReader.createOrcReader;
 import static io.trino.orc.OrcReader.fullyProjectedLayout;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_BUCKET;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_ORIGINAL_TRANSACTION;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_ROW_ID;
@@ -76,37 +69,28 @@ public class OrcDeleteDeltaPageSource
     private boolean closed;
 
     public static Optional<ConnectorPageSource> createOrcDeleteDeltaPageSource(
-            Path path,
-            long fileSize,
+            TrinoInputFile inputFile,
             OrcReaderOptions options,
-            ConnectorIdentity identity,
-            Configuration configuration,
-            HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats)
     {
         OrcDataSource orcDataSource;
+        Location path = inputFile.location();
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(path));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
-                    fileSize,
+                    inputFile.length(),
                     options,
-                    inputStream,
+                    inputFile,
                     stats);
         }
         catch (Exception e) {
-            if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
-                    e instanceof FileNotFoundException) {
-                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
-            }
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, openError(e, path), e);
         }
 
         try {
             Optional<OrcReader> orcReader = createOrcReader(orcDataSource, options);
             if (orcReader.isPresent()) {
-                return Optional.of(new OrcDeleteDeltaPageSource(path, fileSize, orcReader.get(), orcDataSource, stats));
+                return Optional.of(new OrcDeleteDeltaPageSource(path, inputFile.length(), orcReader.get(), orcDataSource, stats));
             }
             return Optional.empty();
         }
@@ -120,16 +104,15 @@ public class OrcDeleteDeltaPageSource
             if (e instanceof TrinoException) {
                 throw (TrinoException) e;
             }
-            String message = openError(e, path);
-            if (e instanceof BlockMissingException) {
-                throw new TrinoException(HIVE_MISSING_DATA, message, e);
+            if (e instanceof OrcCorruptionException) {
+                throw new TrinoException(HIVE_BAD_DATA, e);
             }
-            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, openError(e, path), e);
         }
     }
 
     private OrcDeleteDeltaPageSource(
-            Path path,
+            Location path,
             long fileSize,
             OrcReader reader,
             OrcDataSource orcDataSource,
@@ -228,7 +211,7 @@ public class OrcDeleteDeltaPageSource
         return memoryContext.getBytes();
     }
 
-    private static String openError(Throwable t, Path path)
+    private static String openError(Throwable t, Location path)
     {
         return format("Error opening Hive delete delta file %s: %s", path, t.getMessage());
     }

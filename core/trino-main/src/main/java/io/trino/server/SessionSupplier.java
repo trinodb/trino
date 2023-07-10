@@ -13,10 +13,11 @@
  */
 package io.trino.server;
 
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.spi.QueryId;
 
 public interface SessionSupplier
 {
-    Session createSession(QueryId queryId, SessionContext context);
+    Session createSession(QueryId queryId, Span querySpan, SessionContext context);
 }

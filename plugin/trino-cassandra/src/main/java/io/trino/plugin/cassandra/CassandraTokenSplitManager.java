@@ -17,9 +17,8 @@ import com.datastax.oss.driver.api.core.metadata.Node;
 import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +29,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_METADATA_ERROR;
 import static io.trino.plugin.cassandra.TokenRing.createForPartitioner;
 import static java.lang.Math.max;
@@ -38,7 +38,6 @@ import static java.lang.StrictMath.toIntExact;
 import static java.util.Collections.shuffle;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class CassandraTokenSplitManager
 {
@@ -137,9 +136,9 @@ public class CassandraTokenSplitManager
     {
         Set<Node> endpoints = session.getReplicas(keyspace, tokenRange);
 
-        return unmodifiableList(endpoints.stream()
+        return endpoints.stream()
                 .map(endpoint -> endpoint.getEndPoint().resolve().toString())
-                .collect(toList()));
+                .collect(toImmutableList());
     }
 
     private static TokenSplit createSplit(TokenRange range, List<String> endpoints)

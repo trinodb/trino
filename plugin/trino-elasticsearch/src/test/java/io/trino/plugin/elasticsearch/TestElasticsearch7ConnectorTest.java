@@ -21,7 +21,7 @@ public class TestElasticsearch7ConnectorTest
 {
     public TestElasticsearch7ConnectorTest()
     {
-        super(ELASTICSEARCH_7_IMAGE);
+        super(ELASTICSEARCH_7_IMAGE, "elasticsearch7");
     }
 
     @Override

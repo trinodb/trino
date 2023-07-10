@@ -38,11 +38,16 @@ function getTotalWallTime(operator) {
     return parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall)
 }
 
+function getTotalCpuTime(operator) {
+    return parseDuration(operator.addInputCpu) + parseDuration(operator.getOutputCpu) + parseDuration(operator.finishCpu)
+}
+
 class OperatorSummary extends React.Component {
     render() {
         const operator = this.props.operator;
 
-        const totalWallTime = parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall);
+        const totalWallTime = getTotalWallTime(operator);
+        const totalCpuTime = getTotalCpuTime(operator);
 
         const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / (totalWallTime / 1000.0);
         const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
@@ -73,6 +78,14 @@ class OperatorSummary extends React.Component {
                         </td>
                         <td>
                             {operator.totalDrivers}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            CPU Time
+                        </td>
+                        <td>
+                            {formatDuration(totalCpuTime)}
                         </td>
                     </tr>
                     <tr>
@@ -157,6 +170,12 @@ class OperatorDetail extends React.Component {
     getInitialStatistics() {
         return [
             {
+                name: "Total CPU Time",
+                id: "totalCpuTime",
+                supplier: getTotalCpuTime,
+                renderer: formatDuration
+            },
+            {
                 name: "Total Wall Time",
                 id: "totalWallTime",
                 supplier: getTotalWallTime,
@@ -217,6 +236,7 @@ class OperatorDetail extends React.Component {
         const operator = this.props.operator;
         const operatorTasks = this.getOperatorTasks();
         const totalWallTime = getTotalWallTime(operator);
+        const totalCpuTime = getTotalCpuTime(operator);
 
         const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / totalWallTime;
         const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
@@ -277,6 +297,14 @@ class OperatorDetail extends React.Component {
                         <div className="col-xs-6">
                             <table className="table">
                                 <tbody>
+                                <tr>
+                                    <td>
+                                        CPU Time
+                                    </td>
+                                    <td>
+                                        {formatDuration(totalCpuTime)}
+                                    </td>
+                                </tr>
                                 <tr>
                                     <td>
                                         Wall Time

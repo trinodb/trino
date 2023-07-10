@@ -14,8 +14,8 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
@@ -27,6 +27,7 @@ import io.trino.sql.tree.PathSpecification;
 import io.trino.sql.tree.SetPath;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -36,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.testMetadataManagerBuilder;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
@@ -45,16 +47,16 @@ import static org.testng.Assert.assertEquals;
 
 public class TestSetPathTask
 {
-    private final TransactionManager transactionManager;
-    private final AccessControl accessControl;
-    private final Metadata metadata;
+    private TransactionManager transactionManager;
+    private AccessControl accessControl;
+    private Metadata metadata;
 
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
-    public TestSetPathTask()
+    @BeforeClass
+    public void setUp()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
+        transactionManager = createTestTransactionManager();
         accessControl = new AllowAllAccessControl();
 
         metadata = testMetadataManagerBuilder()
@@ -67,6 +69,9 @@ public class TestSetPathTask
     {
         executor.shutdownNow();
         executor = null;
+        transactionManager = null;
+        accessControl = null;
+        metadata = null;
     }
 
     @Test
@@ -109,7 +114,10 @@ public class TestSetPathTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                createPlanOptimizersStatsCollector(),
+                Optional.empty(),
+                true,
+                new NodeVersion("test"));
     }
 
     private void executeSetPathTask(PathSpecification pathSpecification, QueryStateMachine stateMachine)

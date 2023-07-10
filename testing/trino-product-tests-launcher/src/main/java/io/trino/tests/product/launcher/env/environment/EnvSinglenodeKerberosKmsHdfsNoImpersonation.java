@@ -14,6 +14,7 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
@@ -22,9 +23,6 @@ import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
-import javax.inject.Inject;
-
-import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -37,7 +35,7 @@ public final class EnvSinglenodeKerberosKmsHdfsNoImpersonation
     public EnvSinglenodeKerberosKmsHdfsNoImpersonation(DockerFiles dockerFiles, Standard standard, HadoopKerberosKms hadoopKerberosKms)
     {
         super(ImmutableList.of(standard, hadoopKerberosKms));
-        configDir = requireNonNull(dockerFiles, "dockerFiles is null").getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-kms-hdfs-no-impersonation");
+        configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-kerberos-kms-hdfs-no-impersonation");
     }
 
     @Override

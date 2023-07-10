@@ -20,6 +20,11 @@ import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Source of splits to be processed.
+ * <p>
+ * Thread-safety: the implementations are not required to be thread-safe.
+ */
 public interface ConnectorSplitSource
         extends Closeable
 {

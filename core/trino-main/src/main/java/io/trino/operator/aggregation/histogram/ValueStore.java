@@ -21,9 +21,9 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
-import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.operator.aggregation.histogram.HashUtil.calculateMaxFill;
 import static io.trino.operator.aggregation.histogram.HashUtil.computeBucketCount;
 import static io.trino.operator.aggregation.histogram.HashUtil.nextBucketId;
@@ -41,7 +41,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class ValueStore
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedTypedHistogram.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(GroupedTypedHistogram.class);
     private static final float MAX_FILL_RATIO = 0.5f;
     private static final int EMPTY_BUCKET = -1;
     private final Type type;
@@ -98,15 +98,13 @@ public class ValueStore
 
                 return valuePointer;
             }
-            else if (equalOperator.equal(block, position, values, valuePointer)) {
+            if (equalOperator.equal(block, position, values, valuePointer)) {
                 // value at position
                 return valuePointer;
             }
-            else {
-                int probe = nextProbe(probeCount);
-                bucketId = nextBucketId(originalBucketId, mask, probe);
-                probeCount++;
-            }
+            int probe = nextProbe(probeCount);
+            bucketId = nextBucketId(originalBucketId, mask, probe);
+            probeCount++;
         }
     }
 

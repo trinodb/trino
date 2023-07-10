@@ -14,9 +14,9 @@
 package io.trino;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TimeZoneKey;

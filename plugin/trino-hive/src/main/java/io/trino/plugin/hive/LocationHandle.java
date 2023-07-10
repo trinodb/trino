@@ -15,30 +15,24 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.hadoop.fs.Path;
+import io.trino.filesystem.Location;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class LocationHandle
 {
-    private final Path targetPath;
-    private final Path writePath;
-    private final boolean isExistingTable;
+    private final Location targetPath;
+    private final Location writePath;
     private final WriteMode writeMode;
 
-    public LocationHandle(
-            Path targetPath,
-            Path writePath,
-            boolean isExistingTable,
-            WriteMode writeMode)
+    public LocationHandle(Location targetPath, Location writePath, WriteMode writeMode)
     {
         if (writeMode.isWritePathSameAsTargetPath() && !targetPath.equals(writePath)) {
             throw new IllegalArgumentException(format("targetPath is expected to be same as writePath for writeMode %s", writeMode));
         }
         this.targetPath = requireNonNull(targetPath, "targetPath is null");
         this.writePath = requireNonNull(writePath, "writePath is null");
-        this.isExistingTable = isExistingTable;
         this.writeMode = requireNonNull(writeMode, "writeMode is null");
     }
 
@@ -46,24 +40,22 @@ public class LocationHandle
     public LocationHandle(
             @JsonProperty("targetPath") String targetPath,
             @JsonProperty("writePath") String writePath,
-            @JsonProperty("isExistingTable") boolean isExistingTable,
             @JsonProperty("writeMode") WriteMode writeMode)
     {
         this(
-                new Path(requireNonNull(targetPath, "targetPath is null")),
-                new Path(requireNonNull(writePath, "writePath is null")),
-                isExistingTable,
+                Location.of(requireNonNull(targetPath, "targetPath is null")),
+                Location.of(requireNonNull(writePath, "writePath is null")),
                 writeMode);
     }
 
     // This method should only be called by LocationService
-    Path getTargetPath()
+    Location getTargetPath()
     {
         return targetPath;
     }
 
     // This method should only be called by LocationService
-    Path getWritePath()
+    Location getWritePath()
     {
         return writePath;
     }
@@ -72,12 +64,6 @@ public class LocationHandle
     public WriteMode getWriteMode()
     {
         return writeMode;
-    }
-
-    // This method should only be called by LocationService
-    boolean isExistingTable()
-    {
-        return isExistingTable;
     }
 
     @JsonProperty("targetPath")
@@ -90,12 +76,6 @@ public class LocationHandle
     public String getJsonSerializableWritePath()
     {
         return writePath.toString();
-    }
-
-    @JsonProperty("isExistingTable")
-    public boolean getJsonSerializableIsExistingTable()
-    {
-        return isExistingTable;
     }
 
     @JsonProperty("writeMode")

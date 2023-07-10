@@ -13,15 +13,21 @@
  */
 package io.trino.tests;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.connector.MockConnectorFactory;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.Plugin;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.CountingMockConnector;
 import io.trino.testing.CountingMockConnector.MetadataCallsCount;
 import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
@@ -35,13 +41,13 @@ public class TestInformationSchemaConnector
     public void testBasic()
     {
         assertQuery("SELECT count(*) FROM tpch.information_schema.schemata", "VALUES 10");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.tables", "VALUES 81");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns", "VALUES 589");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.tables", "VALUES 80");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns", "VALUES 583");
         assertQuery("SELECT * FROM tpch.information_schema.schemata ORDER BY 1 DESC, 2 DESC LIMIT 1", "VALUES ('tpch', 'tiny')");
         assertQuery("SELECT * FROM tpch.information_schema.tables ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'BASE TABLE')");
         assertQuery("SELECT * FROM tpch.information_schema.columns ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('tpch', 'tiny', 'supplier', 'suppkey', 1, NULL, 'NO', 'bigint')");
         assertQuery("SELECT * FROM test_catalog.information_schema.columns ORDER BY 1 DESC, 2 DESC, 3 DESC, 4 DESC LIMIT 1", "VALUES ('test_catalog', 'test_schema2', 'test_table999', 'column_99', 100, NULL, 'YES', 'varchar')");
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.columns", "VALUES 300040");
+        assertQuery("SELECT count(*) FROM test_catalog.information_schema.columns", "VALUES 300034");
     }
 
     @Test
@@ -50,14 +56,14 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT count(*) FROM tpch.information_schema.schemata WHERE schema_name = 'sf1'", "VALUES 1");
         assertQuery("SELECT count(*) FROM tpch.information_schema.schemata WHERE schema_name IS NOT NULL", "VALUES 10");
         assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_schema = 'sf1'", "VALUES 8");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_schema IS NOT NULL", "VALUES 81");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_schema IS NOT NULL", "VALUES 80");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema = 'sf1'", "VALUES 61");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema = 'information_schema'", "VALUES 40");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema = 'information_schema'", "VALUES 34");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema > 'sf100'", "VALUES 427");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema != 'sf100'", "VALUES 528");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema != 'sf100'", "VALUES 522");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema LIKE 'sf100'", "VALUES 61");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema LIKE 'sf%'", "VALUES 488");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema IS NOT NULL", "VALUES 589");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_schema IS NOT NULL", "VALUES 583");
     }
 
     @Test
@@ -69,13 +75,13 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_name < 'orders'", "VALUES 30");
         assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_name LIKE 'part'", "VALUES 9");
         assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_name LIKE 'part%'", "VALUES 18");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_name IS NOT NULL", "VALUES 81");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.tables WHERE table_name IS NOT NULL", "VALUES 80");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name = 'orders'", "VALUES 81");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name LIKE 'orders'", "VALUES 81");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name < 'orders'", "VALUES 265");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name LIKE 'part'", "VALUES 81");
         assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name LIKE 'part%'", "VALUES 126");
-        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name IS NOT NULL", "VALUES 589");
+        assertQuery("SELECT count(*) FROM tpch.information_schema.columns WHERE table_name IS NOT NULL", "VALUES 583");
     }
 
     @Test
@@ -107,55 +113,6 @@ public class TestInformationSchemaConnector
         assertQuery("SELECT count(*) FROM (SELECT * FROM test_catalog.information_schema.tables LIMIT 1000)", "VALUES 1000");
     }
 
-    @Test
-    public void testRoleAuthorizationDescriptor()
-    {
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.role_authorization_descriptors", "VALUES 100");
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.roles", "VALUES 50");
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.enabled_roles", "VALUES 50");
-        assertQuery("SELECT count(*) FROM test_catalog.information_schema.applicable_roles", "VALUES 1");
-        assertQuery("SELECT role_name FROM test_catalog.information_schema.role_authorization_descriptors WHERE grantee = 'user5'", "VALUES ('role2')");
-        assertQuery("SELECT grantee FROM test_catalog.information_schema.role_authorization_descriptors WHERE role_name = 'role2'", "VALUES ('user4'), ('user5')");
-
-        assertMetadataCalls(
-                "SELECT count(*) FROM test_catalog.information_schema.role_authorization_descriptors", "VALUES 100",
-                new MetadataCallsCount()
-                        .withListRoleGrantsCount(1));
-
-        assertMetadataCalls(
-                "SELECT role_name FROM test_catalog.information_schema.role_authorization_descriptors WHERE grantee = 'user5'", "VALUES ('role2')",
-                new MetadataCallsCount()
-                        .withListRoleGrantsCount(1)
-                        .withGranteesPushedCount(1));
-
-        assertMetadataCalls(
-                "SELECT grantee FROM test_catalog.information_schema.role_authorization_descriptors WHERE role_name = 'role2'", "VALUES ('user4'), ('user5')",
-                new MetadataCallsCount()
-                        .withListRoleGrantsCount(1)
-                        .withRolesPushedCount(1));
-
-        assertMetadataCalls(
-                "SELECT grantee FROM test_catalog.information_schema.role_authorization_descriptors WHERE role_name = 'role2' AND grantee = 'user4'", "VALUES 'user4'",
-                new MetadataCallsCount()
-                        .withListRoleGrantsCount(1)
-                        .withRolesPushedCount(1)
-                        .withGranteesPushedCount(1));
-
-        assertMetadataCalls(
-                "SELECT count(*) FROM (SELECT * FROM test_catalog.information_schema.role_authorization_descriptors LIMIT 1)", "VALUES 1",
-                new MetadataCallsCount()
-                        .withListRoleGrantsCount(1)
-                        .withLimitPushedCount(1));
-
-        // verify that predicate and LIMIT are not pushed down together
-        assertMetadataCalls(
-                "SELECT count(*) FROM (SELECT * FROM test_catalog.information_schema.role_authorization_descriptors WHERE grantee = 'user5' LIMIT 1)", "VALUES 1",
-                new MetadataCallsCount()
-                        .withListRoleGrantsCount(1)
-                        .withGranteesPushedCount(1)
-                        .withLimitPushedCount(0));
-    }
-
     @Test(timeOut = 60_000)
     public void testMetadataCalls()
     {
@@ -171,7 +128,7 @@ public class TestInformationSchemaConnector
                         .withListSchemasCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables",
-                "VALUES 3009",
+                "VALUES 3008",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
                         .withListTablesCount(2));
@@ -202,7 +159,7 @@ public class TestInformationSchemaConnector
                 "VALUES 2",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(3));
+                        .withListTablesCount(2));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1' AND table_name IN ('test_table1', 'test_table2')",
                 "VALUES 2",
@@ -237,14 +194,13 @@ public class TestInformationSchemaConnector
                 "VALUES 1",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(1)
                         .withGetColumnsCount(0));
         assertMetadataCalls(
                 "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 1000)",
                 "VALUES 1000",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(2)
+                        .withListTablesCount(1)
                         .withGetColumnsCount(1000));
 
         // Empty table schema and table name
@@ -268,6 +224,30 @@ public class TestInformationSchemaConnector
                         .withListSchemasCount(1));
     }
 
+    @Test
+    public void testMetadataListingExceptionHandling()
+    {
+        assertQueryFails(
+                "SELECT * FROM broken_catalog.information_schema.schemata",
+                "Error listing schemas for catalog broken_catalog: Catalog is broken");
+
+        assertQueryFails(
+                "SELECT * FROM broken_catalog.information_schema.tables",
+                "Error listing tables for catalog broken_catalog: Catalog is broken");
+
+        assertQueryFails(
+                "SELECT * FROM broken_catalog.information_schema.views",
+                "Error listing views for catalog broken_catalog: Catalog is broken");
+
+        assertQueryFails(
+                "SELECT * FROM broken_catalog.information_schema.table_privileges",
+                "Error listing table privileges for catalog broken_catalog: Catalog is broken");
+
+        assertQueryFails(
+                "SELECT * FROM broken_catalog.information_schema.columns",
+                "Error listing table columns for catalog broken_catalog: Catalog is broken");
+    }
+
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
@@ -282,6 +262,9 @@ public class TestInformationSchemaConnector
 
             queryRunner.installPlugin(countingMockConnector.getPlugin());
             queryRunner.createCatalog("test_catalog", "mock", ImmutableMap.of());
+
+            queryRunner.installPlugin(new FailingMockConnectorPlugin());
+            queryRunner.createCatalog("broken_catalog", "failing_mock", ImmutableMap.of());
             return queryRunner;
         }
         catch (Exception e) {
@@ -298,5 +281,36 @@ public class TestInformationSchemaConnector
         });
 
         assertEquals(actualMetadataCallsCount, expectedMetadataCallsCount);
+    }
+
+    private static final class FailingMockConnectorPlugin
+            implements Plugin
+    {
+        @Override
+        public Iterable<ConnectorFactory> getConnectorFactories()
+        {
+            return ImmutableList.of(
+                    MockConnectorFactory.builder()
+                            .withName("failing_mock")
+                            .withListSchemaNames(session -> {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
+                            })
+                            .withListTables((session, schema) -> {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
+                            })
+                            .withGetViews((session, prefix) -> {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
+                            })
+                            .withGetMaterializedViews((session, prefix) -> {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
+                            })
+                            .withListTablePrivileges((session, prefix) -> {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
+                            })
+                            .withStreamTableColumns((session, prefix) -> {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
+                            })
+                            .build());
+        }
     }
 }

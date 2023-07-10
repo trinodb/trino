@@ -39,13 +39,13 @@ public class TestPartitionTransforms
     @Test
     public void testToStringMatchesSpecification()
     {
-        assertEquals(Transforms.identity(StringType.get()).toString(), "identity");
-        assertEquals(Transforms.bucket(StringType.get(), 13).toString(), "bucket[13]");
-        assertEquals(Transforms.truncate(StringType.get(), 19).toString(), "truncate[19]");
-        assertEquals(Transforms.year(DateType.get()).toString(), "year");
-        assertEquals(Transforms.month(DateType.get()).toString(), "month");
-        assertEquals(Transforms.day(DateType.get()).toString(), "day");
-        assertEquals(Transforms.hour(TimestampType.withoutZone()).toString(), "hour");
+        assertEquals(Transforms.identity().toString(), "identity");
+        assertEquals(Transforms.bucket(13).bind(StringType.get()).toString(), "bucket[13]");
+        assertEquals(Transforms.truncate(19).bind(StringType.get()).toString(), "truncate[19]");
+        assertEquals(Transforms.year().toString(), "year");
+        assertEquals(Transforms.month().toString(), "month");
+        assertEquals(Transforms.day().toString(), "day");
+        assertEquals(Transforms.hour().toString(), "hour");
     }
 
     @Test
@@ -65,16 +65,16 @@ public class TestPartitionTransforms
 
             if (time.toLocalTime().equals(LocalTime.MIDNIGHT)) {
                 int epochDay = toIntExact(time.toLocalDate().toEpochDay());
-                assertEquals(actualYear, (int) Transforms.year(ICEBERG_DATE).apply(epochDay), time.toString());
-                assertEquals(actualMonth, (int) Transforms.month(ICEBERG_DATE).apply(epochDay), time.toString());
-                assertEquals(actualDay, (int) Transforms.day(ICEBERG_DATE).apply(epochDay), time.toString());
+                assertEquals(actualYear, (int) Transforms.year().bind(ICEBERG_DATE).apply(epochDay), time.toString());
+                assertEquals(actualMonth, (int) Transforms.month().bind(ICEBERG_DATE).apply(epochDay), time.toString());
+                assertEquals(actualDay, (int) Transforms.day().bind(ICEBERG_DATE).apply(epochDay), time.toString());
             }
 
             long epochMicro = SECONDS.toMicros(epochSecond);
-            assertEquals(actualYear, (int) Transforms.year(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
-            assertEquals(actualMonth, (int) Transforms.month(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
-            assertEquals(actualDay, (int) Transforms.day(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
-            assertEquals(actualHour, (int) Transforms.hour(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
+            assertEquals(actualYear, (int) Transforms.year().bind(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
+            assertEquals(actualMonth, (int) Transforms.month().bind(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
+            assertEquals(actualDay, (int) Transforms.day().bind(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
+            assertEquals(actualHour, (int) Transforms.hour().bind(ICEBERG_TIMESTAMP).apply(epochMicro), time.toString());
         }
     }
 }

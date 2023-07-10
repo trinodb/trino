@@ -136,10 +136,10 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        protected Expression visitArrayConstructor(ArrayConstructor node, Context<C> context)
+        protected Expression visitArray(Array node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteArrayConstructor(node, context.get(), ExpressionTreeRewriter.this);
+                Expression result = rewriter.rewriteArray(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }
@@ -148,7 +148,7 @@ public final class ExpressionTreeRewriter<C>
             List<Expression> values = rewrite(node.getValues(), context);
 
             if (!sameElements(node.getValues(), values)) {
-                return new ArrayConstructor(values);
+                return new Array(values);
             }
 
             return node;
@@ -492,14 +492,22 @@ public final class ExpressionTreeRewriter<C>
 
             List<Expression> arguments = rewrite(node.getArguments(), context);
 
+            Optional<OrderBy> orderBy = node.getOrderBy();
+            if (orderBy.isPresent()) {
+                OrderBy rewrittenOrderBy = rewriteOrderBy(orderBy.get(), context);
+                if (rewrittenOrderBy != orderBy.get()) {
+                    orderBy = Optional.of(rewrittenOrderBy);
+                }
+            }
+
             if (!sameElements(node.getArguments(), arguments) || !sameElements(window, node.getWindow())
-                    || !sameElements(filter, node.getFilter())) {
+                    || !sameElements(filter, node.getFilter()) || !sameElements(orderBy, node.getOrderBy())) {
                 return new FunctionCall(
                         node.getLocation(),
                         node.getName(),
                         window,
                         filter,
-                        node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)),
+                        orderBy,
                         node.isDistinct(),
                         node.getNullTreatment(),
                         node.getProcessingMode(),
@@ -644,9 +652,19 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
+            List<LambdaArgumentDeclaration> arguments = node.getArguments().stream()
+                    .map(LambdaArgumentDeclaration::getName)
+                    .map(Identifier::getValue)
+                    .map(SymbolReference::new)
+                    .map(expression -> rewrite(expression, context.get()))
+                    .map(SymbolReference::getName)
+                    .map(Identifier::new)
+                    .map(LambdaArgumentDeclaration::new)
+                    .collect(toImmutableList());
+
             Expression body = rewrite(node.getBody(), context.get());
             if (body != node.getBody()) {
-                return new LambdaExpression(node.getArguments(), body);
+                return new LambdaExpression(arguments, body);
             }
 
             return node;
@@ -1320,7 +1338,7 @@ public final class ExpressionTreeRewriter<C>
                     .collect(toImmutableList());
 
             if (pathInvocation.getInputExpression() != inputExpression || !sameElements(pathInvocation.getPathParameters(), pathParameters)) {
-                return new JsonPathInvocation(pathInvocation.getLocation(), inputExpression, pathInvocation.getInputFormat(), pathInvocation.getJsonPath(), pathParameters);
+                return new JsonPathInvocation(pathInvocation.getLocation(), inputExpression, pathInvocation.getInputFormat(), pathInvocation.getJsonPath(), pathInvocation.getPathName(), pathParameters);
             }
 
             return pathInvocation;

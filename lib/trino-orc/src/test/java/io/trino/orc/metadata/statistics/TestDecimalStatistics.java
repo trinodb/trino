@@ -13,12 +13,12 @@
  */
 package io.trino.orc.metadata.statistics;
 
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.orc.metadata.statistics.LongDecimalStatisticsBuilder.LONG_DECIMAL_VALUE_BYTES;
 import static java.math.BigDecimal.ZERO;
@@ -26,8 +26,8 @@ import static java.math.BigDecimal.ZERO;
 public class TestDecimalStatistics
         extends AbstractRangeStatisticsTest<DecimalStatistics, BigDecimal>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DecimalStatistics.class).instanceSize();
-    private static final long BIG_DECIMAL_INSTANCE_SIZE = ClassLayout.parseClass(BigDecimal.class).instanceSize() + ClassLayout.parseClass(BigInteger.class).instanceSize() + sizeOf(new int[0]);
+    private static final int INSTANCE_SIZE = instanceSize(DecimalStatistics.class);
+    private static final long BIG_DECIMAL_INSTANCE_SIZE = instanceSize(BigDecimal.class) + instanceSize(BigInteger.class) + sizeOf(new int[0]);
 
     private static final BigDecimal MEDIUM_VALUE = new BigDecimal("890.37492");
     private static final BigDecimal LARGE_POSITIVE_VALUE = new BigDecimal("123456789012345678901234567890.12345");

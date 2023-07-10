@@ -15,98 +15,69 @@ package io.trino.plugin.iceberg;
 
 import io.trino.spi.TrinoException;
 
-import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.Long.parseLong;
-import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class IcebergTableName
+public final class IcebergTableName
 {
+    private IcebergTableName() {}
+
     private static final Pattern TABLE_PATTERN = Pattern.compile("" +
             "(?<table>[^$@]+)" +
-            "(?:@(?<ver1>[0-9]+))?" +
-            "(?:\\$(?<type>[^@]+)(?:@(?<ver2>[0-9]+))?)?");
+            "(?:\\$(?<type>[^@]+))?");
 
-    private final String tableName;
-    private final TableType tableType;
-    private final Optional<Long> snapshotId;
-
-    public IcebergTableName(String tableName, TableType tableType, Optional<Long> snapshotId)
+    public static String tableNameWithType(String tableName, TableType tableType)
     {
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableType = requireNonNull(tableType, "tableType is null");
-        this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        requireNonNull(tableName, "tableName is null");
+        return tableName + "$" + tableType.name().toLowerCase(ENGLISH);
     }
 
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    public TableType getTableType()
-    {
-        return tableType;
-    }
-
-    public Optional<Long> getSnapshotId()
-    {
-        return snapshotId;
-    }
-
-    public String getTableNameWithType()
-    {
-        return tableName + "$" + tableType.name().toLowerCase(Locale.ROOT);
-    }
-
-    @Override
-    public String toString()
-    {
-        return getTableNameWithType() + "@" + snapshotId;
-    }
-
-    public static IcebergTableName from(String name)
+    public static String tableNameFrom(String name)
     {
         Matcher match = TABLE_PATTERN.matcher(name);
         if (!match.matches()) {
             throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name: " + name);
         }
 
-        String table = match.group("table");
+        return match.group("table");
+    }
+
+    public static Optional<TableType> tableTypeFrom(String name)
+    {
+        Matcher match = TABLE_PATTERN.matcher(name);
+        if (!match.matches()) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name: " + name);
+        }
         String typeString = match.group("type");
-        String ver1 = match.group("ver1");
-        String ver2 = match.group("ver2");
-
-        TableType type = TableType.DATA;
-        if (typeString != null) {
-            try {
-                type = TableType.valueOf(typeString.toUpperCase(Locale.ROOT));
-            }
-            catch (IllegalArgumentException e) {
-                throw new TrinoException(NOT_SUPPORTED, format("Invalid Iceberg table name (unknown type '%s'): %s", typeString, name));
-            }
+        if (typeString == null) {
+            return Optional.of(DATA);
         }
-
-        Optional<Long> version = Optional.empty();
-        if (type == TableType.DATA || type == TableType.PARTITIONS || type == TableType.MANIFESTS || type == TableType.FILES) {
-            if (ver1 != null && ver2 != null) {
-                throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name (cannot specify two @ versions): " + name);
+        try {
+            TableType parsedType = TableType.valueOf(typeString.toUpperCase(ENGLISH));
+            if (parsedType == DATA) {
+                // $data cannot be encoded in table name
+                return Optional.empty();
             }
-            if (ver1 != null) {
-                version = Optional.of(parseLong(ver1));
-            }
-            else if (ver2 != null) {
-                version = Optional.of(parseLong(ver2));
-            }
+            return Optional.of(parsedType);
         }
-        else if (ver1 != null || ver2 != null) {
-            throw new TrinoException(NOT_SUPPORTED, format("Invalid Iceberg table name (cannot use @ version with table type '%s'): %s", type, name));
+        catch (IllegalArgumentException e) {
+            return Optional.empty();
         }
+    }
 
-        return new IcebergTableName(table, type, version);
+    public static boolean isDataTable(String name)
+    {
+        Matcher match = TABLE_PATTERN.matcher(name);
+        if (!match.matches()) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name: " + name);
+        }
+        String typeString = match.group("type");
+        return typeString == null;
     }
 }

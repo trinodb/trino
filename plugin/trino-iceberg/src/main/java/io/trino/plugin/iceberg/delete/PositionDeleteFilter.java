@@ -18,8 +18,6 @@ import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
-import org.apache.iceberg.MetadataColumns;
-import org.apache.iceberg.Schema;
 import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
 
@@ -38,12 +36,6 @@ public final class PositionDeleteFilter
     public PositionDeleteFilter(ImmutableLongBitmapDataProvider deletedRows)
     {
         this.deletedRows = requireNonNull(deletedRows, "deletedRows is null");
-    }
-
-    @Override
-    public Schema schema()
-    {
-        return new Schema(MetadataColumns.ROW_POSITION);
     }
 
     @Override

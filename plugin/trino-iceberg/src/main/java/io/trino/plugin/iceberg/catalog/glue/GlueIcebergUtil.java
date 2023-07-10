@@ -14,16 +14,19 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.services.glue.model.TableInput;
-
-import javax.annotation.Nullable;
+import com.google.common.collect.ImmutableMap;
+import jakarta.annotation.Nullable;
 
 import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_EXPANDED_TEXT_MARKER;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
-import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
+import static java.util.Locale.ENGLISH;
+import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
+import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 
 public final class GlueIcebergUtil
 {
@@ -34,7 +37,10 @@ public final class GlueIcebergUtil
         return new TableInput()
                 .withName(tableName)
                 .withOwner(owner.orElse(null))
-                .withParameters(parameters)
+                .withParameters(ImmutableMap.<String, String>builder()
+                        .putAll(parameters)
+                        .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
+                        .buildKeepingLast())
                 // Iceberg does not distinguish managed and external tables, all tables are treated the same and marked as EXTERNAL
                 .withTableType(EXTERNAL_TABLE.name());
     }

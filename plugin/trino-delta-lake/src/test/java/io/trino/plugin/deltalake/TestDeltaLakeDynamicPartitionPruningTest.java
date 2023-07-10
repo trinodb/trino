@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.BaseDynamicPartitionPruningTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -49,7 +48,7 @@ public class TestDeltaLakeDynamicPartitionPruningTest
     }
 
     @Override
-    public void testJoinDynamicFilteringMultiJoinOnBucketedTables(JoinDistributionType joinDistributionType)
+    public void testJoinDynamicFilteringMultiJoinOnBucketedTables()
     {
         throw new SkipException("Delta Lake does not support bucketing");
     }

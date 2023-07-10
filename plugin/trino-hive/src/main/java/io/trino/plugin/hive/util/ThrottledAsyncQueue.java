@@ -16,8 +16,7 @@ package io.trino.plugin.hive.util;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.RateLimiter;
-
-import javax.annotation.concurrent.ThreadSafe;
+import com.google.errorprone.annotations.ThreadSafe;
 
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -37,13 +36,11 @@ public class ThrottledAsyncQueue<T>
         extends AsyncQueue<T>
 {
     private final int maxBatchSizePerSec;
-    private final Executor executor;
     private final RateLimiter rateLimiter;
 
     public ThrottledAsyncQueue(int maxBatchSizePerSec, int targetQueueSize, Executor executor)
     {
         super(targetQueueSize, executor);
-        this.executor = executor;
         this.maxBatchSizePerSec = maxBatchSizePerSec;
         this.rateLimiter = RateLimiter.create(maxBatchSizePerSec);
     }

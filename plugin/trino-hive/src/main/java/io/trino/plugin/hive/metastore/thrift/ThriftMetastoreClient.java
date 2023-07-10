@@ -13,28 +13,29 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
+import io.trino.hive.thrift.metastore.Database;
+import io.trino.hive.thrift.metastore.EnvironmentContext;
+import io.trino.hive.thrift.metastore.FieldSchema;
+import io.trino.hive.thrift.metastore.HiveObjectPrivilege;
+import io.trino.hive.thrift.metastore.HiveObjectRef;
+import io.trino.hive.thrift.metastore.LockRequest;
+import io.trino.hive.thrift.metastore.LockResponse;
+import io.trino.hive.thrift.metastore.Partition;
+import io.trino.hive.thrift.metastore.PrincipalType;
+import io.trino.hive.thrift.metastore.PrivilegeBag;
+import io.trino.hive.thrift.metastore.Role;
+import io.trino.hive.thrift.metastore.RolePrincipalGrant;
+import io.trino.hive.thrift.metastore.Table;
+import io.trino.hive.thrift.metastore.TxnToWriteId;
 import io.trino.plugin.hive.acid.AcidOperation;
-import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
-import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
-import org.apache.hadoop.hive.metastore.api.LockRequest;
-import org.apache.hadoop.hive.metastore.api.LockResponse;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.PrincipalType;
-import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
-import org.apache.hadoop.hive.metastore.api.Role;
-import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
-import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
+import io.trino.spi.connector.SchemaTableName;
 import org.apache.thrift.TException;
 
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
+import java.util.Optional;
 
 public interface ThriftMetastoreClient
         extends Closeable
@@ -51,10 +52,16 @@ public interface ThriftMetastoreClient
     List<String> getAllTables(String databaseName)
             throws TException;
 
-    List<String> getTableNamesByFilter(String databaseName, String filter)
+    Optional<List<SchemaTableName>> getAllTables()
             throws TException;
 
-    List<String> getTableNamesByType(String databaseName, String tableType)
+    List<String> getAllViews(String databaseName)
+            throws TException;
+
+    Optional<List<SchemaTableName>> getAllViews()
+            throws TException;
+
+    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
             throws TException;
 
     void createDatabase(Database database)
@@ -76,9 +83,6 @@ public interface ThriftMetastoreClient
             throws TException;
 
     Table getTable(String databaseName, String tableName)
-            throws TException;
-
-    Table getTableWithCapabilities(String databaseName, String tableName)
             throws TException;
 
     List<FieldSchema> getFields(String databaseName, String tableName)
@@ -197,9 +201,6 @@ public interface ThriftMetastoreClient
     {
         throw new UnsupportedOperationException();
     }
-
-    void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
-            throws TException;
 
     void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
             throws TException;

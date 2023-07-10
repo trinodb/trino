@@ -14,10 +14,8 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.NotThreadSafe;
+import io.airlift.slice.SliceOutput;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,17 +23,18 @@ import java.util.OptionalInt;
 import java.util.function.Consumer;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
-@NotThreadSafe
+// This class is not considered thread-safe.
 public class LazyBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LazyBlock.class).instanceSize() + ClassLayout.parseClass(LazyData.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(LazyBlock.class) + instanceSize(LazyData.class);
 
     private final int positionCount;
     private final LazyData lazyData;
@@ -89,6 +88,12 @@ public class LazyBlock
     }
 
     @Override
+    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
+    {
+        getBlock().writeSliceTo(position, offset, length, output);
+    }
+
+    @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
         return getBlock().getObject(position, clazz);
@@ -110,12 +115,6 @@ public class LazyBlock
                 otherSlice,
                 otherOffset,
                 otherLength);
-    }
-
-    @Override
-    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        getBlock().writeBytesTo(position, offset, length, blockBuilder);
     }
 
     @Override
@@ -210,7 +209,7 @@ public class LazyBlock
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         getBlock().retainedBytesForEachPart(consumer);
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

@@ -55,6 +55,6 @@ public final class MinNAggregationFunction
     @OutputFunction("array(E)")
     public static void output(@AggregationState("E") MinNState state, BlockBuilder out)
     {
-        state.popAll(out);
+        state.writeAll(out);
     }
 }

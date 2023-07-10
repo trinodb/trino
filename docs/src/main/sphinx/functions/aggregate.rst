@@ -93,9 +93,30 @@ Using a filter you retain all information::
 General aggregate functions
 ---------------------------
 
+.. function:: any_value(x) -> [same as input]
+
+    Returns an arbitrary non-null value ``x``, if one exists. ``x`` can be any
+    valid expression. This allows you to return values from columns that are not
+    directly part of the aggregation, inluding expressions using these columns,
+    in a query.
+
+    For example, the following query returns the customer name from the ``name``
+    column, and returns the sum of all total prices as customer spend. The
+    aggregation however uses the rows grouped by the customer identifier
+    ``custkey`` a required, since only that column is guaranteed to be unique::
+
+        SELECT sum(o.totalprice) as spend,
+            any_value(c.name)
+        FROM tpch.tiny.orders o
+        JOIN tpch.tiny.customer c
+        ON o.custkey  = c.custkey
+        GROUP BY c.custkey;
+        ORDER BY spend;
+
 .. function:: arbitrary(x) -> [same as input]
 
-    Returns an arbitrary non-null value of ``x``, if one exists.
+    Returns an arbitrary non-null value of ``x``, if one exists. Identical to
+    :func:`any_value`.
 
 .. function:: array_agg(x) -> array<[same as input]>
 
@@ -260,15 +281,15 @@ Bitwise aggregate functions
 Map aggregate functions
 -----------------------
 
-.. function:: histogram(x) -> map(K,bigint)
+.. function:: histogram(x) -> map<K,bigint>
 
     Returns a map containing the count of the number of times each input value occurs.
 
-.. function:: map_agg(key, value) -> map(K,V)
+.. function:: map_agg(key, value) -> map<K,V>
 
     Returns a map created from the input ``key`` / ``value`` pairs.
 
-.. function:: map_union(x(K,V)) -> map(K,V)
+.. function:: map_union(x(K,V)) -> map<K,V>
 
    Returns the union of all the input maps. If a key is found in multiple
    input maps, that key's value in the resulting map comes from an arbitrary input map.
@@ -297,7 +318,7 @@ Map aggregate functions
         --{4.0=6, 5.0=2, 6.0=11, 1.0=50, 3.0=11}
 
 
-.. function:: multimap_agg(key, value) -> map(K,array(V))
+.. function:: multimap_agg(key, value) -> map<K,array(V)>
 
     Returns a multimap created from the input ``key`` / ``value`` pairs.
     Each key can be associated with multiple values.
@@ -483,7 +504,8 @@ Statistical aggregate functions
 
 .. function:: skewness(x) -> double
 
-    Returns the skewness of all input values.
+    Returns the Fisher’s moment coefficient of `skewness
+    <https://wikipedia.org/wiki/Skewness>`_ of all input values.
 
 .. function:: stddev(x) -> double
 

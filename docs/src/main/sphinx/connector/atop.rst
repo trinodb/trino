@@ -18,8 +18,8 @@ The connector can read disk utilization statistics on the Trino cluster.
 Create a catalog properties file that specifies the Atop connector by
 setting the ``connector.name`` to ``atop``.
 
-For example, create the file ``etc/catalog/system_monitor.properties``
-and replace the connector properties as appropriate for your setup:
+For example, create the file ``etc/catalog/example.properties`` with the
+following connector properties as appropriate for your setup:
 
 .. code-block:: text
 
@@ -70,7 +70,7 @@ The Atop connector provides a ``default`` schema.
 
 The tables exposed by this connector can be retrieved by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM system_monitor.default;
+    SHOW TABLES FROM example.default;
 
 .. code-block:: text
 

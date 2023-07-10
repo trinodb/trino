@@ -15,16 +15,15 @@ package io.trino.type;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.trino.collect.cache.NonKeyEvictableCache;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
+import io.trino.cache.NonKeyEvictableCache;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
@@ -33,11 +32,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
@@ -47,7 +46,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class BlockTypeOperators
 {
-    private static final InvocationConvention BLOCK_EQUAL_CONVENTION = simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION);
+    private static final InvocationConvention BLOCK_EQUAL_CONVENTION = simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
     private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION);
     private static final InvocationConvention XX_HASH_64_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION);
     private static final InvocationConvention IS_DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
@@ -80,7 +79,7 @@ public final class BlockTypeOperators
 
     public interface BlockPositionEqual
     {
-        Boolean equal(Block left, int leftPosition, Block right, int rightPosition);
+        boolean equal(Block left, int leftPosition, Block right, int rightPosition);
 
         default boolean equalNullSafe(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
         {

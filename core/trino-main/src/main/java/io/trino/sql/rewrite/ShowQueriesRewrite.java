@@ -20,12 +20,12 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
+import com.google.inject.Inject;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.ColumnPropertyManager;
-import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
@@ -41,10 +41,12 @@ import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
@@ -52,7 +54,7 @@ import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AllColumns;
-import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ColumnDefinition;
@@ -90,8 +92,6 @@ import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TableElement;
 import io.trino.sql.tree.Values;
-
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -149,6 +149,7 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
 import static io.trino.sql.tree.LogicalExpression.and;
+import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.sql.tree.ShowCreate.Type.MATERIALIZED_VIEW;
 import static io.trino.sql.tree.ShowCreate.Type.SCHEMA;
 import static io.trino.sql.tree.ShowCreate.Type.TABLE;
@@ -198,7 +199,7 @@ public final class ShowQueriesRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         Visitor visitor = new Visitor(
                 metadata,
@@ -306,8 +307,7 @@ public final class ShowQueriesRewrite
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
                 if (!metadata.isView(session, qualifiedTableName)) {
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, qualifiedTableName);
-                    Optional<TableHandle> tableHandle = redirection.getTableHandle();
-                    if (tableHandle.isEmpty()) {
+                    if (redirection.getTableHandle().isEmpty()) {
                         throw semanticException(TABLE_NOT_FOUND, showGrants, "Table '%s' does not exist", tableName);
                     }
                     if (redirection.getRedirectedTableName().isPresent()) {
@@ -374,13 +374,11 @@ public final class ShowQueriesRewrite
                         .collect(toList());
                 return singleColumnValues(rows, "Role");
             }
-            else {
-                accessControl.checkCanShowRoles(session.toSecurityContext(), catalog);
-                List<Expression> rows = metadata.listRoles(session, catalog).stream()
-                        .map(role -> row(new StringLiteral(role)))
-                        .collect(toList());
-                return singleColumnValues(rows, "Role");
-            }
+            accessControl.checkCanShowRoles(session.toSecurityContext(), catalog);
+            List<Expression> rows = metadata.listRoles(session, catalog).stream()
+                    .map(role -> row(new StringLiteral(role)))
+                    .collect(toList());
+            return singleColumnValues(rows, "Role");
         }
 
         @Override
@@ -560,9 +558,8 @@ public final class ShowQueriesRewrite
                 return new DoubleLiteral(value.toString());
             }
 
-            if (value instanceof List) {
-                List<?> list = (List<?>) value;
-                return new ArrayConstructor(list.stream()
+            if (value instanceof List<?> list) {
+                return new Array(list.stream()
                         .map(Visitor::toExpression)
                         .collect(toList()));
             }
@@ -602,8 +599,15 @@ public final class ShowQueriesRewrite
                 Collection<PropertyMetadata<?>> allMaterializedViewProperties = materializedViewPropertyManager.getAllProperties(catalogHandle);
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
 
-                String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
-                        query, false, false, propertyNodes, viewDefinition.get().getComment())).trim();
+                String sql = formatSql(new CreateMaterializedView(
+                        Optional.empty(),
+                        QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
+                        query,
+                        false,
+                        false,
+                        Optional.empty(), // TODO support GRACE PERIOD
+                        propertyNodes,
+                        viewDefinition.get().getComment())).trim();
                 return singleValueQuery("Create Materialized View", sql);
             }
 
@@ -654,16 +658,14 @@ public final class ShowQueriesRewrite
                 }
 
                 RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, objectName);
-                Optional<TableHandle> tableHandle = redirection.getTableHandle();
-                if (tableHandle.isEmpty()) {
-                    throw semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", objectName);
-                }
+                TableHandle tableHandle = redirection.getTableHandle()
+                        .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", objectName));
 
                 QualifiedObjectName targetTableName = redirection.getRedirectedTableName().orElse(objectName);
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), targetTableName);
-                ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
+                ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle).getMetadata();
 
-                Collection<PropertyMetadata<?>> allColumnProperties = columnPropertyManager.getAllProperties(tableHandle.get().getCatalogHandle());
+                Collection<PropertyMetadata<?>> allColumnProperties = columnPropertyManager.getAllProperties(tableHandle.getCatalogHandle());
 
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
@@ -679,13 +681,13 @@ public final class ShowQueriesRewrite
                         .collect(toImmutableList());
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
-                Collection<PropertyMetadata<?>> allTableProperties = tablePropertyManager.getAllProperties(tableHandle.get().getCatalogHandle());
+                Collection<PropertyMetadata<?>> allTableProperties = tablePropertyManager.getAllProperties(tableHandle.getCatalogHandle());
                 List<Property> propertyNodes = buildProperties(targetTableName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateTable createTable = new CreateTable(
                         QualifiedName.of(targetTableName.getCatalogName(), targetTableName.getSchemaName(), targetTableName.getObjectName()),
                         columns,
-                        false,
+                        FAIL,
                         propertyNodes,
                         connectorTableMetadata.getComment());
                 return singleValueQuery("Create Table", formatSql(createTable).trim());

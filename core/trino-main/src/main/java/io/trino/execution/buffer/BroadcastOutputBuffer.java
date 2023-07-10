@@ -18,14 +18,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine.StateChangeListener;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.memory.context.LocalMemoryContext;
-
-import javax.annotation.concurrent.GuardedBy;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -48,8 +48,8 @@ import static io.trino.execution.buffer.BufferState.FAILED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
-import static io.trino.execution.buffer.OutputBuffers.BufferType.BROADCAST;
-import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
 import static java.util.Objects.requireNonNull;
 
@@ -62,7 +62,7 @@ public class BroadcastOutputBuffer
     private final PagesReleasedListener onPagesReleased;
 
     @GuardedBy("this")
-    private OutputBuffers outputBuffers = OutputBuffers.createInitialEmptyOutputBuffers(BROADCAST);
+    private volatile PipelinedOutputBuffers outputBuffers = PipelinedOutputBuffers.createInitial(BROADCAST);
 
     @GuardedBy("this")
     private final Map<OutputBufferId, ClientBuffer> buffers = new ConcurrentHashMap<>();
@@ -88,7 +88,7 @@ public class BroadcastOutputBuffer
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.memoryManager = new OutputBufferMemoryManager(
-                requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
+                maxBufferSize.toBytes(),
                 requireNonNull(memoryContextSupplier, "memoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
         this.onPagesReleased = (releasedPageCount, releasedMemorySizeInBytes) -> {
@@ -111,9 +111,12 @@ public class BroadcastOutputBuffer
     }
 
     @Override
-    public boolean isOverutilized()
+    public OutputBufferStatus getStatus()
     {
-        return (getUtilization() > 0.5) && stateMachine.getState().canAddPages();
+        // do not grab lock to acquire outputBuffers to avoid delaying TaskStatus response
+        return OutputBufferStatus.builder(outputBuffers.getVersion())
+                .setOverutilized(getUtilization() > 0.5 && stateMachine.getState().canAddPages())
+                .build();
     }
 
     @Override
@@ -140,9 +143,11 @@ public class BroadcastOutputBuffer
                 totalBufferedPages.get(),
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
-                buffers.stream()
+                Optional.of(buffers.stream()
                         .map(ClientBuffer::getInfo)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList())),
+                Optional.of(new TDigestHistogram(memoryManager.getUtilizationHistogram())),
+                Optional.empty());
     }
 
     @Override
@@ -156,6 +161,7 @@ public class BroadcastOutputBuffer
     {
         checkState(!Thread.holdsLock(this), "Cannot set output buffers while holding a lock on this");
         requireNonNull(newOutputBuffers, "newOutputBuffers is null");
+        checkArgument(newOutputBuffers instanceof PipelinedOutputBuffers, "newOutputBuffers is expected to be an instance of PipelinedOutputBuffers");
 
         synchronized (this) {
             // ignore buffers added after query finishes, which can happen when a query is canceled
@@ -167,7 +173,7 @@ public class BroadcastOutputBuffer
 
             // verify this is valid state change
             outputBuffers.checkValidTransition(newOutputBuffers);
-            outputBuffers = newOutputBuffers;
+            outputBuffers = (PipelinedOutputBuffers) newOutputBuffers;
 
             // add the new buffers
             for (Entry<OutputBufferId, Integer> entry : outputBuffers.getBuffers().entrySet()) {
@@ -363,7 +369,8 @@ public class BroadcastOutputBuffer
         // without a clean "no-more-buffers" message from the scheduler.  This happens with limit queries and is ok because
         // the buffer will be immediately destroyed.
         BufferState state = stateMachine.getState();
-        checkState(state.canAddBuffers() || !outputBuffers.isNoMoreBufferIds(), "No more buffers already set");
+        // buffer may become aborted while the final output buffers are being set
+        checkState(state == ABORTED || state.canAddBuffers() || !outputBuffers.isNoMoreBufferIds(), "No more buffers already set");
 
         // NOTE: buffers are allowed to be created before they are explicitly declared by setOutputBuffers
         // When no-more-buffers is set, we verify that all created buffers have been declared

@@ -20,7 +20,7 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;

@@ -17,6 +17,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.drift.transport.netty.client.DriftNettyClientModule;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.connector.Connector;
@@ -27,7 +28,7 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
-import static io.trino.plugin.base.Versions.checkSpiVersion;
+import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftConnectorFactory
@@ -51,15 +52,16 @@ public class ThriftConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        checkSpiVersion(context, this);
+        checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),
                 new MBeanServerModule(),
-                new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.thrift", "trino.plugin.thrift"),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.thrift", "trino.plugin.thrift"),
                 new DriftNettyClientModule(),
                 binder -> {
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                    binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                 },
                 locationModule,
                 new ThriftModule());

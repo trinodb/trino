@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
@@ -21,8 +22,8 @@ import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
-
-import javax.inject.Inject;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Map;
@@ -56,6 +57,7 @@ public class HiveTableProperties
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
     public static final String AVRO_SCHEMA_URL = "avro_schema_url";
+    public static final String AVRO_SCHEMA_LITERAL = "avro_schema_literal";
     public static final String TEXTFILE_FIELD_SEPARATOR = "textfile_field_separator";
     public static final String TEXTFILE_FIELD_SEPARATOR_ESCAPE = "textfile_field_separator_escape";
     public static final String NULL_FORMAT_PROPERTY = "null_format";
@@ -64,15 +66,19 @@ public class HiveTableProperties
     public static final String CSV_SEPARATOR = "csv_separator";
     public static final String CSV_QUOTE = "csv_quote";
     public static final String CSV_ESCAPE = "csv_escape";
+    public static final String REGEX_PATTERN = "regex";
+    public static final String REGEX_CASE_INSENSITIVE = "regex_case_insensitive";
     public static final String TRANSACTIONAL = "transactional";
     public static final String AUTO_PURGE = "auto_purge";
+    public static final String EXTRA_PROPERTIES = "extra_properties";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
     public HiveTableProperties(
             HiveConfig config,
-            OrcWriterConfig orcWriterConfig)
+            OrcWriterConfig orcWriterConfig,
+            TypeManager typeManager)
     {
         tableProperties = ImmutableList.of(
                 stringProperty(
@@ -143,6 +149,7 @@ public class HiveTableProperties
                 integerProperty(BUCKETING_VERSION, "Bucketing version", null, false),
                 integerProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
                 stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false),
+                stringProperty(AVRO_SCHEMA_LITERAL, "JSON-encoded Avro schema for the table", null, false),
                 integerProperty(SKIP_HEADER_LINE_COUNT, "Number of header lines", null, false),
                 integerProperty(SKIP_FOOTER_LINE_COUNT, "Number of footer lines", null, false),
                 stringProperty(TEXTFILE_FIELD_SEPARATOR, "TEXTFILE field separator character", null, false),
@@ -151,6 +158,8 @@ public class HiveTableProperties
                 stringProperty(CSV_SEPARATOR, "CSV separator character", null, false),
                 stringProperty(CSV_QUOTE, "CSV quote character", null, false),
                 stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
+                stringProperty(REGEX_PATTERN, "REGEX pattern", null, false),
+                booleanProperty(REGEX_CASE_INSENSITIVE, "REGEX pattern is case insensitive", null, false),
                 booleanProperty(TRANSACTIONAL, "Table is transactional", null, false),
                 booleanProperty(AUTO_PURGE, "Skip trash when table or partition is deleted", config.isAutoPurge(), false),
                 booleanProperty(
@@ -167,7 +176,25 @@ public class HiveTableProperties
                         PARTITION_PROJECTION_LOCATION_TEMPLATE,
                         "Partition projection location template",
                         null,
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        EXTRA_PROPERTIES,
+                        "Extra table properties",
+                        new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators()),
+                        Map.class,
+                        null,
+                        true, // currently not shown in SHOW CREATE TABLE
+                        value -> {
+                            Map<String, String> extraProperties = (Map<String, String>) value;
+                            if (extraProperties.containsValue(null)) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Extra table property value cannot be null '%s'", extraProperties));
+                            }
+                            if (extraProperties.containsKey(null)) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Extra table property key cannot be null '%s'", extraProperties));
+                            }
+                            return extraProperties;
+                        },
+                        value -> value));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -183,6 +210,11 @@ public class HiveTableProperties
     public static String getAvroSchemaUrl(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(AVRO_SCHEMA_URL);
+    }
+
+    public static String getAvroSchemaLiteral(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(AVRO_SCHEMA_LITERAL);
     }
 
     public static Optional<Integer> getHeaderSkipCount(Map<String, Object> tableProperties)
@@ -281,6 +313,16 @@ public class HiveTableProperties
         return Optional.of(stringValue.charAt(0));
     }
 
+    public static Optional<String> getRegexPattern(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((String) tableProperties.get(REGEX_PATTERN));
+    }
+
+    public static Optional<Boolean> isRegexCaseInsensitive(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Boolean) tableProperties.get(REGEX_CASE_INSENSITIVE));
+    }
+
     public static Optional<Boolean> isTransactional(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Boolean) tableProperties.get(TRANSACTIONAL));
@@ -289,5 +331,10 @@ public class HiveTableProperties
     public static Optional<Boolean> isAutoPurge(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Boolean) tableProperties.get(AUTO_PURGE));
+    }
+
+    public static Optional<Map<String, String>> getExtraProperties(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Map<String, String>) tableProperties.get(EXTRA_PROPERTIES));
     }
 }

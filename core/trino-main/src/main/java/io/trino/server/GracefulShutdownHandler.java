@@ -13,14 +13,13 @@
  */
 package io.trino.server;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TaskInfo;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -66,7 +65,7 @@ public class GracefulShutdownHandler
         this.sqlTaskManager = requireNonNull(sqlTaskManager, "sqlTaskManager is null");
         this.shutdownAction = requireNonNull(shutdownAction, "shutdownAction is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.isCoordinator = requireNonNull(serverConfig, "serverConfig is null").isCoordinator();
+        this.isCoordinator = serverConfig.isCoordinator();
         this.gracePeriod = serverConfig.getGracePeriod();
     }
 

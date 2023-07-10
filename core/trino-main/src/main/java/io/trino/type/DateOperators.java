@@ -22,6 +22,8 @@ import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import java.time.DateTimeException;
+
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
@@ -55,10 +57,12 @@ public final class DateOperators
     @SqlType(StandardTypes.DATE)
     public static long castFromVarchar(@SqlType("varchar(x)") Slice value)
     {
+        // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever CAST behavior changes.
+
         try {
             return parseDate(trim(value).toStringUtf8());
         }
-        catch (IllegalArgumentException | ArithmeticException e) {
+        catch (IllegalArgumentException | ArithmeticException | DateTimeException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to date: " + value.toStringUtf8(), e);
         }
     }

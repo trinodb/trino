@@ -106,34 +106,6 @@ public class TestHiveSplitSource
     }
 
     @Test
-    public void testCorrectlyGeneratingInitialRowId()
-    {
-        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
-                SESSION,
-                "database",
-                "table",
-                10,
-                10,
-                DataSize.of(1, MEGABYTE),
-                Integer.MAX_VALUE,
-                new TestingHiveSplitLoader(),
-                Executors.newFixedThreadPool(5),
-                new CounterStat(),
-                false);
-
-        // add 10 splits
-        for (int i = 0; i < 10; i++) {
-            hiveSplitSource.addToQueue(new TestSplit(i));
-            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
-        }
-
-        List<ConnectorSplit> splits = getSplits(hiveSplitSource, 10);
-        assertEquals(((HiveSplit) splits.get(0)).getSplitNumber(), 0);
-        assertEquals(((HiveSplit) splits.get(5)).getSplitNumber(), 5);
-        assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 0);
-    }
-
-    @Test
     public void testEvenlySizedSplitRemainder()
     {
         DataSize initialSplitSize = getMaxInitialSplitSize(SESSION);
@@ -358,7 +330,6 @@ public class TestHiveSplitSource
                     ImmutableList.of(new InternalHiveBlock(0, fileSize.toBytes(), ImmutableList.of())),
                     bucketNumber,
                     bucketNumber,
-                    () -> 0,
                     true,
                     false,
                     TableToPartitionMapping.empty(),

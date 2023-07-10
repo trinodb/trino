@@ -13,10 +13,9 @@
  */
 package io.trino.operator.join;
 
+import io.trino.annotation.NotThreadSafe;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Closeable;
 
@@ -30,7 +29,29 @@ public interface LookupSource
 
     long joinPositionWithinPartition(long joinPosition);
 
+    /**
+     * The `rawHashes` and `result` arrays are global to the entire processed page (thus, the same size),
+     * while the `positions` array may hold any number of selected positions from this page
+     */
+    default void getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes, long[] result)
+    {
+        for (int i = 0; i < positions.length; i++) {
+            result[positions[i]] = getJoinPosition(positions[i], hashChannelsPage, allChannelsPage, rawHashes[positions[i]]);
+        }
+    }
+
     long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash);
+
+    /**
+     * The `result` array is global to the entire processed page, while the `positions` array may hold
+     * any number of selected positions from this page
+     */
+    default void getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] result)
+    {
+        for (int i = 0; i < positions.length; i++) {
+            result[positions[i]] = getJoinPosition(positions[i], hashChannelsPage, allChannelsPage);
+        }
+    }
 
     long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage);
 

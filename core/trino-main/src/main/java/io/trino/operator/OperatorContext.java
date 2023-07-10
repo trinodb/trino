@@ -19,8 +19,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.stats.CounterStat;
-import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -29,16 +30,12 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
-import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -58,6 +55,7 @@ import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Contains information about {@link Operator} execution.
@@ -92,11 +90,13 @@ public class OperatorContext
     private final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);  // this is not incremental, but gets overwritten by the latest value.
     private final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY); // this is not incremental, but gets overwritten by the latest value.
 
+    private final AtomicLong writerInputDataSize = new AtomicLong();
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
     private final AtomicReference<SettableFuture<Void>> memoryFuture;
     private final AtomicReference<SettableFuture<Void>> revocableMemoryFuture;
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
+    private final AtomicReference<ListenableFuture<Void>> finishedFuture = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
     private final OperationTiming finishTiming = new OperationTiming();
@@ -159,11 +159,6 @@ public class OperatorContext
     public Session getSession()
     {
         return driverContext.getSession();
-    }
-
-    public boolean isDone()
-    {
-        return driverContext.isDone();
     }
 
     void recordAddInput(OperationTimer operationTimer, Page page)
@@ -239,6 +234,21 @@ public class OperatorContext
     public void setLatestConnectorMetrics(Metrics metrics)
     {
         this.connectorMetrics.set(metrics);
+    }
+
+    Optional<ListenableFuture<Void>> getFinishedFuture()
+    {
+        return Optional.ofNullable(finishedFuture.get());
+    }
+
+    public void setFinishedFuture(ListenableFuture<Void> finishedFuture)
+    {
+        checkState(this.finishedFuture.getAndSet(requireNonNull(finishedFuture, "finishedFuture is null")) == null, "finishedFuture already set");
+    }
+
+    public void recordWriterInputDataSize(long sizeInBytes)
+    {
+        writerInputDataSize.getAndAdd(sizeInBytes);
     }
 
     public void recordPhysicalWrittenData(long sizeInBytes)
@@ -481,6 +491,11 @@ public class OperatorContext
         return outputPositions;
     }
 
+    public long getWriterInputDataSize()
+    {
+        return writerInputDataSize.get();
+    }
+
     public long getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize.get();
@@ -500,21 +515,13 @@ public class OperatorContext
                 .orElseGet(() -> ImmutableList.of(getOperatorStats()));
     }
 
-    public static Metrics getOperatorMetrics(Metrics operatorMetrics, long inputPositions)
+    public static Metrics getOperatorMetrics(Metrics operatorMetrics, long inputPositions, double cpuTimeSeconds, double wallTimeSeconds, double blockedWallSeconds)
     {
-        TDigest digest = new TDigest();
-        digest.add(inputPositions);
-        return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of("Input distribution", new TDigestHistogram(digest))));
-    }
-
-    public static Metrics getConnectorMetrics(Metrics connectorMetrics, long physicalInputReadTimeNanos)
-    {
-        if (physicalInputReadTimeNanos == 0) {
-            return connectorMetrics;
-        }
-
-        return connectorMetrics.mergeWith(new Metrics(ImmutableMap.of(
-                "Physical input read time", new DurationTiming(new Duration(physicalInputReadTimeNanos, NANOSECONDS)))));
+        return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of(
+                "Input rows distribution", TDigestHistogram.fromValue(inputPositions),
+                "CPU time distribution (s)", TDigestHistogram.fromValue(cpuTimeSeconds),
+                "Scheduled time distribution (s)", TDigestHistogram.fromValue(wallTimeSeconds),
+                "Blocked time distribution (s)", TDigestHistogram.fromValue(blockedWallSeconds))));
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
@@ -558,8 +565,13 @@ public class OperatorContext
                 outputPositions.getTotalCount(),
 
                 dynamicFilterSplitsProcessed.get(),
-                getOperatorMetrics(metrics.get(), inputPositionsCount),
-                getConnectorMetrics(connectorMetrics.get(), physicalInputReadTimeNanos.get()),
+                getOperatorMetrics(
+                        metrics.get(),
+                        inputPositionsCount,
+                        new Duration(addInputTiming.getCpuNanos() + getOutputTiming.getCpuNanos() + finishTiming.getCpuNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
+                        new Duration(addInputTiming.getWallNanos() + getOutputTiming.getWallNanos() + finishTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
+                        new Duration(blockedWallNanos.get(), NANOSECONDS).convertTo(SECONDS).getValue()),
+                connectorMetrics.get(),
 
                 DataSize.ofBytes(physicalWrittenDataSize.get()),
 

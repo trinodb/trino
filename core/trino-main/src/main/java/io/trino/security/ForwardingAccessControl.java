@@ -102,15 +102,27 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanCreateCatalog(SecurityContext context, String catalog)
+    {
+        delegate().checkCanCreateCatalog(context, catalog);
+    }
+
+    @Override
+    public void checkCanDropCatalog(SecurityContext context, String catalog)
+    {
+        delegate().checkCanDropCatalog(context, catalog);
+    }
+
+    @Override
     public Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs)
     {
         return delegate().filterCatalogs(context, catalogs);
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties)
     {
-        delegate().checkCanCreateSchema(context, schemaName);
+        delegate().checkCanCreateSchema(context, schemaName, properties);
     }
 
     @Override
@@ -234,6 +246,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName)
+    {
+        delegate().checkCanAlterColumn(context, tableName);
+    }
+
+    @Override
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanDropColumn(context, tableName);
@@ -333,6 +351,12 @@ public abstract class ForwardingAccessControl
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
     {
         delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, FunctionKind functionKind, QualifiedObjectName functionName, Identity grantee, boolean grantOption)
+    {
+        delegate().checkCanGrantExecuteFunctionPrivilege(context, functionKind, functionName, grantee, grantOption);
     }
 
     @Override
@@ -474,8 +498,8 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
     {
-        return delegate().getColumnMasks(context, tableName, columnName, type);
+        return delegate().getColumnMask(context, tableName, columnName, type);
     }
 }

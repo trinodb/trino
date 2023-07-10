@@ -80,6 +80,7 @@ public class TestDbSessionPropertyManager
     {
         specsProvider.destroy();
         mysqlContainer.close();
+        mysqlContainer = null;
     }
 
     @Override

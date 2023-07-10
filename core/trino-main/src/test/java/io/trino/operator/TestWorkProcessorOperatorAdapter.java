@@ -65,13 +65,13 @@ public class TestWorkProcessorOperatorAdapter
         operator.getOutput();
         assertThat(operator.isFinished()).isFalse();
         assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
-                .hasSize(2)
+                .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(1));
 
         operator.getOutput();
         assertThat(operator.isFinished()).isTrue();
         assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
-                .hasSize(2)
+                .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(2));
     }
 

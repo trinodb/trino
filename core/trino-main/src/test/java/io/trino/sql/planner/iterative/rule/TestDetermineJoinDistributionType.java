@@ -37,9 +37,10 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Optional;
 
@@ -48,7 +49,6 @@ import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.enforceSingleRow;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -65,9 +65,10 @@ import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.Double.NaN;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestDetermineJoinDistributionType
 {
     private static final CostComparator COST_COMPARATOR = new CostComparator(1, 1, 1);
@@ -75,7 +76,7 @@ public class TestDetermineJoinDistributionType
 
     private RuleTester tester;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         tester = RuleTester.builder()
@@ -83,7 +84,7 @@ public class TestDetermineJoinDistributionType
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         tester.close();
@@ -119,13 +120,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, sessionDistributedJoin.name())
-                .matches(join(
-                        joinType,
-                        ImmutableList.of(equiJoinClause("B1", "A1")),
-                        Optional.empty(),
-                        Optional.of(expectedDistribution),
-                        values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                .matches(
+                        join(joinType, builder -> builder
+                                .equiCriteria("B1", "A1")
+                                .distributionType(expectedDistribution)
+                                .left(values(ImmutableMap.of("B1", 0)))
+                                .right(values(ImmutableMap.of("A1", 0)))));
     }
 
     @Test
@@ -152,13 +152,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, sessionDistributedJoin.name())
-                .matches(join(
-                        joinType,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(DistributionType.PARTITIONED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(joinType, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
@@ -176,13 +175,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(DistributionType.REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        enforceSingleRow(values(ImmutableMap.of("B1", 0)))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(enforceSingleRow(values(ImmutableMap.of("B1", 0))))));
     }
 
     @Test
@@ -205,13 +203,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.of(expression("A1 * B1 > 100"))))
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
-                .matches(join(
-                        joinType,
-                        ImmutableList.of(),
-                        Optional.of("A1 * B1 > 100"),
-                        Optional.of(DistributionType.REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(joinType, builder -> builder
+                                .filter("A1 * B1 > 100")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
@@ -262,13 +259,12 @@ public class TestDetermineJoinDistributionType
                             ImmutableList.of(b1),
                             Optional.empty());
                 })
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("B1", "A1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("B1", "A1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("B1", 0)))
+                                .right(values(ImmutableMap.of("A1", 0)))));
     }
 
     @Test
@@ -297,13 +293,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("B1", "A1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("B1", "A1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("B1", 0)))
+                                .right(values(ImmutableMap.of("A1", 0)))));
     }
 
     @Test
@@ -335,13 +330,12 @@ public class TestDetermineJoinDistributionType
                             Optional.empty());
                 })
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("B1", "A1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("B1", 0)),
-                        values(ImmutableMap.of("A1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("B1", "A1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("B1", 0)))
+                                .right(values(ImmutableMap.of("A1", 0)))));
     }
 
     @Test
@@ -368,13 +362,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
@@ -406,13 +399,12 @@ public class TestDetermineJoinDistributionType
                             Optional.empty());
                 })
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
@@ -439,13 +431,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .matches(join(
-                        FULL,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(FULL, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
@@ -472,13 +463,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .matches(join(
-                        RIGHT,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(RIGHT, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
@@ -505,13 +495,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .matches(join(
-                        LEFT,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
@@ -538,13 +527,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .matches(join(
-                        LEFT,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
@@ -573,13 +561,12 @@ public class TestDetermineJoinDistributionType
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
                                 Optional.empty()))
-                .matches(join(
-                        LEFT,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(LEFT, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
@@ -616,13 +603,12 @@ public class TestDetermineJoinDistributionType
                             ImmutableList.of(b1),
                             Optional.empty());
                 })
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
 
         probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
@@ -651,13 +637,12 @@ public class TestDetermineJoinDistributionType
                             ImmutableList.of(b1),
                             Optional.empty());
                 })
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("A1", 0)),
-                        values(ImmutableMap.of("B1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(values(ImmutableMap.of("B1", 0)))));
     }
 
     @Test
@@ -706,13 +691,12 @@ public class TestDetermineJoinDistributionType
                             ImmutableList.of(b1),
                             Optional.empty());
                 })
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        filter("true", values(ImmutableMap.of("B1", 0)))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(filter("true", values(ImmutableMap.of("B1", 0))))));
 
         // same but with join sides reversed
         assertDetermineJoinDistributionType()
@@ -736,13 +720,12 @@ public class TestDetermineJoinDistributionType
                             ImmutableList.of(a1),
                             Optional.empty());
                 })
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        values(ImmutableMap.of("A1", 0)),
-                        filter("true", values(ImmutableMap.of("B1", 0)))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(REPLICATED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(filter("true", values(ImmutableMap.of("B1", 0))))));
 
         // only probe side (with small tables) source stats are available, join sides should be flipped
         assertDetermineJoinDistributionType()
@@ -766,13 +749,12 @@ public class TestDetermineJoinDistributionType
                             ImmutableList.of(a1),
                             Optional.empty());
                 })
-                .matches(join(
-                        RIGHT,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("A1", 0)),
-                        filter("true", values(ImmutableMap.of("B1", 0)))));
+                .matches(
+                        join(RIGHT, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(filter("true", values(ImmutableMap.of("B1", 0))))));
     }
 
     @Test
@@ -816,13 +798,12 @@ public class TestDetermineJoinDistributionType
                             ImmutableList.of(b1),
                             Optional.empty());
                 })
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("A1", 0)),
-                        filter("true", values(ImmutableMap.of("B1", 0)))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(filter("true", values(ImmutableMap.of("B1", 0))))));
 
         // same but with join sides reversed
         assertDetermineJoinDistributionType()
@@ -846,13 +827,12 @@ public class TestDetermineJoinDistributionType
                             ImmutableList.of(a1),
                             Optional.empty());
                 })
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("A1", "B1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        values(ImmutableMap.of("A1", 0)),
-                        filter("true", values(ImmutableMap.of("B1", 0)))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A1", "B1")
+                                .distributionType(PARTITIONED)
+                                .left(values(ImmutableMap.of("A1", 0)))
+                                .right(filter("true", values(ImmutableMap.of("B1", 0))))));
 
         // Use REPLICATED join type for cross join
         assertDetermineJoinDistributionType()
@@ -876,13 +856,11 @@ public class TestDetermineJoinDistributionType
                             ImmutableList.of(a1),
                             Optional.empty());
                 })
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(),
-                        Optional.empty(),
-                        Optional.of(REPLICATED),
-                        filter("true", values(ImmutableMap.of("B1", 0))),
-                        values(ImmutableMap.of("A1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .distributionType(REPLICATED)
+                                .left(filter("true", values(ImmutableMap.of("B1", 0))))
+                                .right(values(ImmutableMap.of("A1", 0)))));
 
         // Don't flip sides when both are similar in size
         bStatsEstimate = PlanNodeStatsEstimate.builder()
@@ -910,13 +888,12 @@ public class TestDetermineJoinDistributionType
                             ImmutableList.of(a1),
                             Optional.empty());
                 })
-                .matches(join(
-                        INNER,
-                        ImmutableList.of(equiJoinClause("B1", "A1")),
-                        Optional.empty(),
-                        Optional.of(PARTITIONED),
-                        filter("true", values(ImmutableMap.of("B1", 0))),
-                        values(ImmutableMap.of("A1", 0))));
+                .matches(
+                        join(INNER, builder -> builder
+                                .equiCriteria("B1", "A1")
+                                .distributionType(PARTITIONED)
+                                .left(filter("true", values(ImmutableMap.of("B1", 0))))
+                                .right(values(ImmutableMap.of("A1", 0)))));
     }
 
     @Test

@@ -23,7 +23,6 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
@@ -50,7 +49,6 @@ public class KinesisMetadata
             Supplier<Map<SchemaTableName, KinesisStreamDescription>> tableDescriptionSupplier,
             Set<KinesisInternalFieldDescription> internalFieldDescriptions)
     {
-        requireNonNull(kinesisConfig, "kinesisConfig is null");
         isHideInternalColumns = kinesisConfig.isHideInternalColumns();
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
         this.internalFieldDescriptions = requireNonNull(internalFieldDescriptions, "internalFieldDescriptions is null");
@@ -84,12 +82,6 @@ public class KinesisMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession connectorSession, ConnectorTableHandle tableHandle)
     {
         return getTableMetadata(((KinesisTableHandle) tableHandle).toSchemaTableName());
-    }
-
-    @Override
-    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
-    {
-        return new ConnectorTableProperties();
     }
 
     @Override

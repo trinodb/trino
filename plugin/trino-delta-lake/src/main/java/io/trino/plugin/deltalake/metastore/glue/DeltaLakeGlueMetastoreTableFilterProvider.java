@@ -14,14 +14,11 @@
 package io.trino.plugin.deltalake.metastore.glue;
 
 import com.amazonaws.services.glue.model.Table;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.trino.plugin.hive.metastore.glue.DefaultGlueMetastoreTableFilterProvider;
 
-import javax.inject.Inject;
-import javax.inject.Provider;
-
 import java.util.function.Predicate;
-
-import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeGlueMetastoreTableFilterProvider
         implements Provider<Predicate<Table>>
@@ -31,7 +28,6 @@ public class DeltaLakeGlueMetastoreTableFilterProvider
     @Inject
     public DeltaLakeGlueMetastoreTableFilterProvider(DeltaLakeGlueMetastoreConfig config)
     {
-        requireNonNull(config, "config is null");
         this.hideNonDeltaLakeTables = config.isHideNonDeltaLakeTables();
     }
 

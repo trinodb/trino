@@ -14,6 +14,7 @@
 package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
 import io.trino.spi.connector.Connector;
@@ -27,8 +28,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Set;
@@ -70,7 +69,7 @@ public class KuduConnector
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
-        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").getSessionProperties();
+        this.sessionProperties = sessionProperties.getSessionProperties();
     }
 
     @Override

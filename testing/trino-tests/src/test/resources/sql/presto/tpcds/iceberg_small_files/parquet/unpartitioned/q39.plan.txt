@@ -1,0 +1,45 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            join (INNER, PARTITIONED):
+                remote exchange (REPARTITION, HASH, ["inv_item_sk", "inv_warehouse_sk"])
+                    final aggregation over (d_moy, inv_item_sk, inv_warehouse_sk, w_warehouse_name)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["d_moy", "inv_item_sk", "inv_warehouse_sk", "w_warehouse_name"])
+                                partial aggregation over (d_moy, inv_item_sk, inv_warehouse_sk, w_warehouse_name)
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                dynamic filter (["inv_date_sk", "inv_item_sk", "inv_item_sk", "inv_warehouse_sk", "inv_warehouse_sk"])
+                                                    scan inventory
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        dynamic filter (["i_item_sk"])
+                                                            scan item
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    dynamic filter (["w_warehouse_sk"])
+                                                        scan warehouse
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan date_dim
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["inv_item_sk_9", "inv_warehouse_sk_10"])
+                        final aggregation over (d_moy_62, inv_item_sk_9, inv_warehouse_sk_10, w_warehouse_name_40)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["d_moy_62", "inv_item_sk_9", "inv_warehouse_sk_10", "w_warehouse_name_40"])
+                                    partial aggregation over (d_moy_62, inv_item_sk_9, inv_warehouse_sk_10, w_warehouse_name_40)
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED):
+                                                    dynamic filter (["inv_date_sk_8", "inv_item_sk_9", "inv_warehouse_sk_10"])
+                                                        scan inventory
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan item
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan warehouse
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    scan date_dim

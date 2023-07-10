@@ -14,15 +14,15 @@
 package io.trino.plugin.elasticsearch.client;
 
 import com.google.common.base.Stopwatch;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeException;
+import dev.failsafe.RetryPolicy;
+import dev.failsafe.event.ExecutionAttemptedEvent;
+import dev.failsafe.event.ExecutionCompletedEvent;
+import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.FailsafeException;
-import net.jodah.failsafe.RetryPolicy;
-import net.jodah.failsafe.event.ExecutionAttemptedEvent;
-import net.jodah.failsafe.event.ExecutionCompletedEvent;
-import net.jodah.failsafe.function.CheckedSupplier;
 import org.apache.http.Header;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.ActionResponse;
@@ -59,8 +59,8 @@ public class BackpressureRestHighLevelClient
     {
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");
         delegate = new RestHighLevelClient(requireNonNull(restClientBuilder, "restClientBuilder is null"));
-        backpressureRestClient = new BackpressureRestClient(delegate.getLowLevelClient(), requireNonNull(config, "config is null"), backpressureStats);
-        retryPolicy = new RetryPolicy<ActionResponse>()
+        backpressureRestClient = new BackpressureRestClient(delegate.getLowLevelClient(), config, backpressureStats);
+        retryPolicy = RetryPolicy.<ActionResponse>builder()
                 .withMaxAttempts(-1)
                 .withMaxDuration(java.time.Duration.ofMillis(config.getMaxRetryTime().toMillis()))
                 .withBackoff(config.getBackoffInitDelay().toMillis(), config.getBackoffMaxDelay().toMillis(), MILLIS)
@@ -68,7 +68,8 @@ public class BackpressureRestHighLevelClient
                 .handleIf(BackpressureRestHighLevelClient::isBackpressure)
                 .onFailedAttempt(this::onFailedAttempt)
                 .onSuccess(this::onComplete)
-                .onFailure(this::onComplete);
+                .onFailure(this::onComplete)
+                .build();
     }
 
     public BackpressureRestClient getLowLevelClient()
@@ -133,7 +134,7 @@ public class BackpressureRestHighLevelClient
 
     private void onFailedAttempt(ExecutionAttemptedEvent<ActionResponse> executionAttemptedEvent)
     {
-        log.debug("REST attempt failed: %s", executionAttemptedEvent.getLastFailure());
+        log.debug("REST attempt failed: %s", executionAttemptedEvent.getLastException());
         if (!stopwatch.get().isRunning()) {
             stopwatch.get().start();
         }

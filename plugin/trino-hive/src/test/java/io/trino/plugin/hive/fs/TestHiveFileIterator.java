@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.fs;
 
+import io.trino.filesystem.Location;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
@@ -27,13 +28,21 @@ public class TestHiveFileIterator
     @Test
     public void testRelativeHiddenPathDetection()
     {
-        String root = new Path("file:///root-path").toUri().getPath();
-        assertTrue(isHiddenOrWithinHiddenParentDirectory(new Path(root, ".hidden/child"), root));
-        assertTrue(isHiddenOrWithinHiddenParentDirectory(new Path(root, "_hidden.txt"), root));
-        String rootWithinHidden = new Path("file:///root/.hidden/listing-root").toUri().getPath();
-        assertFalse(isHiddenOrWithinHiddenParentDirectory(new Path(rootWithinHidden, "file.txt"), rootWithinHidden));
-        String rootHiddenEnding = new Path("file:///root/hidden-ending_").toUri().getPath();
-        assertFalse(isHiddenOrWithinHiddenParentDirectory(new Path(rootHiddenEnding, "file.txt"), rootHiddenEnding));
+        assertTrue(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root-path/.hidden/child"), Location.of("file:///root-path")));
+        assertTrue(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root-path/_hidden.txt"), Location.of("file:///root-path")));
+
+        // root path with trailing slash
+        assertTrue(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root-path/.hidden/child"), Location.of("file:///root-path/")));
+        assertTrue(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root-path/_hidden.txt"), Location.of("file:///root-path/")));
+
+        // root path containing .hidden
+        assertFalse(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root/.hidden/listing-root/file.txt"), Location.of("file:///root/.hidden/listing-root")));
+
+        // root path ending with an underscore
+        assertFalse(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root/hidden-ending_/file.txt"), Location.of("file:///root/hidden-ending_")));
+
+        // root path containing "arbitrary" characters
+        assertFalse(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root/With spaces and | pipes/.hidden/file.txt"), Location.of("file:///root/With spaces and | pipes/.hidden")));
     }
 
     @Test

@@ -13,14 +13,13 @@
  */
 package io.trino.decoder.avro;
 
+import com.google.inject.Inject;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderFactory;
 import io.trino.decoder.dummy.DummyRowDecoderFactory;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Set;
@@ -61,10 +60,8 @@ public class AvroRowDecoderFactory
             AvroDeserializer<GenericRecord> dataDecoder = avroDeserializerFactory.create(avroReaderSupplier);
             return new GenericRecordRowDecoder(dataDecoder, columns);
         }
-        else {
-            AvroReaderSupplier<Object> avroReaderSupplier = avroReaderSupplierFactory.create(parsedSchema);
-            AvroDeserializer<Object> dataDecoder = avroDeserializerFactory.create(avroReaderSupplier);
-            return new SingleValueRowDecoder(dataDecoder, getOnlyElement(columns));
-        }
+        AvroReaderSupplier<Object> avroReaderSupplier = avroReaderSupplierFactory.create(parsedSchema);
+        AvroDeserializer<Object> dataDecoder = avroDeserializerFactory.create(avroReaderSupplier);
+        return new SingleValueRowDecoder(dataDecoder, getOnlyElement(columns));
     }
 }

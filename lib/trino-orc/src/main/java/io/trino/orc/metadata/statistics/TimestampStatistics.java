@@ -14,12 +14,12 @@
 package io.trino.orc.metadata.statistics;
 
 import io.trino.orc.metadata.statistics.StatisticsHasher.Hashable;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class TimestampStatistics
         implements RangeStatistics<Long>, Hashable
@@ -27,7 +27,7 @@ public class TimestampStatistics
     // 1 byte to denote if null + 8 bytes for the value
     public static final long TIMESTAMP_VALUE_BYTES = Byte.BYTES + Long.BYTES;
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampStatistics.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(TimestampStatistics.class);
 
     private final boolean hasMinimum;
     private final boolean hasMaximum;

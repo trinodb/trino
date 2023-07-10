@@ -10,111 +10,111 @@ uses an S3 prefix, rather than an HDFS prefix.
 Trino uses its own S3 filesystem for the URI prefixes
 ``s3://``, ``s3n://`` and  ``s3a://``.
 
+.. _hive-s3-configuration:
+
 S3 configuration properties
 ---------------------------
 
-============================================ =================================================================
-Property name                                Description
-============================================ =================================================================
-``hive.s3.aws-access-key``                   Default AWS access key to use.
+.. list-table::
+    :widths: 35, 65
+    :header-rows: 1
 
-``hive.s3.aws-secret-key``                   Default AWS secret key to use.
-
-``hive.s3.iam-role``                         IAM role to assume.
-
-``hive.s3.external-id``                      External ID for the IAM role trust policy.
-
-``hive.s3.endpoint``                         The S3 storage endpoint server. This can be used to
-                                             connect to an S3-compatible storage system instead
-                                             of AWS. When using v4 signatures, it is recommended to
-                                             set this to the AWS region-specific endpoint
-                                             (e.g., ``http[s]://s3.<AWS-region>.amazonaws.com``).
-
-``hive.s3.storage-class``                    The S3 storage class to use when writing the data. Currently only
-                                             ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
-                                             Default storage class is ``STANDARD``
-
-``hive.s3.signer-type``                      Specify a different signer type for S3-compatible storage.
-                                             Example: ``S3SignerType`` for v2 signer type
-
-``hive.s3.signer-class``                     Specify a different signer class for S3-compatible storage.
-
-``hive.s3.path-style-access``                Use path-style access for all requests to the S3-compatible storage.
-                                             This is for S3-compatible storage that doesn't support virtual-hosted-style access,
-                                             defaults to ``false``.
-
-``hive.s3.staging-directory``                Local staging directory for data written to S3.
-                                             This defaults to the Java temporary directory specified
-                                             by the JVM system property ``java.io.tmpdir``.
-
-``hive.s3.pin-client-to-current-region``     Pin S3 requests to the same region as the EC2
-                                             instance where Trino is running,
-                                             defaults to ``false``.
-
-``hive.s3.ssl.enabled``                      Use HTTPS to communicate with the S3 API, defaults to ``true``.
-
-``hive.s3.sse.enabled``                      Use S3 server-side encryption, defaults to ``false``.
-
-``hive.s3.sse.type``                         The type of key management for S3 server-side encryption.
-                                             Use ``S3`` for S3 managed or ``KMS`` for KMS-managed keys,
-                                             defaults to ``S3``.
-
-``hive.s3.sse.kms-key-id``                   The KMS Key ID to use for S3 server-side encryption with
-                                             KMS-managed keys. If not set, the default key is used.
-
-``hive.s3.kms-key-id``                       If set, use S3 client-side encryption and use the AWS
-                                             KMS to store encryption keys and use the value of
-                                             this property as the KMS Key ID for newly created
-                                             objects.
-
-``hive.s3.encryption-materials-provider``    If set, use S3 client-side encryption and use the
-                                             value of this property as the fully qualified name of
-                                             a Java class which implements the AWS SDK's
-                                             ``EncryptionMaterialsProvider`` interface.   If the
-                                             class also implements ``Configurable`` from the Hadoop
-                                             API, the Hadoop configuration will be passed in after
-                                             the object has been created.
-
-``hive.s3.upload-acl-type``                  Canned ACL to use while uploading files to S3, defaults
-                                             to ``PRIVATE``. If the files are to be uploaded to an S3
-                                             bucket owned by a different AWS user, the canned ACL has to be
-                                             set to one of the following: ``AUTHENTICATED_READ``,
-                                             ``AWS_EXEC_READ``, ``BUCKET_OWNER_FULL_CONTROL``, ``BUCKET_OWNER_READ``,
-                                             ``LOG_DELIVERY_WRITE``, ``PUBLIC_READ``, ``PUBLIC_READ_WRITE``.
-                                             Refer to the `AWS canned ACL <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-s3-acls.html>`_
-                                             guide to understand each option's definition.
-
-``hive.s3.skip-glacier-objects``             Ignore Glacier objects rather than failing the query. This
-                                             skips data that may be expected to be part of the table
-                                             or partition. Defaults to ``false``.
-
-``hive.s3.streaming.enabled``                Use S3 multipart upload API to upload file in streaming way,
-                                             without staging file to be created in the local file system.
-
-``hive.s3.streaming.part-size``              The part size for S3 streaming upload. Defaults to ``16MB``.
-
-``hive.s3.proxy.host``                       Proxy host to use if connecting through a proxy
-
-``hive.s3.proxy.port``                       Proxy port to use if connecting through a proxy
-
-``hive.s3.proxy.protocol``                   Proxy protocol. HTTP or HTTPS , defaults to ``HTTPS``.
-
-``hive.s3.proxy.non-proxy-hosts``            Hosts list to access without going through the proxy.
-
-``hive.s3.proxy.username``                   Proxy user name to use if connecting through a proxy
-
-``hive.s3.proxy.password``                   Proxy password name to use if connecting through a proxy
-
-``hive.s3.proxy.preemptive-basic-auth``      Whether to attempt to authenticate preemptively against proxy
-                                             when using base authorization, defaults to ``false``.
-
-``hive.s3.sts.endpoint``                     Optional override for the sts endpoint given that IAM role based
-                                             authentication via sts is used.
-
-``hive.s3.sts.region``                       Optional override for the sts region given that IAM role based
-                                             authentication via sts is used.
-
-============================================ =================================================================
+    * - Property name
+      - Description
+    * - ``hive.s3.aws-access-key``
+      - Default AWS access key to use.
+    * - ``hive.s3.aws-secret-key``
+      - Default AWS secret key to use.
+    * - ``hive.s3.iam-role``
+      - IAM role to assume.
+    * - ``hive.s3.external-id``
+      - External ID for the IAM role trust policy.
+    * - ``hive.s3.endpoint``
+      - The S3 storage endpoint server. This can be used to connect to an
+        S3-compatible storage system instead of AWS. When using v4 signatures,
+        it is recommended to set this to the AWS region-specific endpoint
+        (e.g., ``http[s]://s3.<AWS-region>.amazonaws.com``).
+    * - ``hive.s3.region``
+      - Optional property to force the S3 client to connect to the specified
+        region only.
+    * - ``hive.s3.storage-class``
+      - The S3 storage class to use when writing the data. Currently only
+        ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
+        Default storage class is ``STANDARD``
+    * - ``hive.s3.signer-type``
+      - Specify a different signer type for S3-compatible storage.
+        Example: ``S3SignerType`` for v2 signer type
+    * - ``hive.s3.signer-class``
+      - Specify a different signer class for S3-compatible storage.
+    * - ``hive.s3.path-style-access``
+      - Use path-style access for all requests to the S3-compatible storage.
+        This is for S3-compatible storage that doesn't support
+        virtual-hosted-style access, defaults to ``false``.
+    * - ``hive.s3.staging-directory``
+      - Local staging directory for data written to S3. This defaults to the
+        Java temporary directory specified by the JVM system property
+        ``java.io.tmpdir``.
+    * - ``hive.s3.pin-client-to-current-region``
+      - Pin S3 requests to the same region as the EC2 instance where Trino is
+        running, defaults to ``false``.
+    * - ``hive.s3.ssl.enabled``
+      - Use HTTPS to communicate with the S3 API, defaults to ``true``.
+    * - ``hive.s3.sse.enabled``
+      - Use S3 server-side encryption, defaults to ``false``.
+    * - ``hive.s3.sse.type``
+      - The type of key management for S3 server-side encryption. Use ``S3``
+        for S3 managed or ``KMS`` for KMS-managed keys, defaults to ``S3``.
+    * - ``hive.s3.sse.kms-key-id``
+      - The KMS Key ID to use for S3 server-side encryption with KMS-managed
+        keys. If not set, the default key is used.
+    * - ``hive.s3.kms-key-id``
+      - If set, use S3 client-side encryption and use the AWS KMS to store
+        encryption keys and use the value of this property as the KMS Key ID for
+        newly created objects.
+    * - ``hive.s3.encryption-materials-provider``
+      - If set, use S3 client-side encryption and use the value of this property
+        as the fully qualified name of a Java class which implements the AWS
+        SDK's ``EncryptionMaterialsProvider`` interface. If the class also
+        implements ``Configurable`` from the Hadoop API, the Hadoop
+        configuration will be passed in after the object has been created.
+    * - ``hive.s3.upload-acl-type``
+      - Canned ACL to use while uploading files to S3, defaults to ``PRIVATE``.
+        If the files are to be uploaded to an S3 bucket owned by a different AWS
+        user, the canned ACL has to be set to one of the following:
+        ``AUTHENTICATED_READ``, ``AWS_EXEC_READ``, ``BUCKET_OWNER_FULL_CONTROL``,
+        ``BUCKET_OWNER_READ``, ``LOG_DELIVERY_WRITE``, ``PUBLIC_READ``,
+        ``PUBLIC_READ_WRITE``. Refer to the `AWS canned ACL <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-s3-acls.html>`_
+        guide to understand each option's definition.
+    * - ``hive.s3.skip-glacier-objects``
+      - Ignore Glacier objects rather than failing the query. This skips data
+        that may be expected to be part of the table or partition. Defaults to
+        ``false``.
+    * - ``hive.s3.streaming.enabled``
+      - Use S3 multipart upload API to upload file in streaming way, without
+        staging file to be created in the local file system.
+    * - ``hive.s3.streaming.part-size``
+      - The part size for S3 streaming upload. Defaults to ``16MB``.
+    * - ``hive.s3.proxy.host``
+      - Proxy host to use if connecting through a proxy.
+    * - ``hive.s3.proxy.port``
+      - Proxy port to use if connecting through a proxy.
+    * - ``hive.s3.proxy.protocol``
+      - Proxy protocol. HTTP or HTTPS , defaults to ``HTTPS``.
+    * - ``hive.s3.proxy.non-proxy-hosts``
+      - Hosts list to access without going through the proxy.
+    * - ``hive.s3.proxy.username``
+      - Proxy user name to use if connecting through a proxy.
+    * - ``hive.s3.proxy.password``
+      - Proxy password to use if connecting through a proxy.
+    * - ``hive.s3.proxy.preemptive-basic-auth``
+      - Whether to attempt to authenticate preemptively against proxy when using
+        base authorization, defaults to ``false``.
+    * - ``hive.s3.sts.endpoint``
+      - Optional override for the sts endpoint given that IAM role based
+        authentication via sts is used.
+    * - ``hive.s3.sts.region``
+      - Optional override for the sts region given that IAM role based
+        authentication via sts is used.
 
 .. _hive-s3-credentials:
 
@@ -286,6 +286,8 @@ Property name                                           Description
                                                         value that is not used in any of your IAM ARNs.
 ======================================================= =================================================================
 
+.. _hive-s3-tuning-configuration:
+
 Tuning properties
 -----------------
 
@@ -294,9 +296,9 @@ used by the Trino S3 filesystem when communicating with S3.
 Most of these parameters affect settings on the ``ClientConfiguration``
 object associated with the ``AmazonS3Client``.
 
-===================================== =========================================================== ===============
+===================================== =========================================================== ==========================
 Property name                         Description                                                 Default
-===================================== =========================================================== ===============
+===================================== =========================================================== ==========================
 ``hive.s3.max-error-retries``         Maximum number of error retries, set on the S3 client.      ``10``
 
 ``hive.s3.max-client-retries``        Maximum number of read attempts to retry.                   ``5``
@@ -308,6 +310,8 @@ Property name                         Description                               
 
 ``hive.s3.connect-timeout``           TCP connect timeout.                                        ``5 seconds``
 
+``hive.s3.connect-ttl``               TCP connect TTL, which affects connection reusage.          Connections do not expire.
+
 ``hive.s3.socket-timeout``            TCP socket read timeout.                                    ``5 seconds``
 
 ``hive.s3.max-connections``           Maximum number of simultaneous open connections to S3.      ``500``
@@ -315,11 +319,12 @@ Property name                         Description                               
 ``hive.s3.multipart.min-file-size``   Minimum file size before multi-part upload to S3 is used.   ``16 MB``
 
 ``hive.s3.multipart.min-part-size``   Minimum multi-part upload part size.                        ``5 MB``
-===================================== =========================================================== ===============
+===================================== =========================================================== ==========================
+
+.. _hive-s3-data-encryption:
 
 S3 data encryption
 ------------------
-
 
 Trino supports reading and writing encrypted data in S3 using both
 server-side encryption with S3 managed keys and client-side encryption using
@@ -386,7 +391,7 @@ workload:
 Considerations and limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* Only objects stored in CSV format are supported. Objects can be uncompressed,
+* Only objects stored in CSV and JSON format are supported. Objects can be uncompressed,
   or optionally compressed with gzip or bzip2.
 * The "AllowQuotedRecordDelimiters" property is not supported. If this property
   is specified, the query fails.
@@ -401,7 +406,16 @@ Enabling S3 Select pushdown
 You can enable S3 Select Pushdown using the ``s3_select_pushdown_enabled``
 Hive session property, or using the ``hive.s3select-pushdown.enabled``
 configuration property. The session property overrides the config
-property, allowing you enable or disable on a per-query basis.
+property, allowing you enable or disable on a per-query basis. Non-filtering
+queries (``SELECT * FROM table``) are not pushed down to S3 Select,
+as they retrieve the entire object content.
+
+For uncompressed files, S3 Select scans ranges of bytes in parallel. The scan range
+requests run across the byte ranges of the internal Hive splits for the query fragments
+pushed down to S3 Select. Changes in the Hive connector :ref:`performance tuning
+configuration properties <hive-performance-tuning-configuration>` are likely to impact
+S3 Select pushdown performance.
+
 
 Understanding and tuning the maximum connections
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

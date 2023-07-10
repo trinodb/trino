@@ -17,6 +17,8 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.decoder.dummy.DummyRowDecoder;
@@ -26,9 +28,6 @@ import io.trino.plugin.kafka.KafkaTopicFieldGroup;
 import io.trino.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.connector.SchemaTableName;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.io.File;
 import java.io.IOException;
@@ -60,8 +59,6 @@ public class FileTableDescriptionSupplier
     FileTableDescriptionSupplier(FileTableDescriptionSupplierConfig config, KafkaConfig kafkaConfig, JsonCodec<KafkaTopicDescription> topicDescriptionCodec)
     {
         this.topicDescriptionCodec = requireNonNull(topicDescriptionCodec, "topicDescriptionCodec is null");
-        requireNonNull(config, "config is null");
-        requireNonNull(kafkaConfig, "kafkaConfig is null");
         this.tableDescriptionDir = config.getTableDescriptionDir();
         this.defaultSchema = kafkaConfig.getDefaultSchema();
         this.tableNames = ImmutableSet.copyOf(config.getTableNames());

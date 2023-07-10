@@ -198,10 +198,8 @@ public class LocalFileRecordCursor
         if (getType(field).equals(createTimestampWithTimeZoneType(3))) {
             return parseTimestamp(getFieldValue(field));
         }
-        else {
-            checkFieldType(field, BIGINT, INTEGER);
-            return Long.parseLong(getFieldValue(field));
-        }
+        checkFieldType(field, BIGINT, INTEGER);
+        return Long.parseLong(getFieldValue(field));
     }
 
     @Override

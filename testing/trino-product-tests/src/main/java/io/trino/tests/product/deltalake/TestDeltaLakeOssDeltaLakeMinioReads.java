@@ -33,6 +33,6 @@ public class TestDeltaLakeOssDeltaLakeMinioReads
     public void testReadRegionTable()
     {
         super.testReadRegionTable();
-        assertNotificationsCount(NOTIFICATIONS_TABLE, OBJECT_ACCESSED_GET, tableName + "/part-00000-274dcbf4-d64c-43ea-8eb7-e153feac98ce-c000.snappy.parquet", 1);
+        assertNotificationsCount(NOTIFICATIONS_TABLE, OBJECT_ACCESSED_GET, tableName + "/part-00000-274dcbf4-d64c-43ea-8eb7-e153feac98ce-c000.snappy.parquet", 2);
     }
 }

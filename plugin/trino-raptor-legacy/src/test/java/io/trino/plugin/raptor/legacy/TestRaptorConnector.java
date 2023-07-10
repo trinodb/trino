@@ -16,7 +16,6 @@ package io.trino.plugin.raptor.legacy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.slice.Slice;
 import io.trino.operator.PagesIndex;
@@ -50,6 +49,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Optional;
 
@@ -66,7 +66,7 @@ import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static org.testng.Assert.assertEquals;
@@ -76,6 +76,10 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestRaptorConnector
 {
+    private static final ConnectorSession SESSION = TestingConnectorSession.builder()
+            .setPropertyMetadata(new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties())
+            .build();
+
     private Handle dummyHandle;
     private MetadataDao metadataDao;
     private File dataDir;
@@ -83,12 +87,13 @@ public class TestRaptorConnector
 
     @BeforeMethod
     public void setup()
+            throws Exception
     {
         Jdbi dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         metadataDao = dbi.onDemand(MetadataDao.class);
         createTablesWithRetry(dbi);
-        dataDir = Files.createTempDir();
+        dataDir = Files.createTempDirectory(null).toFile();
 
         CatalogName connectorId = new CatalogName("test");
         NodeManager nodeManager = new TestingNodeManager();
@@ -118,6 +123,7 @@ public class TestRaptorConnector
             throws Exception
     {
         dummyHandle.close();
+        dummyHandle = null;
         deleteRecursively(dataDir.toPath(), ALLOW_INSECURE);
     }
 
@@ -133,7 +139,7 @@ public class TestRaptorConnector
         // begin delete for table1
         ConnectorTransactionHandle txn1 = beginTransaction();
         ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(SESSION, txn1), "test1");
-        connector.getMetadata(SESSION, txn1).beginDelete(SESSION, handle1, NO_RETRIES);
+        connector.getMetadata(SESSION, txn1).beginMerge(SESSION, handle1, NO_RETRIES);
 
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
         assertFalse(metadataDao.isMaintenanceBlockedLocked(tableId2));
@@ -141,7 +147,7 @@ public class TestRaptorConnector
         // begin delete for table2
         ConnectorTransactionHandle txn2 = beginTransaction();
         ConnectorTableHandle handle2 = getTableHandle(connector.getMetadata(SESSION, txn2), "test2");
-        connector.getMetadata(SESSION, txn2).beginDelete(SESSION, handle2, NO_RETRIES);
+        connector.getMetadata(SESSION, txn2).beginMerge(SESSION, handle2, NO_RETRIES);
 
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId2));
@@ -149,7 +155,7 @@ public class TestRaptorConnector
         // begin another delete for table1
         ConnectorTransactionHandle txn3 = beginTransaction();
         ConnectorTableHandle handle3 = getTableHandle(connector.getMetadata(SESSION, txn3), "test1");
-        connector.getMetadata(SESSION, txn3).beginDelete(SESSION, handle3, NO_RETRIES);
+        connector.getMetadata(SESSION, txn3).beginMerge(SESSION, handle3, NO_RETRIES);
 
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
         assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId2));
@@ -224,7 +230,7 @@ public class TestRaptorConnector
         ConnectorTransactionHandle txn1 = beginTransaction();
         ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(SESSION, txn1), "test");
         ConnectorInsertTableHandle insertTableHandle = connector.getMetadata(SESSION, txn1).beginInsert(session, handle1, ImmutableList.of(), NO_RETRIES);
-        ConnectorPageSink raptorPageSink = connector.getPageSinkProvider().createPageSink(txn1, session, insertTableHandle);
+        ConnectorPageSink raptorPageSink = connector.getPageSinkProvider().createPageSink(txn1, session, insertTableHandle, TESTING_PAGE_SINK_ID);
 
         Object timestamp1 = null;
         Object timestamp2 = null;

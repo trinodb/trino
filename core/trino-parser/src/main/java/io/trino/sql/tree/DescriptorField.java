@@ -80,7 +80,8 @@ public class DescriptorField
     @Override
     public String toString()
     {
-        return type.map(dataType -> name + " " + dataType).orElse(name.toString());
+        return type.map(dataType -> name + " " + dataType)
+                .orElseGet(name::toString);
     }
 
     @Override

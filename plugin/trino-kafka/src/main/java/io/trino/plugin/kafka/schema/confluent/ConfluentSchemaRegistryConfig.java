@@ -22,15 +22,14 @@ import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 import io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy;
 import io.trino.spi.HostAddress;
-
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 
 import java.util.Set;
-import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -101,7 +100,7 @@ public class ConfluentSchemaRegistryConfig
     private static ImmutableSet<HostAddress> parseNodes(String nodes)
     {
         Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
-        return StreamSupport.stream(splitter.split(nodes).spliterator(), false)
+        return stream(splitter.split(nodes))
                 .map(ConfluentSchemaRegistryConfig::toHostAddress)
                 .collect(toImmutableSet());
     }

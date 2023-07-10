@@ -26,6 +26,7 @@ import io.trino.array.ReferenceCountMap;
 import io.trino.array.SliceBigArray;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -34,13 +35,13 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.util.Reflection;
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.util.Map;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
 import static io.trino.block.BlockAssertions.createLongsBlock;
@@ -239,7 +240,7 @@ public class TestStateCompiler
 
     private static long getComplexStateRetainedSize(TestComplexState state)
     {
-        long retainedSize = ClassLayout.parseClass(state.getClass()).instanceSize();
+        long retainedSize = instanceSize(state.getClass());
         // reflection is necessary because TestComplexState implementation is generated
         Field[] fields = state.getClass().getDeclaredFields();
         try {
@@ -317,11 +318,11 @@ public class TestStateCompiler
             Block array = createLongsBlock(45);
             retainedSize += array.getRetainedSizeInBytes();
             groupedState.setBlock(array);
-            BlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(null, 1);
-            BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
-            BIGINT.writeLong(singleMapBlockWriter, 123L);
-            VARCHAR.writeSlice(singleMapBlockWriter, utf8Slice("testBlock"));
-            mapBlockBuilder.closeEntry();
+            MapBlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(null, 1);
+            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                BIGINT.writeLong(keyBuilder, 123L);
+                VARCHAR.writeSlice(valueBuilder, utf8Slice("testBlock"));
+            });
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);
@@ -346,11 +347,11 @@ public class TestStateCompiler
             Block array = createLongsBlock(45);
             retainedSize += array.getRetainedSizeInBytes();
             groupedState.setBlock(array);
-            BlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(null, 1);
-            BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
-            BIGINT.writeLong(singleMapBlockWriter, 123L);
-            VARCHAR.writeSlice(singleMapBlockWriter, utf8Slice("testBlock"));
-            mapBlockBuilder.closeEntry();
+            MapBlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(null, 1);
+            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                BIGINT.writeLong(keyBuilder, 123L);
+                VARCHAR.writeSlice(valueBuilder, utf8Slice("testBlock"));
+            });
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);

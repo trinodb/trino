@@ -14,6 +14,7 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.decoder.DispatchingRowDecoderFactory;
 import io.trino.decoder.RowDecoder;
 import io.trino.spi.connector.ColumnHandle;
@@ -23,8 +24,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordSet;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -39,12 +38,14 @@ public class KafkaRecordSetProvider
 {
     private final DispatchingRowDecoderFactory decoderFactory;
     private final KafkaConsumerFactory consumerFactory;
+    private final KafkaInternalFieldManager kafkaInternalFieldManager;
 
     @Inject
-    public KafkaRecordSetProvider(DispatchingRowDecoderFactory decoderFactory, KafkaConsumerFactory consumerFactory)
+    public KafkaRecordSetProvider(DispatchingRowDecoderFactory decoderFactory, KafkaConsumerFactory consumerFactory, KafkaInternalFieldManager kafkaInternalFieldManager)
     {
         this.decoderFactory = requireNonNull(decoderFactory, "decoderFactory is null");
         this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
+        this.kafkaInternalFieldManager = requireNonNull(kafkaInternalFieldManager, "kafkaInternalFieldManager is null");
     }
 
     @Override
@@ -72,7 +73,7 @@ public class KafkaRecordSetProvider
                         .filter(col -> !col.isKeyCodec())
                         .collect(toImmutableSet()));
 
-        return new KafkaRecordSet(kafkaSplit, consumerFactory, session, kafkaColumns, keyDecoder, messageDecoder);
+        return new KafkaRecordSet(kafkaSplit, consumerFactory, session, kafkaColumns, keyDecoder, messageDecoder, kafkaInternalFieldManager);
     }
 
     private static Map<String, String> getDecoderParameters(Optional<String> dataSchema)

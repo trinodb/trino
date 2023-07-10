@@ -14,8 +14,12 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
+
+import java.util.Set;
 
 public class IcebergPlugin
         implements Plugin
@@ -24,5 +28,11 @@ public class IcebergPlugin
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return ImmutableList.of(new IcebergConnectorFactory());
+    }
+
+    @Override
+    public Set<Class<?>> getFunctions()
+    {
+        return ImmutableSet.of(IcebergThetaSketchForStats.class);
     }
 }

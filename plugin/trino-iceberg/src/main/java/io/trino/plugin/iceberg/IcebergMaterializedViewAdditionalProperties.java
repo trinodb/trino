@@ -14,9 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.session.PropertyMetadata;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -33,13 +32,11 @@ public class IcebergMaterializedViewAdditionalProperties
     @Inject
     public IcebergMaterializedViewAdditionalProperties(IcebergConfig icebergConfig)
     {
-        materializedViewProperties = ImmutableList.<PropertyMetadata<?>>builder()
-                .add(stringProperty(
-                        STORAGE_SCHEMA,
-                        "Schema for creating materialized view storage table",
-                        icebergConfig.getMaterializedViewsStorageSchema().orElse(null),
-                        false))
-                .build();
+        materializedViewProperties = ImmutableList.of(stringProperty(
+                STORAGE_SCHEMA,
+                "Schema for creating materialized view storage table",
+                icebergConfig.getMaterializedViewsStorageSchema().orElse(null),
+                false));
     }
 
     public List<PropertyMetadata<?>> getMaterializedViewProperties()

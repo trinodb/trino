@@ -39,6 +39,8 @@ accessorExpression
     | accessorExpression '.' identifier                         #memberAccessor
     | accessorExpression '.' stringLiteral                      #memberAccessor
     | accessorExpression '.' '*'                                #wildcardMemberAccessor
+    | accessorExpression '..' identifier                        #descendantMemberAccessor
+    | accessorExpression '..' stringLiteral                     #descendantMemberAccessor
     | accessorExpression '[' subscript (',' subscript)* ']'     #arrayAccessor
     | accessorExpression '[' '*' ']'                            #wildcardArrayAccessor
     | accessorExpression '?' '(' predicate ')'                  #filter

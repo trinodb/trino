@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
@@ -34,6 +35,7 @@ import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -58,7 +60,8 @@ public class FailedDispatchQuery
             URI self,
             Optional<ResourceGroupId> resourceGroup,
             Throwable cause,
-            Executor executor)
+            Executor executor,
+            NodeVersion version)
     {
         requireNonNull(session, "session is null");
         requireNonNull(query, "query is null");
@@ -67,7 +70,7 @@ public class FailedDispatchQuery
         requireNonNull(cause, "cause is null");
         requireNonNull(executor, "executor is null");
 
-        this.fullQueryInfo = immediateFailureQueryInfo(session, query, preparedQuery, self, resourceGroup, cause);
+        this.fullQueryInfo = immediateFailureQueryInfo(session, query, preparedQuery, self, resourceGroup, cause, version);
         this.basicQueryInfo = new BasicQueryInfo(fullQueryInfo);
         this.session = requireNonNull(session, "session is null");
         this.executor = requireNonNull(executor, "executor is null");
@@ -207,7 +210,8 @@ public class FailedDispatchQuery
             Optional<String> preparedQuery,
             URI self,
             Optional<ResourceGroupId> resourceGroupId,
-            Throwable throwable)
+            Throwable throwable,
+            NodeVersion version)
     {
         ExecutionFailureInfo failureCause = toFailure(throwable);
         QueryInfo queryInfo = new QueryInfo(
@@ -241,7 +245,9 @@ public class FailedDispatchQuery
                 true,
                 resourceGroupId,
                 Optional.empty(),
-                RetryPolicy.NONE);
+                RetryPolicy.NONE,
+                false,
+                version);
 
         return queryInfo;
     }
@@ -254,6 +260,7 @@ public class FailedDispatchQuery
                 now,
                 now,
                 now,
+                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -283,6 +290,8 @@ public class FailedDispatchQuery
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 false,
+                OptionalDouble.empty(),
+                OptionalDouble.empty(),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -320,6 +329,7 @@ public class FailedDispatchQuery
                 DataSize.ofBytes(0),
                 ImmutableList.of(),
                 DynamicFiltersStats.EMPTY,
+                ImmutableList.of(),
                 ImmutableList.of());
     }
 }

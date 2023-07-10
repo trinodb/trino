@@ -17,19 +17,18 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.collect.cache.NonEvictableCache;
-import io.trino.connector.CatalogHandle;
+import io.trino.cache.NonEvictableCache;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
-
-import javax.inject.Inject;
+import io.trino.spi.connector.CatalogHandle;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -41,8 +40,8 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
-import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -61,7 +60,8 @@ public class UniformNodeSelectorFactory
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final long maxSplitsWeightPerNode;
-    private final long maxPendingSplitsWeightPerTask;
+    private final long minPendingSplitsWeightPerTask;
+    private final long maxAdjustedPendingSplitsWeightPerTask;
     private final SplitsBalancingPolicy splitsBalancingPolicy;
     private final boolean optimizedLocalScheduling;
     private final NodeTaskMap nodeTaskMap;
@@ -83,21 +83,20 @@ public class UniformNodeSelectorFactory
             NodeTaskMap nodeTaskMap,
             Duration nodeMapMemoizationDuration)
     {
-        requireNonNull(nodeManager, "nodeManager is null");
-        requireNonNull(config, "config is null");
-        requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-
-        this.nodeManager = nodeManager;
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
         this.splitsBalancingPolicy = config.getSplitsBalancingPolicy();
         this.optimizedLocalScheduling = config.getOptimizedLocalScheduling();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         int maxSplitsPerNode = config.getMaxSplitsPerNode();
-        int maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
-        checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
+        int minPendingSplitsPerTask = config.getMinPendingSplitsPerTask();
+        int maxAdjustedPendingSplitsWeightPerTask = config.getMaxAdjustedPendingSplitsWeightPerTask();
+        checkArgument(maxSplitsPerNode >= minPendingSplitsPerTask, "maxSplitsPerNode must be > minPendingSplitsPerTask");
+        checkArgument(maxAdjustedPendingSplitsWeightPerTask >= minPendingSplitsPerTask, "maxPendingSplitsPerTask must be >= minPendingSplitsPerTask");
         this.maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
-        this.maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
+        this.minPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(minPendingSplitsPerTask);
+        this.maxAdjustedPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxAdjustedPendingSplitsWeightPerTask);
         this.nodeMapMemoizationDuration = nodeMapMemoizationDuration;
     }
 
@@ -125,7 +124,8 @@ public class UniformNodeSelectorFactory
                 nodeMap,
                 minCandidates,
                 maxSplitsWeightPerNode,
-                maxPendingSplitsWeightPerTask,
+                minPendingSplitsWeightPerTask,
+                maxAdjustedPendingSplitsWeightPerTask,
                 getMaxUnacknowledgedSplitsPerTask(session),
                 splitsBalancingPolicy,
                 optimizedLocalScheduling);

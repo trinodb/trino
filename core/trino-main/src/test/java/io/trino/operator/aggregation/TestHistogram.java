@@ -56,7 +56,7 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
@@ -149,7 +149,7 @@ public class TestHistogram
         assertAggregation(
                 FUNCTION_RESOLUTION,
                 QualifiedName.of("histogram"),
-                fromTypes(TIMESTAMP_WITH_TIME_ZONE),
+                fromTypes(TIMESTAMP_TZ_MILLIS),
                 ImmutableMap.of(SqlTimestampWithTimeZone.newInstance(3, unpackMillisUtc(timestampWithTimeZone1), 0, unpackZoneKey(timestampWithTimeZone1)), 2L, SqlTimestampWithTimeZone.newInstance(3, unpackMillisUtc(timestampWithTimeZone2), 0, unpackZoneKey(timestampWithTimeZone2)), 1L),
                 createLongsBlock(timestampWithTimeZone1, timestampWithTimeZone1, timestampWithTimeZone2));
     }
@@ -335,14 +335,14 @@ public class TestHistogram
         AggregationTestInput test1 = testBuilder1.build();
         GroupedAggregator groupedAggregator = test1.createGroupedAggregator();
 
-        test1.runPagesOnAggregatorWithAssertion(0L, aggregationFunction.getFinalType(), groupedAggregator, aggregationTestOutput1);
+        test1.runPagesOnAggregatorWithAssertion(0, aggregationFunction.getFinalType(), groupedAggregator, aggregationTestOutput1);
 
         AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableMap.of("b", 1L, "c", 1L, "d", 1L));
         AggregationTestInputBuilder testbuilder2 = new AggregationTestInputBuilder(
                 new Block[] {block2},
                 aggregationFunction);
         AggregationTestInput test2 = testbuilder2.build();
-        test2.runPagesOnAggregatorWithAssertion(255L, aggregationFunction.getFinalType(), groupedAggregator, aggregationTestOutput2);
+        test2.runPagesOnAggregatorWithAssertion(255, aggregationFunction.getFinalType(), groupedAggregator, aggregationTestOutput2);
     }
 
     private static void testSharedGroupByWithDistinctValuesPerGroupRunner(TestingAggregationFunction aggregationFunction)
@@ -356,14 +356,14 @@ public class TestHistogram
         AggregationTestInput test1 = testInputBuilder1.build();
         GroupedAggregator groupedAggregator = test1.createGroupedAggregator();
 
-        test1.runPagesOnAggregatorWithAssertion(0L, aggregationFunction.getFinalType(), groupedAggregator, aggregationTestOutput1);
+        test1.runPagesOnAggregatorWithAssertion(0, aggregationFunction.getFinalType(), groupedAggregator, aggregationTestOutput1);
 
         AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableMap.of("d", 1L, "e", 1L, "f", 1L));
         AggregationTestInputBuilder testBuilder2 = new AggregationTestInputBuilder(
                 new Block[] {block2},
                 aggregationFunction);
         AggregationTestInput test2 = testBuilder2.build();
-        test2.runPagesOnAggregatorWithAssertion(255L, aggregationFunction.getFinalType(), groupedAggregator, aggregationTestOutput2);
+        test2.runPagesOnAggregatorWithAssertion(255, aggregationFunction.getFinalType(), groupedAggregator, aggregationTestOutput2);
     }
 
     private static void testSharedGroupByWithOverlappingValuesRunner(TestingAggregationFunction aggregationFunction)
@@ -386,7 +386,7 @@ public class TestHistogram
                 .buildOrThrow());
         AggregationTestInput test1 = testInputBuilder1.build();
 
-        test1.runPagesOnAggregatorWithAssertion(0L, aggregationFunction.getFinalType(), test1.createGroupedAggregator(), aggregationTestOutput1);
+        test1.runPagesOnAggregatorWithAssertion(0, aggregationFunction.getFinalType(), test1.createGroupedAggregator(), aggregationTestOutput1);
     }
 
     private static TestingAggregationFunction getInternalDefaultVarCharAggregation()

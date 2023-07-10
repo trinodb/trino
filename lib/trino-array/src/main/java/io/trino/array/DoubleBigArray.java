@@ -14,10 +14,10 @@
 package io.trino.array;
 
 import io.airlift.slice.SizeOf;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfDoubleArray;
 import static io.trino.array.BigArrays.INITIAL_SEGMENTS;
 import static io.trino.array.BigArrays.SEGMENT_SIZE;
@@ -28,7 +28,7 @@ import static io.trino.array.BigArrays.segment;
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public final class DoubleBigArray
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleBigArray.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(DoubleBigArray.class);
     private static final long SIZE_OF_SEGMENT = sizeOfDoubleArray(SEGMENT_SIZE);
 
     private final double initialValue;

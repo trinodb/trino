@@ -13,13 +13,12 @@
  */
 package io.trino.plugin.base.classloader;
 
+import com.google.inject.Inject;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
-
-import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 
@@ -57,6 +56,14 @@ public class ClassLoaderSafeEventListener
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.splitCompleted(splitCompletedEvent);
+        }
+    }
+
+    @Override
+    public boolean requiresAnonymizedPlan()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.requiresAnonymizedPlan();
         }
     }
 }

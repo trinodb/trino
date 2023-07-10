@@ -16,6 +16,7 @@ package io.trino.plugin.raptor.legacy.systemtables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.raptor.legacy.metadata.ColumnMetadataRow;
 import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
@@ -23,6 +24,7 @@ import io.trino.plugin.raptor.legacy.metadata.MetadataDao;
 import io.trino.plugin.raptor.legacy.metadata.TableMetadataRow;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -37,8 +39,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeManager;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -199,11 +199,11 @@ public class TableMetadataSystemTable
             blockBuilder.appendNull();
         }
         else {
-            BlockBuilder array = blockBuilder.beginBlockEntry();
-            for (String value : values) {
-                VARCHAR.writeSlice(array, utf8Slice(value));
-            }
-            blockBuilder.closeEntry();
+            ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                for (String value : values) {
+                    VARCHAR.writeSlice(elementBuilder, utf8Slice(value));
+                }
+            });
         }
     }
 

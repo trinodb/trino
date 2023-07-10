@@ -20,7 +20,7 @@ import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.GetDatabasesRequest;
 import com.amazonaws.services.glue.model.GetDatabasesResult;
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreApiStats;
+import io.trino.plugin.hive.aws.AwsApiCallStats;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -46,7 +46,7 @@ public class TestDeltaLakeCleanUpGlueMetastore
                 new GetDatabasesRequest(),
                 GetDatabasesRequest::setNextToken,
                 GetDatabasesResult::getNextToken,
-                new GlueMetastoreApiStats())
+                new AwsApiCallStats())
                 .map(GetDatabasesResult::getDatabaseList)
                 .flatMap(List::stream)
                 .filter(glueDatabase -> glueDatabase.getName().startsWith(TEST_DATABASE_NAME_PREFIX) &&

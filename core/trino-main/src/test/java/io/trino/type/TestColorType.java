@@ -15,9 +15,12 @@ package io.trino.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import org.testng.annotations.Test;
 
 import static io.trino.operator.scalar.ColorFunctions.rgb;
 import static io.trino.type.ColorType.COLOR;
+import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 public class TestColorType
         extends AbstractTestType
@@ -25,6 +28,28 @@ public class TestColorType
     public TestColorType()
     {
         super(COLOR, String.class, createTestBlock());
+    }
+
+    @Test
+    public void testGetObjectValue()
+    {
+        int[] valuesOfInterest = new int[]{0, 1, 15, 16, 127, 128, 255};
+        BlockBuilder builder = COLOR.createFixedSizeBlockBuilder(valuesOfInterest.length * valuesOfInterest.length * valuesOfInterest.length);
+        for (int r : valuesOfInterest) {
+            for (int g : valuesOfInterest) {
+                for (int b : valuesOfInterest) {
+                    COLOR.writeLong(builder, rgb(r, g, b));
+                }
+            }
+        }
+
+        Block block = builder.build();
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            int value = block.getInt(position, 0);
+            assertEquals(
+                    COLOR.getObjectValue(null, block, position),
+                    format("#%02x%02x%02x", (value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF));
+        }
     }
 
     public static Block createTestBlock()

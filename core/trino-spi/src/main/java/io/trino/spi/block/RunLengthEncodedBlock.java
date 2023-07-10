@@ -14,16 +14,16 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class RunLengthEncodedBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RunLengthEncodedBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(RunLengthEncodedBlock.class);
 
     public static Block create(Type type, Object value, int positionCount)
     {
@@ -43,28 +43,54 @@ public class RunLengthEncodedBlock
         if (block instanceof RunLengthEncodedBlock) {
             block = ((RunLengthEncodedBlock) block).getValue();
         }
-        return new RunLengthEncodedBlock(block, positionCount);
+        return create(block, positionCount);
     }
 
-    private final Block value;
-    private final int positionCount;
-
-    public RunLengthEncodedBlock(Block value, int positionCount)
+    public static Block create(Block value, int positionCount)
     {
         requireNonNull(value, "value is null");
         if (value.getPositionCount() != 1) {
             throw new IllegalArgumentException(format("Expected value to contain a single position but has %s positions", value.getPositionCount()));
         }
 
-        if (value instanceof RunLengthEncodedBlock) {
-            this.value = ((RunLengthEncodedBlock) value).getValue();
+        if (positionCount == 0) {
+            return value.copyRegion(0, 0);
+        }
+        if (positionCount == 1) {
+            return value;
+        }
+        return new RunLengthEncodedBlock(value, positionCount);
+    }
+
+    private final Block value;
+    private final int positionCount;
+
+    private RunLengthEncodedBlock(Block value, int positionCount)
+    {
+        requireNonNull(value, "value is null");
+        if (positionCount < 0) {
+            throw new IllegalArgumentException("positionCount is negative");
+        }
+        if (positionCount < 2) {
+            throw new IllegalArgumentException("positionCount must be at least 2");
+        }
+
+        // do not nest an RLE or Dictionary in an RLE
+        if (value instanceof RunLengthEncodedBlock block) {
+            this.value = block.getValue();
+        }
+        else if (value instanceof DictionaryBlock block) {
+            Block dictionary = block.getDictionary();
+            int id = block.getId(0);
+            if (dictionary.getPositionCount() == 1 && id == 0) {
+                this.value = dictionary;
+            }
+            else {
+                this.value = dictionary.getRegion(id, 1);
+            }
         }
         else {
             this.value = value;
-        }
-
-        if (positionCount < 0) {
-            throw new IllegalArgumentException("positionCount is negative");
         }
 
         this.positionCount = positionCount;
@@ -81,6 +107,9 @@ public class RunLengthEncodedBlock
         return value;
     }
 
+    /**
+     * Positions count will always be at least 2
+     */
     @Override
     public int getPositionCount()
     {
@@ -121,7 +150,7 @@ public class RunLengthEncodedBlock
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
         consumer.accept(value, value.getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -137,7 +166,7 @@ public class RunLengthEncodedBlock
         for (int i = offset; i < offset + length; i++) {
             checkValidPosition(positions[i], positionCount);
         }
-        return new RunLengthEncodedBlock(value, length);
+        return create(value, length);
     }
 
     @Override
@@ -147,14 +176,14 @@ public class RunLengthEncodedBlock
         for (int i = offset; i < offset + length; i++) {
             checkValidPosition(positions[i], positionCount);
         }
-        return new RunLengthEncodedBlock(value.copyRegion(0, 1), length);
+        return create(value.copyRegion(0, 1), length);
     }
 
     @Override
     public Block getRegion(int positionOffset, int length)
     {
         checkValidRegion(positionCount, positionOffset, length);
-        return new RunLengthEncodedBlock(value, length);
+        return create(value, length);
     }
 
     @Override
@@ -173,7 +202,7 @@ public class RunLengthEncodedBlock
     public Block copyRegion(int positionOffset, int length)
     {
         checkValidRegion(positionCount, positionOffset, length);
-        return new RunLengthEncodedBlock(value.copyRegion(0, 1), length);
+        return create(value.copyRegion(0, 1), length);
     }
 
     @Override
@@ -219,6 +248,13 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
+    {
+        checkReadablePosition(this, position);
+        value.writeSliceTo(0, offset, length, output);
+    }
+
+    @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
         checkReadablePosition(this, position);
@@ -237,13 +273,6 @@ public class RunLengthEncodedBlock
     {
         checkReadablePosition(this, position);
         return value.bytesCompare(0, offset, length, otherSlice, otherOffset, otherLength);
-    }
-
-    @Override
-    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(this, position);
-        value.writeBytesTo(0, offset, length, blockBuilder);
     }
 
     @Override
@@ -291,13 +320,13 @@ public class RunLengthEncodedBlock
     public Block copyWithAppendedNull()
     {
         if (value.isNull(0)) {
-            return new RunLengthEncodedBlock(value, positionCount + 1);
+            return create(value, positionCount + 1);
         }
 
         Block dictionary = value.copyWithAppendedNull();
         int[] ids = new int[positionCount + 1];
         ids[positionCount] = 1;
-        return new DictionaryBlock(dictionary, ids);
+        return DictionaryBlock.create(ids.length, dictionary, ids);
     }
 
     @Override
@@ -324,6 +353,6 @@ public class RunLengthEncodedBlock
         if (loadedValueBlock == value) {
             return this;
         }
-        return new RunLengthEncodedBlock(loadedValueBlock, positionCount);
+        return create(loadedValueBlock, positionCount);
     }
 }

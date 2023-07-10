@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.security;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
@@ -25,14 +26,11 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
@@ -62,8 +60,6 @@ public class LegacyAccessControl
             LegacySecurityConfig securityConfig)
     {
         this.accessControlMetastore = requireNonNull(accessControlMetastore, "accessControlMetastore is null");
-
-        requireNonNull(securityConfig, "securityConfig is null");
         allowDropTable = securityConfig.getAllowDropTable();
         allowRenameTable = securityConfig.getAllowRenameTable();
         allowCommentTable = securityConfig.getAllowCommentTable();
@@ -74,7 +70,7 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
+    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
     {
     }
 
@@ -224,6 +220,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
     public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
     {
     }
@@ -290,6 +291,11 @@ public class LegacyAccessControl
 
     @Override
     public void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
     {
     }
 
@@ -399,15 +405,25 @@ public class LegacyAccessControl
     @Override
     public void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
     {
-        if (functionKind == TABLE) {
-            denyExecuteFunction(function.toString());
+        switch (functionKind) {
+            case SCALAR, AGGREGATE, WINDOW:
+                return;
+            case TABLE:
+                denyExecuteFunction(function.toString());
         }
+        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
 
     @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        return Optional.empty();
     }
 
     @Override

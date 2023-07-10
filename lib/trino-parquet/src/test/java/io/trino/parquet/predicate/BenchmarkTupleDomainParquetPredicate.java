@@ -19,6 +19,7 @@ import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.spi.predicate.Domain;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.schema.Types;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -91,7 +92,8 @@ public class BenchmarkTupleDomainParquetPredicate
             }
 
             return new DictionaryDescriptor(
-                    new ColumnDescriptor(new String[] {"path"}, INT64, 0, 0),
+                    new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0),
+                    true,
                     Optional.of(
                             new DictionaryPage(
                                     slice,

@@ -16,8 +16,7 @@ package io.trino.spi.expression;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;

@@ -15,16 +15,14 @@ package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
@@ -33,7 +31,7 @@ import static java.lang.Math.max;
 public class IntArrayBlockBuilder
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntArrayBlockBuilder.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(IntArrayBlockBuilder.class);
     private static final Block NULL_VALUE_BLOCK = new IntArrayBlock(0, 1, new boolean[] {true}, new int[1]);
 
     @Nullable
@@ -59,7 +57,6 @@ public class IntArrayBlockBuilder
         updateDataSize();
     }
 
-    @Override
     public BlockBuilder writeInt(int value)
     {
         if (values.length <= positionCount) {
@@ -73,12 +70,6 @@ public class IntArrayBlockBuilder
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(IntArrayBlock.SIZE_IN_BYTES_PER_POSITION);
         }
-        return this;
-    }
-
-    @Override
-    public BlockBuilder closeEntry()
-    {
         return this;
     }
 
@@ -103,15 +94,15 @@ public class IntArrayBlockBuilder
     public Block build()
     {
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, positionCount);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
         return new IntArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 
     @Override
-    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
+    public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
-        return new IntArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));
+        return new IntArrayBlockBuilder(blockBuilderStatus, expectedEntries);
     }
 
     private void growCapacity()
@@ -179,7 +170,7 @@ public class IntArrayBlockBuilder
     {
         consumer.accept(values, sizeOf(values));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -228,7 +219,7 @@ public class IntArrayBlockBuilder
         checkArrayRange(positions, offset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
         boolean[] newValueIsNull = null;
         if (hasNullValue) {
@@ -252,7 +243,7 @@ public class IntArrayBlockBuilder
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
         return new IntArrayBlock(positionOffset, length, hasNullValue ? valueIsNull : null, values);
     }
@@ -263,7 +254,7 @@ public class IntArrayBlockBuilder
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         if (!hasNonNullValue) {
-            return new RunLengthEncodedBlock(NULL_VALUE_BLOCK, length);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
         boolean[] newValueIsNull = null;
         if (hasNullValue) {

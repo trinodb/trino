@@ -13,14 +13,13 @@
  */
 package io.trino.server.security;
 
+import com.google.inject.Inject;
 import io.trino.client.ProtocolDetectionException;
 import io.trino.server.ProtocolConfig;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.core.MultivaluedMap;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.MultivaluedMap;
 
 import java.security.Principal;
 import java.util.Optional;
@@ -41,7 +40,6 @@ public class PasswordAuthenticator
     @Inject
     public PasswordAuthenticator(PasswordAuthenticatorManager authenticatorManager, PasswordAuthenticatorConfig config, ProtocolConfig protocolConfig)
     {
-        requireNonNull(config, "config is null");
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
 
         this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");

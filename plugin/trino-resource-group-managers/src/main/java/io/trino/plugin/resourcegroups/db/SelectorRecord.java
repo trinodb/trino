@@ -56,7 +56,7 @@ public class SelectorRecord
         this.userGroupRegex = requireNonNull(userGroupRegex, "userGroupRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
-        this.clientTags = requireNonNull(clientTags, "clientTags is null").map(ImmutableList::copyOf);
+        this.clientTags = clientTags.map(ImmutableList::copyOf);
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
     }
 

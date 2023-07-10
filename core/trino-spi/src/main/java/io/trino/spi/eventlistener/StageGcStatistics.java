@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 /**
  * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
@@ -32,6 +33,7 @@ public class StageGcStatistics
     private final int averageFullGcSec;
 
     @JsonCreator
+    @Unstable
     public StageGcStatistics(
             @JsonProperty("stageId") int stageId,
             @JsonProperty("tasks") int tasks,

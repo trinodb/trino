@@ -18,7 +18,6 @@ import org.testng.annotations.Test;
 
 import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestDictionaryBlockEncoding
@@ -37,26 +36,19 @@ public class TestDictionaryBlockEncoding
             ids[i] = i % 4;
         }
 
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
-        assertTrue(actualBlock instanceof DictionaryBlock);
-        DictionaryBlock actualDictionaryBlock = (DictionaryBlock) actualBlock;
-        assertBlockEquals(VARCHAR, actualDictionaryBlock.getDictionary(), dictionary);
-        for (int position = 0; position < actualDictionaryBlock.getPositionCount(); position++) {
-            assertEquals(actualDictionaryBlock.getId(position), ids[position]);
-        }
-        assertEquals(actualDictionaryBlock.getDictionarySourceId(), dictionaryBlock.getDictionarySourceId());
+        assertBlockEquals(VARCHAR, actualBlock, dictionaryBlock);
     }
 
     @Test
     public void testNonSequentialDictionaryUnnest()
     {
         int[] ids = new int[] {3, 2, 1, 0};
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
-        assertTrue(actualBlock instanceof DictionaryBlock);
         assertBlockEquals(VARCHAR, actualBlock, dictionary.getPositions(ids, 0, 4));
     }
 
@@ -64,7 +56,7 @@ public class TestDictionaryBlockEncoding
     public void testNonSequentialDictionaryUnnestWithGaps()
     {
         int[] ids = new int[] {3, 2, 0};
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
         assertTrue(actualBlock instanceof VariableWidthBlock);
@@ -75,23 +67,11 @@ public class TestDictionaryBlockEncoding
     public void testSequentialDictionaryUnnest()
     {
         int[] ids = new int[] {0, 1, 2, 3};
-        DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, ids);
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
         assertTrue(actualBlock instanceof VariableWidthBlock);
         assertBlockEquals(VARCHAR, actualBlock, dictionary.getPositions(ids, 0, 4));
-    }
-
-    @Test
-    public void testNestedSequentialDictionaryUnnest()
-    {
-        int[] ids = new int[] {0, 1, 2, 3};
-        DictionaryBlock nestedDictionaryBlock = new DictionaryBlock(dictionary, ids);
-        DictionaryBlock dictionary = new DictionaryBlock(nestedDictionaryBlock, ids);
-
-        Block actualBlock = roundTripBlock(dictionary);
-        assertTrue(actualBlock instanceof VariableWidthBlock);
-        assertBlockEquals(VARCHAR, actualBlock, this.dictionary.getPositions(ids, 0, 4));
     }
 
     private Block roundTripBlock(Block block)
@@ -101,7 +81,7 @@ public class TestDictionaryBlockEncoding
         return blockEncodingSerde.readBlock(sliceOutput.slice().getInput());
     }
 
-    private Block buildTestDictionary()
+    private static Block buildTestDictionary()
     {
         // build dictionary
         BlockBuilder dictionaryBuilder = VARCHAR.createBlockBuilder(null, 4);

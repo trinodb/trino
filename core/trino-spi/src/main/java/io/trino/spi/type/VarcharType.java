@@ -16,37 +16,40 @@ package io.trino.spi.type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.function.BlockIndex;
-import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.ScalarOperator;
 
 import java.util.Objects;
 import java.util.Optional;
 
 import static io.airlift.slice.SliceUtf8.countCodePoints;
-import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
-import static io.trino.spi.function.OperatorType.EQUAL;
-import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.Slices.sliceRepresentation;
-import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.String.format;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.singletonList;
 
 public final class VarcharType
         extends AbstractVariableWidthType
 {
-    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(VarcharType.class, lookup(), Slice.class);
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
+            .addOperators(DEFAULT_COMPARABLE_OPERATORS)
+            .addOperators(DEFAULT_ORDERING_OPERATORS)
+            .build();
 
     public static final int UNBOUNDED_LENGTH = Integer.MAX_VALUE;
     public static final int MAX_LENGTH = Integer.MAX_VALUE - 1;
     public static final VarcharType VARCHAR = new VarcharType(UNBOUNDED_LENGTH);
+
+    private static final VarcharType[] CACHED_INSTANCES = new VarcharType[128];
+
+    static {
+        for (int i = 0; i < CACHED_INSTANCES.length; i++) {
+            CACHED_INSTANCES[i] = new VarcharType(i);
+        }
+    }
 
     public static VarcharType createUnboundedVarcharType()
     {
@@ -59,22 +62,21 @@ public final class VarcharType
             // Use createUnboundedVarcharType for unbounded VARCHAR.
             throw new IllegalArgumentException("Invalid VARCHAR length " + length);
         }
+        if (length < CACHED_INSTANCES.length) {
+            return CACHED_INSTANCES[length];
+        }
         return new VarcharType(length);
     }
 
-    public static TypeSignature getParametrizedVarcharSignature(String param)
-    {
-        return new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.typeVariable(param));
-    }
-
     private final int length;
+    private volatile Optional<Range> range;
 
     private VarcharType(int length)
     {
         super(
                 new TypeSignature(
                         StandardTypes.VARCHAR,
-                        singletonList(TypeSignatureParameter.numericParameter((long) length))),
+                        singletonList(TypeSignatureParameter.numericParameter(length))),
                 Slice.class);
 
         if (length < 0) {
@@ -137,7 +139,7 @@ public final class VarcharType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public VariableWidthBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(
                 blockBuilderStatus,
@@ -152,22 +154,30 @@ public final class VarcharType
     @Override
     public Optional<Range> getRange()
     {
-        if (length > 100) {
-            // The max/min values may be materialized in the plan, so we don't want them to be too large.
-            // Range comparison against large values are usually nonsensical, too, so no need to support them
-            // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
-            return Optional.empty();
+        Optional<Range> range = this.range;
+        @SuppressWarnings("OptionalAssignedToNull")
+        boolean cachedRangePresent = range != null;
+        if (!cachedRangePresent) {
+            if (length > 100) {
+                // The max/min values may be materialized in the plan, so we don't want them to be too large.
+                // Range comparison against large values are usually nonsensical, too, so no need to support them
+                // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
+                range = Optional.empty();
+            }
+            else {
+                int codePointSize = SliceUtf8.lengthOfCodePoint(MAX_CODE_POINT);
+
+                Slice max = Slices.allocate(codePointSize * length);
+                int position = 0;
+                for (int i = 0; i < length; i++) {
+                    position += SliceUtf8.setCodePointAt(MAX_CODE_POINT, max, position);
+                }
+
+                range = Optional.of(new Range(Slices.EMPTY_SLICE, max));
+            }
+            this.range = range;
         }
-
-        int codePointSize = SliceUtf8.lengthOfCodePoint(MAX_CODE_POINT);
-
-        Slice max = Slices.allocate(codePointSize * length);
-        int position = 0;
-        for (int i = 0; i < length; i++) {
-            position += SliceUtf8.setCodePointAt(MAX_CODE_POINT, max, position);
-        }
-
-        return Optional.of(new Range(Slices.EMPTY_SLICE, max));
+        return range;
     }
 
     @Override
@@ -177,8 +187,7 @@ public final class VarcharType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
-            blockBuilder.closeEntry();
+            ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
         }
     }
 
@@ -202,7 +211,7 @@ public final class VarcharType
     @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
-        blockBuilder.writeBytes(value, offset, length).closeEntry();
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(value, offset, length);
     }
 
     @Override
@@ -224,48 +233,5 @@ public final class VarcharType
     public int hashCode()
     {
         return Objects.hash(length);
-    }
-
-    @ScalarOperator(EQUAL)
-    private static boolean equalOperator(Slice left, Slice right)
-    {
-        return left.equals(right);
-    }
-
-    @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
-    {
-        int leftLength = leftBlock.getSliceLength(leftPosition);
-        int rightLength = rightBlock.getSliceLength(rightPosition);
-        if (leftLength != rightLength) {
-            return false;
-        }
-        return leftBlock.equals(leftPosition, 0, rightBlock, rightPosition, 0, leftLength);
-    }
-
-    @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(Slice value)
-    {
-        return XxHash64.hash(value);
-    }
-
-    @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
-    {
-        return block.hash(position, 0, block.getSliceLength(position));
-    }
-
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(Slice left, Slice right)
-    {
-        return left.compareTo(right);
-    }
-
-    @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
-    {
-        int leftLength = leftBlock.getSliceLength(leftPosition);
-        int rightLength = rightBlock.getSliceLength(rightPosition);
-        return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
     }
 }

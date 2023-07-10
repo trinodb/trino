@@ -15,15 +15,18 @@ package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
+import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Partitioning;
+import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -34,44 +37,45 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingTransactionHandle;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestValidateScaledWritersUsage
         extends BasePlanTest
 {
+    private LocalQueryRunner queryRunner;
     private PlannerContext plannerContext;
     private PlanBuilder planBuilder;
     private Symbol symbol;
     private TableScanNode tableScanNode;
-    private CatalogHandle catalogSupportingScaledWriters;
-    private CatalogHandle catalogNotSupportingScaledWriters;
-    private LocalQueryRunner queryRunner;
+    private CatalogHandle catalog;
     private SchemaTableName schemaTableName;
 
     @BeforeClass
     public void setup()
     {
         schemaTableName = new SchemaTableName("any", "any");
-        catalogSupportingScaledWriters = createTestCatalogHandle("bytes_written_reported");
-        catalogNotSupportingScaledWriters = createTestCatalogHandle("no_bytes_written_reported");
+        catalog = createTestCatalogHandle("catalog");
         queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        queryRunner.createCatalog(catalogSupportingScaledWriters.getCatalogName(), createConnectorFactorySupportingReportingBytesWritten(true, catalogSupportingScaledWriters.getCatalogName()), ImmutableMap.of());
-        queryRunner.createCatalog(catalogNotSupportingScaledWriters.getCatalogName(), createConnectorFactorySupportingReportingBytesWritten(false, catalogNotSupportingScaledWriters.getCatalogName()), ImmutableMap.of());
+        queryRunner.createCatalog(catalog.getCatalogName(), createConnectorFactory(catalog.getCatalogName()), ImmutableMap.of());
         plannerContext = queryRunner.getPlannerContext();
         planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext.getMetadata(), TEST_SESSION);
         TableHandle nationTableHandle = new TableHandle(
-                catalogSupportingScaledWriters,
+                catalog,
                 new TpchTableHandle("sf1", "nation", 1.0),
                 TestingTransactionHandle.create());
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
@@ -79,178 +83,129 @@ public class TestValidateScaledWritersUsage
         tableScanNode = planBuilder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle));
     }
 
-    private MockConnectorFactory createConnectorFactorySupportingReportingBytesWritten(boolean supportsWrittenBytes, String name)
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        queryRunner.close();
+        queryRunner = null;
+        plannerContext = null;
+        planBuilder = null;
+        tableScanNode = null;
+        catalog = null;
+    }
+
+    private MockConnectorFactory createConnectorFactory(String name)
     {
         return MockConnectorFactory.builder()
-                .withSupportsReportingWrittenBytes(supportsWrittenBytes)
                 .withGetTableHandle(((session, schemaTableName) -> null))
                 .withName(name)
                 .build();
     }
 
-    @Test
-    public void testScaledWritersUsedAndTargetSupportsIt()
+    @Test(dataProvider = "scaledWriterPartitioningHandles")
+    public void testScaledWritersUsedAndTargetSupportsIt(PartitioningHandle scaledWriterPartitionHandle)
     {
         PlanNode tableWriterSource = planBuilder.exchange(ex ->
                 ex
-                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
+                        .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
                         .addInputsSet(symbol)
                         .addSource(planBuilder.exchange(innerExchange ->
                                 innerExchange
-                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
                                         .addInputsSet(symbol)
                                         .addSource(tableScanNode))));
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true),
+                                planBuilder.createTarget(catalog, schemaTableName, true),
                                 tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
-        validatePlan(root);
-    }
-
-    @Test
-    public void testScaledWritersUsedAndTargetDoesNotSupportIt()
-    {
-        PlanNode tableWriterSource = planBuilder.exchange(ex ->
-                ex
-                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
-                        .addInputsSet(symbol)
-                        .addSource(planBuilder.exchange(innerExchange ->
-                                innerExchange
-                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
-                                        .addInputsSet(symbol)
-                                        .addSource(tableScanNode))));
-        PlanNode root = planBuilder.output(
-                outputBuilder -> outputBuilder
-                        .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false),
-                                tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
-        assertThatThrownBy(() -> validatePlan(root))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The partitioning scheme is set to SCALED_WRITER_DISTRIBUTION but writer target no_bytes_written_reported:INSTANCE does support for it");
-    }
-
-    @Test
-    public void testScaledWritersUsedAndTargetDoesNotSupportItMultipleSourceExchanges()
-    {
-        PlanNode tableWriterSource = planBuilder.exchange(ex ->
-                ex
-                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol, symbol)))
-                        .addInputsSet(symbol, symbol)
-                        .addInputsSet(symbol, symbol)
-                        .addSource(planBuilder.exchange(innerExchange ->
-                                innerExchange
-                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
-                                        .addInputsSet(symbol)
-                                        .addSource(tableScanNode)))
-                        .addSource(planBuilder.exchange(innerExchange ->
-                                innerExchange
-                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
-                                        .addInputsSet(symbol)
-                                        .addSource(tableScanNode))));
-        PlanNode root = planBuilder.output(
-                outputBuilder -> outputBuilder
-                        .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false),
-                                tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
-        assertThatThrownBy(() -> validatePlan(root))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The partitioning scheme is set to SCALED_WRITER_DISTRIBUTION but writer target no_bytes_written_reported:INSTANCE does support for it");
-    }
-
-    @Test
-    public void testScaledWritersUsedAndTargetSupportsItMultipleSourceExchanges()
-    {
-        PlanNode tableWriterSource = planBuilder.exchange(ex ->
-                ex
-                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol, symbol)))
-                        .addInputsSet(symbol, symbol)
-                        .addInputsSet(symbol, symbol)
-                        .addSource(planBuilder.exchange(innerExchange ->
-                                innerExchange
-                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
-                                        .addInputsSet(symbol)
-                                        .addSource(tableScanNode)))
-                        .addSource(planBuilder.exchange(innerExchange ->
-                                innerExchange
-                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
-                                        .addInputsSet(symbol)
-                                        .addSource(tableScanNode))));
-        PlanNode root = planBuilder.output(
-                outputBuilder -> outputBuilder
-                        .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true),
-                                tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
-        validatePlan(root);
-    }
-
-    @Test
-    public void testScaledWritersUsedAboveTableWriterInThePlanTree()
-    {
-        PlanNode tableWriterSource = planBuilder.exchange(ex ->
-                ex
-                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
-                        .addInputsSet(symbol)
-                        .addSource(planBuilder.exchange(innerExchange ->
-                                innerExchange
-                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
-                                        .addInputsSet(symbol)
-                                        .addSource(tableScanNode))));
-        PlanNode root = planBuilder.output(
-                outputBuilder -> outputBuilder
-                        .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false),
-                                tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
-        validatePlan(root);
-    }
-
-    @Test
-    public void testScaledWritersTwoTableWritersNodes()
-    {
-        PlanNode tableWriterSource = planBuilder.exchange(ex ->
-                ex
-                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
-                        .addInputsSet(symbol)
-                        .addSource(planBuilder.tableWriter(
-                                ImmutableList.of(symbol),
-                                ImmutableList.of("column_a"),
-                                Optional.empty(),
-                                Optional.empty(),
-                                planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true),
-                                planBuilder.exchange(innerExchange ->
-                                        innerExchange
-                                                .partitioningScheme(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
-                                                .addInputsSet(symbol)
-                                                .addSource(tableScanNode)),
                                 symbol)));
+        validatePlan(root);
+    }
+
+    @Test(dataProvider = "scaledWriterPartitioningHandles")
+    public void testScaledWriterUsedAndTargetDoesNotSupportMultipleWritersPerPartition(PartitioningHandle scaledWriterPartitionHandle)
+    {
+        PlanNode tableWriterSource = planBuilder.exchange(ex ->
+                ex
+                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
+                        .addInputsSet(symbol)
+                        .addSource(planBuilder.exchange(innerExchange ->
+                                innerExchange
+                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .addInputsSet(symbol)
+                                        .addSource(tableScanNode))));
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false),
+                                planBuilder.createTarget(catalog, schemaTableName, false),
                                 tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
-        assertThatThrownBy(() -> validatePlan(root))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The partitioning scheme is set to SCALED_WRITER_DISTRIBUTION but writer target no_bytes_written_reported:INSTANCE does support for it");
+                                symbol)));
+
+        if (scaledWriterPartitionHandle == SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION) {
+            validatePlan(root);
+        }
+        else {
+            assertThatThrownBy(() -> validatePlan(root))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("The hash scaled writer partitioning scheme is set for the partitioned write but writer target catalog:INSTANCE doesn't support multiple writers per partition");
+        }
+    }
+
+    @Test(dataProvider = "scaledWriterPartitioningHandles")
+    public void testScaledWriterWithMultipleSourceExchangesAndTargetDoesNotSupportMultipleWritersPerPartition(PartitioningHandle scaledWriterPartitionHandle)
+    {
+        PlanNode tableWriterSource = planBuilder.exchange(ex ->
+                ex
+                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol, symbol)))
+                        .addInputsSet(symbol, symbol)
+                        .addInputsSet(symbol, symbol)
+                        .addSource(planBuilder.exchange(innerExchange ->
+                                innerExchange
+                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .addInputsSet(symbol)
+                                        .addSource(tableScanNode)))
+                        .addSource(planBuilder.exchange(innerExchange ->
+                                innerExchange
+                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .addInputsSet(symbol)
+                                        .addSource(tableScanNode))));
+        PlanNode root = planBuilder.output(
+                outputBuilder -> outputBuilder
+                        .source(planBuilder.tableWithExchangeCreate(
+                                planBuilder.createTarget(catalog, schemaTableName, false),
+                                tableWriterSource,
+                                symbol)));
+
+        if (scaledWriterPartitionHandle == SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION) {
+            validatePlan(root);
+        }
+        else {
+            assertThatThrownBy(() -> validatePlan(root))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("The hash scaled writer partitioning scheme is set for the partitioned write but writer target catalog:INSTANCE doesn't support multiple writers per partition");
+        }
+    }
+
+    @DataProvider
+    public Object[][] scaledWriterPartitioningHandles()
+    {
+        return new Object[][] {
+                {SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION},
+                {SCALED_WRITER_HASH_DISTRIBUTION},
+                {new PartitioningHandle(
+                        Optional.of(TEST_CATALOG_HANDLE),
+                        Optional.of(new ConnectorTransactionHandle() {}),
+                        new ConnectorPartitioningHandle() {},
+                        true)}
+        };
     }
 
     private void validatePlan(PlanNode root)
     {
         queryRunner.inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            plannerContext.getMetadata().getCatalogHandle(session, catalogSupportingScaledWriters.getCatalogName());
-            plannerContext.getMetadata().getCatalogHandle(session, catalogNotSupportingScaledWriters.getCatalogName());
+            plannerContext.getMetadata().getCatalogHandle(session, catalog.getCatalogName());
             new ValidateScaledWritersUsage().validate(
                     root,
                     session,

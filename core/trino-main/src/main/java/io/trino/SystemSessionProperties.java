@@ -14,6 +14,7 @@
 package io.trino;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.DynamicFilterConfig;
@@ -28,14 +29,16 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
-
-import javax.inject.Inject;
+import io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.execution.QueryManagerConfig.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT;
+import static io.trino.execution.QueryManagerConfig.MAX_TASK_RETRY_ATTEMPTS;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -58,10 +61,13 @@ public final class SystemSessionProperties
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
-    public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
-    public static final String HASH_PARTITION_COUNT = "hash_partition_count";
+    public static final String DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED = "determine_partition_count_for_write_enabled";
+    public static final String MAX_HASH_PARTITION_COUNT = "max_hash_partition_count";
+    public static final String MIN_HASH_PARTITION_COUNT = "min_hash_partition_count";
+    public static final String MIN_HASH_PARTITION_COUNT_FOR_WRITE = "min_hash_partition_count_for_write";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
+    public static final String TASK_PARTITIONED_WRITER_COUNT = "task_partitioned_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
@@ -75,9 +81,12 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
-    public static final String PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS = "preferred_write_partitioning_min_number_of_partitions";
     public static final String SCALE_WRITERS = "scale_writers";
-    public static final String WRITER_MIN_SIZE = "writer_min_size";
+    public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
+    public static final String MAX_WRITER_TASKS_COUNT = "max_writer_tasks_count";
+    public static final String TASK_SCALE_WRITERS_MAX_WRITER_COUNT = "task_scale_writers_max_writer_count";
+    public static final String WRITER_SCALING_MIN_DATA_PROCESSED = "writer_scaling_min_data_processed";
+    public static final String SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = "skewed_partition_min_data_processed_rebalance_threshold";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
@@ -111,6 +120,7 @@ public final class SystemSessionProperties
     public static final String USE_PARTIAL_DISTINCT_LIMIT = "use_partial_distinct_limit";
     public static final String MAX_RECURSION_DEPTH = "max_recursion_depth";
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
+    public static final String MARK_DISTINCT_STRATEGY = "mark_distinct_strategy";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_RANKING = "optimize_top_n_ranking";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
@@ -148,28 +158,55 @@ public final class SystemSessionProperties
     public static final String MAX_PARTIAL_TOP_N_MEMORY = "max_partial_top_n_memory";
     public static final String RETRY_POLICY = "retry_policy";
     public static final String QUERY_RETRY_ATTEMPTS = "query_retry_attempts";
-    public static final String TASK_RETRY_ATTEMPTS_OVERALL = "task_retry_attempts_overall";
     public static final String TASK_RETRY_ATTEMPTS_PER_TASK = "task_retry_attempts_per_task";
+    public static final String MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY = "max_tasks_waiting_for_execution_per_query";
     public static final String MAX_TASKS_WAITING_FOR_NODE_PER_STAGE = "max_tasks_waiting_for_node_per_stage";
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
     public static final String RETRY_DELAY_SCALE_FACTOR = "retry_delay_scale_factor";
+    public static final String LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD = "legacy_materialized_view_grace_period";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
-    public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE = "fault_tolerant_execution_target_task_input_size";
-    public static final String FAULT_TOLERANT_EXECUTION_MIN_TASK_SPLIT_COUNT = "fault_tolerant_execution_min_task_split_count";
-    public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT = "fault_tolerant_execution_target_task_split_count";
+    public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_PERIOD = "fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_growth_period";
+    public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_FACTOR = "fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_growth_factor";
+    public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MIN = "fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_min";
+    public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MAX = "fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_max";
+    public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_GROWTH_PERIOD = "fault_tolerant_execution_arbitrary_distribution_write_task_target_size_growth_period";
+    public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_GROWTH_FACTOR = "fault_tolerant_execution_arbitrary_distribution_write_task_target_size_growth_factor";
+    public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MIN = "fault_tolerant_execution_arbitrary_distribution_write_task_target_size_min";
+    public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MAX = "fault_tolerant_execution_arbitrary_distribution_write_task_target_size_max";
+    public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE = "fault_tolerant_execution_hash_distribution_compute_task_target_size";
+    public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE = "fault_tolerant_execution_hash_distribution_write_task_target_size";
+    public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_MAX_COUNT = "fault_tolerant_execution_hash_distribution_write_task_target_max_count";
+    public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TO_NODE_MIN_RATIO = "fault_tolerant_execution_hash_distribution_compute_task_to_node_min_ratio";
+    public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TO_NODE_MIN_RATIO = "fault_tolerant_execution_hash_distribution_write_task_to_node_min_ratio";
+    public static final String FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE = "fault_tolerant_execution_standard_split_size";
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
+    public static final String FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY = "fault_tolerant_execution_coordinator_task_memory";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY = "fault_tolerant_execution_task_memory";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR = "fault_tolerant_execution_task_memory_growth_factor";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE = "fault_tolerant_execution_task_memory_estimation_quantile";
-    public static final String FAULT_TOLERANT_EXECUTION_PARTITION_COUNT = "fault_tolerant_execution_partition_count";
-    public static final String FAULT_TOLERANT_EXECUTION_PRESERVE_INPUT_PARTITIONS_IN_WRITE_STAGE = "fault_tolerant_execution_preserve_input_partitions_in_write_stage";
+    public static final String FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT = "fault_tolerant_execution_max_partition_count";
+    public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT = "fault_tolerant_execution_min_partition_count";
+    public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE = "fault_tolerant_execution_min_partition_count_for_write";
+    public static final String FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS = "fault_tolerant_execution_min_source_stage_progress";
+    private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_ENABLED = "fault_tolerant_execution_small_stage_estimation_enabled";
+    private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_THRESHOLD = "fault_tolerant_execution_small_stage_estimation_threshold";
+    private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER = "fault_tolerant_execution_small_stage_source_size_multiplier";
+    private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS = "fault_tolerant_execution_small_stage_require_no_more_partitions";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
-    public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
+    public static final String REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED = "remote_task_adaptive_update_request_size_enabled";
+    public static final String REMOTE_TASK_MAX_REQUEST_SIZE = "remote_task_max_request_size";
+    public static final String REMOTE_TASK_REQUEST_SIZE_HEADROOM = "remote_task_request_size_headroom";
+    public static final String REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST = "remote_task_guaranteed_splits_per_request";
     public static final String JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT = "join_partitioned_build_min_row_count";
+    public static final String MIN_INPUT_SIZE_PER_TASK = "min_input_size_per_task";
+    public static final String MIN_INPUT_ROWS_PER_TASK = "min_input_rows_per_task";
     public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
+    public static final String USE_COST_BASED_PARTITIONING = "use_cost_based_partitioning";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
+    public static final String FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED = "fault_tolerant_execution_force_preferred_write_partitioning_enabled";
+    public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -229,14 +266,27 @@ public final class SystemSessionProperties
                         value -> validateDoubleRange(value, JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, 0.0, 1.0),
                         value -> value),
                 booleanProperty(
-                        DISTRIBUTED_INDEX_JOIN,
-                        "Distribute index joins on join keys instead of executing inline",
-                        optimizerConfig.isDistributedIndexJoinsEnabled(),
+                        DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED,
+                        "Determine the number of partitions based on amount of data read and processed by the query for write queries",
+                        queryManagerConfig.isDeterminePartitionCountForWriteEnabled(),
                         false),
                 integerProperty(
-                        HASH_PARTITION_COUNT,
-                        "Number of partitions for distributed joins and aggregations",
-                        queryManagerConfig.getHashPartitionCount(),
+                        MAX_HASH_PARTITION_COUNT,
+                        "Maximum number of partitions for distributed joins and aggregations",
+                        queryManagerConfig.getMaxHashPartitionCount(),
+                        value -> validateIntegerValue(value, MAX_HASH_PARTITION_COUNT, 1, false),
+                        false),
+                integerProperty(
+                        MIN_HASH_PARTITION_COUNT,
+                        "Minimum number of partitions for distributed joins and aggregations",
+                        queryManagerConfig.getMinHashPartitionCount(),
+                        value -> validateIntegerValue(value, MIN_HASH_PARTITION_COUNT, 1, false),
+                        false),
+                integerProperty(
+                        MIN_HASH_PARTITION_COUNT_FOR_WRITE,
+                        "Minimum number of partitions for distributed joins and aggregations in write queries",
+                        queryManagerConfig.getMinHashPartitionCountForWrite(),
+                        value -> validateIntegerValue(value, MIN_HASH_PARTITION_COUNT_FOR_WRITE, 1, false),
                         false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -245,9 +295,14 @@ public final class SystemSessionProperties
                         false),
                 integerProperty(
                         TASK_WRITER_COUNT,
-                        "Default number of local parallel table writer jobs per worker",
+                        "Number of local parallel table writers per task when prefer partitioning and task writer scaling are not used",
                         taskManagerConfig.getWriterCount(),
-                        value -> validateValueIsPowerOfTwo(value, TASK_WRITER_COUNT),
+                        false),
+                integerProperty(
+                        TASK_PARTITIONED_WRITER_COUNT,
+                        "Number of local parallel table writers per task when prefer partitioning is used",
+                        taskManagerConfig.getPartitionedWriterCount(),
+                        value -> validateValueIsPowerOfTwo(value, TASK_PARTITIONED_WRITER_COUNT),
                         false),
                 booleanProperty(
                         REDISTRIBUTE_WRITES,
@@ -259,26 +314,37 @@ public final class SystemSessionProperties
                         "Use preferred write partitioning",
                         optimizerConfig.isUsePreferredWritePartitioning(),
                         false),
-                integerProperty(
-                        PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS,
-                        "Use preferred write partitioning when the number of written partitions exceeds the configured threshold",
-                        optimizerConfig.getPreferredWritePartitioningMinNumberOfPartitions(),
-                        value -> {
-                            if (value < 1) {
-                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 1: %s", PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, value));
-                            }
-                        },
-                        false),
                 booleanProperty(
                         SCALE_WRITERS,
                         "Scale out writers based on throughput (use minimum necessary)",
                         featuresConfig.isScaleWriters(),
                         false),
-                dataSizeProperty(
-                        WRITER_MIN_SIZE,
-                        "Target minimum size of writer output when scaling writers",
-                        featuresConfig.getWriterMinSize(),
+                integerProperty(
+                        MAX_WRITER_TASKS_COUNT,
+                        "Maximum number of tasks that will participate in writing data",
+                        queryManagerConfig.getMaxWriterTasksCount(),
+                        value -> validateIntegerValue(value, MAX_WRITER_TASKS_COUNT, 1, false),
                         false),
+                booleanProperty(
+                        TASK_SCALE_WRITERS_ENABLED,
+                        "Scale the number of concurrent table writers per task based on throughput",
+                        taskManagerConfig.isScaleWritersEnabled(),
+                        false),
+                integerProperty(
+                        TASK_SCALE_WRITERS_MAX_WRITER_COUNT,
+                        "Maximum number of writers per task up to which scaling will happen if task.scale-writers.enabled is set",
+                        taskManagerConfig.getScaleWritersMaxWriterCount(),
+                        true),
+                dataSizeProperty(
+                        WRITER_SCALING_MIN_DATA_PROCESSED,
+                        "Minimum amount of uncompressed output data processed by writers before writer scaling can happen",
+                        featuresConfig.getWriterScalingMinDataProcessed(),
+                        false),
+                dataSizeProperty(
+                        SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD,
+                        "Minimum data processed to trigger skewed partition rebalancing in local and remote exchange",
+                        DataSize.of(50, MEGABYTE),
+                        true),
                 booleanProperty(
                         PUSH_TABLE_WRITE_THROUGH_UNION,
                         "Parallelize writes when using UNION ALL in queries that write data",
@@ -398,7 +464,7 @@ public final class SystemSessionProperties
                         value -> value),
                 booleanProperty(
                         COLOCATED_JOIN,
-                        "Experimental: Use a colocated join when possible",
+                        "Use a colocated join when possible",
                         optimizerConfig.isColocatedJoinsEnabled(),
                         false),
                 booleanProperty(
@@ -454,7 +520,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
                         "Push partial aggregations below joins",
-                        optimizerConfig.isPushPartialAggregationThoughJoin(),
+                        optimizerConfig.isPushPartialAggregationThroughJoin(),
                         false),
                 booleanProperty(
                         PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED,
@@ -511,6 +577,12 @@ public final class SystemSessionProperties
                         USE_MARK_DISTINCT,
                         "Implement DISTINCT aggregations using MarkDistinct",
                         optimizerConfig.isUseMarkDistinct(),
+                        false),
+                enumProperty(
+                        MARK_DISTINCT_STRATEGY,
+                        "",
+                        MarkDistinctStrategy.class,
+                        optimizerConfig.getMarkDistinctStrategy(),
                         false),
                 booleanProperty(
                         PREFER_PARTIAL_AGGREGATION,
@@ -717,14 +789,21 @@ public final class SystemSessionProperties
                         queryManagerConfig.getQueryRetryAttempts(),
                         false),
                 integerProperty(
-                        TASK_RETRY_ATTEMPTS_OVERALL,
-                        "Maximum number of task retry attempts overall",
-                        queryManagerConfig.getTaskRetryAttemptsOverall(),
-                        false),
-                integerProperty(
                         TASK_RETRY_ATTEMPTS_PER_TASK,
                         "Maximum number of task retry attempts per single task",
                         queryManagerConfig.getTaskRetryAttemptsPerTask(),
+                        value -> {
+                            if (value < 0 || value > MAX_TASK_RETRY_ATTEMPTS) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be greater than or equal to 0 and not not greater than %s", TASK_RETRY_ATTEMPTS_PER_TASK, MAX_TASK_RETRY_ATTEMPTS));
+                            }
+                        },
+                        false),
+                integerProperty(
+                        MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY,
+                        "Maximum number of tasks waiting to be scheduled per query. Split enumeration is paused by the scheduler when this threshold is crossed",
+                        queryManagerConfig.getMaxTasksWaitingForExecutionPerQuery(),
                         false),
                 integerProperty(
                         MAX_TASKS_WAITING_FOR_NODE_PER_STAGE,
@@ -749,9 +828,14 @@ public final class SystemSessionProperties
                             if (value < 1.0) {
                                 throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
-                                        format("%s must be greater or equal to 1.0", RETRY_MAX_DELAY));
+                                        format("%s must be greater than or equal to 1.0", RETRY_DELAY_SCALE_FACTOR));
                             }
                         },
+                        false),
+                booleanProperty(
+                        LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD,
+                        "Enable legacy handling of stale materialized views",
+                        featuresConfig.isLegacyMaterializedViewGracePeriod(),
                         false),
                 booleanProperty(
                         HIDE_INACCESSIBLE_COLUMNS,
@@ -759,20 +843,73 @@ public final class SystemSessionProperties
                         featuresConfig.isHideInaccessibleColumns(),
                         value -> validateHideInaccessibleColumns(value, featuresConfig.isHideInaccessibleColumns()),
                         false),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_PERIOD,
+                        "The number of tasks we create for given non-writer stage of arbitrary distribution before we increase task size",
+                        queryManagerConfig.getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod(),
+                        true),
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_FACTOR,
+                        "Growth factor for adaptive sizing of non-writer tasks of arbitrary distribution for fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor(),
+                        true),
                 dataSizeProperty(
-                        FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE,
-                        "Target size in bytes of all task inputs for a single fault tolerant task",
-                        queryManagerConfig.getFaultTolerantExecutionTargetTaskInputSize(),
-                        false),
+                        FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MIN,
+                        "Initial/min target input size for non-writer tasks of arbitrary distribution of fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin(),
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MAX,
+                        "Max target input size for non-writer task of arbitrary distribution of fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax(),
+                        true),
                 integerProperty(
-                        FAULT_TOLERANT_EXECUTION_MIN_TASK_SPLIT_COUNT,
-                        "Minimal number of splits for a single fault tolerant task (count based)",
-                        queryManagerConfig.getFaultTolerantExecutionMinTaskSplitCount(),
-                        false),
+                        FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_GROWTH_PERIOD,
+                        "The number of tasks we create for given writer stage of arbitrary distribution before we increase task size",
+                        queryManagerConfig.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod(),
+                        true),
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_GROWTH_FACTOR,
+                        "Growth factor for adaptive sizing of writer tasks of arbitrary distribution for fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor(),
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MIN,
+                        "Initial/min target input size for writer tasks of arbitrary distribution of fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin(),
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MAX,
+                        "Max target input size for writer tasks of arbitrary distribution of fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax(),
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE,
+                        "Target input size for non-writer tasks of hash distribution of fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionHashDistributionComputeTaskTargetSize(),
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE,
+                        "Target input size of writer tasks of hash distribution of fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionHashDistributionWriteTaskTargetSize(),
+                        true),
                 integerProperty(
-                        FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT,
-                        "Target number of splits for a single fault tolerant task (split weight aware)",
-                        queryManagerConfig.getFaultTolerantExecutionTargetTaskSplitCount(),
+                        FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_MAX_COUNT,
+                        "Soft upper bound on number of writer tasks in a stage of hash distribution of fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(),
+                        true),
+                doubleProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TO_NODE_MIN_RATIO,
+                        "Minimal ratio of tasks count vs cluster nodes count for hash distributed compute stage in fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(),
+                        true),
+                doubleProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TO_NODE_MIN_RATIO,
+                        "Minimal ratio of tasks count vs cluster nodes count for hash distributed writer stage in fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(),
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE,
+                        "Standard split size for a single fault tolerant task (split weight aware)",
+                        queryManagerConfig.getFaultTolerantExecutionStandardSplitSize(),
                         false),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT,
@@ -780,8 +917,13 @@ public final class SystemSessionProperties
                         queryManagerConfig.getFaultTolerantExecutionMaxTaskSplitCount(),
                         false),
                 dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY,
+                        "Estimated amount of memory a single coordinator task will use when task level retries are used; value is used when allocating nodes for tasks execution",
+                        memoryManagerConfig.getFaultTolerantExecutionCoordinatorTaskMemory(),
+                        false),
+                dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY,
-                        "Estimated amount of memory a single task will use when task level retries are used; value is used allocating nodes for tasks execution",
+                        "Estimated amount of memory a single task will use when task level retries are used; value is used when allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemory(),
                         false),
                 doubleProperty(
@@ -796,29 +938,84 @@ public final class SystemSessionProperties
                         value -> validateDoubleRange(value, FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE, 0.0, 1.0),
                         false),
                 integerProperty(
-                        FAULT_TOLERANT_EXECUTION_PARTITION_COUNT,
-                        "Number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
-                        queryManagerConfig.getFaultTolerantExecutionPartitionCount(),
+                        FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT,
+                        "Maximum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
+                        queryManagerConfig.getFaultTolerantExecutionMaxPartitionCount(),
+                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
+                        false),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT,
+                        "Minimum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
+                        queryManagerConfig.getFaultTolerantExecutionMinPartitionCount(),
+                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
+                        false),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE,
+                        "Minimum number of partitions for distributed joins and aggregations in write queries executed with fault tolerant execution enabled",
+                        queryManagerConfig.getFaultTolerantExecutionMinPartitionCountForWrite(),
+                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
+                        false),
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS,
+                        "Minimal progress of source stage to consider scheduling of parent stage",
+                        queryManagerConfig.getFaultTolerantExecutionMinSourceStageProgress(),
+                        true),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_ENABLED,
+                        "Enable small stage estimation heuristic, used for more aggresive speculative stage scheduling",
+                        queryManagerConfig.isFaultTolerantExecutionSmallStageEstimationEnabled(),
+                        false),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_THRESHOLD,
+                        "Threshold until which stage is considered small",
+                        queryManagerConfig.getFaultTolerantExecutionSmallStageEstimationThreshold(),
+                        false),
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER,
+                        "Multiplier used for heuristic estimation is stage is small; the bigger the more conservative estimation is",
+                        queryManagerConfig.getFaultTolerantExecutionSmallStageSourceSizeMultiplier(),
+                        value -> {
+                            if (value < 1.0) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be greater than or equal to 1.0: %s", FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER, value));
+                            }
+                        },
                         false),
                 booleanProperty(
-                        FAULT_TOLERANT_EXECUTION_PRESERVE_INPUT_PARTITIONS_IN_WRITE_STAGE,
-                        "Ensure single task reads single hash partitioned input partition for stages which write table data",
-                        queryManagerConfig.getFaultTolerantPreserveInputPartitionsInWriteStage(),
+                        FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS,
+                        "Is it required for all stage partitions (tasks) to be enumerated for stage to be used in heuristic to determine if parent stage is small",
+                        queryManagerConfig.isFaultTolerantExecutionSmallStageRequireNoMorePartitions(),
                         false),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
                         optimizerConfig.isAdaptivePartialAggregationEnabled(),
                         false),
-                longProperty(
-                        ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS,
-                        "Minimum number of processed rows before partial aggregation might be adaptively turned off",
-                        optimizerConfig.getAdaptivePartialAggregationMinRows(),
-                        false),
                 doubleProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD,
                         "Ratio between aggregation output and input rows above which partial aggregation might be adaptively turned off",
                         optimizerConfig.getAdaptivePartialAggregationUniqueRowsRatioThreshold(),
+                        false),
+                booleanProperty(
+                        REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED,
+                        "Experimental: Enable adaptive adjustment for size of remote task update request",
+                        queryManagerConfig.isEnabledAdaptiveTaskRequestSize(),
+                        false),
+                dataSizeProperty(
+                        REMOTE_TASK_MAX_REQUEST_SIZE,
+                        "Experimental: Max size of remote task update request",
+                        queryManagerConfig.getMaxRemoteTaskRequestSize(),
+                        false),
+                dataSizeProperty(
+                        REMOTE_TASK_REQUEST_SIZE_HEADROOM,
+                        "Experimental: Headroom for size of remote task update request",
+                        queryManagerConfig.getRemoteTaskRequestSizeHeadroom(),
+                        false),
+                integerProperty(
+                        REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST,
+                        "Guaranteed splits per remote task request",
+                        queryManagerConfig.getRemoteTaskGuaranteedSplitPerTask(),
                         false),
                 longProperty(
                         JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT,
@@ -826,16 +1023,41 @@ public final class SystemSessionProperties
                         optimizerConfig.getJoinPartitionedBuildMinRowCount(),
                         value -> validateNonNegativeLongValue(value, JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT),
                         false),
+                dataSizeProperty(
+                        MIN_INPUT_SIZE_PER_TASK,
+                        "Minimum input data size required per task. This will help optimizer determine hash partition count for joins and aggregations",
+                        optimizerConfig.getMinInputSizePerTask(),
+                        false),
+                longProperty(
+                        MIN_INPUT_ROWS_PER_TASK,
+                        "Minimum input rows required per task. This will help optimizer determine hash partition count for joins and aggregations",
+                        optimizerConfig.getMinInputRowsPerTask(),
+                        value -> validateNonNegativeLongValue(value, MIN_INPUT_ROWS_PER_TASK),
+                        false),
                 booleanProperty(
                         USE_EXACT_PARTITIONING,
                         "When enabled this forces data repartitioning unless the partitioning of upstream stage matches exactly what downstream stage expects",
                         optimizerConfig.isUseExactPartitioning(),
                         false),
                 booleanProperty(
+                        USE_COST_BASED_PARTITIONING,
+                        "When enabled the cost based optimizer is used to determine if repartitioning the output of an already partitioned stage is necessary",
+                        optimizerConfig.isUseCostBasedPartitioning(),
+                        false),
+                booleanProperty(
                         FORCE_SPILLING_JOIN,
                         "Force the usage of spliing join operator in favor of the non-spilling one, even if spill is not enabled",
                         featuresConfig.isForceSpillingJoin(),
-                        false));
+                        false),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED,
+                        "Force preferred write partitioning for fault tolerant execution",
+                        queryManagerConfig.isFaultTolerantExecutionForcePreferredWritePartitioningEnabled(),
+                        true),
+                integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
+                        "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
+                        taskManagerConfig.getPagePartitioningBufferPoolSize(),
+                        true));
     }
 
     @Override
@@ -869,14 +1091,24 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, Double.class);
     }
 
-    public static boolean isDistributedIndexJoinEnabled(Session session)
+    public static boolean isDeterminePartitionCountForWriteEnabled(Session session)
     {
-        return session.getSystemProperty(DISTRIBUTED_INDEX_JOIN, Boolean.class);
+        return session.getSystemProperty(DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED, Boolean.class);
     }
 
-    public static int getHashPartitionCount(Session session)
+    public static int getMaxHashPartitionCount(Session session)
     {
-        return session.getSystemProperty(HASH_PARTITION_COUNT, Integer.class);
+        return session.getSystemProperty(MAX_HASH_PARTITION_COUNT, Integer.class);
+    }
+
+    public static int getMinHashPartitionCount(Session session)
+    {
+        return session.getSystemProperty(MIN_HASH_PARTITION_COUNT, Integer.class);
+    }
+
+    public static int getMinHashPartitionCountForWrite(Session session)
+    {
+        return session.getSystemProperty(MIN_HASH_PARTITION_COUNT_FOR_WRITE, Integer.class);
     }
 
     public static boolean preferStreamingOperators(Session session)
@@ -889,6 +1121,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(TASK_WRITER_COUNT, Integer.class);
     }
 
+    public static int getTaskPartitionedWriterCount(Session session)
+    {
+        return session.getSystemProperty(TASK_PARTITIONED_WRITER_COUNT, Integer.class);
+    }
+
     public static boolean isRedistributeWrites(Session session)
     {
         return session.getSystemProperty(REDISTRIBUTE_WRITES, Boolean.class);
@@ -899,19 +1136,34 @@ public final class SystemSessionProperties
         return session.getSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, Boolean.class);
     }
 
-    public static int getPreferredWritePartitioningMinNumberOfPartitions(Session session)
-    {
-        return session.getSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, Integer.class);
-    }
-
     public static boolean isScaleWriters(Session session)
     {
         return session.getSystemProperty(SCALE_WRITERS, Boolean.class);
     }
 
-    public static DataSize getWriterMinSize(Session session)
+    public static boolean isTaskScaleWritersEnabled(Session session)
     {
-        return session.getSystemProperty(WRITER_MIN_SIZE, DataSize.class);
+        return session.getSystemProperty(TASK_SCALE_WRITERS_ENABLED, Boolean.class);
+    }
+
+    public static int getTaskScaleWritersMaxWriterCount(Session session)
+    {
+        return session.getSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, Integer.class);
+    }
+
+    public static int getMaxWriterTaskCount(Session session)
+    {
+        return session.getSystemProperty(MAX_WRITER_TASKS_COUNT, Integer.class);
+    }
+
+    public static DataSize getWriterScalingMinDataProcessed(Session session)
+    {
+        return session.getSystemProperty(WRITER_SCALING_MIN_DATA_PROCESSED, DataSize.class);
+    }
+
+    public static DataSize getSkewedPartitionMinDataProcessedRebalanceThreshold(Session session)
+    {
+        return session.getSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, DataSize.class);
     }
 
     public static boolean isPushTableWriteThroughUnion(Session session)
@@ -1108,9 +1360,21 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
     }
 
-    public static boolean useMarkDistinct(Session session)
+    public static MarkDistinctStrategy markDistinctStrategy(Session session)
     {
-        return session.getSystemProperty(USE_MARK_DISTINCT, Boolean.class);
+        MarkDistinctStrategy markDistinctStrategy = session.getSystemProperty(MARK_DISTINCT_STRATEGY, MarkDistinctStrategy.class);
+        if (markDistinctStrategy != null) {
+            // mark_distinct_strategy is set, so it takes precedence over use_mark_distinct
+            return markDistinctStrategy;
+        }
+
+        Boolean useMarkDistinct = session.getSystemProperty(USE_MARK_DISTINCT, Boolean.class);
+        if (useMarkDistinct == null) {
+            // both mark_distinct_strategy and use_mark_distinct have default null values, use AUTOMATIC
+            return MarkDistinctStrategy.AUTOMATIC;
+        }
+        // use_mark_distinct is set but mark_distinct_strategy is not, map use_mark_distinct to mark_distinct_strategy
+        return useMarkDistinct ? MarkDistinctStrategy.AUTOMATIC : MarkDistinctStrategy.NONE;
     }
 
     public static boolean preferPartialAggregation(Session session)
@@ -1155,7 +1419,7 @@ public final class SystemSessionProperties
 
     private static void validateHideInaccessibleColumns(boolean value, boolean defaultValue)
     {
-        if (defaultValue == true && value == false) {
+        if (defaultValue && !value) {
             throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot be disabled with session property when it was enabled with configuration", HIDE_INACCESSIBLE_COLUMNS));
         }
     }
@@ -1186,6 +1450,11 @@ public final class SystemSessionProperties
 
     private static Integer validateIntegerValue(Object value, String property, int lowerBoundIncluded, boolean allowNull)
     {
+        return validateIntegerValue(value, property, lowerBoundIncluded, Integer.MAX_VALUE, allowNull);
+    }
+
+    private static Integer validateIntegerValue(Object value, String property, int lowerBoundIncluded, int upperBoundIncluded, boolean allowNull)
+    {
         if (value == null && !allowNull) {
             throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be non-null", property));
         }
@@ -1198,6 +1467,10 @@ public final class SystemSessionProperties
         if (intValue < lowerBoundIncluded) {
             throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than %s", property, lowerBoundIncluded));
         }
+        if (intValue > upperBoundIncluded) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be equal or less than %s", property, upperBoundIncluded));
+        }
+
         return intValue;
     }
 
@@ -1384,14 +1657,14 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_RETRY_ATTEMPTS, Integer.class);
     }
 
-    public static int getTaskRetryAttemptsOverall(Session session)
-    {
-        return session.getSystemProperty(TASK_RETRY_ATTEMPTS_OVERALL, Integer.class);
-    }
-
     public static int getTaskRetryAttemptsPerTask(Session session)
     {
         return session.getSystemProperty(TASK_RETRY_ATTEMPTS_PER_TASK, Integer.class);
+    }
+
+    public static int getMaxTasksWaitingForExecutionPerQuery(Session session)
+    {
+        return session.getSystemProperty(MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY, Integer.class);
     }
 
     public static int getMaxTasksWaitingForNodePerStage(Session session)
@@ -1414,29 +1687,95 @@ public final class SystemSessionProperties
         return session.getSystemProperty(RETRY_DELAY_SCALE_FACTOR, Double.class);
     }
 
+    @Deprecated
+    public static boolean isLegacyMaterializedViewGracePeriod(Session session)
+    {
+        return session.getSystemProperty(LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, Boolean.class);
+    }
+
     public static boolean isHideInaccessibleColumns(Session session)
     {
         return session.getSystemProperty(HIDE_INACCESSIBLE_COLUMNS, Boolean.class);
     }
 
-    public static DataSize getFaultTolerantExecutionTargetTaskInputSize(Session session)
+    public static int getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod(Session session)
     {
-        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE, DataSize.class);
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_PERIOD, Integer.class);
     }
 
-    public static int getFaultTolerantExecutionMinTaskSplitCount(Session session)
+    public static double getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor(Session session)
     {
-        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_TASK_SPLIT_COUNT, Integer.class);
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_FACTOR, Double.class);
     }
 
-    public static int getFaultTolerantExecutionTargetTaskSplitCount(Session session)
+    public static DataSize getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin(Session session)
     {
-        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT, Integer.class);
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MIN, DataSize.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MAX, DataSize.class);
+    }
+
+    public static int getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_GROWTH_PERIOD, Integer.class);
+    }
+
+    public static double getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_GROWTH_FACTOR, Double.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MIN, DataSize.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MAX, DataSize.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionHashDistributionComputeTaskTargetSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE, DataSize.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionHashDistributionWriteTaskTargetSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE, DataSize.class);
+    }
+
+    public static int getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_MAX_COUNT, Integer.class);
+    }
+
+    public static double getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TO_NODE_MIN_RATIO, Double.class);
+    }
+
+    public static double getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TO_NODE_MIN_RATIO, Double.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionStandardSplitSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE, DataSize.class);
     }
 
     public static int getFaultTolerantExecutionMaxTaskSplitCount(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT, Integer.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionDefaultCoordinatorTaskMemory(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY, DataSize.class);
     }
 
     public static DataSize getFaultTolerantExecutionDefaultTaskMemory(Session session)
@@ -1454,14 +1793,44 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE, Double.class);
     }
 
-    public static boolean getFaultTolerantPreserveInputPartitionsInWriteStage(Session session)
+    public static int getFaultTolerantExecutionMaxPartitionCount(Session session)
     {
-        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_PRESERVE_INPUT_PARTITIONS_IN_WRITE_STAGE, Boolean.class);
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, Integer.class);
     }
 
-    public static int getFaultTolerantExecutionPartitionCount(Session session)
+    public static int getFaultTolerantExecutionMinPartitionCount(Session session)
     {
-        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_PARTITION_COUNT, Integer.class);
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, Integer.class);
+    }
+
+    public static int getFaultTolerantExecutionMinPartitionCountForWrite(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, Integer.class);
+    }
+
+    public static double getFaultTolerantExecutionMinSourceStageProgress(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS, Double.class);
+    }
+
+    public static boolean isFaultTolerantExecutionSmallStageEstimationEnabled(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionSmallStageEstimationThreshold(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_THRESHOLD, DataSize.class);
+    }
+
+    public static double getFaultTolerantExecutionSmallStageSourceSizeMultiplier(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER, Double.class);
+    }
+
+    public static boolean isFaultTolerantExecutionSmallStageRequireNoMorePartitions(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS, Boolean.class);
     }
 
     public static boolean isAdaptivePartialAggregationEnabled(Session session)
@@ -1469,14 +1838,29 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
     }
 
-    public static long getAdaptivePartialAggregationMinRows(Session session)
-    {
-        return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS, Long.class);
-    }
-
     public static double getAdaptivePartialAggregationUniqueRowsRatioThreshold(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static boolean isRemoteTaskAdaptiveUpdateRequestSizeEnabled(Session session)
+    {
+        return session.getSystemProperty(REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getMaxRemoteTaskRequestSize(Session session)
+    {
+        return session.getSystemProperty(REMOTE_TASK_MAX_REQUEST_SIZE, DataSize.class);
+    }
+
+    public static DataSize getRemoteTaskRequestSizeHeadroom(Session session)
+    {
+        return session.getSystemProperty(REMOTE_TASK_REQUEST_SIZE_HEADROOM, DataSize.class);
+    }
+
+    public static int getRemoteTaskGuaranteedSplitsPerRequest(Session session)
+    {
+        return session.getSystemProperty(REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST, Integer.class);
     }
 
     public static long getJoinPartitionedBuildMinRowCount(Session session)
@@ -1484,13 +1868,38 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT, Long.class);
     }
 
+    public static DataSize getMinInputSizePerTask(Session session)
+    {
+        return session.getSystemProperty(MIN_INPUT_SIZE_PER_TASK, DataSize.class);
+    }
+
+    public static long getMinInputRowsPerTask(Session session)
+    {
+        return session.getSystemProperty(MIN_INPUT_ROWS_PER_TASK, Long.class);
+    }
+
     public static boolean isUseExactPartitioning(Session session)
     {
         return session.getSystemProperty(USE_EXACT_PARTITIONING, Boolean.class);
     }
 
+    public static boolean isUseCostBasedPartitioning(Session session)
+    {
+        return session.getSystemProperty(USE_COST_BASED_PARTITIONING, Boolean.class);
+    }
+
     public static boolean isForceSpillingOperator(Session session)
     {
         return session.getSystemProperty(FORCE_SPILLING_JOIN, Boolean.class);
+    }
+
+    public static boolean isFaultTolerantExecutionForcePreferredWritePartitioningEnabled(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED, Boolean.class);
+    }
+
+    public static int getPagePartitioningBufferPoolSize(Session session)
+    {
+        return session.getSystemProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE, Integer.class);
     }
 }

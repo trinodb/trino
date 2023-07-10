@@ -71,6 +71,7 @@
  round | double | double, integer | scalar | true | Round to given number of decimal places |
  row_number | bigint | | window | true | |
  sin | double | double | scalar | true | Sine |
+ sinh | double | double | scalar | true | Hyperbolic sine |
  sqrt | double | double | scalar | true | Square root |
  stddev | double | bigint | aggregate | true | Returns the sample standard deviation of the argument |
  stddev | double | double | aggregate | true | Returns the sample standard deviation of the argument |

@@ -56,7 +56,6 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -76,6 +75,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static io.trino.orc.OrcWriteValidation.OrcWriteValidationMode.DETAILED;
 import static io.trino.orc.OrcWriteValidation.OrcWriteValidationMode.HASHED;
@@ -101,6 +101,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
@@ -472,7 +473,7 @@ public class OrcWriteValidation
 
         private WriteChecksumBuilder(List<Type> types)
         {
-            this.validationHashes = requireNonNull(types, "types is null").stream()
+            this.validationHashes = types.stream()
                     .map(ValidationHash::createValidationHash)
                     .collect(toImmutableList());
 
@@ -622,7 +623,7 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (VARBINARY.equals(type)) {
+            else if (VARBINARY.equals(type) || UUID.equals(type)) {
                 statisticsBuilder = new BinaryStatisticsBuilder();
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
@@ -652,8 +653,7 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (type instanceof DecimalType) {
-                DecimalType decimalType = (DecimalType) type;
+            else if (type instanceof DecimalType decimalType) {
                 if (decimalType.isShort()) {
                     statisticsBuilder = new ShortDecimalStatisticsBuilder((decimalType).getScale());
                 }
@@ -758,7 +758,7 @@ public class OrcWriteValidation
 
     private static class RowGroupStatistics
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowGroupStatistics.class).instanceSize();
+        private static final int INSTANCE_SIZE = instanceSize(RowGroupStatistics.class);
 
         private final OrcWriteValidationMode validationMode;
         private final SortedMap<OrcColumnId, ColumnStatistics> columnStatistics;
@@ -817,7 +817,7 @@ public class OrcWriteValidation
 
     public static class OrcWriteValidationBuilder
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriteValidationBuilder.class).instanceSize();
+        private static final int INSTANCE_SIZE = instanceSize(OrcWriteValidationBuilder.class);
 
         private final OrcWriteValidationMode validationMode;
 

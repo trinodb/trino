@@ -40,7 +40,7 @@ public final class ObjectIdFunctions
     private ObjectIdFunctions() {}
 
     @Description("Mongodb ObjectId")
-    @ScalarFunction
+    @ScalarFunction(deterministic = false)
     @SqlType("ObjectId")
     public static Slice objectid()
     {

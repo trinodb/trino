@@ -15,6 +15,7 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.DockerContainer;
@@ -24,12 +25,10 @@ import io.trino.tests.product.launcher.env.common.Kafka;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
-import javax.inject.Inject;
-
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -62,9 +61,9 @@ public final class EnvMultinodeKafka
         container
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("kafka_schema_registry.properties")),
-                        CONTAINER_PRESTO_ETC + "/catalog/kafka_schema_registry.properties")
+                        CONTAINER_TRINO_ETC + "/catalog/kafka_schema_registry.properties")
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("kafka.properties")),
-                        CONTAINER_PRESTO_ETC + "/catalog/kafka.properties");
+                        CONTAINER_TRINO_ETC + "/catalog/kafka.properties");
     }
 }

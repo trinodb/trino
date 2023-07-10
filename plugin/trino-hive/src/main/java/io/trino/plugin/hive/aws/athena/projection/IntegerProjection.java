@@ -54,7 +54,7 @@ public class IntegerProjection
             int currentValue = current;
             String currentValueFormatted = digits
                     .map(digits -> String.format("%0" + digits + "d", currentValue))
-                    .orElse(Integer.toString(current));
+                    .orElseGet(() -> Integer.toString(currentValue));
             if (isValueInDomain(partitionValueFilter, current, currentValueFormatted)) {
                 builder.add(currentValueFormatted);
             }

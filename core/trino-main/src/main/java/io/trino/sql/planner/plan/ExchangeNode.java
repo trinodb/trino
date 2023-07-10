@@ -17,14 +17,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
@@ -105,6 +104,8 @@ public class ExchangeNode
             checkArgument(scope != REMOTE || partitioningHandle.equals(SINGLE_DISTRIBUTION), "remote merging exchange requires single distribution");
             checkArgument(scope != LOCAL || partitioningHandle.equals(FIXED_PASSTHROUGH_DISTRIBUTION), "local merging exchange requires passthrough distribution");
             checkArgument(partitioningScheme.getOutputLayout().containsAll(ordering.getOrderBy()), "Partitioning scheme does not supply all required ordering symbols");
+            checkArgument(type == Type.GATHER, "Merging exchange must be of GATHER type");
+            checkArgument(inputs.size() == 1, "Merging exchange must have single input");
         });
         this.type = type;
         this.sources = sources;
@@ -130,6 +131,7 @@ public class ExchangeNode
                         child.getOutputSymbols(),
                         hashColumns,
                         replicateNullsAndAny,
+                        Optional.empty(),
                         Optional.empty()));
     }
 

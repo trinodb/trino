@@ -23,8 +23,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.Collections;
@@ -157,8 +156,8 @@ public class OAuth2Config
         return groupsField;
     }
 
-    @Config("http-server.authentication.oauth2.groups-field")
-    @ConfigDescription("Groups field in the claim")
+    @Config("deprecated.http-server.authentication.oauth2.groups-field")
+    @ConfigDescription("Groups field in the claim. This configuration is scheduled for removal.")
     public OAuth2Config setGroupsField(String groupsField)
     {
         this.groupsField = Optional.ofNullable(groupsField);

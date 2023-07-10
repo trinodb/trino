@@ -20,8 +20,10 @@ from sphinx.errors import SphinxError
 GROUP_ID = 'io.trino'
 ARTIFACTS = {
     'server': ('trino-server', 'tar.gz', None),
+    'server-rpm': ('trino-server-rpm', 'rpm', None),
     'cli': ('trino-cli', 'jar', 'executable'),
     'jdbc': ('trino-jdbc', 'jar', None),
+
 }
 
 

@@ -14,13 +14,12 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimestampWithTimeZoneType;
-
-import javax.inject.Inject;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -30,15 +29,24 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode.INCREMENTAL;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
 public class DeltaLakeAnalyzeProperties
 {
+    enum AnalyzeMode
+    {
+        INCREMENTAL,
+        FULL_REFRESH,
+    }
+
     public static final String FILES_MODIFIED_AFTER = "files_modified_after";
     public static final String COLUMNS_PROPERTY = "columns";
+    public static final String MODE_PROPERTY = "mode";
 
     private final List<PropertyMetadata<?>> analyzeProperties;
 
@@ -63,7 +71,13 @@ public class DeltaLakeAnalyzeProperties
                         null,
                         false,
                         DeltaLakeAnalyzeProperties::decodeColumnNames,
-                        value -> value));
+                        value -> value),
+                enumProperty(
+                        MODE_PROPERTY,
+                        "Analyze mode",
+                        AnalyzeMode.class,
+                        INCREMENTAL,
+                        false));
     }
 
     public List<PropertyMetadata<?>> getAnalyzeProperties()
@@ -74,6 +88,11 @@ public class DeltaLakeAnalyzeProperties
     public static Optional<Instant> getFilesModifiedAfterProperty(Map<String, Object> properties)
     {
         return Optional.ofNullable((Instant) properties.get(FILES_MODIFIED_AFTER));
+    }
+
+    public static AnalyzeMode getRefreshMode(Map<String, Object> properties)
+    {
+        return (AnalyzeMode) properties.get(MODE_PROPERTY);
     }
 
     public static Optional<Set<String>> getColumnNames(Map<String, Object> properties)

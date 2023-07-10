@@ -21,8 +21,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
-
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import java.util.Map;
 import java.util.Optional;
@@ -41,7 +40,7 @@ import static org.apache.kafka.common.config.SslConfigs.SSL_TRUSTSTORE_TYPE_CONF
 import static org.apache.kafka.common.security.auth.SecurityProtocol.SSL;
 
 /**
- *  {@KafkaSslConfig} manages Kafka SSL authentication and encryption between clients and brokers.
+ *  Manages Kafka SSL authentication and encryption between clients and brokers.
  */
 public class KafkaSslConfig
 {

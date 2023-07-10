@@ -13,27 +13,27 @@
  */
 package io.trino.tests.product.mysql;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.MYSQL;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onMySql;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCreateTableAsSelect
         extends ProductTest
 {
     private static final String TABLE_NAME = "test.nation_tmp";
 
-    @BeforeTestWithContext
-    @AfterTestWithContext
+    @BeforeMethodWithContext
+    @AfterMethodWithContext
     public void dropTestTable()
     {
         onMySql().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));

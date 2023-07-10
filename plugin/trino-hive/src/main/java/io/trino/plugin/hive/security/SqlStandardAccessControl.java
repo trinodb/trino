@@ -15,6 +15,7 @@ package io.trino.plugin.hive.security;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HivePrincipal;
@@ -27,13 +28,12 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -55,8 +55,8 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isRoleEn
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableRoles;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
+import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
@@ -75,6 +75,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteFunction;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
+import static io.trino.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
@@ -103,6 +104,8 @@ import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -112,7 +115,6 @@ public class SqlStandardAccessControl
     public static final String ADMIN_ROLE_NAME = "admin";
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
     private static final SchemaTableName ROLES = new SchemaTableName(INFORMATION_SCHEMA_NAME, "roles");
-    private static final SchemaTableName ROLE_AUHTORIZATION_DESCRIPTORS = new SchemaTableName(INFORMATION_SCHEMA_NAME, "role_authorization_descriptors");
 
     private final String catalogName;
     private final SqlStandardAccessControlMetastore metastore;
@@ -122,12 +124,12 @@ public class SqlStandardAccessControl
             CatalogName catalogName,
             SqlStandardAccessControlMetastore metastore)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null").toString();
+        this.catalogName = catalogName.toString();
         this.metastore = requireNonNull(metastore, "metastore is null");
     }
 
     @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
+    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
     {
         if (!isAdmin(context)) {
             denyCreateSchema(schemaName);
@@ -153,7 +155,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, TrinoPrincipal principal)
     {
-        if (!isDatabaseOwner(context, schemaName)) {
+        if (!isAdmin(context)) {
             denySetSchemaAuthorization(schemaName, principal);
         }
     }
@@ -295,9 +297,17 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
+    public void checkCanAlterColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         if (!isTableOwner(context, tableName)) {
+            denyAlterColumn(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
+    {
+        if (!isAdmin(context)) {
             denySetTableAuthorization(tableName.toString(), principal);
         }
     }
@@ -362,7 +372,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
     {
-        if (!isTableOwner(context, viewName)) {
+        if (!isAdmin(context)) {
             denySetViewAuthorization(viewName.toString(), principal);
         }
     }
@@ -416,6 +426,24 @@ public class SqlStandardAccessControl
         if (!isTableOwner(context, viewName)) {
             denyRenameMaterializedView(viewName.toString(), newViewName.toString());
         }
+    }
+
+    @Override
+    public void checkCanGrantExecuteFunctionPrivilege(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName functionName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        switch (functionKind) {
+            case SCALAR, AGGREGATE, WINDOW -> {
+                return;
+            }
+            case TABLE -> {
+                if (isAdmin(context)) {
+                    return;
+                }
+                String granteeAsString = format("%s '%s'", grantee.getType().name().toLowerCase(ENGLISH), grantee.getName());
+                denyGrantExecuteFunctionPrivilege(functionName.toString(), Identity.ofUser(context.getIdentity().getUser()), granteeAsString);
+            }
+        }
+        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
 
     @Override
@@ -584,15 +612,28 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanExecuteFunction(ConnectorSecurityContext context, FunctionKind functionKind, SchemaRoutineName function)
     {
-        if (functionKind == TABLE && !isAdmin(context)) {
-            denyExecuteFunction(function.toString());
+        switch (functionKind) {
+            case SCALAR, AGGREGATE, WINDOW:
+                return;
+            case TABLE:
+                if (isAdmin(context)) {
+                    return;
+                }
+                denyExecuteFunction(function.toString());
         }
+        throw new UnsupportedOperationException("Unsupported function kind: " + functionKind);
     }
 
     @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        return Optional.empty();
     }
 
     @Override
@@ -652,7 +693,7 @@ public class SqlStandardAccessControl
             return true;
         }
 
-        if (tableName.equals(ROLES) || tableName.equals(ROLE_AUHTORIZATION_DESCRIPTORS)) {
+        if (tableName.equals(ROLES)) {
             return false;
         }
 

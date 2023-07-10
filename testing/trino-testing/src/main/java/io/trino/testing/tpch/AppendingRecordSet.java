@@ -100,9 +100,7 @@ class AppendingRecordSet
             if (field < delegateFieldCount) {
                 return delegate.getType(field);
             }
-            else {
-                return appendedTypes.get(field - delegateFieldCount);
-            }
+            return appendedTypes.get(field - delegateFieldCount);
         }
 
         @Override
@@ -118,9 +116,7 @@ class AppendingRecordSet
             if (field < delegateFieldCount) {
                 return delegate.getBoolean(field);
             }
-            else {
-                return (Boolean) appendedValues.get(field - delegateFieldCount);
-            }
+            return (Boolean) appendedValues.get(field - delegateFieldCount);
         }
 
         @Override
@@ -130,9 +126,7 @@ class AppendingRecordSet
             if (field < delegateFieldCount) {
                 return delegate.getLong(field);
             }
-            else {
-                return (Long) appendedValues.get(field - delegateFieldCount);
-            }
+            return (Long) appendedValues.get(field - delegateFieldCount);
         }
 
         @Override
@@ -142,9 +136,7 @@ class AppendingRecordSet
             if (field < delegateFieldCount) {
                 return delegate.getDouble(field);
             }
-            else {
-                return (Double) appendedValues.get(field - delegateFieldCount);
-            }
+            return (Double) appendedValues.get(field - delegateFieldCount);
         }
 
         @Override
@@ -154,9 +146,7 @@ class AppendingRecordSet
             if (field < delegateFieldCount) {
                 return delegate.getSlice(field);
             }
-            else {
-                return (Slice) appendedValues.get(field - delegateFieldCount);
-            }
+            return (Slice) appendedValues.get(field - delegateFieldCount);
         }
 
         @Override
@@ -172,9 +162,7 @@ class AppendingRecordSet
             if (field < delegateFieldCount) {
                 return delegate.isNull(field);
             }
-            else {
-                return appendedValues.get(field - delegateFieldCount) == null;
-            }
+            return appendedValues.get(field - delegateFieldCount) == null;
         }
 
         @Override

@@ -14,21 +14,19 @@
 package io.trino.tests.product.iceberg;
 
 import io.trino.tempto.ProductTest;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests compatibility between Iceberg connector and Spark Iceberg.
@@ -44,7 +42,7 @@ public class TestIcebergOptimize
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testOptimizeTableAfterDelete()
     {
-        String baseTableName = "test_optimize_with_small_split_size_" + randomTableSuffix();
+        String baseTableName = "test_optimize_with_small_split_size_" + randomNameSuffix();
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
         onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
@@ -80,7 +78,7 @@ public class TestIcebergOptimize
         onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE OPTIMIZE");
 
         List<String> updatedFiles = getActiveFiles(TRINO_CATALOG, TEST_SCHEMA_NAME, baseTableName);
-        Assertions.assertThat(updatedFiles)
+        assertThat(updatedFiles)
                 .hasSize(1)
                 .isNotEqualTo(initialFiles);
 
@@ -103,7 +101,8 @@ public class TestIcebergOptimize
 
     private long getCurrentSnapshotId(String catalog, String schema, String tableName)
     {
-        return (long) getOnlyElement(getOnlyElement(onTrino().executeQuery(format("SELECT snapshot_id FROM %s.%s.\"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", catalog, schema, tableName)).rows()));
+        return (long) onTrino().executeQuery(format("SELECT snapshot_id FROM %s.%s.\"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", catalog, schema, tableName))
+                .getOnlyValue();
     }
 
     private static String sparkTableName(String tableName)

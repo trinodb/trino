@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.common.math.DoubleMath;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreApiStats;
+import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 
 import java.math.RoundingMode;
@@ -51,14 +51,14 @@ public enum GlueMetastoreMethod
     UPDATE_TABLE(GlueMetastoreStats::getUpdateTable),
     /**/;
 
-    private final Function<GlueMetastoreStats, GlueMetastoreApiStats> extractor;
+    private final Function<GlueMetastoreStats, AwsApiCallStats> extractor;
 
-    GlueMetastoreMethod(Function<GlueMetastoreStats, GlueMetastoreApiStats> extractor)
+    GlueMetastoreMethod(Function<GlueMetastoreStats, AwsApiCallStats> extractor)
     {
         this.extractor = requireNonNull(extractor, "extractor is null");
     }
 
-    public GlueMetastoreApiStats getStatFrom(GlueMetastoreStats stats)
+    public AwsApiCallStats getStatFrom(GlueMetastoreStats stats)
     {
         return this.extractor.apply(stats);
     }

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.parquet.Field;
 import io.trino.parquet.GroupField;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.RichColumnDescriptor;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -54,8 +53,7 @@ public final class IcebergParquetColumnIOConverter
         int repetitionLevel = columnRepetitionLevel(columnIO);
         int definitionLevel = columnDefinitionLevel(columnIO);
         Type type = context.getType();
-        if (type instanceof RowType) {
-            RowType rowType = (RowType) type;
+        if (type instanceof RowType rowType) {
             List<ColumnIdentity> subColumns = context.getColumnIdentity().getChildren();
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
@@ -73,8 +71,7 @@ public final class IcebergParquetColumnIOConverter
             }
             return Optional.empty();
         }
-        if (type instanceof MapType) {
-            MapType mapType = (MapType) type;
+        if (type instanceof MapType mapType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
             if (keyValueColumnIO.getChildrenCount() != 2) {
@@ -90,8 +87,7 @@ public final class IcebergParquetColumnIOConverter
             Optional<Field> valueField = constructField(new FieldContext(mapType.getValueType(), valueIdentity), keyValueColumnIO.getChild(1));
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
         }
-        if (type instanceof ArrayType) {
-            ArrayType arrayType = (ArrayType) type;
+        if (type instanceof ArrayType arrayType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             if (groupColumnIO.getChildrenCount() != 1) {
                 return Optional.empty();
@@ -104,8 +100,7 @@ public final class IcebergParquetColumnIOConverter
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
-        RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-        return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
+        return Optional.of(new PrimitiveField(type, required, primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getId()));
     }
 
     public static class FieldContext

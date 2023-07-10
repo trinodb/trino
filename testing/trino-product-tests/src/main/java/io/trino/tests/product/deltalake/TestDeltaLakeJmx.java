@@ -14,27 +14,31 @@
 package io.trino.tests.product.deltalake;
 
 import io.trino.tempto.ProductTest;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeJmx
         extends ProductTest
 {
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testJmxTablesExposedByDeltaLakeConnectorBackedByGlueMetastore()
     {
         assertThat(onTrino().executeQuery("SHOW TABLES IN jmx.current LIKE '%name=delta%'")).containsOnly(
+                row("io.trino.hdfs:name=delta,type=trinohdfsfilesystemstats"),
                 row("io.trino.plugin.hive.metastore.cache:name=delta,type=cachinghivemetastore"),
                 row("io.trino.plugin.hive.metastore.glue:name=delta,type=gluehivemetastore"),
-                row("io.trino.plugin.hive.s3:name=delta,type=trinos3filesystem"),
+                row("io.trino.hdfs.s3:name=delta,type=trinos3filesystem"),
                 row("io.trino.plugin.hive:catalog=delta,name=delta,type=fileformatdatasourcestats"),
-                row("io.trino.plugin.hive:name=delta,type=namenodestats"),
                 row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=transactionlogaccess"));
     }
 
@@ -42,11 +46,11 @@ public class TestDeltaLakeJmx
     public void testJmxTablesExposedByDeltaLakeConnectorBackedByThriftMetastore()
     {
         assertThat(onTrino().executeQuery("SHOW TABLES IN jmx.current LIKE '%name=delta%'")).containsOnly(
+                row("io.trino.hdfs:name=delta,type=trinohdfsfilesystemstats"),
                 row("io.trino.plugin.hive.metastore.cache:name=delta,type=cachinghivemetastore"),
                 row("io.trino.plugin.hive.metastore.thrift:name=delta,type=thrifthivemetastore"),
-                row("io.trino.plugin.hive.s3:name=delta,type=trinos3filesystem"),
+                row("io.trino.hdfs.s3:name=delta,type=trinos3filesystem"),
                 row("io.trino.plugin.hive:catalog=delta,name=delta,type=fileformatdatasourcestats"),
-                row("io.trino.plugin.hive:name=delta,type=namenodestats"),
                 row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=transactionlogaccess"));
     }
 }

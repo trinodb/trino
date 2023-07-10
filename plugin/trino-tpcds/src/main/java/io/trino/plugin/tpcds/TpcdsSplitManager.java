@@ -14,6 +14,7 @@
 package io.trino.plugin.tpcds;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorSession;
@@ -29,9 +30,10 @@ import io.trino.spi.connector.FixedSplitSource;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.tpcds.TpcdsSessionProperties.getSplitsPerNode;
+import static io.trino.plugin.tpcds.TpcdsSessionProperties.isWithNoSexism;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
@@ -39,17 +41,11 @@ public class TpcdsSplitManager
         implements ConnectorSplitManager
 {
     private final NodeManager nodeManager;
-    private final int splitsPerNode;
-    private final boolean noSexism;
 
-    public TpcdsSplitManager(NodeManager nodeManager, int splitsPerNode, boolean noSexism)
+    @Inject
+    public TpcdsSplitManager(NodeManager nodeManager)
     {
-        requireNonNull(nodeManager);
-        checkArgument(splitsPerNode > 0, "splitsPerNode must be at least 1");
-
-        this.nodeManager = nodeManager;
-        this.splitsPerNode = splitsPerNode;
-        this.noSexism = noSexism;
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
@@ -63,7 +59,8 @@ public class TpcdsSplitManager
         Set<Node> nodes = nodeManager.getRequiredWorkerNodes();
         checkState(!nodes.isEmpty(), "No TPCDS nodes available");
 
-        int totalParts = nodes.size() * splitsPerNode;
+        boolean noSexism = isWithNoSexism(session);
+        int splitCount = getSplitCount(session, nodes.size());
         int partNumber = 0;
 
         // sort to ensure the assignment is consistent with TpcdsNodePartitioningProvider
@@ -73,12 +70,18 @@ public class TpcdsSplitManager
 
         // Split the data using split and skew by the number of nodes available.
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        for (Node node : sortedNodes) {
-            for (int i = 0; i < splitsPerNode; i++) {
-                splits.add(new TpcdsSplit(partNumber, totalParts, ImmutableList.of(node.getHostAndPort()), noSexism));
-                partNumber++;
-            }
+        for (int i = 0; i < splitCount; i++) {
+            Node node = sortedNodes.get(i % nodes.size());
+            splits.add(new TpcdsSplit(partNumber, splitCount, ImmutableList.of(node.getHostAndPort()), noSexism));
+            partNumber++;
         }
+
         return new FixedSplitSource(splits.build());
+    }
+
+    public static int getSplitCount(ConnectorSession session, int nodeCount)
+    {
+        return TpcdsSessionProperties.getSplitCount(session)
+                .orElseGet(() -> getSplitsPerNode(session) * nodeCount);
     }
 }

@@ -123,6 +123,7 @@ public class TestingTrinoClient
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
 
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
+        private final AtomicReference<List<String>> columnNames = new AtomicReference<>();
 
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
@@ -158,6 +159,7 @@ public class TestingTrinoClient
         {
             if (types.get() == null && statusInfo.getColumns() != null) {
                 types.set(getTypes(statusInfo.getColumns()));
+                columnNames.set(getNames(statusInfo.getColumns()));
             }
 
             if (data.getData() != null) {
@@ -173,6 +175,7 @@ public class TestingTrinoClient
             return new MaterializedResult(
                     rows.build(),
                     types.get(),
+                    columnNames.get(),
                     setSessionProperties,
                     resetSessionProperties,
                     updateType.get(),
@@ -202,90 +205,112 @@ public class TestingTrinoClient
             return null;
         }
 
-        if (BOOLEAN.equals(type)) {
-            return value;
+        if (type == BOOLEAN) {
+            //noinspection RedundantCast
+            return (boolean) value;
         }
-        if (TINYINT.equals(type)) {
-            return ((Number) value).byteValue();
+        if (type == TINYINT) {
+            //noinspection RedundantCast
+            return (byte) value;
         }
-        if (SMALLINT.equals(type)) {
-            return ((Number) value).shortValue();
+        if (type == SMALLINT) {
+            //noinspection RedundantCast
+            return (short) value;
         }
-        if (INTEGER.equals(type)) {
-            return ((Number) value).intValue();
+        if (type == INTEGER) {
+            //noinspection RedundantCast
+            return (int) value;
         }
-        if (BIGINT.equals(type)) {
-            return ((Number) value).longValue();
+        if (type == BIGINT) {
+            //noinspection RedundantCast
+            return (long) value;
         }
-        if (DOUBLE.equals(type)) {
-            return ((Number) value).doubleValue();
+        if (type == REAL) {
+            //noinspection RedundantCast
+            return (float) value;
         }
-        if (REAL.equals(type)) {
-            return ((Number) value).floatValue();
+        if (type == DOUBLE) {
+            //noinspection RedundantCast
+            return (double) value;
         }
-        if (UUID.equals(type)) {
+        if (type instanceof DecimalType) {
+            return new BigDecimal((String) value);
+        }
+        if (type == UUID) {
             return java.util.UUID.fromString((String) value);
         }
-        if (IPADDRESS.equals(type)) {
-            return value;
-        }
-        if (type instanceof VarcharType) {
-            return value;
+        if (type == IPADDRESS) {
+            //noinspection RedundantCast
+            return (String) value;
         }
         if (type instanceof CharType) {
-            return value;
+            //noinspection RedundantCast
+            return (String) value;
         }
-        if (VARBINARY.equals(type)) {
-            return value;
+        if (type instanceof VarcharType) {
+            //noinspection RedundantCast
+            return (String) value;
         }
-        if (DATE.equals(type)) {
+        if (type == VARBINARY) {
+            //noinspection RedundantCast
+            return (byte[]) value;
+        }
+        if (type == DATE) {
             return DateTimeFormatter.ISO_LOCAL_DATE.parse(((String) value), LocalDate::from);
         }
-        if (type instanceof TimeType) {
-            if (((TimeType) type).getPrecision() > 9) {
+        if (type instanceof TimeType timeType) {
+            if (timeType.getPrecision() > 9) {
                 // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
+                //noinspection RedundantCast
                 return (String) value;
             }
             return DateTimeFormatter.ISO_LOCAL_TIME.parse(((String) value), LocalTime::from);
         }
-        if (type instanceof TimeWithTimeZoneType) {
-            if (((TimeWithTimeZoneType) type).getPrecision() > 9) {
+        if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType) {
+            if (timeWithTimeZoneType.getPrecision() > 9) {
                 // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
+                //noinspection RedundantCast
                 return (String) value;
             }
             return timeWithZoneOffsetFormat.parse(((String) value), OffsetTime::from);
         }
-        if (type instanceof TimestampType) {
-            if (((TimestampType) type).getPrecision() > 9) {
+        if (type instanceof TimestampType timestampType) {
+            if (timestampType.getPrecision() > 9) {
                 // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
+                //noinspection RedundantCast
                 return (String) value;
             }
             return timestampFormat.parse((String) value, LocalDateTime::from);
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            if (((TimestampWithTimeZoneType) type).getPrecision() > 9) {
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            if (timestampWithTimeZoneType.getPrecision() > 9) {
                 // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
+                //noinspection RedundantCast
                 return (String) value;
             }
             return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);
         }
-        if (INTERVAL_DAY_TIME.equals(type)) {
+        if (type == INTERVAL_DAY_TIME) {
             return new SqlIntervalDayTime(IntervalDayTime.parseMillis(String.valueOf(value)));
         }
-        if (INTERVAL_YEAR_MONTH.equals(type)) {
+        if (type == INTERVAL_YEAR_MONTH) {
             return new SqlIntervalYearMonth(IntervalYearMonth.parseMonths(String.valueOf(value)));
         }
-        if (type instanceof ArrayType) {
+        if (type == JSON) {
+            //noinspection RedundantCast
+            return (String) value;
+        }
+        if (type instanceof ArrayType arrayType) {
             return ((List<?>) value).stream()
-                    .map(element -> convertToRowValue(((ArrayType) type).getElementType(), element))
+                    .map(element -> convertToRowValue(arrayType.getElementType(), element))
                     .collect(toList());
         }
-        if (type instanceof MapType) {
+        if (type instanceof MapType mapType) {
             Map<Object, Object> result = new HashMap<>();
             ((Map<?, ?>) value)
                     .forEach((k, v) -> result.put(
-                            convertToRowValue(((MapType) type).getKeyType(), k),
-                            convertToRowValue(((MapType) type).getValueType(), v)));
+                            convertToRowValue(mapType.getKeyType(), k),
+                            convertToRowValue(mapType.getValueType(), v)));
             return result;
         }
         if (type instanceof RowType) {
@@ -295,26 +320,25 @@ public class TestingTrinoClient
                     .collect(toList()); // nullable
             return dataToRow(fieldTypes).apply(fieldValues);
         }
-        if (type instanceof DecimalType) {
-            return new BigDecimal((String) value);
-        }
         if (type.getBaseName().equals("HyperLogLog")) {
-            return value;
+            //noinspection RedundantCast
+            return (byte[]) value;
         }
         if (type.getBaseName().equals("Geometry")) {
-            return value;
+            //noinspection RedundantCast
+            return (byte[]) value;
         }
         if (type.getBaseName().equals("SphericalGeography")) {
-            return value;
+            //noinspection RedundantCast
+            return (byte[]) value;
         }
         if (type.getBaseName().equals("ObjectId")) {
-            return value;
+            //noinspection RedundantCast
+            return (byte[]) value;
         }
         if (type.getBaseName().equals("Bogus")) {
-            return value;
-        }
-        if (JSON.equals(type)) {
-            return value;
+            //noinspection RedundantCast
+            return (int) value;
         }
         throw new AssertionError("unhandled type: " + type);
     }

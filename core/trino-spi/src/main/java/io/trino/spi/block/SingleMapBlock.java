@@ -16,13 +16,13 @@ package io.trino.spi.block;
 
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -33,7 +33,7 @@ import static java.lang.String.format;
 public class SingleMapBlock
         extends AbstractSingleMapBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(SingleMapBlock.class);
 
     private final int offset;
     private final int positionCount;    // The number of keys in this single map * 2
@@ -83,7 +83,7 @@ public class SingleMapBlock
         consumer.accept(mapBlock.getRawKeyBlock(), mapBlock.getRawKeyBlock().getRetainedSizeInBytes());
         consumer.accept(mapBlock.getRawValueBlock(), mapBlock.getRawValueBlock().getRetainedSizeInBytes());
         consumer.accept(mapBlock.getHashTables(), mapBlock.getHashTables().getRetainedSizeInBytes());
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override
@@ -160,6 +160,10 @@ public class SingleMapBlock
             return -1;
         }
 
+        if (nativeValue == null) {
+            throw new TrinoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
+        }
+
         mapBlock.ensureHashTableLoaded();
         int[] hashTable = mapBlock.getHashTables().get();
 
@@ -174,15 +178,21 @@ public class SingleMapBlock
         int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
         int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
         int position = computePosition(hashCode, hashTableSize);
+        Block rawKeyBlock = mapBlock.getRawKeyBlock();
         while (true) {
             int keyPosition = hashTable[hashTableOffset + position];
             if (keyPosition == -1) {
                 return -1;
             }
+
+            int rawKeyPosition = offset / 2 + keyPosition;
+            checkKeyNotNull(rawKeyBlock, rawKeyPosition);
+
             Boolean match;
             try {
-                // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invoke(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
+                // assuming maps with indeterminate keys are not supported.
+                // the left and right values are never null because the above call check for null before the insertion
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invoke(mapBlock.getRawKeyBlock(), rawKeyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -207,6 +217,7 @@ public class SingleMapBlock
         mapBlock.ensureHashTableLoaded();
         int[] hashTable = mapBlock.getHashTables().get();
 
+        checkKeyNotNull(targetKeyBlock, targetKeyPosition);
         long hashCode;
         try {
             hashCode = (long) keyHashOperator.invoke(targetKeyBlock, targetKeyPosition);
@@ -218,15 +229,20 @@ public class SingleMapBlock
         int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
         int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
         int position = computePosition(hashCode, hashTableSize);
+        Block rawKeyBlock = mapBlock.getRawKeyBlock();
         while (true) {
             int keyPosition = hashTable[hashTableOffset + position];
             if (keyPosition == -1) {
                 return -1;
             }
+
+            int rawKeyPosition = offset / 2 + keyPosition;
+            checkKeyNotNull(rawKeyBlock, rawKeyPosition);
+
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) keyEqualOperator.invoke(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, targetKeyBlock, targetKeyPosition);
+                match = (Boolean) keyEqualOperator.invoke(rawKeyBlock, rawKeyPosition, targetKeyBlock, targetKeyPosition);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -265,15 +281,20 @@ public class SingleMapBlock
         int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
         int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
         int position = computePosition(hashCode, hashTableSize);
+        Block rawKeyBlock = mapBlock.getRawKeyBlock();
         while (true) {
             int keyPosition = hashTable[hashTableOffset + position];
             if (keyPosition == -1) {
                 return -1;
             }
+
+            int rawKeyPosition = offset / 2 + keyPosition;
+            checkKeyNotNull(rawKeyBlock, rawKeyPosition);
+
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invokeExact(rawKeyBlock, rawKeyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -309,15 +330,20 @@ public class SingleMapBlock
         int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
         int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
         int position = computePosition(hashCode, hashTableSize);
+        Block rawKeyBlock = mapBlock.getRawKeyBlock();
         while (true) {
             int keyPosition = hashTable[hashTableOffset + position];
             if (keyPosition == -1) {
                 return -1;
             }
+
+            int rawKeyPosition = offset / 2 + keyPosition;
+            checkKeyNotNull(rawKeyBlock, rawKeyPosition);
+
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invokeExact(rawKeyBlock, rawKeyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -353,15 +379,20 @@ public class SingleMapBlock
         int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
         int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
         int position = computePosition(hashCode, hashTableSize);
+        Block rawKeyBlock = mapBlock.getRawKeyBlock();
         while (true) {
             int keyPosition = hashTable[hashTableOffset + position];
             if (keyPosition == -1) {
                 return -1;
             }
+
+            int rawKeyPosition = offset / 2 + keyPosition;
+            checkKeyNotNull(rawKeyBlock, rawKeyPosition);
+
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invokeExact(rawKeyBlock, rawKeyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -383,6 +414,10 @@ public class SingleMapBlock
             return -1;
         }
 
+        if (nativeValue == null) {
+            throw new TrinoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
+        }
+
         mapBlock.ensureHashTableLoaded();
         int[] hashTable = mapBlock.getHashTables().get();
 
@@ -397,15 +432,20 @@ public class SingleMapBlock
         int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
         int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
         int position = computePosition(hashCode, hashTableSize);
+        Block rawKeyBlock = mapBlock.getRawKeyBlock();
         while (true) {
             int keyPosition = hashTable[hashTableOffset + position];
             if (keyPosition == -1) {
                 return -1;
             }
+
+            int rawKeyPosition = offset / 2 + keyPosition;
+            checkKeyNotNull(rawKeyBlock, rawKeyPosition);
+
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invokeExact(rawKeyBlock, rawKeyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -430,6 +470,13 @@ public class SingleMapBlock
             throw (TrinoException) throwable;
         }
         throw new TrinoException(GENERIC_INTERNAL_ERROR, throwable);
+    }
+
+    private static void checkKeyNotNull(Block keyBlock, int positionCount)
+    {
+        if (keyBlock.isNull(positionCount)) {
+            throw new TrinoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
+        }
     }
 
     private static void checkNotIndeterminate(Boolean equalResult)

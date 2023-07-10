@@ -24,14 +24,14 @@ import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.spi.block.DictionaryBlock.createProjectedDictionaryBlock;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryAwarePageProjection
@@ -98,7 +98,7 @@ public class DictionaryAwarePageProjection
         public DictionaryAwarePageProjectionWork(@Nullable ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
         {
             this.session = session;
-            this.block = requireNonNull(page, "page is null").getBlock(0);
+            this.block = page.getBlock(0);
             this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
             this.produceLazyBlock = DictionaryAwarePageProjection.this.produceLazyBlock && !block.isLoaded();
 
@@ -117,9 +117,7 @@ public class DictionaryAwarePageProjection
             if (produceLazyBlock) {
                 return true;
             }
-            else {
-                return processInternal();
-            }
+            return processInternal();
         }
 
         private boolean processInternal()
@@ -163,15 +161,14 @@ public class DictionaryAwarePageProjection
                 if (block instanceof RunLengthEncodedBlock) {
                     // single value block is always considered effective, but the processing could have thrown
                     // in that case we fallback and process again so the correct error message sent
-                    result = new RunLengthEncodedBlock(dictionaryOutput.get(), selectedPositions.size());
+                    result = RunLengthEncodedBlock.create(dictionaryOutput.get(), selectedPositions.size());
                     return true;
                 }
 
-                if (block instanceof DictionaryBlock) {
-                    DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
+                if (block instanceof DictionaryBlock dictionaryBlock) {
                     // if dictionary was processed, produce a dictionary block; otherwise do normal processing
                     int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
-                    result = new DictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, false, sourceIdFunction.apply(dictionaryBlock));
+                    result = createProjectedDictionaryBlock(selectedPositions.size(), dictionaryOutput.get(), outputIds, sourceIdFunction.apply(dictionaryBlock));
                     return true;
                 }
 
@@ -200,10 +197,8 @@ public class DictionaryAwarePageProjection
                     return result.getLoadedBlock();
                 });
             }
-            else {
-                checkState(result != null, "result has not been generated");
-                return result;
-            }
+            checkState(result != null, "result has not been generated");
+            return result;
         }
 
         private void setupDictionaryBlockProjection()
@@ -219,10 +214,10 @@ public class DictionaryAwarePageProjection
             }
 
             // Try use dictionary processing first; if it fails, fall back to the generic case
-            dictionaryProcessingProjectionWork = createDictionaryBlockProjection(dictionary);
+            dictionaryProcessingProjectionWork = createDictionaryBlockProjection(dictionary, block.getPositionCount());
         }
 
-        private Work<Block> createDictionaryBlockProjection(Optional<Block> dictionary)
+        private Work<Block> createDictionaryBlockProjection(Optional<Block> dictionary, int blockPositionsCount)
         {
             if (dictionary.isEmpty()) {
                 lastOutputDictionary = Optional.empty();
@@ -235,10 +230,10 @@ public class DictionaryAwarePageProjection
             }
 
             // Process dictionary if:
-            //   there is only one entry in the dictionary
+            //   dictionary positions count is not greater than block positions count
             //   this is the first block
             //   the last dictionary was used for more positions than were in the dictionary
-            boolean shouldProcessDictionary = dictionary.get().getPositionCount() == 1 || lastInputDictionary == null || lastDictionaryUsageCount >= lastInputDictionary.getPositionCount();
+            boolean shouldProcessDictionary = dictionary.get().getPositionCount() <= blockPositionsCount || lastInputDictionary == null || lastDictionaryUsageCount >= lastInputDictionary.getPositionCount();
 
             // record the usage count regardless of dictionary processing choice, so we have stats for next time
             lastDictionaryUsageCount = 0;

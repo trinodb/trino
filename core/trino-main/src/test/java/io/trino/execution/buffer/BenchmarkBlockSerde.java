@@ -18,14 +18,13 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
-import io.trino.execution.buffer.PagesSerde.PagesSerdeContext;
 import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDecimal;
@@ -48,6 +47,7 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -92,11 +92,11 @@ public class BenchmarkBlockSerde
     @Benchmark
     public Object deserializeLongDecimal(LongDecimalBenchmarkData data)
     {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+        return ImmutableList.copyOf(readPages(data.getDeserializer(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
-    public Object serializeInt96(LongTimestampBenchmarkData data)
+    public Object serializeFixed12(LongTimestampBenchmarkData data)
     {
         return serializePages(data);
     }
@@ -104,7 +104,7 @@ public class BenchmarkBlockSerde
     @Benchmark
     public Object deserializeInt96(LongTimestampBenchmarkData data)
     {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+        return ImmutableList.copyOf(readPages(data.getDeserializer(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
@@ -116,7 +116,7 @@ public class BenchmarkBlockSerde
     @Benchmark
     public Object deserializeLong(BigintBenchmarkData data)
     {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+        return ImmutableList.copyOf(readPages(data.getDeserializer(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
@@ -128,7 +128,7 @@ public class BenchmarkBlockSerde
     @Benchmark
     public Object deserializeInteger(IntegerBenchmarkData data)
     {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+        return ImmutableList.copyOf(readPages(data.getDeserializer(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
@@ -140,7 +140,7 @@ public class BenchmarkBlockSerde
     @Benchmark
     public Object deserializeShort(SmallintBenchmarkData data)
     {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+        return ImmutableList.copyOf(readPages(data.getDeserializer(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
@@ -152,7 +152,7 @@ public class BenchmarkBlockSerde
     @Benchmark
     public Object deserializeByte(TinyintBenchmarkData data)
     {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+        return ImmutableList.copyOf(readPages(data.getDeserializer(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
@@ -164,7 +164,7 @@ public class BenchmarkBlockSerde
     @Benchmark
     public Object deserializeSliceDirect(VarcharDirectBenchmarkData data)
     {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+        return ImmutableList.copyOf(readPages(data.getDeserializer(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
@@ -176,7 +176,7 @@ public class BenchmarkBlockSerde
     @Benchmark
     public Object deserializeLineitem(LineitemBenchmarkData data)
     {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+        return ImmutableList.copyOf(readPages(data.getDeserializer(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
@@ -188,14 +188,13 @@ public class BenchmarkBlockSerde
     @Benchmark
     public Object deserializeRow(RowTypeBenchmarkData data)
     {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+        return ImmutableList.copyOf(readPages(data.getDeserializer(), new BasicSliceInput(data.getDataSource())));
     }
 
     private static List<Slice> serializePages(BenchmarkData data)
     {
-        PagesSerdeContext context = new PagesSerdeContext();
         return data.getPages().stream()
-                .map(page -> data.getPagesSerde().serialize(context, page))
+                .map(page -> data.getSerializer().serialize(page))
                 .collect(toImmutableList());
     }
 
@@ -207,7 +206,9 @@ public class BenchmarkBlockSerde
 
         public void setup(Type type, Function<Random, ?> valueGenerator)
         {
-            PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false);
+            PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
+            PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
             PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
             ImmutableList.Builder<Page> pagesBuilder = ImmutableList.builder();
@@ -228,9 +229,9 @@ public class BenchmarkBlockSerde
 
             List<Page> pages = pagesBuilder.build();
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(0);
-            writePages(pagesSerde, new OutputStreamSliceOutput(sliceOutput), pages.iterator());
+            writePages(serializer, new OutputStreamSliceOutput(sliceOutput), pages.iterator());
 
-            setup(sliceOutput.slice(), pagesSerde, pages);
+            setup(sliceOutput.slice(), serializer, deserializer, pages);
         }
 
         private void writeValue(Type type, Object value, BlockBuilder blockBuilder)
@@ -241,7 +242,7 @@ public class BenchmarkBlockSerde
             else if (BIGINT.equals(type)) {
                 BIGINT.writeLong(blockBuilder, ((Number) value).longValue());
             }
-            else if (Decimals.isLongDecimal(type)) {
+            else if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
                 type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) value).toBigDecimal().unscaledValue()));
             }
             else if (type instanceof VarcharType) {
@@ -252,26 +253,29 @@ public class BenchmarkBlockSerde
                 TIMESTAMP_PICOS.writeObject(blockBuilder, value);
             }
             else if (INTEGER.equals(type)) {
-                blockBuilder.writeInt((int) value);
+                INTEGER.writeInt(blockBuilder, (int) value);
             }
             else if (SMALLINT.equals(type)) {
-                blockBuilder.writeShort((short) value);
+                SMALLINT.writeShort(blockBuilder, (short) value);
             }
             else if (TINYINT.equals(type)) {
-                blockBuilder.writeByte((byte) value);
+                TINYINT.writeByte(blockBuilder, (byte) value);
             }
             else if (type instanceof RowType) {
-                BlockBuilder row = blockBuilder.beginBlockEntry();
                 List<?> values = (List<?>) value;
                 if (values.size() != type.getTypeParameters().size()) {
                     throw new IllegalArgumentException("Size of types and values must have the same size");
                 }
-                List<SimpleEntry<Type, Object>> pairs = new ArrayList<>();
-                for (int i = 0; i < type.getTypeParameters().size(); i++) {
-                    pairs.add(new SimpleEntry<>(type.getTypeParameters().get(i), ((List<?>) value).get(i)));
-                }
-                pairs.forEach(p -> writeValue(p.getKey(), p.getValue(), row));
-                blockBuilder.closeEntry();
+                ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
+                    List<SimpleEntry<Type, Object>> pairs = new ArrayList<>();
+                    for (int i = 0; i < type.getTypeParameters().size(); i++) {
+                        pairs.add(new SimpleEntry<>(type.getTypeParameters().get(i), ((List<?>) value).get(i)));
+                    }
+                    for (int i = 0; i < pairs.size(); i++) {
+                        SimpleEntry<Type, Object> p = pairs.get(i);
+                        writeValue(p.getKey(), p.getValue(), fieldBuilders.get(i));
+                    }
+                });
             }
             else {
                 throw new IllegalArgumentException("Unsupported type " + type);
@@ -282,13 +286,15 @@ public class BenchmarkBlockSerde
     public abstract static class BenchmarkData
     {
         private Slice dataSource;
-        private PagesSerde pagesSerde;
+        private PageSerializer serializer;
+        private PageDeserializer deserializer;
         private List<Page> pages;
 
-        public void setup(Slice dataSource, PagesSerde pagesSerde, List<Page> pages)
+        public void setup(Slice dataSource, PageSerializer serializer, PageDeserializer deserializer, List<Page> pages)
         {
             this.dataSource = dataSource;
-            this.pagesSerde = pagesSerde;
+            this.serializer = serializer;
+            this.deserializer = deserializer;
             this.pages = pages;
         }
 
@@ -297,9 +303,14 @@ public class BenchmarkBlockSerde
             return pages;
         }
 
-        public PagesSerde getPagesSerde()
+        public PageSerializer getSerializer()
         {
-            return pagesSerde;
+            return serializer;
+        }
+
+        public PageDeserializer getDeserializer()
+        {
+            return deserializer;
         }
 
         public Slice getDataSource()
@@ -392,12 +403,14 @@ public class BenchmarkBlockSerde
         @Setup
         public void setup()
         {
-            PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false);
+            PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
+            PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
 
             List<Page> pages = ImmutableList.copyOf(getTablePages("lineitem", 0.1, DecimalTypeMapping.DOUBLE));
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(0);
-            writePages(pagesSerde, new OutputStreamSliceOutput(sliceOutput), pages.listIterator());
-            setup(sliceOutput.slice(), pagesSerde, pages);
+            writePages(serializer, new OutputStreamSliceOutput(sliceOutput), pages.listIterator());
+            setup(sliceOutput.slice(), serializer, deserializer, pages);
         }
     }
 

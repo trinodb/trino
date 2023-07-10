@@ -1,4 +1,4 @@
-.. _lambda_expressions:
+.. _lambda-expressions:
 
 ==================
 Lambda expressions

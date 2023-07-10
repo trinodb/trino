@@ -40,7 +40,7 @@ import static java.lang.invoke.MethodHandles.lookup;
  * <p>
  * The value is encoded as milliseconds from the 1970-01-01 00:00:00 epoch.
  */
-class ShortTimestampWithTimeZoneType
+final class ShortTimestampWithTimeZoneType
         extends TimestampWithTimeZoneType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortTimestampWithTimeZoneType.class, lookup(), long.class);
@@ -81,7 +81,7 @@ class ShortTimestampWithTimeZoneType
     @Override
     public final void writeLong(BlockBuilder blockBuilder, long value)
     {
-        blockBuilder.writeLong(value).closeEntry();
+        ((LongArrayBlockBuilder) blockBuilder).writeLong(value);
     }
 
     @Override
@@ -91,7 +91,7 @@ class ShortTimestampWithTimeZoneType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+            writeLong(blockBuilder, block.getLong(position, 0));
         }
     }
 

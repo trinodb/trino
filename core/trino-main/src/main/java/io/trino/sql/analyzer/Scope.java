@@ -14,13 +14,12 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.type.RowType;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.WithQuery;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.HashMap;
 import java.util.List;
@@ -248,7 +247,7 @@ public class Scope
         if (matches.size() > 1) {
             throw ambiguousAttributeException(node, name);
         }
-        else if (matches.size() == 1) {
+        if (matches.size() == 1) {
             int parentFieldCount = getLocalParent()
                     .map(Scope::getLocalScopeFieldCount)
                     .orElse(0);
@@ -256,18 +255,16 @@ public class Scope
             Field field = getOnlyElement(matches);
             return Optional.of(asResolvedField(field, parentFieldCount, local));
         }
-        else {
-            if (isColumnReference(name, relation)) {
-                return Optional.empty();
-            }
-            if (parent.isPresent()) {
-                if (queryBoundary) {
-                    return parent.get().resolveField(node, name, false);
-                }
-                return parent.get().resolveField(node, name, local);
-            }
+        if (isColumnReference(name, relation)) {
             return Optional.empty();
         }
+        if (parent.isPresent()) {
+            if (queryBoundary) {
+                return parent.get().resolveField(node, name, false);
+            }
+            return parent.get().resolveField(node, name, local);
+        }
+        return Optional.empty();
     }
 
     public ResolvedField getField(int index)

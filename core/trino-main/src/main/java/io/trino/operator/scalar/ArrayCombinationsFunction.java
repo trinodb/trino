@@ -81,7 +81,7 @@ public final class ArrayCombinationsFunction
         int[] offsets = new int[combinationCount + 1];
         setAll(offsets, i -> i * combinationLength);
 
-        return ArrayBlock.fromElementBlock(combinationCount, Optional.empty(), offsets, new DictionaryBlock(array, ids));
+        return ArrayBlock.fromElementBlock(combinationCount, Optional.empty(), offsets, DictionaryBlock.create(ids.length, array, ids));
     }
 
     @VisibleForTesting

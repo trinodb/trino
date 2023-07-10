@@ -23,13 +23,13 @@ import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.Stream;
 import io.trino.orc.metadata.Stream.StreamKind;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.stream.LongOutputStreamV2.SerializationUtils.encodeBitWidth;
 import static io.trino.orc.stream.LongOutputStreamV2.SerializationUtils.findClosestNumBits;
 import static io.trino.orc.stream.LongOutputStreamV2.SerializationUtils.getClosestAlignedFixedBits;
@@ -55,7 +55,7 @@ public class LongOutputStreamV2
         }
     }
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongOutputStreamV2.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(LongOutputStreamV2.class);
     private static final int MAX_SCOPE = 512;
     private static final int MIN_REPEAT = 3;
     private static final int MAX_SHORT_REPEAT_LENGTH = 10;
@@ -795,10 +795,8 @@ public class LongOutputStreamV2
                     output.write((byte) value);
                     return;
                 }
-                else {
-                    output.write((byte) (0x80 | (value & 0x7f)));
-                    value >>>= 7;
-                }
+                output.write((byte) (0x80 | (value & 0x7f)));
+                value >>>= 7;
             }
         }
 
@@ -870,30 +868,28 @@ public class LongOutputStreamV2
             if (n >= 1 && n <= 24) {
                 return n;
             }
-            else if (n > 24 && n <= 26) {
+            if (n > 24 && n <= 26) {
                 return 26;
             }
-            else if (n > 26 && n <= 28) {
+            if (n > 26 && n <= 28) {
                 return 28;
             }
-            else if (n > 28 && n <= 30) {
+            if (n > 28 && n <= 30) {
                 return 30;
             }
-            else if (n > 30 && n <= 32) {
+            if (n > 30 && n <= 32) {
                 return 32;
             }
-            else if (n > 32 && n <= 40) {
+            if (n > 32 && n <= 40) {
                 return 40;
             }
-            else if (n > 40 && n <= 48) {
+            if (n > 40 && n <= 48) {
                 return 48;
             }
-            else if (n > 48 && n <= 56) {
+            if (n > 48 && n <= 56) {
                 return 56;
             }
-            else {
-                return 64;
-            }
+            return 64;
         }
 
         public static int getClosestAlignedFixedBits(int n)
@@ -901,36 +897,34 @@ public class LongOutputStreamV2
             if (n == 0 || n == 1) {
                 return 1;
             }
-            else if (n > 1 && n <= 2) {
+            if (n > 1 && n <= 2) {
                 return 2;
             }
-            else if (n > 2 && n <= 4) {
+            if (n > 2 && n <= 4) {
                 return 4;
             }
-            else if (n > 4 && n <= 8) {
+            if (n > 4 && n <= 8) {
                 return 8;
             }
-            else if (n > 8 && n <= 16) {
+            if (n > 8 && n <= 16) {
                 return 16;
             }
-            else if (n > 16 && n <= 24) {
+            if (n > 16 && n <= 24) {
                 return 24;
             }
-            else if (n > 24 && n <= 32) {
+            if (n > 24 && n <= 32) {
                 return 32;
             }
-            else if (n > 32 && n <= 40) {
+            if (n > 32 && n <= 40) {
                 return 40;
             }
-            else if (n > 40 && n <= 48) {
+            if (n > 40 && n <= 48) {
                 return 48;
             }
-            else if (n > 48 && n <= 56) {
+            if (n > 48 && n <= 56) {
                 return 56;
             }
-            else {
-                return 64;
-            }
+            return 64;
         }
 
         enum FixedBitSizes
@@ -955,30 +949,28 @@ public class LongOutputStreamV2
             if (n >= 1 && n <= 24) {
                 return n - 1;
             }
-            else if (n > 24 && n <= 26) {
+            if (n > 24 && n <= 26) {
                 return FixedBitSizes.TWENTY_SIX.ordinal();
             }
-            else if (n > 26 && n <= 28) {
+            if (n > 26 && n <= 28) {
                 return FixedBitSizes.TWENTY_EIGHT.ordinal();
             }
-            else if (n > 28 && n <= 30) {
+            if (n > 28 && n <= 30) {
                 return FixedBitSizes.THIRTY.ordinal();
             }
-            else if (n > 30 && n <= 32) {
+            if (n > 30 && n <= 32) {
                 return FixedBitSizes.THIRTY_TWO.ordinal();
             }
-            else if (n > 32 && n <= 40) {
+            if (n > 32 && n <= 40) {
                 return FixedBitSizes.FORTY.ordinal();
             }
-            else if (n > 40 && n <= 48) {
+            if (n > 40 && n <= 48) {
                 return FixedBitSizes.FORTY_EIGHT.ordinal();
             }
-            else if (n > 48 && n <= 56) {
+            if (n > 48 && n <= 56) {
                 return FixedBitSizes.FIFTY_SIX.ordinal();
             }
-            else {
-                return FixedBitSizes.SIXTY_FOUR.ordinal();
-            }
+            return FixedBitSizes.SIXTY_FOUR.ordinal();
         }
 
         /**
@@ -989,30 +981,28 @@ public class LongOutputStreamV2
             if (n >= FixedBitSizes.ONE.ordinal() && n <= FixedBitSizes.TWENTY_FOUR.ordinal()) {
                 return n + 1;
             }
-            else if (n == FixedBitSizes.TWENTY_SIX.ordinal()) {
+            if (n == FixedBitSizes.TWENTY_SIX.ordinal()) {
                 return 26;
             }
-            else if (n == FixedBitSizes.TWENTY_EIGHT.ordinal()) {
+            if (n == FixedBitSizes.TWENTY_EIGHT.ordinal()) {
                 return 28;
             }
-            else if (n == FixedBitSizes.THIRTY.ordinal()) {
+            if (n == FixedBitSizes.THIRTY.ordinal()) {
                 return 30;
             }
-            else if (n == FixedBitSizes.THIRTY_TWO.ordinal()) {
+            if (n == FixedBitSizes.THIRTY_TWO.ordinal()) {
                 return 32;
             }
-            else if (n == FixedBitSizes.FORTY.ordinal()) {
+            if (n == FixedBitSizes.FORTY.ordinal()) {
                 return 40;
             }
-            else if (n == FixedBitSizes.FORTY_EIGHT.ordinal()) {
+            if (n == FixedBitSizes.FORTY_EIGHT.ordinal()) {
                 return 48;
             }
-            else if (n == FixedBitSizes.FIFTY_SIX.ordinal()) {
+            if (n == FixedBitSizes.FIFTY_SIX.ordinal()) {
                 return 56;
             }
-            else {
-                return 64;
-            }
+            return 64;
         }
 
         void writeInts(long[] input, int offset, int length, int bitSize, SliceOutput output)

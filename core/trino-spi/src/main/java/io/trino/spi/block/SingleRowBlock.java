@@ -14,18 +14,17 @@
 
 package io.trino.spi.block;
 
-import org.openjdk.jol.info.ClassLayout;
-
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.block.BlockUtil.ensureBlocksAreLoaded;
 import static java.lang.String.format;
 
 public class SingleRowBlock
         extends AbstractSingleRowBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleRowBlock.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(SingleRowBlock.class);
 
     private final Block[] fieldBlocks;
     private final int rowIndex;
@@ -91,7 +90,7 @@ public class SingleRowBlock
         for (Block fieldBlock : fieldBlocks) {
             consumer.accept(fieldBlock, fieldBlock.getRetainedSizeInBytes());
         }
-        consumer.accept(this, (long) INSTANCE_SIZE);
+        consumer.accept(this, INSTANCE_SIZE);
     }
 
     @Override

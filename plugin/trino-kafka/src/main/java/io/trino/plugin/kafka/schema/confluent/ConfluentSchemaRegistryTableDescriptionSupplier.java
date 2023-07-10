@@ -17,6 +17,8 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.airlift.units.Duration;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -28,9 +30,6 @@ import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -108,9 +107,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         {
             this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
             this.schemaParsers = ImmutableMap.copyOf(requireNonNull(schemaParsers, "schemaParsers is null"));
-            requireNonNull(kafkaConfig, "kafkaConfig is null");
             this.defaultSchema = kafkaConfig.getDefaultSchema();
-            requireNonNull(confluentConfig, "confluentConfig is null");
             this.subjectsCacheRefreshInterval = confluentConfig.getConfluentSubjectsCacheRefreshInterval();
         }
 

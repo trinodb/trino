@@ -28,12 +28,12 @@ Configuration
 -------------
 
 To configure the Thrift connector, create a catalog properties file
-``etc/catalog/thrift.properties`` with the following content,
-replacing the properties as appropriate:
+``etc/catalog/example.properties`` with the following content, replacing the
+properties as appropriate:
 
 .. code-block:: text
 
-    connector.name=trino-thrift
+    connector.name=trino_thrift
     trino.thrift.client.addresses=host:port,host:port
 
 Multiple Thrift systems
@@ -103,6 +103,13 @@ The following IDL describes the ``TrinoThriftService`` that must be implemented:
 
 .. literalinclude:: /include/TrinoThriftService.thrift
     :language: thrift
+
+.. _thrift-type-mapping:
+
+Type mapping
+------------
+
+The Thrift service defines data type support and mappings to Trino data types.
 
 .. _thrift-sql-support:
 

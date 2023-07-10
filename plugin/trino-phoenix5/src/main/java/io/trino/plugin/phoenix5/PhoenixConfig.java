@@ -18,10 +18,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
-
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
@@ -41,6 +40,7 @@ public class PhoenixConfig
      * A large value here makes sense when the Guidepost-width in Phoenix has been reduced.
      */
     private int maxScansPerSplit = 20;
+    private boolean reuseConnection = true;
 
     @NotNull
     public String getConnectionUrl()
@@ -80,6 +80,19 @@ public class PhoenixConfig
     public PhoenixConfig setMaxScansPerSplit(int scansPerSplit)
     {
         this.maxScansPerSplit = scansPerSplit;
+        return this;
+    }
+
+    public boolean isReuseConnection()
+    {
+        return reuseConnection;
+    }
+
+    @Config("query.reuse-connection")
+    @ConfigDescription("Enables reusing JDBC connection within single Trino query to run metadata queries from Coordinator to remote service")
+    public PhoenixConfig setReuseConnection(boolean reuseConnection)
+    {
+        this.reuseConnection = reuseConnection;
         return this;
     }
 }

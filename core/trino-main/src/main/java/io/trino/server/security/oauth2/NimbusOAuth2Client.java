@@ -15,6 +15,7 @@ package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
+import com.google.inject.Inject;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -30,7 +31,6 @@ import com.nimbusds.jwt.proc.JWTProcessor;
 import com.nimbusds.oauth2.sdk.AccessTokenResponse;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
-import com.nimbusds.oauth2.sdk.AuthorizationGrant;
 import com.nimbusds.oauth2.sdk.AuthorizationRequest;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.RefreshTokenGrant;
@@ -59,8 +59,6 @@ import com.nimbusds.openid.connect.sdk.validators.InvalidHashException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.server.security.oauth2.OAuth2ServerConfigProvider.OAuth2ServerConfig;
-
-import javax.inject.Inject;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -107,7 +105,6 @@ public class NimbusOAuth2Client
     @Inject
     public NimbusOAuth2Client(OAuth2Config oauthConfig, OAuth2ServerConfigProvider serverConfigurationProvider, NimbusHttpClient httpClient)
     {
-        requireNonNull(oauthConfig, "oauthConfig is null");
         issuer = new Issuer(oauthConfig.getIssuer());
         clientId = new ClientID(oauthConfig.getClientId());
         clientAuth = new ClientSecretBasic(clientId, new Secret(oauthConfig.getClientSecret()));
@@ -348,21 +345,21 @@ public class NimbusOAuth2Client
     private <T extends AccessTokenResponse> T getTokenResponse(String code, URI callbackUri, NimbusAirliftHttpClient.Parser<T> parser)
             throws ChallengeFailedException
     {
-        return getTokenResponse(new AuthorizationCodeGrant(new AuthorizationCode(code), callbackUri), parser);
+        return getTokenResponse(new TokenRequest(tokenUrl, clientAuth, new AuthorizationCodeGrant(new AuthorizationCode(code), callbackUri)), parser);
     }
 
     private <T extends AccessTokenResponse> T getTokenResponse(String refreshToken, NimbusAirliftHttpClient.Parser<T> parser)
             throws ChallengeFailedException
     {
-        return getTokenResponse(new RefreshTokenGrant(new RefreshToken(refreshToken)), parser);
+        return getTokenResponse(new TokenRequest(tokenUrl, clientAuth, new RefreshTokenGrant(new RefreshToken(refreshToken)), scope), parser);
     }
 
-    private <T extends AccessTokenResponse> T getTokenResponse(AuthorizationGrant authorizationGrant, NimbusAirliftHttpClient.Parser<T> parser)
+    private <T extends AccessTokenResponse> T getTokenResponse(TokenRequest tokenRequest, NimbusAirliftHttpClient.Parser<T> parser)
             throws ChallengeFailedException
     {
-        T tokenResponse = httpClient.execute(new TokenRequest(tokenUrl, clientAuth, authorizationGrant, scope), parser);
+        T tokenResponse = httpClient.execute(tokenRequest, parser);
         if (!tokenResponse.indicatesSuccess()) {
-            throw new ChallengeFailedException("Error while fetching access token: " + tokenResponse.toErrorResponse().toJSONObject());
+            throw new ChallengeFailedException("Error while fetching access token: " + tokenResponse.toErrorResponse().toHTTPResponse().getContent());
         }
         return tokenResponse;
     }
@@ -380,7 +377,7 @@ public class NimbusOAuth2Client
         try {
             UserInfoResponse response = httpClient.execute(new UserInfoRequest(userinfoUrl.get(), new BearerAccessToken(accessToken)), UserInfoResponse::parse);
             if (!response.indicatesSuccess()) {
-                LOG.error("Received bad response from userinfo endpoint: " + response.toErrorResponse().getErrorObject());
+                LOG.error("Received bad response from userinfo endpoint: %s", response.toErrorResponse().getErrorObject());
                 return Optional.empty();
             }
             return Optional.of(response.toSuccessResponse().getUserInfo().toJWTClaimsSet());

@@ -52,7 +52,7 @@ public class SuiteCompatibility
 
         ImmutableList<SuiteTestRun> trinoCompatibilityTestRuns = testedTrinoDockerImages().stream()
                 .map(image -> testOnEnvironment(EnvSinglenodeCompatibility.class, ImmutableMap.of("compatibility.testDockerImage", image))
-                        .withGroups("configured_features", "hive_view_compatibility")
+                        .withGroups("configured_features", "hive_view_compatibility", "iceberg_format_version_compatibility")
                         .build())
                 .collect(toImmutableList());
         ImmutableList<SuiteTestRun> prestoCompatibilityTestRuns = testedPrestoDockerImages().stream()
@@ -77,6 +77,10 @@ public class SuiteCompatibility
             ImmutableList.Builder<String> testedTrinoVersions = ImmutableList.builder();
             int testVersion = currentVersion - 1; // always test last release version
             for (int i = 0; i < NUMBER_OF_TESTED_VERSIONS; i++) {
+                if (testVersion == 404) {
+                    // 404 release was skipped.
+                    testVersion--;
+                }
                 if (testVersion < FIRST_TRINO_VERSION) {
                     break;
                 }

@@ -14,7 +14,9 @@
 package io.trino.plugin.deltalake.metastore.file;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
 import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
 
 public class DeltaLakeFileMetastoreModule
@@ -24,5 +26,6 @@ public class DeltaLakeFileMetastoreModule
     protected void setup(Binder binder)
     {
         install(new FileMetastoreModule());
+        binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(true);
     }
 }

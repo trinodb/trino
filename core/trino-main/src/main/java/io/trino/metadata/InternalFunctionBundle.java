@@ -16,19 +16,26 @@ package io.trino.metadata;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.trino.collect.cache.NonEvictableCache;
-import io.trino.operator.aggregation.AggregationMetadata;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.cache.NonEvictableCache;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import io.trino.operator.window.SqlWindowFunction;
 import io.trino.operator.window.WindowAnnotationsParser;
-import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.WindowFunction;
+import io.trino.spi.function.WindowFunctionSupplier;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,8 +49,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
@@ -51,8 +58,8 @@ public class InternalFunctionBundle
         implements FunctionBundle
 {
     // scalar function specialization may involve expensive code generation
-    private final NonEvictableCache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
-    private final NonEvictableCache<FunctionKey, AggregationMetadata> specializedAggregationCache;
+    private final NonEvictableCache<FunctionKey, SpecializedSqlScalarFunction> specializedScalarCache;
+    private final NonEvictableCache<FunctionKey, AggregationImplementation> specializedAggregationCache;
     private final NonEvictableCache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private final Map<FunctionId, SqlFunction> functions;
 
@@ -109,15 +116,15 @@ public class InternalFunctionBundle
     }
 
     @Override
-    public FunctionInvoker getScalarFunctionInvoker(
+    public ScalarFunctionImplementation getScalarFunctionImplementation(
             FunctionId functionId,
             BoundSignature boundSignature,
             FunctionDependencies functionDependencies,
             InvocationConvention invocationConvention)
     {
-        ScalarFunctionImplementation scalarFunctionImplementation;
+        SpecializedSqlScalarFunction specializedSqlScalarFunction;
         try {
-            scalarFunctionImplementation = uncheckedCacheGet(
+            specializedSqlScalarFunction = uncheckedCacheGet(
                     specializedScalarCache,
                     new FunctionKey(functionId, boundSignature),
                     () -> specializeScalarFunction(functionId, boundSignature, functionDependencies));
@@ -126,17 +133,18 @@ public class InternalFunctionBundle
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new RuntimeException(e.getCause());
         }
-        return scalarFunctionImplementation.getScalarFunctionInvoker(invocationConvention);
+        return specializedSqlScalarFunction.getScalarFunctionImplementation(invocationConvention);
     }
 
-    private ScalarFunctionImplementation specializeScalarFunction(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    private SpecializedSqlScalarFunction specializeScalarFunction(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlScalarFunction function = (SqlScalarFunction) getSqlFunction(functionId);
-        return function.specialize(boundSignature, functionDependencies);
+        SqlFunction function = getSqlFunction(functionId);
+        checkArgument(function instanceof SqlScalarFunction, "%s is not a scalar function", function.getFunctionMetadata().getSignature());
+        return ((SqlScalarFunction) function).specialize(boundSignature, functionDependencies);
     }
 
     @Override
-    public AggregationMetadata getAggregateFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         try {
             return uncheckedCacheGet(specializedAggregationCache, new FunctionKey(functionId, boundSignature), () -> specializedAggregation(functionId, boundSignature, functionDependencies));
@@ -147,14 +155,15 @@ public class InternalFunctionBundle
         }
     }
 
-    private AggregationMetadata specializedAggregation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    private AggregationImplementation specializedAggregation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) functions.get(functionId);
-        return aggregationFunction.specialize(boundSignature, functionDependencies);
+        SqlFunction function = getSqlFunction(functionId);
+        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", function.getFunctionMetadata().getSignature());
+        return ((SqlAggregationFunction) function).specialize(boundSignature, functionDependencies);
     }
 
     @Override
-    public WindowFunctionSupplier getWindowFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public WindowFunctionSupplier getWindowFunctionSupplier(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         try {
             return uncheckedCacheGet(specializedWindowCache, new FunctionKey(functionId, boundSignature), () -> specializeWindow(functionId, boundSignature, functionDependencies));
@@ -167,8 +176,9 @@ public class InternalFunctionBundle
 
     private WindowFunctionSupplier specializeWindow(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlWindowFunction function = (SqlWindowFunction) functions.get(functionId);
-        return function.specialize(boundSignature, functionDependencies);
+        SqlFunction function = functions.get(functionId);
+        checkArgument(function instanceof SqlWindowFunction, "%s is not a window function", function.getFunctionMetadata().getSignature());
+        return ((SqlWindowFunction) function).specialize(boundSignature, functionDependencies);
     }
 
     private SqlFunction getSqlFunction(FunctionId functionId)

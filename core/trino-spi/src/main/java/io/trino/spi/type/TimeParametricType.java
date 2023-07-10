@@ -30,7 +30,7 @@ public class TimeParametricType
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         if (parameters.isEmpty()) {
-            return TimeType.TIME;
+            return TimeType.TIME_MILLIS;
         }
         if (parameters.size() != 1) {
             throw new IllegalArgumentException("Expected exactly one parameter for TIME");

@@ -23,7 +23,7 @@ import java.util.Optional;
 
 import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
 import static io.trino.memory.LowMemoryKillerTestingUtils.toRunningQueryInfoList;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 public class TestTotalReservationLowMemoryKiller
 {
@@ -33,9 +33,7 @@ public class TestTotalReservationLowMemoryKiller
     public void testMemoryPoolHasNoReservation()
     {
         int memoryPool = 12;
-        Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
-                .put("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L))
-                .buildOrThrow();
+        Map<String, Map<String, Long>> queries = ImmutableMap.of("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L));
         assertEquals(
                 lowMemoryKiller.chooseTargetToKill(
                         toRunningQueryInfoList(queries),

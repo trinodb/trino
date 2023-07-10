@@ -29,9 +29,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.time.ZoneId;
@@ -40,6 +38,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
@@ -57,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class SliceDirectColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(SliceDirectColumnReader.class);
     private static final int ONE_GIGABYTE = toIntExact(DataSize.of(1, GIGABYTE).toBytes());
 
     private final int maxCodePointCount;
@@ -230,9 +229,9 @@ public class SliceDirectColumnReader
         return new VariableWidthBlock(currentBatchSize, slice, offsetVector, Optional.ofNullable(isNullVector));
     }
 
-    private RunLengthEncodedBlock readAllNullsBlock()
+    private Block readAllNullsBlock()
     {
-        return new RunLengthEncodedBlock(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
+        return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
     }
 
     private void openRowGroup()

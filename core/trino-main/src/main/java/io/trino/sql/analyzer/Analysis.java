@@ -23,7 +23,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
-import io.trino.connector.CatalogHandle;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -33,6 +34,8 @@ import io.trino.metadata.TableLayout;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -41,12 +44,14 @@ import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
-import io.trino.spi.ptf.Argument;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.Argument;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.security.Identity;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
+import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.ExistsPredicate;
@@ -64,6 +69,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
@@ -79,14 +85,11 @@ import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.sql.tree.WindowOperation;
 import io.trino.transaction.TransactionId;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+import jakarta.annotation.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -109,6 +112,7 @@ import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -209,9 +213,10 @@ public class Analysis
 
     private final Multiset<RowFilterScopeEntry> rowFilterScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, List<Expression>> rowFilters = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, List<Expression>> checkConstraints = new LinkedHashMap<>();
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
-    private final Map<NodeRef<Table>, Map<String, List<Expression>>> columnMasks = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
 
     private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
@@ -220,6 +225,7 @@ public class Analysis
     private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
     private Optional<AnalyzeMetadata> analyzeMetadata = Optional.empty();
     private Optional<List<ColumnSchema>> updatedColumns = Optional.empty();
+    private Optional<MergeAnalysis> mergeAnalysis = Optional.empty();
 
     private final QueryType queryType;
 
@@ -233,7 +239,11 @@ public class Analysis
 
     private Optional<TableExecuteHandle> tableExecuteHandle = Optional.empty();
 
+    // names of tables and aliased relations. All names are resolved case-insensitive.
+    private final Map<NodeRef<Relation>, QualifiedName> relationNames = new LinkedHashMap<>();
     private final Map<NodeRef<TableFunctionInvocation>, TableFunctionInvocationAnalysis> tableFunctionAnalyses = new LinkedHashMap<>();
+    private final Set<NodeRef<Relation>> aliasedRelations = new LinkedHashSet<>();
+    private final Set<NodeRef<TableFunctionInvocation>> polymorphicTableFunctions = new LinkedHashSet<>();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, QueryType queryType)
     {
@@ -256,7 +266,7 @@ public class Analysis
     {
         return target.map(target -> {
             QualifiedObjectName name = target.getName();
-            return new Output(name.getCatalogName(), name.getSchemaName(), name.getObjectName(), target.getColumns());
+            return new Output(name.getCatalogName(), target.getCatalogVersion(), name.getSchemaName(), name.getObjectName(), target.getColumns());
         });
     }
 
@@ -267,9 +277,9 @@ public class Analysis
         }
     }
 
-    public void setUpdateTarget(QualifiedObjectName targetName, Optional<Table> targetTable, Optional<List<OutputColumn>> targetColumns)
+    public void setUpdateTarget(CatalogVersion catalogVersion, QualifiedObjectName targetName, Optional<Table> targetTable, Optional<List<OutputColumn>> targetColumns)
     {
-        this.target = Optional.of(new UpdateTarget(targetName, targetTable, targetColumns));
+        this.target = Optional.of(new UpdateTarget(catalogVersion, targetName, targetTable, targetColumns));
     }
 
     public boolean isUpdateTarget(Table table)
@@ -769,6 +779,16 @@ public class Analysis
         return updatedColumns;
     }
 
+    public Optional<MergeAnalysis> getMergeAnalysis()
+    {
+        return mergeAnalysis;
+    }
+
+    public void setMergeAnalysis(MergeAnalysis mergeAnalysis)
+    {
+        this.mergeAnalysis = Optional.of(mergeAnalysis);
+    }
+
     public void setRefreshMaterializedView(RefreshMaterializedViewAnalysis refreshMaterializedView)
     {
         this.refreshMaterializedView = Optional.of(refreshMaterializedView);
@@ -946,7 +966,7 @@ public class Analysis
     public Range getRange(RangeQuantifier quantifier)
     {
         Range range = ranges.get(NodeRef.of(quantifier));
-        checkNotNull(range, "missing range for quantifier ", quantifier);
+        checkNotNull(range, "missing range for quantifier %s", quantifier);
         return range;
     }
 
@@ -963,7 +983,7 @@ public class Analysis
     public Set<String> getUndefinedLabels(RowPattern pattern)
     {
         Set<String> labels = undefinedLabels.get(NodeRef.of(pattern));
-        checkNotNull(labels, "missing undefined labels for ", pattern);
+        checkNotNull(labels, "missing undefined labels for %s", pattern);
         return labels;
     }
 
@@ -1053,9 +1073,20 @@ public class Analysis
                 .add(filter);
     }
 
+    public void addCheckConstraints(Table table, Expression constraint)
+    {
+        checkConstraints.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+                .add(constraint);
+    }
+
     public List<Expression> getRowFilters(Table node)
     {
-        return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+        return unmodifiableList(rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of()));
+    }
+
+    public List<Expression> getCheckConstraints(Table node)
+    {
+        return unmodifiableList(checkConstraints.getOrDefault(NodeRef.of(node), ImmutableList.of()));
     }
 
     public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)
@@ -1075,14 +1106,15 @@ public class Analysis
 
     public void addColumnMask(Table table, String column, Expression mask)
     {
-        Map<String, List<Expression>> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
-        masks.computeIfAbsent(column, name -> new ArrayList<>())
-                .add(mask);
+        Map<String, Expression> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
+        checkArgument(!masks.containsKey(column), "Mask already exists for column %s", column);
+
+        masks.put(column, mask);
     }
 
-    public Map<String, List<Expression>> getColumnMasks(Table table)
+    public Map<String, Expression> getColumnMasks(Table table)
     {
-        return columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of());
+        return unmodifiableMap(columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
     }
 
     public List<TableInfo> getReferencedTables()
@@ -1100,10 +1132,8 @@ public class Analysis
                             .distinct()
                             .map(fieldName -> new ColumnInfo(
                                     fieldName,
-                                    columnMasks.getOrDefault(table, ImmutableMap.of())
-                                            .getOrDefault(fieldName, ImmutableList.of()).stream()
-                                            .map(Expression::toString)
-                                            .collect(toImmutableList())))
+                                    Optional.ofNullable(columnMasks.getOrDefault(table, ImmutableMap.of()).get(fieldName))
+                                            .map(Expression::toString)))
                             .collect(toImmutableList());
 
                     TableEntry info = entry.getValue();
@@ -1123,8 +1153,8 @@ public class Analysis
 
     public List<RoutineInfo> getRoutines()
     {
-        return resolvedFunctions.entrySet().stream()
-                .map(entry -> new RoutineInfo(entry.getValue().function.getSignature().getName(), entry.getValue().getAuthorization()))
+        return resolvedFunctions.values().stream()
+                .map(value -> new RoutineInfo(value.function.getSignature().getName(), value.getAuthorization()))
                 .collect(toImmutableList());
     }
 
@@ -1205,6 +1235,36 @@ public class Analysis
     public TableFunctionInvocationAnalysis getTableFunctionAnalysis(TableFunctionInvocation node)
     {
         return tableFunctionAnalyses.get(NodeRef.of(node));
+    }
+
+    public void setRelationName(Relation relation, QualifiedName name)
+    {
+        relationNames.put(NodeRef.of(relation), name);
+    }
+
+    public QualifiedName getRelationName(Relation relation)
+    {
+        return relationNames.get(NodeRef.of(relation));
+    }
+
+    public void addAliased(Relation relation)
+    {
+        aliasedRelations.add(NodeRef.of(relation));
+    }
+
+    public boolean isAliased(Relation relation)
+    {
+        return aliasedRelations.contains(NodeRef.of(relation));
+    }
+
+    public void addPolymorphicTableFunction(TableFunctionInvocation invocation)
+    {
+        polymorphicTableFunctions.add(NodeRef.of(invocation));
+    }
+
+    public boolean isPolymorphicTableFunction(TableFunctionInvocation invocation)
+    {
+        return polymorphicTableFunctions.contains(NodeRef.of(invocation));
     }
 
     private boolean isInputTable(Table table)
@@ -1414,15 +1474,15 @@ public class Analysis
     {
         private final List<Expression> originalExpressions;
 
-        private final List<Set<FieldId>> cubes;
-        private final List<List<FieldId>> rollups;
+        private final List<List<Set<FieldId>>> cubes;
+        private final List<List<Set<FieldId>>> rollups;
         private final List<List<Set<FieldId>>> ordinarySets;
         private final List<Expression> complexExpressions;
 
         public GroupingSetAnalysis(
                 List<Expression> originalExpressions,
-                List<Set<FieldId>> cubes,
-                List<List<FieldId>> rollups,
+                List<List<Set<FieldId>>> cubes,
+                List<List<Set<FieldId>>> rollups,
                 List<List<Set<FieldId>>> ordinarySets,
                 List<Expression> complexExpressions)
         {
@@ -1438,12 +1498,12 @@ public class Analysis
             return originalExpressions;
         }
 
-        public List<Set<FieldId>> getCubes()
+        public List<List<Set<FieldId>>> getCubes()
         {
             return cubes;
         }
 
-        public List<List<FieldId>> getRollups()
+        public List<List<Set<FieldId>>> getRollups()
         {
             return rollups;
         }
@@ -1461,8 +1521,12 @@ public class Analysis
         public Set<FieldId> getAllFields()
         {
             return Streams.concat(
-                    cubes.stream().flatMap(Collection::stream),
-                    rollups.stream().flatMap(Collection::stream),
+                    cubes.stream()
+                            .flatMap(Collection::stream)
+                            .flatMap(Collection::stream),
+                    rollups.stream()
+                            .flatMap(Collection::stream)
+                            .flatMap(Collection::stream),
                     ordinarySets.stream()
                             .flatMap(Collection::stream)
                             .flatMap(Collection::stream))
@@ -1524,22 +1588,22 @@ public class Analysis
 
         public List<InPredicate> getInPredicatesSubqueries()
         {
-            return Collections.unmodifiableList(inPredicatesSubqueries);
+            return unmodifiableList(inPredicatesSubqueries);
         }
 
         public List<SubqueryExpression> getSubqueries()
         {
-            return Collections.unmodifiableList(subqueries);
+            return unmodifiableList(subqueries);
         }
 
         public List<ExistsPredicate> getExistsSubqueries()
         {
-            return Collections.unmodifiableList(existsSubqueries);
+            return unmodifiableList(existsSubqueries);
         }
 
         public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries()
         {
-            return Collections.unmodifiableList(quantifiedComparisonSubqueries);
+            return unmodifiableList(quantifiedComparisonSubqueries);
         }
     }
 
@@ -1622,6 +1686,118 @@ public class Analysis
         public boolean isFrameInherited()
         {
             return frameInherited;
+        }
+    }
+
+    public static class MergeAnalysis
+    {
+        private final Table targetTable;
+        private final List<ColumnSchema> dataColumnSchemas;
+        private final List<ColumnHandle> dataColumnHandles;
+        private final List<ColumnHandle> redistributionColumnHandles;
+        private final List<List<ColumnHandle>> mergeCaseColumnHandles;
+        private final Set<ColumnHandle> nonNullableColumnHandles;
+        private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
+        private final RowType mergeRowType;
+        private final List<Integer> insertPartitioningArgumentIndexes;
+        private final Optional<TableLayout> insertLayout;
+        private final Optional<PartitioningHandle> updateLayout;
+        private final Scope targetTableScope;
+        private final Scope joinScope;
+
+        public MergeAnalysis(
+                Table targetTable,
+                List<ColumnSchema> dataColumnSchemas,
+                List<ColumnHandle> dataColumnHandles,
+                List<ColumnHandle> redistributionColumnHandles,
+                List<List<ColumnHandle>> mergeCaseColumnHandles,
+                Set<ColumnHandle> nonNullableColumnHandles,
+                Map<ColumnHandle, Integer> columnHandleFieldNumbers,
+                RowType mergeRowType,
+                List<Integer> insertPartitioningArgumentIndexes,
+                Optional<TableLayout> insertLayout,
+                Optional<PartitioningHandle> updateLayout,
+                Scope targetTableScope,
+                Scope joinScope)
+        {
+            this.targetTable = requireNonNull(targetTable, "targetTable is null");
+            this.dataColumnSchemas = requireNonNull(dataColumnSchemas, "dataColumnSchemas is null");
+            this.dataColumnHandles = requireNonNull(dataColumnHandles, "dataColumnHandles is null");
+            this.redistributionColumnHandles = requireNonNull(redistributionColumnHandles, "redistributionColumnHandles is null");
+            this.mergeCaseColumnHandles = requireNonNull(mergeCaseColumnHandles, "mergeCaseColumnHandles is null");
+            this.nonNullableColumnHandles = requireNonNull(nonNullableColumnHandles, "nonNullableColumnHandles is null");
+            this.columnHandleFieldNumbers = requireNonNull(columnHandleFieldNumbers, "columnHandleFieldNumbers is null");
+            this.mergeRowType = requireNonNull(mergeRowType, "mergeRowType is null");
+            this.insertLayout = requireNonNull(insertLayout, "insertLayout is null");
+            this.updateLayout = requireNonNull(updateLayout, "updateLayout is null");
+            this.insertPartitioningArgumentIndexes = (requireNonNull(insertPartitioningArgumentIndexes, "insertPartitioningArgumentIndexes is null"));
+            this.targetTableScope = requireNonNull(targetTableScope, "targetTableScope is null");
+            this.joinScope = requireNonNull(joinScope, "joinScope is null");
+        }
+
+        public Table getTargetTable()
+        {
+            return targetTable;
+        }
+
+        public List<ColumnSchema> getDataColumnSchemas()
+        {
+            return dataColumnSchemas;
+        }
+
+        public List<ColumnHandle> getDataColumnHandles()
+        {
+            return dataColumnHandles;
+        }
+
+        public List<ColumnHandle> getRedistributionColumnHandles()
+        {
+            return redistributionColumnHandles;
+        }
+
+        public List<List<ColumnHandle>> getMergeCaseColumnHandles()
+        {
+            return mergeCaseColumnHandles;
+        }
+
+        public Set<ColumnHandle> getNonNullableColumnHandles()
+        {
+            return nonNullableColumnHandles;
+        }
+
+        public Map<ColumnHandle, Integer> getColumnHandleFieldNumbers()
+        {
+            return columnHandleFieldNumbers;
+        }
+
+        public RowType getMergeRowType()
+        {
+            return mergeRowType;
+        }
+
+        public List<Integer> getInsertPartitioningArgumentIndexes()
+        {
+            return insertPartitioningArgumentIndexes;
+        }
+
+        public Optional<TableLayout> getInsertLayout()
+        {
+            return insertLayout;
+        }
+
+        public Optional<PartitioningHandle> getUpdateLayout()
+        {
+            return updateLayout;
+        }
+
+        public Scope getJoinScope()
+        {
+            return joinScope;
+        }
+
+        public Scope getTargetTableScope()
+        {
+            return targetTableScope;
         }
     }
 
@@ -1863,15 +2039,22 @@ public class Analysis
 
     private static class UpdateTarget
     {
+        private final CatalogVersion catalogVersion;
         private final QualifiedObjectName name;
         private final Optional<Table> table;
         private final Optional<List<OutputColumn>> columns;
 
-        public UpdateTarget(QualifiedObjectName name, Optional<Table> table, Optional<List<OutputColumn>> columns)
+        public UpdateTarget(CatalogVersion catalogVersion, QualifiedObjectName name, Optional<Table> table, Optional<List<OutputColumn>> columns)
         {
+            this.catalogVersion = requireNonNull(catalogVersion, "catalogVersion is null");
             this.name = requireNonNull(name, "name is null");
             this.table = requireNonNull(table, "table is null");
-            this.columns = requireNonNull(columns, "columns is null").map(ImmutableList::copyOf);
+            this.columns = columns.map(ImmutableList::copyOf);
+        }
+
+        private CatalogVersion getCatalogVersion()
+        {
+            return catalogVersion;
         }
 
         public QualifiedObjectName getName()
@@ -1912,11 +2095,167 @@ public class Analysis
         }
     }
 
+    public static class TableArgumentAnalysis
+    {
+        private final String argumentName;
+        private final Optional<QualifiedName> name;
+        private final Relation relation;
+        private final Optional<List<Expression>> partitionBy; // it is allowed to partition by empty list
+        private final Optional<OrderBy> orderBy;
+        private final boolean pruneWhenEmpty;
+        private final boolean rowSemantics;
+        private final boolean passThroughColumns;
+
+        private TableArgumentAnalysis(
+                String argumentName,
+                Optional<QualifiedName> name,
+                Relation relation,
+                Optional<List<Expression>> partitionBy,
+                Optional<OrderBy> orderBy,
+                boolean pruneWhenEmpty,
+                boolean rowSemantics,
+                boolean passThroughColumns)
+        {
+            this.argumentName = requireNonNull(argumentName, "argumentName is null");
+            this.name = requireNonNull(name, "name is null");
+            this.relation = requireNonNull(relation, "relation is null");
+            this.partitionBy = requireNonNull(partitionBy, "partitionBy is null").map(ImmutableList::copyOf);
+            this.orderBy = requireNonNull(orderBy, "orderBy is null");
+            this.pruneWhenEmpty = pruneWhenEmpty;
+            this.rowSemantics = rowSemantics;
+            this.passThroughColumns = passThroughColumns;
+        }
+
+        public String getArgumentName()
+        {
+            return argumentName;
+        }
+
+        public Optional<QualifiedName> getName()
+        {
+            return name;
+        }
+
+        public Relation getRelation()
+        {
+            return relation;
+        }
+
+        public Optional<List<Expression>> getPartitionBy()
+        {
+            return partitionBy;
+        }
+
+        public Optional<OrderBy> getOrderBy()
+        {
+            return orderBy;
+        }
+
+        public boolean isPruneWhenEmpty()
+        {
+            return pruneWhenEmpty;
+        }
+
+        public boolean isRowSemantics()
+        {
+            return rowSemantics;
+        }
+
+        public boolean isPassThroughColumns()
+        {
+            return passThroughColumns;
+        }
+
+        public static Builder builder()
+        {
+            return new Builder();
+        }
+
+        public static final class Builder
+        {
+            private String argumentName;
+            private Optional<QualifiedName> name = Optional.empty();
+            private Relation relation;
+            private Optional<List<Expression>> partitionBy = Optional.empty();
+            private Optional<OrderBy> orderBy = Optional.empty();
+            private boolean pruneWhenEmpty;
+            private boolean rowSemantics;
+            private boolean passThroughColumns;
+
+            private Builder() {}
+
+            @CanIgnoreReturnValue
+            public Builder withArgumentName(String argumentName)
+            {
+                this.argumentName = argumentName;
+                return this;
+            }
+
+            @CanIgnoreReturnValue
+            public Builder withName(QualifiedName name)
+            {
+                this.name = Optional.of(name);
+                return this;
+            }
+
+            @CanIgnoreReturnValue
+            public Builder withRelation(Relation relation)
+            {
+                this.relation = relation;
+                return this;
+            }
+
+            @CanIgnoreReturnValue
+            public Builder withPartitionBy(List<Expression> partitionBy)
+            {
+                this.partitionBy = Optional.of(partitionBy);
+                return this;
+            }
+
+            @CanIgnoreReturnValue
+            public Builder withOrderBy(OrderBy orderBy)
+            {
+                this.orderBy = Optional.of(orderBy);
+                return this;
+            }
+
+            @CanIgnoreReturnValue
+            public Builder withPruneWhenEmpty(boolean pruneWhenEmpty)
+            {
+                this.pruneWhenEmpty = pruneWhenEmpty;
+                return this;
+            }
+
+            @CanIgnoreReturnValue
+            public Builder withRowSemantics(boolean rowSemantics)
+            {
+                this.rowSemantics = rowSemantics;
+                return this;
+            }
+
+            @CanIgnoreReturnValue
+            public Builder withPassThroughColumns(boolean passThroughColumns)
+            {
+                this.passThroughColumns = passThroughColumns;
+                return this;
+            }
+
+            public TableArgumentAnalysis build()
+            {
+                return new TableArgumentAnalysis(argumentName, name, relation, partitionBy, orderBy, pruneWhenEmpty, rowSemantics, passThroughColumns);
+            }
+        }
+    }
+
     public static class TableFunctionInvocationAnalysis
     {
         private final CatalogHandle catalogHandle;
         private final String functionName;
         private final Map<String, Argument> arguments;
+        private final List<TableArgumentAnalysis> tableArgumentAnalyses;
+        private final Map<String, List<Integer>> requiredColumns;
+        private final List<List<String>> copartitioningLists;
+        private final int properColumnsCount;
         private final ConnectorTableFunctionHandle connectorTableFunctionHandle;
         private final ConnectorTransactionHandle transactionHandle;
 
@@ -1924,12 +2263,21 @@ public class Analysis
                 CatalogHandle catalogHandle,
                 String functionName,
                 Map<String, Argument> arguments,
+                List<TableArgumentAnalysis> tableArgumentAnalyses,
+                Map<String, List<Integer>> requiredColumns,
+                List<List<String>> copartitioningLists,
+                int properColumnsCount,
                 ConnectorTableFunctionHandle connectorTableFunctionHandle,
                 ConnectorTransactionHandle transactionHandle)
         {
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
             this.functionName = requireNonNull(functionName, "functionName is null");
-            this.arguments = requireNonNull(arguments, "arguments is null");
+            this.arguments = ImmutableMap.copyOf(arguments);
+            this.tableArgumentAnalyses = ImmutableList.copyOf(tableArgumentAnalyses);
+            this.requiredColumns = requiredColumns.entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableList.copyOf(entry.getValue())));
+            this.copartitioningLists = ImmutableList.copyOf(copartitioningLists);
+            this.properColumnsCount = properColumnsCount;
             this.connectorTableFunctionHandle = requireNonNull(connectorTableFunctionHandle, "connectorTableFunctionHandle is null");
             this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         }
@@ -1947,6 +2295,32 @@ public class Analysis
         public Map<String, Argument> getArguments()
         {
             return arguments;
+        }
+
+        public List<TableArgumentAnalysis> getTableArgumentAnalyses()
+        {
+            return tableArgumentAnalyses;
+        }
+
+        public Map<String, List<Integer>> getRequiredColumns()
+        {
+            return requiredColumns;
+        }
+
+        public List<List<String>> getCopartitioningLists()
+        {
+            return copartitioningLists;
+        }
+
+        /**
+         * Proper columns are the columns produced by the table function, as opposed to pass-through columns from input tables.
+         * Proper columns should be considered the actual result of the table function.
+         *
+         * @return the number of table function's proper columns
+         */
+        public int getProperColumnsCount()
+        {
+            return properColumnsCount;
         }
 
         public ConnectorTableFunctionHandle getConnectorTableFunctionHandle()

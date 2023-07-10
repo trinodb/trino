@@ -18,6 +18,8 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.plan.TableWriterNode;
 
+import java.util.OptionalInt;
+
 public class TestingWriterTarget
         extends TableWriterNode.WriterTarget
 {
@@ -28,8 +30,14 @@ public class TestingWriterTarget
     }
 
     @Override
-    public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
+    public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
     {
         return false;
+    }
+
+    @Override
+    public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
+    {
+        return OptionalInt.empty();
     }
 }

@@ -28,8 +28,8 @@ import java.util.stream.Collectors;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.StandardTypes.ROW;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static org.testng.Assert.assertEquals;
 
 public class TestRowParametricType
 {

@@ -15,7 +15,6 @@ package io.trino.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.net.InetAddress;
 import java.net.URI;
@@ -27,6 +26,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -63,7 +63,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class HostAddress
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(HostAddress.class);
 
     /**
      * Magic value indicating the absence of a port number.
@@ -221,9 +221,7 @@ public class HostAddress
         if (port < 0) {
             return fromString(host);
         }
-        else {
-            return fromParts(host, port);
-        }
+        return fromParts(host, port);
     }
 
     /**

@@ -24,11 +24,10 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.MapHashTables;
-import io.trino.spi.block.SingleRowBlockWriter;
 import io.trino.spi.block.TestingBlockEncodingSerde;
-import org.openjdk.jol.info.ClassLayout;
-import org.testng.annotations.Test;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
@@ -36,12 +35,12 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.Supplier;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -57,22 +56,21 @@ import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public abstract class AbstractTestBlock
 {
     private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde(TESTING_TYPE_MANAGER::getType);
 
-    protected <T> void assertBlock(Block block, Supplier<BlockBuilder> newBlockBuilder, T[] expectedValues)
+    protected <T> void assertBlock(Block block, T[] expectedValues)
     {
         assertBlockSize(block);
         assertRetainedSize(block);
 
-        assertBlockPositions(block, newBlockBuilder, expectedValues);
-        assertBlockPositions(copyBlockViaBlockSerde(block), newBlockBuilder, expectedValues);
+        assertBlockPositions(block, expectedValues);
+        assertBlockPositions(copyBlockViaBlockSerde(block), expectedValues);
 
         Block blockWithNull = copyBlockViaBlockSerde(block).copyWithAppendedNull();
         T[] expectedValuesWithNull = Arrays.copyOf(expectedValues, expectedValues.length + 1);
-        assertBlockPositions(blockWithNull, newBlockBuilder, expectedValuesWithNull);
+        assertBlockPositions(blockWithNull, expectedValuesWithNull);
 
         assertBlockSize(block);
         assertRetainedSize(block);
@@ -90,7 +88,7 @@ public abstract class AbstractTestBlock
 
     private void assertRetainedSize(Block block)
     {
-        long retainedSize = ClassLayout.parseClass(block.getClass()).instanceSize();
+        long retainedSize = instanceSize(block.getClass());
         Field[] fields = block.getClass().getDeclaredFields();
         try {
             for (Field field : fields) {
@@ -128,9 +126,6 @@ public abstract class AbstractTestBlock
                 else if (type == SliceOutput.class) {
                     retainedSize += ((SliceOutput) field.get(block)).getRetainedSize();
                 }
-                else if (type == SingleRowBlockWriter.class) {
-                    retainedSize += SingleRowBlockWriter.INSTANCE_SIZE;
-                }
                 else if (type == int[].class) {
                     retainedSize += sizeOf((int[]) field.get(block));
                 }
@@ -147,16 +142,23 @@ public abstract class AbstractTestBlock
                     retainedSize += sizeOf((short[]) field.get(block));
                 }
                 else if (type == DictionaryId.class) {
-                    retainedSize += ClassLayout.parseClass(DictionaryId.class).instanceSize();
+                    retainedSize += instanceSize(DictionaryId.class);
                 }
                 else if (type == MapHashTables.class) {
                     retainedSize += ((MapHashTables) field.get(block)).getRetainedSizeInBytes();
+                }
+                else if (type.getEnclosingClass() == MapBlockBuilder.class) {
+                    // ignore nested enum
                 }
                 else if (type == MethodHandle.class) {
                     // MethodHandles are only used in MapBlock/MapBlockBuilder,
                     // and they are shared among blocks created by the same MapType.
                     // So we don't account for the memory held onto by MethodHandle instances.
                     // Otherwise, we will be counting it multiple times.
+                }
+                else if (field.getName().equals("fieldBlockBuildersList")) {
+                    // RowBlockBuilder fieldBlockBuildersList is a simple wrapper around the
+                    // array already accounted for in the instance
                 }
                 else {
                     throw new IllegalArgumentException(format("Unknown type encountered: %s", type));
@@ -169,12 +171,12 @@ public abstract class AbstractTestBlock
         assertEquals(block.getRetainedSizeInBytes(), retainedSize);
     }
 
-    protected <T> void assertBlockFilteredPositions(T[] expectedValues, Block block, Supplier<BlockBuilder> newBlockBuilder, int... positions)
+    protected <T> void assertBlockFilteredPositions(T[] expectedValues, Block block, int... positions)
     {
         Block filteredBlock = block.copyPositions(positions, 0, positions.length);
         T[] filteredExpectedValues = filter(expectedValues, positions);
         assertEquals(filteredBlock.getPositionCount(), positions.length);
-        assertBlock(filteredBlock, newBlockBuilder, filteredExpectedValues);
+        assertBlock(filteredBlock, filteredExpectedValues);
     }
 
     private static <T> T[] filter(T[] expectedValues, int[] positions)
@@ -187,11 +189,11 @@ public abstract class AbstractTestBlock
         return prunedExpectedValues;
     }
 
-    private <T> void assertBlockPositions(Block block, Supplier<BlockBuilder> newBlockBuilder, T[] expectedValues)
+    private <T> void assertBlockPositions(Block block, T[] expectedValues)
     {
         assertEquals(block.getPositionCount(), expectedValues.length);
         for (int position = 0; position < block.getPositionCount(); position++) {
-            assertBlockPosition(block, newBlockBuilder, position, expectedValues[position], expectedValues.getClass().getComponentType());
+            assertBlockPosition(block, position, expectedValues[position]);
         }
     }
 
@@ -234,8 +236,7 @@ public abstract class AbstractTestBlock
         assertEquals(block.getPositionsSizeInBytes(positions, positions.length - firstHalf.getPositionCount()), expectedSecondHalfSize);
     }
 
-    // expectedValueType is required since otherwise the expected value type is unknown when expectedValue is null.
-    protected <T> void assertBlockPosition(Block block, Supplier<BlockBuilder> newBlockBuilder, int position, T expectedValue, Class<?> expectedValueType)
+    protected <T> void assertBlockPosition(Block block, int position, T expectedValue)
     {
         assertPositionValue(block, position, expectedValue);
         assertPositionValue(block.getSingleValueBlock(position), 0, expectedValue);
@@ -264,9 +265,7 @@ public abstract class AbstractTestBlock
 
         assertFalse(block.isNull(position));
 
-        if (expectedValue instanceof Slice) {
-            Slice expectedSliceValue = (Slice) expectedValue;
-
+        if (expectedValue instanceof Slice expectedSliceValue) {
             if (isByteAccessSupported()) {
                 for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_BYTE; offset++) {
                     assertEquals(block.getByte(position, offset), expectedSliceValue.getByte(offset));
@@ -304,25 +303,22 @@ public abstract class AbstractTestBlock
 
             assertPositionEquals(block, position, expectedSliceValue);
         }
-        else if (expectedValue instanceof long[]) {
+        else if (expectedValue instanceof long[] expected) {
             Block actual = block.getObject(position, Block.class);
-            long[] expected = (long[]) expectedValue;
             assertEquals(actual.getPositionCount(), expected.length);
             for (int i = 0; i < expected.length; i++) {
                 assertEquals(BIGINT.getLong(actual, i), expected[i]);
             }
         }
-        else if (expectedValue instanceof Slice[]) {
+        else if (expectedValue instanceof Slice[] expected) {
             Block actual = block.getObject(position, Block.class);
-            Slice[] expected = (Slice[]) expectedValue;
             assertEquals(actual.getPositionCount(), expected.length);
             for (int i = 0; i < expected.length; i++) {
                 assertEquals(VARCHAR.getSlice(actual, i), expected[i]);
             }
         }
-        else if (expectedValue instanceof long[][]) {
+        else if (expectedValue instanceof long[][] expected) {
             Block actual = block.getObject(position, Block.class);
-            long[][] expected = (long[][]) expectedValue;
             assertEquals(actual.getPositionCount(), expected.length);
             for (int i = 0; i < expected.length; i++) {
                 assertPositionValue(actual, i, expected[i]);
@@ -353,9 +349,8 @@ public abstract class AbstractTestBlock
             assertTrue(block.equals(position, offset, expectedBlock, 0, offset, 3));
             assertEquals(block.compareTo(position, offset, 3, expectedBlock, 0, offset, 3), 0);
 
-            BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, 1);
-            block.writeBytesTo(position, offset, 3, blockBuilder);
-            blockBuilder.closeEntry();
+            VariableWidthBlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, 1);
+            blockBuilder.writeEntry(block.getSlice(position, offset, 3));
             Block segment = blockBuilder.build();
 
             assertTrue(block.equals(position, offset, segment, 0, 0, 3));
@@ -404,9 +399,7 @@ public abstract class AbstractTestBlock
             // dictionary blocks might become unwrapped when copyRegion is called on a block that is already compact
             return ((DictionaryBlock) block).compact().getSizeInBytes();
         }
-        else {
-            return copyBlockViaCopyRegion(block).getSizeInBytes();
-        }
+        return copyBlockViaCopyRegion(block).getSizeInBytes();
     }
 
     private static Block copyBlockViaCopyRegion(Block block)

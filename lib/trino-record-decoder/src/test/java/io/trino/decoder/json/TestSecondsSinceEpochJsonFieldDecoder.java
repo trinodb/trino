@@ -20,11 +20,11 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
-import static io.trino.spi.type.TimeType.TIME;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Arrays.asList;
 
 public class TestSecondsSinceEpochJsonFieldDecoder
@@ -34,22 +34,22 @@ public class TestSecondsSinceEpochJsonFieldDecoder
     @Test
     public void testDecode()
     {
-        tester.assertDecodedAs("33701", TIME, 33_701_000_000_000_000L);
-        tester.assertDecodedAs("\"33701\"", TIME, 33_701_000_000_000_000L);
-        tester.assertDecodedAs("33701", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(33_701_000_000_000L, 0));
-        tester.assertDecodedAs("\"33701\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(33_701_000_000_000L, 0));
+        tester.assertDecodedAs("33701", TIME_MILLIS, 33_701_000_000_000_000L);
+        tester.assertDecodedAs("\"33701\"", TIME_MILLIS, 33_701_000_000_000_000L);
+        tester.assertDecodedAs("33701", TIME_TZ_MILLIS, packTimeWithTimeZone(33_701_000_000_000L, 0));
+        tester.assertDecodedAs("\"33701\"", TIME_TZ_MILLIS, packTimeWithTimeZone(33_701_000_000_000L, 0));
         tester.assertDecodedAs("1519032101", TIMESTAMP_MILLIS, 1_519_032_101_000_000L);
         tester.assertDecodedAs("\"1519032101\"", TIMESTAMP_MILLIS, 1_519_032_101_000_000L);
         tester.assertDecodedAs("" + (Long.MAX_VALUE / 1_000_000), TIMESTAMP_MILLIS, Long.MAX_VALUE / 1_000_000 * 1_000_000);
         tester.assertDecodedAs("" + (Long.MIN_VALUE / 1_000_000), TIMESTAMP_MILLIS, Long.MIN_VALUE / 1_000_000 * 1_000_000);
-        tester.assertDecodedAs("1519032101", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032101000L, UTC_KEY));
-        tester.assertDecodedAs("\"1519032101\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032101000L, UTC_KEY));
+        tester.assertDecodedAs("1519032101", TIMESTAMP_TZ_MILLIS, packDateTimeWithZone(1519032101000L, UTC_KEY));
+        tester.assertDecodedAs("\"1519032101\"", TIMESTAMP_TZ_MILLIS, packDateTimeWithZone(1519032101000L, UTC_KEY));
     }
 
     @Test
     public void testDecodeNulls()
     {
-        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE)) {
+        for (Type type : asList(TIME_MILLIS, TIME_TZ_MILLIS, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS)) {
             tester.assertDecodedAsNull("null", type);
             tester.assertMissingDecodedAsNull(type);
         }
@@ -58,7 +58,7 @@ public class TestSecondsSinceEpochJsonFieldDecoder
     @Test
     public void testDecodeInvalid()
     {
-        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE)) {
+        for (Type type : asList(TIME_MILLIS, TIME_TZ_MILLIS, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS)) {
             tester.assertInvalidInput("{}", type, "could not parse non-value node as '.*' for column 'some_column'");
             tester.assertInvalidInput("[]", type, "could not parse non-value node as '.*' for column 'some_column'");
             tester.assertInvalidInput("[10]", type, "could not parse non-value node as '.*' for column 'some_column'");
@@ -70,9 +70,9 @@ public class TestSecondsSinceEpochJsonFieldDecoder
         }
 
         // TIME specific range checks
-        tester.assertInvalidInput("-1", TIME, "\\Qcould not parse value '-1' as 'time(3)' for column 'some_column'\\E");
-        tester.assertInvalidInput("" + TimeUnit.DAYS.toSeconds(1) + 1, TIME, "\\Qcould not parse value '864001' as 'time(3)' for column 'some_column'\\E");
-        tester.assertInvalidInput("-1", TIME_WITH_TIME_ZONE, "\\Qcould not parse value '-1' as 'time(3) with time zone' for column 'some_column'\\E");
-        tester.assertInvalidInput("" + TimeUnit.DAYS.toSeconds(1) + 1, TIME_WITH_TIME_ZONE, "\\Qcould not parse value '864001' as 'time(3) with time zone' for column 'some_column'\\E");
+        tester.assertInvalidInput("-1", TIME_MILLIS, "\\Qcould not parse value '-1' as 'time(3)' for column 'some_column'\\E");
+        tester.assertInvalidInput("" + TimeUnit.DAYS.toSeconds(1) + 1, TIME_MILLIS, "\\Qcould not parse value '864001' as 'time(3)' for column 'some_column'\\E");
+        tester.assertInvalidInput("-1", TIME_TZ_MILLIS, "\\Qcould not parse value '-1' as 'time(3) with time zone' for column 'some_column'\\E");
+        tester.assertInvalidInput("" + TimeUnit.DAYS.toSeconds(1) + 1, TIME_TZ_MILLIS, "\\Qcould not parse value '864001' as 'time(3) with time zone' for column 'some_column'\\E");
     }
 }

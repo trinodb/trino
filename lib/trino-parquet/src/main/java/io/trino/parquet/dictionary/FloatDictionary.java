@@ -14,27 +14,28 @@
 package io.trino.parquet.dictionary;
 
 import io.trino.parquet.DictionaryPage;
-import org.apache.parquet.column.values.plain.PlainValuesReader.FloatPlainValuesReader;
-
-import java.io.IOException;
+import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.decoders.ValueDecoder;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.parquet.ParquetReaderUtils.toInputStream;
+import static io.trino.parquet.reader.decoders.PlainValueDecoders.IntPlainValueDecoder;
 
 public class FloatDictionary
-        extends Dictionary
+        implements Dictionary
 {
     private final float[] content;
 
     public FloatDictionary(DictionaryPage dictionaryPage)
-            throws IOException
     {
-        super(dictionaryPage.getEncoding());
-        content = new float[dictionaryPage.getDictionarySize()];
-        FloatPlainValuesReader floatReader = new FloatPlainValuesReader();
-        floatReader.initFromPage(dictionaryPage.getDictionarySize(), toInputStream(dictionaryPage));
-        for (int i = 0; i < content.length; i++) {
-            content[i] = floatReader.readFloat();
+        int length = dictionaryPage.getDictionarySize();
+        int[] buffer = new int[length];
+        ValueDecoder<int[]> floatReader = new IntPlainValueDecoder();
+        floatReader.init(new SimpleSliceInputStream(dictionaryPage.getSlice()));
+        floatReader.read(buffer, 0, length);
+
+        content = new float[length];
+        for (int i = 0; i < length; i++) {
+            content[i] = Float.intBitsToFloat(buffer[i]);
         }
     }
 

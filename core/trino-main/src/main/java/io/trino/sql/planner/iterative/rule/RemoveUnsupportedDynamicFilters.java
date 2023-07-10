@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.TableStatsProvider;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
@@ -31,6 +32,7 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.SessionTimeProvider;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -101,6 +103,7 @@ public class RemoveUnsupportedDynamicFilters
                 new StatementAnalyzerFactory(
                         plannerContext,
                         new SqlParser(),
+                        SessionTimeProvider.DEFAULT,
                         new AllowAllAccessControl(),
                         new NoOpTransactionManager(),
                         user -> ImmutableSet.of(),
@@ -113,7 +116,15 @@ public class RemoveUnsupportedDynamicFilters
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(
+            PlanNode plan,
+            Session session,
+            TypeProvider types,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            TableStatsProvider tableStatsProvider)
     {
         PlanWithConsumedDynamicFilters result = plan.accept(new RemoveUnsupportedDynamicFilters.Rewriter(session, types), ImmutableSet.of());
         return result.getNode();
@@ -344,10 +355,9 @@ public class RemoveUnsupportedDynamicFilters
             if (expression instanceof SymbolReference) {
                 return true;
             }
-            if (!(expression instanceof Cast)) {
+            if (!(expression instanceof Cast castExpression)) {
                 return false;
             }
-            Cast castExpression = (Cast) expression;
             if (!(castExpression.getExpression() instanceof SymbolReference)) {
                 return false;
             }

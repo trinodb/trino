@@ -14,73 +14,84 @@
 package io.trino.plugin.mongodb;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
+import com.google.inject.multibindings.ProvidesIntoSet;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
+import io.trino.plugin.mongodb.ptf.Query;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.type.TypeManager;
 
-import javax.inject.Singleton;
+import java.util.Set;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MongoClientModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         binder.bind(MongoConnector.class).in(Scopes.SINGLETON);
         binder.bind(MongoSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(MongoPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(MongoPageSinkProvider.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(MongoSessionProperties.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(MongoClientConfig.class);
+        newSetBinder(binder, MongoClientSettingConfigurator.class);
+
+        install(conditionalModule(
+                MongoClientConfig.class,
+                MongoClientConfig::getTlsEnabled,
+                new MongoSslModule()));
+
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Singleton
     @Provides
-    public static MongoSession createMongoSession(TypeManager typeManager, MongoClientConfig config)
+    public static MongoSession createMongoSession(TypeManager typeManager, MongoClientConfig config, Set<MongoClientSettingConfigurator> configurators)
     {
-        requireNonNull(config, "config is null");
-
         MongoClientSettings.Builder options = MongoClientSettings.builder();
-        options.writeConcern(config.getWriteConcern().getWriteConcern())
-                .readPreference(config.getReadPreference().getReadPreference())
-                .applyToConnectionPoolSettings(builder -> builder
-                        .maxConnectionIdleTime(config.getMaxConnectionIdleTime(), MILLISECONDS)
-                        .maxWaitTime(config.getMaxWaitTime(), MILLISECONDS)
-                        .minSize(config.getMinConnectionsPerHost())
-                        .maxSize(config.getConnectionsPerHost()))
-                .applyToSocketSettings(builder -> builder
-                        .connectTimeout(config.getConnectionTimeout(), MILLISECONDS)
-                        .readTimeout(config.getSocketTimeout(), MILLISECONDS))
-                .applyToSslSettings(builder -> builder.enabled(config.getSslEnabled()));
-
-        if (config.getRequiredReplicaSetName() != null) {
-            options.applyToClusterSettings(builder -> builder.requiredReplicaSetName(config.getRequiredReplicaSetName()));
-        }
-
-        if (config.getConnectionUrl().isPresent()) {
-            options.applyConnectionString(new ConnectionString(config.getConnectionUrl().get()));
-        }
-        else {
-            options.applyToClusterSettings(builder -> builder.hosts(config.getSeeds()));
-            if (!config.getCredentials().isEmpty()) {
-                options.credential(config.getCredentials().get(0));
-            }
-        }
-
+        configurators.forEach(configurator -> configurator.configure(options));
         MongoClient client = MongoClients.create(options.build());
 
         return new MongoSession(
                 typeManager,
                 client,
                 config);
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    public MongoClientSettingConfigurator defaultConfigurator(MongoClientConfig config)
+    {
+        return options -> {
+            options.writeConcern(config.getWriteConcern().getWriteConcern())
+                    .readPreference(config.getReadPreference().getReadPreference())
+                    .applyToConnectionPoolSettings(builder -> builder
+                            .maxConnectionIdleTime(config.getMaxConnectionIdleTime(), MILLISECONDS)
+                            .maxWaitTime(config.getMaxWaitTime(), MILLISECONDS)
+                            .minSize(config.getMinConnectionsPerHost())
+                            .maxSize(config.getConnectionsPerHost()))
+                    .applyToSocketSettings(builder -> builder
+                            .connectTimeout(config.getConnectionTimeout(), MILLISECONDS)
+                            .readTimeout(config.getSocketTimeout(), MILLISECONDS));
+
+            if (config.getRequiredReplicaSetName() != null) {
+                options.applyToClusterSettings(builder -> builder.requiredReplicaSetName(config.getRequiredReplicaSetName()));
+            }
+            options.applyConnectionString(new ConnectionString(config.getConnectionUrl()));
+        };
     }
 }

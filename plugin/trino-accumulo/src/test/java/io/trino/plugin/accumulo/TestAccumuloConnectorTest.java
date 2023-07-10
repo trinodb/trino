@@ -18,7 +18,6 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.assertions.Assert;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -29,8 +28,6 @@ import java.util.Optional;
 import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -55,32 +52,36 @@ public class TestAccumuloConnectorTest
         return createAccumuloQueryRunner(ImmutableMap.of());
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+                return false;
+
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_DROP_COLUMN:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
-            case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
-
-            case SUPPORTS_CREATE_VIEW:
-                return true;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
@@ -97,22 +98,6 @@ public class TestAccumuloConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Accumulo connector does not support column default values");
-    }
-
-    @Override
-    public void testCreateTableWithColumnComment()
-    {
-        // TODO Avoid setting hard-coded column comment
-        // Accumulo connector ignores specified comment and sets column comments as
-        // "Accumulo row ID" for the first column when "row_id" table property isn't specified
-        // "Accumulo column %s:%s. Indexed: boolean" for other columns
-        String tableName = "test_create_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint COMMENT 'test comment a', b bigint COMMENT 'test comment b')");
-
-        assertEquals(getColumnComment(tableName, "a"), "Accumulo row ID");
-        assertEquals(getColumnComment(tableName, "b"), "Accumulo column b:b. Indexed: false");
-
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Override
@@ -219,7 +204,7 @@ public class TestAccumuloConnectorTest
     @Override
     public void testShowColumns()
     {
-        // Override base class because table descriptions for Accumulo connector include comments
+        // Override base class because table descriptions for Accumulo connector include extra info
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
 
         assertEquals(actual.getMaterializedRows().get(0).getField(0), "orderkey");
@@ -279,41 +264,29 @@ public class TestAccumuloConnectorTest
         }
     }
 
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "Accumulo row ID")
-                .row("custkey", "bigint", "", "Accumulo column custkey:custkey. Indexed: false")
-                .row("orderstatus", "varchar(1)", "", "Accumulo column orderstatus:orderstatus. Indexed: false")
-                .row("totalprice", "double", "", "Accumulo column totalprice:totalprice. Indexed: false")
-                .row("orderdate", "date", "", "Accumulo column orderdate:orderdate. Indexed: true")
-                .row("orderpriority", "varchar(15)", "", "Accumulo column orderpriority:orderpriority. Indexed: false")
-                .row("clerk", "varchar(15)", "", "Accumulo column clerk:clerk. Indexed: false")
-                .row("shippriority", "integer", "", "Accumulo column shippriority:shippriority. Indexed: false")
-                .row("comment", "varchar(79)", "", "Accumulo column comment:comment. Indexed: false")
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "Accumulo row ID", "")
+                .row("custkey", "bigint", "Accumulo column custkey:custkey. Indexed: false", "")
+                .row("orderstatus", "varchar(1)", "Accumulo column orderstatus:orderstatus. Indexed: false", "")
+                .row("totalprice", "double", "Accumulo column totalprice:totalprice. Indexed: false", "")
+                .row("orderdate", "date", "Accumulo column orderdate:orderdate. Indexed: true", "")
+                .row("orderpriority", "varchar(15)", "Accumulo column orderpriority:orderpriority. Indexed: false", "")
+                .row("clerk", "varchar(15)", "Accumulo column clerk:clerk. Indexed: false", "")
+                .row("shippriority", "integer", "Accumulo column shippriority:shippriority. Indexed: false", "")
+                .row("comment", "varchar(79)", "Accumulo column comment:comment. Indexed: false", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        Assert.assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
     @Override
-    public void testShowCreateTable()
+    public void testInsertSameValues()
     {
-        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE accumulo.tpch.orders (\n" +
-                        "   orderkey bigint COMMENT 'Accumulo row ID',\n" +
-                        "   custkey bigint COMMENT 'Accumulo column custkey:custkey. Indexed: false',\n" +
-                        "   orderstatus varchar(1) COMMENT 'Accumulo column orderstatus:orderstatus. Indexed: false',\n" +
-                        "   totalprice double COMMENT 'Accumulo column totalprice:totalprice. Indexed: false',\n" +
-                        "   orderdate date COMMENT 'Accumulo column orderdate:orderdate. Indexed: true',\n" +
-                        "   orderpriority varchar(15) COMMENT 'Accumulo column orderpriority:orderpriority. Indexed: false',\n" +
-                        "   clerk varchar(15) COMMENT 'Accumulo column clerk:clerk. Indexed: false',\n" +
-                        "   shippriority integer COMMENT 'Accumulo column shippriority:shippriority. Indexed: false',\n" +
-                        "   comment varchar(79) COMMENT 'Accumulo column comment:comment. Indexed: false'\n" +
-                        ")");
+        assertThatThrownBy(super::testInsertSameValues)
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("not equal");
     }
 
     @Override

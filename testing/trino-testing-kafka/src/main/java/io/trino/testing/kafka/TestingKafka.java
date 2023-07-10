@@ -16,9 +16,10 @@ package io.trino.testing.kafka;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
+import io.trino.testing.ResourcePresence;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -28,6 +29,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
 import java.io.FileDescriptor;
@@ -45,16 +47,18 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static org.testcontainers.containers.KafkaContainer.KAFKA_PORT;
+import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public final class TestingKafka
         implements Closeable
 {
     private static final Logger log = Logger.get(TestingKafka.class);
 
-    private static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "5.5.2";
+    private static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "7.3.1";
     private static final int SCHEMA_REGISTRY_PORT = 8081;
 
     private static final DockerImageName KAFKA_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-kafka");
@@ -65,6 +69,7 @@ public final class TestingKafka
     private final GenericContainer<?> schemaRegistry;
     private final boolean withSchemaRegistry;
     private final Closer closer = Closer.create();
+    private boolean stopped;
 
     public static TestingKafka create()
     {
@@ -86,10 +91,18 @@ public final class TestingKafka
         this.withSchemaRegistry = withSchemaRegistry;
         network = Network.newNetwork();
         closer.register(network::close);
+
+        // Confluent Docker entry point script overwrites /etc/kafka/log4j.properties
+        // Modify the template directly instead.
+        MountableFile kafkaLogTemplate = forClasspathResource("log4j-kafka.properties.template");
+        MountableFile schemaRegistryLogTemplate = forClasspathResource("log4j-schema-registry.properties.template");
         kafka = new KafkaContainer(KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion))
                 .withStartupAttempts(3)
                 .withNetwork(network)
-                .withNetworkAliases("kafka");
+                .withNetworkAliases("kafka")
+                .withCopyFileToContainer(
+                        kafkaLogTemplate,
+                        "/etc/confluent/docker/log4j.properties.template");
         schemaRegistry = new GenericContainer<>(SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion))
                 .withStartupAttempts(3)
                 .withNetwork(network)
@@ -99,6 +112,9 @@ public final class TestingKafka
                 .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)
                 .withEnv("SCHEMA_REGISTRY_HEAP_OPTS", "-Xmx1G")
                 .withExposedPorts(SCHEMA_REGISTRY_PORT)
+                .withCopyFileToContainer(
+                        schemaRegistryLogTemplate,
+                        "/etc/confluent/docker/log4j.properties.template")
                 .dependsOn(kafka);
         closer.register(kafka::stop);
         closer.register(schemaRegistry::stop);
@@ -117,6 +133,7 @@ public final class TestingKafka
 
     public void start()
     {
+        checkState(!stopped, "Cannot start again");
         kafka.start();
         if (withSchemaRegistry) {
             schemaRegistry.start();
@@ -128,6 +145,13 @@ public final class TestingKafka
             throws IOException
     {
         closer.close();
+        stopped = true;
+    }
+
+    @ResourcePresence
+    public boolean isNotStopped()
+    {
+        return !stopped;
     }
 
     public void createTopic(String topic)
@@ -166,8 +190,8 @@ public final class TestingKafka
             command.add(Integer.toString(partitions));
             command.add("--replication-factor");
             command.add(Integer.toString(replication));
-            command.add("--zookeeper");
-            command.add("localhost:2181");
+            command.add("--bootstrap-server");
+            command.add("localhost:9092");
             if (enableLogAppendTime) {
                 command.add("--config");
                 command.add("message.timestamp.type=LogAppendTime");
@@ -190,7 +214,7 @@ public final class TestingKafka
         try (KafkaProducer<K, V> producer = createProducer(extraProducerProperties)) {
             Future<RecordMetadata> future = recordStream.map(record -> send(producer, record))
                     .reduce((first, second) -> second)
-                    .orElse(Futures.immediateFuture(null));
+                    .orElseGet(() -> Futures.immediateFuture(null));
             producer.flush();
             return future.get();
         }
@@ -206,16 +230,17 @@ public final class TestingKafka
     private <K, V> Future<RecordMetadata> send(KafkaProducer<K, V> producer, ProducerRecord<K, V> record)
     {
         return Failsafe.with(
-                new RetryPolicy<>()
-                        .onRetry(event -> log.warn(event.getLastFailure(), "Retrying message send"))
+                RetryPolicy.builder()
+                        .onRetry(event -> log.warn(event.getLastException(), "Retrying message send"))
                         .withMaxAttempts(10)
-                        .withBackoff(1, 10_000, MILLIS))
+                        .withBackoff(1, 10_000, MILLIS)
+                        .build())
                 .get(() -> producer.send(record));
     }
 
     public String getConnectString()
     {
-        return kafka.getContainerIpAddress() + ":" + kafka.getMappedPort(KAFKA_PORT);
+        return kafka.getHost() + ":" + kafka.getMappedPort(KAFKA_PORT);
     }
 
     private <K, V> KafkaProducer<K, V> createProducer(Map<String, String> extraProperties)
@@ -242,7 +267,7 @@ public final class TestingKafka
 
     public String getSchemaRegistryConnectString()
     {
-        return "http://" + schemaRegistry.getContainerIpAddress() + ":" + schemaRegistry.getMappedPort(SCHEMA_REGISTRY_PORT);
+        return "http://" + schemaRegistry.getHost() + ":" + schemaRegistry.getMappedPort(SCHEMA_REGISTRY_PORT);
     }
 
     public Network getNetwork()

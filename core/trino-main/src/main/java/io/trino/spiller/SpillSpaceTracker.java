@@ -14,12 +14,10 @@
 package io.trino.spiller;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.DataSize;
-import io.trino.ExceededSpillLimitException;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,8 +43,6 @@ public class SpillSpaceTracker
 
     /**
      * Reserves the given number of bytes to spill. If more than the maximum, throws an exception.
-     *
-     * @throws ExceededSpillLimitException
      */
     public synchronized ListenableFuture<Void> reserve(long bytes)
     {

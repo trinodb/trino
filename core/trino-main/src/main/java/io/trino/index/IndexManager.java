@@ -13,6 +13,7 @@
  */
 package io.trino.index;
 
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.IndexHandle;
@@ -20,8 +21,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndex;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

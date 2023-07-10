@@ -13,8 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -23,6 +21,7 @@ import io.trino.client.StatementClient;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
+import okhttp3.Call;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 
@@ -63,30 +62,19 @@ public class TestFinalQueryInfo
     {
         OkHttpClient httpClient = new OkHttpClient();
         try {
-            ClientSession clientSession = new ClientSession(
-                    queryRunner.getCoordinator().getBaseUrl(),
-                    Optional.of("user"),
-                    Optional.empty(),
-                    "source",
-                    Optional.empty(),
-                    ImmutableSet.of(),
-                    null,
-                    null,
-                    null,
-                    null,
-                    ZoneId.of("America/Los_Angeles"),
-                    Locale.ENGLISH,
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    null,
-                    new Duration(2, MINUTES),
-                    true);
+            ClientSession clientSession = ClientSession.builder()
+                    .server(queryRunner.getCoordinator().getBaseUrl())
+                    .principal(Optional.of("user"))
+                    .source("source")
+                    .timeZone(ZoneId.of("America/Los_Angeles"))
+                    .locale(Locale.ENGLISH)
+                    .transactionId(null)
+                    .clientRequestTimeout(new Duration(2, MINUTES))
+                    .compressionDisabled(true)
+                    .build();
 
             // start query
-            StatementClient client = newStatementClient(httpClient, clientSession, sql);
+            StatementClient client = newStatementClient((Call.Factory) httpClient, clientSession, sql);
 
             // wait for query to be fully scheduled
             while (client.isRunning() && !client.currentStatusInfo().getStats().isScheduled()) {

@@ -23,11 +23,10 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import org.joda.time.DateTime;
-
-import javax.annotation.Nullable;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
 
 import java.util.Arrays;
 import java.util.List;

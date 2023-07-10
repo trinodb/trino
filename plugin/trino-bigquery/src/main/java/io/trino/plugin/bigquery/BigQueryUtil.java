@@ -27,13 +27,18 @@ import java.util.Set;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.http.BaseHttpServiceException.UNKNOWN_CODE;
 import static com.google.common.base.Throwables.getCausalChain;
+import static java.lang.String.format;
 
 public final class BigQueryUtil
 {
+    private static final String QUOTE = "`";
+    private static final String ESCAPED_QUOTE = "``";
+
     private static final Set<String> INTERNAL_ERROR_MESSAGES = ImmutableSet.of(
             "HTTP/2 error code: INTERNAL_ERROR",
             "Connection closed with unknown cause",
-            "Received unexpected EOS on DATA frame from server");
+            "Received unexpected EOS on DATA frame from server",
+            "INTERNAL: request failed: internal error");
 
     private BigQueryUtil() {}
 
@@ -44,8 +49,7 @@ public final class BigQueryUtil
 
     private static boolean isRetryableInternalError(Throwable t)
     {
-        if (t instanceof StatusRuntimeException) {
-            StatusRuntimeException statusRuntimeException = (StatusRuntimeException) t;
+        if (t instanceof StatusRuntimeException statusRuntimeException) {
             return statusRuntimeException.getStatus().getCode() == Status.Code.INTERNAL &&
                     INTERNAL_ERROR_MESSAGES.stream()
                             .anyMatch(message -> statusRuntimeException.getMessage().contains(message));
@@ -72,5 +76,15 @@ public final class BigQueryUtil
     public static boolean isWildcardTable(TableDefinition.Type type, String tableName)
     {
         return type == TABLE && tableName.contains("*");
+    }
+
+    public static String quote(String name)
+    {
+        return QUOTE + name.replace(QUOTE, ESCAPED_QUOTE) + QUOTE;
+    }
+
+    public static String quoted(RemoteTableName table)
+    {
+        return format("%s.%s.%s", quote(table.getProjectId()), quote(table.getDatasetName()), quote(table.getTableName()));
     }
 }

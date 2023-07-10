@@ -35,7 +35,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestLdapAuthenticatorWithTimeouts
 {
-    private final Closer closer = Closer.create();
+    private Closer closer;
 
     private TestingOpenLdapServer openLdapServer;
     private String proxyLdapUrl;
@@ -44,16 +44,16 @@ public class TestLdapAuthenticatorWithTimeouts
     public void setup()
             throws Exception
     {
+        closer = Closer.create();
         Network network = Network.newNetwork();
         closer.register(network::close);
 
-        ToxiproxyContainer proxyServer = new ToxiproxyContainer("shopify/toxiproxy:2.1.0")
+        ToxiproxyContainer proxyServer = new ToxiproxyContainer("ghcr.io/shopify/toxiproxy:2.4.0")
                 .withNetwork(network);
         closer.register(proxyServer::close);
         proxyServer.start();
 
-        openLdapServer = new TestingOpenLdapServer(network);
-        closer.register(openLdapServer);
+        openLdapServer = closer.register(new TestingOpenLdapServer(network));
         openLdapServer.start();
 
         ContainerProxy proxy = proxyServer.getProxy(openLdapServer.getNetworkAlias(), LDAP_PORT);
@@ -67,6 +67,9 @@ public class TestLdapAuthenticatorWithTimeouts
             throws Exception
     {
         closer.close();
+        closer = null;
+        openLdapServer = null;
+        proxyLdapUrl = null;
     }
 
     @Test

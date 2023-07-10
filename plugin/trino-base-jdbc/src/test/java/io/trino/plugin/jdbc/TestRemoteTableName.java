@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRemoteTableName
 {
@@ -29,8 +29,8 @@ public class TestRemoteTableName
         JsonCodec<RemoteTableName> codec = JsonCodec.jsonCodec(RemoteTableName.class);
         RemoteTableName table = new RemoteTableName(Optional.of("catalog"), Optional.of("schema"), "table");
         RemoteTableName roundTrip = codec.fromJson(codec.toJson(table));
-        assertEquals(table.getCatalogName(), roundTrip.getCatalogName());
-        assertEquals(table.getSchemaName(), roundTrip.getSchemaName());
-        assertEquals(table.getTableName(), roundTrip.getTableName());
+        assertThat(table.getCatalogName()).isEqualTo(roundTrip.getCatalogName());
+        assertThat(table.getSchemaName()).isEqualTo(roundTrip.getSchemaName());
+        assertThat(table.getTableName()).isEqualTo(roundTrip.getTableName());
     }
 }

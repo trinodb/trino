@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
@@ -23,8 +24,6 @@ import io.trino.spi.procedure.Procedure;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Collection;
 import java.util.List;

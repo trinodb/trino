@@ -14,18 +14,19 @@
 package io.trino.operator;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
+@DefunctConfig("exchange.min-error-duration")
 public class DirectExchangeClientConfig
 {
     private DataSize maxBufferSize = DataSize.of(32, Unit.MEGABYTE);
@@ -60,19 +61,6 @@ public class DirectExchangeClientConfig
     public DirectExchangeClientConfig setConcurrentRequestMultiplier(int concurrentRequestMultiplier)
     {
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
-        return this;
-    }
-
-    @Deprecated
-    public Duration getMinErrorDuration()
-    {
-        return maxErrorDuration;
-    }
-
-    @Deprecated
-    @Config("exchange.min-error-duration")
-    public DirectExchangeClientConfig setMinErrorDuration(Duration minErrorDuration)
-    {
         return this;
     }
 

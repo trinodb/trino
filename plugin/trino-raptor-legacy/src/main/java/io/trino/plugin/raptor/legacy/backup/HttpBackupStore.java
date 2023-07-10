@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy.backup;
 
 import com.google.common.io.ByteStreams;
+import com.google.inject.Inject;
 import io.airlift.http.client.FileBodyGenerator;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
@@ -24,8 +25,6 @@ import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -68,7 +67,7 @@ public class HttpBackupStore
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.baseUriSupplier = requireNonNull(baseUriSupplier, "baseUriSupplier is null");
-        this.environment = requireNonNull(nodeManager, "nodeManager is null").getEnvironment();
+        this.environment = nodeManager.getEnvironment();
     }
 
     @Override

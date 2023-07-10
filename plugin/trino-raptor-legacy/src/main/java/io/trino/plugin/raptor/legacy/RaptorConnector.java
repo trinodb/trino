@@ -15,6 +15,8 @@ package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
@@ -32,11 +34,8 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
+import jakarta.annotation.PostConstruct;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -102,8 +101,8 @@ public class RaptorConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
-        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").getSessionProperties();
-        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").getTableProperties();
+        this.sessionProperties = sessionProperties.getSessionProperties();
+        this.tableProperties = tableProperties.getTableProperties();
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.dao = onDemandDao(dbi, MetadataDao.class);

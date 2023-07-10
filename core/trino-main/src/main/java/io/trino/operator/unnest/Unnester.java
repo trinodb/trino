@@ -37,7 +37,6 @@ public interface Unnester
      * @param startPosition The start input position of this batch.
      * @param batchSize The number of input rows to be processed in this batch.
      * @param outputRowCount The total output row count for this batch after the unnest is done.
-     * @return
      */
     Block[] buildOutputBlocks(int[] outputEntriesPerPosition, int startPosition, int batchSize, int outputRowCount);
 

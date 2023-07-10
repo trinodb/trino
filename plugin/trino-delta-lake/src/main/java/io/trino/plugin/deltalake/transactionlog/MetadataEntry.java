@@ -17,21 +17,29 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.spi.TrinoException;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.COLUMN_MAPPING_MODE_CONFIGURATION_KEY;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.MAX_COLUMN_ID_CONFIGURATION_KEY;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class MetadataEntry
 {
+    public static final String DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY = "delta.checkpoint.writeStatsAsJson";
+    public static final String DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY = "delta.checkpoint.writeStatsAsStruct";
+    public static final String DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY = "delta.enableChangeDataFeed";
+
     private static final String DELTA_CHECKPOINT_INTERVAL_PROPERTY = "delta.checkpointInterval";
 
     private final String id;
@@ -40,7 +48,7 @@ public class MetadataEntry
     private final Format format;
     private final String schemaString;
     private final List<String> partitionColumns;
-    private final List<String> canonincalPartitionColumns;
+    private final List<String> canonicalPartitionColumns;
     private final Map<String, String> configuration;
     private final long createdTime;
 
@@ -61,9 +69,9 @@ public class MetadataEntry
         this.format = format;
         this.schemaString = schemaString;
         this.partitionColumns = partitionColumns;
-        this.canonincalPartitionColumns = partitionColumns.stream()
+        this.canonicalPartitionColumns = partitionColumns.stream()
                 // canonicalize partition keys to lowercase so they match column names used in DeltaLakeColumnHandle
-                .map(value -> value.toLowerCase(Locale.ENGLISH))
+                .map(value -> value.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
         this.configuration = configuration;
         this.createdTime = createdTime;
@@ -114,7 +122,7 @@ public class MetadataEntry
     @JsonIgnore
     public List<String> getCanonicalPartitionColumns()
     {
-        return canonincalPartitionColumns;
+        return canonicalPartitionColumns;
     }
 
     @JsonProperty
@@ -153,11 +161,40 @@ public class MetadataEntry
         }
     }
 
-    public static Map<String, String> configurationForNewTable(Optional<Long> checkpointInterval)
+    @JsonIgnore
+    public Optional<Boolean> isChangeDataFeedEnabled()
     {
-        return checkpointInterval
-                .map(value -> ImmutableMap.of(DELTA_CHECKPOINT_INTERVAL_PROPERTY, String.valueOf(value)))
-                .orElseGet(ImmutableMap::of);
+        if (this.getConfiguration() == null) {
+            return Optional.empty();
+        }
+
+        String value = this.getConfiguration().get(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY);
+        if (value == null) {
+            return Optional.empty();
+        }
+
+        boolean changeDataFeedEnabled = Boolean.parseBoolean(value);
+        return Optional.of(changeDataFeedEnabled);
+    }
+
+    public static Map<String, String> configurationForNewTable(
+            Optional<Long> checkpointInterval,
+            Optional<Boolean> changeDataFeedEnabled,
+            ColumnMappingMode columnMappingMode,
+            OptionalInt maxFieldId)
+    {
+        ImmutableMap.Builder<String, String> configurationMapBuilder = ImmutableMap.builder();
+        checkpointInterval.ifPresent(interval -> configurationMapBuilder.put(DELTA_CHECKPOINT_INTERVAL_PROPERTY, String.valueOf(interval)));
+        changeDataFeedEnabled.ifPresent(enabled -> configurationMapBuilder.put(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY, String.valueOf(enabled)));
+        switch (columnMappingMode) {
+            case NONE -> { /* do nothing */ }
+            case ID, NAME -> {
+                configurationMapBuilder.put(COLUMN_MAPPING_MODE_CONFIGURATION_KEY, columnMappingMode.name().toLowerCase(ENGLISH));
+                configurationMapBuilder.put(MAX_COLUMN_ID_CONFIGURATION_KEY, String.valueOf(maxFieldId.orElseThrow()));
+            }
+            case UNKNOWN -> throw new UnsupportedOperationException();
+        }
+        return configurationMapBuilder.buildOrThrow();
     }
 
     @Override
@@ -177,14 +214,14 @@ public class MetadataEntry
                 Objects.equals(format, that.format) &&
                 Objects.equals(schemaString, that.schemaString) &&
                 Objects.equals(partitionColumns, that.partitionColumns) &&
-                Objects.equals(canonincalPartitionColumns, that.canonincalPartitionColumns) &&
+                Objects.equals(canonicalPartitionColumns, that.canonicalPartitionColumns) &&
                 Objects.equals(configuration, that.configuration);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(id, name, description, format, schemaString, partitionColumns, canonincalPartitionColumns, configuration, createdTime);
+        return Objects.hash(id, name, description, format, schemaString, partitionColumns, canonicalPartitionColumns, configuration, createdTime);
     }
 
     @Override

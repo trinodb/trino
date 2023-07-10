@@ -13,69 +13,69 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.writer.ParquetWriterOptions;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
+import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
-import org.apache.iceberg.parquet.ParquetUtil;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.iceberg.io.InputFile;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
 
-import java.io.OutputStream;
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.parquet.ParquetUtil.fileMetrics;
 
 public class IcebergParquetFileWriter
         extends ParquetFileWriter
         implements IcebergFileWriter
 {
     private final MetricsConfig metricsConfig;
-    private final Path outputPath;
-    private final HdfsEnvironment hdfsEnvironment;
-    private final HdfsContext hdfsContext;
+    private final InputFile inputFile;
 
     public IcebergParquetFileWriter(
             MetricsConfig metricsConfig,
-            OutputStream outputStream,
-            Callable<Void> rollbackAction,
+            TrinoOutputFile outputFile,
+            Closeable rollbackAction,
             List<Type> fileColumnTypes,
+            List<String> fileColumnNames,
             MessageType messageType,
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
-            CompressionCodecName compressionCodecName,
+            CompressionCodec compressionCodec,
             String trinoVersion,
-            Path outputPath,
-            HdfsEnvironment hdfsEnvironment,
-            HdfsContext hdfsContext)
+            TrinoFileSystem fileSystem)
+            throws IOException
     {
-        super(outputStream,
+        super(outputFile,
                 rollbackAction,
                 fileColumnTypes,
+                fileColumnNames,
                 messageType,
                 primitiveTypes,
                 parquetWriterOptions,
                 fileInputColumnIndexes,
-                compressionCodecName,
+                compressionCodec,
                 trinoVersion,
+                false,
+                Optional.empty(),
                 Optional.empty());
         this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");
-        this.outputPath = requireNonNull(outputPath, "outputPath is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
+        this.inputFile = new ForwardingInputFile(fileSystem.newInputFile(outputFile.location()));
     }
 
     @Override
     public Metrics getMetrics()
     {
-        return hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> ParquetUtil.fileMetrics(new HdfsInputFile(outputPath, hdfsEnvironment, hdfsContext), metricsConfig));
+        return fileMetrics(inputFile, metricsConfig);
     }
 }

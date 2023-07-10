@@ -70,7 +70,7 @@ public class TestJoinQueries
                         "join-distribution-type", "BROADCAST",
                         "optimizer.join-reordering-strategy", "NONE",
                         // make sure the probe side will get blocked on a split placement
-                        "node-scheduler.max-pending-splits-per-task", "1",
+                        "node-scheduler.min-pending-splits-per-task", "1",
                         "node-scheduler.max-splits-per-node", "1",
                         "node-scheduler.max-unacknowledged-splits-per-task", "1"))
                 .setExtraProperties(ImmutableMap.of(

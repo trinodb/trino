@@ -75,7 +75,6 @@ class HiveSplitSource
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final AtomicInteger remainingInitialSplits;
-    private final AtomicLong numberOfProcessedSplits;
 
     private final HiveSplitLoader splitLoader;
     private final AtomicReference<State> stateReference;
@@ -106,7 +105,7 @@ class HiveSplitSource
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.queues = requireNonNull(queues, "queues is null");
-        this.maxOutstandingSplitsBytes = requireNonNull(maxOutstandingSplitsSize, "maxOutstandingSplitsSize is null").toBytes();
+        this.maxOutstandingSplitsBytes = maxOutstandingSplitsSize.toBytes();
         this.splitLoader = requireNonNull(splitLoader, "splitLoader is null");
         this.stateReference = requireNonNull(stateReference, "stateReference is null");
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
@@ -114,7 +113,6 @@ class HiveSplitSource
         this.maxSplitSize = getMaxSplitSize(session);
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
-        this.numberOfProcessedSplits = new AtomicLong(0);
         this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
         this.recordScannedFiles = recordScannedFiles;
     }
@@ -299,8 +297,6 @@ class HiveSplitSource
                 }
 
                 resultBuilder.add(new HiveSplit(
-                        databaseName,
-                        tableName,
                         internalSplit.getPartitionName(),
                         internalSplit.getPath(),
                         internalSplit.getStart(),
@@ -312,14 +308,12 @@ class HiveSplitSource
                         block.getAddresses(),
                         internalSplit.getReadBucketNumber(),
                         internalSplit.getTableBucketNumber(),
-                        internalSplit.getStatementId(),
                         internalSplit.isForceLocalScheduling(),
                         internalSplit.getTableToPartitionMapping(),
                         internalSplit.getBucketConversion(),
                         internalSplit.getBucketValidation(),
                         internalSplit.isS3SelectPushdownEnabled(),
                         internalSplit.getAcidInfo(),
-                        numberOfProcessedSplits.getAndIncrement(),
                         splitWeightProvider.weightForSplitSizeInBytes(splitBytes)));
 
                 internalSplit.increaseStart(splitBytes);
@@ -362,9 +356,7 @@ class HiveSplitSource
                 //              But an extra invocation likely doesn't matter.
                 return new ConnectorSplitBatch(splits, splits.isEmpty() && queues.isFinished());
             }
-            else {
-                return new ConnectorSplitBatch(splits, false);
-            }
+            return new ConnectorSplitBatch(splits, false);
         });
     }
 

@@ -33,9 +33,7 @@ public class TestPinotLegacyServerQueryClientConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("pinot.max-rows-per-split-for-segment-queries", "10")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("pinot.max-rows-per-split-for-segment-queries", "10");
         PinotLegacyServerQueryClientConfig expected = new PinotLegacyServerQueryClientConfig()
                 .setMaxRowsPerSplitForSegmentQueries(10);
         ConfigAssertions.assertFullMapping(properties, expected);

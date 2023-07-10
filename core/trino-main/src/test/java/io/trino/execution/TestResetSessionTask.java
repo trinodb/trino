@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -28,6 +29,7 @@ import io.trino.sql.tree.ResetSession;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -38,6 +40,7 @@ import java.util.concurrent.ExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
@@ -48,14 +51,16 @@ public class TestResetSessionTask
 {
     private static final String CATALOG_NAME = "my_catalog";
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-    private final TransactionManager transactionManager;
-    private final AccessControl accessControl;
-    private final Metadata metadata;
-    private final SessionPropertyManager sessionPropertyManager;
+    private LocalQueryRunner queryRunner;
+    private TransactionManager transactionManager;
+    private AccessControl accessControl;
+    private Metadata metadata;
+    private SessionPropertyManager sessionPropertyManager;
 
-    public TestResetSessionTask()
+    @BeforeClass
+    public void setUp()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(TEST_SESSION)
+        queryRunner = LocalQueryRunner.builder(TEST_SESSION)
                 .withExtraSystemSessionProperties(ImmutableSet.of(() -> ImmutableList.of(
                         stringProperty(
                                 "foo",
@@ -86,6 +91,12 @@ public class TestResetSessionTask
     {
         executor.shutdownNow();
         executor = null;
+        queryRunner.close();
+        queryRunner = null;
+        transactionManager = null;
+        accessControl = null;
+        metadata = null;
+        sessionPropertyManager = null;
     }
 
     @Test
@@ -109,7 +120,10 @@ public class TestResetSessionTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                createPlanOptimizersStatsCollector(),
+                Optional.empty(),
+                true,
+                new NodeVersion("test"));
 
         getFutureValue(new ResetSessionTask(metadata, sessionPropertyManager).execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),

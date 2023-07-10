@@ -1,0 +1,122 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "6b6d7056-fb7d-4b3b-8249-428324c18890",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/household_demographics",
+  "last-updated-ms" : 1663708599685,
+  "last-column-id" : 5,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "hd_demo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "hd_income_band_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "hd_buy_potential",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "hd_dep_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "hd_vehicle_count",
+      "required" : false,
+      "type" : "int"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "hd_demo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "hd_income_band_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "hd_buy_potential",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "hd_dep_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "hd_vehicle_count",
+      "required" : false,
+      "type" : "int"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.2.ndv" : "20",
+    "trino.stats.ndv.1.ndv" : "7082",
+    "trino.stats.ndv.3.ndv" : "6",
+    "write.format.default" : "ORC",
+    "trino.stats.ndv.4.ndv" : "10",
+    "trino.stats.ndv.5.ndv" : "6"
+  },
+  "current-snapshot-id" : 2849001755671445746,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 2849001755671445746,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 2849001755671445746,
+    "timestamp-ms" : 1648026754707,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "6",
+      "added-records" : "7200",
+      "added-files-size" : "5767",
+      "changed-partition-count" : "1",
+      "total-records" : "7200",
+      "total-files-size" : "5767",
+      "total-data-files" : "6",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/household_demographics/metadata/snap-2849001755671445746-1-ab7a9eea-51da-4570-a291-9f702051709b.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648026754707,
+    "snapshot-id" : 2849001755671445746
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648026754707,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-orc/household_demographics/metadata/00000-e57d9656-91b7-4c5f-9359-264329a31f1c.metadata.json"
+  } ]
+}

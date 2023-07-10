@@ -21,10 +21,10 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-
-import javax.annotation.PostConstruct;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import jakarta.annotation.PostConstruct;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.List;
@@ -63,6 +63,7 @@ public class PinotConfig
     private boolean aggregationPushdownEnabled = true;
     private boolean countDistinctPushdownEnabled = true;
     private boolean grpcEnabled = true;
+    private boolean proxyEnabled;
     private DataSize targetSegmentPageSize = DataSize.of(1, MEGABYTE);
 
     @NotEmpty(message = "pinot.controller-urls cannot be empty")
@@ -239,6 +240,23 @@ public class PinotConfig
         return this;
     }
 
+    public boolean isTlsEnabled()
+    {
+        return "https".equalsIgnoreCase(getControllerUrls().get(0).getScheme());
+    }
+
+    public boolean getProxyEnabled()
+    {
+        return proxyEnabled;
+    }
+
+    @Config("pinot.proxy.enabled")
+    public PinotConfig setProxyEnabled(boolean proxyEnabled)
+    {
+        this.proxyEnabled = proxyEnabled;
+        return this;
+    }
+
     public DataSize getTargetSegmentPageSize()
     {
         return this.targetSegmentPageSize;
@@ -257,5 +275,23 @@ public class PinotConfig
         checkState(
                 !countDistinctPushdownEnabled || aggregationPushdownEnabled,
                 "Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled");
+    }
+
+    @AssertTrue(message = "All controller URLs must have the same scheme")
+    public boolean allUrlSchemesEqual()
+    {
+        return controllerUrls.stream()
+                .map(URI::getScheme)
+                .distinct()
+                .count() == 1;
+    }
+
+    @AssertTrue(message = "Using the rest proxy requires GRPC to be enabled by setting pinot.grpc.enabled=true")
+    public boolean proxyRestAndGrpcAreRequired()
+    {
+        if (proxyEnabled) {
+            return grpcEnabled;
+        }
+        return true;
     }
 }

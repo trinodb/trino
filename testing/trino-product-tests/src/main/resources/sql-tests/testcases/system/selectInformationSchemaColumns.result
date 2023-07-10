@@ -12,12 +12,6 @@ system| information_schema| columns| column_default| varchar| YES| null| null|
 system| information_schema| columns| is_nullable| varchar| YES| null| null|
 system| information_schema| columns| data_type| varchar| YES| null| null|
 system| information_schema| enabled_roles| role_name| varchar| YES| null| null|
-system| information_schema| role_authorization_descriptors| role_name| varchar| YES| null| null|
-system| information_schema| role_authorization_descriptors| grantor| varchar| YES| null| null|
-system| information_schema| role_authorization_descriptors| grantor_type| varchar| YES| null| null|
-system| information_schema| role_authorization_descriptors| grantee| varchar| YES| null| null|
-system| information_schema| role_authorization_descriptors| grantee_type| varchar| YES| null| null|
-system| information_schema| role_authorization_descriptors| is_grantable| varchar| YES| null| null|
 system| information_schema| roles| role_name| varchar| YES| null| null|
 system| information_schema| schemata| catalog_name| varchar| YES| null| null|
 system| information_schema| schemata| schema_name| varchar| YES| null| null|
@@ -63,7 +57,8 @@ system| metadata| materialized_views| name| varchar| YES| null| null|
 system| metadata| materialized_views| storage_catalog| varchar| YES| null| null|
 system| metadata| materialized_views| storage_schema| varchar| YES| null| null|
 system| metadata| materialized_views| storage_table| varchar| YES| null| null|
-system| metadata| materialized_views| is_fresh| boolean| YES| null| null|
+system| metadata| materialized_views| freshness| varchar| YES| null| null|
+system| metadata| materialized_views| last_fresh_time| timestamp(9) with time zone| YES| null| null|
 system| metadata| materialized_views| comment| varchar| YES| null| null|
 system| metadata| materialized_views| definition| varchar| YES| null| null|
 system| metadata| schema_properties| catalog_name| varchar| YES| null| null|

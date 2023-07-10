@@ -14,11 +14,10 @@
 package io.trino.tests.product.launcher.env.common;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -43,7 +42,6 @@ public class HadoopKerberosKms
     {
         this.configDir = dockerFiles.getDockerFilesHostDirectory("common/hadoop-kerberos-kms/");
         this.hadoopKerberos = requireNonNull(hadoopKerberos, "hadoopKerberos is null");
-        requireNonNull(environmentConfig, "environmentConfig is null");
         hadoopImagesVersion = environmentConfig.getHadoopImagesVersion();
     }
 
@@ -59,7 +57,10 @@ public class HadoopKerberosKms
                     .withCopyFileToContainer(forHostPath(configDir.getPath("kms-core-site.xml")), "/etc/hadoop-kms/conf/core-site.xml");
         });
 
-        builder.configureContainer(COORDINATOR, container -> container.setDockerImageName(dockerImageName));
+        builder.configureContainer(COORDINATOR,
+                container -> container
+                        .withCopyFileToContainer(forHostPath(configDir.getPath("hive-disable-key-provider-cache-site.xml")), "/etc/hadoop-kms/conf/hive-disable-key-provider-cache-site.xml")
+                        .setDockerImageName(dockerImageName));
 
         builder.configureContainer(TESTS, container -> {
             container.setDockerImageName(dockerImageName);

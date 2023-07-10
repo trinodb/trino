@@ -22,6 +22,7 @@ import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.TableStatsProvider;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
@@ -39,7 +40,7 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
-import io.trino.sql.planner.plan.DeleteNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -54,6 +55,8 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
@@ -74,13 +77,16 @@ import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
+import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
@@ -136,7 +142,15 @@ public class UnaliasSymbolReferences
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(
+            PlanNode plan,
+            Session session,
+            TypeProvider types,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            TableStatsProvider tableStatsProvider)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -319,23 +333,82 @@ public class UnaliasSymbolReferences
         @Override
         public PlanAndMappings visitTableFunction(TableFunctionNode node, UnaliasContext context)
         {
-            // TODO rewrite sources, tableArgumentProperties, and inputDescriptorMappings when we add support for input tables
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
             SymbolMapper mapper = symbolMapper(mapping);
 
             List<Symbol> newProperOutputs = mapper.map(node.getProperOutputs());
 
+            ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
+            ImmutableList.Builder<TableArgumentProperties> newTableArgumentProperties = ImmutableList.builder();
+
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanAndMappings newSource = node.getSources().get(i).accept(this, context);
+                newSources.add(newSource.getRoot());
+
+                SymbolMapper inputMapper = symbolMapper(new HashMap<>(newSource.getMappings()));
+                TableArgumentProperties properties = node.getTableArgumentProperties().get(i);
+                Optional<DataOrganizationSpecification> newSpecification = properties.getSpecification().map(inputMapper::mapAndDistinct);
+                PassThroughSpecification newPassThroughSpecification = new PassThroughSpecification(
+                        properties.getPassThroughSpecification().declaredAsPassThrough(),
+                        properties.getPassThroughSpecification().columns().stream()
+                                .map(column -> new PassThroughColumn(
+                                        inputMapper.map(column.symbol()),
+                                        column.isPartitioningColumn()))
+                                .collect(toImmutableList()));
+                newTableArgumentProperties.add(new TableArgumentProperties(
+                        properties.getArgumentName(),
+                        properties.isRowSemantics(),
+                        properties.isPruneWhenEmpty(),
+                        newPassThroughSpecification,
+                        inputMapper.map(properties.getRequiredColumns()),
+                        newSpecification));
+            }
+
             return new PlanAndMappings(
                     new TableFunctionNode(
                             node.getId(),
                             node.getName(),
+                            node.getFunctionCatalog(),
                             node.getArguments(),
                             newProperOutputs,
-                            node.getSources(),
-                            node.getTableArgumentProperties(),
-                            node.getInputDescriptorMappings(),
+                            newSources.build(),
+                            newTableArgumentProperties.build(),
+                            node.getCopartitioningLists(),
                             node.getHandle()),
                     mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitTableFunctionProcessor(TableFunctionProcessorNode node, UnaliasContext context)
+        {
+            if (node.getSource().isEmpty()) {
+                Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+                SymbolMapper mapper = symbolMapper(mapping);
+                return new PlanAndMappings(
+                        new TableFunctionProcessorNode(
+                                node.getId(),
+                                node.getName(),
+                                mapper.map(node.getProperOutputs()),
+                                Optional.empty(),
+                                node.isPruneWhenEmpty(),
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableSet.of(),
+                                0,
+                                node.getHashSymbol().map(mapper::map),
+                                node.getHandle()),
+                        mapping);
+            }
+
+            PlanAndMappings rewrittenSource = node.getSource().orElseThrow().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            TableFunctionProcessorNode rewrittenTableFunctionProcessor = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenTableFunctionProcessor, mapping);
         }
 
         @Override
@@ -581,8 +654,7 @@ public class UnaliasSymbolReferences
                         return previous;
                     }));
 
-            List<Symbol> newOutputs = deduplicateAssignments.keySet().stream()
-                    .collect(toImmutableList());
+            List<Symbol> newOutputs = ImmutableList.copyOf(deduplicateAssignments.keySet());
 
             List<ImmutableList.Builder<Expression>> newRows = new ArrayList<>(node.getRowCount());
             for (int i = 0; i < node.getRowCount(); i++) {
@@ -619,48 +691,6 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanAndMappings visitDelete(DeleteNode node, UnaliasContext context)
-        {
-            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
-            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
-            SymbolMapper mapper = symbolMapper(mapping);
-
-            Symbol newRowId = mapper.map(node.getRowId());
-            List<Symbol> newOutputs = mapper.map(node.getOutputSymbols());
-
-            return new PlanAndMappings(
-                    new DeleteNode(
-                            node.getId(),
-                            rewrittenSource.getRoot(),
-                            node.getTarget(),
-                            newRowId,
-                            newOutputs),
-                    mapping);
-        }
-
-        @Override
-        public PlanAndMappings visitUpdate(UpdateNode node, UnaliasContext context)
-        {
-            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
-            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
-            SymbolMapper mapper = symbolMapper(mapping);
-
-            Symbol newRowId = mapper.map(node.getRowId());
-            List<Symbol> newColumnValueSymbols = mapper.map(node.getColumnValueAndRowIdSymbols());
-            List<Symbol> newOutputs = mapper.map(node.getOutputSymbols());
-
-            return new PlanAndMappings(
-                    new UpdateNode(
-                            node.getId(),
-                            rewrittenSource.getRoot(),
-                            node.getTarget(),
-                            newRowId,
-                            newColumnValueSymbols,
-                            newOutputs),
-                    mapping);
-        }
-
-        @Override
         public PlanAndMappings visitTableExecute(TableExecuteNode node, UnaliasContext context)
         {
             PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
@@ -685,6 +715,30 @@ public class UnaliasSymbolReferences
                             newOutput,
                             node.getExecuteHandle()),
                     mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitMergeWriter(MergeWriterNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            MergeWriterNode rewrittenMerge = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(rewrittenMerge, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitMergeProcessor(MergeProcessorNode node, UnaliasContext context)
+        {
+            PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+            Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            MergeProcessorNode mergeProcessorNode = mapper.map(node, rewrittenSource.getRoot());
+
+            return new PlanAndMappings(mergeProcessorNode, mapping);
         }
 
         @Override
@@ -1079,7 +1133,7 @@ public class UnaliasSymbolReferences
             // derive new mappings from inner join equi criteria
             Map<Symbol, Symbol> newMapping = new HashMap<>();
             if (node.getType() == INNER) {
-                newCriteria.stream()
+                newCriteria
                         // Map right equi-condition symbol to left symbol. This helps to
                         // reuse join node partitioning better as partitioning properties are
                         // only derived from probe side symbols
@@ -1216,7 +1270,7 @@ public class UnaliasSymbolReferences
             List<Symbol> newOutputSymbols = mapper.mapAndDistinct(node.getOutputSymbols());
 
             Map<Symbol, ColumnHandle> newAssignments = new HashMap<>();
-            node.getAssignments().entrySet().stream()
+            node.getAssignments().entrySet()
                     .forEach(assignment -> newAssignments.put(mapper.map(assignment.getKey()), assignment.getValue()));
 
             return new PlanAndMappings(

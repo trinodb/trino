@@ -48,7 +48,7 @@ public final class Slug
     {
         // "y" is an arbitrary prefix distinguishing this slug version. Added for troubleshooting purposes.
         return "y" + hmac.newHasher()
-                .putInt(requireNonNull(context, "context is null").ordinal())
+                .putInt(context.ordinal())
                 .putLong(token)
                 .hash()
                 .toString();

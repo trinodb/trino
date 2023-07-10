@@ -14,49 +14,37 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMultiset;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
-import com.google.common.collect.Sets;
 import io.trino.Session;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
+import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.CREATE_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_DATABASE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.REPLACE_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.CREATE_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.DROP_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_DATABASE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.REPLACE_TABLE;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.plugin.iceberg.TableType.HISTORY;
 import static io.trino.plugin.iceberg.TableType.MANIFESTS;
 import static io.trino.plugin.iceberg.TableType.PARTITIONS;
 import static io.trino.plugin.iceberg.TableType.PROPERTIES;
+import static io.trino.plugin.iceberg.TableType.REFS;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
-import static io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule.HIDE_DELTA_LAKE_TABLES_IN_ICEBERG;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
-import static java.lang.String.join;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestIcebergMetastoreAccessOperations
@@ -76,22 +64,27 @@ public class TestIcebergMetastoreAccessOperations
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION).build();
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-        HiveMetastore hiveMetastore = new FileHiveMetastore(
-                new NodeVersion("testversion"),
-                hdfsEnvironment,
-                HIDE_DELTA_LAKE_TABLES_IN_ICEBERG,
-                new FileHiveMetastoreConfig()
-                        .setCatalogDirectory(baseDir.toURI().toString())
-                        .setMetastoreUser("test"));
-        metastore = new CountingAccessHiveMetastore(hiveMetastore);
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty(), EMPTY_MODULE));
+        metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.empty(), EMPTY_MODULE));
         queryRunner.createCatalog("iceberg", "iceberg");
 
         queryRunner.execute("CREATE SCHEMA test_schema");
         return queryRunner;
+    }
+
+    @Test
+    public void testUse()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalog(Optional.empty())
+                .setSchema(Optional.empty())
+                .build();
+        assertMetastoreInvocations(session, "USE %s.%s".formatted(catalog, schema),
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .build());
     }
 
     @Test
@@ -108,11 +101,23 @@ public class TestIcebergMetastoreAccessOperations
     @Test
     public void testCreateTableAsSelect()
     {
-        assertMetastoreInvocations("CREATE TABLE test_ctas AS SELECT 1 AS age",
+        assertMetastoreInvocations(
+                withStatsOnWrite(getSession(), false),
+                "CREATE TABLE test_ctas AS SELECT 1 AS age",
                 ImmutableMultiset.builder()
                         .add(GET_DATABASE)
                         .add(CREATE_TABLE)
                         .add(GET_TABLE)
+                        .build());
+
+        assertMetastoreInvocations(
+                withStatsOnWrite(getSession(), true),
+                "CREATE TABLE test_ctas_with_stats AS SELECT 1 AS age",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(CREATE_TABLE)
+                        .addCopies(GET_TABLE, 4)
+                        .add(REPLACE_TABLE)
                         .build());
     }
 
@@ -194,8 +199,8 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 9)
-                        .addCopies(REPLACE_TABLE, 2)
+                        .addCopies(GET_TABLE, 6)
+                        .addCopies(REPLACE_TABLE, 1)
                         .build());
     }
 
@@ -298,34 +303,37 @@ public class TestIcebergMetastoreAccessOperations
 
         // This test should get updated if a new system table is added.
         assertThat(TableType.values())
-                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES);
+                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES, REFS);
     }
 
-    private void assertMetastoreInvocations(String query, Multiset<?> expectedInvocations)
+    @Test
+    public void testUnregisterTable()
     {
-        metastore.resetCounters();
-        getQueryRunner().execute(query);
-        Multiset<CountingAccessHiveMetastore.Methods> actualInvocations = metastore.getMethodInvocations();
+        assertUpdate("CREATE TABLE test_unregister_table AS SELECT 2 as age", 1);
 
-        if (expectedInvocations.equals(actualInvocations)) {
-            return;
-        }
+        assertMetastoreInvocations("CALL system.unregister_table(CURRENT_SCHEMA, 'test_unregister_table')",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
+                        .add(DROP_TABLE)
+                        .build());
+    }
 
-        List<String> mismatchReport = Sets.union(expectedInvocations.elementSet(), actualInvocations.elementSet()).stream()
-                .filter(key -> expectedInvocations.count(key) != actualInvocations.count(key))
-                .flatMap(key -> {
-                    int expectedCount = expectedInvocations.count(key);
-                    int actualCount = actualInvocations.count(key);
-                    if (actualCount < expectedCount) {
-                        return Stream.of(format("%s more occurrences of %s", expectedCount - actualCount, key));
-                    }
-                    if (actualCount > expectedCount) {
-                        return Stream.of(format("%s fewer occurrences of %s", actualCount - expectedCount, key));
-                    }
-                    return Stream.of();
-                })
-                .collect(toImmutableList());
+    private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
+    {
+        assertMetastoreInvocations(getSession(), query, expectedInvocations);
+    }
 
-        fail("Expected: \n\t\t" + join(",\n\t\t", mismatchReport));
+    private void assertMetastoreInvocations(Session session, @Language("SQL") String query, Multiset<?> expectedInvocations)
+    {
+        CountingAccessHiveMetastoreUtil.assertMetastoreInvocations(metastore, getQueryRunner(), session, query, expectedInvocations);
+    }
+
+    private static Session withStatsOnWrite(Session session, boolean enabled)
+    {
+        String catalog = session.getCatalog().orElseThrow();
+        return Session.builder(session)
+                .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
+                .build();
     }
 }

@@ -14,7 +14,9 @@
 package io.trino.sql.rewrite;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Analysis;
@@ -34,14 +36,12 @@ import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
-import static io.trino.execution.ParameterExtractor.getParameters;
+import static io.trino.execution.ParameterExtractor.extractParameters;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.ascending;
@@ -74,9 +74,10 @@ public final class DescribeInputRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        return (Statement) new Visitor(session, parser, analyzerFactory, parameters, parameterLookup, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, analyzerFactory, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector).process(node, null);
     }
 
     private static final class Visitor
@@ -88,6 +89,7 @@ public final class DescribeInputRewrite
         private final List<Expression> parameters;
         private final Map<NodeRef<Parameter>, Expression> parameterLookup;
         private final WarningCollector warningCollector;
+        private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
         public Visitor(
                 Session session,
@@ -95,7 +97,8 @@ public final class DescribeInputRewrite
                 AnalyzerFactory analyzerFactory,
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                PlanOptimizersStatsCollector planOptimizersStatsCollector)
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = requireNonNull(parser, "parser is null");
@@ -103,6 +106,7 @@ public final class DescribeInputRewrite
             this.parameters = parameters;
             this.parameterLookup = parameterLookup;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         }
 
         @Override
@@ -112,14 +116,19 @@ public final class DescribeInputRewrite
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
             // create  analysis for the query we are describing.
-            Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector);
+            Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector);
             Analysis analysis = analyzer.analyze(statement, DESCRIBE);
 
             // get all parameters in query
-            List<Parameter> parameters = getParameters(statement);
+            List<Parameter> parameters = extractParameters(statement);
+
+            ImmutableList.Builder<Row> builder = ImmutableList.builder();
+            for (int i = 0; i < parameters.size(); i++) {
+                builder.add(createDescribeInputRow(session, i, parameters.get(i), analysis));
+            }
 
             // return the positions and types of all parameters
-            Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(session, parameter, analysis)).toArray(Row[]::new);
+            Row[] rows = builder.build().toArray(Row[]::new);
             Optional<Node> limit = Optional.empty();
             if (rows.length == 0) {
                 rows = new Row[] {row(new NullLiteral(), new NullLiteral())};
@@ -140,7 +149,7 @@ public final class DescribeInputRewrite
                     limit);
         }
 
-        private static Row createDescribeInputRow(Session session, Parameter parameter, Analysis queryAnalysis)
+        private static Row createDescribeInputRow(Session session, int position, Parameter parameter, Analysis queryAnalysis)
         {
             Type type = queryAnalysis.getCoercion(parameter);
             if (type == null) {
@@ -148,7 +157,7 @@ public final class DescribeInputRewrite
             }
 
             return row(
-                    new LongLiteral(Integer.toString(parameter.getPosition())),
+                    new LongLiteral(Integer.toString(position)),
                     new StringLiteral(getDisplayLabel(type, isOmitDateTimeTypePrecision(session))));
         }
 

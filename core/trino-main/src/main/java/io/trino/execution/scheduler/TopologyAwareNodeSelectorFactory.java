@@ -19,18 +19,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.trino.Session;
-import io.trino.collect.cache.NonEvictableCache;
-import io.trino.connector.CatalogHandle;
+import io.trino.cache.NonEvictableCache;
 import io.trino.execution.NodeTaskMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
-
-import javax.inject.Inject;
+import io.trino.spi.connector.CatalogHandle;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -44,8 +43,8 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
-import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
@@ -63,7 +62,7 @@ public class TopologyAwareNodeSelectorFactory
     private final int minCandidates;
     private final boolean includeCoordinator;
     private final long maxSplitsWeightPerNode;
-    private final long maxPendingSplitsWeightPerTask;
+    private final long minPendingSplitsWeightPerTask;
     private final NodeTaskMap nodeTaskMap;
 
     private final List<CounterStat> placementCounters;
@@ -79,9 +78,7 @@ public class TopologyAwareNodeSelectorFactory
     {
         requireNonNull(networkTopology, "networkTopology is null");
         requireNonNull(nodeManager, "nodeManager is null");
-        requireNonNull(schedulerConfig, "schedulerConfig is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        requireNonNull(topologyConfig, "topologyConfig is null");
 
         this.networkTopology = networkTopology;
         this.nodeManager = nodeManager;
@@ -89,10 +86,10 @@ public class TopologyAwareNodeSelectorFactory
         this.includeCoordinator = schedulerConfig.isIncludeCoordinator();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         int maxSplitsPerNode = schedulerConfig.getMaxSplitsPerNode();
-        int maxPendingSplitsPerTask = schedulerConfig.getMaxPendingSplitsPerTask();
-        checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
+        int minPendingSplitsPerTask = schedulerConfig.getMinPendingSplitsPerTask();
+        checkArgument(maxSplitsPerNode >= minPendingSplitsPerTask, "maxSplitsPerNode must be > minPendingSplitsPerTask");
         this.maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
-        this.maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
+        this.minPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(minPendingSplitsPerTask);
 
         Builder<CounterStat> placementCounters = ImmutableList.builder();
         ImmutableMap.Builder<String, CounterStat> placementCountersByName = ImmutableMap.builder();
@@ -135,7 +132,7 @@ public class TopologyAwareNodeSelectorFactory
                 nodeMap,
                 minCandidates,
                 maxSplitsWeightPerNode,
-                maxPendingSplitsWeightPerTask,
+                minPendingSplitsWeightPerTask,
                 getMaxUnacknowledgedSplitsPerTask(session),
                 placementCounters,
                 networkTopology);

@@ -21,44 +21,48 @@ import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
-import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorRecordSetProvider;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ForClassLoaderSafe;
+import io.trino.plugin.base.mapping.IdentifierMappingModule;
 import io.trino.plugin.jdbc.ConfiguringConnectionFactory;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.DynamicFilteringStats;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
 import io.trino.plugin.jdbc.ForLazyConnectionFactory;
 import io.trino.plugin.jdbc.ForRecordCursor;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcDiagnosticModule;
+import io.trino.plugin.jdbc.JdbcDynamicFilteringConfig;
+import io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties;
+import io.trino.plugin.jdbc.JdbcDynamicFilteringSplitManager;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcMetadataSessionProperties;
-import io.trino.plugin.jdbc.JdbcPageSinkProvider;
-import io.trino.plugin.jdbc.JdbcRecordSetProvider;
 import io.trino.plugin.jdbc.JdbcWriteConfig;
 import io.trino.plugin.jdbc.JdbcWriteSessionProperties;
 import io.trino.plugin.jdbc.LazyConnectionFactory;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.ReusableConnectionFactoryModule;
 import io.trino.plugin.jdbc.StatsCollecting;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
-import io.trino.plugin.jdbc.mapping.IdentifierMappingModule;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifierModule;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
-import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import jakarta.annotation.PreDestroy;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.phoenix.jdbc.PhoenixDriver;
 import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver;
-
-import javax.annotation.PreDestroy;
 
 import java.sql.SQLException;
 import java.util.Map;
@@ -68,35 +72,56 @@ import java.util.concurrent.ExecutorService;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 import static io.trino.plugin.phoenix5.ConfigurationInstantiator.newEmptyConfiguration;
+import static io.trino.plugin.phoenix5.PhoenixClient.DEFAULT_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
+import static java.util.Objects.requireNonNull;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class PhoenixClientModule
         extends AbstractConfigurationAwareModule
 {
+    private final String catalogName;
+
+    public PhoenixClientModule(String catalogName)
+    {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixSplitManager.class).in(Scopes.SINGLETON);
+        install(new RemoteQueryModifierModule());
+        binder.bind(ConnectorSplitManager.class).annotatedWith(ForJdbcDynamicFiltering.class).to(PhoenixSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(JdbcDynamicFilteringSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForClassLoaderSafe.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorRecordSetProvider.class).to(ClassLoaderSafeConnectorRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorPageSinkProvider.class).annotatedWith(ForClassLoaderSafe.class).to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(ClassLoaderSafeConnectorPageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSourceProvider.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSourceProvider.class).to(ClassLoaderSafeConnectorPageSourceProvider.class).in(Scopes.SINGLETON);
+
         binder.bind(QueryBuilder.class).to(DefaultQueryBuilder.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
+        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setDomainCompactionThreshold(DEFAULT_DOMAIN_COMPACTION_THRESHOLD));
 
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
         bindSessionPropertiesProvider(binder, TypeHandlingJdbcSessionProperties.class);
         bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
         bindSessionPropertiesProvider(binder, JdbcWriteSessionProperties.class);
         bindSessionPropertiesProvider(binder, PhoenixSessionProperties.class);
+        bindSessionPropertiesProvider(binder, JdbcDynamicFilteringSessionProperties.class);
+
+        binder.bind(DynamicFilteringStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DynamicFilteringStats.class)
+                .as(generator -> generator.generatedNameOf(DynamicFilteringStats.class, catalogName));
 
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
         configBinder(binder).bindConfig(JdbcWriteConfig.class);
+        configBinder(binder).bindConfig(JdbcDynamicFilteringConfig.class);
 
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(Key.get(PhoenixClient.class)).in(Scopes.SINGLETON);
@@ -108,7 +133,11 @@ public class PhoenixClientModule
                 .annotatedWith(ForLazyConnectionFactory.class)
                 .to(Key.get(ConnectionFactory.class, StatsCollecting.class))
                 .in(Scopes.SINGLETON);
-        binder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON);
+        install(conditionalModule(
+                PhoenixConfig.class,
+                PhoenixConfig::isReuseConnection,
+                new ReusableConnectionFactoryModule(),
+                innerBinder -> innerBinder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON)));
 
         bindTablePropertiesProvider(binder, PhoenixTableProperties.class);
         binder.bind(PhoenixColumnProperties.class).in(Scopes.SINGLETON);

@@ -72,9 +72,9 @@ import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
+import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -239,20 +239,16 @@ public class BenchmarkHashBuildAndJoinOperators
             }
 
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = getLookupSourceFactoryManager(this, outputChannels, partitionCount);
-            joinOperatorFactory = operatorFactories.innerJoin(
+            joinOperatorFactory = operatorFactories.join(
+                    innerJoin(false, false),
                     HASH_JOIN_OPERATOR_ID,
                     TEST_PLAN_NODE_ID,
                     lookupSourceFactory,
-                    false,
-                    false,
-                    false,
                     false,
                     types,
                     hashChannels,
                     hashChannel,
                     Optional.of(outputChannels),
-                    OptionalInt.empty(),
-                    unsupportedPartitioningSpillerFactory(),
                     TYPE_OPERATOR_FACTORY);
             buildHash(this, lookupSourceFactory, outputChannels, partitionCount);
             initializeProbePages();

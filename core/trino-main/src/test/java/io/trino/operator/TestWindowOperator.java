@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.trino.ExceededMemoryLimitException;
+import io.trino.RowPagesBuilder;
 import io.trino.operator.WindowOperator.WindowOperatorFactory;
 import io.trino.operator.window.FirstValueFunction;
 import io.trino.operator.window.FrameInfo;
@@ -56,6 +57,7 @@ import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
+import static io.trino.operator.PositionSearcher.findEndPosition;
 import static io.trino.operator.WindowFunctionDefinition.window;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -70,6 +72,7 @@ import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -429,6 +432,41 @@ public class TestWindowOperator
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
+    }
+
+    @Test
+    public void testClose()
+            throws Exception
+    {
+        RowPagesBuilder pageBuilder = rowPagesBuilder(VARCHAR, BIGINT);
+        for (int i = 0; i < 500_000; ++i) {
+            pageBuilder.row("a", 0L);
+        }
+        for (int i = 0; i < 500_000; ++i) {
+            pageBuilder.row("b", 0L);
+        }
+        List<Page> input = pageBuilder.build();
+
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
+                ImmutableList.of(VARCHAR, BIGINT),
+                Ints.asList(0, 1),
+                ROW_NUMBER,
+                Ints.asList(0),
+                Ints.asList(1),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                false);
+
+        DriverContext driverContext = createDriverContext(1000);
+        Operator operator = operatorFactory.createOperator(driverContext);
+        operatorFactory.noMoreOperators();
+        assertFalse(operator.isFinished());
+        assertTrue(operator.needsInput());
+        operator.addInput(input.get(0));
+        operator.finish();
+        operator.getOutput();
+
+        // this should not fail
+        operator.close();
     }
 
     @Test(dataProvider = "spillEnabled")
@@ -796,7 +834,7 @@ public class TestWindowOperator
     private static void assertFindEndPosition(String values, int expected)
     {
         char[] array = values.toCharArray();
-        assertEquals(WindowOperator.findEndPosition(0, array.length, (first, second) -> array[first] == array[second]), expected);
+        assertEquals(findEndPosition(0, array.length, (first, second) -> array[first] == array[second]), expected);
     }
 
     private WindowOperatorFactory createFactoryUnbounded(

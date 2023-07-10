@@ -98,11 +98,11 @@ The emulation of schemas is disabled by default.
 In this case all Kudu tables are part of the ``default`` schema.
 
 For example, a Kudu table named ``orders`` can be queried in Trino
-with ``SELECT * FROM kudu.default.orders`` or simple with ``SELECT * FROM orders``
+with ``SELECT * FROM example.default.orders`` or simple with ``SELECT * FROM orders``
 if catalog and schema are set to ``kudu`` and ``default`` respectively.
 
 Table names can contain any characters in Kudu. In this case, use double quotes.
-E.g. To query a Kudu table named ``special.table!`` use ``SELECT * FROM kudu.default."special.table!"``.
+E.g. To query a Kudu table named ``special.table!`` use ``SELECT * FROM example.default."special.table!"``.
 
 
 Example
@@ -110,7 +110,7 @@ Example
 
 * Create a users table in the default schema::
 
-    CREATE TABLE kudu.default.users (
+    CREATE TABLE example.default.users (
       user_id int WITH (primary_key = true),
       first_name varchar,
       last_name varchar
@@ -125,7 +125,7 @@ Example
 
 * Describe the table::
 
-      DESCRIBE kudu.default.users;
+      DESCRIBE example.default.users;
 
   .. code-block:: text
 
@@ -138,19 +138,20 @@ Example
 
 *  Insert some data::
 
-    INSERT INTO kudu.default.users VALUES (1, 'Donald', 'Duck'), (2, 'Mickey', 'Mouse');
+    INSERT INTO example.default.users VALUES (1, 'Donald', 'Duck'), (2, 'Mickey', 'Mouse');
 
 *  Select the inserted data::
 
-    SELECT * FROM kudu.default.users;
+    SELECT * FROM example.default.users;
 
 .. _behavior-with-schema-emulation:
 
 Behavior with schema emulation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If schema emulation has been enabled in the connector properties, i.e. ``etc/catalog/kudu.properties``,
-tables are mapped to schemas depending on some conventions.
+If schema emulation has been enabled in the connector properties, i.e.
+``etc/catalog/example.properties``, tables are mapped to schemas depending on
+some conventions.
 
 * With ``kudu.schema-emulation.enabled=true`` and ``kudu.schema-emulation.prefix=``,
   the mapping works like:
@@ -189,72 +190,105 @@ tables are mapped to schemas depending on some conventions.
   As schemas are not directly supported by Kudu, a special table named
   ``presto::$schemas`` is created for managing the schemas.
 
-Data type mapping
------------------
+.. _kudu-type-mapping:
 
-The data types of Trino and Kudu are mapped as far as possible:
+Type mapping
+------------
 
-+-----------------------+-----------------------+-----------------------+
-| Trino data type       | Kudu data type        | Comment               |
-+=======================+=======================+=======================+
-| ``BOOLEAN``           | ``BOOL``              |                       |
-+-----------------------+-----------------------+-----------------------+
-| ``TINYINT``           | ``INT8``              |                       |
-+-----------------------+-----------------------+-----------------------+
-| ``SMALLINT``          | ``INT16``             |                       |
-+-----------------------+-----------------------+-----------------------+
-| ``INTEGER``           | ``INT32``             |                       |
-+-----------------------+-----------------------+-----------------------+
-| ``BIGINT``            | ``INT64``             |                       |
-+-----------------------+-----------------------+-----------------------+
-| ``REAL``              | ``FLOAT``             |                       |
-+-----------------------+-----------------------+-----------------------+
-| ``DOUBLE``            | ``DOUBLE``            |                       |
-+-----------------------+-----------------------+-----------------------+
-| ``VARCHAR``           | ``STRING``            | see [1]_              |
-+-----------------------+-----------------------+-----------------------+
-| ``VARBINARY``         | ``BINARY``            | see [1]_              |
-+-----------------------+-----------------------+-----------------------+
-| ``TIMESTAMP``         | ``UNIXTIME_MICROS``   | µs resolution in Kudu |
-|                       |                       | column is reduced to  |
-|                       |                       | ms resolution         |
-+-----------------------+-----------------------+-----------------------+
-| ``DECIMAL``           | ``DECIMAL``           | only supported for    |
-|                       |                       | Kudu server >= 1.7.0  |
-+-----------------------+-----------------------+-----------------------+
-| ``CHAR``              | \-                    | not supported         |
-+-----------------------+-----------------------+-----------------------+
-| ``DATE``              | \-                    | not supported [2]_    |
-+-----------------------+-----------------------+-----------------------+
-| ``TIME``              | \-                    | not supported         |
-+-----------------------+-----------------------+-----------------------+
-| ``JSON``              | \-                    | not supported         |
-+-----------------------+-----------------------+-----------------------+
-| ``TIME WITH           | \-                    | not supported         |
-| TIMEZONE``            |                       |                       |
-+-----------------------+-----------------------+-----------------------+
-| ``TIMESTAMP WITH TIME | \-                    | not supported         |
-| ZONE``                |                       |                       |
-+-----------------------+-----------------------+-----------------------+
-| ``INTERVAL YEAR TO MO | \-                    | not supported         |
-| NTH``                 |                       |                       |
-+-----------------------+-----------------------+-----------------------+
-| ``INTERVAL DAY TO SEC | \-                    | not supported         |
-| OND``                 |                       |                       |
-+-----------------------+-----------------------+-----------------------+
-| ``ARRAY``             | \-                    | not supported         |
-+-----------------------+-----------------------+-----------------------+
-| ``MAP``               | \-                    | not supported         |
-+-----------------------+-----------------------+-----------------------+
-| ``IPADDRESS``         | \-                    | not supported         |
-+-----------------------+-----------------------+-----------------------+
+Because Trino and Kudu each support types that the other does not, this
+connector :ref:`modifies some types <type-mapping-overview>` when reading or
+writing data. Data types may not map the same way in both directions between
+Trino and the data source. Refer to the following sections for type mapping in
+each direction.
 
+Kudu type to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. [1] On performing ``CREATE TABLE ... AS ...`` from a Trino table to Kudu,
-   the optional maximum length is lost
+The connector maps Kudu types to the corresponding Trino types following
+this table:
 
-.. [2] On performing ``CREATE TABLE ... AS ...`` from a Trino table to Kudu,
-   a ``DATE`` column is converted to ``STRING``
+.. list-table:: Kudu type to Trino type mapping
+  :widths: 30, 20
+  :header-rows: 1
+
+  * - Kudu type
+    - Trino type
+  * - ``BOOL``
+    - ``BOOLEAN``
+  * - ``INT8``
+    - ``TINYINT``
+  * - ``INT16``
+    - ``SMALLINT``
+  * - ``INT32``
+    - ``INTEGER``
+  * - ``INT64``
+    - ``BIGINT``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL(p,s)``
+    - ``DECIMAL(p,s)``
+  * - ``STRING``
+    - ``VARCHAR``
+  * - ``BINARY``
+    - ``VARBINARY``
+  * - ``UNIXTIME_MICROS``
+    - ``TIMESTAMP(3)``
+
+No other types are supported.
+
+Trino type to Kudu type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps Trino types to the corresponding Kudu types following
+this table:
+
+.. list-table:: Trino type to Kudu type mapping
+  :widths: 30, 20, 50
+  :header-rows: 1
+
+  * - Trino type
+    - Kudu type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOL``
+    -
+  * - ``TINYINT``
+    - ``INT8``
+    -
+  * - ``SMALLINT``
+    - ``INT16``
+    -
+  * - ``INTEGER``
+    - ``INT32``
+    -
+  * - ``BIGINT``
+    - ``INT64``
+    -
+  * - ``REAL``
+    - ``FLOAT``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``DECIMAL(p,s)``
+    - ``DECIMAL(p,s)``
+    - Only supported for Kudu server >= 1.7.0
+  * - ``VARCHAR``
+    - ``STRING``
+    - The optional maximum length is lost
+  * - ``VARBINARY``
+    - ``BINARY``
+    -
+  * - ``DATE``
+    - ``STRING``
+    -
+  * - ``TIMESTAMP(3)``
+    - ``UNIXTIME_MICROS``
+    - µs resolution in Kudu column is reduced to ms resolution
+
+No other types are supported.
 
 .. _kudu-sql-support:
 
@@ -268,6 +302,7 @@ statements, the connector supports the following features:
 
 * :doc:`/sql/insert`, see also :ref:`kudu-insert`
 * :doc:`/sql/delete`
+* :doc:`/sql/merge`
 * :doc:`/sql/create-table`, see also :ref:`kudu-create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
@@ -390,7 +425,7 @@ Example:
 
 .. code-block:: sql
 
-    CREATE TABLE mytable (
+    CREATE TABLE example_table (
       name varchar WITH (primary_key = true, encoding = 'dictionary', compression = 'snappy'),
       index bigint WITH (nullable = true, encoding = 'runlength', compression = 'lz4'),
       comment varchar WITH (nullable = true, encoding = 'plain', compression = 'default'),
@@ -407,7 +442,7 @@ You can specify the same column properties as on creating a table.
 
 Example::
 
-    ALTER TABLE mytable ADD COLUMN extraInfo varchar WITH (nullable = true, encoding = 'plain')
+    ALTER TABLE example_table ADD COLUMN extraInfo varchar WITH (nullable = true, encoding = 'plain')
 
 See also `Column Properties`_.
 
@@ -418,9 +453,9 @@ See also `Column Properties`_.
 Procedures
 ----------
 
-* ``CALL kudu.system.add_range_partition`` see :ref:`managing-range-partitions`
+* ``CALL example.system.add_range_partition`` see :ref:`managing-range-partitions`
 
-* ``CALL kudu.system.drop_range_partition`` see :ref:`managing-range-partitions`
+* ``CALL example.system.drop_range_partition`` see :ref:`managing-range-partitions`
 
 Partitioning design
 ^^^^^^^^^^^^^^^^^^^
@@ -447,7 +482,7 @@ primary key.
 
 Example::
 
-    CREATE TABLE mytable (
+    CREATE TABLE example_table (
       col1 varchar WITH (primary_key=true),
       col2 varchar WITH (primary_key=true),
       ...
@@ -465,7 +500,7 @@ of table properties named ``partition_by_second_hash_columns`` and
 
 Example::
 
-    CREATE TABLE mytable (
+    CREATE TABLE example_table (
       col1 varchar WITH (primary_key=true),
       col2 varchar WITH (primary_key=true),
       ...
@@ -561,13 +596,13 @@ partition.
 
   .. code-block:: sql
 
-      CALL kudu.system.add_range_partition(<schema>, <table>, <range_partition_as_json_string>)
+      CALL example.system.add_range_partition(<schema>, <table>, <range_partition_as_json_string>)
 
 - dropping a range partition
 
   .. code-block:: sql
 
-      CALL kudu.system.drop_range_partition(<schema>, <table>, <range_partition_as_json_string>)
+      CALL example.system.drop_range_partition(<schema>, <table>, <range_partition_as_json_string>)
 
   - ``<schema>``: schema of the table
 
@@ -604,10 +639,10 @@ partition.
 
 Example::
 
-    CALL kudu.system.add_range_partition('myschema', 'events', '{"lower": "2018-01-01", "upper": "2018-06-01"}')
+    CALL example.system.add_range_partition('example_schema', 'events', '{"lower": "2018-01-01", "upper": "2018-06-01"}')
 
 This adds a range partition for a table ``events`` in the schema
-``myschema`` with the lower bound ``2018-01-01``, more exactly
+``example_schema`` with the lower bound ``2018-01-01``, more exactly
 ``2018-01-01T00:00:00.000``, and the upper bound ``2018-07-01``.
 
 Use the SQL statement ``SHOW CREATE TABLE`` to query the existing

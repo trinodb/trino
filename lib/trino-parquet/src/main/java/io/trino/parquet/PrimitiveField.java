@@ -14,6 +14,7 @@
 package io.trino.parquet;
 
 import io.trino.spi.type.Type;
+import org.apache.parquet.column.ColumnDescriptor;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -21,17 +22,17 @@ import static java.util.Objects.requireNonNull;
 public class PrimitiveField
         extends Field
 {
-    private final RichColumnDescriptor descriptor;
+    private final ColumnDescriptor descriptor;
     private final int id;
 
-    public PrimitiveField(Type type, int repetitionLevel, int definitionLevel, boolean required, RichColumnDescriptor descriptor, int id)
+    public PrimitiveField(Type type, boolean required, ColumnDescriptor descriptor, int id)
     {
-        super(type, repetitionLevel, definitionLevel, required);
+        super(type, descriptor.getMaxRepetitionLevel(), descriptor.getMaxDefinitionLevel(), required);
         this.descriptor = requireNonNull(descriptor, "descriptor is required");
         this.id = id;
     }
 
-    public RichColumnDescriptor getDescriptor()
+    public ColumnDescriptor getDescriptor()
     {
         return descriptor;
     }

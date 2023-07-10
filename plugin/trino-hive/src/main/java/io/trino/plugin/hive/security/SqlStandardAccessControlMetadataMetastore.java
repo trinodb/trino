@@ -41,6 +41,8 @@ public interface SqlStandardAccessControlMetadataMetastore
 
     Set<RoleGrant> listGrantedPrincipals(String role);
 
+    Optional<HivePrincipal> getDatabaseOwner(String databaseName);
+
     void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
 
     void grantTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);

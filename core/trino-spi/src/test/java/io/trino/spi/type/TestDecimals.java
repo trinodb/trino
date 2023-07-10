@@ -92,6 +92,16 @@ public class TestDecimals
         assertParseResult("0000.12345678901234567890123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 38);
         assertParseResult("+0000.12345678901234567890123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 38);
         assertParseResult("-0000.12345678901234567890123456789012345678", Int128.valueOf("-12345678901234567890123456789012345678"), 38, 38);
+
+        assertParseResult("0_1_2_3_4", 1234L, 4, 0);
+        assertParseFailure("0_1_2_3_4_");
+        assertParseFailure("_0_1_2_3_4");
+
+        assertParseResult("0_1_2_3_4.5_6_7_8", 12345678L, 8, 4);
+        assertParseFailure("_0_1_2_3_4.5_6_7_8");
+        assertParseFailure("0_1_2_3_4_.5_6_7_8");
+        assertParseFailure("0_1_2_3_4._5_6_7_8");
+        assertParseFailure("0_1_2_3_4.5_6_7_8_");
     }
 
     @Test
@@ -154,7 +164,7 @@ public class TestDecimals
             Decimals.parse(text);
         }
         catch (IllegalArgumentException e) {
-            String expectedMessage = format("Invalid decimal value '%s'", text);
+            String expectedMessage = format("Invalid DECIMAL value '%s'", text);
             if (!Objects.equals(e.getMessage(), expectedMessage)) {
                 fail(format("Unexpected exception, exception with message '%s' was expected", expectedMessage), e);
             }

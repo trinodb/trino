@@ -130,10 +130,10 @@ public class BenchmarkDictionaryBlock
                 default:
                     throw new IllegalArgumentException("Unrecognized value type: " + valueType);
             }
-            dictionaryBlock = new DictionaryBlock(mapBlock, positionsIds);
+            dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(positionsIds.length, mapBlock, positionsIds);
             int[] allPositions = IntStream.range(0, POSITIONS).toArray();
-            allPositionsDictionaryBlock = new DictionaryBlock(mapBlock, allPositions);
-            allPositionsCompactDictionaryBlock = new DictionaryBlock(POSITIONS, mapBlock, allPositions, true);
+            allPositionsDictionaryBlock = (DictionaryBlock) DictionaryBlock.create(allPositions.length, mapBlock, allPositions);
+            allPositionsCompactDictionaryBlock = (DictionaryBlock) DictionaryBlock.create(POSITIONS, mapBlock, allPositions);
         }
 
         private static Block createVarcharMapBlock(int positionCount)
@@ -156,7 +156,7 @@ public class BenchmarkDictionaryBlock
             for (int i = 0; i < ids.length; i++) {
                 ids[i] = i;
             }
-            return new DictionaryBlock(dictionary, ids);
+            return DictionaryBlock.create(ids.length, dictionary, ids);
         }
 
         private static Block createIntMapBlock(int positionCount)
@@ -179,7 +179,7 @@ public class BenchmarkDictionaryBlock
             for (int i = 0; i < ids.length; i++) {
                 ids[i] = i;
             }
-            return new DictionaryBlock(dictionary, ids);
+            return DictionaryBlock.create(ids.length, dictionary, ids);
         }
 
         private static Block createIntBlock(int positionCount)

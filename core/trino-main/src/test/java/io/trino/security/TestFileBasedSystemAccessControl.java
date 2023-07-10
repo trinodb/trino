@@ -15,10 +15,12 @@ package io.trino.security;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.CreationException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.FileBasedSystemAccessControl;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
@@ -30,6 +32,7 @@ import org.testng.annotations.Test;
 import javax.security.auth.kerberos.KerberosPrincipal;
 
 import java.io.File;
+import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Optional;
@@ -92,30 +95,38 @@ public class TestFileBasedSystemAccessControl
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "bob");
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "anything");
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-other"), "anything");
-        try {
-            accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-test"), "alice");
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-test"), "alice"))
+                .isInstanceOf(AccessDeniedException.class);
 
-        try {
-            accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid"), "alice");
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid"), "alice"))
+                .isInstanceOf(AccessDeniedException.class);
 
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("anything"), "test");
-        try {
-            accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid-other"), "test");
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid-other"), "test"))
+                .isInstanceOf(AccessDeniedException.class);
 
-        accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
-        accessControlManager.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("svc_tenant"), "svc_tenant_prod");
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("svc_tenant"), "svc_tenant_other"))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("svc_tenant"), "svc_other_prod"))
+                .isInstanceOf(AccessDeniedException.class);
+
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("external_corp_dept"), "internal-dept-corp-sandbox");
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("external_corp_dept"), "internal-corp-dept-sandbox"))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("external_corp_dept"), "invalid"))
+                .isInstanceOf(AccessDeniedException.class);
+
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("missing_replacement_group"), "anything");
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("incorrect_number_of_replacements_groups_group"), "$2_group_prod"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("new_user in impersonation rule refers to a capturing group that does not exist in original_user");
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("incorrect_number_of_replacements_groups_group"), "group_group_prod"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("new_user in impersonation rule refers to a capturing group that does not exist in original_user");
+
+        AccessControlManager accessControlManagerWithPrincipal = newAccessControlManager(transactionManager, "catalog_principal.json");
+        accessControlManagerWithPrincipal.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
     }
 
     @Test
@@ -144,38 +155,22 @@ public class TestFileBasedSystemAccessControl
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
 
-        try {
-            accessControlManager.checkCanSetUser(Optional.empty(), alice.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanSetUser(Optional.empty(), alice.getUser()))
+                .isInstanceOf(AccessDeniedException.class);
 
         accessControlManager.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
         accessControlManager.checkCanSetUser(kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
-        try {
-            accessControlManager.checkCanSetUser(kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanSetUser(kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser()))
+                .isInstanceOf(AccessDeniedException.class);
 
         accessControlManager.checkCanSetUser(kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
-        try {
-            accessControlManager.checkCanSetUser(kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanSetUser(kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser()))
+                .isInstanceOf(AccessDeniedException.class);
 
         accessControlManager.checkCanSetUser(validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser());
         accessControlManager.checkCanSetUser(validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
-        try {
-            accessControlManager.checkCanSetUser(invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
-            throw new AssertionError("expected AccessDeniedExeption");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanSetUser(invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser()))
+                .isInstanceOf(AccessDeniedException.class);
 
         AccessControlManager accessControlManagerNoPatterns = newAccessControlManager(transactionManager, "catalog.json");
         accessControlManagerNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
@@ -257,13 +252,13 @@ public class TestFileBasedSystemAccessControl
                     assertEquals(accessControlManager.filterSchemas(new SecurityContext(transactionId, alice, queryId), "alice-catalog", aliceSchemas), aliceSchemas);
                     assertEquals(accessControlManager.filterSchemas(new SecurityContext(transactionId, bob, queryId), "alice-catalog", aliceSchemas), ImmutableSet.of());
 
-                    accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, alice, queryId), aliceSchema);
+                    accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, alice, queryId), aliceSchema, ImmutableMap.of());
                     accessControlManager.checkCanDropSchema(new SecurityContext(transactionId, alice, queryId), aliceSchema);
                     accessControlManager.checkCanRenameSchema(new SecurityContext(transactionId, alice, queryId), aliceSchema, "new-schema");
                     accessControlManager.checkCanShowSchemas(new SecurityContext(transactionId, alice, queryId), "alice-catalog");
                 });
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, bob, queryId), aliceSchema);
+            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, bob, queryId), aliceSchema, ImmutableMap.of());
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot access catalog alice-catalog");
     }
@@ -284,7 +279,7 @@ public class TestFileBasedSystemAccessControl
                 });
 
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, alice, queryId), aliceSchema);
+            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, alice, queryId), aliceSchema, ImmutableMap.of());
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot create schema alice-catalog.schema");
 
@@ -299,7 +294,7 @@ public class TestFileBasedSystemAccessControl
                 .hasMessage("Access Denied: Cannot rename schema from alice-catalog.schema to new-schema");
 
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, bob, queryId), aliceSchema);
+            accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, bob, queryId), aliceSchema, ImmutableMap.of());
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot access catalog alice-catalog");
     }
@@ -803,15 +798,15 @@ public class TestFileBasedSystemAccessControl
                 .execute(transactionId -> {
                     accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId), aliceView);
                 }))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageStartingWith("Invalid JSON file");
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessageStartingWith("Failed to convert JSON tree node");
         // test if file based cached control was not cached somewhere
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanCreateView(new SecurityContext(transactionId, alice, queryId), aliceView);
                 }))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageStartingWith("Invalid JSON file");
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessageStartingWith("Failed to convert JSON tree node");
 
         copy(new File(getResourcePath("catalog.json")), configFile);
         sleep(2);
@@ -826,16 +821,16 @@ public class TestFileBasedSystemAccessControl
     public void testAllowModeIsRequired()
     {
         assertThatThrownBy(() -> newAccessControlManager(createTestTransactionManager(), "catalog_allow_unset.json"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageStartingWith("Invalid JSON file");
+                .isInstanceOf(CreationException.class)
+                .hasMessageContaining("Failed to convert JSON tree node");
     }
 
     @Test
     public void testAllowModeInvalidValue()
     {
         assertThatThrownBy(() -> newAccessControlManager(createTestTransactionManager(), "catalog_invalid_allow_value.json"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageStartingWith("Invalid JSON file");
+                .isInstanceOf(CreationException.class)
+                .hasMessageContaining("Failed to convert JSON tree node");
     }
 
     private AccessControlManager newAccessControlManager(TransactionManager transactionManager, String resourceName)
@@ -861,7 +856,7 @@ public class TestFileBasedSystemAccessControl
     public void parseUnknownRules()
     {
         assertThatThrownBy(() -> parse("src/test/resources/security-config-file-with-unknown-rules.json"))
-                .hasMessageContaining("Invalid JSON");
+                .hasMessageContaining("Failed to convert JSON tree node");
     }
 
     private void parse(String path)

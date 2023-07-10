@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
@@ -57,10 +57,12 @@ public class TestRemoveTrivialFilters
     {
         tester().assertThat(new RemoveTrivialFilters())
                 .on(p -> p.filter(
-                        expression("null"),
+                        expression("CAST(null AS boolean)"),
                         p.values(
                                 ImmutableList.of(p.symbol("a")),
                                 ImmutableList.of(expressions("1")))))
-                .matches(values("a"));
+                .matches(values(
+                        ImmutableList.of("a"),
+                        ImmutableList.of()));
     }
 }

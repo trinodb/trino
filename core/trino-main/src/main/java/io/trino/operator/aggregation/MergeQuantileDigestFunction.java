@@ -43,9 +43,9 @@ public final class MergeQuantileDigestFunction
     @InputFunction
     @TypeParameter("V")
     public static void input(
-            @TypeParameter("V") Type type,
+            @TypeParameter("qdigest(V)") Type type,
             @AggregationState QuantileDigestState state,
-            @BlockPosition @SqlType("V") Block value,
+            @BlockPosition @SqlType("qdigest(V)") Block value,
             @BlockIndex int index)
     {
         merge(state, new QuantileDigest(type.getSlice(value, index)));
@@ -80,7 +80,7 @@ public final class MergeQuantileDigestFunction
 
     @OutputFunction("qdigest(V)")
     public static void output(
-            @TypeParameter("V") Type type,
+            @TypeParameter("qdigest(V)") Type type,
             @AggregationState QuantileDigestState state,
             BlockBuilder out)
     {

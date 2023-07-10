@@ -21,9 +21,8 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-
-import javax.annotation.PostConstruct;
-import javax.validation.constraints.NotNull;
+import jakarta.annotation.PostConstruct;
+import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
 import java.net.URI;
@@ -40,6 +39,7 @@ public class PrometheusConnectorConfig
     private File bearerTokenFile;
     private String user;
     private String password;
+    private boolean caseInsensitiveNameMatching;
 
     @NotNull
     public URI getPrometheusURI()
@@ -148,6 +148,19 @@ public class PrometheusConnectorConfig
     public PrometheusConnectorConfig setReadTimeout(Duration readTimeout)
     {
         this.readTimeout = readTimeout;
+        return this;
+    }
+
+    public boolean isCaseInsensitiveNameMatching()
+    {
+        return caseInsensitiveNameMatching;
+    }
+
+    @Config("prometheus.case-insensitive-name-matching")
+    @ConfigDescription("Where to match the prometheus metric name case insensitively ")
+    public PrometheusConnectorConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    {
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
         return this;
     }
 

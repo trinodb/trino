@@ -16,18 +16,19 @@ package io.trino.operator.join;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.Page;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static java.util.Objects.requireNonNull;
 
 public final class ArrayPositionLinks
         implements PositionLinks
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayPositionLinks.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(ArrayPositionLinks.class);
 
     public static class FactoryBuilder
             implements PositionLinks.FactoryBuilder
@@ -103,5 +104,10 @@ public final class ArrayPositionLinks
     public long getSizeInBytes()
     {
         return INSTANCE_SIZE + sizeOf(positionLinks);
+    }
+
+    public static long getEstimatedRetainedSizeInBytes(int positionCount)
+    {
+        return INSTANCE_SIZE + sizeOfIntArray(positionCount);
     }
 }

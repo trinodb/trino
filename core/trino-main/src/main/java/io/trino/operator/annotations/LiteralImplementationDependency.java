@@ -14,8 +14,8 @@
 package io.trino.operator.annotations;
 
 import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 
 import static java.util.Objects.requireNonNull;
 

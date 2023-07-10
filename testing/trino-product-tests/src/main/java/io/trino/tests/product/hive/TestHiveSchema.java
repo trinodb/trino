@@ -14,13 +14,12 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryResult;
-import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
 import org.testng.annotations.Test;
 
@@ -31,16 +30,16 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveSchema
         extends ProductTest
 {
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         // make sure hive.default schema is not empty
@@ -48,7 +47,7 @@ public class TestHiveSchema
         onTrino().executeQuery("CREATE TABLE hive.default.test_sys_schema_disabled_table_in_default(a bigint)");
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void tearDown()
     {
         onTrino().executeQuery("DROP TABLE hive.default.test_sys_schema_disabled_table_in_default");
@@ -139,17 +138,14 @@ public class TestHiveSchema
                 .add("roles")
                 .add("applicable_roles")
                 .add("enabled_roles")
-                .add("role_authorization_descriptors")
                 .build();
         List<QueryAssert.Row> allInformationSchemaTablesAsRows = allInformationSchemaTables.stream()
                 .map(QueryAssert.Row::row)
                 .collect(toImmutableList());
 
-        // This test is run in various setups and we may or may not have access to hive.information_schema.roles
-        // or hive.information_schema.role_authorization_descriptors tables
+        // This test is run in various setups and we may or may not have access to hive.information_schema.roles table
         List<String> allInformationSchemaTablesExceptRoles = allInformationSchemaTables.stream()
                 .filter(tableName -> !tableName.equals("roles"))
-                .filter(tableName -> !tableName.equals("role_authorization_descriptors"))
                 .collect(toImmutableList());
         List<QueryAssert.Row> allInformationSchemaTablesExceptRolesAsRows = allInformationSchemaTablesExceptRoles.stream()
                 .map(QueryAssert.Row::row)
@@ -194,7 +190,7 @@ public class TestHiveSchema
                 .satisfies(containsFirstColumnValue("information_schema"));
         assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'information_schema'"))
                 .containsOnly(allInformationSchemaTablesAsRows);
-        Assertions.assertThat(onTrino().executeQuery("SELECT table_schema, table_name FROM information_schema.tables").rows().stream()
+        assertThat(onTrino().executeQuery("SELECT table_schema, table_name FROM information_schema.tables").rows().stream()
                 .filter(row -> row.get(0).equals("information_schema"))
                 .map(row -> (String) row.get(1)))
                 .containsOnly(allInformationSchemaTables.toArray(new String[0]));
@@ -205,13 +201,12 @@ public class TestHiveSchema
         // information_schema.columns -- it has a special handling path in metadata, which also depends on query predicates
         assertThat(onTrino().executeQuery("SELECT DISTINCT table_schema FROM information_schema.columns"))
                 .satisfies(containsFirstColumnValue("information_schema"));
-        assertThat(onTrino().executeQuery("SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name != 'roles' AND table_name != 'role_authorization_descriptors'"))
+        assertThat(onTrino().executeQuery("SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name != 'roles'"))
                 .containsOnly(allInformationSchemaTablesExceptRolesAsRows);
-        Assertions.assertThat(onTrino().executeQuery("SELECT table_schema, table_name, column_name FROM information_schema.columns").rows().stream()
+        assertThat(onTrino().executeQuery("SELECT table_schema, table_name, column_name FROM information_schema.columns").rows().stream()
                 .filter(row -> row.get(0).equals("information_schema"))
                 .map(row -> (String) row.get(1))
                 .filter(tableName -> !tableName.equals("roles"))
-                .filter(tableName -> !tableName.equals("role_authorization_descriptors"))
                 .distinct())
                 .containsOnly(allInformationSchemaTablesExceptRoles.toArray(new String[0]));
         assertThat(onTrino().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = 'information_schema' AND table_name = 'columns'"))
@@ -236,7 +231,7 @@ public class TestHiveSchema
                     .doesNotHave(containsFirstColumnValue("information_schema")); // tables in information_schema have no privileges
             assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.table_privileges WHERE table_schema = 'information_schema'"))
                     .hasNoRows(); // tables in information_schema have no privileges
-            Assertions.assertThat(onTrino().executeQuery("SELECT table_schema, table_name, privilege_type FROM information_schema.table_privileges").rows().stream()
+            assertThat(onTrino().executeQuery("SELECT table_schema, table_name, privilege_type FROM information_schema.table_privileges").rows().stream()
                     .filter(row -> row.get(0).equals("information_schema"))
                     .map(row -> (String) row.get(1)))
                     .isEmpty(); // tables in information_schema have no privileges

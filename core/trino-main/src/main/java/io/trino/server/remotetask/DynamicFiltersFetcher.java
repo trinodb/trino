@@ -14,22 +14,23 @@
 package io.trino.server.remotetask;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.SpanBuilder;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.TaskId;
 import io.trino.server.DynamicFilterService;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
@@ -52,6 +53,7 @@ class DynamicFiltersFetcher
     private final Duration refreshMaxWait;
     private final Executor executor;
     private final HttpClient httpClient;
+    private final Supplier<SpanBuilder> spanBuilderFactory;
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
     private final DynamicFilterService dynamicFilterService;
@@ -73,6 +75,7 @@ class DynamicFiltersFetcher
             JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
             Executor executor,
             HttpClient httpClient,
+            Supplier<SpanBuilder> spanBuilderFactory,
             Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
@@ -87,6 +90,7 @@ class DynamicFiltersFetcher
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.spanBuilderFactory = requireNonNull(spanBuilderFactory, "spanBuilderFactory is null");
 
         this.errorTracker = new RequestErrorTracker(taskId, taskUri, maxErrorDuration, errorScheduledExecutor, "getting dynamic filter domains");
         this.stats = requireNonNull(stats, "stats is null");
@@ -142,6 +146,7 @@ class DynamicFiltersFetcher
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(TRINO_CURRENT_VERSION, Long.toString(localDynamicFiltersVersion))
                 .setHeader(TRINO_MAX_WAIT, refreshMaxWait.toString())
+                .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 
         errorTracker.startRequest();

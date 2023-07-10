@@ -16,12 +16,14 @@ package io.trino.plugin.deltalake;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static java.util.Objects.requireNonNull;
@@ -29,15 +31,19 @@ import static java.util.Objects.requireNonNull;
 public class TestingDeltaLakePlugin
         extends DeltaLakePlugin
 {
+    private final Optional<Module> metastoreModule;
+    private final Optional<TrinoFileSystemFactory> fileSystemFactory;
     private final Module additionalModule;
 
     public TestingDeltaLakePlugin()
     {
-        this(EMPTY_MODULE);
+        this(Optional.empty(), Optional.empty(), EMPTY_MODULE);
     }
 
-    public TestingDeltaLakePlugin(Module additionalModule)
+    public TestingDeltaLakePlugin(Optional<Module> metastoreModule, Optional<TrinoFileSystemFactory> fileSystemFactory, Module additionalModule)
     {
+        this.metastoreModule = requireNonNull(metastoreModule, "metastoreModule is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.additionalModule = requireNonNull(additionalModule, "additionalModule is null");
     }
 
@@ -59,6 +65,8 @@ public class TestingDeltaLakePlugin
                         catalogName,
                         config,
                         context,
+                        metastoreModule,
+                        fileSystemFactory,
                         new AbstractConfigurationAwareModule()
                         {
                             @Override

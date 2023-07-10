@@ -1,0 +1,16 @@
+{
+    "functions": [
+        {
+            "schema": "sample_schema",
+            "function_kinds": [
+                "SCALAR",
+                "AGGREGATE",
+                "WINDOW"
+            ],
+            "privileges": [
+                "EXECUTE",
+                "GRANT_EXECUTE"
+            ]
+        }
+    ]
+}

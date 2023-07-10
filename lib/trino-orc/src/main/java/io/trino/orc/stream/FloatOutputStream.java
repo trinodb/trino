@@ -19,19 +19,19 @@ import io.trino.orc.checkpoint.FloatStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.Stream;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static java.lang.Math.toIntExact;
 
 public class FloatOutputStream
         implements ValueOutputStream<FloatStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatOutputStream.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(FloatOutputStream.class);
     private final OrcOutputBuffer buffer;
     private final List<FloatStreamCheckpoint> checkpoints = new ArrayList<>();
 

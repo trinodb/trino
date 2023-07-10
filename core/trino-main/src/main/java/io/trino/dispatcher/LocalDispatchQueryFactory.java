@@ -15,16 +15,22 @@ package io.trino.dispatcher;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.inject.Inject;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.event.QueryMonitor;
 import io.trino.execution.ClusterSizeMonitor;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryExecution.QueryExecutionFactory;
 import io.trino.execution.QueryManager;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.QueryStateMachine;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.execution.warnings.WarningCollectorFactory;
 import io.trino.metadata.Metadata;
@@ -35,8 +41,6 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Statement;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;
@@ -63,10 +67,15 @@ public class LocalDispatchQueryFactory
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
     private final WarningCollectorFactory warningCollectorFactory;
     private final ListeningExecutorService executor;
+    private final int maxStateMachineThreadsPerQuery;
+    private final int queryReportedRuleStatsLimit;
+    private final boolean faultTolerantExecutionExchangeEncryptionEnabled;
+    private final NodeVersion version;
 
     @Inject
     public LocalDispatchQueryFactory(
             QueryManager queryManager,
+            QueryManagerConfig queryManagerConfig,
             TransactionManager transactionManager,
             AccessControl accessControl,
             Metadata metadata,
@@ -75,7 +84,9 @@ public class LocalDispatchQueryFactory
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             WarningCollectorFactory warningCollectorFactory,
             ClusterSizeMonitor clusterSizeMonitor,
-            DispatchExecutor dispatchExecutor)
+            DispatchExecutor dispatchExecutor,
+            FeaturesConfig featuresConfig,
+            NodeVersion version)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -85,10 +96,12 @@ public class LocalDispatchQueryFactory
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
-
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
-
-        this.executor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
+        this.executor = dispatchExecutor.getExecutor();
+        this.maxStateMachineThreadsPerQuery = queryManagerConfig.getMaxStateMachineCallbackThreads();
+        this.queryReportedRuleStatsLimit = queryManagerConfig.getQueryReportedRuleStatsLimit();
+        this.faultTolerantExecutionExchangeEncryptionEnabled = requireNonNull(featuresConfig, "featuresConfig is null").isFaultTolerantExecutionExchangeEncryptionEnabled();
+        this.version = requireNonNull(version, "version is null");
     }
 
     @Override
@@ -101,6 +114,7 @@ public class LocalDispatchQueryFactory
             ResourceGroupId resourceGroup)
     {
         WarningCollector warningCollector = warningCollectorFactory.create();
+        PlanOptimizersStatsCollector planOptimizersStatsCollector = new PlanOptimizersStatsCollector(queryReportedRuleStatsLimit);
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 existingTransactionId,
                 query,
@@ -111,10 +125,14 @@ public class LocalDispatchQueryFactory
                 isTransactionControlStatement(preparedQuery.getStatement()),
                 transactionManager,
                 accessControl,
-                executor,
+                // limit the number of state change listener callback threads for each query
+                new BoundedExecutor(executor, maxStateMachineThreadsPerQuery),
                 metadata,
                 warningCollector,
-                getQueryType(preparedQuery.getStatement()));
+                planOptimizersStatsCollector,
+                getQueryType(preparedQuery.getStatement()),
+                faultTolerantExecutionExchangeEncryptionEnabled,
+                version);
 
         // It is important that `queryCreatedEvent` is called here. Moving it past the `executor.submit` below
         // can result in delivering query-created event after query analysis has already started.
@@ -132,7 +150,7 @@ public class LocalDispatchQueryFactory
             }
 
             try {
-                return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, warningCollector);
+                return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, warningCollector, planOptimizersStatsCollector);
             }
             catch (Throwable e) {
                 if (e instanceof Error) {

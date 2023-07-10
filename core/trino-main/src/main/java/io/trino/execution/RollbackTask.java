@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.TrinoException;
@@ -21,8 +22,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Rollback;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -55,10 +54,7 @@ public class RollbackTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        if (session.getTransactionId().isEmpty()) {
-            throw new TrinoException(NOT_IN_TRANSACTION, "No transaction in progress");
-        }
-        TransactionId transactionId = session.getTransactionId().get();
+        TransactionId transactionId = session.getTransactionId().orElseThrow(() -> new TrinoException(NOT_IN_TRANSACTION, "No transaction in progress"));
 
         stateMachine.clearTransactionId();
         transactionManager.asyncAbort(transactionId);

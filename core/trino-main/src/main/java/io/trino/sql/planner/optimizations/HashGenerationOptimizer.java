@@ -26,12 +26,14 @@ import com.google.common.collect.Multimap;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.cost.TableStatsProvider;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
+import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -83,9 +85,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
@@ -107,7 +110,15 @@ public class HashGenerationOptimizer
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(
+            PlanNode plan,
+            Session session,
+            TypeProvider types,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            TableStatsProvider tableStatsProvider)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -507,8 +518,11 @@ public class HashGenerationOptimizer
             // Currently, precomputed hash values are only supported for system hash distributions without constants
             Optional<HashComputation> partitionSymbols = Optional.empty();
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
-            if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION) &&
-                    partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
+            PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
+
+            if ((partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)
+                    || partitioningHandle.equals(SCALED_WRITER_HASH_DISTRIBUTION))
+                    && partitioningScheme.getPartitioning().getArguments().stream().allMatch(ArgumentBinding::isVariable)) {
                 // add precomputed hash for exchange
                 partitionSymbols = computeHash(partitioningScheme.getPartitioning().getArguments().stream()
                         .map(ArgumentBinding::getColumn)
@@ -523,7 +537,7 @@ public class HashGenerationOptimizer
                 newHashSymbols.put(preferredHashSymbol, symbolAllocator.newHashSymbol());
             }
 
-            // rewrite partition function to include new symbols (and precomputed hash
+            // rewrite partition function to include new symbols (and precomputed hash)
             partitioningScheme = new PartitioningScheme(
                     partitioningScheme.getPartitioning(),
                     ImmutableList.<Symbol>builder()
@@ -534,7 +548,8 @@ public class HashGenerationOptimizer
                             .build(),
                     partitionSymbols.map(newHashSymbols::get),
                     partitioningScheme.isReplicateNullsAndAny(),
-                    partitioningScheme.getBucketToPartition());
+                    partitioningScheme.getBucketToPartition(),
+                    partitioningScheme.getPartitionCount());
 
             // add hash symbols to sources
             ImmutableList.Builder<List<Symbol>> newInputs = ImmutableList.builder();
@@ -690,7 +705,7 @@ public class HashGenerationOptimizer
                 return new PlanWithProperties(node, ImmutableMap.of());
             }
 
-            // There is not requirement to produce hash symbols and only preference for symbols
+            // There is no requirement to produce hash symbols and only preference for symbols
             PlanWithProperties source = planAndEnforce(Iterables.getOnlyElement(node.getSources()), new HashComputationSet(), alwaysPruneExtraHashSymbols, preferredHashes);
             PlanNode result = replaceChildren(node, ImmutableList.of(source.getNode()));
 

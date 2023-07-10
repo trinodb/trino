@@ -16,16 +16,12 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeClickhouse;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKerberosKudu;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeMariadb;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeHiveIcebergRedirections;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodePostgresql;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeSqlserver;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationCrossRealm;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeMysql;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodePostgresql;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkHive;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkIceberg;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSqlserver;
+import io.trino.tests.product.launcher.env.environment.EnvSinglenodeSparkHiveNoStatsFallback;
 import io.trino.tests.product.launcher.env.environment.EnvTwoKerberosHives;
 import io.trino.tests.product.launcher.env.environment.EnvTwoMixedHives;
 import io.trino.tests.product.launcher.suite.Suite;
@@ -45,33 +41,20 @@ public class Suite7NonGeneric
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         return ImmutableList.of(
-                testOnEnvironment(EnvSinglenodeMysql.class)
-                        .withGroups("configured_features", "mysql")
-                        .build(),
-                testOnEnvironment(EnvMultinodeMariadb.class)
-                        .withGroups("configured_features", "mariadb")
-                        .build(),
-                testOnEnvironment(EnvSinglenodePostgresql.class)
+                testOnEnvironment(EnvMultinodePostgresql.class)
                         .withGroups("configured_features", "postgresql")
                         .build(),
-                testOnEnvironment(EnvSinglenodeSqlserver.class)
+                testOnEnvironment(EnvMultinodeSqlserver.class)
                         .withGroups("configured_features", "sqlserver")
-                        .build(),
-                testOnEnvironment(EnvMultinodeClickhouse.class)
-                        .withGroups("configured_features", "clickhouse")
                         .build(),
                 testOnEnvironment(EnvSinglenodeSparkHive.class)
                         .withGroups("configured_features", "hive_spark")
                         .build(),
-                testOnEnvironment(EnvSinglenodeSparkIceberg.class)
-                        .withGroups("configured_features", "iceberg")
-                        .withExcludedGroups("storage_formats")
-                        .build(),
-                testOnEnvironment(EnvSinglenodeHiveIcebergRedirections.class)
-                        .withGroups("configured_features", "hive_iceberg_redirections")
+                testOnEnvironment(EnvSinglenodeSparkHiveNoStatsFallback.class)
+                        .withGroups("configured_features", "hive_spark_no_stats_fallback")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonationCrossRealm.class)
-                        .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation")
+                        .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation", "hive_kerberos")
                         .build(),
                 testOnEnvironment(EnvMultinodeKerberosKudu.class)
                         .withGroups("configured_features", "kudu")

@@ -13,8 +13,11 @@
  */
 package io.trino.plugin.deltalake.procedure;
 
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
+import io.trino.plugin.deltalake.LocatedTableHandle;
 import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -23,30 +26,29 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 
-import javax.inject.Inject;
-import javax.inject.Provider;
-
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static io.trino.plugin.deltalake.procedure.Procedures.checkProcedureArgument;
+import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class DropExtendedStatsProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle PROCEDURE_METHOD = methodHandle(
-            DropExtendedStatsProcedure.class,
-            "dropStats",
-            ConnectorSession.class,
-            ConnectorAccessControl.class,
-            // Schema name and table name
-            String.class,
-            String.class);
+    private static final MethodHandle PROCEDURE_METHOD;
+
+    static {
+        try {
+            PROCEDURE_METHOD = lookup().unreflect(DropExtendedStatsProcedure.class.getMethod("dropStats", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final DeltaLakeMetadataFactory metadataFactory;
     private final ExtendedStatisticsAccess statsAccess;
@@ -77,10 +79,11 @@ public class DropExtendedStatsProcedure
 
         SchemaTableName name = new SchemaTableName(schema, table);
         DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
-        if (metadata.getTableHandle(session, name) == null) {
+        LocatedTableHandle tableHandle = metadata.getTableHandle(session, name);
+        if (tableHandle == null) {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", name));
         }
         accessControl.checkCanInsertIntoTable(null, name);
-        statsAccess.deleteExtendedStatistics(session, metadata.getMetastore().getTableLocation(name, session));
+        statsAccess.deleteExtendedStatistics(session, name, tableHandle.location());
     }
 }

@@ -41,8 +41,7 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Objects;
 
@@ -300,9 +299,7 @@ public final class TrinoThriftBlock
             if (BigintType.BIGINT.equals(elementType)) {
                 return TrinoThriftBigintArray.fromBlock(block);
             }
-            else {
-                throw new IllegalArgumentException("Unsupported array block type: " + type);
-            }
+            throw new IllegalArgumentException("Unsupported array block type: " + type);
         }
         if (type.getBaseName().equals(JSON)) {
             return TrinoThriftJson.fromBlock(block, type);

@@ -23,9 +23,11 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -52,6 +54,14 @@ public class TestGetTableStatisticsOperations
         return localQueryRunner;
     }
 
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        localQueryRunner.close();
+        localQueryRunner = null;
+        metadata = null;
+    }
+
     @BeforeMethod
     public void resetCounters()
     {
@@ -65,8 +75,8 @@ public class TestGetTableStatisticsOperations
                 "FROM tpch.tiny.orders o, tpch.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 2)
+                ImmutableMultiset.<CountingAccessMetadata.Method>builder()
+                        .addCopies(CountingAccessMetadata.Method.GET_TABLE_STATISTICS, 2)
                         .build());
     }
 
@@ -77,8 +87,8 @@ public class TestGetTableStatisticsOperations
                 "FROM tpch.tiny.customer c, tpch.tiny.orders o, tpch.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 3)
+                ImmutableMultiset.<CountingAccessMetadata.Method>builder()
+                        .addCopies(CountingAccessMetadata.Method.GET_TABLE_STATISTICS, 3)
                         .build());
     }
 
@@ -86,7 +96,7 @@ public class TestGetTableStatisticsOperations
     {
         transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getAccessControl())
                 .execute(localQueryRunner.getDefaultSession(), session -> {
-                    localQueryRunner.createPlan(session, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
+                    localQueryRunner.createPlan(session, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 }

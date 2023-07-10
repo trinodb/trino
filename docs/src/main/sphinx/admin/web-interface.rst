@@ -5,7 +5,7 @@ Web UI
 Trino provides a web-based user interface (UI) for monitoring a Trino cluster
 and managing queries. The Web UI is accessible on the coordinator via
 HTTP or HTTPS, using the corresponding port number specified in the coordinator
-:ref:`config_properties`. It can be configured with :doc:`/admin/properties-web-interface`.
+:ref:`config-properties`. It can be configured with :doc:`/admin/properties-web-interface`.
 
 The Web UI can be disabled entirely with the ``web-ui.enabled`` property.
 
@@ -20,7 +20,7 @@ allowed. Typically, users login with the same username that they use for
 running queries.
 
 If no system access control is installed, then all users are able to view and kill
-any query. This can be restricted by using :ref:`query rules <query_rules>` with the
+any query. This can be restricted by using :ref:`query rules <query-rules>` with the
 :doc:`/security/built-in-system-access-control`. Users always have permission to view
 or kill their own queries.
 
@@ -31,7 +31,7 @@ Typically, a password-based authentication method
 such as :doc:`LDAP </security/ldap>` or :doc:`password file </security/password-file>`
 is used to secure both the Trino server and the Web UI. When the Trino server
 is configured to use a password authenticator, the Web UI authentication type
-is automatically set to ``form``. In this case, the Web UI displays a login form
+is automatically set to ``FORM``. In this case, the Web UI displays a login form
 that accepts a username and password.
 
 Fixed user authentication
@@ -39,7 +39,7 @@ Fixed user authentication
 
 If you require the Web UI to be accessible without authentication, you can set a fixed
 username that will be used for all Web UI access by setting the authentication type to
-``fixed`` and setting the username with the ``web-ui.user`` configuration property.
+``FIXED`` and setting the username with the ``web-ui.user`` configuration property.
 If there is a system access control installed, this user must have permission to view
 (and possibly to kill) queries.
 
@@ -48,10 +48,10 @@ Other authentication types
 
 The following Web UI authentication types are also supported:
 
-* ``certificate``, see details in :doc:`/security/certificate`
-* ``kerberos``, see details in :doc:`/security/kerberos`
-* ``jwt``, see details in :doc:`/security/jwt`
-* ``oauth2``, see details in :doc:`/security/oauth2`
+* ``CERTIFICATE``, see details in :doc:`/security/certificate`
+* ``KERBEROS``, see details in :doc:`/security/kerberos`
+* ``JWT``, see details in :doc:`/security/jwt`
+* ``OAUTH2``, see details in :doc:`/security/oauth2`
 
 For these authentication types, the username is defined by :doc:`/security/user-mapping`.
 

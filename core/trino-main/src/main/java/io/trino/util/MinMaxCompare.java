@@ -15,8 +15,8 @@ package io.trino.util;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
@@ -49,7 +49,7 @@ public final class MinMaxCompare
     public static MethodHandle getMinMaxCompare(FunctionDependencies dependencies, Type type, InvocationConvention convention, boolean min)
     {
         OperatorType comparisonOperator = getMinMaxCompareOperatorType(min);
-        MethodHandle handle = dependencies.getOperatorInvoker(comparisonOperator, List.of(type, type), convention).getMethodHandle();
+        MethodHandle handle = dependencies.getOperatorImplementation(comparisonOperator, List.of(type, type), convention).getMethodHandle();
         return comparisonToMinMaxResult(min, handle);
     }
 

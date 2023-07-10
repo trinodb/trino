@@ -30,7 +30,8 @@ public class TestSqlServerConfig
         assertRecordedDefaults(recordDefaults(SqlServerConfig.class)
                 .setBulkCopyForWrite(false)
                 .setBulkCopyForWriteLockDestinationTable(false)
-                .setSnapshotIsolationDisabled(false));
+                .setSnapshotIsolationDisabled(false)
+                .setStoredProcedureTableFunctionEnabled(false));
     }
 
     @Test
@@ -40,11 +41,13 @@ public class TestSqlServerConfig
                 .put("sqlserver.bulk-copy-for-write.enabled", "true")
                 .put("sqlserver.bulk-copy-for-write.lock-destination-table", "true")
                 .put("sqlserver.snapshot-isolation.disabled", "true")
+                .put("sqlserver.experimental.stored-procedure-table-function-enabled", "true")
                 .buildOrThrow();
 
         SqlServerConfig expected = new SqlServerConfig()
                 .setBulkCopyForWrite(true)
                 .setBulkCopyForWriteLockDestinationTable(true)
+                .setStoredProcedureTableFunctionEnabled(true)
                 .setSnapshotIsolationDisabled(true);
 
         assertFullMapping(properties, expected);

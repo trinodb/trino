@@ -15,10 +15,9 @@ package io.trino.plugin.iceberg.delete;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.CommitTaskData;
-import io.trino.plugin.iceberg.FileIoProvider;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergFileWriter;
 import io.trino.plugin.iceberg.IcebergFileWriterFactory;
@@ -29,8 +28,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -45,7 +42,6 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -74,9 +70,7 @@ public class IcebergPositionDeletePageSink
             Optional<PartitionData> partition,
             LocationProvider locationProvider,
             IcebergFileWriterFactory fileWriterFactory,
-            HdfsEnvironment hdfsEnvironment,
-            HdfsContext hdfsContext,
-            FileIoProvider fileIoProvider,
+            TrinoFileSystem fileSystem,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
             IcebergFileFormat fileFormat,
@@ -95,8 +89,7 @@ public class IcebergPositionDeletePageSink
         this.outputPath = partition
                 .map(partitionData -> locationProvider.newDataLocation(partitionSpec, partitionData, fileName))
                 .orElseGet(() -> locationProvider.newDataLocation(fileName));
-        JobConf jobConf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, new Path(outputPath)));
-        this.writer = fileWriterFactory.createPositionDeleteWriter(new Path(outputPath), jobConf, session, hdfsContext, fileIoProvider, fileFormat, storageProperties);
+        this.writer = fileWriterFactory.createPositionDeleteWriter(fileSystem, Location.of(outputPath), session, fileFormat, storageProperties);
     }
 
     @Override
@@ -123,7 +116,7 @@ public class IcebergPositionDeletePageSink
         checkArgument(page.getChannelCount() == 1, "IcebergPositionDeletePageSink expected a Page with only one channel, but got " + page.getChannelCount());
 
         Block[] blocks = new Block[2];
-        blocks[0] = new RunLengthEncodedBlock(nativeValueToBlock(VARCHAR, utf8Slice(dataFilePath)), page.getPositionCount());
+        blocks[0] = RunLengthEncodedBlock.create(nativeValueToBlock(VARCHAR, utf8Slice(dataFilePath)), page.getPositionCount());
         blocks[1] = page.getBlock(0);
         writer.appendRows(new Page(blocks));
 

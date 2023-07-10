@@ -13,48 +13,26 @@
  */
 package io.trino.server;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.trino.spi.Plugin;
-import io.trino.spi.classloader.ThreadContextClassLoader;
-import org.apache.maven.model.Model;
-import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
-import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
-import java.util.MissingResourceException;
 import java.util.Optional;
-import java.util.ServiceLoader;
 import java.util.concurrent.Callable;
-import java.util.function.BiPredicate;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.zip.ZipFile;
 
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
-import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Arrays.asList;
-import static java.util.Objects.requireNonNull;
-import static java.util.Objects.requireNonNullElse;
+import static io.trino.server.ModuleReader.mapModulesToPlugins;
+import static io.trino.server.PluginLoader.loadPlugins;
+import static io.trino.server.PluginLoader.printPluginFeatures;
 import static java.util.function.Function.identity;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toMap;
 
 @Command(name = "modulesToConnectors", mixinStandardHelpOptions = true,
@@ -90,12 +68,12 @@ public class PluginReader
             }
         }
         Map<String, String> modulesToPlugins = mapModulesToPlugins(rootPom);
-        Map<String, Plugin> plugins = loadPlugins(pluginDir).stream()
-                .collect(toMap(plugin -> plugin.getClass().getName(), identity()));
-        Stream<Map.Entry<String, String>> modulesStream = requireNonNull(modulesToPlugins).entrySet().stream();
+        Stream<Map.Entry<String, String>> modulesStream = modulesToPlugins.entrySet().stream();
         if (impactedModules.isPresent()) {
-            List<String> nonPluginModules = impactedModules.get().stream().filter(module -> !modulesToPlugins.containsKey(module)).collect(Collectors.toList());
-            if (nonPluginModules.size() != 0) {
+            List<String> nonPluginModules = impactedModules.get().stream()
+                    .filter(not(modulesToPlugins::containsKey))
+                    .toList();
+            if (!nonPluginModules.isEmpty()) {
                 log.warn("Impacted modules list includes non-plugin modules, ignoring it: %s", nonPluginModules);
             }
             else {
@@ -104,6 +82,8 @@ public class PluginReader
             }
         }
 
+        Map<String, Plugin> plugins = loadPlugins(pluginDir).stream()
+                .collect(toMap(plugin -> plugin.getClass().getName(), identity()));
         modulesStream.forEach(entry -> {
             if (!plugins.containsKey(entry.getValue())) {
                 log.warn("Plugin without any connectors: %s", entry.getValue());
@@ -114,142 +94,14 @@ public class PluginReader
         return 0;
     }
 
-    private static void printPluginFeatures(Plugin plugin)
-    {
-        plugin.getConnectorFactories().forEach(factory -> System.out.println("connector:" + factory.getName()));
-        plugin.getBlockEncodings().forEach(encoding -> System.out.println("blockEncoding:" + encoding.getName()));
-        plugin.getTypes().forEach(type -> System.out.println(type.getTypeId()));
-        plugin.getParametricTypes().forEach(type -> System.out.println("parametricType:" + type.getName()));
-        plugin.getFunctions().forEach(functionClass -> extractFunctions(functionClass)
-                .getFunctions()
-                .forEach(function -> System.out.println("function:" + function.getSignature())));
-        plugin.getSystemAccessControlFactories().forEach(factory -> System.out.println("systemAccessControl:" + factory.getName()));
-        plugin.getGroupProviderFactories().forEach(factory -> System.out.println("groupProvider:" + factory.getName()));
-        plugin.getPasswordAuthenticatorFactories().forEach(factory -> System.out.println("passwordAuthenticator:" + factory.getName()));
-        plugin.getHeaderAuthenticatorFactories().forEach(factory -> System.out.println("headerAuthenticator:" + factory.getName()));
-        plugin.getCertificateAuthenticatorFactories().forEach(factory -> System.out.println("certificateAuthenticator:" + factory.getName()));
-        plugin.getEventListenerFactories().forEach(factory -> System.out.println("eventListener:" + factory.getName()));
-        plugin.getResourceGroupConfigurationManagerFactories().forEach(factory -> System.out.println("resourceGroupConfigurationManager:" + factory.getName()));
-        plugin.getSessionPropertyConfigurationManagerFactories().forEach(factory -> System.out.println("sessionPropertyConfigurationManager:" + factory.getName()));
-        plugin.getExchangeManagerFactories().forEach(factory -> System.out.println("exchangeManager:" + factory.getName()));
-    }
-
-    private static Map<String, String> mapModulesToPlugins(File rootPom)
-    {
-        List<String> modules = readTrinoPlugins(rootPom);
-        return modules.stream()
-                .collect(toMap(identity(), module -> readPluginClassName(rootPom, module)));
-    }
-
-    private static List<String> readTrinoPlugins(File rootPom)
-    {
-        try (FileReader fileReader = new FileReader(rootPom, UTF_8)) {
-            MavenXpp3Reader reader = new MavenXpp3Reader();
-            Model model = reader.read(fileReader);
-            return model.getModules().stream()
-                    .filter(module -> isTrinoPlugin(requireNonNullElse(rootPom.getParent(), ".") + "/" + module))
-                    .collect(toImmutableList());
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(format("Couldn't read file %s", rootPom), e);
-        }
-        catch (XmlPullParserException e) {
-            throw new RuntimeException(format("Couldn't parse file %s", rootPom), e);
-        }
-    }
-
-    private static boolean isTrinoPlugin(String module)
-    {
-        String modulePom = module + "/pom.xml";
-        try (FileReader fileReader = new FileReader(modulePom, UTF_8)) {
-            MavenXpp3Reader reader = new MavenXpp3Reader();
-            Model model = reader.read(fileReader);
-            return model.getPackaging().equals("trino-plugin");
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(format("Couldn't read file %s", modulePom), e);
-        }
-        catch (XmlPullParserException e) {
-            throw new RuntimeException(format("Couldn't parse file %s", modulePom), e);
-        }
-    }
-
-    private static String readPluginClassName(File rootPom, String module)
-    {
-        Path target = Path.of(requireNonNullElse(rootPom.getParent(), "."), module, "target");
-        BiPredicate<Path, BasicFileAttributes> matcher = (path, attributes) -> path.toFile().getName().matches(".*-services\\.jar");
-        try (Stream<Path> files = java.nio.file.Files.find(target, 1, matcher)) {
-            return files.findFirst()
-                    .map(jarFile -> readPluginClassName(jarFile.toFile()))
-                    .orElseThrow(() -> new MissingResourceException(
-                            format("Couldn't find plugin name in services jar for module %s", module),
-                            Plugin.class.getName(),
-                            module));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(format("Couldn't read services jar for module %s", module), e);
-        }
-    }
-
-    private static String readPluginClassName(File serviceJar)
-    {
-        try {
-            ZipFile zipFile = new ZipFile(serviceJar);
-            return zipFile.stream()
-                    .filter(entry -> !entry.isDirectory() && entry.getName().equals("META-INF/services/io.trino.spi.Plugin"))
-                    .findFirst()
-                    .map(entry -> {
-                        try (BufferedInputStream bis = new BufferedInputStream(zipFile.getInputStream(entry))) {
-                            return new String(ByteStreams.toByteArray(bis), UTF_8).trim();
-                        }
-                        catch (IOException e) {
-                            throw new UncheckedIOException(format("Couldn't read plugin's service descriptor in %s", serviceJar), e);
-                        }
-                    })
-                    .orElseThrow(() -> new MissingResourceException(
-                            format("Couldn't find 'META-INF/services/io.trino.spi.Plugin' file in the service JAR %s", serviceJar.getPath()),
-                            Plugin.class.getName(),
-                            serviceJar.getPath()));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(format("Couldn't process service JAR %s", serviceJar), e);
-        }
-    }
-
     private static Optional<List<String>> readImpactedModules(File gibImpactedModules)
     {
         try {
-            return Optional.of(Files.asCharSource(gibImpactedModules, UTF_8).readLines());
+            return Optional.of(Files.readAllLines(gibImpactedModules.toPath()));
         }
         catch (IOException e) {
             log.warn(e, "Couldn't read file %s", gibImpactedModules);
             return Optional.empty();
         }
-    }
-
-    private static List<Plugin> loadPlugins(File path)
-    {
-        ServerPluginsProviderConfig config = new ServerPluginsProviderConfig();
-        config.setInstalledPluginsDir(path);
-        ServerPluginsProvider pluginsProvider = new ServerPluginsProvider(config, directExecutor());
-        ImmutableList.Builder<Plugin> plugins = ImmutableList.builder();
-        pluginsProvider.loadPlugins((plugin, createClassLoader) -> loadPlugin(createClassLoader, plugins), PluginManager::createClassLoader);
-        return plugins.build();
-    }
-
-    private static void loadPlugin(Supplier<PluginClassLoader> createClassLoader, ImmutableList.Builder<Plugin> plugins)
-    {
-        PluginClassLoader pluginClassLoader = createClassLoader.get();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
-            loadServicePlugin(pluginClassLoader, plugins);
-        }
-    }
-
-    private static void loadServicePlugin(PluginClassLoader pluginClassLoader, ImmutableList.Builder<Plugin> plugins)
-    {
-        ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
-        List<Plugin> loadedPlugins = ImmutableList.copyOf(serviceLoader);
-        checkState(!loadedPlugins.isEmpty(), "No service providers of type %s in the classpath: %s", Plugin.class.getName(), asList(pluginClassLoader.getURLs()));
-        plugins.addAll(loadedPlugins);
     }
 }

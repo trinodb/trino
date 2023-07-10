@@ -1,0 +1,386 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "20815724-3a8c-4fb6-b94b-fcb9d846d4e7",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/store",
+  "last-updated-ms" : 1663710944899,
+  "last-column-id" : 29,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "s_store_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "s_store_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "s_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "s_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "s_closed_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "s_store_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "s_number_employees",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 8,
+      "name" : "s_floor_space",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "s_hours",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "s_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "s_market_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 12,
+      "name" : "s_geography_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "s_market_desc",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "s_market_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "s_division_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 16,
+      "name" : "s_division_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "s_company_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 18,
+      "name" : "s_company_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "s_street_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "s_street_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 21,
+      "name" : "s_street_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 22,
+      "name" : "s_suite_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 23,
+      "name" : "s_city",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 24,
+      "name" : "s_county",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 25,
+      "name" : "s_state",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 26,
+      "name" : "s_zip",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 27,
+      "name" : "s_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 28,
+      "name" : "s_gmt_offset",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    }, {
+      "id" : 29,
+      "name" : "s_tax_precentage",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "s_store_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "s_store_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "s_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "s_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "s_closed_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "s_store_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "s_number_employees",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 8,
+      "name" : "s_floor_space",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 9,
+      "name" : "s_hours",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "s_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "s_market_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 12,
+      "name" : "s_geography_class",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "s_market_desc",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "s_market_manager",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "s_division_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 16,
+      "name" : "s_division_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "s_company_id",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 18,
+      "name" : "s_company_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "s_street_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 20,
+      "name" : "s_street_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 21,
+      "name" : "s_street_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 22,
+      "name" : "s_suite_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 23,
+      "name" : "s_city",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 24,
+      "name" : "s_county",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 25,
+      "name" : "s_state",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 26,
+      "name" : "s_zip",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 27,
+      "name" : "s_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 28,
+      "name" : "s_gmt_offset",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    }, {
+      "id" : 29,
+      "name" : "s_tax_precentage",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.22.ndv" : "75",
+    "trino.stats.ndv.2.ndv" : "511",
+    "trino.stats.ndv.7.ndv" : "101",
+    "trino.stats.ndv.27.ndv" : "1",
+    "trino.stats.ndv.19.ndv" : "530",
+    "trino.stats.ndv.18.ndv" : "1",
+    "trino.stats.ndv.14.ndv" : "709",
+    "trino.stats.ndv.23.ndv" : "54",
+    "trino.stats.ndv.21.ndv" : "20",
+    "trino.stats.ndv.8.ndv" : "733",
+    "trino.stats.ndv.3.ndv" : "4",
+    "write.format.default" : "PARQUET",
+    "trino.stats.ndv.17.ndv" : "1",
+    "trino.stats.ndv.13.ndv" : "756",
+    "trino.stats.ndv.26.ndv" : "362",
+    "trino.stats.ndv.16.ndv" : "1",
+    "trino.stats.ndv.4.ndv" : "3",
+    "trino.stats.ndv.5.ndv" : "162",
+    "trino.stats.ndv.29.ndv" : "12",
+    "trino.stats.ndv.9.ndv" : "3",
+    "trino.stats.ndv.12.ndv" : "1",
+    "trino.stats.ndv.25.ndv" : "21",
+    "trino.stats.ndv.10.ndv" : "747",
+    "trino.stats.ndv.28.ndv" : "4",
+    "trino.stats.ndv.1.ndv" : "1008",
+    "trino.stats.ndv.15.ndv" : "1",
+    "trino.stats.ndv.6.ndv" : "10",
+    "trino.stats.ndv.20.ndv" : "543",
+    "trino.stats.ndv.24.ndv" : "27",
+    "trino.stats.ndv.11.ndv" : "10"
+  },
+  "current-snapshot-id" : 8205194758611994023,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 8205194758611994023,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 8205194758611994023,
+    "timestamp-ms" : 1648057326494,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "2",
+      "added-records" : "1002",
+      "added-files-size" : "73050",
+      "changed-partition-count" : "1",
+      "total-records" : "1002",
+      "total-files-size" : "73050",
+      "total-data-files" : "2",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/store/metadata/snap-8205194758611994023-1-dbe69e01-f4eb-41bb-87ef-df547e18e0d5.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648057326494,
+    "snapshot-id" : 8205194758611994023
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648057326494,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/store/metadata/00000-e1b736df-2988-4ee8-bf81-4bce4a41eade.metadata.json"
+  } ]
+}

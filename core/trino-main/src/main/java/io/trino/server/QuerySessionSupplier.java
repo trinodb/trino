@@ -13,6 +13,9 @@
  */
 package io.trino.server;
 
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.inject.Inject;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
@@ -22,9 +25,6 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.SqlPath;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.Locale;
 import java.util.Map;
@@ -60,7 +60,6 @@ public class QuerySessionSupplier
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        requireNonNull(config, "config is null");
         this.defaultPath = requireNonNull(config.getPath(), "path is null");
         this.forcedSessionTimeZone = requireNonNull(config.getForcedSessionTimeZone(), "forcedSessionTimeZone is null");
         this.defaultCatalog = requireNonNull(config.getDefaultCatalog(), "defaultCatalog is null");
@@ -70,7 +69,7 @@ public class QuerySessionSupplier
     }
 
     @Override
-    public Session createSession(QueryId queryId, SessionContext context)
+    public Session createSession(QueryId queryId, Span querySpan, SessionContext context)
     {
         Identity identity = context.getIdentity();
         accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
@@ -91,6 +90,7 @@ public class QuerySessionSupplier
 
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
+                .setQuerySpan(querySpan)
                 .setIdentity(identity)
                 .setPath(context.getPath().or(() -> defaultPath).map(SqlPath::new))
                 .setSource(context.getSource())

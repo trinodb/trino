@@ -29,7 +29,7 @@ import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import io.trino.type.TypeTestUtils;
-import org.openjdk.jol.info.ClassLayout;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -68,20 +70,20 @@ public class TestJoinCompiler
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(joinTypes, joinChannels);
 
         // create hash strategy with a single channel blocks -- make sure there is some overlap in values
-        List<Block> channel = ImmutableList.of(
-                BlockAssertions.createStringSequenceBlock(10, 20),
-                BlockAssertions.createStringSequenceBlock(20, 30),
-                BlockAssertions.createStringSequenceBlock(15, 25));
+        ObjectArrayList<Block> channel = new ObjectArrayList<>();
+        channel.add(BlockAssertions.createStringSequenceBlock(10, 20));
+        channel.add(BlockAssertions.createStringSequenceBlock(20, 30));
+        channel.add(BlockAssertions.createStringSequenceBlock(15, 25));
 
         OptionalInt hashChannel = OptionalInt.empty();
-        List<List<Block>> channels = ImmutableList.of(channel);
+        List<ObjectArrayList<Block>> channels = ImmutableList.of(channel);
         if (hashEnabled) {
-            ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
+            ObjectArrayList<Block> hashChannelBuilder = new ObjectArrayList<>();
             for (Block block : channel) {
                 hashChannelBuilder.add(TypeTestUtils.getHashBlock(joinTypes, block));
             }
             hashChannel = OptionalInt.of(1);
-            channels = ImmutableList.of(channel, hashChannelBuilder.build());
+            channels = ImmutableList.of(channel, hashChannelBuilder);
         }
         PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
 
@@ -161,41 +163,39 @@ public class TestJoinCompiler
         List<Integer> outputChannels = Ints.asList(1, 2, 3, 4, 0);
 
         // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
-        List<Block> extraChannel = ImmutableList.of(
-                BlockAssertions.createStringSequenceBlock(10, 20),
-                BlockAssertions.createStringSequenceBlock(20, 30),
-                BlockAssertions.createStringSequenceBlock(15, 25));
-        List<Block> varcharChannel = ImmutableList.of(
-                BlockAssertions.createStringSequenceBlock(10, 20),
-                BlockAssertions.createStringSequenceBlock(20, 30),
-                BlockAssertions.createStringSequenceBlock(15, 25));
-        List<Block> longChannel = ImmutableList.of(
-                BlockAssertions.createLongSequenceBlock(10, 20),
-                BlockAssertions.createLongSequenceBlock(20, 30),
-                BlockAssertions.createLongSequenceBlock(15, 25));
-        List<Block> doubleChannel = ImmutableList.of(
-                BlockAssertions.createDoubleSequenceBlock(10, 20),
-                BlockAssertions.createDoubleSequenceBlock(20, 30),
-                BlockAssertions.createDoubleSequenceBlock(15, 25));
-        List<Block> booleanChannel = ImmutableList.of(
-                BlockAssertions.createBooleanSequenceBlock(10, 20),
-                BlockAssertions.createBooleanSequenceBlock(20, 30),
-                BlockAssertions.createBooleanSequenceBlock(15, 25));
-        List<Block> extraUnusedChannel = ImmutableList.of(
-                BlockAssertions.createBooleanSequenceBlock(10, 20),
-                BlockAssertions.createBooleanSequenceBlock(20, 30),
-                BlockAssertions.createBooleanSequenceBlock(15, 25));
+        ObjectArrayList<Block> extraChannel = new ObjectArrayList<>();
+        extraChannel.add(BlockAssertions.createStringSequenceBlock(10, 20));
+        extraChannel.add(BlockAssertions.createStringSequenceBlock(20, 30));
+        extraChannel.add(BlockAssertions.createStringSequenceBlock(15, 25));
+        ObjectArrayList<Block> varcharChannel = new ObjectArrayList<>();
+        varcharChannel.add(BlockAssertions.createStringSequenceBlock(10, 20));
+        varcharChannel.add(BlockAssertions.createStringSequenceBlock(20, 30));
+        varcharChannel.add(BlockAssertions.createStringSequenceBlock(15, 25));
+        ObjectArrayList<Block> longChannel = new ObjectArrayList<>();
+        longChannel.add(BlockAssertions.createLongSequenceBlock(10, 20));
+        longChannel.add(BlockAssertions.createLongSequenceBlock(20, 30));
+        longChannel.add(BlockAssertions.createLongSequenceBlock(15, 25));
+        ObjectArrayList<Block> doubleChannel = new ObjectArrayList<>();
+        doubleChannel.add(BlockAssertions.createDoubleSequenceBlock(10, 20));
+        doubleChannel.add(BlockAssertions.createDoubleSequenceBlock(20, 30));
+        doubleChannel.add(BlockAssertions.createDoubleSequenceBlock(15, 25));
+        ObjectArrayList<Block> booleanChannel = new ObjectArrayList<>();
+        booleanChannel.add(BlockAssertions.createBooleanSequenceBlock(10, 20));
+        booleanChannel.add(BlockAssertions.createBooleanSequenceBlock(20, 30));
+        booleanChannel.add(BlockAssertions.createBooleanSequenceBlock(15, 25));
+        ObjectArrayList<Block> extraUnusedChannel = new ObjectArrayList<>();
+        extraUnusedChannel.add(BlockAssertions.createBooleanSequenceBlock(10, 20));
+        extraUnusedChannel.add(BlockAssertions.createBooleanSequenceBlock(20, 30));
+        extraUnusedChannel.add(BlockAssertions.createBooleanSequenceBlock(15, 25));
 
         OptionalInt hashChannel = OptionalInt.empty();
-        ImmutableList<List<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel);
-        List<Block> precomputedHash = ImmutableList.of();
+        ImmutableList<ObjectArrayList<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel);
+        ObjectArrayList<Block> precomputedHash = new ObjectArrayList<>();
         if (hashEnabled) {
-            ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
             for (int i = 0; i < 3; i++) {
-                hashChannelBuilder.add(TypeTestUtils.getHashBlock(joinTypes, varcharChannel.get(i), longChannel.get(i), doubleChannel.get(i), booleanChannel.get(i)));
+                precomputedHash.add(TypeTestUtils.getHashBlock(joinTypes, varcharChannel.get(i), longChannel.get(i), doubleChannel.get(i), booleanChannel.get(i)));
             }
             hashChannel = OptionalInt.of(6);
-            precomputedHash = hashChannelBuilder.build();
             channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel, precomputedHash);
             types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR, BIGINT);
             outputTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR, BIGINT);
@@ -210,11 +210,13 @@ public class TestJoinCompiler
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), outputChannels.size());
         // verify size
-        int instanceSize = ClassLayout.parseClass(hashStrategy.getClass()).instanceSize();
-        long sizeInBytes = instanceSize + channels.stream()
-                .flatMap(List::stream)
-                .mapToLong(Block::getRetainedSizeInBytes)
-                .sum();
+        int instanceSize = instanceSize(hashStrategy.getClass());
+        long sizeInBytes = instanceSize +
+                (channels.size() > 0 ? sizeOf(channels.get(0).elements()) * channels.size() : 0) +
+                channels.stream()
+                        .flatMap(List::stream)
+                        .mapToLong(Block::getRetainedSizeInBytes)
+                        .sum();
         assertEquals(hashStrategy.getSizeInBytes(), sizeInBytes);
 
         // verify hashStrategy is consistent with equals and hash code from block
@@ -313,14 +315,13 @@ public class TestJoinCompiler
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(joinTypes, joinChannels);
 
         // create hash strategy with a single channel blocks -- make sure there is some overlap in values
-        List<Block> channel = ImmutableList.of(
-                BlockAssertions.createDoubleSequenceBlock(10, 20),
-                BlockAssertions.createDoublesBlock(Double.NaN, null, Double.NaN, 1.0, null),
-                BlockAssertions.createDoubleSequenceBlock(20, 30),
-                BlockAssertions.createDoubleSequenceBlock(15, 25));
+        ObjectArrayList<Block> channel = new ObjectArrayList<>();
+        channel.add(BlockAssertions.createDoubleSequenceBlock(10, 20));
+        channel.add(BlockAssertions.createDoublesBlock(Double.NaN, null, Double.NaN, 1.0, null));
+        channel.add(BlockAssertions.createDoubleSequenceBlock(20, 30));
+        channel.add(BlockAssertions.createDoubleSequenceBlock(15, 25));
 
-        List<List<Block>> channels = ImmutableList.of(channel);
-        PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, OptionalInt.empty());
+        PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(ImmutableList.of(channel), OptionalInt.empty());
 
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), 1);

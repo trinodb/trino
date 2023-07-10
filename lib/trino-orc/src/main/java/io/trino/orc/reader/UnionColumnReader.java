@@ -35,9 +35,7 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -49,6 +47,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.OrcReader.fullyProjectedLayout;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
@@ -62,7 +61,7 @@ import static java.util.Objects.requireNonNull;
 public class UnionColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(UnionColumnReader.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(UnionColumnReader.class);
 
     private final OrcColumn column;
     private final OrcBlockFactory blockFactory;
@@ -259,7 +258,7 @@ public class UnionColumnReader
                 blocks[i + 1] = new LazyBlock(positionCount, new UnpackLazyBlockLoader(rawBlock, fieldType, valueIsNonNull[i]));
             }
             else {
-                blocks[i + 1] = new RunLengthEncodedBlock(
+                blocks[i + 1] = RunLengthEncodedBlock.create(
                         fieldType.createBlockBuilder(null, 1).appendNull().build(),
                         positionCount);
             }

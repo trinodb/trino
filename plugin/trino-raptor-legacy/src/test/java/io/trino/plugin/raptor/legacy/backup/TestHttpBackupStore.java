@@ -18,6 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.http.server.HttpServerInfo;
@@ -30,8 +31,6 @@ import io.trino.testing.TestingNodeManager;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import javax.inject.Singleton;
 
 import java.io.IOException;
 import java.net.URI;
@@ -56,9 +55,7 @@ public class TestHttpBackupStore
     {
         temporary = createTempDirectory(null);
 
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("backup.http.uri", "http://localhost:8080")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("backup.http.uri", "http://localhost:8080");
 
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),

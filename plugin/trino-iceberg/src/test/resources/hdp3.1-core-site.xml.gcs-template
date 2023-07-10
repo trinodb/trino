@@ -1,0 +1,140 @@
+<?xml version="1.0"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+      http://www.apache.org/licenses/LICENSE-2.0
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<configuration>
+    <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://hadoop-master:9000</value>
+    </property>
+
+    <!-- Google Cloud Storage properties -->
+    <property>
+      <name>fs.gs.impl</name>
+      <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem</value>
+      <description>The FileSystem for gs: (GCS) uris.</description>
+    </property>
+
+    <property>
+      <name>fs.AbstractFileSystem.gs.impl</name>
+      <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS</value>
+      <description>
+        The AbstractFileSystem for gs: (GCS) uris. Only necessary for use with Hadoop 2.
+      </description>
+    </property>
+
+    <property>
+       <name>fs.gs.path.encoding</name>
+       <value>uri-path</value>
+       <description>
+         Path codec used that used for decoding and encoding Cloud Storage object
+         paths. Valid path codecs are `legacy` and `uri-path`.
+       </description>
+    </property>
+
+    <property>
+      <name>google.cloud.auth.service.account.enable</name>
+      <value>true</value>
+      <description>
+        Whether to use a service account for GCS authorizaiton. If an email and
+        keyfile are provided (see google.cloud.auth.service.account.email and
+        google.cloud.auth.service.account.keyfile), then that service account
+        willl be used. Otherwise the connector will look to see if it running on
+        a GCE VM with some level of GCS access in it's service account scope, and
+        use that service account.
+      </description>
+    </property>
+
+    <property>
+      <name>google.cloud.auth.service.account.json.keyfile</name>
+      <value>%GCP_CREDENTIALS_FILE_PATH%</value>
+      <description>
+        The JSON key file of the service account used for GCS
+        access when google.cloud.auth.service.account.enable is true.
+      </description>
+    </property>
+
+    <!-- OOZIE proxy user setting -->
+    <property>
+        <name>hadoop.proxyuser.oozie.hosts</name>
+        <value>*</value>
+    </property>
+    <property>
+        <name>hadoop.proxyuser.oozie.groups</name>
+        <value>*</value>
+    </property>
+
+    <!-- HTTPFS proxy user setting -->
+    <property>
+        <name>hadoop.proxyuser.httpfs.hosts</name>
+        <value>*</value>
+    </property>
+    <property>
+        <name>hadoop.proxyuser.httpfs.groups</name>
+        <value>*</value>
+    </property>
+
+    <!-- Llama proxy user setting -->
+    <property>
+        <name>hadoop.proxyuser.llama.hosts</name>
+        <value>*</value>
+    </property>
+    <property>
+        <name>hadoop.proxyuser.llama.groups</name>
+        <value>*</value>
+    </property>
+
+    <!-- Hue proxy user setting -->
+    <property>
+        <name>hadoop.proxyuser.hue.hosts</name>
+        <value>*</value>
+    </property>
+    <property>
+        <name>hadoop.proxyuser.hue.groups</name>
+        <value>*</value>
+    </property>
+
+    <!-- Mapred proxy user setting -->
+    <property>
+        <name>hadoop.proxyuser.mapred.hosts</name>
+        <value>*</value>
+    </property>
+    <property>
+        <name>hadoop.proxyuser.mapred.groups</name>
+        <value>*</value>
+    </property>
+
+    <!-- Hive impersonation -->
+    <property>
+        <name>hadoop.proxyuser.hive.hosts</name>
+        <value>*</value>
+    </property>
+
+    <property>
+        <name>hadoop.proxyuser.hive.groups</name>
+        <value>*</value>
+    </property>
+
+    <!-- Hdfs impersonation -->
+    <property>
+        <name>hadoop.proxyuser.hdfs.groups</name>
+        <value>*</value>
+    </property>
+
+    <property>
+        <name>hadoop.proxyuser.hdfs.hosts</name>
+        <value>*</value>
+    </property>
+
+</configuration>

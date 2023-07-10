@@ -17,13 +17,14 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
-import io.trino.sql.planner.optimizations.QueryCardinalityUtil;
+import io.trino.sql.planner.optimizations.Cardinality;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
 
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.Patterns.applyNode;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -79,11 +80,12 @@ public class RemoveRedundantExists
         Assignments.Builder assignments = Assignments.builder();
         assignments.putIdentities(node.getInput().getOutputSymbols());
 
+        Cardinality subqueryCardinality = extractCardinality(node.getSubquery(), context.getLookup());
         Expression result;
-        if (QueryCardinalityUtil.isEmpty(node.getSubquery(), context.getLookup())) {
+        if (subqueryCardinality.isEmpty()) {
             result = FALSE_LITERAL;
         }
-        else if (QueryCardinalityUtil.isAtLeastScalar(node.getSubquery(), context.getLookup())) {
+        else if (subqueryCardinality.isAtLeastScalar()) {
             result = TRUE_LITERAL;
         }
         else {

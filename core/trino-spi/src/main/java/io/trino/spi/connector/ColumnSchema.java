@@ -76,7 +76,7 @@ public final class ColumnSchema
     @Override
     public String toString()
     {
-        return new StringBuilder("ColumnBasicMetadata{")
+        return new StringBuilder("ColumnSchema{")
                 .append("name='").append(name).append('\'')
                 .append(", type=").append(type)
                 .append(", hidden=").append(hidden)

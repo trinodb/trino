@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
@@ -30,6 +31,8 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 
@@ -89,41 +92,38 @@ public final class StructuralTestUtil
 
     public static Block mapBlockOf(Type keyType, Type valueType, Object key, Object value)
     {
-        MapType mapType = mapType(keyType, valueType);
-        BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 10);
-        BlockBuilder singleMapBlockWriter = blockBuilder.beginBlockEntry();
-        appendToBlockBuilder(keyType, key, singleMapBlockWriter);
-        appendToBlockBuilder(valueType, value, singleMapBlockWriter);
-        blockBuilder.closeEntry();
-        return mapType.getObject(blockBuilder, 0);
+        return buildMapValue(
+                mapType(keyType, valueType),
+                1,
+                (keyBuilder, valueBuilder) -> {
+                    appendToBlockBuilder(keyType, key, keyBuilder);
+                    appendToBlockBuilder(valueType, value, valueBuilder);
+                });
     }
 
     public static Block mapBlockOf(Type keyType, Type valueType, Object[] keys, Object[] values)
     {
         checkArgument(keys.length == values.length, "keys/values must have the same length");
-        MapType mapType = mapType(keyType, valueType);
-        BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 10);
-        BlockBuilder singleMapBlockWriter = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < keys.length; i++) {
-            Object key = keys[i];
-            Object value = values[i];
-            appendToBlockBuilder(keyType, key, singleMapBlockWriter);
-            appendToBlockBuilder(valueType, value, singleMapBlockWriter);
-        }
-        blockBuilder.closeEntry();
-        return mapType.getObject(blockBuilder, 0);
+        return buildMapValue(
+                mapType(keyType, valueType),
+                keys.length,
+                (keyBuilder, valueBuilder) -> {
+                    for (int i = 0; i < keys.length; i++) {
+                        Object key = keys[i];
+                        Object value = values[i];
+                        appendToBlockBuilder(keyType, key, keyBuilder);
+                        appendToBlockBuilder(valueType, value, valueBuilder);
+                    }
+                });
     }
 
     public static Block rowBlockOf(List<Type> parameterTypes, Object... values)
     {
-        RowType rowType = RowType.anonymous(parameterTypes);
-        BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
-        BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < values.length; i++) {
-            appendToBlockBuilder(parameterTypes.get(i), values[i], singleRowBlockWriter);
-        }
-        blockBuilder.closeEntry();
-        return rowType.getObject(blockBuilder, 0);
+        return buildRowValue(RowType.anonymous(parameterTypes), fields -> {
+            for (int i = 0; i < values.length; i++) {
+                appendToBlockBuilder(parameterTypes.get(i), values[i], fields.get(i));
+            }
+        });
     }
 
     public static Block decimalArrayBlockOf(DecimalType type, BigDecimal decimal)
@@ -132,10 +132,8 @@ public final class StructuralTestUtil
             long longDecimal = decimal.unscaledValue().longValue();
             return arrayBlockOf(type, longDecimal);
         }
-        else {
-            Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
-            return arrayBlockOf(type, sliceDecimal);
-        }
+        Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
+        return arrayBlockOf(type, sliceDecimal);
     }
 
     public static Block decimalMapBlockOf(DecimalType type, BigDecimal decimal)
@@ -144,10 +142,8 @@ public final class StructuralTestUtil
             long longDecimal = decimal.unscaledValue().longValue();
             return mapBlockOf(type, type, longDecimal, longDecimal);
         }
-        else {
-            Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
-            return mapBlockOf(type, type, sliceDecimal, sliceDecimal);
-        }
+        Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
+        return mapBlockOf(type, type, sliceDecimal, sliceDecimal);
     }
 
     public static MapType mapType(Type keyType, Type valueType)
@@ -155,5 +151,11 @@ public final class StructuralTestUtil
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
                 TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
+    }
+
+    public static ArrayType arrayType(Type elementType)
+    {
+        return (ArrayType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(
+                    TypeSignatureParameter.typeParameter(elementType.getTypeSignature())));
     }
 }

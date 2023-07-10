@@ -263,7 +263,7 @@ public class TestQueryResultRows
         List<Column> columns = ImmutableList.of(
                 new Column("_col0", TIMESTAMP, new ClientTypeSignature(TIMESTAMP)),
                 new Column("_col1", TIMESTAMP_WITH_TIME_ZONE, new ClientTypeSignature(TIMESTAMP_WITH_TIME_ZONE)));
-        List<Type> types = ImmutableList.of(TimestampType.TIMESTAMP_MILLIS, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+        List<Type> types = ImmutableList.of(TimestampType.TIMESTAMP_MILLIS, TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS);
 
         List<Page> pages = rowPagesBuilder(types)
                 .row(null, null)
@@ -289,7 +289,7 @@ public class TestQueryResultRows
     public void shouldHandleNullValuesInArray()
     {
         List<Column> columns = ImmutableList.of(new Column("_col0", ARRAY, new ClientTypeSignature(ARRAY)));
-        List<Type> types = ImmutableList.of(new ArrayType(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE));
+        List<Type> types = ImmutableList.of(new ArrayType(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS));
 
         List<Page> pages = rowPagesBuilder(types)
                 .row(singletonList(null))

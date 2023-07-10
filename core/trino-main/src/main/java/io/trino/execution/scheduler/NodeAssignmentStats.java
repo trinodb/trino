@@ -37,7 +37,7 @@ public final class NodeAssignmentStats
     public NodeAssignmentStats(NodeTaskMap nodeTaskMap, NodeMap nodeMap, List<RemoteTask> existingTasks)
     {
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        int nodeMapSize = requireNonNull(nodeMap, "nodeMap is null").getNodesByHostAndPort().size();
+        int nodeMapSize = nodeMap.getNodesByHostAndPort().size();
         this.nodeTotalSplitsInfo = new HashMap<>(nodeMapSize);
         this.stageQueuedSplitInfo = new HashMap<>(nodeMapSize);
 
@@ -66,7 +66,12 @@ public final class NodeAssignmentStats
 
     public long getQueuedSplitsWeightForStage(InternalNode node)
     {
-        PendingSplitInfo stageInfo = stageQueuedSplitInfo.get(node.getNodeIdentifier());
+        return getQueuedSplitsWeightForStage(node.getNodeIdentifier());
+    }
+
+    public long getQueuedSplitsWeightForStage(String nodeId)
+    {
+        PendingSplitInfo stageInfo = stageQueuedSplitInfo.get(nodeId);
         return stageInfo == null ? 0 : stageInfo.getQueuedSplitsWeight();
     }
 
@@ -100,7 +105,6 @@ public final class NodeAssignmentStats
 
     private static final class PendingSplitInfo
     {
-        private final int queuedSplitCount;
         private final long queuedSplitsWeight;
         private final int unacknowledgedSplitCount;
         private int assignedSplits;
@@ -108,24 +112,13 @@ public final class NodeAssignmentStats
 
         private PendingSplitInfo(PartitionedSplitsInfo queuedSplitsInfo, int unacknowledgedSplitCount)
         {
-            this.queuedSplitCount = requireNonNull(queuedSplitsInfo, "queuedSplitsInfo is null").getCount();
             this.queuedSplitsWeight = queuedSplitsInfo.getWeightSum();
             this.unacknowledgedSplitCount = unacknowledgedSplitCount;
-        }
-
-        public int getAssignedSplitCount()
-        {
-            return assignedSplits;
         }
 
         public long getAssignedSplitsWeight()
         {
             return assignedSplitsWeight;
-        }
-
-        public int getQueuedSplitCount()
-        {
-            return queuedSplitCount + assignedSplits;
         }
 
         public long getQueuedSplitsWeight()

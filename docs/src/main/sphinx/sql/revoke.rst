@@ -58,4 +58,4 @@ See connector documentation for more details.
 See also
 --------
 
-:doc:`grant`, :doc:`show-grants`
+:doc:`deny`, :doc:`grant`, :doc:`show-grants`

@@ -21,17 +21,17 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
-import io.trino.collect.cache.NonKeyEvictableLoadingCache;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.cache.NonKeyEvictableLoadingCache;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.SpillContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
+import javax.crypto.SecretKey;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -44,8 +44,9 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.FeaturesConfig.SPILLER_SPILL_PATH;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
+import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
+import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
@@ -85,14 +86,14 @@ public class FileSingleStreamSpillerFactory
     {
         this(
                 listeningDecorator(newFixedThreadPool(
-                        requireNonNull(featuresConfig, "featuresConfig is null").getSpillerThreads(),
+                        featuresConfig.getSpillerThreads(),
                         daemonThreadsNamed("binary-spiller-%s"))),
                 requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"),
                 spillerStats,
-                requireNonNull(featuresConfig, "featuresConfig is null").getSpillerSpillPaths(),
-                requireNonNull(featuresConfig, "featuresConfig is null").getSpillMaxUsedSpaceThreshold(),
-                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillCompressionEnabled(),
-                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillEncryptionEnabled());
+                featuresConfig.getSpillerSpillPaths(),
+                featuresConfig.getSpillMaxUsedSpaceThreshold(),
+                nodeSpillConfig.isSpillCompressionEnabled(),
+                nodeSpillConfig.isSpillEncryptionEnabled());
     }
 
     @VisibleForTesting
@@ -164,19 +165,15 @@ public class FileSingleStreamSpillerFactory
     @Override
     public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
     {
-        Optional<SpillCipher> spillCipher = Optional.empty();
-        if (spillEncryptionEnabled) {
-            spillCipher = Optional.of(new AesSpillCipher());
-        }
-        PagesSerde serde = serdeFactory.createPagesSerdeForSpill(spillCipher);
+        Optional<SecretKey> encryptionKey = spillEncryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
         return new FileSingleStreamSpiller(
-                serde,
+                serdeFactory,
+                encryptionKey,
                 executor,
                 getNextSpillPath(),
                 spillerStats,
                 spillContext,
                 memoryContext,
-                spillCipher,
                 spillPathHealthCache::invalidateAll);
     }
 

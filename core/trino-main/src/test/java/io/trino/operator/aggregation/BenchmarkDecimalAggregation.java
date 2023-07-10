@@ -16,12 +16,11 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.GroupByIdBlock;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Int128;
+import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -39,15 +38,14 @@ import org.openjdk.jmh.runner.options.WarmupMode;
 import org.testng.annotations.Test;
 
 import java.util.OptionalInt;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 
 @State(Scope.Thread)
@@ -58,6 +56,7 @@ import static org.testng.Assert.assertEquals;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkDecimalAggregation
 {
+    private static final Random RANDOM = new Random(633969769);
     private static final int ELEMENT_COUNT = 1_000_000;
 
     @Benchmark
@@ -65,7 +64,7 @@ public class BenchmarkDecimalAggregation
     public GroupedAggregator benchmark(BenchmarkData data)
     {
         GroupedAggregator aggregator = data.getPartialAggregatorFactory().createGroupedAggregator();
-        aggregator.processPage(data.getGroupIds(), data.getValues());
+        aggregator.processPage(data.getGroupCount(), data.getGroupIds(), data.getValues());
         return aggregator;
     }
 
@@ -74,7 +73,7 @@ public class BenchmarkDecimalAggregation
     public Block benchmarkEvaluateIntermediate(BenchmarkData data)
     {
         GroupedAggregator aggregator = data.getPartialAggregatorFactory().createGroupedAggregator();
-        aggregator.processPage(data.getGroupIds(), data.getValues());
+        aggregator.processPage(data.getGroupCount(), data.getGroupIds(), data.getValues());
         BlockBuilder builder = aggregator.getType().createBlockBuilder(null, data.getGroupCount());
         for (int groupId = 0; groupId < data.getGroupCount(); groupId++) {
             aggregator.evaluate(groupId, builder);
@@ -87,8 +86,8 @@ public class BenchmarkDecimalAggregation
     {
         GroupedAggregator aggregator = data.getFinalAggregatorFactory().createGroupedAggregator();
         // Add the intermediate input multiple times to invoke the combine behavior
-        aggregator.processPage(data.getGroupIds(), data.getIntermediateValues());
-        aggregator.processPage(data.getGroupIds(), data.getIntermediateValues());
+        aggregator.processPage(data.getGroupCount(), data.getGroupIds(), data.getIntermediateValues());
+        aggregator.processPage(data.getGroupCount(), data.getGroupIds(), data.getIntermediateValues());
         BlockBuilder builder = aggregator.getType().createBlockBuilder(null, data.getGroupCount());
         for (int groupId = 0; groupId < data.getGroupCount(); groupId++) {
             aggregator.evaluate(groupId, builder);
@@ -108,9 +107,12 @@ public class BenchmarkDecimalAggregation
         @Param({"10", "1000"})
         private int groupCount = 10;
 
+        @Param({"0.0", "0.05"})
+        private float nullRate;
+
         private AggregatorFactory partialAggregatorFactory;
         private AggregatorFactory finalAggregatorFactory;
-        private GroupByIdBlock groupIds;
+        private int[] groupIds;
         private Page values;
         private Page intermediateValues;
 
@@ -122,45 +124,41 @@ public class BenchmarkDecimalAggregation
             switch (type) {
                 case "SHORT": {
                     DecimalType type = createDecimalType(14, 3);
-                    values = createValues(functionResolution, type, type::writeLong);
+                    values = createValues(functionResolution, type);
                     break;
                 }
                 case "LONG": {
                     DecimalType type = createDecimalType(30, 10);
-                    values = createValues(functionResolution, type, (builder, value) -> type.writeObject(builder, Int128.valueOf(value)));
+                    values = createValues(functionResolution, type);
                     break;
                 }
             }
 
-            BlockBuilder ids = BIGINT.createBlockBuilder(null, ELEMENT_COUNT);
+            int[] ids = new int[ELEMENT_COUNT];
             for (int i = 0; i < ELEMENT_COUNT; i++) {
-                BIGINT.writeLong(ids, ThreadLocalRandom.current().nextLong(groupCount));
+                ids[i] = RANDOM.nextInt(groupCount);
             }
-            groupIds = new GroupByIdBlock(groupCount, ids.build());
+            groupIds = ids;
             intermediateValues = new Page(createIntermediateValues(partialAggregatorFactory.createGroupedAggregator(), groupIds, values));
         }
 
-        private Block createIntermediateValues(GroupedAggregator aggregator, GroupByIdBlock groupIds, Page inputPage)
+        private Block createIntermediateValues(GroupedAggregator aggregator, int[] groupIds, Page inputPage)
         {
-            aggregator.processPage(groupIds, inputPage);
-            BlockBuilder builder = aggregator.getType().createBlockBuilder(null, toIntExact(groupIds.getGroupCount()));
-            for (int groupId = 0; groupId < groupIds.getGroupCount(); groupId++) {
+            aggregator.processPage(groupCount, groupIds, inputPage);
+            BlockBuilder builder = aggregator.getType().createBlockBuilder(null, groupCount);
+            for (int groupId = 0; groupId < groupCount; groupId++) {
                 aggregator.evaluate(groupId, builder);
             }
             return builder.build();
         }
 
-        private Page createValues(TestingFunctionResolution functionResolution, DecimalType type, ValueWriter writer)
+        private Page createValues(TestingFunctionResolution functionResolution, Type type)
         {
             TestingAggregationFunction implementation = functionResolution.getAggregateFunction(QualifiedName.of(function), fromTypes(type));
             partialAggregatorFactory = implementation.createAggregatorFactory(PARTIAL, ImmutableList.of(0), OptionalInt.empty());
             finalAggregatorFactory = implementation.createAggregatorFactory(FINAL, ImmutableList.of(0), OptionalInt.empty());
 
-            BlockBuilder builder = type.createBlockBuilder(null, ELEMENT_COUNT);
-            for (int i = 0; i < ELEMENT_COUNT; i++) {
-                writer.write(builder, i);
-            }
-            return new Page(builder.build());
+            return new Page(createRandomBlockForType(type, ELEMENT_COUNT, nullRate));
         }
 
         public AggregatorFactory getPartialAggregatorFactory()
@@ -178,7 +176,7 @@ public class BenchmarkDecimalAggregation
             return values;
         }
 
-        public GroupByIdBlock getGroupIds()
+        public int[] getGroupIds()
         {
             return groupIds;
         }
@@ -192,11 +190,6 @@ public class BenchmarkDecimalAggregation
         {
             return intermediateValues;
         }
-
-        interface ValueWriter
-        {
-            void write(BlockBuilder valuesBuilder, int value);
-        }
     }
 
     @Test
@@ -205,7 +198,7 @@ public class BenchmarkDecimalAggregation
         BenchmarkData data = new BenchmarkData();
         data.setup();
 
-        assertEquals(data.groupIds.getPositionCount(), data.getValues().getPositionCount());
+        assertEquals(data.getGroupIds().length, data.getValues().getPositionCount());
 
         new BenchmarkDecimalAggregation().benchmark(data);
     }

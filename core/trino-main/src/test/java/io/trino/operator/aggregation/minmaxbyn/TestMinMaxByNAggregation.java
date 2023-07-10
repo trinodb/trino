@@ -30,7 +30,7 @@ import static io.trino.block.BlockAssertions.createArrayBigintBlock;
 import static io.trino.block.BlockAssertions.createBlockOfReals;
 import static io.trino.block.BlockAssertions.createDoublesBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
-import static io.trino.block.BlockAssertions.createRLEBlock;
+import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.operator.aggregation.AggregationTestUtils.groupedAggregation;
@@ -56,7 +56,7 @@ public class TestMinMaxByNAggregation
                 Arrays.asList((Double) null),
                 createDoublesBlock(1.0, null),
                 createDoublesBlock(3.0, 5.0),
-                createRLEBlock(1L, 2));
+                createRepeatedValuesBlock(1L, 2));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -65,7 +65,7 @@ public class TestMinMaxByNAggregation
                 null,
                 createDoublesBlock(null, null),
                 createDoublesBlock(null, null),
-                createRLEBlock(1L, 2));
+                createRepeatedValuesBlock(1L, 2));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -74,7 +74,7 @@ public class TestMinMaxByNAggregation
                 Arrays.asList(1.0),
                 createDoublesBlock(null, 1.0, null, null),
                 createDoublesBlock(null, 0.0, null, null),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -83,7 +83,7 @@ public class TestMinMaxByNAggregation
                 Arrays.asList(1.0),
                 createDoublesBlock(1.0),
                 createDoublesBlock(0.0),
-                createRLEBlock(2L, 1));
+                createRepeatedValuesBlock(2L, 1));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -92,7 +92,7 @@ public class TestMinMaxByNAggregation
                 null,
                 createDoublesBlock(),
                 createDoublesBlock(),
-                createRLEBlock(2L, 0));
+                createRepeatedValuesBlock(2L, 0));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -101,7 +101,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of(2.5),
                 createDoublesBlock(2.5, 2.0, 5.0, 3.0),
                 createDoublesBlock(4.0, 1.5, 2.0, 3.0),
-                createRLEBlock(1L, 4));
+                createRepeatedValuesBlock(1L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -110,7 +110,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of(2.5, 3.0),
                 createDoublesBlock(2.5, 2.0, 5.0, 3.0),
                 createDoublesBlock(4.0, 1.5, 2.0, 3.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
     }
 
     @Test
@@ -124,7 +124,7 @@ public class TestMinMaxByNAggregation
                 Arrays.asList((Double) null),
                 createDoublesBlock(1.0, null),
                 createDoublesBlock(5.0, 3.0),
-                createRLEBlock(1L, 2));
+                createRepeatedValuesBlock(1L, 2));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -133,7 +133,7 @@ public class TestMinMaxByNAggregation
                 null,
                 createDoublesBlock(null, null),
                 createDoublesBlock(null, null),
-                createRLEBlock(1L, 2));
+                createRepeatedValuesBlock(1L, 2));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -142,7 +142,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of(2.0),
                 createDoublesBlock(2.5, 2.0, 5.0, 3.0),
                 createDoublesBlock(4.0, 1.5, 2.0, 3.0),
-                createRLEBlock(1L, 4));
+                createRepeatedValuesBlock(1L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -151,7 +151,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of(2.0, 5.0),
                 createDoublesBlock(2.5, 2.0, 5.0, 3.0),
                 createDoublesBlock(4.0, 1.5, 2.0, 3.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
     }
 
     @Test
@@ -165,7 +165,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("z", "a"),
                 createStringsBlock("z", "a", "x", "b"),
                 createDoublesBlock(1.0, 2.0, 2.0, 3.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -174,7 +174,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "zz"),
                 createStringsBlock("zz", "hi", "bb", "a"),
                 createDoublesBlock(0.0, 1.0, 2.0, -1.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -183,7 +183,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "zz"),
                 createStringsBlock("zz", "hi", null, "a"),
                 createDoublesBlock(0.0, 1.0, null, -1.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -192,7 +192,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("b", "c"),
                 createStringsBlock("a", "b", "c", "d"),
                 createDoublesBlock(Double.NaN, 2.0, 3.0, 4.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -201,7 +201,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "c"),
                 createStringsBlock("a", "b", "c", "d"),
                 createDoublesBlock(1.0, Double.NaN, 3.0, 4.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -210,7 +210,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b", "c", "d"),
                 createDoublesBlock(1.0, 2.0, Double.NaN, 4.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -219,7 +219,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b", "c", "d"),
                 createDoublesBlock(1.0, 2.0, 3.0, Double.NaN),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -228,7 +228,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b"),
                 createDoublesBlock(1.0, Double.NaN),
-                createRLEBlock(2L, 2));
+                createRepeatedValuesBlock(2L, 2));
     }
 
     @Test
@@ -242,7 +242,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "z"),
                 createStringsBlock("z", "a", null),
                 createDoublesBlock(1.0, 2.0, null),
-                createRLEBlock(2L, 3));
+                createRepeatedValuesBlock(2L, 3));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -251,7 +251,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("bb", "hi"),
                 createStringsBlock("zz", "hi", "bb", "a"),
                 createDoublesBlock(0.0, 1.0, 2.0, -1.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -260,7 +260,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("hi", "zz"),
                 createStringsBlock("zz", "hi", null, "a"),
                 createDoublesBlock(0.0, 1.0, null, -1.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -269,7 +269,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("d", "c"),
                 createStringsBlock("a", "b", "c", "d"),
                 createDoublesBlock(Double.NaN, 2.0, 3.0, 4.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -278,7 +278,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("d", "c"),
                 createStringsBlock("a", "b", "c", "d"),
                 createDoublesBlock(1.0, Double.NaN, 3.0, 4.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -287,7 +287,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("d", "b"),
                 createStringsBlock("a", "b", "c", "d"),
                 createDoublesBlock(1.0, 2.0, Double.NaN, 4.0),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -296,7 +296,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("c", "b"),
                 createStringsBlock("a", "b", "c", "d"),
                 createDoublesBlock(1.0, 2.0, 3.0, Double.NaN),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -305,7 +305,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b"),
                 createDoublesBlock(1.0, Double.NaN),
-                createRLEBlock(2L, 2));
+                createRepeatedValuesBlock(2L, 2));
     }
 
     @Test
@@ -319,7 +319,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("z", "a"),
                 createStringsBlock("z", "a", "x", "b"),
                 createBlockOfReals(1.0f, 2.0f, 2.0f, 3.0f),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -328,7 +328,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "zz"),
                 createStringsBlock("zz", "hi", "bb", "a"),
                 createBlockOfReals(0.0f, 1.0f, 2.0f, -1.0f),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -337,7 +337,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "zz"),
                 createStringsBlock("zz", "hi", null, "a"),
                 createBlockOfReals(0.0f, 1.0f, null, -1.0f),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -346,7 +346,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("b", "c"),
                 createStringsBlock("a", "b", "c", "d"),
                 createBlockOfReals(Float.NaN, 2.0f, 3.0f, 4.0f),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -355,7 +355,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "c"),
                 createStringsBlock("a", "b", "c", "d"),
                 createBlockOfReals(1.0f, Float.NaN, 3.0f, 4.0f),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -364,7 +364,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b", "c", "d"),
                 createBlockOfReals(1.0f, 2.0f, Float.NaN, 4.0f),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -373,7 +373,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b", "c", "d"),
                 createBlockOfReals(1.0f, 2.0f, 3.0f, Float.NaN),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -382,7 +382,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b"),
                 createBlockOfReals(1.0f, Float.NaN),
-                createRLEBlock(2L, 2));
+                createRepeatedValuesBlock(2L, 2));
     }
 
     @Test
@@ -396,7 +396,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "z"),
                 createStringsBlock("z", "a", null),
                 createBlockOfReals(1.0f, 2.0f, null),
-                createRLEBlock(2L, 3));
+                createRepeatedValuesBlock(2L, 3));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -405,7 +405,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("bb", "hi"),
                 createStringsBlock("zz", "hi", "bb", "a"),
                 createBlockOfReals(0.0f, 1.0f, 2.0f, -1.0f),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -414,7 +414,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("hi", "zz"),
                 createStringsBlock("zz", "hi", null, "a"),
                 createBlockOfReals(0.0f, 1.0f, null, -1.0f),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -423,7 +423,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("d", "c"),
                 createStringsBlock("a", "b", "c", "d"),
                 createBlockOfReals(Float.NaN, 2.0f, 3.0f, 4.0f),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -432,7 +432,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("d", "c"),
                 createStringsBlock("a", "b", "c", "d"),
                 createBlockOfReals(1.0f, Float.NaN, 3.0f, 4.0f),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -441,7 +441,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("d", "b"),
                 createStringsBlock("a", "b", "c", "d"),
                 createBlockOfReals(1.0f, 2.0f, Float.NaN, 4.0f),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -450,7 +450,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("c", "b"),
                 createStringsBlock("a", "b", "c", "d"),
                 createBlockOfReals(1.0f, 2.0f, 3.0f, Float.NaN),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -459,7 +459,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "b"),
                 createStringsBlock("a", "b"),
                 createBlockOfReals(1.0f, Float.NaN),
-                createRLEBlock(2L, 2));
+                createRepeatedValuesBlock(2L, 2));
     }
 
     @Test
@@ -473,7 +473,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of(2.0, 3.0),
                 createDoublesBlock(1.0, 2.0, 2.0, 3.0),
                 createStringsBlock("z", "a", "x", "b"),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -482,7 +482,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of(-1.0, 2.0),
                 createDoublesBlock(0.0, 1.0, 2.0, -1.0),
                 createStringsBlock("zz", "hi", "bb", "a"),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -491,7 +491,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of(-1.0, 1.0),
                 createDoublesBlock(0.0, 1.0, null, -1.0),
                 createStringsBlock("zz", "hi", null, "a"),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
     }
 
     @Test
@@ -505,7 +505,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of(1.0, 2.0),
                 createDoublesBlock(1.0, 2.0, null),
                 createStringsBlock("z", "a", null),
-                createRLEBlock(2L, 3));
+                createRepeatedValuesBlock(2L, 3));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -514,7 +514,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of(0.0, 1.0),
                 createDoublesBlock(0.0, 1.0, 2.0, -1.0),
                 createStringsBlock("zz", "hi", "bb", "a"),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
@@ -523,7 +523,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of(0.0, 1.0),
                 createDoublesBlock(0.0, 1.0, null, -1.0),
                 createStringsBlock("zz", "hi", null, "a"),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
     }
 
     @Test
@@ -537,7 +537,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of(ImmutableList.of(2L, 3L), ImmutableList.of(4L, 5L)),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(2L, 3L), ImmutableList.of(3L, 4L), ImmutableList.of(4L, 5L))),
                 createStringsBlock("z", "a", "x", "b"),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
     }
 
     @Test
@@ -551,7 +551,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(3L, 4L)),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(2L, 3L), ImmutableList.of(3L, 4L), ImmutableList.of(4L, 5L))),
                 createStringsBlock("z", "a", "x", "b"),
-                createRLEBlock(2L, 4));
+                createRepeatedValuesBlock(2L, 4));
     }
 
     @Test
@@ -565,7 +565,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("b", "x", "z"),
                 createStringsBlock("z", "a", "x", "b"),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(2L, 3L), ImmutableList.of(0L, 3L), ImmutableList.of(0L, 2L))),
-                createRLEBlock(3L, 4));
+                createRepeatedValuesBlock(3L, 4));
     }
 
     @Test
@@ -579,7 +579,7 @@ public class TestMinMaxByNAggregation
                 ImmutableList.of("a", "z", "x"),
                 createStringsBlock("z", "a", "x", "b"),
                 createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(2L, 3L), ImmutableList.of(0L, 3L), ImmutableList.of(0L, 2L))),
-                createRLEBlock(3L, 4));
+                createRepeatedValuesBlock(3L, 4));
     }
 
     @Test

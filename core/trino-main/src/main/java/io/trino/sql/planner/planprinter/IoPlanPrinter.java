@@ -21,7 +21,6 @@ import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableMetadata;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -40,10 +39,9 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.CreateReference;
 import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
-import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
-import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
+import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
@@ -55,7 +53,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
@@ -204,17 +201,17 @@ public class IoPlanPrinter
         public static class TableColumnInfo
         {
             private final CatalogSchemaTableName table;
-            private final Set<ColumnConstraint> columnConstraints;
+            private final Constraint constraint;
             private final EstimatedStatsAndCost estimate;
 
             @JsonCreator
             public TableColumnInfo(
                     @JsonProperty("table") CatalogSchemaTableName table,
-                    @JsonProperty("columnConstraints") Set<ColumnConstraint> columnConstraints,
+                    @JsonProperty("constraint") Constraint constraint,
                     @JsonProperty("estimate") EstimatedStatsAndCost estimate)
             {
                 this.table = requireNonNull(table, "table is null");
-                this.columnConstraints = requireNonNull(columnConstraints, "columnConstraints is null");
+                this.constraint = requireNonNull(constraint, "constraint is null");
                 this.estimate = requireNonNull(estimate, "estimate is null");
             }
 
@@ -225,9 +222,9 @@ public class IoPlanPrinter
             }
 
             @JsonProperty
-            public Set<ColumnConstraint> getColumnConstraints()
+            public Constraint getConstraint()
             {
-                return columnConstraints;
+                return constraint;
             }
 
             @JsonProperty
@@ -247,14 +244,14 @@ public class IoPlanPrinter
                 }
                 TableColumnInfo o = (TableColumnInfo) obj;
                 return Objects.equals(table, o.table) &&
-                        Objects.equals(columnConstraints, o.columnConstraints) &&
+                        Objects.equals(constraint, o.constraint) &&
                         Objects.equals(estimate, o.estimate);
             }
 
             @Override
             public int hashCode()
             {
-                return Objects.hash(table, columnConstraints, estimate);
+                return Objects.hash(table, constraint, estimate);
             }
 
             @Override
@@ -262,10 +259,66 @@ public class IoPlanPrinter
             {
                 return toStringHelper(this)
                         .add("table", table)
-                        .add("columnConstraints", columnConstraints)
+                        .add("constraint", constraint)
                         .add("estimate", estimate)
                         .toString();
             }
+        }
+    }
+
+    public static class Constraint
+    {
+        private final boolean isNone;
+        private final Set<ColumnConstraint> columnConstraints;
+
+        @JsonCreator
+        public Constraint(
+                @JsonProperty("none") boolean isNone,
+                @JsonProperty("columnConstraints") Set<ColumnConstraint> columnConstraints)
+        {
+            this.isNone = isNone;
+            this.columnConstraints = ImmutableSet.copyOf(requireNonNull(columnConstraints, "columnConstraints is null"));
+        }
+
+        @JsonProperty
+        public boolean isNone()
+        {
+            return isNone;
+        }
+
+        @JsonProperty
+        public Set<ColumnConstraint> getColumnConstraints()
+        {
+            return columnConstraints;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            Constraint o = (Constraint) obj;
+            return Objects.equals(isNone, o.isNone) &&
+                    Objects.equals(columnConstraints, o.columnConstraints);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(isNone, columnConstraints);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("none", isNone)
+                    .add("columnConstraints", columnConstraints)
+                    .toString();
         }
     }
 
@@ -613,8 +666,7 @@ public class IoPlanPrinter
         public Void visitFilter(FilterNode node, IoPlanBuilder context)
         {
             PlanNode source = node.getSource();
-            if (source instanceof TableScanNode) {
-                TableScanNode tableScanNode = (TableScanNode) source;
+            if (source instanceof TableScanNode tableScanNode) {
                 DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
                         plannerContext,
                         session,
@@ -640,36 +692,25 @@ public class IoPlanPrinter
         public Void visitTableFinish(TableFinishNode node, IoPlanBuilder context)
         {
             WriterTarget writerTarget = node.getTarget();
-            if (writerTarget instanceof CreateTarget) {
-                CreateTarget target = (CreateTarget) writerTarget;
+            if (writerTarget instanceof CreateTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getHandle().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof InsertTarget) {
-                InsertTarget target = (InsertTarget) writerTarget;
+            else if (writerTarget instanceof InsertTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getHandle().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof DeleteTarget) {
-                DeleteTarget target = (DeleteTarget) writerTarget;
+            else if (writerTarget instanceof MergeTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandleOrElseThrow().getCatalogHandle().getCatalogName(),
+                        target.getHandle().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof UpdateTarget) {
-                UpdateTarget target = (UpdateTarget) writerTarget;
-                context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandleOrElseThrow().getCatalogHandle().getCatalogName(),
-                        target.getSchemaTableName().getSchemaName(),
-                        target.getSchemaTableName().getTableName()));
-            }
-            else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget) {
-                TableWriterNode.RefreshMaterializedViewTarget target = (TableWriterNode.RefreshMaterializedViewTarget) writerTarget;
+            else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getInsertHandle().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
@@ -687,16 +728,16 @@ public class IoPlanPrinter
         private void addInputTableConstraints(TupleDomain<ColumnHandle> filterDomain, TableScanNode tableScan, IoPlanBuilder context)
         {
             TableHandle table = tableScan.getTable();
-            TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(session, table);
+            CatalogSchemaTableName tableName = plannerContext.getMetadata().getTableName(session, table);
             TupleDomain<ColumnHandle> predicateDomain = plannerContext.getMetadata().getTableProperties(session, table).getPredicate();
             EstimatedStatsAndCost estimatedStatsAndCost = getEstimatedStatsAndCost(tableScan);
             context.addInputTableColumnInfo(
                     new IoPlan.TableColumnInfo(
                             new CatalogSchemaTableName(
-                                    tableMetadata.getCatalogName(),
-                                    tableMetadata.getTable().getSchemaName(),
-                                    tableMetadata.getTable().getTableName()),
-                            parseConstraints(table, predicateDomain.intersect(filterDomain)),
+                                    tableName.getCatalogName(),
+                                    tableName.getSchemaTableName().getSchemaName(),
+                                    tableName.getSchemaTableName().getTableName()),
+                            parseConstraint(table, predicateDomain.intersect(filterDomain)),
                             estimatedStatsAndCost));
         }
 
@@ -715,18 +756,20 @@ public class IoPlanPrinter
             return estimatedStatsAndCost;
         }
 
-        private Set<ColumnConstraint> parseConstraints(TableHandle tableHandle, TupleDomain<ColumnHandle> constraint)
+        private Constraint parseConstraint(TableHandle tableHandle, TupleDomain<ColumnHandle> constraint)
         {
-            checkArgument(!constraint.isNone());
+            if (constraint.isNone()) {
+                return new Constraint(true, ImmutableSet.of());
+            }
             ImmutableSet.Builder<ColumnConstraint> columnConstraints = ImmutableSet.builder();
-            for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
+            for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().orElseThrow().entrySet()) {
                 ColumnMetadata columnMetadata = plannerContext.getMetadata().getColumnMetadata(session, tableHandle, entry.getKey());
                 columnConstraints.add(new ColumnConstraint(
                         columnMetadata.getName(),
                         columnMetadata.getType(),
                         parseDomain(entry.getValue().simplify())));
             }
-            return columnConstraints.build();
+            return new Constraint(false, columnConstraints.build());
         }
 
         private FormattedDomain parseDomain(Domain domain)

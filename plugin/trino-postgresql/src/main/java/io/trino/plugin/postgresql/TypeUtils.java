@@ -165,8 +165,7 @@ final class TypeUtils
             return trinoNative;
         }
 
-        if (trinoType instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) trinoType;
+        if (trinoType instanceof DecimalType decimalType) {
             if (decimalType.isShort()) {
                 BigInteger unscaledValue = BigInteger.valueOf((long) trinoNative);
                 return new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
@@ -197,33 +196,31 @@ final class TypeUtils
             return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis));
         }
 
-        if (trinoType instanceof TimestampType && ((TimestampType) trinoType).isShort()) {
+        if (trinoType instanceof TimestampType timestampType && timestampType.isShort()) {
             return toPgTimestamp(fromTrinoTimestamp((long) trinoNative));
         }
 
-        if (trinoType instanceof TimestampWithTimeZoneType) {
+        if (trinoType instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
             // PostgreSQL does not store zone, only the point in time
-            int precision = ((TimestampWithTimeZoneType) trinoType).getPrecision();
+            int precision = timestampWithTimeZoneType.getPrecision();
             if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
                 long millisUtc = unpackMillisUtc((long) trinoNative);
                 return new Timestamp(millisUtc);
             }
-            else {
-                LongTimestampWithTimeZone value = (LongTimestampWithTimeZone) trinoNative;
-                long epochSeconds = floorDiv(value.getEpochMillis(), MILLISECONDS_PER_SECOND);
-                long nanosOfSecond = floorMod(value.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND
-                        + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
-                return OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId());
-            }
+            LongTimestampWithTimeZone value = (LongTimestampWithTimeZone) trinoNative;
+            long epochSeconds = floorDiv(value.getEpochMillis(), MILLISECONDS_PER_SECOND);
+            long nanosOfSecond = floorMod(value.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND
+                    + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+            return OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId());
         }
 
         if (trinoType instanceof VarcharType || trinoType instanceof CharType) {
             return ((Slice) trinoNative).toStringUtf8();
         }
 
-        if (trinoType instanceof ArrayType) {
+        if (trinoType instanceof ArrayType arrayType) {
             // process subarray of multi-dimensional array
-            return getJdbcObjectArray(session, ((ArrayType) trinoType).getElementType(), (Block) trinoNative);
+            return getJdbcObjectArray(session, arrayType.getElementType(), (Block) trinoNative);
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + trinoType);

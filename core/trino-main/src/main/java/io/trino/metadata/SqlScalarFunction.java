@@ -13,7 +13,10 @@
  */
 package io.trino.metadata;
 
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionMetadata;
 
 public abstract class SqlScalarFunction
         implements SqlFunction
@@ -31,12 +34,12 @@ public abstract class SqlScalarFunction
         return functionMetadata;
     }
 
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         return specialize(boundSignature);
     }
 
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         throw new UnsupportedOperationException();
     }

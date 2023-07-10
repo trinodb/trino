@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.stats.Distribution;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
 import io.trino.hive.orc.NullMemoryManager;
 import io.trino.hive.orc.impl.WriterImpl;
 import io.trino.metadata.FunctionManager;
@@ -102,7 +103,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -324,6 +325,7 @@ public class TestOrcPageSourceMemoryTracking
         int maxReadBytes = 1_000;
         HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
                 new HiveConfig(),
+                new HiveFormatsConfig(),
                 new OrcReaderConfig()
                         .setMaxBlockSize(DataSize.ofBytes(maxReadBytes)),
                 new OrcWriterConfig(),
@@ -551,7 +553,7 @@ public class TestOrcPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
-            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, stats, UTC);
+            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_FILE_SYSTEM_FACTORY, stats, UTC);
 
             List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
                     partitionName,
@@ -559,17 +561,17 @@ public class TestOrcPageSourceMemoryTracking
                     columns,
                     ImmutableList.of(),
                     TableToPartitionMapping.empty(),
-                    fileSplit.getPath(),
+                    fileSplit.getPath().toString(),
                     OptionalInt.empty(),
                     fileSplit.getLength(),
                     Instant.now().toEpochMilli());
 
-            return HivePageSourceProvider.createHivePageSource(
+            ConnectorPageSource connectorPageSource = HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(orcPageSourceFactory),
                     ImmutableSet.of(),
                     newEmptyConfiguration(),
                     session,
-                    fileSplit.getPath(),
+                    Location.of(fileSplit.getPath().toString()),
                     OptionalInt.empty(),
                     fileSplit.getStart(),
                     fileSplit.getLength(),
@@ -585,6 +587,7 @@ public class TestOrcPageSourceMemoryTracking
                     false,
                     NO_ACID_TRANSACTION,
                     columnMappings).orElseThrow();
+            return connectorPageSource;
         }
 
         public SourceOperator newTableScanOperator(DriverContext driverContext)

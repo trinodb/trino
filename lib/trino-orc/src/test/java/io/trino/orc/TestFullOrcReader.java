@@ -13,9 +13,6 @@
  */
 package io.trino.orc;
 
-import org.testng.annotations.Test;
-
-@Test(groups = "ci")
 public class TestFullOrcReader
         extends AbstractTestOrcReader
 {

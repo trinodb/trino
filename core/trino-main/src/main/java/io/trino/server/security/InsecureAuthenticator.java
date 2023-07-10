@@ -13,14 +13,13 @@
  */
 package io.trino.server.security;
 
+import com.google.inject.Inject;
 import io.trino.client.ProtocolDetectionException;
 import io.trino.client.ProtocolHeaders;
 import io.trino.server.ProtocolConfig;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.util.Optional;
 
@@ -29,7 +28,6 @@ import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.ProtocolHeaders.detectProtocol;
 import static io.trino.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
 import static io.trino.server.security.UserMapping.createUserMapping;
-import static java.util.Objects.requireNonNull;
 
 public class InsecureAuthenticator
         implements Authenticator
@@ -40,7 +38,6 @@ public class InsecureAuthenticator
     @Inject
     public InsecureAuthenticator(InsecureAuthenticatorConfig config, ProtocolConfig protocolConfig)
     {
-        requireNonNull(config, "config is null");
         this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
         this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
     }

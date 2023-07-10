@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.GroupByIdBlock;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -28,6 +27,7 @@ import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.QualifiedName;
 import org.apache.commons.math3.util.Precision;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -35,7 +35,6 @@ import java.util.OptionalInt;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -175,7 +174,7 @@ public final class AggregationTestUtils
         Page[] maskedPages = new Page[pages.length];
         for (int i = 0; i < pages.length; i++) {
             Page page = pages[i];
-            maskedPages[i] = page.appendColumn(new RunLengthEncodedBlock(BooleanType.createBlockForSingleNonNullValue(maskValue), page.getPositionCount()));
+            maskedPages[i] = page.appendColumn(RunLengthEncodedBlock.create(BooleanType.createBlockForSingleNonNullValue(maskValue), page.getPositionCount()));
         }
         return maskedPages;
     }
@@ -301,12 +300,12 @@ public final class AggregationTestUtils
     {
         GroupedAggregator groupedAggregator = function.createAggregatorFactory(SINGLE, Ints.asList(args), OptionalInt.empty()).createGroupedAggregator();
         for (Page page : pages) {
-            groupedAggregator.processPage(createGroupByIdBlock(0, page.getPositionCount()), page);
+            groupedAggregator.processPage(0, createGroupByIdBlock(0, page.getPositionCount()), page);
         }
         Object groupValue = getGroupValue(function.getFinalType(), groupedAggregator, 0);
 
         for (Page page : pages) {
-            groupedAggregator.processPage(createGroupByIdBlock(4000, page.getPositionCount()), page);
+            groupedAggregator.processPage(4000, createGroupByIdBlock(4000, page.getPositionCount()), page);
         }
         Object largeGroupValue = getGroupValue(function.getFinalType(), groupedAggregator, 4000);
         assertEquals(largeGroupValue, groupValue, "Inconsistent results with large group id");
@@ -342,27 +341,25 @@ public final class AggregationTestUtils
         AggregatorFactory partialFactory = function.createAggregatorFactory(PARTIAL, Ints.asList(args), OptionalInt.empty());
         Block emptyBlock = getIntermediateBlock(function.getIntermediateType(), partialFactory.createGroupedAggregator());
 
-        finalAggregator.processPage(createGroupByIdBlock(0, emptyBlock.getPositionCount()), new Page(emptyBlock));
+        finalAggregator.processPage(0, createGroupByIdBlock(0, emptyBlock.getPositionCount()), new Page(emptyBlock));
 
         for (Page page : pages) {
             GroupedAggregator partialAggregator = partialFactory.createGroupedAggregator();
-            partialAggregator.processPage(createGroupByIdBlock(0, page.getPositionCount()), page);
+            partialAggregator.processPage(0, createGroupByIdBlock(0, page.getPositionCount()), page);
             Block partialBlock = getIntermediateBlock(function.getIntermediateType(), partialAggregator);
-            finalAggregator.processPage(createGroupByIdBlock(0, partialBlock.getPositionCount()), new Page(partialBlock));
+            finalAggregator.processPage(0, createGroupByIdBlock(0, partialBlock.getPositionCount()), new Page(partialBlock));
         }
 
-        finalAggregator.processPage(createGroupByIdBlock(0, emptyBlock.getPositionCount()), new Page(emptyBlock));
+        finalAggregator.processPage(0, createGroupByIdBlock(0, emptyBlock.getPositionCount()), new Page(emptyBlock));
 
         return getGroupValue(function.getFinalType(), finalAggregator, 0);
     }
 
-    public static GroupByIdBlock createGroupByIdBlock(int groupId, int positions)
+    public static int[] createGroupByIdBlock(int groupId, int positions)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, positions);
-        for (int i = 0; i < positions; i++) {
-            BIGINT.writeLong(blockBuilder, groupId);
-        }
-        return new GroupByIdBlock(groupId, blockBuilder.build());
+        int[] groupIds = new int[positions];
+        Arrays.fill(groupIds, groupId);
+        return groupIds;
     }
 
     static int[] createArgs(int parameterCount)
@@ -416,7 +413,7 @@ public final class AggregationTestUtils
             Page page = pages[i];
             Block[] newBlocks = new Block[page.getChannelCount() + offset];
             for (int channel = 0; channel < offset; channel++) {
-                newBlocks[channel] = createNullRLEBlock(page.getPositionCount());
+                newBlocks[channel] = createAllNullBlock(page.getPositionCount());
             }
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 newBlocks[channel + offset] = page.getBlock(channel);
@@ -426,9 +423,9 @@ public final class AggregationTestUtils
         return newPages;
     }
 
-    private static RunLengthEncodedBlock createNullRLEBlock(int positionCount)
+    private static Block createAllNullBlock(int positionCount)
     {
-        return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(BOOLEAN, null, positionCount);
+        return RunLengthEncodedBlock.create(BOOLEAN, null, positionCount);
     }
 
     public static Object getGroupValue(Type finalType, GroupedAggregator groupedAggregator, int groupId)

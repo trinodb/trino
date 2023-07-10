@@ -15,9 +15,11 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.Cardinality;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -31,10 +33,11 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtLeastScalar;
-import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This rule transforms plans with join where one of the sources is
@@ -49,11 +52,12 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
  * be done, because the result of the transformation would be possibly
  * empty, while the single constant row should be preserved on output.
  * <p>
- * Note 2: The transformation is valid when the ValuesNode contains
- * non-deterministic expressions. This is because any expression from
- * the ValuesNode can only be used once. Assignments.Builder deduplicates
- * them in case when the JoinNode produces any of the input symbols
- * more than once.
+ * Note 2: The transformation is not valid when the ValuesNode contains
+ * a non-deterministic expression. According to the semantics of the
+ * original plan, such expression should be evaluated once, and the value
+ * should be appended to each row of the other join source. Inlining the
+ * expression would result in evaluating it for each row to a potentially
+ * different value.
  * <p>
  * Note 3: The transformation is valid when the ValuesNode contains
  * expressions using correlation symbols. They are constant from the
@@ -79,6 +83,13 @@ public class ReplaceJoinOverConstantWithProject
     private static final Pattern<JoinNode> PATTERN = join()
             .matching(ReplaceJoinOverConstantWithProject::isUnconditional);
 
+    private final Metadata metadata;
+
+    public ReplaceJoinOverConstantWithProject(Metadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
+
     @Override
     public Pattern<JoinNode> getPattern()
     {
@@ -88,7 +99,12 @@ public class ReplaceJoinOverConstantWithProject
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
-        if (isAtMost(node.getLeft(), context.getLookup(), 0) || isAtMost(node.getRight(), context.getLookup(), 0)) {
+        Cardinality leftCardinality = extractCardinality(node.getLeft(), context.getLookup());
+        if (leftCardinality.isEmpty()) {
+            return Result.empty();
+        }
+        Cardinality rightCardinality = extractCardinality(node.getRight(), context.getLookup());
+        if (rightCardinality.isEmpty()) {
             return Result.empty();
         }
 
@@ -97,41 +113,44 @@ public class ReplaceJoinOverConstantWithProject
         boolean canInlineLeftSource = canInlineJoinSource(left);
         boolean canInlineRightSource = canInlineJoinSource(right);
 
-        switch (node.getType()) {
-            case INNER:
+        return switch (node.getType()) {
+            case INNER -> {
                 if (canInlineLeftSource) {
-                    return Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
+                    yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
                 if (canInlineRightSource) {
-                    return Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
+                    yield Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
                 }
-                break;
-            case LEFT:
-                if (canInlineLeftSource && isAtLeastScalar(right, context.getLookup())) {
-                    return Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
+                yield Result.empty();
+            }
+            case LEFT -> {
+                if (canInlineLeftSource && rightCardinality.isAtLeastScalar()) {
+                    yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
                 if (canInlineRightSource) {
-                    return Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
+                    yield Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
                 }
-                break;
-            case RIGHT:
+                yield Result.empty();
+            }
+            case RIGHT -> {
                 if (canInlineLeftSource) {
-                    return Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
+                    yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
-                if (canInlineRightSource && isAtLeastScalar(left, context.getLookup())) {
-                    return Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
+                if (canInlineRightSource && leftCardinality.isAtLeastScalar()) {
+                    yield Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
                 }
-                break;
-            case FULL:
-                if (canInlineLeftSource && isAtLeastScalar(right, context.getLookup())) {
-                    return Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
+                yield Result.empty();
+            }
+            case FULL -> {
+                if (canInlineLeftSource && rightCardinality.isAtLeastScalar()) {
+                    yield Result.ofPlanNode(appendProjection(right, node.getRightOutputSymbols(), left, node.getLeftOutputSymbols(), context.getIdAllocator()));
                 }
-                if (canInlineRightSource && isAtLeastScalar(left, context.getLookup())) {
-                    return Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
+                if (canInlineRightSource && leftCardinality.isAtLeastScalar()) {
+                    yield Result.ofPlanNode(appendProjection(left, node.getLeftOutputSymbols(), right, node.getRightOutputSymbols(), context.getIdAllocator()));
                 }
-        }
-
-        return Result.empty();
+                yield Result.empty();
+            }
+        };
     }
 
     private static boolean isUnconditional(JoinNode joinNode)
@@ -148,11 +167,10 @@ public class ReplaceJoinOverConstantWithProject
 
     private boolean isSingleConstantRow(PlanNode node)
     {
-        if (!(node instanceof ValuesNode)) {
+        if (!(node instanceof ValuesNode values)) {
             return false;
         }
 
-        ValuesNode values = (ValuesNode) node;
         if (values.getRowCount() != 1) {
             return false;
         }
@@ -162,6 +180,10 @@ public class ReplaceJoinOverConstantWithProject
         }
 
         Expression row = getOnlyElement(values.getRows().get());
+
+        if (!isDeterministic(row, metadata)) {
+            return false;
+        }
 
         return row instanceof Row;
     }
@@ -179,8 +201,7 @@ public class ReplaceJoinOverConstantWithProject
         Assignments.Builder assignments = Assignments.builder()
                 .putIdentities(sourceOutputs);
 
-        constantOutputs.stream()
-                .forEach(symbol -> assignments.put(symbol, mapping.get(symbol)));
+        constantOutputs.forEach(symbol -> assignments.put(symbol, mapping.get(symbol)));
 
         return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
     }

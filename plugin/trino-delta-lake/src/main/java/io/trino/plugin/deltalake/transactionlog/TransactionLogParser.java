@@ -14,28 +14,26 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.base.util.JsonUtils;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -52,10 +50,10 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.isFileNotFoundException;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -66,7 +64,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.parseDouble;
@@ -86,8 +84,8 @@ public final class TransactionLogParser
     private static final Logger log = Logger.get(TransactionLogParser.class);
 
     // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
-    // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 year margin.
-    public static final LocalDate START_OF_MODERN_ERA = LocalDate.of(1901, 1, 1);
+    // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 day margin.
+    public static final long START_OF_MODERN_ERA_EPOCH_DAY = LocalDate.of(1900, 1, 2).toEpochDay();
 
     public static final String LAST_CHECKPOINT_FILENAME = "_last_checkpoint";
 
@@ -131,7 +129,6 @@ public final class TransactionLogParser
             .withResolverStyle(ResolverStyle.STRICT);
 
     public static DeltaLakeTransactionLogEntry parseJson(String json)
-            throws JsonProcessingException
     {
         // lines are json strings followed by 'x' in some Databricks versions of Delta
         if (json.endsWith("x")) {
@@ -163,7 +160,8 @@ public final class TransactionLogParser
 
     public static Object deserializeColumnValue(DeltaLakeColumnHandle column, String valueString, Function<String, Long> timestampReader)
     {
-        Type type = column.getType();
+        verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
+        Type type = column.getBaseType();
         try {
             if (type.equals(BOOLEAN)) {
                 if (valueString.equalsIgnoreCase("true")) {
@@ -185,8 +183,8 @@ public final class TransactionLogParser
             if (type.equals(BIGINT)) {
                 return parseLong(valueString);
             }
-            if (type.getBaseName().equals(StandardTypes.DECIMAL)) {
-                return parseDecimal((DecimalType) type, valueString);
+            if (type instanceof DecimalType decimalType) {
+                return parseDecimal(decimalType, valueString);
             }
             if (type.equals(REAL)) {
                 return (long) floatToRawIntBits(parseFloat(valueString));
@@ -198,7 +196,7 @@ public final class TransactionLogParser
                 // date values are represented as yyyy-MM-dd
                 return LocalDate.parse(valueString).toEpochDay();
             }
-            if (type.equals(createTimestampWithTimeZoneType(3))) {
+            if (type.equals(TIMESTAMP_TZ_MILLIS)) {
                 return timestampReader.apply(valueString);
             }
             if (VARCHAR.equals(type)) {
@@ -206,35 +204,37 @@ public final class TransactionLogParser
             }
         }
         catch (RuntimeException e) {
-            return new TrinoException(
+            throw new TrinoException(
                     GENERIC_INTERNAL_ERROR,
-                    format("Unable to parse value [%s] from column %s with type %s", valueString, column.getName(), column.getType()),
+                    format("Unable to parse value [%s] from column %s with type %s", valueString, column.getBaseColumnName(), column.getBaseType()),
                     e);
         }
         // Anything else is not a supported DeltaLake column
         throw new TrinoException(
                 GENERIC_INTERNAL_ERROR,
-                format("Unable to parse value [%s] from column %s with type %s", valueString, column.getName(), column.getType()));
+                format("Unable to parse value [%s] from column %s with type %s", valueString, column.getBaseColumnName(), column.getBaseType()));
     }
 
-    static Optional<LastCheckpoint> readLastCheckpoint(FileSystem fileSystem, Path tableLocation)
+    static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
     {
-        return Failsafe.with(new RetryPolicy<>()
+        return Failsafe.with(RetryPolicy.builder()
                         .withMaxRetries(5)
                         .withDelay(Duration.ofSeconds(1))
                         .onRetry(event -> {
                             // The _last_checkpoint file is malformed, it's probably in the middle of a rewrite (file rewrites on Azure are NOT atomic)
                             // Retry several times with a short delay, and if that fails, fall back to manually finding latest checkpoint.
-                            log.debug(event.getLastFailure(), "Failure when accessing last checkpoint information, will be retried");
-                        }))
+                            log.debug(event.getLastException(), "Failure when accessing last checkpoint information, will be retried");
+                        })
+                        .build())
                 .get(() -> tryReadLastCheckpoint(fileSystem, tableLocation));
     }
 
-    private static Optional<LastCheckpoint> tryReadLastCheckpoint(FileSystem fileSystem, Path tableLocation)
+    private static Optional<LastCheckpoint> tryReadLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
             throws JsonParseException, JsonMappingException
     {
-        Path transactionLogDirectory = getTransactionLogDir(tableLocation);
-        try (FSDataInputStream lastCheckpointInput = fileSystem.open(new Path(transactionLogDirectory, LAST_CHECKPOINT_FILENAME))) {
+        Location checkpointPath = Location.of(getTransactionLogDir(tableLocation)).appendPath(LAST_CHECKPOINT_FILENAME);
+        TrinoInputFile inputFile = fileSystem.newInputFile(checkpointPath);
+        try (InputStream lastCheckpointInput = inputFile.newStream()) {
             // Note: there apparently is 8K buffering applied and _last_checkpoint should be much smaller.
             return Optional.of(JsonUtils.parseJson(OBJECT_MAPPER, lastCheckpointInput, LastCheckpoint.class));
         }
@@ -250,28 +250,18 @@ public final class TransactionLogParser
         }
     }
 
-    public static long getMandatoryCurrentVersion(FileSystem fileSystem, Path tableLocation)
+    public static long getMandatoryCurrentVersion(TrinoFileSystem fileSystem, String tableLocation)
             throws IOException
     {
         long version = readLastCheckpoint(fileSystem, tableLocation).map(LastCheckpoint::getVersion).orElse(0L);
 
-        Path transactionLogDir = getTransactionLogDir(tableLocation);
-        boolean endOfTail = false;
-        while (!endOfTail) {
-            try {
-                fileSystem.getFileStatus(getTransactionLogJsonEntryPath(transactionLogDir, version + 1));
-                version++;
+        String transactionLogDir = getTransactionLogDir(tableLocation);
+        while (true) {
+            Location entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version + 1);
+            if (!fileSystem.newInputFile(entryPath).exists()) {
+                return version;
             }
-            catch (IOException e) {
-                if (isFileNotFoundException(e)) {
-                    endOfTail = true;
-                }
-                else {
-                    throw e;
-                }
-            }
+            version++;
         }
-
-        return version;
     }
 }

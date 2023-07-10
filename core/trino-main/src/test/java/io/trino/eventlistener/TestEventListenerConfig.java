@@ -42,9 +42,7 @@ public class TestEventListenerConfig
         Path config1 = Files.createTempFile(null, null);
         Path config2 = Files.createTempFile(null, null);
 
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("event-listener.config-files", config1.toString() + "," + config2.toString())
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("event-listener.config-files", config1.toString() + "," + config2.toString());
 
         EventListenerConfig expected = new EventListenerConfig()
                 .setEventListenerFiles(ImmutableList.of(config1.toFile(), config2.toFile()));

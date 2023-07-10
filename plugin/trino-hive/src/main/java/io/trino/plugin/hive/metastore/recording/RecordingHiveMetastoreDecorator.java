@@ -13,10 +13,9 @@
  */
 package io.trino.plugin.hive.metastore.recording;
 
+import com.google.inject.Inject;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreDecorator;
-
-import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

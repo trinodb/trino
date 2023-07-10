@@ -15,18 +15,17 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public final class HivePartitionKey
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HivePartitionKey.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize() * 2;
+    private static final int INSTANCE_SIZE = instanceSize(HivePartitionKey.class);
 
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     private final String name;

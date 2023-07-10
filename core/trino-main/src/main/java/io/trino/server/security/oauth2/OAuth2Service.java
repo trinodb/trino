@@ -14,14 +14,13 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.io.Resources;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
 import io.trino.server.ui.OAuth2WebUiInstalled;
 import io.trino.server.ui.OAuthWebUiCookie;
-
-import javax.inject.Inject;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response;
 
 import java.io.IOException;
 import java.net.URI;
@@ -42,11 +41,11 @@ import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static io.trino.server.security.oauth2.TokenPairSerializer.TokenPair.fromOAuth2Response;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 
 public class OAuth2Service
 {
@@ -87,8 +86,6 @@ public class OAuth2Service
             throws IOException
     {
         this.client = requireNonNull(client, "client is null");
-        requireNonNull(oauth2Config, "oauth2Config is null");
-
         this.successHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/success.html"), UTF_8);
         this.failureHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/failure.html"), UTF_8);
         verify(failureHtml.contains(FAILURE_REPLACEMENT_TEXT), "login.html does not contain the replacement text");
@@ -106,7 +103,7 @@ public class OAuth2Service
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
 
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
-        this.webUiOAuthEnabled = requireNonNull(webUiOAuthEnabled, "webUiOAuthEnabled is null").isPresent();
+        this.webUiOAuthEnabled = webUiOAuthEnabled.isPresent();
     }
 
     public Response startOAuth2Challenge(URI callbackUri, Optional<String> handlerState)

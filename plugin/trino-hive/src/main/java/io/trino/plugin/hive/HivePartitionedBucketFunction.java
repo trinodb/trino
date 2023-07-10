@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
@@ -20,7 +21,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -28,7 +28,7 @@ import java.util.List;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.util.Objects.requireNonNull;
@@ -53,12 +53,12 @@ public class HivePartitionedBucketFunction
     {
         this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
         this.hiveBucketCount = hiveBucketCount;
-        this.bucketTypeInfos = requireNonNull(hiveBucketTypes, "hiveBucketTypes is null").stream()
+        this.bucketTypeInfos = hiveBucketTypes.stream()
                 .map(HiveType::getTypeInfo)
                 .collect(toImmutableList());
         this.firstPartitionColumnIndex = hiveBucketTypes.size();
         this.hashCodeInvokers = partitionColumnsTypes.stream()
-                .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)))
+                .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)))
                 .collect(toImmutableList());
         this.bucketCount = bucketCount;
     }

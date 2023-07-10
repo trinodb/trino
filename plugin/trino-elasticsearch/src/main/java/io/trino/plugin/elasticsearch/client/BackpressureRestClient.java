@@ -14,15 +14,15 @@
 package io.trino.plugin.elasticsearch.client;
 
 import com.google.common.base.Stopwatch;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeException;
+import dev.failsafe.RetryPolicy;
+import dev.failsafe.event.ExecutionAttemptedEvent;
+import dev.failsafe.event.ExecutionCompletedEvent;
+import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.FailsafeException;
-import net.jodah.failsafe.RetryPolicy;
-import net.jodah.failsafe.event.ExecutionAttemptedEvent;
-import net.jodah.failsafe.event.ExecutionCompletedEvent;
-import net.jodah.failsafe.function.CheckedSupplier;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
@@ -53,8 +53,7 @@ public class BackpressureRestClient
     {
         this.delegate = requireNonNull(delegate, "restClient is null");
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");
-        requireNonNull(config, "config is null");
-        retryPolicy = new RetryPolicy<Response>()
+        retryPolicy = RetryPolicy.<Response>builder()
                 .withMaxAttempts(-1)
                 .withMaxDuration(java.time.Duration.ofMillis(config.getMaxRetryTime().toMillis()))
                 .withBackoff(config.getBackoffInitDelay().toMillis(), config.getBackoffMaxDelay().toMillis(), MILLIS)
@@ -62,7 +61,8 @@ public class BackpressureRestClient
                 .handleIf(BackpressureRestClient::isBackpressure)
                 .onFailedAttempt(this::onFailedAttempt)
                 .onSuccess(this::onComplete)
-                .onFailure(this::onComplete);
+                .onFailure(this::onComplete)
+                .build();
     }
 
     public void setHosts(HttpHost... hosts)
@@ -120,7 +120,7 @@ public class BackpressureRestClient
 
     private void onFailedAttempt(ExecutionAttemptedEvent<Response> executionAttemptedEvent)
     {
-        log.debug("REST attempt failed: %s", executionAttemptedEvent.getLastFailure());
+        log.debug("REST attempt failed: %s", executionAttemptedEvent.getLastException());
         if (!stopwatch.get().isRunning()) {
             stopwatch.get().start();
         }

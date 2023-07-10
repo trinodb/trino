@@ -38,6 +38,7 @@ any connector:
 * :doc:`/sql/describe-input`
 * :doc:`/sql/describe-output`
 * :doc:`/sql/execute`
+* :doc:`/sql/execute-immediate`
 * :doc:`/sql/explain`
 * :doc:`/sql/explain-analyze`
 * :doc:`/sql/prepare`
@@ -89,6 +90,7 @@ Data management
 * :doc:`/sql/update`
 * :doc:`/sql/delete`
 * :doc:`/sql/truncate`
+* :doc:`/sql/merge`
 
 .. _sql-materialized-view-management:
 
@@ -143,6 +145,7 @@ Connector roles:
 
 Grants management:
 
+* :doc:`/sql/deny`
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 

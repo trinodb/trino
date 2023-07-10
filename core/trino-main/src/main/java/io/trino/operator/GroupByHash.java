@@ -60,10 +60,6 @@ public interface GroupByHash
 
     long getEstimatedSize();
 
-    long getHashCollisions();
-
-    double getExpectedHashCollisions();
-
     List<Type> getTypes();
 
     int getGroupCount();
@@ -79,7 +75,7 @@ public interface GroupByHash
      * rows:      A B C B D A E
      * group ids: 1 2 3 2 4 1 5
      */
-    Work<GroupByIdBlock> getGroupIds(Page page);
+    Work<int[]> getGroupIds(Page page);
 
     boolean contains(int position, Page page, int[] hashChannels);
 

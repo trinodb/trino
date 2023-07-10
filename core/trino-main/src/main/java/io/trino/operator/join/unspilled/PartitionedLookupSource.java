@@ -14,6 +14,8 @@
 package io.trino.operator.join.unspilled;
 
 import com.google.common.io.Closer;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.exchange.LocalPartitionGenerator;
 import io.trino.operator.join.LookupSource;
@@ -23,10 +25,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -42,6 +41,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.numberOfTrailingZeros;
 import static java.lang.Math.toIntExact;
 
+/**
+ * Like {@link io.trino.operator.join.PartitionedLookupSource} but simplified,
+ * without spill support.
+ */
 @NotThreadSafe
 public class PartitionedLookupSource
         implements LookupSource
@@ -72,16 +75,14 @@ public class PartitionedLookupSource
                 }
             };
         }
-        else {
-            return TrackingLookupSourceSupplier.nonTracking(
-                    () -> new PartitionedLookupSource(
-                            partitions.stream()
-                                    .map(Supplier::get)
-                                    .collect(toImmutableList()),
-                            hashChannelTypes,
-                            Optional.empty(),
-                            blockTypeOperators));
-        }
+        return TrackingLookupSourceSupplier.nonTracking(
+                () -> new PartitionedLookupSource(
+                        partitions.stream()
+                                .map(Supplier::get)
+                                .collect(toImmutableList()),
+                        hashChannelTypes,
+                        Optional.empty(),
+                        blockTypeOperators));
     }
 
     private final LookupSource[] lookupSources;
@@ -142,6 +143,58 @@ public class PartitionedLookupSource
             return joinPosition;
         }
         return encodePartitionedJoinPosition(partition, toIntExact(joinPosition));
+    }
+
+    @Override
+    public void getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes, long[] result)
+    {
+        int positionCount = positions.length;
+        int partitionCount = partitionGenerator.getPartitionCount();
+
+        int[] partitions = new int[positionCount];
+        int[] partitionPositionsCount = new int[partitionCount];
+
+        // Get the partitions for every position and calculate the size of every partition
+        for (int i = 0; i < positionCount; i++) {
+            int partition = partitionGenerator.getPartition(rawHashes[positions[i]]);
+            partitions[i] = partition;
+            partitionPositionsCount[partition]++;
+        }
+
+        int[][] positionsPerPartition = new int[partitionCount][];
+        for (int partition = 0; partition < partitionCount; partition++) {
+            positionsPerPartition[partition] = new int[partitionPositionsCount[partition]];
+        }
+
+        // Split input positions into partitions
+        int[] positionsPerPartitionCount = new int[partitionCount];
+        for (int i = 0; i < positionCount; i++) {
+            int partition = partitions[i];
+            positionsPerPartition[partition][positionsPerPartitionCount[partition]] = positions[i];
+            positionsPerPartitionCount[partition]++;
+        }
+
+        // Delegate partitioned positions to designated lookup sources
+        for (int partition = 0; partition < partitionCount; partition++) {
+            lookupSources[partition].getJoinPosition(positionsPerPartition[partition], hashChannelsPage, allChannelsPage, rawHashes, result);
+        }
+
+        for (int i = 0; i < positionCount; i++) {
+            int partition = partitions[i];
+            result[positions[i]] = encodePartitionedJoinPosition(partition, (int) result[positions[i]]);
+        }
+    }
+
+    @Override
+    public void getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] result)
+    {
+        int positionCount = positions.length;
+        long[] rawHashes = new long[result.length];
+        for (int i = 0; i < positionCount; i++) {
+            rawHashes[positions[i]] = partitionGenerator.getRawHash(hashChannelsPage, positions[i]);
+        }
+
+        getJoinPosition(positions, hashChannelsPage, allChannelsPage, rawHashes, result);
     }
 
     @Override

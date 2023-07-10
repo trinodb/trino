@@ -19,8 +19,7 @@ import io.trino.plugin.hive.HivePartition;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -64,7 +63,7 @@ public final class PartitionMatchSupplier
         boolean partitionMatches = partitionMatches(partitionColumns, currentPredicate, hivePartition);
         if (!partitionMatches || filterIsComplete) {
             // Store the result to avoid re-evaluating the filter for each subsequent split
-            this.finalResult = (Boolean) partitionMatches;
+            this.finalResult = partitionMatches;
         }
         return partitionMatches;
     }

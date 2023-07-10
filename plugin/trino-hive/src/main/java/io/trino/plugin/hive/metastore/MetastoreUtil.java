@@ -42,8 +42,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.hive.common.FileUtils;
-import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -58,11 +56,27 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.BUCKET_COUNT;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.BUCKET_FIELD_NAME;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_OUTPUT_FORMAT;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_COLUMNS;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_LOCATION;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_NAME;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_PARTITION_COLUMNS;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.META_TABLE_PARTITION_COLUMN_TYPES;
+import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_LITERAL_KEY;
 import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
+import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveUtil.makePartName;
+import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_DDL;
+import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -71,19 +85,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
-import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_COUNT;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_FIELD_NAME;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_OUTPUT_FORMAT;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_LOCATION;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_NAME;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_PARTITION_COLUMNS;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_PARTITION_COLUMN_TYPES;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_DDL;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 
 public final class MetastoreUtil
 {
@@ -96,6 +97,7 @@ public final class MetastoreUtil
         // Mimics function in Hive: MetaStoreUtils.getTableMetadata(Table)
         return getHiveSchema(
                 table.getStorage(),
+                Optional.empty(),
                 table.getDataColumns(),
                 table.getDataColumns(),
                 table.getParameters(),
@@ -109,6 +111,7 @@ public final class MetastoreUtil
         // Mimics function in Hive: MetaStoreUtils.getSchema(Partition, Table)
         return getHiveSchema(
                 partition.getStorage(),
+                Optional.of(table.getStorage()),
                 partition.getColumns(),
                 table.getDataColumns(),
                 table.getParameters(),
@@ -119,6 +122,7 @@ public final class MetastoreUtil
 
     private static Properties getHiveSchema(
             Storage sd,
+            Optional<Storage> tableSd,
             List<Column> dataColumns,
             List<Column> tableDataColumns,
             Map<String, String> parameters,
@@ -148,6 +152,13 @@ public final class MetastoreUtil
         for (Map.Entry<String, String> param : sd.getSerdeParameters().entrySet()) {
             schema.setProperty(param.getKey(), (param.getValue() != null) ? param.getValue() : "");
         }
+
+        if (sd.getStorageFormat().getSerde().equals(AVRO_SERDE_CLASS) && tableSd.isPresent()) {
+            for (Map.Entry<String, String> param : tableSd.get().getSerdeParameters().entrySet()) {
+                schema.setProperty(param.getKey(), nullToEmpty(param.getValue()));
+            }
+        }
+
         schema.setProperty(SERIALIZATION_LIB, sd.getStorageFormat().getSerde());
 
         StringBuilder columnNameBuilder = new StringBuilder();
@@ -217,8 +228,10 @@ public final class MetastoreUtil
     public static boolean isAvroTableWithSchemaSet(Table table)
     {
         return AVRO.getSerde().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
-                (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
-                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null));
+                ((table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
+                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null)) ||
+                 (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
+                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
     }
 
     public static String makePartitionName(Table table, Partition partition)
@@ -236,7 +249,7 @@ public final class MetastoreUtil
         checkArgument(names.size() == values.size(), "partition value count must match partition column count");
         checkArgument(values.stream().allMatch(Objects::nonNull), "partition value must not be null");
 
-        return FileUtils.makePartName(names, values);
+        return makePartName(names, values);
     }
 
     public static String getPartitionLocation(Table table, Optional<Partition> partition)
@@ -273,17 +286,12 @@ public final class MetastoreUtil
 
     private static ProtectMode getProtectMode(Map<String, String> parameters)
     {
-        if (!parameters.containsKey(ProtectMode.PARAMETER_NAME)) {
-            return new ProtectMode();
-        }
-        else {
-            return getProtectModeFromString(parameters.get(ProtectMode.PARAMETER_NAME));
-        }
+        return ProtectMode.valueOf(nullToEmpty(parameters.get(ProtectMode.PARAMETER_NAME)));
     }
 
     public static void verifyOnline(SchemaTableName tableName, Optional<String> partitionName, ProtectMode protectMode, Map<String, String> parameters)
     {
-        if (protectMode.offline) {
+        if (protectMode.offline()) {
             if (partitionName.isPresent()) {
                 throw new PartitionOfflineException(tableName, partitionName.get(), false, null);
             }
@@ -345,7 +353,6 @@ public final class MetastoreUtil
 
     /**
      * @param domain - domain expression for the column. null => TupleDomain.all()
-     * @param assumeCanonicalPartitionKeys
      * @param partitionWildcardString wildcard
      * @return string for scalar values
      */
@@ -384,29 +391,29 @@ public final class MetastoreUtil
         if (value == null) {
             return nullString;
         }
-        else if (type instanceof CharType) {
+        if (type instanceof CharType) {
             Slice slice = (Slice) value;
             return padSpaces(slice, (CharType) type).toStringUtf8();
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             Slice slice = (Slice) value;
             return slice.toStringUtf8();
         }
-        else if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
-            return Decimals.toString((Int128) value, ((DecimalType) type).getScale());
+        if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
+            return Decimals.toString((Int128) value, decimalType.getScale());
         }
-        else if (type instanceof DecimalType && ((DecimalType) type).isShort()) {
-            return Decimals.toString((long) value, ((DecimalType) type).getScale());
+        if (type instanceof DecimalType decimalType && decimalType.isShort()) {
+            return Decimals.toString((long) value, decimalType.getScale());
         }
-        else if (type instanceof DateType) {
+        if (type instanceof DateType) {
             DateTimeFormatter dateTimeFormatter = ISODateTimeFormat.date().withZoneUTC();
             return dateTimeFormatter.print(TimeUnit.DAYS.toMillis((long) value));
         }
-        else if (type instanceof TimestampType) {
+        if (type instanceof TimestampType) {
             // we throw on this type as we don't have timezone. Callers should not ask for this conversion type, but document for possible future work (?)
             throw new TrinoException(NOT_SUPPORTED, "TimestampType conversion to scalar expressions is not supported");
         }
-        else if (type instanceof TinyintType
+        if (type instanceof TinyintType
                 || type instanceof SmallintType
                 || type instanceof IntegerType
                 || type instanceof BigintType
@@ -415,9 +422,7 @@ public final class MetastoreUtil
                 || type instanceof BooleanType) {
             return value.toString();
         }
-        else {
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
-        }
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
     }
 
     /**

@@ -29,13 +29,11 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static java.util.Collections.singletonList;
 import static java.util.Comparator.comparing;
-import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
@@ -67,15 +65,13 @@ public final class SortExpressionExtractor
         List<Expression> filterConjuncts = ExpressionUtils.extractConjuncts(filter);
         SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
 
-        List<SortExpressionContext> sortExpressionCandidates = filterConjuncts.stream()
+        List<SortExpressionContext> sortExpressionCandidates = ImmutableList.copyOf(filterConjuncts.stream()
                 .filter(expression -> DeterminismEvaluator.isDeterministic(expression, metadata))
                 .map(visitor::process)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .collect(toMap(SortExpressionContext::getSortExpression, identity(), SortExpressionExtractor::merge))
-                .values()
-                .stream()
-                .collect(toImmutableList());
+                .values());
 
         // For now heuristically pick sort expression which has most search expressions assigned to it.
         // TODO: make it cost based decision based on symbol statistics
@@ -112,11 +108,8 @@ public final class SortExpressionExtractor
         @Override
         protected Optional<SortExpressionContext> visitComparisonExpression(ComparisonExpression comparison, Void context)
         {
-            switch (comparison.getOperator()) {
-                case GREATER_THAN:
-                case GREATER_THAN_OR_EQUAL:
-                case LESS_THAN:
-                case LESS_THAN_OR_EQUAL:
+            return switch (comparison.getOperator()) {
+                case GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> {
                     Optional<SymbolReference> sortChannel = asBuildSymbolReference(buildSymbols, comparison.getRight());
                     boolean hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getLeft());
                     if (sortChannel.isEmpty()) {
@@ -124,12 +117,12 @@ public final class SortExpressionExtractor
                         hasBuildReferencesOnOtherSide = hasBuildSymbolReference(buildSymbols, comparison.getRight());
                     }
                     if (sortChannel.isPresent() && !hasBuildReferencesOnOtherSide) {
-                        return sortChannel.map(symbolReference -> new SortExpressionContext(symbolReference, singletonList(comparison)));
+                        yield sortChannel.map(symbolReference -> new SortExpressionContext(symbolReference, singletonList(comparison)));
                     }
-                    return Optional.empty();
-                default:
-                    return Optional.empty();
-            }
+                    yield Optional.empty();
+                }
+                default -> Optional.empty();
+            };
         }
 
         @Override
@@ -146,8 +139,7 @@ public final class SortExpressionExtractor
     private static Optional<SymbolReference> asBuildSymbolReference(Set<Symbol> buildLayout, Expression expression)
     {
         // Currently we only support symbol as sort expression on build side
-        if (expression instanceof SymbolReference) {
-            SymbolReference symbolReference = (SymbolReference) expression;
+        if (expression instanceof SymbolReference symbolReference) {
             if (buildLayout.contains(new Symbol(symbolReference.getName()))) {
                 return Optional.of(symbolReference);
             }
@@ -167,7 +159,7 @@ public final class SortExpressionExtractor
 
         public BuildSymbolReferenceFinder(Set<Symbol> buildSymbols)
         {
-            this.buildSymbols = requireNonNull(buildSymbols, "buildSymbols is null").stream()
+            this.buildSymbols = buildSymbols.stream()
                     .map(Symbol::getName)
                     .collect(toImmutableSet());
         }

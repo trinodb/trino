@@ -16,10 +16,9 @@ package io.trino.verifier;
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.google.inject.Inject;
 import io.airlift.event.client.AbstractEventClient;
 import io.airlift.event.client.JsonEventSerializer;
-
-import javax.inject.Inject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
@@ -27,6 +26,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
 
+import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static java.nio.charset.Charset.defaultCharset;
 import static java.util.Objects.requireNonNull;
 
@@ -35,7 +35,7 @@ public class JsonEventClient
 {
     // TODO we should use JsonEventWriter instead
     private final JsonEventSerializer serializer = new JsonEventSerializer(VerifierQueryEvent.class);
-    private final JsonFactory factory = new JsonFactory();
+    private final JsonFactory factory = jsonFactory();
     private final PrintStream out;
 
     @Inject

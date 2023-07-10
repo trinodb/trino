@@ -39,6 +39,7 @@ public class TestMySqlGlobalTransactionMyConnectorSmokeTest
         switch (connectorBehavior) {
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

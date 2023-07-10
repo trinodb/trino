@@ -15,7 +15,6 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.execution.scheduler.BucketNodeMap;
-import io.trino.execution.scheduler.FixedBucketNodeMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 
@@ -76,6 +75,6 @@ public class NodePartitionMap
         for (int partition : bucketToPartition) {
             bucketToNode.add(partitionToNode.get(partition));
         }
-        return new FixedBucketNodeMap(splitToBucket, bucketToNode.build());
+        return new BucketNodeMap(splitToBucket, bucketToNode.build());
     }
 }

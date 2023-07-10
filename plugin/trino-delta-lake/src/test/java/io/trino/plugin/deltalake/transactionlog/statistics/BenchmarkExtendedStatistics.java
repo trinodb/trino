@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -79,7 +80,7 @@ public class BenchmarkExtendedStatistics
         {
             columns = new ArrayList<>(columnsCount);
             for (int i = 0; i < columnsCount; i++) {
-                columns.add(new DeltaLakeColumnHandle("column_" + i, BigintType.BIGINT, "column_" + i, BigintType.BIGINT, REGULAR));
+                columns.add(new DeltaLakeColumnHandle("column_" + i, BigintType.BIGINT, OptionalInt.empty(), "column_" + i, BigintType.BIGINT, REGULAR, Optional.empty()));
             }
 
             fileStatistics = new ArrayList<>(filesCount);
@@ -111,7 +112,7 @@ public class BenchmarkExtendedStatistics
         {
             Map<String, Object> map = new HashMap<>();
             for (DeltaLakeColumnHandle column : columns) {
-                map.put(column.getName(), random.nextLong());
+                map.put(column.getBaseColumnName(), random.nextLong());
             }
             return Optional.of(map);
         }
@@ -126,7 +127,7 @@ public class BenchmarkExtendedStatistics
                 DeltaLakeColumnHandle column = benchmarkData.columns.get(benchmarkData.random.nextInt(benchmarkData.columnsCount));
                 result += (long) statistics.getMaxColumnValue(column).get();
                 result += (long) statistics.getMinColumnValue(column).get();
-                result += statistics.getNullCount(column.getName()).get();
+                result += statistics.getNullCount(column.getBaseColumnName()).get();
             }
         }
         return result;

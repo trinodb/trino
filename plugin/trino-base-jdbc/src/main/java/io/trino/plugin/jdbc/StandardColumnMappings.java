@@ -65,7 +65,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -194,7 +194,7 @@ public final class StandardColumnMappings
     public static LongReadFunction shortDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
     {
         // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
-        int scale = requireNonNull(decimalType, "decimalType is null").getScale();
+        int scale = decimalType.getScale();
         requireNonNull(roundingMode, "roundingMode is null");
         return (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale, roundingMode);
     }
@@ -219,7 +219,7 @@ public final class StandardColumnMappings
     public static ObjectReadFunction longDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
     {
         // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
-        int scale = requireNonNull(decimalType, "decimalType is null").getScale();
+        int scale = decimalType.getScale();
         requireNonNull(roundingMode, "roundingMode is null");
         return ObjectReadFunction.of(
                 Int128.class,
@@ -454,7 +454,7 @@ public final class StandardColumnMappings
     public static ColumnMapping timeColumnMappingUsingSqlTime()
     {
         return ColumnMapping.longMapping(
-                TIME,
+                TIME_MILLIS,
                 (resultSet, columnIndex) -> {
                     Time time = resultSet.getTime(columnIndex);
                     return (toLocalTime(time).toNanoOfDay() * PICOSECONDS_PER_NANOSECOND) % PICOSECONDS_PER_DAY;
@@ -574,7 +574,7 @@ public final class StandardColumnMappings
         return (resultSet, columnIndex) -> toTrinoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class));
     }
 
-    private static ObjectReadFunction longTimestampReadFunction(TimestampType timestampType)
+    public static ObjectReadFunction longTimestampReadFunction(TimestampType timestampType)
     {
         checkArgument(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION && timestampType.getPrecision() <= MAX_LOCAL_DATE_TIME_PRECISION,
                 "Precision is out of range: %s", timestampType.getPrecision());

@@ -115,6 +115,9 @@ public final class Checkpoints
                 case STRUCT:
                     checkpoints.putAll(getStructColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
                     break;
+                case UNION:
+                    checkpoints.putAll(getUnionColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
+                    break;
                 case DECIMAL:
                     checkpoints.putAll(getDecimalColumnCheckpoints(columnId, columnEncoding, compressed, availableStreams, columnPositionsList));
                     break;
@@ -144,7 +147,7 @@ public final class Checkpoints
             if (columnEncoding == DICTIONARY_V2) {
                 return new LongStreamV2Checkpoint(0, createInputStreamCheckpoint(0, 0));
             }
-            else if (columnEncoding == DICTIONARY) {
+            if (columnEncoding == DICTIONARY) {
                 return new LongStreamV1Checkpoint(0, createInputStreamCheckpoint(0, 0));
             }
         }
@@ -340,6 +343,25 @@ public final class Checkpoints
         return checkpoints.buildOrThrow();
     }
 
+    private static Map<StreamId, StreamCheckpoint> getUnionColumnCheckpoints(
+            OrcColumnId columnId,
+            boolean compressed,
+            Set<StreamKind> availableStreams,
+            ColumnPositionsList positionsList)
+    {
+        ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
+
+        if (availableStreams.contains(PRESENT)) {
+            checkpoints.put(new StreamId(columnId, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
+        }
+
+        if (availableStreams.contains(DATA)) {
+            checkpoints.put(new StreamId(columnId, DATA), new ByteStreamCheckpoint(compressed, positionsList));
+        }
+
+        return checkpoints.buildOrThrow();
+    }
+
     private static Map<StreamId, StreamCheckpoint> getDecimalColumnCheckpoints(
             OrcColumnId columnId,
             ColumnEncodingKind encoding,
@@ -389,11 +411,6 @@ public final class Checkpoints
             this.columnId = requireNonNull(columnId, "columnId is null");
             this.columnType = requireNonNull(columnType, "columnType is null");
             this.positionsList = ImmutableList.copyOf(requireNonNull(positionsList, "positionsList is null"));
-        }
-
-        public int getIndex()
-        {
-            return index;
         }
 
         public boolean hasNextPosition()

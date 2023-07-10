@@ -17,13 +17,12 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.airlift.drift.client.ExceptionClassification;
 import io.airlift.drift.client.ExceptionClassification.HostStatus;
 import io.trino.plugin.thrift.annotations.ForMetadataRefresh;
 import io.trino.plugin.thrift.api.TrinoThriftService;
 import io.trino.plugin.thrift.api.TrinoThriftServiceException;
-
-import javax.inject.Singleton;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -56,7 +55,6 @@ public class ThriftModule
         binder.bind(ThriftSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ThriftPageSourceProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(ThriftConnectorConfig.class);
-        binder.bind(ThriftSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(ThriftIndexProvider.class).in(Scopes.SINGLETON);
         binder.bind(ThriftConnectorStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ThriftConnectorStats.class).withGeneratedName();

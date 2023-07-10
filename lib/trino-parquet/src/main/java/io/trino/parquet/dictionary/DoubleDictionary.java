@@ -14,27 +14,28 @@
 package io.trino.parquet.dictionary;
 
 import io.trino.parquet.DictionaryPage;
-import org.apache.parquet.column.values.plain.PlainValuesReader.DoublePlainValuesReader;
-
-import java.io.IOException;
+import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.decoders.ValueDecoder;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.parquet.ParquetReaderUtils.toInputStream;
+import static io.trino.parquet.reader.decoders.PlainValueDecoders.LongPlainValueDecoder;
 
 public class DoubleDictionary
-        extends Dictionary
+        implements Dictionary
 {
     private final double[] content;
 
     public DoubleDictionary(DictionaryPage dictionaryPage)
-            throws IOException
     {
-        super(dictionaryPage.getEncoding());
-        content = new double[dictionaryPage.getDictionarySize()];
-        DoublePlainValuesReader doubleReader = new DoublePlainValuesReader();
-        doubleReader.initFromPage(dictionaryPage.getDictionarySize(), toInputStream(dictionaryPage));
-        for (int i = 0; i < content.length; i++) {
-            content[i] = doubleReader.readDouble();
+        int length = dictionaryPage.getDictionarySize();
+        long[] buffer = new long[length];
+        ValueDecoder<long[]> doubleReader = new LongPlainValueDecoder();
+        doubleReader.init(new SimpleSliceInputStream(dictionaryPage.getSlice()));
+        doubleReader.read(buffer, 0, length);
+
+        content = new double[length];
+        for (int i = 0; i < length; i++) {
+            content[i] = Double.longBitsToDouble(buffer[i]);
         }
     }
 

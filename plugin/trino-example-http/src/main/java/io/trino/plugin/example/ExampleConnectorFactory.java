@@ -23,7 +23,7 @@ import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.Map;
 
-import static io.trino.plugin.base.Versions.checkSpiVersion;
+import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleConnectorFactory
@@ -32,14 +32,14 @@ public class ExampleConnectorFactory
     @Override
     public String getName()
     {
-        return "example-http";
+        return "example_http";
     }
 
     @Override
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
-        checkSpiVersion(context, this);
+        checkStrictSpiVersionMatch(context, this);
 
         // A plugin is not required to use Guice; it is just very convenient
         Bootstrap app = new Bootstrap(

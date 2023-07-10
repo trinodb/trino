@@ -48,7 +48,6 @@ import io.trino.geospatial.Rectangle;
 import io.trino.geospatial.serde.GeometrySerde;
 import io.trino.geospatial.serde.GeometrySerializationType;
 import io.trino.geospatial.serde.JtsGeometrySerde;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -112,6 +111,7 @@ import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY_TYPE_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.StandardTypes.BIGINT;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.DOUBLE;
@@ -202,10 +202,9 @@ public final class GeoFunctions
             }
 
             OGCGeometry geometry = deserialize(slice);
-            if (!(geometry instanceof OGCPoint)) {
+            if (!(geometry instanceof OGCPoint point)) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("ST_LineString takes only an array of valid points, %s was passed", geometry.geometryType()));
             }
-            OGCPoint point = (OGCPoint) geometry;
 
             if (point.isEmpty()) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_LineString: empty point at index %s", i + 1));
@@ -250,10 +249,9 @@ public final class GeoFunctions
 
             Slice slice = GEOMETRY.getSlice(input, i);
             OGCGeometry geometry = deserialize(slice);
-            if (!(geometry instanceof OGCPoint)) {
+            if (!(geometry instanceof OGCPoint point)) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: geometry is not a point: %s at index %s", geometry.geometryType(), i + 1));
             }
-            OGCPoint point = (OGCPoint) geometry;
             if (point.isEmpty()) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: empty point at index %s", i + 1));
             }
@@ -559,11 +557,10 @@ public final class GeoFunctions
             if (!OperatorSimplifyOGC.local().isSimpleOGC(geometry, null, true, result, null)) {
                 String reasonText = NON_SIMPLE_REASONS.getOrDefault(result.m_reason, result.m_reason.name());
 
-                if (!(geometry instanceof MultiVertexGeometry)) {
+                if (!(geometry instanceof MultiVertexGeometry multiVertexGeometry)) {
                     return utf8Slice(reasonText);
                 }
 
-                MultiVertexGeometry multiVertexGeometry = (MultiVertexGeometry) geometry;
                 if (result.m_vertexIndex1 >= 0 && result.m_vertexIndex2 >= 0) {
                     Point point1 = multiVertexGeometry.getPoint(result.m_vertexIndex1);
                     Point point2 = multiVertexGeometry.getPoint(result.m_vertexIndex2);
@@ -1204,18 +1201,13 @@ public final class GeoFunctions
         }
 
         RowType rowType = RowType.anonymous(ImmutableList.of(GEOMETRY, GEOMETRY));
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(rowType));
         GeometryFactory geometryFactory = leftGeometry.getFactory();
         Coordinate[] nearestCoordinates = DistanceOp.nearestPoints(leftGeometry, rightGeometry);
 
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-        BlockBuilder entryBlockBuilder = blockBuilder.beginBlockEntry();
-        GEOMETRY.writeSlice(entryBlockBuilder, JtsGeometrySerde.serialize(geometryFactory.createPoint(nearestCoordinates[0])));
-        GEOMETRY.writeSlice(entryBlockBuilder, JtsGeometrySerde.serialize(geometryFactory.createPoint(nearestCoordinates[1])));
-        blockBuilder.closeEntry();
-        pageBuilder.declarePosition();
-
-        return rowType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+        return buildRowValue(rowType, fieldBuilders -> {
+            GEOMETRY.writeSlice(fieldBuilders.get(0), serialize(geometryFactory.createPoint(nearestCoordinates[0])));
+            GEOMETRY.writeSlice(fieldBuilders.get(1), serialize(geometryFactory.createPoint(nearestCoordinates[1])));
+        });
     }
 
     @SqlNullable
@@ -1490,7 +1482,7 @@ public final class GeoFunctions
             for (Map.Entry<Integer, Rectangle> partition : partitions.entrySet()) {
                 if (envelope.getXMin() < partition.getValue().getXMax() && envelope.getYMin() < partition.getValue().getYMax()) {
                     BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(1);
-                    blockBuilder.writeInt(partition.getKey());
+                    IntegerType.INTEGER.writeInt(blockBuilder, partition.getKey());
                     return blockBuilder.build();
                 }
             }
@@ -1499,7 +1491,7 @@ public final class GeoFunctions
 
         BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(partitions.size());
         for (int id : partitions.keySet()) {
-            blockBuilder.writeInt(id);
+            IntegerType.INTEGER.writeInt(blockBuilder, id);
         }
 
         return blockBuilder.build();

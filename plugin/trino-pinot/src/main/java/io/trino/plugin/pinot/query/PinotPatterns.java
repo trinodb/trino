@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.matching.Pattern.typeOf;
-import static org.apache.pinot.common.function.TransformFunctionType.getTransformFunctionType;
+import static io.trino.plugin.pinot.query.PinotTransformFunctionTypeResolver.getTransformFunctionType;
 import static org.apache.pinot.common.request.context.ExpressionContext.Type.FUNCTION;
 import static org.apache.pinot.common.request.context.ExpressionContext.Type.IDENTIFIER;
 import static org.apache.pinot.common.request.context.FunctionContext.Type.AGGREGATION;
@@ -181,7 +181,7 @@ public class PinotPatterns
             if (predicate.getType() == Predicate.Type.IN) {
                 return Optional.of(((InPredicate) predicate).getValues());
             }
-            else if (predicate.getType() == Predicate.Type.NOT_IN) {
+            if (predicate.getType() == Predicate.Type.NOT_IN) {
                 return Optional.of(((NotInPredicate) predicate).getValues());
             }
             return Optional.empty();
@@ -235,7 +235,17 @@ public class PinotPatterns
     {
         return Property.optionalProperty("transformFunctionType", functionContext -> {
             if (functionContext.getType() == TRANSFORM) {
-                return Optional.of(getTransformFunctionType(functionContext.getFunctionName()));
+                return getTransformFunctionType(functionContext);
+            }
+            return Optional.empty();
+        });
+    }
+
+    public static Property<FunctionContext, ?, String> transformFunctionName()
+    {
+        return Property.optionalProperty("transformFunctionType", functionContext -> {
+            if (functionContext.getType() == TRANSFORM) {
+                return Optional.of(functionContext.getFunctionName());
             }
             return Optional.empty();
         });

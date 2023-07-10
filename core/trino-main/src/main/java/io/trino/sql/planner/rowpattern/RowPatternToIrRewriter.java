@@ -122,17 +122,10 @@ public class RowPatternToIrRewriter
     @Override
     protected IrRowPattern visitAnchorPattern(AnchorPattern node, Void context)
     {
-        Type type;
-        switch (node.getType()) {
-            case PARTITION_START:
-                type = PARTITION_START;
-                break;
-            case PARTITION_END:
-                type = PARTITION_END;
-                break;
-            default:
-                throw new IllegalStateException("unsupported anchor type: " + node.getType());
-        }
+        Type type = switch (node.getType()) {
+            case PARTITION_START -> PARTITION_START;
+            case PARTITION_END -> PARTITION_END;
+        };
 
         return new IrAnchor(type);
     }

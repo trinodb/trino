@@ -14,8 +14,10 @@
 package io.trino.plugin.hive.metastore.file;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 
@@ -29,5 +31,6 @@ public class FileMetastoreModule
     {
         configBinder(binder).bindConfig(FileHiveMetastoreConfig.class);
         binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).to(FileHiveMetastoreFactory.class).in(Scopes.SINGLETON);
+        binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(true);
     }
 }

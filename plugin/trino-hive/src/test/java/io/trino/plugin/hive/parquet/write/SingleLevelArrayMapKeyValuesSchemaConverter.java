@@ -23,8 +23,8 @@ import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory;
 import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type;
 import org.apache.parquet.schema.Type.Repetition;
@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Locale;
 
 import static com.google.common.base.Preconditions.checkState;
-import static org.apache.parquet.schema.OriginalType.MAP_KEY_VALUE;
 
 /**
  * This class is copied from org.apache.hadoop.hive.ql.io.parquet.convert.HiveSchemaConverter
@@ -70,7 +69,7 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
     {
         if (typeInfo.getCategory() == Category.PRIMITIVE) {
             if (typeInfo.equals(TypeInfoFactory.stringTypeInfo)) {
-                return Types.primitive(PrimitiveTypeName.BINARY, repetition).as(OriginalType.UTF8)
+                return Types.primitive(PrimitiveTypeName.BINARY, repetition).as(LogicalTypeAnnotation.stringType())
                         .named(name);
             }
             if (typeInfo.equals(TypeInfoFactory.intTypeInfo) ||
@@ -102,29 +101,28 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
             if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(
                     serdeConstants.CHAR_TYPE_NAME)) {
                 if (repetition == Repetition.OPTIONAL) {
-                    return Types.optional(PrimitiveTypeName.BINARY).as(OriginalType.UTF8).named(name);
+                    return Types.optional(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
                 }
-                return Types.repeated(PrimitiveTypeName.BINARY).as(OriginalType.UTF8).named(name);
+                return Types.repeated(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
             }
             if (typeInfo.getTypeName().toLowerCase(Locale.ENGLISH).startsWith(
                     serdeConstants.VARCHAR_TYPE_NAME)) {
                 if (repetition == Repetition.OPTIONAL) {
-                    return Types.optional(PrimitiveTypeName.BINARY).as(OriginalType.UTF8).named(name);
+                    return Types.optional(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
                 }
-                return Types.repeated(PrimitiveTypeName.BINARY).as(OriginalType.UTF8).named(name);
+                return Types.repeated(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(name);
             }
-            if (typeInfo instanceof DecimalTypeInfo) {
-                DecimalTypeInfo decimalTypeInfo = (DecimalTypeInfo) typeInfo;
+            if (typeInfo instanceof DecimalTypeInfo decimalTypeInfo) {
                 int prec = decimalTypeInfo.precision();
                 int scale = decimalTypeInfo.scale();
                 int bytes = ParquetHiveSerDe.PRECISION_TO_BYTE_COUNT[prec - 1];
                 if (repetition == Repetition.OPTIONAL) {
-                    return Types.optional(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(bytes).as(OriginalType.DECIMAL).scale(scale).precision(prec).named(name);
+                    return Types.optional(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(bytes).as(LogicalTypeAnnotation.decimalType(scale, prec)).named(name);
                 }
-                return Types.repeated(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(bytes).as(OriginalType.DECIMAL).scale(scale).precision(prec).named(name);
+                return Types.repeated(PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY).length(bytes).as(LogicalTypeAnnotation.decimalType(scale, prec)).named(name);
             }
             if (typeInfo.equals(TypeInfoFactory.dateTypeInfo)) {
-                return Types.primitive(PrimitiveTypeName.INT32, repetition).as(OriginalType.DATE).named(name);
+                return Types.primitive(PrimitiveTypeName.INT32, repetition).as(LogicalTypeAnnotation.dateType()).named(name);
             }
             if (typeInfo.equals(TypeInfoFactory.unknownTypeInfo)) {
                 throw new UnsupportedOperationException("Unknown type not implemented");
@@ -150,7 +148,7 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
     private static GroupType convertArrayType(String name, ListTypeInfo typeInfo, Repetition repetition)
     {
         TypeInfo subType = typeInfo.getListElementTypeInfo();
-        return listWrapper(name, OriginalType.LIST, convertType("array_element", subType, Repetition.REPEATED), repetition);
+        return listWrapper(name, convertType("array_element", subType, Repetition.REPEATED), repetition);
     }
 
     // An optional group containing multiple elements
@@ -176,10 +174,9 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
     {
         //support projection only on key of a map
         if (valueType == null) {
-            return listWrapper(
+            return mapKeyValueWrapper(
                     repetition,
                     alias,
-                    MAP_KEY_VALUE,
                     new GroupType(
                             Repetition.REPEATED,
                             mapAlias,
@@ -188,10 +185,9 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
         if (!valueType.getName().equals("value")) {
             throw new RuntimeException(valueType.getName() + " should be value");
         }
-        return listWrapper(
+        return mapKeyValueWrapper(
                 repetition,
                 alias,
-                MAP_KEY_VALUE,
                 new GroupType(
                         Repetition.REPEATED,
                         mapAlias,
@@ -199,16 +195,16 @@ public final class SingleLevelArrayMapKeyValuesSchemaConverter
                         valueType));
     }
 
-    private static GroupType listWrapper(Repetition repetition, String alias, OriginalType originalType, Type nested)
+    private static GroupType mapKeyValueWrapper(Repetition repetition, String alias, Type nested)
     {
         if (!nested.isRepetition(Repetition.REPEATED)) {
             throw new IllegalArgumentException("Nested type should be repeated: " + nested);
         }
-        return new GroupType(repetition, alias, originalType, nested);
+        return Types.buildGroup(repetition).as(LogicalTypeAnnotation.MapKeyValueTypeAnnotation.getInstance()).addField(nested).named(alias);
     }
 
-    private static GroupType listWrapper(String name, OriginalType originalType, Type elementType, Repetition repetition)
+    private static GroupType listWrapper(String name, Type elementType, Repetition repetition)
     {
-        return new GroupType(repetition, name, originalType, elementType);
+        return Types.buildGroup(repetition).as(LogicalTypeAnnotation.listType()).addField(elementType).named(name);
     }
 }

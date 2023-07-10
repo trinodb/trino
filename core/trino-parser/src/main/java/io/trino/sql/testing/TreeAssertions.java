@@ -21,8 +21,7 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.DefaultTraversalVisitor;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.Statement;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 

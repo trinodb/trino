@@ -92,14 +92,13 @@ public class TestMapBlock
     {
         MapBlock block = createBlockWithValuesFromKeyValueBlock(testValues);
         assertFalse(block.isHashTablesPresent());
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(testValues);
 
         int[] testPositions = {7, 1, 5, 2, 3, 7};
         Block prefix = block.getPositions(testPositions, 0, testPositions.length);
 
         assertFalse(block.isHashTablesPresent());
 
-        assertBlock(prefix, () -> blockBuilder.newBlockBuilderLike(null), getArrayPositions(testValues, testPositions));
+        assertBlock(prefix, getArrayPositions(testValues, testPositions));
 
         assertTrue(block.isHashTablesPresent());
     }
@@ -118,73 +117,70 @@ public class TestMapBlock
     {
         MapBlock block = createBlockWithValuesFromKeyValueBlock(testValues);
         assertFalse(block.isHashTablesPresent());
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(testValues);
 
         MapBlock prefix = (MapBlock) block.getRegion(0, 4);
 
         assertFalse(block.isHashTablesPresent());
         assertFalse(prefix.isHashTablesPresent());
 
-        assertBlock(prefix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 0, 4));
+        assertBlock(prefix, Arrays.copyOfRange(testValues, 0, 4));
 
         assertTrue(block.isHashTablesPresent());
         assertTrue(prefix.isHashTablesPresent());
 
         MapBlock midSection = (MapBlock) block.getRegion(2, 4);
         assertTrue(midSection.isHashTablesPresent());
-        assertBlock(midSection, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 2, 6));
+        assertBlock(midSection, Arrays.copyOfRange(testValues, 2, 6));
 
         MapBlock suffix = (MapBlock) block.getRegion(4, 4);
         assertTrue(suffix.isHashTablesPresent());
-        assertBlock(suffix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 4, 8));
+        assertBlock(suffix, Arrays.copyOfRange(testValues, 4, 8));
     }
 
     private void testLazyMiddleGetRegionHashTable(Map<String, Long>[] testValues)
     {
         MapBlock block = createBlockWithValuesFromKeyValueBlock(testValues);
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(testValues);
 
         MapBlock midSection = (MapBlock) block.getRegion(2, 4);
 
         assertFalse(block.isHashTablesPresent());
         assertFalse(midSection.isHashTablesPresent());
 
-        assertBlock(midSection, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 2, 6));
+        assertBlock(midSection, Arrays.copyOfRange(testValues, 2, 6));
 
         assertTrue(block.isHashTablesPresent());
         assertTrue(midSection.isHashTablesPresent());
 
         MapBlock prefix = (MapBlock) block.getRegion(0, 4);
         assertTrue(prefix.isHashTablesPresent());
-        assertBlock(prefix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 0, 4));
+        assertBlock(prefix, Arrays.copyOfRange(testValues, 0, 4));
 
         MapBlock suffix = (MapBlock) block.getRegion(4, 4);
         assertTrue(suffix.isHashTablesPresent());
-        assertBlock(suffix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 4, 8));
+        assertBlock(suffix, Arrays.copyOfRange(testValues, 4, 8));
     }
 
     private void testLazyEndGetRegionHashTable(Map<String, Long>[] testValues)
     {
         MapBlock block = createBlockWithValuesFromKeyValueBlock(testValues);
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(testValues);
 
         MapBlock suffix = (MapBlock) block.getRegion(4, 4);
 
         assertFalse(block.isHashTablesPresent());
         assertFalse(suffix.isHashTablesPresent());
 
-        assertBlock(suffix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 4, 8));
+        assertBlock(suffix, Arrays.copyOfRange(testValues, 4, 8));
 
         assertTrue(block.isHashTablesPresent());
         assertTrue(suffix.isHashTablesPresent());
 
         MapBlock prefix = (MapBlock) block.getRegion(0, 4);
         assertTrue(prefix.isHashTablesPresent());
-        assertBlock(prefix, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 0, 4));
+        assertBlock(prefix, Arrays.copyOfRange(testValues, 0, 4));
 
         MapBlock midSection = (MapBlock) block.getRegion(2, 4);
         assertTrue(midSection.isHashTablesPresent());
-        assertBlock(midSection, () -> blockBuilder.newBlockBuilderLike(null), Arrays.copyOfRange(testValues, 2, 6));
+        assertBlock(midSection, Arrays.copyOfRange(testValues, 2, 6));
     }
 
     private static Map<String, Long>[] createTestMap(int... entryCounts)
@@ -205,41 +201,45 @@ public class TestMapBlock
     private void testWith(Map<String, Long>[] expectedValues)
     {
         BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
+        assertFalse(blockBuilder.mayHaveNull());
 
-        assertBlock(blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
-        assertBlock(blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
-        assertBlockFilteredPositions(expectedValues, blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 3, 4, 7);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 3, 4, 7);
-        assertBlockFilteredPositions(expectedValues, blockBuilder, () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 5, 6);
-        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 5, 6);
+        assertBlock(blockBuilder, expectedValues);
+        assertBlock(blockBuilder.build(), expectedValues);
+        assertBlockFilteredPositions(expectedValues, blockBuilder, 0, 1, 3, 4, 7);
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 0, 1, 3, 4, 7);
+        assertBlockFilteredPositions(expectedValues, blockBuilder, 2, 3, 5, 6);
+        assertBlockFilteredPositions(expectedValues, blockBuilder.build(), 2, 3, 5, 6);
 
         Block block = createBlockWithValuesFromKeyValueBlock(expectedValues);
+        assertFalse(block.mayHaveNull());
 
-        assertBlock(block, () -> blockBuilder.newBlockBuilderLike(null), expectedValues);
-        assertBlockFilteredPositions(expectedValues, block, () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 3, 4, 7);
-        assertBlockFilteredPositions(expectedValues, block, () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 5, 6);
+        assertBlock(block, expectedValues);
+        assertBlockFilteredPositions(expectedValues, block, 0, 1, 3, 4, 7);
+        assertBlockFilteredPositions(expectedValues, block, 2, 3, 5, 6);
 
         Map<String, Long>[] expectedValuesWithNull = alternatingNullValues(expectedValues);
         BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
+        assertTrue(blockBuilderWithNull.mayHaveNull());
 
-        assertBlock(blockBuilderWithNull, () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
-        assertBlock(blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 5, 6, 7, 10, 11, 12, 15);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 5, 6, 7, 10, 11, 12, 15);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 4, 9, 13, 14);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 4, 9, 13, 14);
+        assertBlock(blockBuilderWithNull, expectedValuesWithNull);
+        assertBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, 0, 1, 5, 6, 7, 10, 11, 12, 15);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 0, 1, 5, 6, 7, 10, 11, 12, 15);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull, 2, 3, 4, 9, 13, 14);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockBuilderWithNull.build(), 2, 3, 4, 9, 13, 14);
 
         Block blockWithNull = createBlockWithValuesFromKeyValueBlock(expectedValuesWithNull);
+        assertTrue(blockWithNull.mayHaveNull());
 
-        assertBlock(blockWithNull, () -> blockBuilder.newBlockBuilderLike(null), expectedValuesWithNull);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, () -> blockBuilder.newBlockBuilderLike(null), 0, 1, 5, 6, 7, 10, 11, 12, 15);
-        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, () -> blockBuilder.newBlockBuilderLike(null), 2, 3, 4, 9, 13, 14);
+        assertBlock(blockWithNull, expectedValuesWithNull);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, 0, 1, 5, 6, 7, 10, 11, 12, 15);
+        assertBlockFilteredPositions(expectedValuesWithNull, blockWithNull, 2, 3, 4, 9, 13, 14);
     }
 
     private BlockBuilder createBlockBuilderWithValues(Map<String, Long>[] maps)
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
+        MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
         for (Map<String, Long> map : maps) {
             createBlockBuilderWithValues(map, mapBlockBuilder);
         }
@@ -252,9 +252,12 @@ public class TestMapBlock
         List<Long> values = new ArrayList<>();
         int[] offsets = new int[maps.length + 1];
         boolean[] mapIsNull = new boolean[maps.length];
+        boolean hasNullValue = false;
         for (int i = 0; i < maps.length; i++) {
             Map<String, Long> map = maps[i];
-            mapIsNull[i] = map == null;
+            boolean isNull = map == null;
+            mapIsNull[i] = isNull;
+            hasNullValue |= isNull;
             if (map == null) {
                 offsets[i + 1] = offsets[i];
             }
@@ -266,26 +269,30 @@ public class TestMapBlock
                 offsets[i + 1] = offsets[i] + map.size();
             }
         }
-        return (MapBlock) mapType(VARCHAR, BIGINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, createStringsBlock(keys), createLongsBlock(values));
+        return (MapBlock) mapType(VARCHAR, BIGINT).createBlockFromKeyValue(
+                hasNullValue ? Optional.of(mapIsNull) : Optional.empty(),
+                offsets,
+                createStringsBlock(keys),
+                createLongsBlock(values));
     }
 
-    private void createBlockBuilderWithValues(Map<String, Long> map, BlockBuilder mapBlockBuilder)
+    private void createBlockBuilderWithValues(Map<String, Long> map, MapBlockBuilder mapBlockBuilder)
     {
         if (map == null) {
             mapBlockBuilder.appendNull();
         }
         else {
-            BlockBuilder elementBlockBuilder = mapBlockBuilder.beginBlockEntry();
-            for (Map.Entry<String, Long> entry : map.entrySet()) {
-                VARCHAR.writeSlice(elementBlockBuilder, utf8Slice(entry.getKey()));
-                if (entry.getValue() == null) {
-                    elementBlockBuilder.appendNull();
+            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                for (Map.Entry<String, Long> entry : map.entrySet()) {
+                    VARCHAR.writeSlice(keyBuilder, utf8Slice(entry.getKey()));
+                    if (entry.getValue() == null) {
+                        valueBuilder.appendNull();
+                    }
+                    else {
+                        BIGINT.writeLong(valueBuilder, entry.getValue());
+                    }
                 }
-                else {
-                    BIGINT.writeLong(elementBlockBuilder, entry.getValue());
-                }
-            }
-            mapBlockBuilder.closeEntry();
+            });
         }
     }
 
@@ -346,59 +353,35 @@ public class TestMapBlock
     public void testStrict()
     {
         MapType mapType = mapType(BIGINT, BIGINT);
-        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, 1);
+        MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
         mapBlockBuilder.strict();
 
         // Add 100 maps with only one entry but the same key
         for (int i = 0; i < 100; i++) {
-            BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
-            BIGINT.writeLong(entryBuilder, 1);
-            BIGINT.writeLong(entryBuilder, -1);
-            mapBlockBuilder.closeEntry();
+            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                BIGINT.writeLong(keyBuilder, 1);
+                BIGINT.writeLong(valueBuilder, -1);
+            });
         }
 
-        BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
-        // Add 50 keys so we get some chance to get hash conflict
-        // The purpose of this test is to make sure offset is calculated correctly in MapBlockBuilder.closeEntryStrict()
-        for (int i = 0; i < 50; i++) {
-            BIGINT.writeLong(entryBuilder, i);
-            BIGINT.writeLong(entryBuilder, -1);
-        }
-        mapBlockBuilder.closeEntry();
+        mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+            // Add 50 keys so we get some chance to get hash conflict
+            // The purpose of this test is to make sure offset is calculated correctly in MapBlockBuilder.closeEntryStrict()
+            for (int i = 0; i < 50; i++) {
+                BIGINT.writeLong(keyBuilder, i);
+                BIGINT.writeLong(valueBuilder, -1);
+            }
+        });
 
-        entryBuilder = mapBlockBuilder.beginBlockEntry();
-        for (int i = 0; i < 2; i++) {
-            BIGINT.writeLong(entryBuilder, 99);
-            BIGINT.writeLong(entryBuilder, -1);
-        }
-        assertThatThrownBy(mapBlockBuilder::closeEntry)
+        assertThatThrownBy(
+                () -> mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                    for (int i = 0; i < 2; i++) {
+                        BIGINT.writeLong(keyBuilder, 99);
+                        BIGINT.writeLong(valueBuilder, -1);
+                    }
+                }))
                 .isInstanceOf(DuplicateMapKeyException.class)
                 .hasMessage("Duplicate map keys are not allowed");
-    }
-
-    @Test
-    public void testCloseEntryStrict()
-            throws Exception
-    {
-        MapType mapType = mapType(BIGINT, BIGINT);
-        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, 1);
-
-        // Add 100 maps with only one entry but the same key
-        for (int i = 0; i < 100; i++) {
-            BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
-            BIGINT.writeLong(entryBuilder, 1);
-            BIGINT.writeLong(entryBuilder, -1);
-            mapBlockBuilder.closeEntry();
-        }
-
-        BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
-        // Add 50 keys so we get some chance to get hash conflict
-        // The purpose of this test is to make sure offset is calculated correctly in MapBlockBuilder.closeEntryStrict()
-        for (int i = 0; i < 50; i++) {
-            BIGINT.writeLong(entryBuilder, i);
-            BIGINT.writeLong(entryBuilder, -1);
-        }
-        mapBlockBuilder.closeEntryStrict();
     }
 
     @Test

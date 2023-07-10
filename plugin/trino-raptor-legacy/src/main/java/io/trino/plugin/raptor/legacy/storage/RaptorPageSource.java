@@ -22,59 +22,49 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
 
 import java.io.IOException;
-import java.util.BitSet;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorPageSource
-        implements UpdatablePageSource
+        implements ConnectorPageSource
 {
-    private final Optional<ShardRewriter> shardRewriter;
-
     private final OrcRecordReader recordReader;
     private final List<ColumnAdaptation> columnAdaptations;
     private final OrcDataSource orcDataSource;
-
-    private final BitSet rowsToDelete;
 
     private final AggregatedMemoryContext memoryContext;
 
     private boolean closed;
 
     public RaptorPageSource(
-            Optional<ShardRewriter> shardRewriter,
             OrcRecordReader recordReader,
             List<ColumnAdaptation> columnAdaptations,
             OrcDataSource orcDataSource,
             AggregatedMemoryContext memoryContext)
     {
-        this.shardRewriter = requireNonNull(shardRewriter, "shardRewriter is null");
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
         this.columnAdaptations = ImmutableList.copyOf(requireNonNull(columnAdaptations, "columnAdaptations is null"));
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
-
-        this.rowsToDelete = new BitSet(toIntExact(recordReader.getFileRowCount()));
 
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
@@ -122,7 +112,7 @@ public class RaptorPageSource
         return new Page(page.getPositionCount(), blocks);
     }
 
-    static TrinoException handleException(Exception exception)
+    public static TrinoException handleException(Exception exception)
     {
         if (exception instanceof TrinoException) {
             return (TrinoException) exception;
@@ -155,22 +145,6 @@ public class RaptorPageSource
     }
 
     @Override
-    public void deleteRows(Block rowIds)
-    {
-        for (int i = 0; i < rowIds.getPositionCount(); i++) {
-            long rowId = BIGINT.getLong(rowIds, i);
-            rowsToDelete.set(toIntExact(rowId));
-        }
-    }
-
-    @Override
-    public CompletableFuture<Collection<Slice>> finish()
-    {
-        checkState(shardRewriter.isPresent(), "shardRewriter is missing");
-        return shardRewriter.get().rewrite(rowsToDelete);
-    }
-
-    @Override
     public long getMemoryUsage()
     {
         return memoryContext.getBytes();
@@ -200,7 +174,12 @@ public class RaptorPageSource
 
         static ColumnAdaptation rowIdColumn()
         {
-            return new RowIdColumn();
+            return RowIdColumn.INSTANCE;
+        }
+
+        static ColumnAdaptation mergeRowIdColumn(OptionalInt bucketNumber, UUID shardUuid)
+        {
+            return new MergeRowIdColumn(bucketNumber, shardUuid);
         }
 
         static ColumnAdaptation sourceColumn(int index)
@@ -225,7 +204,7 @@ public class RaptorPageSource
         @Override
         public Block block(Page sourcePage, long filePosition)
         {
-            return new RunLengthEncodedBlock(shardUuidBlock, sourcePage.getPositionCount());
+            return RunLengthEncodedBlock.create(shardUuidBlock, sourcePage.getPositionCount());
         }
 
         @Override
@@ -239,6 +218,8 @@ public class RaptorPageSource
     private static class RowIdColumn
             implements ColumnAdaptation
     {
+        public static final RowIdColumn INSTANCE = new RowIdColumn();
+
         @Override
         public Block block(Page sourcePage, long filePosition)
         {
@@ -255,6 +236,36 @@ public class RaptorPageSource
         {
             return toStringHelper(this)
                     .toString();
+        }
+    }
+
+    private static class MergeRowIdColumn
+            implements ColumnAdaptation
+    {
+        private final Block bucketNumberValue;
+        private final Block shardUuidValue;
+
+        public MergeRowIdColumn(OptionalInt bucketNumber, UUID shardUuid)
+        {
+            BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
+            bucketNumber.ifPresentOrElse(value -> INTEGER.writeLong(blockBuilder, value), blockBuilder::appendNull);
+            bucketNumberValue = blockBuilder.build();
+
+            BlockBuilder builder = UuidType.UUID.createFixedSizeBlockBuilder(1);
+            UuidType.UUID.writeSlice(builder, javaUuidToTrinoUuid(shardUuid));
+            shardUuidValue = builder.build();
+        }
+
+        @Override
+        public Block block(Page sourcePage, long filePosition)
+        {
+            Block bucketNumberBlock = RunLengthEncodedBlock.create(bucketNumberValue, sourcePage.getPositionCount());
+            Block shardUuidBlock = RunLengthEncodedBlock.create(shardUuidValue, sourcePage.getPositionCount());
+            Block rowIdBlock = RowIdColumn.INSTANCE.block(sourcePage, filePosition);
+            return RowBlock.fromFieldBlocks(
+                    sourcePage.getPositionCount(),
+                    Optional.empty(),
+                    new Block[] {bucketNumberBlock, shardUuidBlock, rowIdBlock});
         }
     }
 
@@ -275,7 +286,7 @@ public class RaptorPageSource
         @Override
         public Block block(Page sourcePage, long filePosition)
         {
-            return new RunLengthEncodedBlock(nullBlock, sourcePage.getPositionCount());
+            return RunLengthEncodedBlock.create(nullBlock, sourcePage.getPositionCount());
         }
 
         @Override
@@ -302,7 +313,7 @@ public class RaptorPageSource
         @Override
         public Block block(Page sourcePage, long filePosition)
         {
-            return new RunLengthEncodedBlock(bucketNumberBlock, sourcePage.getPositionCount());
+            return RunLengthEncodedBlock.create(bucketNumberBlock, sourcePage.getPositionCount());
         }
 
         @Override

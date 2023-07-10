@@ -14,14 +14,13 @@
 package io.trino.plugin.raptor.legacy.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import org.jdbi.v3.core.mapper.RowMapper;
 import org.jdbi.v3.core.statement.StatementContext;
-
-import javax.inject.Inject;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

@@ -1,0 +1,5 @@
+markupsafe==2.0.1
+myst-parser==1.0.0
+pillow
+sphinx-material
+sphinx-copybutton

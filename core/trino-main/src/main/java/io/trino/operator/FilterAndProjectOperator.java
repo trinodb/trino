@@ -21,8 +21,10 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.trino.operator.project.PageProcessor;
+import io.trino.operator.project.PageProcessorMetrics;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -39,6 +41,7 @@ public class FilterAndProjectOperator
         implements WorkProcessorOperator
 {
     private final WorkProcessor<Page> pages;
+    private final PageProcessorMetrics metrics = new PageProcessorMetrics();
 
     private FilterAndProjectOperator(
             Session session,
@@ -60,6 +63,7 @@ public class FilterAndProjectOperator
                         connectorSession,
                         yieldSignal,
                         outputMemoryContext,
+                        metrics,
                         page,
                         avoidPageMaterialization))
                 .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
@@ -70,6 +74,12 @@ public class FilterAndProjectOperator
     public WorkProcessor<Page> getOutputPages()
     {
         return pages;
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return metrics.getMetrics();
     }
 
     public static OperatorFactory createOperatorFactory(

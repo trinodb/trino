@@ -17,12 +17,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import com.mysql.cj.jdbc.JdbcStatement;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
+import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -34,6 +36,8 @@ import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
+import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -49,7 +53,8 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -76,8 +81,6 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
-import javax.inject.Inject;
-
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -85,6 +88,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
 import java.sql.Types;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
 import java.util.List;
@@ -103,7 +108,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_UNKNOWN_TABLE;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_ER_TABLE_EXISTS_ERROR;
-import static com.mysql.cj.exceptions.MysqlErrorNumbers.SQL_STATE_SYNTAX_ERROR;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
@@ -120,8 +124,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingLocalDate;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingLocalDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateReadFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
@@ -135,9 +138,9 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
@@ -157,9 +160,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampType.createTimestampType;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
@@ -167,6 +168,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -190,13 +192,10 @@ public class MySqlClient
 
     private static final JsonCodec<ColumnHistogram> HISTOGRAM_CODEC = jsonCodec(ColumnHistogram.class);
 
-    // We don't know null fraction, but having no null fraction will make CBO useless. Assume some arbitrary value.
-    private static final Estimate UNKNOWN_NULL_FRACTION_REPLACEMENT = Estimate.of(0.1);
-
     private final Type jsonType;
     private final boolean statisticsEnabled;
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     @Inject
     public MySqlClient(
@@ -205,11 +204,12 @@ public class MySqlClient
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             TypeManager typeManager,
-            IdentifierMapping identifierMapping)
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super(config, "`", connectionFactory, queryBuilder, identifierMapping);
+        super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
-        this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
+        this.statisticsEnabled = statisticsConfig.isEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -218,7 +218,7 @@ public class MySqlClient
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax(false))
@@ -294,7 +294,7 @@ public class MySqlClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql, Optional<Integer> columnCount)
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
@@ -313,7 +313,7 @@ public class MySqlClient
         return metadata.getTables(
                 schemaName.orElse(null),
                 null,
-                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
                 getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
@@ -329,9 +329,9 @@ public class MySqlClient
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
         String sql = format(
-                "ALTER TABLE %s COMMENT = '%s'",
+                "ALTER TABLE %s COMMENT = %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
-                comment.orElse(NO_COMMENT)); // An empty character removes the existing comment in MySQL
+                mysqlVarcharLiteral(comment.orElse(NO_COMMENT))); // An empty character removes the existing comment in MySQL
         execute(session, sql);
     }
 
@@ -347,7 +347,13 @@ public class MySqlClient
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        return format("CREATE TABLE %s (%s) COMMENT '%s'", quoted(remoteTableName), join(", ", columns), tableMetadata.getComment().orElse(NO_COMMENT));
+        return format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columns), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT)));
+    }
+
+    private static String mysqlVarcharLiteral(String value)
+    {
+        requireNonNull(value, "value is null");
+        return "'" + value.replace("'", "''").replace("\\", "\\\\") + "'";
     }
 
     @Override
@@ -435,21 +441,99 @@ public class MySqlClient
                 return Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
 
             case Types.DATE:
-                return Optional.of(dateColumnMappingUsingLocalDate());
+                return Optional.of(ColumnMapping.longMapping(
+                        DATE,
+                        dateReadFunctionUsingLocalDate(),
+                        mySqlDateWriteFunctionUsingLocalDate()));
 
             case Types.TIME:
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.getRequiredColumnSize()));
-                return Optional.of(timeColumnMapping(timeType));
+                requireNonNull(timeType, "timeType is null");
+                checkArgument(timeType.getPrecision() <= 9, "Unsupported type precision: %s", timeType);
+                return Optional.of(ColumnMapping.longMapping(
+                        timeType,
+                        mySqlTimeReadFunction(timeType),
+                        timeWriteFunction(timeType.getPrecision())));
 
             case Types.TIMESTAMP:
                 TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.getRequiredColumnSize()));
-                return Optional.of(timestampColumnMapping(timestampType));
+                checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+                return Optional.of(ColumnMapping.longMapping(
+                        timestampType,
+                        mySqlTimestampReadFunction(timestampType),
+                        timestampWriteFunction(timestampType)));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    private LongWriteFunction mySqlDateWriteFunctionUsingLocalDate()
+    {
+        return new LongWriteFunction() {
+            @Override
+            public String getBindExpression()
+            {
+                return "CAST(? AS DATE)";
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, long epochDay)
+                    throws SQLException
+            {
+                statement.setString(index, LocalDate.ofEpochDay(epochDay).format(ISO_DATE));
+            }
+        };
+    }
+
+    private static LongReadFunction mySqlTimestampReadFunction(TimestampType timestampType)
+    {
+        return new LongReadFunction()
+        {
+            private final LongReadFunction delegate = timestampReadFunction(timestampType);
+
+            @Override
+            public boolean isNull(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                // super calls ResultSet#getObject(), which for TIMESTAMP type returns java.sql.Timestamp, for which the conversion can fail if the value isn't a valid instant in server's time zone.
+                resultSet.getObject(columnIndex, LocalDateTime.class);
+                return resultSet.wasNull();
+            }
+
+            @Override
+            public long readLong(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                return delegate.readLong(resultSet, columnIndex);
+            }
+        };
+    }
+
+    private static LongReadFunction mySqlTimeReadFunction(TimeType timeType)
+    {
+        return new LongReadFunction()
+        {
+            private final LongReadFunction delegate = timeReadFunction(timeType);
+
+            @Override
+            public boolean isNull(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                // super calls ResultSet#getObject(), which for TIME type returns java.sql.Time, for which the conversion can fail if the value isn't a valid instant in server's time zone.
+                resultSet.getObject(columnIndex, String.class);
+                return resultSet.wasNull();
+            }
+
+            @Override
+            public long readLong(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                return delegate.readLong(resultSet, columnIndex);
+            }
+        };
     }
 
     private static int getTimestampPrecision(int timestampColumnSize)
@@ -497,8 +581,7 @@ public class MySqlClient
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
@@ -507,23 +590,17 @@ public class MySqlClient
         }
 
         if (type == DATE) {
-            return WriteMapping.longMapping("date", dateWriteFunctionUsingLocalDate());
+            return WriteMapping.longMapping("date", mySqlDateWriteFunctionUsingLocalDate());
         }
 
-        if (type instanceof TimeType) {
-            TimeType timeType = (TimeType) type;
+        if (type instanceof TimeType timeType) {
             if (timeType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
             }
             return WriteMapping.longMapping(format("time(%s)", MAX_SUPPORTED_DATE_TIME_PRECISION), timeWriteFunction(MAX_SUPPORTED_DATE_TIME_PRECISION));
         }
 
-        if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
-            throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
-        }
-
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             if (timestampType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
                 return WriteMapping.longMapping(format("datetime(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
@@ -535,12 +612,11 @@ public class MySqlClient
             return WriteMapping.sliceMapping("mediumblob", varbinaryWriteFunction());
         }
 
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        if (type instanceof CharType charType) {
+            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
         }
 
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded()) {
                 dataType = "longtext";
@@ -580,24 +656,21 @@ public class MySqlClient
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            String newRemoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, newColumnName);
-            String sql = format(
-                    "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                    quoted(jdbcColumn.getColumnName()),
-                    quoted(newRemoteColumnName));
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            // MySQL versions earlier than 8 do not support the above RENAME COLUMN syntax
-            if (SQL_STATE_SYNTAX_ERROR.equals(e.getSQLState())) {
-                throw new TrinoException(NOT_SUPPORTED, format("Rename column not supported in catalog: '%s'", handle.getCatalogName()), e);
-            }
-            throw new TrinoException(JDBC_ERROR, e);
-        }
+        String sql = format(
+                "ALTER TABLE %s RENAME COLUMN %s TO %s",
+                quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
+                quoted(remoteColumnName),
+                quoted(newRemoteColumnName));
+        execute(session, connection, sql);
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 
     @Override
@@ -607,7 +680,7 @@ public class MySqlClient
     }
 
     @Override
-    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         String tableCopyFormat = "CREATE TABLE %s AS SELECT * FROM %s WHERE 0 = 1";
         if (isGtidMode(connection)) {
@@ -617,7 +690,12 @@ public class MySqlClient
                 tableCopyFormat,
                 quoted(catalogName, schemaName, newTableName),
                 quoted(catalogName, schemaName, tableName));
-        execute(connection, sql);
+        try {
+            execute(session, connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
@@ -625,8 +703,9 @@ public class MySqlClient
     {
         // MySQL doesn't support specifying the catalog name in a rename. By setting the
         // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
-        verify(handle.getSchemaName() == null);
-        renameTable(session, null, handle.getCatalogName(), handle.getTableName(), newTableName);
+        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
+        verify(remoteTableName.getSchemaName().isEmpty());
+        renameTable(session, null, remoteTableName.getCatalogName().orElse(null), remoteTableName.getTableName(), newTableName);
     }
 
     @Override
@@ -800,13 +879,7 @@ public class MySqlClient
                     rowCount = max(rowCount, columnIndexStatistics.getCardinality());
                 }
 
-                ColumnStatistics columnStatistics = columnStatisticsBuilder.build();
-                if (!columnStatistics.getDistinctValuesCount().isUnknown() && columnStatistics.getNullsFraction().isUnknown()) {
-                    columnStatisticsBuilder.setNullsFraction(UNKNOWN_NULL_FRACTION_REPLACEMENT);
-                    columnStatistics = columnStatisticsBuilder.build();
-                }
-
-                tableStatistics.setColumnStatistics(column, columnStatistics);
+                tableStatistics.setColumnStatistics(column, columnStatisticsBuilder.build());
             }
 
             tableStatistics.setRowCount(Estimate.of(rowCount));
@@ -878,12 +951,13 @@ public class MySqlClient
 
         Long getRowCount(JdbcTableHandle table)
         {
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("" +
                             "SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES " +
                             "WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name " +
                             "AND TABLE_TYPE = 'BASE TABLE' ")
-                    .bind("schema", table.getCatalogName())
-                    .bind("table_name", table.getTableName())
+                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
                     .mapTo(Long.class)
                     .findOne()
                     .orElse(null);
@@ -891,6 +965,7 @@ public class MySqlClient
 
         Map<String, ColumnIndexStatistics> getColumnIndexStatistics(JdbcTableHandle table)
         {
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("" +
                             "SELECT " +
                             "  COLUMN_NAME, " +
@@ -902,8 +977,8 @@ public class MySqlClient
                             "AND SUB_PART IS NULL " + // ignore cases where only a column prefix is indexed
                             "AND CARDINALITY IS NOT NULL " + // CARDINALITY might be null (https://stackoverflow.com/a/42242729/65458)
                             "GROUP BY COLUMN_NAME") // there might be multiple indexes on a column
-                    .bind("schema", table.getCatalogName())
-                    .bind("table_name", table.getTableName())
+                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
                     .map((rs, ctx) -> {
                         String columnName = rs.getString("COLUMN_NAME");
 
@@ -931,11 +1006,12 @@ public class MySqlClient
                 }
             }
 
+            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("" +
                             "SELECT COLUMN_NAME, HISTOGRAM FROM INFORMATION_SCHEMA.COLUMN_STATISTICS " +
                             "WHERE SCHEMA_NAME = :schema AND TABLE_NAME = :table_name")
-                    .bind("schema", table.getCatalogName())
-                    .bind("table_name", table.getTableName())
+                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                    .bind("table_name", remoteTableName.getTableName())
                     .map((rs, ctx) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         }

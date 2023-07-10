@@ -30,6 +30,9 @@ public class TestGlueHiveMetastoreConfig
         assertRecordedDefaults(recordDefaults(GlueHiveMetastoreConfig.class)
                 .setGlueRegion(null)
                 .setGlueEndpointUrl(null)
+                .setGlueStsRegion(null)
+                .setGlueStsEndpointUrl(null)
+                .setGlueProxyApiId(null)
                 .setPinGlueClientToCurrentRegion(false)
                 .setMaxGlueConnections(30)
                 .setMaxGlueErrorRetries(10)
@@ -44,7 +47,7 @@ public class TestGlueHiveMetastoreConfig
                 .setGetPartitionThreads(20)
                 .setAssumeCanonicalPartitionKeys(false)
                 .setReadStatisticsThreads(5)
-                .setWriteStatisticsThreads(5));
+                .setWriteStatisticsThreads(20));
     }
 
     @Test
@@ -53,6 +56,9 @@ public class TestGlueHiveMetastoreConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore.glue.region", "us-east-1")
                 .put("hive.metastore.glue.endpoint-url", "http://foo.bar")
+                .put("hive.metastore.glue.sts.region", "us-east-3")
+                .put("hive.metastore.glue.sts.endpoint", "http://sts.foo.bar")
+                .put("hive.metastore.glue.proxy-api-id", "abc123")
                 .put("hive.metastore.glue.pin-client-to-current-region", "true")
                 .put("hive.metastore.glue.max-connections", "10")
                 .put("hive.metastore.glue.max-error-retries", "20")
@@ -73,6 +79,9 @@ public class TestGlueHiveMetastoreConfig
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
                 .setGlueRegion("us-east-1")
                 .setGlueEndpointUrl("http://foo.bar")
+                .setGlueStsRegion("us-east-3")
+                .setGlueStsEndpointUrl("http://sts.foo.bar")
+                .setGlueProxyApiId("abc123")
                 .setPinGlueClientToCurrentRegion(true)
                 .setMaxGlueConnections(10)
                 .setMaxGlueErrorRetries(20)

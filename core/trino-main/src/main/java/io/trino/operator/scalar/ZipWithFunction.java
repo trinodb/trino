@@ -14,13 +14,12 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedArrayValueBuilder;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -29,7 +28,6 @@ import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -67,13 +65,13 @@ public final class ZipWithFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type leftElementType = ((ArrayType) boundSignature.getArgumentType(0)).getElementType();
         Type rightElementType = ((ArrayType) boundSignature.getArgumentType(1)).getElementType();
         Type outputElementType = ((ArrayType) boundSignature.getReturnType()).getElementType();
         ArrayType outputArrayType = new ArrayType(outputElementType);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),
@@ -84,7 +82,7 @@ public final class ZipWithFunction
 
     public static Object createState(ArrayType arrayType)
     {
-        return new PageBuilder(ImmutableList.of(arrayType));
+        return BufferedArrayValueBuilder.createBuffered(arrayType);
     }
 
     public static Block zipWith(
@@ -101,33 +99,14 @@ public final class ZipWithFunction
         int rightPositionCount = rightBlock.getPositionCount();
         int outputPositionCount = max(leftPositionCount, rightPositionCount);
 
-        PageBuilder pageBuilder = (PageBuilder) state;
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-        BlockBuilder arrayBlockBuilder = pageBuilder.getBlockBuilder(0);
-        BlockBuilder blockBuilder = arrayBlockBuilder.beginBlockEntry();
-
-        for (int position = 0; position < outputPositionCount; position++) {
-            Object left = position < leftPositionCount ? readNativeValue(leftElementType, leftBlock, position) : null;
-            Object right = position < rightPositionCount ? readNativeValue(rightElementType, rightBlock, position) : null;
-            Object output;
-            try {
-                output = function.apply(left, right);
+        BufferedArrayValueBuilder arrayValueBuilder = (BufferedArrayValueBuilder) state;
+        return arrayValueBuilder.build(outputPositionCount, valueBuilder -> {
+            for (int position = 0; position < outputPositionCount; position++) {
+                Object left = position < leftPositionCount ? readNativeValue(leftElementType, leftBlock, position) : null;
+                Object right = position < rightPositionCount ? readNativeValue(rightElementType, rightBlock, position) : null;
+                Object output = function.apply(left, right);
+                writeNativeValue(outputElementType, valueBuilder, output);
             }
-            catch (Throwable throwable) {
-                // Restore pageBuilder into a consistent state.
-                arrayBlockBuilder.closeEntry();
-                pageBuilder.declarePosition();
-
-                throwIfUnchecked(throwable);
-                throw new RuntimeException(throwable);
-            }
-            writeNativeValue(outputElementType, blockBuilder, output);
-        }
-
-        arrayBlockBuilder.closeEntry();
-        pageBuilder.declarePosition();
-        return outputArrayType.getObject(arrayBlockBuilder, arrayBlockBuilder.getPositionCount() - 1);
+        });
     }
 }

@@ -62,9 +62,11 @@ public interface Rule<T>
 
     final class Result
     {
+        private static final Result EMPTY = new Result(Optional.empty());
+
         public static Result empty()
         {
-            return new Result(Optional.empty());
+            return EMPTY;
         }
 
         public static Result ofPlanNode(PlanNode transformedPlan)

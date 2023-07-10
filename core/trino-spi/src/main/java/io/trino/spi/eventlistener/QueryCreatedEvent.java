@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 import java.time.Instant;
 import java.util.StringJoiner;
@@ -32,6 +33,7 @@ public class QueryCreatedEvent
     private final QueryMetadata metadata;
 
     @JsonCreator
+    @Unstable
     public QueryCreatedEvent(Instant createTime, QueryContext context, QueryMetadata metadata)
     {
         this.createTime = requireNonNull(createTime, "createTime is null");

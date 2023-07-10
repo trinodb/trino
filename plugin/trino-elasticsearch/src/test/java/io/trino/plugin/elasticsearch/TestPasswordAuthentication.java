@@ -97,9 +97,7 @@ public class TestPasswordAuthentication
     public void test()
             throws IOException
     {
-        String json = new ObjectMapper().writeValueAsString(ImmutableMap.<String, Object>builder()
-                .put("value", 42L)
-                .buildOrThrow());
+        String json = new ObjectMapper().writeValueAsString(ImmutableMap.of("value", 42L));
 
         client.getLowLevelClient()
                 .performRequest(

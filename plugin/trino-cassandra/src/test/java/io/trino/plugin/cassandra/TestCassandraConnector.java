@@ -76,8 +76,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.spi.type.TimestampType.TIMESTAMP;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
@@ -338,10 +338,10 @@ public class TestCassandraConnector
                     assertEquals(keyValue, "key");
                     assertEquals(VARCHAR.getSlice(udtValue, 0).toStringUtf8(), "text");
                     assertEquals(trinoUuidToJavaUuid(UUID.getSlice(udtValue, 1)).toString(), "01234567-0123-0123-0123-0123456789ab");
-                    assertEquals(INTEGER.getLong(udtValue, 2), -2147483648);
+                    assertEquals(INTEGER.getInt(udtValue, 2), -2147483648);
                     assertEquals(BIGINT.getLong(udtValue, 3), -9223372036854775808L);
                     assertEquals(VARBINARY.getSlice(udtValue, 4).toStringUtf8(), "01234");
-                    assertEquals(TIMESTAMP.getLong(udtValue, 5), 117964800000L);
+                    assertEquals(TIMESTAMP_MILLIS.getLong(udtValue, 5), 117964800000L);
                     assertEquals(VARCHAR.getSlice(udtValue, 6).toStringUtf8(), "ansi");
                     assertTrue(BOOLEAN.getBoolean(udtValue, 7));
                     assertEquals(DOUBLE.getDouble(udtValue, 8), 99999999999999997748809823456034029568D);
@@ -356,10 +356,10 @@ public class TestCassandraConnector
                     assertEquals(VARCHAR.getSlice(udtValue, 17).toStringUtf8(), "[true]");
                     SingleRowBlock tupleValueBlock = (SingleRowBlock) udtValue.getObject(18, Block.class);
                     assertThat(tupleValueBlock.getPositionCount()).isEqualTo(1);
-                    assertThat(INTEGER.getLong(tupleValueBlock, 0)).isEqualTo(123);
+                    assertThat(INTEGER.getInt(tupleValueBlock, 0)).isEqualTo(123);
                     SingleRowBlock udtValueBlock = (SingleRowBlock) udtValue.getObject(19, Block.class);
                     assertThat(udtValueBlock.getPositionCount()).isEqualTo(1);
-                    assertThat(INTEGER.getLong(udtValueBlock, 0)).isEqualTo(999);
+                    assertThat(INTEGER.getInt(udtValueBlock, 0)).isEqualTo(999);
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);
@@ -395,7 +395,7 @@ public class TestCassandraConnector
                 else if (DateType.DATE.equals(type)) {
                     toIntExact(cursor.getLong(columnIndex));
                 }
-                else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
                     cursor.getLong(columnIndex);
                 }
                 else if (DOUBLE.equals(type)) {
@@ -458,8 +458,8 @@ public class TestCassandraConnector
 
     private CassandraTableHandle getTableHandle(Optional<List<CassandraPartition>> partitions, String clusteringKeyPredicates)
     {
-        CassandraTableHandle handle = (CassandraTableHandle) getTableHandle(tableForDelete);
-        return new CassandraTableHandle(handle.getSchemaName(), handle.getTableName(), partitions, clusteringKeyPredicates);
+        CassandraNamedRelationHandle handle = ((CassandraTableHandle) getTableHandle(tableForDelete)).getRequiredNamedRelation();
+        return new CassandraTableHandle(new CassandraNamedRelationHandle(handle.getSchemaName(), handle.getTableName(), partitions, clusteringKeyPredicates));
     }
 
     private CassandraPartition createPartition(long value1, long value2)

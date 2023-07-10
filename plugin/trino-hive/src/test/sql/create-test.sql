@@ -45,13 +45,6 @@ PARTITIONED BY (ds STRING)
 TBLPROPERTIES ('PROTECT_MODE'='OFFLINE')
 ;
 
-CREATE TABLE trino_test_offline_partition (
-  t_string STRING
-)
-COMMENT 'Presto test data'
-PARTITIONED BY (ds STRING)
-;
-
 CREATE TABLE trino_test_not_readable (
   t_string STRING
 )
@@ -209,12 +202,6 @@ FROM trino_test_sequence LIMIT 100;
 INSERT INTO TABLE trino_test_partitioned_with_null PARTITION (p_string, p_integer) SELECT 'NULL row', NULL, NULL FROM dummy;
 INSERT INTO TABLE trino_test_partitioned_with_null PARTITION (p_string, p_integer) SELECT 'value row', 'abc', 123 FROM dummy;
 INSERT INTO TABLE trino_test_partitioned_with_null PARTITION (p_string, p_integer) SELECT 'another value row', 'def', 456 FROM dummy;
-
-INSERT INTO TABLE trino_test_offline_partition PARTITION (ds='2012-12-29')
-SELECT 'test' FROM trino_test_sequence LIMIT 100;
-
-INSERT INTO TABLE trino_test_offline_partition PARTITION (ds='2012-12-30')
-SELECT 'test' FROM trino_test_sequence LIMIT 100;
 
 SET hive.enforce.bucketing = true;
 

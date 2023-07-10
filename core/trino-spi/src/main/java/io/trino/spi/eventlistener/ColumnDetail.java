@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 import java.util.Objects;
 
@@ -31,6 +32,7 @@ public class ColumnDetail
     private final String columnName;
 
     @JsonCreator
+    @Unstable
     public ColumnDetail(String catalog, String schema, String table, String columnName)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");

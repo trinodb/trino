@@ -13,7 +13,10 @@
  */
 package io.trino.plugin.druid;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
+import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -21,6 +24,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcRemoteIdentifiers;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -30,21 +34,21 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-
-import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -66,6 +70,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.function.BiFunction;
 
@@ -106,6 +111,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -148,15 +154,15 @@ public class DruidJdbcClient
             .withChronology(IsoChronology.INSTANCE);
 
     @Inject
-    public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
+    public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
     }
 
     @Override
     public Collection<String> listSchemas(Connection connection)
     {
-        return ImmutableList.of(DRUID_SCHEMA);
+        return ImmutableSet.of(DRUID_SCHEMA);
     }
 
     //Overridden to filter out tables that don't match schemaTableName
@@ -165,24 +171,28 @@ public class DruidJdbcClient
     {
         String jdbcSchemaName = schemaTableName.getSchemaName();
         String jdbcTableName = schemaTableName.getTableName();
-        try (Connection connection = connectionFactory.openConnection(session);
-                ResultSet resultSet = getTables(connection, Optional.of(jdbcSchemaName), Optional.of(jdbcTableName))) {
-            List<JdbcTableHandle> tableHandles = new ArrayList<>();
-            while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_SCHEM");
-                String tableName = resultSet.getString("TABLE_NAME");
-                if (Objects.equals(schemaName, jdbcSchemaName) && Objects.equals(tableName, jdbcTableName)) {
-                    tableHandles.add(new JdbcTableHandle(
-                            schemaTableName,
-                            DRUID_CATALOG,
-                            schemaName,
-                            tableName));
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            ConnectorIdentity identity = session.getIdentity();
+            RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
+            String remoteSchema = getIdentifierMapping().toRemoteSchemaName(remoteIdentifiers, identity, jdbcSchemaName);
+            String remoteTable = getIdentifierMapping().toRemoteTableName(remoteIdentifiers, identity, remoteSchema, jdbcTableName);
+            try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
+                List<JdbcTableHandle> tableHandles = new ArrayList<>();
+                while (resultSet.next()) {
+                    String schemaName = resultSet.getString("TABLE_SCHEM");
+                    String tableName = resultSet.getString("TABLE_NAME");
+                    if (Objects.equals(schemaName, remoteSchema) && Objects.equals(tableName, remoteTable)) {
+                        tableHandles.add(new JdbcTableHandle(
+                                schemaTableName,
+                                new RemoteTableName(Optional.of(DRUID_CATALOG), Optional.ofNullable(schemaName), tableName),
+                                Optional.empty()));
+                    }
                 }
+                if (tableHandles.isEmpty()) {
+                    return Optional.empty();
+                }
+                return Optional.of(getOnlyElement(tableHandles));
             }
-            if (tableHandles.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(getOnlyElement(tableHandles));
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -369,7 +379,14 @@ public class DruidJdbcClient
     }
 
     @Override
-    protected PreparedQuery prepareQuery(ConnectorSession session, Connection connection, JdbcTableHandle table, Optional<List<List<JdbcColumnHandle>>> groupingSets, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions, Optional<JdbcSplit> split)
+    protected PreparedQuery prepareQuery(
+            ConnectorSession session,
+            Connection connection,
+            JdbcTableHandle table,
+            Optional<List<List<JdbcColumnHandle>>> groupingSets,
+            List<JdbcColumnHandle> columns,
+            Map<String, ParameterizedExpression> columnExpressions,
+            Optional<JdbcSplit> split)
     {
         return super.prepareQuery(session, connection, prepareTableHandleForQuery(table), groupingSets, columns, columnExpressions, split);
     }
@@ -377,17 +394,19 @@ public class DruidJdbcClient
     private JdbcTableHandle prepareTableHandleForQuery(JdbcTableHandle table)
     {
         if (table.isNamedRelation()) {
-            String schemaName = table.getSchemaName();
+            JdbcNamedRelationHandle relation = table.getRequiredNamedRelation();
+            RemoteTableName remoteTableName = relation.getRemoteTableName();
+            String schemaName = remoteTableName.getSchemaName().orElse(null);
             checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
 
             table = new JdbcTableHandle(
                     new JdbcNamedRelationHandle(
-                            table.getRequiredNamedRelation().getSchemaTableName(),
+                            relation.getSchemaTableName(),
                             // Druid doesn't like table names to be qualified with catalog names in the SQL query, hence we null out the catalog.
                             new RemoteTableName(
                                     Optional.empty(),
-                                    table.getRequiredNamedRelation().getRemoteTableName().getSchemaName(),
-                                    table.getRequiredNamedRelation().getRemoteTableName().getTableName()),
+                                    remoteTableName.getSchemaName(),
+                                    remoteTableName.getTableName()),
                             Optional.empty()),
                     table.getConstraint(),
                     table.getConstraintExpressions(),
@@ -395,7 +414,8 @@ public class DruidJdbcClient
                     table.getLimit(),
                     table.getColumns(),
                     table.getOtherReferencedTables(),
-                    table.getNextSyntheticColumnId());
+                    table.getNextSyntheticColumnId(),
+                    table.getAuthorization());
         }
 
         return table;
@@ -415,10 +435,11 @@ public class DruidJdbcClient
     protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         return metadata.getColumns(
-                tableHandle.getCatalogName(),
-                tableHandle.getSchemaName(),
-                tableHandle.getTableName(),
+                remoteTableName.getCatalogName().orElse(null),
+                remoteTableName.getSchemaName().orElse(null),
+                remoteTableName.getTableName(),
                 null);
     }
 
@@ -438,7 +459,7 @@ public class DruidJdbcClient
     public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {
         // DELETE statement is not yet support in Druid (Avatica JDBC, see https://issues.apache.org/jira/browse/CALCITE-706)
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
 
     @Override
@@ -460,7 +481,7 @@ public class DruidJdbcClient
     }
 
     @Override
-    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
@@ -475,6 +496,12 @@ public class DruidJdbcClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 
     @Override
@@ -544,19 +571,17 @@ public class DruidJdbcClient
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        if (type instanceof CharType charType) {
+            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
         }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             String dataType;
             if (varcharType.isUnbounded()) {
                 dataType = "varchar";
@@ -573,5 +598,11 @@ public class DruidJdbcClient
             return WriteMapping.longMapping("date", dateWriteFunctionUsingSqlDate());
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    @Override
+    public RemoteIdentifiers getRemoteIdentifiers(Connection connection)
+    {
+        return new JdbcRemoteIdentifiers(this, connection, false);
     }
 }

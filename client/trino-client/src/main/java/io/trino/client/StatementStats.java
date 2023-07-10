@@ -15,14 +15,12 @@ package io.trino.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
+import jakarta.annotation.Nullable;
 
 import java.util.OptionalDouble;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -31,6 +29,8 @@ public class StatementStats
     private final String state;
     private final boolean queued;
     private final boolean scheduled;
+    private final OptionalDouble progressPercentage;
+    private final OptionalDouble runningPercentage;
     private final int nodes;
     private final int totalSplits;
     private final int queuedSplits;
@@ -52,6 +52,8 @@ public class StatementStats
             @JsonProperty("state") String state,
             @JsonProperty("queued") boolean queued,
             @JsonProperty("scheduled") boolean scheduled,
+            @JsonProperty("progressPercentage") OptionalDouble progressPercentage,
+            @JsonProperty("runningPercentage") OptionalDouble runningPercentage,
             @JsonProperty("nodes") int nodes,
             @JsonProperty("totalSplits") int totalSplits,
             @JsonProperty("queuedSplits") int queuedSplits,
@@ -71,6 +73,8 @@ public class StatementStats
         this.state = requireNonNull(state, "state is null");
         this.queued = queued;
         this.scheduled = scheduled;
+        this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
+        this.runningPercentage = requireNonNull(runningPercentage, "runningPercentage is null");
         this.nodes = nodes;
         this.totalSplits = totalSplits;
         this.queuedSplits = queuedSplits;
@@ -104,6 +108,18 @@ public class StatementStats
     public boolean isScheduled()
     {
         return scheduled;
+    }
+
+    @JsonProperty
+    public OptionalDouble getProgressPercentage()
+    {
+        return progressPercentage;
+    }
+
+    @JsonProperty
+    public OptionalDouble getRunningPercentage()
+    {
+        return runningPercentage;
     }
 
     @JsonProperty
@@ -192,15 +208,6 @@ public class StatementStats
     }
 
     @JsonProperty
-    public OptionalDouble getProgressPercentage()
-    {
-        if (!scheduled || totalSplits == 0) {
-            return OptionalDouble.empty();
-        }
-        return OptionalDouble.of(min(100, (completedSplits * 100.0) / totalSplits));
-    }
-
-    @JsonProperty
     public long getSpilledBytes()
     {
         return spilledBytes;
@@ -213,6 +220,8 @@ public class StatementStats
                 .add("state", state)
                 .add("queued", queued)
                 .add("scheduled", scheduled)
+                .add("progressPercentage", progressPercentage)
+                .add("runningPercentage", runningPercentage)
                 .add("nodes", nodes)
                 .add("totalSplits", totalSplits)
                 .add("queuedSplits", queuedSplits)
@@ -241,6 +250,8 @@ public class StatementStats
         private String state;
         private boolean queued;
         private boolean scheduled;
+        private OptionalDouble progressPercentage;
+        private OptionalDouble runningPercentage;
         private int nodes;
         private int totalSplits;
         private int queuedSplits;
@@ -280,6 +291,18 @@ public class StatementStats
         public Builder setScheduled(boolean scheduled)
         {
             this.scheduled = scheduled;
+            return this;
+        }
+
+        public Builder setProgressPercentage(OptionalDouble progressPercentage)
+        {
+            this.progressPercentage = progressPercentage;
+            return this;
+        }
+
+        public Builder setRunningPercentage(OptionalDouble runningPercentage)
+        {
+            this.runningPercentage = runningPercentage;
             return this;
         }
 
@@ -373,6 +396,8 @@ public class StatementStats
                     state,
                     queued,
                     scheduled,
+                    progressPercentage,
+                    runningPercentage,
                     nodes,
                     totalSplits,
                     queuedSplits,

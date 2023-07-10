@@ -19,7 +19,6 @@ import io.trino.orc.checkpoint.BooleanStreamCheckpoint;
 import io.trino.orc.checkpoint.ByteStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,11 +26,12 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class BooleanOutputStream
         implements ValueOutputStream<BooleanStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanOutputStream.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(BooleanOutputStream.class);
     private final ByteOutputStream byteOutputStream;
     private final List<Integer> checkpointBitOffsets = new ArrayList<>();
 

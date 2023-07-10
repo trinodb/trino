@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
@@ -156,7 +157,7 @@ public class PatternRecognitionBuilder
         return new PatternRecognitionNode(
                 idAllocator.getNextId(),
                 source,
-                new WindowNode.Specification(partitionBy, orderBy),
+                new DataOrganizationSpecification(partitionBy, orderBy),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0,

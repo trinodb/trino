@@ -14,12 +14,12 @@
 package io.trino.orc.metadata.statistics;
 
 import io.trino.orc.metadata.statistics.StatisticsHasher.Hashable;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class DoubleStatistics
         implements RangeStatistics<Double>, Hashable
@@ -27,7 +27,7 @@ public class DoubleStatistics
     // 1 byte to denote if null + 8 bytes for the value
     public static final long DOUBLE_VALUE_BYTES = Byte.BYTES + Double.BYTES;
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleStatistics.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(DoubleStatistics.class);
 
     private final boolean hasMinimum;
     private final boolean hasMaximum;

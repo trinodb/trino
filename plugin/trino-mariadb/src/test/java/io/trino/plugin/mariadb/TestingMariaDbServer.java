@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.mariadb;
 
+import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -76,12 +77,18 @@ public class TestingMariaDbServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:mariadb://%s:%s", container.getContainerIpAddress(), container.getMappedPort(MARIADB_PORT));
+        return format("jdbc:mariadb://%s:%s", container.getHost(), container.getMappedPort(MARIADB_PORT));
     }
 
     @Override
     public void close()
     {
         container.close();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return container.getContainerId() != null;
     }
 }

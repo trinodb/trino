@@ -13,16 +13,16 @@
  */
 package io.trino.orc.metadata.statistics;
 
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Integer.MAX_VALUE;
 import static java.lang.Integer.MIN_VALUE;
 
 public class TestDateStatistics
         extends AbstractRangeStatisticsTest<DateStatistics, Integer>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DateStatistics.class).instanceSize();
+    private static final int INSTANCE_SIZE = instanceSize(DateStatistics.class);
 
     @Override
     protected DateStatistics getCreateStatistics(Integer min, Integer max)

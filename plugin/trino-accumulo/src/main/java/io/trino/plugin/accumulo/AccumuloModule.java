@@ -14,7 +14,9 @@
 package io.trino.plugin.accumulo;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Module;
+import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -34,18 +36,11 @@ import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Instance;
 import org.apache.accumulo.core.client.ZooKeeperInstance;
 import org.apache.accumulo.core.client.security.tokens.PasswordToken;
-import org.apache.log4j.JulAppender;
-import org.apache.log4j.Level;
-import org.apache.log4j.PatternLayout;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Trino module to do all kinds of run Guice injection stuff!
@@ -58,13 +53,6 @@ public class AccumuloModule
     @Override
     public void configure(Binder binder)
     {
-        // Add appender to Log4J root logger
-        JulAppender appender = new JulAppender(); //create appender
-        appender.setLayout(new PatternLayout("%d %-5p %c - %m%n"));
-        appender.setThreshold(Level.INFO);
-        appender.activateOptions();
-        org.apache.log4j.Logger.getRootLogger().addAppender(appender);
-
         binder.bind(AccumuloConnector.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloMetadata.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloMetadataFactory.class).in(Scopes.SINGLETON);
@@ -98,7 +86,6 @@ public class AccumuloModule
         @Inject
         public ConnectorProvider(AccumuloConfig config)
         {
-            requireNonNull(config, "config is null");
             this.instance = config.getInstance();
             this.zooKeepers = config.getZooKeepers();
             this.username = config.getUsername();

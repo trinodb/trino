@@ -49,7 +49,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
@@ -66,10 +65,7 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.spi.security.PrincipalType.USER;
-import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
-import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestRecordingHiveMetastore
@@ -135,9 +131,7 @@ public class TestRecordingHiveMetastore
     private static final RoleGrant ROLE_GRANT = new RoleGrant(new TrinoPrincipal(USER, "grantee"), "role", true);
     private static final List<String> PARTITION_COLUMN_NAMES = ImmutableList.of(TABLE_COLUMN.getName());
     private static final Domain PARTITION_COLUMN_EQUAL_DOMAIN = Domain.singleValue(createUnboundedVarcharType(), Slices.utf8Slice("value1"));
-    private static final TupleDomain<String> TUPLE_DOMAIN = TupleDomain.withColumnDomains(ImmutableMap.<String, Domain>builder()
-            .put(TABLE_COLUMN.getName(), PARTITION_COLUMN_EQUAL_DOMAIN)
-            .buildOrThrow());
+    private static final TupleDomain<String> TUPLE_DOMAIN = TupleDomain.withColumnDomains(ImmutableMap.of(TABLE_COLUMN.getName(), PARTITION_COLUMN_EQUAL_DOMAIN));
 
     @Test
     public void testRecordingHiveMetastore()
@@ -181,7 +175,6 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getDatabase("database"), Optional.of(DATABASE));
         assertEquals(hiveMetastore.getAllDatabases(), ImmutableList.of("database"));
         assertEquals(hiveMetastore.getTable("database", "table"), Optional.of(TABLE));
-        assertEquals(hiveMetastore.getSupportedColumnStatistics(createVarcharType(123)), ImmutableSet.of(MIN_VALUE, MAX_VALUE));
         assertEquals(hiveMetastore.getTableStatistics(TABLE), PARTITION_STATISTICS);
         assertEquals(hiveMetastore.getPartitionStatistics(TABLE, ImmutableList.of(PARTITION, OTHER_PARTITION)), ImmutableMap.of(
                 "column=value", PARTITION_STATISTICS,
@@ -236,16 +229,6 @@ public class TestRecordingHiveMetastore
             }
 
             return Optional.empty();
-        }
-
-        @Override
-        public Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
-        {
-            if (type.equals(createVarcharType(123))) {
-                return ImmutableSet.of(MIN_VALUE, MAX_VALUE);
-            }
-
-            return ImmutableSet.of();
         }
 
         @Override
@@ -311,7 +294,7 @@ public class TestRecordingHiveMetastore
                 if (partitionValues.equals(ImmutableList.of("value"))) {
                     return Optional.of(PARTITION);
                 }
-                else if (partitionValues.equals(ImmutableList.of("other_value"))) {
+                if (partitionValues.equals(ImmutableList.of("other_value"))) {
                     return Optional.of(OTHER_PARTITION);
                 }
             }

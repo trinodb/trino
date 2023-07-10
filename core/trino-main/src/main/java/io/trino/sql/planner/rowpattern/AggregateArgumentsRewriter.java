@@ -95,13 +95,11 @@ public class AggregateArgumentsRewriter
             if (isPatternRecognitionFunction(node)) {
                 QualifiedName name = node.getName();
                 String functionName = name.getSuffix().toUpperCase(ENGLISH);
-                switch (functionName) {
-                    case "CLASSIFIER":
-                        return classifierSymbol.toSymbolReference();
-                    case "MATCH_NUMBER":
-                        return matchNumberSymbol.toSymbolReference();
-                }
-                throw new UnsupportedOperationException("unexpected pattern recognition function: " + node.getName());
+                return switch (functionName) {
+                    case "CLASSIFIER" -> classifierSymbol.toSymbolReference();
+                    case "MATCH_NUMBER" -> matchNumberSymbol.toSymbolReference();
+                    default -> throw new UnsupportedOperationException("unexpected pattern recognition function: " + node.getName());
+                };
             }
 
             return super.rewriteFunctionCall(node, context, treeRewriter);

@@ -50,7 +50,7 @@ that can be set when creating a new schema.
 The table properties table contains the list of available properties
 that can be set when creating a new table.
 
-.. _system_metadata_materialized_views:
+.. _system-metadata-materialized-views:
 
 ``metadata.materialized_views``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -78,9 +78,9 @@ The materialized views table contains the following information about all
       backing the materialized view.
   * - ``storage_table``
     - Name of the storage table backing the materialized view.
-  * - ``is_fresh``
-    - Flag to signal if data in the storage table is up to date. Queries on the
-      materialized view access the storage table if ``true``, otherwise
+  * - ``freshness``
+    - Freshness of data in the storage table. Queries on the
+      materialized view access the storage table if not ``STALE``, otherwise
       the ``definition`` is used to access the underlying data in the source
       tables.
   * - ``owner``
@@ -107,7 +107,7 @@ The table comments table contains the list of table comment.
 The nodes table contains the list of visible nodes in the Trino
 cluster along with their status.
 
-.. _optimizer_rule_stats:
+.. _optimizer-rule-stats:
 
 ``runtime.optimizer_rule_stats``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -149,7 +149,15 @@ System connector procedures
 .. function:: runtime.kill_query(query_id, message)
 
     Kill the query identified by ``query_id``. The query failure message
-    includes the specified ``message``.
+    includes the specified ``message``. ``message`` is optional.
+
+.. _system-type-mapping:
+
+Type mapping
+------------
+
+Trino supports all data types used within the System schemas so no mapping
+is required.
 
 .. _system-sql-support:
 

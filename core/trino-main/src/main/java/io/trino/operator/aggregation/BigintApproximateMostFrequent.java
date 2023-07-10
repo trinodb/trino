@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 import io.trino.spi.function.AggregationFunction;
@@ -94,12 +95,10 @@ public final class BigintApproximateMostFrequent
             out.appendNull();
         }
         else {
-            BlockBuilder entryBuilder = out.beginBlockEntry();
-            state.get().forEachBucket((key, value) -> {
-                BigintType.BIGINT.writeLong(entryBuilder, key);
-                BigintType.BIGINT.writeLong(entryBuilder, value);
-            });
-            out.closeEntry();
+            ((MapBlockBuilder) out).buildEntry((keyBuilder, valueBuilder) -> state.get().forEachBucket((key, value) -> {
+                BigintType.BIGINT.writeLong(keyBuilder, key);
+                BigintType.BIGINT.writeLong(valueBuilder, value);
+            }));
         }
     }
 }
