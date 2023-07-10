@@ -137,7 +137,7 @@ public final class AvroDecoderTestUtil
         Type valueType = ((MapType) type).getValueType();
         for (int index = 0; index < sqlMap.getSize(); index++) {
             String actualKey = VARCHAR.getSlice(rawKeyBlock, rawOffset + index).toStringUtf8();
-            assertTrue(expected.containsKey(actualKey));
+            assertTrue(expected.containsKey(actualKey), "Key not found: %s".formatted(actualKey));
             if (rawValueBlock.isNull(rawOffset + index)) {
                 assertNull(expected.get(actualKey));
                 continue;
