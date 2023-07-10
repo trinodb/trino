@@ -17,7 +17,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.type.BooleanType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
