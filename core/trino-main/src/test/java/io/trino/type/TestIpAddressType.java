@@ -18,7 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.type.IpAddressType.IPADDRESS;

@@ -15,7 +15,7 @@ package io.trino.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.operator.scalar.ColorFunctions.rgb;
 import static io.trino.type.ColorType.COLOR;

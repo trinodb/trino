@@ -21,7 +21,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.SliceUtf8.codePointToUtf8;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
