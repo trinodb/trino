@@ -34,6 +34,8 @@ import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_122_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -48,6 +50,7 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeWriteDatabricksCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -380,6 +383,27 @@ public class TestDeltaLakeWriteDatabricksCompatibility
                 assertThat(summary.getKey()).endsWith(changeDataPrefix + "/");
                 assertThat(summary.getSize()).isEqualTo(0);
             }
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testVacuumUnsupportedWriterVersion()
+    {
+        String tableName = "test_vacuum_unsupported_writer_version_" + randomNameSuffix();
+        String directoryName = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName +
+                "(a INT)" +
+                "USING DELTA " +
+                "LOCATION '" + ("s3://" + bucketName + "/" + directoryName) + "'" +
+                "TBLPROPERTIES ('delta.minWriterVersion'='6')");
+        try {
+            assertThatThrownBy(() -> onTrino().executeQuery("CALL delta.system.vacuum('default', '" + tableName + "', '7d')"))
+                    .hasMessageContaining("Cannot execute vacuum procedure with 6 writer version");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
