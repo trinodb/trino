@@ -598,8 +598,10 @@ public class RedshiftClient
                         longTimestampWithTimeZoneWriteFunction()));
         }
 
-        // Fall back to default behavior
-        return legacyToColumnMapping(session, type);
+        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+            return mapToUnboundedVarchar(type);
+        }
+        return Optional.empty();
     }
 
     private Optional<ColumnMapping> legacyToColumnMapping(ConnectorSession session, JdbcTypeHandle typeHandle)
@@ -718,10 +720,7 @@ public class RedshiftClient
             return WriteMapping.objectMapping("timestamptz", longTimestampWithTimeZoneWriteFunction());
         }
 
-        // Fall back to legacy behavior
-        // TODO we should not fall back to legacy behavior, the mappings should be explicit (the legacyToWriteMapping
-        //  is just a copy of some generic default mappings that used to exist)
-        return legacyToWriteMapping(type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     @Override
