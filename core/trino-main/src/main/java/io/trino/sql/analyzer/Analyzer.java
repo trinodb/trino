@@ -114,7 +114,7 @@ public class Analyzer
     {
         List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), session, metadata);
 
-        List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate));
+        List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate), session, metadata);
 
         List<GroupingOperation> groupingOperations = extractExpressions(ImmutableList.of(predicate), GroupingOperation.class);
 

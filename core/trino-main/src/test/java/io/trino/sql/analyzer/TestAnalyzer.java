@@ -802,6 +802,15 @@ public class TestAnalyzer
         assertFails("SELECT * FROM t1 WHERE foo() over () > 1")
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessage("line 1:38: WHERE clause cannot contain aggregations, window functions or grouping operations: [foo() OVER ()]");
+        assertFails("SELECT * FROM t1 WHERE lag(t1.a) > t1.a")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:34: WHERE clause cannot contain aggregations, window functions or grouping operations: [lag(t1.a)]");
+        assertFails("SELECT * FROM t1 WHERE rank() > 1")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:31: WHERE clause cannot contain aggregations, window functions or grouping operations: [rank()]");
+        assertFails("SELECT * FROM t1 WHERE first_value(t1.a) > t1.a")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:42: WHERE clause cannot contain aggregations, window functions or grouping operations: [first_value(t1.a)]");
         assertFails("SELECT * FROM t1 GROUP BY rank() over ()")
                 .hasErrorCode(EXPRESSION_NOT_SCALAR)
                 .hasMessage("line 1:27: GROUP BY clause cannot contain aggregations, window functions or grouping operations: [rank() OVER ()]");
