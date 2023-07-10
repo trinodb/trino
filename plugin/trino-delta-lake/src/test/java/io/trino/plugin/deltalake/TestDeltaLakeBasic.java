@@ -61,6 +61,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
@@ -68,6 +69,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 import static org.testng.Assert.assertFalse;
 
 public class TestDeltaLakeBasic
@@ -559,6 +561,43 @@ public class TestDeltaLakeBasic
         assertQueryFails(
                 "INSERT INTO timestamp_ntz_partition VALUES (NULL, NULL)",
                 "Table .* requires Delta Lake writer version 7 which is not supported");
+    }
+
+    /**
+     * @see databricks.identity_columns
+     */
+    @Test
+    public void testIdentityColumns()
+            throws Exception
+    {
+        String tableName = "test_identity_columns_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("databricks/identity_columns").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        List<DeltaLakeTransactionLogEntry> transactionLog = getEntriesFromJson(0, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
+        assertThat(transactionLog).hasSize(3);
+        MetadataEntry metadataEntry = transactionLog.get(2).getMetaData();
+        assertThat(getColumnsMetadata(metadataEntry).get("b"))
+                .containsExactly(
+                        entry("delta.identity.start", 1),
+                        entry("delta.identity.step", 1),
+                        entry("delta.identity.allowExplicitInsert", false));
+
+        // Verify a column operation preserves delta.identity.* column properties
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".b IS 'test column comment'");
+
+        List<DeltaLakeTransactionLogEntry> transactionLogAfterComment = getEntriesFromJson(1, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
+        assertThat(transactionLogAfterComment).hasSize(3);
+        MetadataEntry commentMetadataEntry = transactionLogAfterComment.get(2).getMetaData();
+        assertThat(getColumnsMetadata(commentMetadataEntry).get("b"))
+                .containsExactly(
+                        entry("comment", "test column comment"),
+                        entry("delta.identity.start", 1),
+                        entry("delta.identity.step", 1),
+                        entry("delta.identity.allowExplicitInsert", false));
     }
 
     @Test
