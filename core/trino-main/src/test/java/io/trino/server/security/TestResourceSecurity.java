@@ -854,20 +854,22 @@ public class TestResourceSecurity
         };
     }
 
-    @Test
-    public void testJwtAndOAuth2AuthenticatorsSeparation()
+    @Test(dataProvider = "authenticators")
+    public void testJwtAndOAuth2AuthenticatorsSeparation(String authenticators)
             throws Exception
     {
         TestingHttpServer jwkServer = createTestingJwkServer();
         jwkServer.start();
-        try (TokenServer tokenServer = new TokenServer(Optional.empty());
+        try (TokenServer tokenServer = new TokenServer(Optional.of("preferred_username"));
                 TestingTrinoServer server = TestingTrinoServer.builder()
                         .setProperties(
                                 ImmutableMap.<String, String>builder()
                                         .putAll(SECURE_PROPERTIES)
-                                        .put("http-server.authentication.type", "jwt,oauth2")
+                                        .put("http-server.authentication.type", authenticators)
                                         .put("http-server.authentication.jwt.key-file", jwkServer.getBaseUrl().toString())
+                                        .put("http-server.authentication.jwt.principal-field", "sub")
                                         .putAll(getOAuth2Properties(tokenServer))
+                                        .put("http-server.authentication.oauth2.principal-field", "preferred_username")
                                         .put("web-ui.enabled", "true")
                                         .buildOrThrow())
                         .setAdditionalModule(oauth2Module(tokenServer))
@@ -899,6 +901,15 @@ public class TestResourceSecurity
                     .build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithJwt);
         }
+    }
+
+    @DataProvider(name = "authenticators")
+    public static Object[][] authenticators()
+    {
+        return new Object[][] {
+                {"jwt,oauth2"},
+                {"oauth2,jwt"}
+        };
     }
 
     @Test
