@@ -638,15 +638,6 @@ public class ClassLoaderSafeConnectorMetadata
         }
     }
 
-    @SuppressWarnings("removal")
-    @Override
-    public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getSchemaProperties(session, schemaName);
-        }
-    }
-
     @Override
     public Map<String, Object> getSchemaProperties(ConnectorSession session, String schemaName)
     {
