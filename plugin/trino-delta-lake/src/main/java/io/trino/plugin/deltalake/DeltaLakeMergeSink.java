@@ -330,7 +330,7 @@ public class DeltaLakeMergeSink
             Location sourceLocation = Location.of(sourcePath);
             String sourceRelativePath = relativePath(tablePath, sourcePath);
 
-            Location targetLocation = sourceLocation.parentDirectory().appendPath(session.getQueryId() + "_" + randomUUID());
+            Location targetLocation = sourceLocation.sibling(session.getQueryId() + "_" + randomUUID());
             String targetRelativePath = relativePath(tablePath, targetLocation.toString());
             FileWriter fileWriter = createParquetFileWriter(targetLocation, dataColumns);
 

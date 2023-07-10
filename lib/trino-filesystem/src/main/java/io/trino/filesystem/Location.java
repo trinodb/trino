@@ -178,6 +178,20 @@ public final class Location
     }
 
     /**
+     * Returns a new location with the same parent directory as the current location,
+     * but with the filename corresponding to the specified name.
+     * The location must be a valid file location.
+     */
+    public Location sibling(String name)
+    {
+        requireNonNull(name, "name is null");
+        checkArgument(!name.isEmpty(), "name is empty");
+        verifyValidFileLocation();
+
+        return this.withPath(location.substring(0, location.lastIndexOf('/') + 1) + name, path.substring(0, path.lastIndexOf('/') + 1) + name);
+    }
+
+    /**
      * Creates a new location with all characters removed after the last slash in the path.
      * This should only be used once, as recursive calls for blob paths may lead to incorrect results.
      *
