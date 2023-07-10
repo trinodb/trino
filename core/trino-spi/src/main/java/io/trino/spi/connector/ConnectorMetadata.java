@@ -795,21 +795,10 @@ public interface ConnectorMetadata
 
     /**
      * Gets the schema properties for the specified schema.
-     *
-     * @deprecated use {@link #getSchemaProperties(ConnectorSession, String)}
-     */
-    @Deprecated(forRemoval = true)
-    default Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
-    {
-        return Map.of();
-    }
-
-    /**
-     * Gets the schema properties for the specified schema.
      */
     default Map<String, Object> getSchemaProperties(ConnectorSession session, String schemaName)
     {
-        return getSchemaProperties(session, new CatalogSchemaName("invalid", schemaName));
+        return Map.of();
     }
 
     /**
