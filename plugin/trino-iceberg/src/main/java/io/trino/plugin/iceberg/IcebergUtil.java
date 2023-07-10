@@ -663,7 +663,11 @@ public final class IcebergUtil
         checkArgument(current.snapshotId() != baseSnapshotId, "No snapshot after %s in %s, current snapshot is %s", baseSnapshotId, table, current);
 
         while (true) {
-            checkArgument(current.parentId() != null, "Snapshot id %s is not valid in table %s, snapshot %s has no parent", baseSnapshotId, table, current);
+            if (current.parentId() == null) {
+                // Current is the first snapshot in the table, which means we reached end of table history not finding baseSnapshotId. This is possible
+                // when table was rolled back and baseSnapshotId is no longer referenced.
+                return Optional.empty();
+            }
             if (current.parentId() == baseSnapshotId) {
                 return Optional.of(current);
             }
