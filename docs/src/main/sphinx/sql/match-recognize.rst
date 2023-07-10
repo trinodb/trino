@@ -271,6 +271,8 @@ It is a sequence of components separated by ``|``. Exactly one of the
 components is matched. In case when multiple components can be matched, the
 leftmost matching component is chosen.
 
+.. _permute-function:
+
 permutation
 ^^^^^^^^^^^
 
@@ -488,6 +490,8 @@ all rows of the current match.
 It is forbidden to prefix a column name with a table name in the pattern
 recognition context.
 
+.. _classifier-function:
+
 classifier function
 ^^^^^^^^^^^^^^^^^^^
 
@@ -506,6 +510,8 @@ column references. The ``classifier`` function is particularly useful with a
 union variable as the argument. It allows you to determine which variable from
 the subset actually matched.
 
+.. _match-number-function:
+
 match_number function
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -516,6 +522,8 @@ match_number function
 The ``match_number`` function returns the sequential number of the match within
 partition, starting from ``1``. Empty matches are assigned sequential numbers
 as well as non-empty matches. The return type is ``bigint``.
+
+.. _logical-navigation-functions:
 
 logical navigation functions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -544,6 +552,8 @@ searched row is not found in the mach.
 The second argument is optional. The default value is ``0``, which means that
 by default these functions navigate to the first or last row of interest. If
 specified, the second argument must be a non-negative integer number.
+
+.. _physical-navigation-functions:
 
 physical navigation functions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

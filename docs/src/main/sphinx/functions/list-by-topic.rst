@@ -446,6 +446,17 @@ For more details, see :doc:`regexp`
 * :func:`regexp_replace`
 * :func:`regexp_split`
 
+Row pattern recognition expressions
+-----------------------------------
+
+* :ref:`classifier <classifier-function>`
+* :ref:`first <logical-navigation-functions>`
+* :ref:`last <logical-navigation-functions>`
+* :ref:`match_number <match-number-function>`
+* :ref:`next <physical-navigation-functions>`
+* :ref:`permute <permute-function>`
+* :ref:`prev <physical-navigation-functions>`
+
 Session
 -------
 

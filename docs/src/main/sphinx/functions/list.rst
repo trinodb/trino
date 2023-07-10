@@ -95,6 +95,7 @@ C
 - :func:`checksum`
 - :func:`chr`
 - :func:`classify`
+- :ref:`classifier <classifier-function>`
 - :ref:`coalesce <coalesce-function>`
 - :func:`codepoint`
 - :func:`color`
@@ -157,6 +158,7 @@ F
 
 - :func:`features`
 - :func:`filter`
+- :ref:`first <logical-navigation-functions>`
 - :func:`first_value`
 - :func:`flatten`
 - :func:`floor`
@@ -252,6 +254,7 @@ L
 -
 
 - :func:`lag`
+- :ref:`last <logical-navigation-functions>`
 - :func:`last_day_of_month`
 - :func:`last_value`
 - :func:`lead`
@@ -291,6 +294,7 @@ M
 - :func:`map_union`
 - :func:`map_values`
 - :func:`map_zip_with`
+- :ref:`match_number <match-number-function>`
 - :func:`max`
 - :func:`max_by`
 - :func:`md5`
@@ -310,6 +314,7 @@ N
 -
 
 - :func:`nan`
+- :ref:`next <physical-navigation-functions>`
 - :func:`ngrams`
 - :func:`none_match`
 - :func:`normal_cdf`
@@ -336,10 +341,12 @@ P
 - :func:`parse_duration`
 - :func:`parse_data_size`
 - :func:`percent_rank`
+- :ref:`permute <permute-function>`
 - :func:`pi`
 - :func:`position`
 - :func:`pow`
 - :func:`power`
+- :ref:`prev <physical-navigation-functions>`
 
 Q
 -
