@@ -15,6 +15,8 @@ package io.trino.plugin.exchange.hdfs;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.trino.hdfs.HdfsModule;
+import io.trino.hdfs.authentication.HdfsAuthenticationModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.jmx.PrefixObjectNameGeneratorModule;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManager;
@@ -46,6 +48,8 @@ public class HdfsExchangeManagerFactory
                 new MBeanModule(),
                 new MBeanServerModule(),
                 new PrefixObjectNameGeneratorModule("io.trino.plugin.exchange.hdfs", "trino.plugin.exchange.hdfs"),
+                new HdfsModule(),
+                new HdfsAuthenticationModule(),
                 new HdfsExchangeModule());
 
         Injector injector = app
