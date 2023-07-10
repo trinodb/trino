@@ -604,7 +604,20 @@ as the spooling storage destination.
 
     exchange-manager.name=hdfs
     exchange.base-directories=hadoop-master:9000/exchange-spooling-directory
-    hdfs.config.resources=/usr/lib/hadoop/etc/hadoop/core-site.xml
+    hive.config.resources=/usr/lib/hadoop/etc/hadoop/core-site.xml
+
+In a Kerberized Hadoop cluster, to support kerberos authentication for HDFS as the
+spooling storage destination, kerberos authentication for HDFS is configured in
+:ref:`HDFS authentication <hive-security-hdfs-authentication>`
+
+.. note::
+
+    When using ``KERBEROS`` authentication with impersonation, Trino impersonates
+    the user who is running the query when accessing HDFS. You can config the proxied user as:
+
+.. code-block:: properties
+
+    hdfs.proxy-user=username
 
 .. _fte-exchange-local-filesystem:
 
