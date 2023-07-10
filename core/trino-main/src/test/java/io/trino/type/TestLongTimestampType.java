@@ -13,13 +13,15 @@
  */
 package io.trino.type;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type.Range;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -65,24 +67,28 @@ public class TestLongTimestampType
         assertEquals(range.getMax(), new LongTimestamp(Long.MAX_VALUE, 999_000));
     }
 
-    @Test(dataProvider = "testRangeEveryPrecisionDataProvider")
-    public void testRangeEveryPrecision(int precision, LongTimestamp expectedMax)
+    @Test
+    public void testRangeEveryPrecision()
     {
-        Range range = createTimestampType(precision).getRange().orElseThrow();
-        assertEquals(range.getMin(), new LongTimestamp(Long.MIN_VALUE, 0));
-        assertEquals(range.getMax(), expectedMax);
+        for (MaxPrecision entry : maxPrecisions()) {
+            Range range = createTimestampType(entry.precision()).getRange().orElseThrow();
+            assertEquals(range.getMin(), new LongTimestamp(Long.MIN_VALUE, 0));
+            assertEquals(range.getMax(), entry.expectedMax());
+        }
     }
 
-    @DataProvider
-    public static Object[][] testRangeEveryPrecisionDataProvider()
+    public static List<MaxPrecision> maxPrecisions()
     {
-        return new Object[][] {
-                {7, new LongTimestamp(Long.MAX_VALUE, 900_000)},
-                {8, new LongTimestamp(Long.MAX_VALUE, 990_000)},
-                {9, new LongTimestamp(Long.MAX_VALUE, 999_000)},
-                {10, new LongTimestamp(Long.MAX_VALUE, 999_900)},
-                {11, new LongTimestamp(Long.MAX_VALUE, 999_990)},
-                {12, new LongTimestamp(Long.MAX_VALUE, 999_999)},
-        };
+        return ImmutableList.of(
+                new MaxPrecision(7, new LongTimestamp(Long.MAX_VALUE, 900_000)),
+                new MaxPrecision(8, new LongTimestamp(Long.MAX_VALUE, 990_000)),
+                new MaxPrecision(9, new LongTimestamp(Long.MAX_VALUE, 999_000)),
+                new MaxPrecision(10, new LongTimestamp(Long.MAX_VALUE, 999_900)),
+                new MaxPrecision(11, new LongTimestamp(Long.MAX_VALUE, 999_990)),
+                new MaxPrecision(12, new LongTimestamp(Long.MAX_VALUE, 999_999)));
+    }
+
+    record MaxPrecision(int precision, LongTimestamp expectedMax)
+    {
     }
 }
