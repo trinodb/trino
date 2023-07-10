@@ -224,18 +224,6 @@ public interface ConnectorMetadata
      */
     default SchemaTableName getTableName(ConnectorSession session, ConnectorTableHandle table)
     {
-        return getSchemaTableName(session, table);
-    }
-
-    /**
-     * Return schema table name for the specified table handle.
-     * This method is useful when requiring only {@link SchemaTableName} without other objects.
-     *
-     * @throws RuntimeException if table handle is no longer valid
-     */
-    @Deprecated // replaced with getTableName
-    default SchemaTableName getSchemaTableName(ConnectorSession session, ConnectorTableHandle table)
-    {
         return getTableSchema(session, table).getTable();
     }
 
