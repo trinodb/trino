@@ -18,7 +18,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionXxHash64;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.doubleToLongBits;

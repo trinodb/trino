@@ -19,7 +19,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type.Range;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
