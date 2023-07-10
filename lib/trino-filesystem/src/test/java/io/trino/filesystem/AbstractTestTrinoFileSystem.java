@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem;
 
+import com.google.common.collect.Ordering;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -634,7 +635,7 @@ public abstract class AbstractTestTrinoFileSystem
             throws IOException
     {
         try (Closer closer = Closer.create()) {
-            Set<Location> locations = createTestDirectoryStructure(closer);
+            Set<Location> locations = createTestDirectoryStructure(closer, isHierarchical());
 
             getFileSystem().deleteFiles(locations);
             for (Location location : locations) {
@@ -644,14 +645,20 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
-    void testDeleteDirectory()
+    public void testDeleteDirectory()
+            throws IOException
+    {
+        testDeleteDirectory(isHierarchical());
+    }
+
+    protected void testDeleteDirectory(boolean hierarchicalNamingConstraints)
             throws IOException
     {
         // for safety make sure the file system is empty before deleting directories
         verifyFileSystemIsEmpty();
 
         try (Closer closer = Closer.create()) {
-            Set<Location> locations = createTestDirectoryStructure(closer);
+            Set<Location> locations = createTestDirectoryStructure(closer, hierarchicalNamingConstraints);
 
             // for safety make sure the verification code is functioning
             assertThatThrownBy(this::verifyFileSystemIsEmpty)
@@ -672,8 +679,8 @@ public abstract class AbstractTestTrinoFileSystem
 
             getFileSystem().deleteDirectory(createLocation("level0"));
             Location deletedLocationPrefix = createLocation("level0/");
-            for (Location location : locations) {
-                assertThat(getFileSystem().newInputFile(location).exists())
+            for (Location location : Ordering.usingToString().sortedCopy(locations)) {
+                assertThat(getFileSystem().newInputFile(location).exists()).as("%s exists", location)
                         .isEqualTo(!location.toString().startsWith(deletedLocationPrefix.toString()));
             }
 
@@ -774,11 +781,17 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
-    void testListFiles()
+    public void testListFiles()
+            throws IOException
+    {
+        testListFiles(isHierarchical());
+    }
+
+    protected void testListFiles(boolean hierarchicalNamingConstraints)
             throws IOException
     {
         try (Closer closer = Closer.create()) {
-            Set<Location> locations = createTestDirectoryStructure(closer);
+            Set<Location> locations = createTestDirectoryStructure(closer, hierarchicalNamingConstraints);
 
             assertThat(listPath("")).containsExactlyInAnyOrderElementsOf(locations);
 
@@ -817,7 +830,7 @@ public abstract class AbstractTestTrinoFileSystem
                 assertThat(listPath("level0-file0")).isEmpty();
             }
 
-            if (!isHierarchical()) {
+            if (!hierarchicalNamingConstraints) {
                 // this lists a path in a directory with an empty name
                 assertThat(listPath("/")).isEmpty();
             }
@@ -899,22 +912,22 @@ public abstract class AbstractTestTrinoFileSystem
         return tempBlob;
     }
 
-    private Set<Location> createTestDirectoryStructure(Closer closer)
+    private Set<Location> createTestDirectoryStructure(Closer closer, boolean hierarchicalNamingConstraints)
     {
         Set<Location> locations = new HashSet<>();
-        if (!isHierarchical()) {
+        if (!hierarchicalNamingConstraints) {
             locations.add(createBlob(closer, "level0"));
         }
         locations.add(createBlob(closer, "level0-file0"));
         locations.add(createBlob(closer, "level0-file1"));
         locations.add(createBlob(closer, "level0-file2"));
-        if (!isHierarchical()) {
+        if (!hierarchicalNamingConstraints) {
             locations.add(createBlob(closer, "level0/level1"));
         }
         locations.add(createBlob(closer, "level0/level1-file0"));
         locations.add(createBlob(closer, "level0/level1-file1"));
         locations.add(createBlob(closer, "level0/level1-file2"));
-        if (!isHierarchical()) {
+        if (!hierarchicalNamingConstraints) {
             locations.add(createBlob(closer, "level0/level1/level2"));
         }
         locations.add(createBlob(closer, "level0/level1/level2-file0"));
