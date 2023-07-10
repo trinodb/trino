@@ -18,7 +18,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.sql.planner.rowpattern.ir.IrQuantifier;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

@@ -35,9 +35,10 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -69,9 +70,11 @@ import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.Failures.WORKER_NODE_ERROR;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestHttpPageBufferClient
 {
     private ScheduledExecutorService scheduler;
@@ -79,14 +82,14 @@ public class TestHttpPageBufferClient
 
     private static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 0, 0);
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (scheduler != null) {

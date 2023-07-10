@@ -19,7 +19,7 @@ import io.trino.SequencePageBuilder;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
