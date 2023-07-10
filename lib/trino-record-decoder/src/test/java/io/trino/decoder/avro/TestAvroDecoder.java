@@ -848,9 +848,9 @@ public class TestAvroDecoder
 
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_ARRAY_OF_MAP_TYPE, "map_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
-        assertThatThrownBy(() -> checkArrayValue(decodedRow, row, mismatchedData))
+        assertThatThrownBy(() -> checkMapValue(decodedRow, row, mismatchedData))
                 .isInstanceOf(AssertionError.class)
-                .hasMessage("Unexpected type expected [true] but found [false]");
+                .hasMessageStartingWith("Key not found: sk3");
     }
 
     @Test
@@ -873,9 +873,9 @@ public class TestAvroDecoder
 
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", MAP_OF_ARRAY_OF_MAP_TYPE, "map_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "map_field", schema.toString(), data);
-        assertThatThrownBy(() -> checkArrayValue(decodedRow, row, mismatchedData))
+        assertThatThrownBy(() -> checkMapValue(decodedRow, row, mismatchedData))
                 .isInstanceOf(AssertionError.class)
-                .hasMessage("Unexpected type expected [true] but found [false]");
+                .hasMessageMatching("expected \\[-2\\..*] but found \\[2\\..*]");
     }
 
     @Test
@@ -930,7 +930,7 @@ public class TestAvroDecoder
                 "key4", "def",
                 "key3", "zyx")))
                 .isInstanceOf(AssertionError.class)
-                .hasMessage("expected [true] but found [false]");
+                .hasMessageStartingWith("Key not found: key2");
     }
 
     @Test
@@ -1140,6 +1140,11 @@ public class TestAvroDecoder
     private static void checkArrayValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Object expected)
     {
         checkArrayValues((Block) getObject(decodedRow, handle), handle.getType(), expected);
+    }
+
+    private static void checkMapValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Object expected)
+    {
+        checkMapValues((SqlMap) getObject(decodedRow, handle), handle.getType(), expected);
     }
 
     private static void checkArrayItemIsNull(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, long[] expected)

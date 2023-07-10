@@ -22,6 +22,7 @@ import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
@@ -274,12 +275,16 @@ public class JsonSerializer
         public void writeNonNull(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
-            Block mapBlock = requireNonNull(mapType.getObject(block, position));
+            SqlMap sqlMap = requireNonNull(mapType.getObject(block, position));
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
+
             generator.writeStartObject();
-            for (int mapIndex = 0; mapIndex < mapBlock.getPositionCount(); mapIndex += 2) {
-                checkArgument(!mapBlock.isNull(mapIndex), "map key is null");
-                generator.writeFieldName(toMapKey.apply(mapBlock, mapIndex));
-                valueWriter.writeValue(generator, mapBlock, mapIndex + 1);
+            for (int i = 0; i < sqlMap.getSize(); i++) {
+                checkArgument(!rawKeyBlock.isNull(rawOffset + i), "map key is null");
+                generator.writeFieldName(toMapKey.apply(rawKeyBlock, rawOffset + i));
+                valueWriter.writeValue(generator, rawValueBlock, rawOffset + i);
             }
             generator.writeEndObject();
         }
