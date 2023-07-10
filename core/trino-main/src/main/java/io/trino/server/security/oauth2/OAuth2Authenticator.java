@@ -78,9 +78,12 @@ public class OAuth2Authenticator
         if (claims.isEmpty()) {
             return Optional.empty();
         }
-        String principal = (String) claims.get().get(principalField);
-        Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal));
-        builder.withPrincipal(new BasicPrincipal(principal));
+        Optional<String> principal = Optional.ofNullable((String) claims.get().get(principalField));
+        if (principal.isEmpty()) {
+            return Optional.empty();
+        }
+        Identity.Builder builder = Identity.forUser(userMapping.mapUser(principal.get()));
+        builder.withPrincipal(new BasicPrincipal(principal.get()));
         groupsField.flatMap(field -> Optional.ofNullable((List<String>) claims.get().get(field)))
                 .ifPresent(groups -> builder.withGroups(ImmutableSet.copyOf(groups)));
         return Optional.of(builder.build());
