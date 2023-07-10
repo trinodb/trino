@@ -38,10 +38,12 @@ import io.trino.array.IntBigArray;
 import io.trino.array.LongBigArray;
 import io.trino.array.ObjectBigArray;
 import io.trino.array.SliceBigArray;
+import io.trino.array.SqlMapBigArray;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RowValueBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateMetadata;
@@ -137,6 +139,9 @@ public final class StateCompiler
         }
         if (type.equals(Block.class)) {
             return BlockBigArray.class;
+        }
+        if (type.equals(SqlMap.class)) {
+            return SqlMapBigArray.class;
         }
         return ObjectBigArray.class;
     }

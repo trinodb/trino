@@ -79,24 +79,22 @@ public final class ColumnarTestUtils
         else if (expectedValue instanceof Slice[][] expected) {
             // map
             SqlMap actual = block.getObject(position, SqlMap.class);
-            // a map is exposed as a block alternating key and value entries, so we need to flatten the expected values array
-            assertBlock(actual, flattenMapEntries(expected));
+
+            Block actualKeys = actual.getRawKeyBlock().getRegion(actual.getRawOffset(), actual.getSize());
+            Slice[] expectedKeys = Arrays.stream(expected)
+                    .map(pair -> pair[0])
+                    .toArray(Slice[]::new);
+            assertBlock(actualKeys, expectedKeys);
+
+            Block actualValues = actual.getRawValueBlock().getRegion(actual.getRawOffset(), actual.getSize());
+            Slice[] expectedValues = Arrays.stream(expected)
+                    .map(pair -> pair[1])
+                    .toArray(Slice[]::new);
+            assertBlock(actualValues, expectedValues);
         }
         else {
             throw new IllegalArgumentException(expectedValue.getClass().getName());
         }
-    }
-
-    private static Slice[] flattenMapEntries(Slice[][] mapEntries)
-    {
-        Slice[] flattened = new Slice[mapEntries.length * 2];
-        for (int i = 0; i < mapEntries.length; i++) {
-            Slice[] mapEntry = mapEntries[i];
-            assertEquals(mapEntry.length, 2);
-            flattened[i * 2] = mapEntry[0];
-            flattened[i * 2 + 1] = mapEntry[1];
-        }
-        return flattened;
     }
 
     public static <T> T[] alternatingNullValues(T[] objects)
