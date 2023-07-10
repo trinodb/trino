@@ -36,7 +36,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.union;
-import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TWO_TRAILING_SLASHES;
 import static io.trino.plugin.hive.S3Assert.s3Path;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -45,7 +44,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseS3AndGlueMetastoreTest
         extends AbstractTestQueryFramework
@@ -109,12 +107,6 @@ public abstract class BaseS3AndGlueMetastoreTest
             assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
-            if (locationPattern == TWO_TRAILING_SLASHES && !partitioned && getClass().getName().contains(".deltalake.")) {
-                // TODO (https://github.com/trinodb/trino/issues/17966): updates fail when Delta table is declared with location ending with two slashes
-                assertThatThrownBy(() -> query("UPDATE " + tableName + " SET col_str = 'other' WHERE col_int = 2"))
-                        .hasMessageMatching("path \\[(s3://.*)/([-a-zA-Z0-9_]+)] must be a subdirectory of basePath \\[(\\1)//]");
-                return;
-            }
             assertUpdate("UPDATE " + tableName + " SET col_str = 'other' WHERE col_int = 2", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str3', 3), ('str4', 4)");
 
@@ -186,13 +178,6 @@ public abstract class BaseS3AndGlueMetastoreTest
                     " WHEN NOT MATCHED THEN INSERT VALUES ('str4', 4)", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
-            if (locationPattern == TWO_TRAILING_SLASHES && !partitioned && getClass().getName().contains(".deltalake.")) {
-                // TODO (https://github.com/trinodb/trino/issues/17966): merge fails when Delta table is declared with location ending with two slashes
-                assertThatThrownBy(() -> query("MERGE INTO " + tableName + " USING (VALUES 2) t(x) ON col_int = x" +
-                        " WHEN MATCHED THEN UPDATE SET col_str = 'other'"))
-                        .hasMessageMatching("path \\[(s3://.*)/([-a-zA-Z0-9_]+)] must be a subdirectory of basePath \\[(\\1)//]");
-                return;
-            }
             assertUpdate("MERGE INTO " + tableName + " USING (VALUES 2) t(x) ON col_int = x" +
                     " WHEN MATCHED THEN UPDATE SET col_str = 'other'", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str3', 3), ('str4', 4)");
