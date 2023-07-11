@@ -32,9 +32,4 @@ public class PinotInsufficientServerResponseException
     {
         super(PINOT_INSUFFICIENT_SERVER_RESPONSE, Optional.of(query.getQuery()), message, true);
     }
-
-    public PinotInsufficientServerResponseException(String message)
-    {
-        super(PINOT_INSUFFICIENT_SERVER_RESPONSE, Optional.empty(), message, true);
-    }
 }

@@ -28,9 +28,7 @@ public class PinotProxyGrpcRequestBuilder
 
     private String hostName;
     private int port = -1;
-    private int requestId;
     private String brokerId = "unknown";
-    private boolean enableTrace;
     private boolean enableStreaming;
     private String payloadType;
     private String sql;
@@ -45,24 +43,6 @@ public class PinotProxyGrpcRequestBuilder
     public PinotProxyGrpcRequestBuilder setPort(int port)
     {
         this.port = port;
-        return this;
-    }
-
-    public PinotProxyGrpcRequestBuilder setRequestId(int requestId)
-    {
-        this.requestId = requestId;
-        return this;
-    }
-
-    public PinotProxyGrpcRequestBuilder setBrokerId(String brokerId)
-    {
-        this.brokerId = brokerId;
-        return this;
-    }
-
-    public PinotProxyGrpcRequestBuilder setEnableTrace(boolean enableTrace)
-    {
-        this.enableTrace = enableTrace;
         return this;
     }
 
@@ -91,9 +71,9 @@ public class PinotProxyGrpcRequestBuilder
             throw new RuntimeException("Only [SQL] Payload type is allowed: " + payloadType);
         }
         Map<String, String> metadata = new HashMap<>();
-        metadata.put(CommonConstants.Query.Request.MetadataKeys.REQUEST_ID, Integer.toString(requestId));
+        metadata.put(CommonConstants.Query.Request.MetadataKeys.REQUEST_ID, "0");
         metadata.put(CommonConstants.Query.Request.MetadataKeys.BROKER_ID, brokerId);
-        metadata.put(CommonConstants.Query.Request.MetadataKeys.ENABLE_TRACE, Boolean.toString(enableTrace));
+        metadata.put(CommonConstants.Query.Request.MetadataKeys.ENABLE_TRACE, "false");
         metadata.put(CommonConstants.Query.Request.MetadataKeys.ENABLE_STREAMING, Boolean.toString(enableStreaming));
         metadata.put(CommonConstants.Query.Request.MetadataKeys.PAYLOAD_TYPE, payloadType);
         if (this.hostName != null) {

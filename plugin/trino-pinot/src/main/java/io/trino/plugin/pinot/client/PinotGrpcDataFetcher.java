@@ -95,7 +95,7 @@ public class PinotGrpcDataFetcher
     {
         long startTimeNanos = System.nanoTime();
         String serverHost = split.getSegmentHost().orElseThrow(() -> new PinotException(PinotErrorCode.PINOT_INVALID_PQL_GENERATED, Optional.empty(), "Expected the segment split to contain the host"));
-        this.responseIterator = pinotGrpcClient.queryPinot(null, query, serverHost, split.getSegments());
+        this.responseIterator = pinotGrpcClient.queryPinot(query, serverHost, split.getSegments());
         readTimeNanos += System.nanoTime() - startTimeNanos;
         isPinotDataFetched = true;
     }
@@ -236,7 +236,7 @@ public class PinotGrpcDataFetcher
             this.proxyUri = pinotGrpcServerQueryClientConfig.getProxyUri();
         }
 
-        public Iterator<PinotDataTableWithSize> queryPinot(ConnectorSession session, String query, String serverHost, List<String> segments)
+        public Iterator<PinotDataTableWithSize> queryPinot(String query, String serverHost, List<String> segments)
         {
             HostAndPort mappedHostAndPort = pinotHostMapper.getServerGrpcHostAndPort(serverHost, grpcPort);
             // GrpcQueryClient does not implement Closeable. The idle timeout is 30 minutes (grpc default).

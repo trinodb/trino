@@ -27,11 +27,6 @@ public class PinotPlugin
 {
     private final Optional<Module> extension;
 
-    public PinotPlugin()
-    {
-        this(Optional.empty());
-    }
-
     public PinotPlugin(Optional<Module> extension)
     {
         this.extension = requireNonNull(extension, "extension is null");

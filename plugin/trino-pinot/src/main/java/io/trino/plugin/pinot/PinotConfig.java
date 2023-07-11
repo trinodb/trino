@@ -109,7 +109,6 @@ public class PinotConfig
         return this;
     }
 
-    @NotNull
     public int getEstimatedSizeInBytesForNonNumericColumn()
     {
         return estimatedSizeInBytesForNonNumericColumn;
