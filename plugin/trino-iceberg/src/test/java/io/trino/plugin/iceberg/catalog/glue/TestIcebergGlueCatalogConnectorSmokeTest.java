@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.DeleteTableRequest;
+import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.GetTableRequest;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
@@ -153,8 +154,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                 .withDatabaseName(schemaName)
                 .withName(tableName);
         assertThatThrownBy(() -> glueClient.getTable(getTableRequest))
-                .as("Table in metastore should not exist")
-                .hasMessageMatching(".*Table (.*) not found.*");
+                .isInstanceOf(EntityNotFoundException.class);
     }
 
     @Override
