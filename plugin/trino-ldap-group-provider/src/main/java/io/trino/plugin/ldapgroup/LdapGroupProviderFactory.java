@@ -15,6 +15,7 @@ package io.trino.plugin.ldapgroup;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.trino.plugin.base.group.CachingGroupProviderModule;
 import io.trino.plugin.base.ldap.LdapClientModule;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.GroupProviderFactory;
@@ -38,6 +39,7 @@ public class LdapGroupProviderFactory
         requireNonNull(requiredConfig, "config is null");
 
         Bootstrap app = new Bootstrap(
+                CachingGroupProviderModule.create(),
                 new LdapClientModule(),
                 new LdapGroupProviderModule());
 
