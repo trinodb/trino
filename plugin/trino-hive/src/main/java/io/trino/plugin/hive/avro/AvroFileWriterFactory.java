@@ -55,7 +55,7 @@ import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static java.util.Objects.requireNonNull;
 
-public class AvroHiveFileWriterFactory
+public class AvroFileWriterFactory
         implements HiveFileWriterFactory
 {
     private final TrinoFileSystemFactory fileSystemFactory;
@@ -63,7 +63,7 @@ public class AvroHiveFileWriterFactory
     private final NodeVersion nodeVersion;
 
     @Inject
-    public AvroHiveFileWriterFactory(
+    public AvroFileWriterFactory(
             TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             NodeVersion nodeVersion)
