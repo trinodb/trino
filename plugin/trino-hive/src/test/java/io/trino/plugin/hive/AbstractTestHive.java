@@ -833,6 +833,7 @@ public abstract class AbstractTestHive
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
+                getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 hdfsEnvironment,
                 partitionManager,
