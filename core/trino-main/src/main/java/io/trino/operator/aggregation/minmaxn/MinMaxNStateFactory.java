@@ -45,12 +45,13 @@ public final class MinMaxNStateFactory
         public final void merge(MinMaxNState other)
         {
             SqlRow sqlRow = ((SingleMinMaxNState) other).removeTempSerializedState();
+            int rawIndex = sqlRow.getRawIndex();
 
-            int capacity = toIntExact(BIGINT.getLong(sqlRow, 0));
+            int capacity = toIntExact(BIGINT.getLong(sqlRow.getRawFieldBlock(0), rawIndex));
             initialize(capacity);
             TypedHeap typedHeap = getTypedHeap();
 
-            Block values = new ArrayType(typedHeap.getElementType()).getObject(sqlRow, 1);
+            Block values = new ArrayType(typedHeap.getElementType()).getObject(sqlRow.getRawFieldBlock(1), rawIndex);
             typedHeap.addAll(values);
         }
 

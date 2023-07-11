@@ -399,7 +399,7 @@ public class ExpressionInterpreter
             }
 
             checkState(index >= 0, "could not find field name: %s", fieldName);
-            return readNativeValue(returnType, row, index);
+            return readNativeValue(returnType, row.getRawFieldBlock(index), row.getRawIndex());
         }
 
         @Override
@@ -1550,12 +1550,12 @@ public class ExpressionInterpreter
 
             // Subscript on Row hasn't got a dedicated operator. It is interpreted by hand.
             if (base instanceof SqlRow row) {
-                int position = toIntExact((long) index - 1);
-                if (position < 0 || position >= row.getPositionCount()) {
-                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (position + 1));
+                int fieldIndex = toIntExact((long) index - 1);
+                if (fieldIndex < 0 || fieldIndex >= row.getFieldCount()) {
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (fieldIndex + 1));
                 }
-                Type returnType = type(node.getBase()).getTypeParameters().get(position);
-                return readNativeValue(returnType, row, position);
+                Type returnType = type(node.getBase()).getTypeParameters().get(fieldIndex);
+                return readNativeValue(returnType, row.getRawFieldBlock(fieldIndex), row.getRawIndex());
             }
 
             // Subscript on Array or Map is interpreted using operator.

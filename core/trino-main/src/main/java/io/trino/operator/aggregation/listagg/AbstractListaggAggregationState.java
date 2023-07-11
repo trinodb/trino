@@ -223,8 +223,8 @@ public abstract class AbstractListaggAggregationState
     {
         SqlRow sqlRow = ((SingleListaggAggregationState) other).removeTempSerializedState();
 
-        List<Block> fields = sqlRow.getChildren();
-        int index = sqlRow.getRowIndex();
+        List<Block> fields = sqlRow.getRawFieldBlocks();
+        int index = sqlRow.getRawIndex();
         Slice separator = VARCHAR.getSlice(fields.get(0), index);
         boolean overflowError = BOOLEAN.getBoolean(fields.get(1), index);
         Slice overflowFiller = VARCHAR.getSlice(fields.get(2), index);

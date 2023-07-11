@@ -187,10 +187,10 @@ public class RowToRowCast
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
-        Variable fieldBlocks = scope.createTempVariable(Block[].class);
-        body.append(fieldBlocks.set(newArray(type(Block[].class), toTypes.size())));
+        Variable fieldBlocks = scope.declareVariable("fieldBlocks", body, newArray(type(Block[].class), toTypes.size()));
+        Variable rawIndex = scope.declareVariable("rawIndex", body, row.invoke("getRawIndex", int.class));
 
-        Variable fieldBuilder = scope.createTempVariable(BlockBuilder.class);
+        Variable fieldBuilder = scope.declareVariable(BlockBuilder.class, "fieldBuilder");
         for (int i = 0; i < toTypes.size(); i++) {
             Type fromElementType = fromTypes.get(i);
             Type toElementType = toTypes.get(i);
@@ -215,8 +215,8 @@ public class RowToRowCast
                         castAndWrite.type(),
                         fieldBuilder,
                         session,
-                        row,
-                        constantInt(i)));
+                        row.invoke("getRawFieldBlock", Block.class, constantInt(i)),
+                        rawIndex));
             }
             body.append(fieldBlocks.setElement(i, fieldBuilder.invoke("build", Block.class)));
         }

@@ -411,9 +411,12 @@ public class EffectivePredicateExtractor
                     if (evaluated instanceof Expression) {
                         return TRUE_LITERAL;
                     }
+                    SqlRow sqlRow = (SqlRow) evaluated;
+                    int rawIndex = sqlRow.getRawIndex();
                     for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                         Type type = types.get(node.getOutputSymbols().get(i));
-                        Object item = readNativeValue(type, (SqlRow) evaluated, i);
+                        Block fieldBlock = sqlRow.getRawFieldBlock(i);
+                        Object item = readNativeValue(type, fieldBlock, rawIndex);
                         if (item == null) {
                             hasNull[i] = true;
                         }
@@ -474,10 +477,11 @@ public class EffectivePredicateExtractor
         {
             if (type instanceof RowType rowType) {
                 SqlRow sqlRow = (SqlRow) value;
+                int rawIndex = sqlRow.getRawIndex();
                 for (int i = 0; i < rowType.getFields().size(); i++) {
                     Type elementType = rowType.getFields().get(i).getType();
-
-                    if (sqlRow.isNull(i) || elementHasNulls(elementType, sqlRow, i)) {
+                    Block fieldBlock = sqlRow.getRawFieldBlock(i);
+                    if (fieldBlock.isNull(rawIndex) || elementHasNulls(elementType, fieldBlock, rawIndex)) {
                         return true;
                     }
                 }
@@ -498,8 +502,8 @@ public class EffectivePredicateExtractor
 
         private boolean elementHasNulls(Type elementType, Block container, int position)
         {
-            if (elementType instanceof RowType) {
-                SqlRow element = (SqlRow) elementType.getObject(container, position);
+            if (elementType instanceof RowType rowType) {
+                SqlRow element = rowType.getObject(container, position);
                 return hasNestedNulls(elementType, element);
             }
             if (elementType instanceof ArrayType) {

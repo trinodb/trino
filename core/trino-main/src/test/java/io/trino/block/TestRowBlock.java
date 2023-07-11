@@ -178,19 +178,21 @@ public class TestRowBlock
 
         assertFalse(rowBlock.isNull(position));
         SqlRow sqlRow = rowBlock.getObject(position, SqlRow.class);
-        assertEquals(sqlRow.getPositionCount(), row.size());
+        assertEquals(sqlRow.getFieldCount(), row.size());
 
+        int rawIndex = sqlRow.getRawIndex();
         for (int i = 0; i < row.size(); i++) {
             Object fieldValue = row.get(i);
+            Block rawFieldBlock = sqlRow.getRawFieldBlock(i);
             if (fieldValue == null) {
-                assertTrue(sqlRow.isNull(i));
+                assertTrue(rawFieldBlock.isNull(rawIndex));
             }
             else {
                 if (fieldValue instanceof Long) {
-                    assertEquals(BIGINT.getLong(sqlRow, i), ((Long) fieldValue).longValue());
+                    assertEquals(BIGINT.getLong(rawFieldBlock, rawIndex), ((Long) fieldValue).longValue());
                 }
                 else if (fieldValue instanceof String) {
-                    assertEquals(VARCHAR.getSlice(sqlRow, i), utf8Slice((String) fieldValue));
+                    assertEquals(VARCHAR.getSlice(rawFieldBlock, rawIndex), utf8Slice((String) fieldValue));
                 }
                 else {
                     throw new IllegalArgumentException();

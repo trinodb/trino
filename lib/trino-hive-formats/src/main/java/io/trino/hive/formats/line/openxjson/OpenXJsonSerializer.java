@@ -233,12 +233,14 @@ public class OpenXJsonSerializer
         else if (type instanceof RowType rowType) {
             List<Field> fields = rowType.getFields();
             SqlRow sqlRow = rowType.getObject(block, position);
+            int rawIndex = sqlRow.getRawIndex();
 
             Map<String, Object> jsonObject = new LinkedHashMap<>();
             for (int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++) {
                 Field field = fields.get(fieldIndex);
+                Block fieldBlock = sqlRow.getRawFieldBlock(fieldIndex);
                 String fieldName = field.getName().orElseThrow();
-                Object fieldValue = writeValue(field.getType(), sqlRow, fieldIndex);
+                Object fieldValue = writeValue(field.getType(), fieldBlock, rawIndex);
                 if (options.isExplicitNull() || fieldValue != null) {
                     jsonObject.put(fieldName, fieldValue);
                 }

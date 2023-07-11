@@ -86,7 +86,7 @@ public class TestOrcWithoutRowGroupInfo
 
             for (int position = 0; position < page.getPositionCount(); position++) {
                 SqlRow sqlRow = rowType.getObject(rowBlock, 0);
-                BIGINT.getLong(sqlRow, 0);
+                BIGINT.getLong(sqlRow.getRawFieldBlock(0), sqlRow.getRawIndex());
             }
         }
 

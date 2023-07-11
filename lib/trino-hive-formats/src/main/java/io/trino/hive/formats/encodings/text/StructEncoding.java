@@ -50,16 +50,18 @@ public class StructEncoding
             throws FileCorruptionException
     {
         SqlRow row = block.getObject(position, SqlRow.class);
+        int rawIndex = row.getRawIndex();
         for (int fieldIndex = 0; fieldIndex < structFields.size(); fieldIndex++) {
             if (fieldIndex > 0) {
                 output.writeByte(separator);
             }
 
-            if (row.isNull(fieldIndex)) {
+            Block fieldBlock = row.getRawFieldBlock(fieldIndex);
+            if (fieldBlock.isNull(rawIndex)) {
                 output.writeBytes(nullSequence);
             }
             else {
-                structFields.get(fieldIndex).encodeValueInto(row, fieldIndex, output);
+                structFields.get(fieldIndex).encodeValueInto(fieldBlock, rawIndex, output);
             }
         }
     }

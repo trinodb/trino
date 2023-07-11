@@ -32,7 +32,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
@@ -68,11 +68,11 @@ public class JsonValueFunction
         extends SqlScalarFunction
 {
     public static final String JSON_VALUE_FUNCTION_NAME = "$json_value";
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(JsonValueFunction.class, "jsonValueLong", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Long.class, long.class, Long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(JsonValueFunction.class, "jsonValueDouble", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Double.class, long.class, Double.class);
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(JsonValueFunction.class, "jsonValueBoolean", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Boolean.class, long.class, Boolean.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(JsonValueFunction.class, "jsonValueSlice", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Slice.class, long.class, Slice.class);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonValueFunction.class, "jsonValue", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Object.class, long.class, Object.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(JsonValueFunction.class, "jsonValueLong", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, Long.class, long.class, Long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(JsonValueFunction.class, "jsonValueDouble", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, Double.class, long.class, Double.class);
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(JsonValueFunction.class, "jsonValueBoolean", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, Boolean.class, long.class, Boolean.class);
+    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(JsonValueFunction.class, "jsonValueSlice", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, Slice.class, long.class, Slice.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonValueFunction.class, "jsonValue", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, SqlRow.class, long.class, Object.class, long.class, Object.class);
 
     private final FunctionManager functionManager;
     private final Metadata metadata;
@@ -153,7 +153,7 @@ public class JsonValueFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Block parametersRow,
+            SqlRow parametersRow,
             long emptyBehavior,
             Long emptyDefault,
             long errorBehavior,
@@ -173,7 +173,7 @@ public class JsonValueFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Block parametersRow,
+            SqlRow parametersRow,
             long emptyBehavior,
             Double emptyDefault,
             long errorBehavior,
@@ -193,7 +193,7 @@ public class JsonValueFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Block parametersRow,
+            SqlRow parametersRow,
             long emptyBehavior,
             Boolean emptyDefault,
             long errorBehavior,
@@ -213,7 +213,7 @@ public class JsonValueFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Block parametersRow,
+            SqlRow parametersRow,
             long emptyBehavior,
             Slice emptyDefault,
             long errorBehavior,
@@ -233,7 +233,7 @@ public class JsonValueFunction
             ConnectorSession session,
             JsonNode inputExpression,
             IrJsonPath jsonPath,
-            Block parametersRow,
+            SqlRow parametersRow,
             long emptyBehavior,
             Object emptyDefault,
             long errorBehavior,
