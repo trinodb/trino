@@ -21,6 +21,7 @@ import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
@@ -231,13 +232,13 @@ public class OpenXJsonSerializer
         }
         else if (type instanceof RowType rowType) {
             List<Field> fields = rowType.getFields();
-            Block rowBlock = rowType.getObject(block, position);
+            SqlRow sqlRow = rowType.getObject(block, position);
 
             Map<String, Object> jsonObject = new LinkedHashMap<>();
             for (int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++) {
                 Field field = fields.get(fieldIndex);
                 String fieldName = field.getName().orElseThrow();
-                Object fieldValue = writeValue(field.getType(), rowBlock, fieldIndex);
+                Object fieldValue = writeValue(field.getType(), sqlRow, fieldIndex);
                 if (options.isExplicitNull() || fieldValue != null) {
                     jsonObject.put(fieldName, fieldValue);
                 }

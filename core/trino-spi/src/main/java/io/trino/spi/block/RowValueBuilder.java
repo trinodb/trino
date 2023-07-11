@@ -19,7 +19,7 @@ import java.util.List;
 
 public interface RowValueBuilder<E extends Throwable>
 {
-    static <E extends Throwable> Block buildRowValue(RowType rowType, RowValueBuilder<E> builder)
+    static <E extends Throwable> SqlRow buildRowValue(RowType rowType, RowValueBuilder<E> builder)
             throws E
     {
         return new BufferedRowValueBuilder(rowType, 1)
