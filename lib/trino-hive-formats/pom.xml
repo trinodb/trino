@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-hive-formats</artifactId>
-    <name>trino-hive-formats</name>
     <description>Trino - Hive Formats</description>
 
     <properties>

@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-testing-resources</artifactId>
-    <name>trino-testing-resources</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

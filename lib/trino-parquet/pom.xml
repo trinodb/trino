@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-parquet</artifactId>
-    <name>trino-parquet</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

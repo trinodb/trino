@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-hadoop-toolkit</artifactId>
-    <name>trino-hadoop-toolkit</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

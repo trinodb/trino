@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-client</artifactId>
-    <name>trino-client</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
