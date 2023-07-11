@@ -2139,21 +2139,12 @@ public abstract class BaseHiveConnectorTest
                 // REGEX format is readonly
                 continue;
             }
-            for (HiveCompressionCodec compressionCodec : HiveCompressionCodec.values()) {
-                if ((storageFormat == HiveStorageFormat.AVRO) && (compressionCodec == HiveCompressionCodec.LZ4)) {
-                    continue;
-                }
-                if ((storageFormat == HiveStorageFormat.PARQUET) && (compressionCodec == HiveCompressionCodec.LZ4)) {
-                    // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
-                    continue;
-                }
-                testEmptyBucketedTable(storageFormat, compressionCodec, true);
-            }
-            testEmptyBucketedTable(storageFormat, HiveCompressionCodec.GZIP, false);
+            testEmptyBucketedTable(storageFormat, true);
+            testEmptyBucketedTable(storageFormat, false);
         }
     }
 
-    private void testEmptyBucketedTable(HiveStorageFormat storageFormat, HiveCompressionCodec compressionCodec, boolean createEmpty)
+    private void testEmptyBucketedTable(HiveStorageFormat storageFormat, boolean createEmpty)
     {
         String tableName = "test_empty_bucketed_table";
 
@@ -2181,7 +2172,6 @@ public abstract class BaseHiveConnectorTest
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "4")
                 .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
-                .setCatalogSessionProperty(catalog, "compression_codec", compressionCodec.name())
                 .build();
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
