@@ -139,6 +139,10 @@ import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.HUDI_INPUT_FORMAT;
+import static io.trino.plugin.hive.util.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT;
+import static io.trino.plugin.hive.util.HiveClassNames.HUDI_PARQUET_REALTIME_INPUT_FORMAT;
+import static io.trino.plugin.hive.util.HiveClassNames.HUDI_REALTIME_INPUT_FORMAT;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.SerdeConstants.COLLECTION_DELIM;
@@ -185,12 +189,6 @@ public final class HiveUtil
 
     public static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
     public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
-
-    // Input formats class names are listed below as String due to hudi-hadoop-mr dependency is not in the context of trino-hive plugin
-    public static final String HUDI_PARQUET_INPUT_FORMAT = "org.apache.hudi.hadoop.HoodieParquetInputFormat";
-    private static final String HUDI_PARQUET_REALTIME_INPUT_FORMAT = "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat";
-    private static final String HUDI_INPUT_FORMAT = "com.uber.hoodie.hadoop.HoodieInputFormat";
-    private static final String HUDI_REALTIME_INPUT_FORMAT = "com.uber.hoodie.hadoop.realtime.HoodieRealtimeInputFormat";
 
     private static final HexFormat HEX_UPPER_FORMAT = HexFormat.of().withUpperCase();
 

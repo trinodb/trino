@@ -23,6 +23,10 @@ public final class HiveClassNames
     public static final String FILE_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.mapred.FileOutputFormat";
     public static final String HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat";
     public static final String HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat";
+    public static final String HUDI_PARQUET_INPUT_FORMAT = "org.apache.hudi.hadoop.HoodieParquetInputFormat";
+    public static final String HUDI_PARQUET_REALTIME_INPUT_FORMAT = "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat";
+    public static final String HUDI_INPUT_FORMAT = "com.uber.hoodie.hadoop.HoodieInputFormat";
+    public static final String HUDI_REALTIME_INPUT_FORMAT = "com.uber.hoodie.hadoop.realtime.HoodieRealtimeInputFormat";
     public static final String JSON_SERDE_CLASS = "org.apache.hive.hcatalog.data.JsonSerDe";
     public static final String OPENX_JSON_SERDE_CLASS = "org.openx.data.jsonserde.JsonSerDe";
     public static final String LAZY_BINARY_COLUMNAR_SERDE_CLASS = "org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe";
