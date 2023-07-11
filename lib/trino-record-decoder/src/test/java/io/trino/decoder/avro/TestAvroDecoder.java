@@ -25,6 +25,7 @@ import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -1134,7 +1135,7 @@ public class TestAvroDecoder
 
     private static void checkRowValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Object expected)
     {
-        checkRowValues((Block) getObject(decodedRow, handle), handle.getType(), expected);
+        checkRowValues((SqlRow) getObject(decodedRow, handle), handle.getType(), expected);
     }
 
     private static void checkArrayValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Object expected)

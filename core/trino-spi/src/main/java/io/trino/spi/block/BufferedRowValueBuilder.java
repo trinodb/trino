@@ -44,7 +44,7 @@ public class BufferedRowValueBuilder
         return INSTANCE_SIZE + fieldBuilders.stream().mapToLong(BlockBuilder::getRetainedSizeInBytes).sum();
     }
 
-    public <E extends Throwable> Block build(RowValueBuilder<E> builder)
+    public <E extends Throwable> SqlRow build(RowValueBuilder<E> builder)
             throws E
     {
         int expectedSize = fieldBuilders.get(0).getPositionCount();

@@ -426,6 +426,21 @@
                                     <code>java.class.removed</code>
                                     <old>class io.trino.spi.block.SingleRowBlockEncoding</old>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method &lt;E extends java.lang.Throwable&gt; io.trino.spi.block.Block io.trino.spi.block.BufferedRowValueBuilder::build(io.trino.spi.block.RowValueBuilder&lt;E&gt;) throws E</old>
+                                    <new>method &lt;E extends java.lang.Throwable&gt; io.trino.spi.block.SqlRow io.trino.spi.block.BufferedRowValueBuilder::build(io.trino.spi.block.RowValueBuilder&lt;E&gt;) throws E</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method &lt;E extends java.lang.Throwable&gt; io.trino.spi.block.Block io.trino.spi.block.RowValueBuilder&lt;E extends java.lang.Throwable&gt;::buildRowValue(io.trino.spi.type.RowType, io.trino.spi.block.RowValueBuilder&lt;E&gt;) throws E</old>
+                                    <new>method &lt;E extends java.lang.Throwable&gt; io.trino.spi.block.SqlRow io.trino.spi.block.RowValueBuilder&lt;E extends java.lang.Throwable&gt;::buildRowValue(io.trino.spi.type.RowType, io.trino.spi.block.RowValueBuilder&lt;E&gt;) throws E</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.type.RowType::getObject(io.trino.spi.block.Block, int)</old>
+                                    <new>method io.trino.spi.block.SqlRow io.trino.spi.type.RowType::getObject(io.trino.spi.block.Block, int)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
