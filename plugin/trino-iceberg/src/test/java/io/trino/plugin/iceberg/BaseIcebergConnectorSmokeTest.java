@@ -474,7 +474,8 @@ public abstract class BaseIcebergConnectorSmokeTest
         }
     }
 
-    @Test
+    // TODO https://github.com/trinodb/trino/issues/18217 Enable this test after fixing flaky issue
+    @Test(enabled = false)
     public void testFileSortingWithLargerTable()
     {
         // Using a larger table forces buffered data to be written to disk
