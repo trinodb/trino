@@ -250,13 +250,17 @@ public class TestReaderProjectionsAdapter
                     break;
                 }
 
+                int fieldIndex = dereferences.get(j);
+                Block fieldBlock = currentData.getRawFieldBlock(fieldIndex);
+
                 RowType rowType = (RowType) sourceType;
-                if (currentData.isNull(dereferences.get(j))) {
+                int rawIndex = currentData.getRawIndex();
+                if (fieldBlock.isNull(rawIndex)) {
                     currentData = null;
                 }
                 else {
-                    sourceType = rowType.getFields().get(dereferences.get(j)).getType();
-                    currentData = currentData.getObject(dereferences.get(j), SqlRow.class);
+                    sourceType = rowType.getFields().get(fieldIndex).getType();
+                    currentData = fieldBlock.getObject(rawIndex, SqlRow.class);
                 }
 
                 isNull = isNull || (currentData == null);
@@ -269,7 +273,7 @@ public class TestReaderProjectionsAdapter
             else {
                 int lastDereference = dereferences.get(dereferences.size() - 1);
 
-                finalType.appendTo(currentData, lastDereference, builder);
+                finalType.appendTo(currentData.getRawFieldBlock(lastDereference), currentData.getRawIndex(), builder);
             }
         }
 

@@ -29,6 +29,7 @@ import io.trino.spi.type.Type;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
+import java.util.List;
 
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.testng.Assert.assertEquals;
@@ -82,7 +83,14 @@ public final class ColumnarTestUtils
         }
         else if (type instanceof RowType rowType) {
             SqlRow actual = rowType.getObject(block, position);
-            assertBlock(type, actual, (Slice[]) expectedValue);
+            int rawIndex = actual.getRawIndex();
+            List<Block> fieldBlocks = actual.getRawFieldBlocks();
+            Slice[] expectedValues = (Slice[]) expectedValue;
+            for (int fieldIndex = 0; fieldIndex < fieldBlocks.size(); fieldIndex++) {
+                Block fieldBlock = fieldBlocks.get(fieldIndex);
+                Type fieldType = rowType.getTypeParameters().get(fieldIndex);
+                assertBlockPosition(fieldType, fieldBlock, rawIndex, expectedValues[fieldIndex]);
+            }
         }
         else if (type instanceof MapType mapType) {
             Slice[][] expected = (Slice[][]) expectedValue;

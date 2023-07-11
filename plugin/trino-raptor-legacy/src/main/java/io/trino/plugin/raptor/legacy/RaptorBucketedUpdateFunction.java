@@ -26,6 +26,6 @@ public class RaptorBucketedUpdateFunction
     public int getBucket(Page page, int position)
     {
         SqlRow row = page.getBlock(0).getObject(position, SqlRow.class);
-        return INTEGER.getInt(row, 0); // bucket field of row ID
+        return INTEGER.getInt(row.getRawFieldBlock(0), row.getRawIndex()); // bucket field of row ID
     }
 }

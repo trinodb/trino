@@ -126,14 +126,15 @@ public final class BigQueryTypeUtils
             SqlRow sqlRow = block.getObject(position, SqlRow.class);
 
             List<Type> fieldTypes = rowType.getTypeParameters();
-            if (fieldTypes.size() != sqlRow.getPositionCount()) {
+            if (fieldTypes.size() != sqlRow.getFieldCount()) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }
 
+            int rawIndex = sqlRow.getRawIndex();
             Map<String, Object> rowValue = new HashMap<>();
-            for (int i = 0; i < sqlRow.getPositionCount(); i++) {
-                String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist in BigQuery"));
-                Object fieldValue = readNativeValue(fieldTypes.get(i), sqlRow, i);
+            for (int fieldIndex = 0; fieldIndex < sqlRow.getFieldCount(); fieldIndex++) {
+                String fieldName = rowType.getFields().get(fieldIndex).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist in BigQuery"));
+                Object fieldValue = readNativeValue(fieldTypes.get(fieldIndex), sqlRow.getRawFieldBlock(fieldIndex), rawIndex);
                 rowValue.put(fieldName, fieldValue);
             }
             return unmodifiableMap(rowValue);

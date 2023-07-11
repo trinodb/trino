@@ -168,15 +168,17 @@ public final class AvroDecoderTestUtil
         GenericRecord record = (GenericRecord) value;
         RowType rowType = (RowType) type;
         assertEquals(record.getSchema().getFields().size(), rowType.getFields().size(), "Avro field size mismatch");
-        assertEquals(sqlRow.getPositionCount(), rowType.getFields().size(), "Trino type field size mismatch");
+        assertEquals(sqlRow.getFieldCount(), rowType.getFields().size(), "Trino type field size mismatch");
+        int rawIndex = sqlRow.getRawIndex();
         for (int fieldIndex = 0; fieldIndex < rowType.getFields().size(); fieldIndex++) {
             RowType.Field rowField = rowType.getFields().get(fieldIndex);
             Object expectedValue = record.get(rowField.getName().orElseThrow());
-            if (sqlRow.isNull(fieldIndex)) {
+            Block fieldBlock = sqlRow.getRawFieldBlock(fieldIndex);
+            if (fieldBlock.isNull(rawIndex)) {
                 assertNull(expectedValue);
                 continue;
             }
-            checkField(sqlRow, rowField.getType(), fieldIndex, expectedValue);
+            checkField(fieldBlock, rowField.getType(), rawIndex, expectedValue);
         }
     }
 

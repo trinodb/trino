@@ -34,12 +34,12 @@ public class SqlRowBlockEncoding
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         SqlRow sqlRow = (SqlRow) block;
-        List<Block> fieldBlocks = sqlRow.getFieldBlocks();
+        List<Block> fieldBlocks = sqlRow.getRawFieldBlocks();
         int numFields = fieldBlocks.size();
-        int rowIndex = sqlRow.getRowIndex();
+        int rawIndex = sqlRow.getRawIndex();
         sliceOutput.appendInt(numFields);
         for (int i = 0; i < numFields; i++) {
-            blockEncodingSerde.writeBlock(sliceOutput, fieldBlocks.get(i).getRegion(rowIndex, 1));
+            blockEncodingSerde.writeBlock(sliceOutput, fieldBlocks.get(i).getRegion(rawIndex, 1));
         }
     }
 

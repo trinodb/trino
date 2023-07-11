@@ -33,23 +33,33 @@ public class SqlRow
 
     private final Block[] fieldBlocks;
     private final List<Block> fieldBlocksList;
-    private final int rowIndex;
+    private final int rawIndex;
 
-    public SqlRow(int rowIndex, Block[] fieldBlocks)
+    public SqlRow(int rawIndex, Block[] fieldBlocks)
     {
-        this.rowIndex = rowIndex;
+        this.rawIndex = rawIndex;
         this.fieldBlocks = requireNonNull(fieldBlocks, "fieldBlocks is null");
         fieldBlocksList = List.of(fieldBlocks);
     }
 
-    public List<Block> getFieldBlocks()
+    public int getFieldCount()
     {
-        return fieldBlocksList;
+        return fieldBlocks.length;
     }
 
-    public int getRowIndex()
+    public int getRawIndex()
     {
-        return rowIndex;
+        return rawIndex;
+    }
+
+    public Block getRawFieldBlock(int fieldIndex)
+    {
+        return fieldBlocks[fieldIndex];
+    }
+
+    public List<Block> getRawFieldBlocks()
+    {
+        return fieldBlocksList;
     }
 
     @Override
@@ -69,7 +79,7 @@ public class SqlRow
     {
         long sizeInBytes = 0;
         for (Block fieldBlock : fieldBlocks) {
-            sizeInBytes += fieldBlock.getRegionSizeInBytes(rowIndex, 1);
+            sizeInBytes += fieldBlock.getRegionSizeInBytes(rawIndex, 1);
         }
         return sizeInBytes;
     }
@@ -130,7 +140,7 @@ public class SqlRow
             // All blocks are already loaded
             return this;
         }
-        return new SqlRow(rowIndex, loadedFieldBlocks);
+        return new SqlRow(rawIndex, loadedFieldBlocks);
     }
 
     @Override
@@ -141,7 +151,7 @@ public class SqlRow
 
     private void checkFieldIndex(int position)
     {
-        if (position < 0 || position >= getPositionCount()) {
+        if (position < 0 || position >= fieldBlocks.length) {
             throw new IllegalArgumentException("position is not valid: " + position);
         }
     }
@@ -150,112 +160,112 @@ public class SqlRow
     public boolean isNull(int position)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].isNull(rowIndex);
+        return fieldBlocks[position].isNull(rawIndex);
     }
 
     @Override
     public byte getByte(int position, int offset)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].getByte(rowIndex, offset);
+        return fieldBlocks[position].getByte(rawIndex, offset);
     }
 
     @Override
     public short getShort(int position, int offset)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].getShort(rowIndex, offset);
+        return fieldBlocks[position].getShort(rawIndex, offset);
     }
 
     @Override
     public int getInt(int position, int offset)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].getInt(rowIndex, offset);
+        return fieldBlocks[position].getInt(rawIndex, offset);
     }
 
     @Override
     public long getLong(int position, int offset)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].getLong(rowIndex, offset);
+        return fieldBlocks[position].getLong(rawIndex, offset);
     }
 
     @Override
     public Slice getSlice(int position, int offset, int length)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].getSlice(rowIndex, offset, length);
+        return fieldBlocks[position].getSlice(rawIndex, offset, length);
     }
 
     @Override
     public void writeSliceTo(int position, int offset, int length, SliceOutput output)
     {
         checkFieldIndex(position);
-        fieldBlocks[position].writeSliceTo(rowIndex, offset, length, output);
+        fieldBlocks[position].writeSliceTo(rawIndex, offset, length, output);
     }
 
     @Override
     public int getSliceLength(int position)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].getSliceLength(rowIndex);
+        return fieldBlocks[position].getSliceLength(rawIndex);
     }
 
     @Override
     public int compareTo(int position, int offset, int length, Block otherBlock, int otherPosition, int otherOffset, int otherLength)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].compareTo(rowIndex, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
+        return fieldBlocks[position].compareTo(rawIndex, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
     }
 
     @Override
     public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].bytesEqual(rowIndex, offset, otherSlice, otherOffset, length);
+        return fieldBlocks[position].bytesEqual(rawIndex, offset, otherSlice, otherOffset, length);
     }
 
     @Override
     public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].bytesCompare(rowIndex, offset, length, otherSlice, otherOffset, otherLength);
+        return fieldBlocks[position].bytesCompare(rawIndex, offset, length, otherSlice, otherOffset, otherLength);
     }
 
     @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].equals(rowIndex, offset, otherBlock, otherPosition, otherOffset, length);
+        return fieldBlocks[position].equals(rawIndex, offset, otherBlock, otherPosition, otherOffset, length);
     }
 
     @Override
     public long hash(int position, int offset, int length)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].hash(rowIndex, offset, length);
+        return fieldBlocks[position].hash(rawIndex, offset, length);
     }
 
     @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].getObject(rowIndex, clazz);
+        return fieldBlocks[position].getObject(rawIndex, clazz);
     }
 
     @Override
     public Block getSingleValueBlock(int position)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].getSingleValueBlock(rowIndex);
+        return fieldBlocks[position].getSingleValueBlock(rawIndex);
     }
 
     @Override
     public long getEstimatedDataSizeForStats(int position)
     {
         checkFieldIndex(position);
-        return fieldBlocks[position].getEstimatedDataSizeForStats(rowIndex);
+        return fieldBlocks[position].getEstimatedDataSizeForStats(rawIndex);
     }
 
     @Override
