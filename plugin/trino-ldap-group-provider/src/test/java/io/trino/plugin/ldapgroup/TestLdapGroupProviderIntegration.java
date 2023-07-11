@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.ldapgroup;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.io.Closer;
@@ -267,9 +268,21 @@ public class TestLdapGroupProviderIntegration
 
     private static Stream<Arguments> provideConfigBuilders()
     {
-        return Stream.<ConfigBuilder>of(
+        Stream<ConfigBuilder> cachingConfigBuilder = Stream.of(
+                (builder) -> builder.put("cache.enabled", "false"),
+                (builder) -> builder.put("cache.enabled", "true")
+                        .put("cache.ttl", "5s")
+                        .put("cache.maximum-size", "10"));
+
+        List<ConfigBuilder> groupProviderConfigBuilders = ImmutableList.of(
                 (builder) -> builder.put("ldap.user-member-of-attribute", "memberOf"),
-                (builder) -> builder.put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com"))
+                (builder) -> builder.put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com"));
+
+        return cachingConfigBuilder
+                .flatMap(cacheConfig -> groupProviderConfigBuilders
+                        .stream()
+                        .map(groupProviderConfig ->
+                                (ConfigBuilder) builder -> cacheConfig.apply(groupProviderConfig.apply(builder))))
                 .map(Arguments::of);
     }
 
