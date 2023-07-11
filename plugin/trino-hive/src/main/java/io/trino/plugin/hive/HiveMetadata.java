@@ -159,7 +159,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getColumnNames;
@@ -1956,7 +1955,7 @@ public class HiveMetadata
                             format,
                             HiveCompressionCodec.NONE,
                             schema,
-                            nativeWriterAlwaysEnabled(session),
+                            session,
                             OptionalInt.empty(),
                             NO_ACID_TRANSACTION,
                             false,
@@ -1966,16 +1965,6 @@ public class HiveMetadata
                     .orElseThrow(() -> new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Writing not supported for " + format))
                     .commit();
         }
-    }
-
-    private static ConnectorSession nativeWriterAlwaysEnabled(ConnectorSession session)
-    {
-        return newProxy(ConnectorSession.class, (proxy, method, args) -> {
-            if (method.getName().equals("getProperty") && ((String) args[0]).endsWith("_native_writer_enabled")) {
-                return true;
-            }
-            return method.invoke(session, args);
-        });
     }
 
     @Override

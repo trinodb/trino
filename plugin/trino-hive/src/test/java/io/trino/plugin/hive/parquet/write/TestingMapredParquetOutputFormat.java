@@ -20,15 +20,16 @@ import org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.Progressable;
+import org.apache.parquet.hadoop.DisabledMemoryManager;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.Optional;
 import java.util.Properties;
 
-import static io.trino.plugin.hive.parquet.ParquetRecordWriter.replaceHadoopParquetMemoryManager;
 import static java.util.Objects.requireNonNull;
 
 /*
@@ -42,8 +43,6 @@ public class TestingMapredParquetOutputFormat
         extends MapredParquetOutputFormat
 {
     static {
-        //  The tests using this class don't use io.trino.plugin.hive.parquet.ParquetRecordWriter for writing parquet files with old writer.
-        //  Therefore, we need to replace the hadoop parquet memory manager here explicitly.
         replaceHadoopParquetMemoryManager();
     }
 
@@ -70,5 +69,17 @@ public class TestingMapredParquetOutputFormat
             return getParquerRecordWriterWrapper(realOutputFormat, jobConf, finalOutPath.toString(), progress, tableProperties);
         }
         return super.getHiveRecordWriter(jobConf, finalOutPath, valueClass, isCompressed, tableProperties, progress);
+    }
+
+    private static void replaceHadoopParquetMemoryManager()
+    {
+        try {
+            Field memoryManager = ParquetOutputFormat.class.getDeclaredField("memoryManager");
+            memoryManager.setAccessible(true);
+            memoryManager.set(null, new DisabledMemoryManager());
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
     }
 }

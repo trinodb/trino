@@ -351,7 +351,6 @@ public class TestHiveFileFormats
     {
         HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
                 new HiveConfig(),
-                new HiveFormatsConfig(),
                 new OrcReaderConfig(),
                 new OrcWriterConfig()
                         .setValidationPercentage(100.0),
