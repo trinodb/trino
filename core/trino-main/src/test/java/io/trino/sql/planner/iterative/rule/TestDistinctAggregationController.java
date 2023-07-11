@@ -70,7 +70,7 @@ public class TestDistinctAggregationController
     }
 
     @Test
-    public void testMarkDistinctPreferredForHighCardinalityMultipleGroupByKeys()
+    public void testSingleStepPreferredForHighCardinalityMultipleGroupByKeys()
     {
         DistinctAggregationController controller = new DistinctAggregationController(TASK_COUNT_ESTIMATOR);
         SymbolAllocator symbolAllocator = new SymbolAllocator();
@@ -89,7 +89,7 @@ public class TestDistinctAggregationController
                         highCardinalityGroupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(1_000_000).build()))),
                 symbolAllocator);
 
-        assertTrue(controller.shouldAddMarkDistinct(aggregationNode, context));
+        assertFalse(controller.shouldAddMarkDistinct(aggregationNode, context));
     }
 
     @Test

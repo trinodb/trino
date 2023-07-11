@@ -14,7 +14,9 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.inject.Inject;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.TaskCountEstimator;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 
@@ -44,12 +46,7 @@ public class DistinctAggregationController
             // global distinct aggregation is computed using a single thread. MarkDistinct will help parallelize the execution.
             return true;
         }
-        if (aggregationNode.getGroupingKeys().size() > 1) {
-            // NDV stats for multiple grouping keys are unreliable, let's keep MarkDistinct for this case to avoid significant slowdown or OOM/too big hash table issues in case of
-            // overestimation of very small NDV with big number of distinct values inside the groups.
-            return true;
-        }
-        double numberOfDistinctValues = context.getStatsProvider().getStats(aggregationNode).getOutputRowCount();
+        double numberOfDistinctValues = getMinDistinctValueCountEstimate(aggregationNode, context);
         if (Double.isNaN(numberOfDistinctValues)) {
             // if the estimate is unknown, use MarkDistinct to avoid query failure
             return true;
@@ -79,6 +76,22 @@ public class DistinctAggregationController
     private int getMaxNumberOfConcurrentThreadsForAggregation(Rule.Context context)
     {
         return taskCountEstimator.estimateHashedTaskCount(context.getSession()) * getTaskConcurrency(context.getSession());
+    }
+
+    private double getMinDistinctValueCountEstimate(AggregationNode aggregationNode, Rule.Context context)
+    {
+        // NDV stats for multiple grouping keys are unreliable, let's pick a conservative lower bound by taking maximum NDV for all grouping keys.
+        // this assumes that grouping keys are 100% correlated.
+        // in the case of a lower correlation, the NDV can only be higher.
+        PlanNodeStatsEstimate stats = context.getStatsProvider().getStats(aggregationNode);
+        double max = Double.NaN;
+        for (Symbol groupingKey : aggregationNode.getGroupingKeys()) {
+            double distinctValuesCount = stats.getSymbolStatistics(groupingKey).getDistinctValuesCount();
+            if (Double.isNaN(max) || distinctValuesCount > max) {
+                max = distinctValuesCount;
+            }
+        }
+        return max;
     }
 
     private static boolean hasSingleDistinctAndNonDistincts(AggregationNode aggregationNode)
