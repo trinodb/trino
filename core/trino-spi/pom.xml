@@ -418,6 +418,14 @@
                                     <old>method io.trino.spi.block.Block io.trino.spi.type.MapType::getObject(io.trino.spi.block.Block, int)</old>
                                     <new>method io.trino.spi.block.SqlMap io.trino.spi.type.MapType::getObject(io.trino.spi.block.Block, int)</new>
                                 </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.SingleRowBlock</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.SingleRowBlockEncoding</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -82,7 +82,7 @@ public class BufferedRowValueBuilder
         List<Block> blocks = fieldBuilders.stream()
                 .map(field -> field.build().getRegion(startSize, 1))
                 .toList();
-        return new SingleRowBlock(0, blocks.toArray(new Block[0]));
+        return new SqlRow(0, blocks.toArray(new Block[0]));
     }
 
     private boolean equalizeBlockBuilders()

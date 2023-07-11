@@ -21,7 +21,7 @@ import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -413,7 +413,7 @@ public class EffectivePredicateExtractor
                     }
                     for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                         Type type = types.get(node.getOutputSymbols().get(i));
-                        Object item = readNativeValue(type, (SingleRowBlock) evaluated, i);
+                        Object item = readNativeValue(type, (SqlRow) evaluated, i);
                         if (item == null) {
                             hasNull[i] = true;
                         }
