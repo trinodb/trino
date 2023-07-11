@@ -167,6 +167,7 @@ Name                                                              Description
                                                                   TrustStore is selected. For macOS, the ``KeychainStore`` TrustStore is selected.
                                                                   For other OSes, the default Java TrustStore is loaded.
                                                                   The TrustStore specification can be overridden using ``SSLTrustStoreType``.
+``hostnameInCertificate``                                         Expected hostname in the certificate presented by the Trino server. Only applicable with full SSL verification enabled.
 ``KerberosRemoteServiceName``                                     Trino coordinator Kerberos service name. This parameter is
                                                                   required for Kerberos authentication.
 ``KerberosPrincipal``                                             The principal to use when authenticating to the Trino coordinator.
