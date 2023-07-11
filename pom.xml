@@ -152,7 +152,7 @@
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.13.0</dep.antlr.version>
         <dep.airlift.version>234</dep.airlift.version>
-        <dep.arrow.version>11.0.0</dep.arrow.version>
+        <dep.arrow.version>12.0.1</dep.arrow.version>
         <dep.avro.version>1.11.1</dep.avro.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.12.493</dep.aws-sdk.version>
@@ -172,7 +172,7 @@
         <dep.casandra.version>4.14.0</dep.casandra.version>
         <dep.minio.version>8.4.5</dep.minio.version>
         <dep.iceberg.version>1.3.0</dep.iceberg.version>
-        <dep.protobuf.version>3.22.2</dep.protobuf.version>
+        <dep.protobuf.version>3.23.2</dep.protobuf.version>
         <dep.wire.version>4.5.0</dep.wire.version>
         <!-- Netty 4.1.94.Final breaks Apache Arrow -->
         <dep.netty.version>4.1.93.Final</dep.netty.version>
@@ -1594,7 +1594,19 @@
 
             <dependency>
                 <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-format</artifactId>
+                <version>${dep.arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-memory-core</artifactId>
+                <version>${dep.arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-memory-netty</artifactId>
                 <version>${dep.arrow.version}</version>
             </dependency>
 
