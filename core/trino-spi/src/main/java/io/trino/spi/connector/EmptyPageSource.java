@@ -13,35 +13,11 @@
  */
 package io.trino.spi.connector;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 public class EmptyPageSource
         implements ConnectorPageSource
 {
-    @Deprecated // This method has been removed from the API
-    public void deleteRows(Block rowIds)
-    {
-        throw new UnsupportedOperationException("deleteRows called on EmptyPageSource");
-    }
-
-    @Deprecated // This method has been removed from the API
-    public void updateRows(Page page, List<Integer> columnValueAndRowIdChannels)
-    {
-        throw new UnsupportedOperationException("updateRows called on EmptyPageSource");
-    }
-
-    @Deprecated // This method has been removed from the API
-    public CompletableFuture<Collection<Slice>> finish()
-    {
-        throw new UnsupportedOperationException("finish called on EmptyPageSource");
-    }
-
     @Override
     public long getCompletedBytes()
     {
