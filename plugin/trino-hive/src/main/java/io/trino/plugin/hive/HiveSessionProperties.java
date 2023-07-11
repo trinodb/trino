@@ -65,12 +65,6 @@ public final class HiveSessionProperties
     private static final String PARALLEL_PARTITIONED_BUCKETED_WRITES = "parallel_partitioned_bucketed_writes";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
-    private static final String AVRO_NATIVE_WRITER_ENABLED = "avro_native_writer_enabled";
-    private static final String CSV_NATIVE_WRITER_ENABLED = "csv_native_writer_enabled";
-    private static final String JSON_NATIVE_WRITER_ENABLED = "json_native_writer_enabled";
-    private static final String OPENX_JSON_NATIVE_WRITER_ENABLED = "openx_json_native_writer_enabled";
-    private static final String TEXT_FILE_NATIVE_WRITER_ENABLED = "text_file_native_writer_enabled";
-    private static final String SEQUENCE_FILE_NATIVE_WRITER_ENABLED = "sequence_file_native_writer_enabled";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
@@ -154,7 +148,6 @@ public final class HiveSessionProperties
     @Inject
     public HiveSessionProperties(
             HiveConfig hiveConfig,
-            HiveFormatsConfig hiveFormatsConfig,
             OrcReaderConfig orcReaderConfig,
             OrcWriterConfig orcWriterConfig,
             ParquetReaderConfig parquetReaderConfig,
@@ -195,36 +188,6 @@ public final class HiveSessionProperties
                         false,
                         value -> InsertExistingPartitionsBehavior.valueOf((String) value, hiveConfig.isImmutablePartitions()),
                         InsertExistingPartitionsBehavior::toString),
-                booleanProperty(
-                        AVRO_NATIVE_WRITER_ENABLED,
-                        "Use native Avro file writer",
-                        hiveFormatsConfig.isAvroFileNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        CSV_NATIVE_WRITER_ENABLED,
-                        "Use native CSV writer",
-                        hiveFormatsConfig.isCsvNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        JSON_NATIVE_WRITER_ENABLED,
-                        "Use native JSON writer",
-                        hiveFormatsConfig.isJsonNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        OPENX_JSON_NATIVE_WRITER_ENABLED,
-                        "Use native OpenX JSON writer",
-                        hiveFormatsConfig.isOpenXJsonNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        TEXT_FILE_NATIVE_WRITER_ENABLED,
-                        "Use native text file writer",
-                        hiveFormatsConfig.isTextFileNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        SEQUENCE_FILE_NATIVE_WRITER_ENABLED,
-                        "Use native sequence file writer",
-                        hiveFormatsConfig.isSequenceFileNativeWriterEnabled(),
-                        false),
                 booleanProperty(
                         ORC_BLOOM_FILTERS_ENABLED,
                         "ORC: Enable bloom filters for predicate pushdown",
@@ -609,36 +572,6 @@ public final class HiveSessionProperties
     public static InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior(ConnectorSession session)
     {
         return session.getProperty(INSERT_EXISTING_PARTITIONS_BEHAVIOR, InsertExistingPartitionsBehavior.class);
-    }
-
-    public static boolean isAvroNativeWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(AVRO_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isCsvNativeWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(CSV_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isJsonNativeWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(JSON_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isOpenXJsonNativeWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(OPENX_JSON_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isTextFileNativeWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(TEXT_FILE_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isSequenceFileNativeWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(SEQUENCE_FILE_NATIVE_WRITER_ENABLED, Boolean.class);
     }
 
     public static boolean isOrcBloomFiltersEnabled(ConnectorSession session)

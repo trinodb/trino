@@ -128,8 +128,6 @@ public class HiveModule
         newExporter(binder).export(HdfsNamenodeStats.class)
                 .as(generator -> generator.generatedNameOf(NamenodeStats.class));
 
-        configBinder(binder).bindConfig(HiveFormatsConfig.class);
-
         Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HivePageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(CsvPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(JsonPageSourceFactory.class).in(Scopes.SINGLETON);

@@ -40,7 +40,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.TypeManager;
-import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Map;
@@ -76,7 +75,6 @@ public class HivePageSinkProvider
     private final HiveSessionProperties hiveSessionProperties;
     private final HiveWriterStats hiveWriterStats;
     private final long perTransactionMetastoreCacheMaximumSize;
-    private final DateTimeZone parquetTimeZone;
     private final boolean temporaryStagingDirectoryDirectoryEnabled;
     private final String temporaryStagingDirectoryPath;
 
@@ -116,7 +114,6 @@ public class HivePageSinkProvider
         this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
         this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
-        this.parquetTimeZone = config.getParquetDateTimeZone();
         this.temporaryStagingDirectoryDirectoryEnabled = config.isTemporaryStagingDirectoryEnabled();
         this.temporaryStagingDirectoryPath = config.getTemporaryStagingDirectoryPath();
     }
@@ -185,7 +182,6 @@ public class HivePageSinkProvider
                 pageSorter,
                 writerSortBufferSize,
                 maxOpenSortFiles,
-                parquetTimeZone,
                 session,
                 nodeManager,
                 eventClient,
@@ -201,7 +197,6 @@ public class HivePageSinkProvider
                 handle.isTransactional(),
                 handle.getBucketProperty(),
                 pageIndexerFactory,
-                hdfsEnvironment,
                 maxOpenPartitions,
                 writeVerificationExecutor,
                 partitionUpdateCodec,

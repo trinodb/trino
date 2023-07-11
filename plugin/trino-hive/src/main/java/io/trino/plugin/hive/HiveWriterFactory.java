@@ -54,7 +54,6 @@ import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.ReflectionUtils;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.security.Principal;
@@ -155,7 +154,6 @@ public class HiveWriterFactory
     private final boolean sortedWritingTempStagingPathEnabled;
     private final String sortedWritingTempStagingPath;
     private final InsertExistingPartitionsBehavior insertExistingPartitionsBehavior;
-    private final DateTimeZone parquetTimeZone;
 
     private final ConnectorSession session;
     private final OptionalInt bucketCount;
@@ -191,7 +189,6 @@ public class HiveWriterFactory
             PageSorter pageSorter,
             DataSize sortBufferSize,
             int maxOpenSortFiles,
-            DateTimeZone parquetTimeZone,
             ConnectorSession session,
             NodeManager nodeManager,
             EventClient eventClient,
@@ -223,7 +220,6 @@ public class HiveWriterFactory
         this.sortedWritingTempStagingPathEnabled = sortedWritingTempStagingPathEnabled;
         this.sortedWritingTempStagingPath = requireNonNull(sortedWritingTempStagingPath, "sortedWritingTempStagingPath is null");
         this.insertExistingPartitionsBehavior = getInsertExistingPartitionsBehavior(session);
-        this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
 
         // divide input columns into partition and data columns
         ImmutableList.Builder<String> partitionColumnNames = ImmutableList.builder();
@@ -538,18 +534,7 @@ public class HiveWriterFactory
         }
 
         if (hiveFileWriter == null) {
-            hiveFileWriter = new RecordFileWriter(
-                    new Path(path.toString()),
-                    dataColumns.stream()
-                            .map(DataColumn::getName)
-                            .collect(toList()),
-                    outputStorageFormat,
-                    schema,
-                    partitionStorageFormat.getEstimatedWriterMemoryUsage(),
-                    outputConf,
-                    typeManager,
-                    parquetTimeZone,
-                    session);
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Writing not supported for " + outputStorageFormat);
         }
 
         String writePath = path.toString();
