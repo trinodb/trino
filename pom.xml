@@ -13,7 +13,7 @@
     <version>422-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>trino-root</name>
+    <name>${project.artifactId}</name>
     <description>Trino</description>
     <url>https://trino.io</url>
 

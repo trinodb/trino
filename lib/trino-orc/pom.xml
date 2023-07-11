@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-orc</artifactId>
-    <name>trino-orc</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

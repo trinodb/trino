@@ -9,7 +9,6 @@
     </parent>
 
     <artifactId>trino-benchto-benchmarks</artifactId>
-    <name>trino-benchto-benchmarks</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

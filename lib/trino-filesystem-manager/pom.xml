@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-filesystem-manager</artifactId>
-    <name>trino-filesystem-manager</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

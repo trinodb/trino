@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-thrift-testing-server</artifactId>
-    <name>trino-thrift-testing-server</name>
     <description>Trino - Thrift Testing Server</description>
 
     <properties>

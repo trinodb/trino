@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-hdfs</artifactId>
-    <name>trino-hdfs</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

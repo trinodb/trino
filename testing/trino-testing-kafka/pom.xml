@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-testing-kafka</artifactId>
-    <name>trino-testing-kafka</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

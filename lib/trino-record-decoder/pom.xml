@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-record-decoder</artifactId>
-    <name>trino-record-decoder</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
