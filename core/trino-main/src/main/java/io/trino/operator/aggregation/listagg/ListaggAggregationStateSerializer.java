@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
@@ -51,7 +51,7 @@ public class ListaggAggregationStateSerializer
     @Override
     public void deserialize(Block block, int index, ListaggAggregationState state)
     {
-        SingleRowBlock mapBlock = (SingleRowBlock) serializedType.getObject(block, index);
-        ((SingleListaggAggregationState) state).setTempSerializedState(mapBlock);
+        SqlRow sqlRow = (SqlRow) serializedType.getObject(block, index);
+        ((SingleListaggAggregationState) state).setTempSerializedState(sqlRow);
     }
 }
