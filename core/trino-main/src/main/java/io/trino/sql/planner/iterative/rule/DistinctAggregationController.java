@@ -54,7 +54,7 @@ public class DistinctAggregationController
             // if the estimate is unknown, use MarkDistinct to avoid query failure
             return true;
         }
-        int maxNumberOfConcurrentThreadsForAggregation = taskCountEstimator.estimateHashedTaskCount(context.getSession()) * getTaskConcurrency(context.getSession());
+        int maxNumberOfConcurrentThreadsForAggregation = getMaxNumberOfConcurrentThreadsForAggregation(context);
 
         if (numberOfDistinctValues <= MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * maxNumberOfConcurrentThreadsForAggregation) {
             // small numberOfDistinctValues reduces the distinct aggregation parallelism, also because the partitioning may be skewed.
@@ -74,6 +74,11 @@ public class DistinctAggregationController
 
         // can parallelize single-step, and single-step distinct is more efficient than MarkDistinct
         return false;
+    }
+
+    private int getMaxNumberOfConcurrentThreadsForAggregation(Rule.Context context)
+    {
+        return taskCountEstimator.estimateHashedTaskCount(context.getSession()) * getTaskConcurrency(context.getSession());
     }
 
     private static boolean hasSingleDistinctAndNonDistincts(AggregationNode aggregationNode)
