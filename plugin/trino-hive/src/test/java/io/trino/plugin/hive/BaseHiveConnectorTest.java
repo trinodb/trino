@@ -2135,21 +2135,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat)
     {
-        for (HiveCompressionCodec compressionCodec : HiveCompressionCodec.values()) {
-            if ((storageFormat == HiveStorageFormat.AVRO) && (compressionCodec == HiveCompressionCodec.LZ4)) {
-                continue;
-            }
-            if ((storageFormat == HiveStorageFormat.PARQUET) && (compressionCodec == HiveCompressionCodec.LZ4)) {
-                // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
-                continue;
-            }
-            testEmptyBucketedTable(
-                    Session.builder(session)
-                            .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
-                            .build(),
-                    storageFormat,
-                    true);
-        }
+        testEmptyBucketedTable(session, storageFormat, true);
         testEmptyBucketedTable(session, storageFormat, false);
     }
 
