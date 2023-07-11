@@ -379,7 +379,7 @@ public class RowBlock
 
     /**
      * Returns the combined {@link Block#fixedSizeInBytesPerPosition()} value for all fields, assuming all
-     * are fixed size. If any field is not fixed size, then no value will be returned. This does <i>not</i>
+     * are fixed-size. If any field is not fixed size, then no value will be returned. This does <i>not</i>
      * include the size-per-position overhead associated with the {@link RowBlock} itself, only of
      * the constituent field members.
      */
@@ -530,8 +530,8 @@ public class RowBlock
     @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
-        if (clazz != Block.class) {
-            throw new IllegalArgumentException("clazz must be Block.class");
+        if (clazz != SqlRow.class) {
+            throw new IllegalArgumentException("clazz must be SqlRow.class");
         }
         checkReadablePosition(this, position);
 

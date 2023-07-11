@@ -21,8 +21,7 @@ import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeOperators;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -35,16 +34,16 @@ import static io.trino.block.ColumnarTestUtils.createTestDictionaryExpectedValue
 import static io.trino.block.ColumnarTestUtils.createTestRleBlock;
 import static io.trino.block.ColumnarTestUtils.createTestRleExpectedValues;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
-import static io.trino.spi.type.StandardTypes.MAP;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 public class TestColumnarMap
 {
-    private static final int[] MAP_SIZES = new int[] {16, 0, 13, 1, 2, 11, 4, 7};
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final MapType MAP_TYPE = new MapType(VARCHAR, VARCHAR, TYPE_OPERATORS);
+    private static final int[] MAP_SIZES = new int[]{16, 0, 13, 1, 2, 11, 4, 7};
 
     @Test
     public void test()
@@ -71,7 +70,7 @@ public class TestColumnarMap
 
     private static void verifyBlock(Block block, Slice[][][] expectedValues)
     {
-        assertBlock(block, expectedValues);
+        assertBlock(MAP_TYPE, block, expectedValues);
 
         assertColumnarMap(block, expectedValues);
         assertDictionaryBlock(block, expectedValues);
@@ -82,7 +81,7 @@ public class TestColumnarMap
         Block blockRegion = block.getRegion(offset, length);
         Slice[][][] expectedValuesRegion = Arrays.copyOfRange(expectedValues, offset, offset + length);
 
-        assertBlock(blockRegion, expectedValuesRegion);
+        assertBlock(MAP_TYPE, blockRegion, expectedValuesRegion);
 
         assertColumnarMap(blockRegion, expectedValuesRegion);
         assertDictionaryBlock(blockRegion, expectedValuesRegion);
@@ -94,7 +93,7 @@ public class TestColumnarMap
         Block dictionaryBlock = createTestDictionaryBlock(block);
         Slice[][][] expectedDictionaryValues = createTestDictionaryExpectedValues(expectedValues);
 
-        assertBlock(dictionaryBlock, expectedDictionaryValues);
+        assertBlock(MAP_TYPE, dictionaryBlock, expectedDictionaryValues);
         assertColumnarMap(dictionaryBlock, expectedDictionaryValues);
         assertRunLengthEncodedBlock(dictionaryBlock, expectedDictionaryValues);
     }
@@ -105,7 +104,7 @@ public class TestColumnarMap
             RunLengthEncodedBlock runLengthEncodedBlock = createTestRleBlock(block, position);
             Slice[][][] expectedDictionaryValues = createTestRleExpectedValues(expectedValues, position);
 
-            assertBlock(runLengthEncodedBlock, expectedDictionaryValues);
+            assertBlock(MAP_TYPE, runLengthEncodedBlock, expectedDictionaryValues);
             assertColumnarMap(runLengthEncodedBlock, expectedDictionaryValues);
         }
     }
@@ -133,10 +132,10 @@ public class TestColumnarMap
                 Slice[] expectedEntry = expectedMap[i];
 
                 Slice expectedKey = expectedEntry[0];
-                assertBlockPosition(keysBlock, elementsPosition, expectedKey);
+                assertBlockPosition(MAP_TYPE, keysBlock, elementsPosition, expectedKey);
 
                 Slice expectedValue = expectedEntry[1];
-                assertBlockPosition(valuesBlock, elementsPosition, expectedValue);
+                assertBlockPosition(MAP_TYPE, valuesBlock, elementsPosition, expectedValue);
 
                 elementsPosition++;
             }
@@ -145,7 +144,7 @@ public class TestColumnarMap
 
     public static BlockBuilder createBlockBuilderWithValues(Slice[][][] expectedValues)
     {
-        MapBlockBuilder blockBuilder = createMapBuilder(100);
+        MapBlockBuilder blockBuilder = MAP_TYPE.createBlockBuilder(null, 100);
         for (Slice[][] expectedMap : expectedValues) {
             if (expectedMap == null) {
                 blockBuilder.appendNull();
@@ -169,17 +168,5 @@ public class TestColumnarMap
             }
         }
         return blockBuilder;
-    }
-
-    private static MapBlockBuilder createMapBuilder(int expectedEntries)
-    {
-        MapType mapType = (MapType) TESTING_TYPE_MANAGER.getType(new TypeSignature(MAP, TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()), TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature())));
-        return new MapBlockBuilder(mapType, null, expectedEntries);
-    }
-
-    @SuppressWarnings("unused")
-    public static long blockVarcharHashCode(Block block, int position)
-    {
-        return block.hash(position, 0, block.getSliceLength(position));
     }
 }

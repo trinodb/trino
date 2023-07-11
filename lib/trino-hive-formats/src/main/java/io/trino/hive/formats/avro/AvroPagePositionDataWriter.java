@@ -533,7 +533,7 @@ public class AvroPagePositionDataWriter
         void encodeFromBlock(int position, Encoder encoder)
                 throws IOException
         {
-            SqlRow sqlRow = (SqlRow) type.getObject(block, position);
+            SqlRow sqlRow = type.getObject(block, position);
             for (BlockPositionEncoder channelEncoder : channelEncoders) {
                 channelEncoder.setBlock(sqlRow);
             }

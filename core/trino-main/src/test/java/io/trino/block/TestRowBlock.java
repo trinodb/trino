@@ -177,7 +177,7 @@ public class TestRowBlock
         requireNonNull(row, "row is null");
 
         assertFalse(rowBlock.isNull(position));
-        SqlRow sqlRow = (SqlRow) rowBlock.getObject(position, Block.class);
+        SqlRow sqlRow = rowBlock.getObject(position, SqlRow.class);
         assertEquals(sqlRow.getPositionCount(), row.size());
 
         for (int i = 0; i < row.size(); i++) {
