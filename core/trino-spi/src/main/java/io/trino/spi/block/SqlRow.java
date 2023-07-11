@@ -35,7 +35,7 @@ public class SqlRow
     private final List<Block> fieldBlocksList;
     private final int rowIndex;
 
-    SqlRow(int rowIndex, Block[] fieldBlocks)
+    public SqlRow(int rowIndex, Block[] fieldBlocks)
     {
         this.rowIndex = rowIndex;
         this.fieldBlocks = requireNonNull(fieldBlocks, "fieldBlocks is null");

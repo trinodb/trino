@@ -15,6 +15,7 @@ package io.trino.orc;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.ArrayType;
@@ -148,7 +149,7 @@ class ValidationHash
 
     private static long rowHash(RowType type, ValidationHash[] fieldHashes, Block block, int position)
     {
-        Block row = type.getObject(block, position);
+        SqlRow row = type.getObject(block, position);
         long hash = 0;
         for (int i = 0; i < row.getPositionCount(); i++) {
             hash = 31 * hash + fieldHashes[i].hash(row, i);

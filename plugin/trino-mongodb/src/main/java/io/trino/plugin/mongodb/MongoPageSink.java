@@ -23,6 +23,7 @@ import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.type.ArrayType;
@@ -233,27 +234,27 @@ public class MongoPageSink
             return unmodifiableList(values);
         }
         if (type instanceof RowType rowType) {
-            Block rowBlock = block.getObject(position, Block.class);
+            SqlRow sqlRow = rowType.getObject(block, position);
 
             List<Type> fieldTypes = rowType.getTypeParameters();
-            if (fieldTypes.size() != rowBlock.getPositionCount()) {
+            if (fieldTypes.size() != sqlRow.getPositionCount()) {
                 throw new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }
 
             if (isImplicitRowType(rowType)) {
                 List<Object> rowValue = new ArrayList<>();
-                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                    Object element = getObjectValue(fieldTypes.get(i), rowBlock, i);
+                for (int i = 0; i < sqlRow.getPositionCount(); i++) {
+                    Object element = getObjectValue(fieldTypes.get(i), sqlRow, i);
                     rowValue.add(element);
                 }
                 return unmodifiableList(rowValue);
             }
 
             Map<String, Object> rowValue = new HashMap<>();
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+            for (int i = 0; i < sqlRow.getPositionCount(); i++) {
                 rowValue.put(
                         rowType.getTypeSignature().getParameters().get(i).getNamedTypeSignature().getName().orElse("field" + i),
-                        getObjectValue(fieldTypes.get(i), rowBlock, i));
+                        getObjectValue(fieldTypes.get(i), sqlRow, i));
             }
             return unmodifiableMap(rowValue);
         }

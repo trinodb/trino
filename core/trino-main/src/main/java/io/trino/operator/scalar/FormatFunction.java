@@ -19,6 +19,7 @@ import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -80,7 +81,7 @@ public final class FormatFunction
     public static final String NAME = "$format";
 
     public static final FormatFunction FORMAT_FUNCTION = new FormatFunction();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(FormatFunction.class, "sqlFormat", List.class, ConnectorSession.class, Slice.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(FormatFunction.class, "sqlFormat", List.class, ConnectorSession.class, Slice.class, SqlRow.class);
     private static final CatalogSchemaFunctionName JSON_FORMAT_NAME = builtinFunctionName("json_format");
 
     private FormatFunction()
@@ -151,7 +152,7 @@ public final class FormatFunction
     }
 
     @UsedByGeneratedCode
-    public static Slice sqlFormat(List<Function<Block, Object>> converters, ConnectorSession session, Slice slice, Block row)
+    public static Slice sqlFormat(List<Function<Block, Object>> converters, ConnectorSession session, Slice slice, SqlRow row)
     {
         Object[] args = new Object[converters.size()];
         for (int i = 0; i < args.length; i++) {

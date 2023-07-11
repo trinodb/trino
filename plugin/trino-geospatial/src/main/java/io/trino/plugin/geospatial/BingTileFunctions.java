@@ -22,6 +22,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BufferedRowValueBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -116,7 +117,7 @@ public final class BingTileFunctions
         }
 
         @SqlType("row(x integer,y integer)")
-        public Block bingTileCoordinates(@SqlType(BingTileType.NAME) long input)
+        public SqlRow bingTileCoordinates(@SqlType(BingTileType.NAME) long input)
         {
             BingTile tile = BingTile.decode(input);
             return rowValueBuilder.build(fields -> {

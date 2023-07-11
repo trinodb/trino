@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
@@ -126,7 +127,7 @@ public final class StructuralTestUtil
                 });
     }
 
-    public static Block rowBlockOf(List<Type> parameterTypes, Object... values)
+    public static SqlRow rowBlockOf(List<Type> parameterTypes, Object... values)
     {
         return buildRowValue(RowType.anonymous(parameterTypes), fields -> {
             for (int i = 0; i < values.length; i++) {

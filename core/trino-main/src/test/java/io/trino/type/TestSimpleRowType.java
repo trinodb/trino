@@ -16,6 +16,7 @@ package io.trino.type;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 import org.junit.jupiter.api.Test;
 
@@ -66,9 +67,9 @@ public class TestSimpleRowType
     protected Object getGreaterValue(Object value)
     {
         return buildRowValue(TYPE, fieldBuilders -> {
-            Block block = (Block) value;
-            BIGINT.writeLong(fieldBuilders.get(0), block.getSingleValueBlock(0).getLong(0, 0) + 1);
-            VARCHAR.writeSlice(fieldBuilders.get(1), block.getSingleValueBlock(1).getSlice(0, 0, 1));
+            SqlRow sqlRow = (SqlRow) value;
+            BIGINT.writeLong(fieldBuilders.get(0), sqlRow.getSingleValueBlock(0).getLong(0, 0) + 1);
+            VARCHAR.writeSlice(fieldBuilders.get(1), sqlRow.getSingleValueBlock(1).getSlice(0, 0, 1));
         });
     }
 

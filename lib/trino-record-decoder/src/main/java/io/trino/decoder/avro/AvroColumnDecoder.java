@@ -25,6 +25,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -344,7 +345,7 @@ public class AvroColumnDecoder
         }
     }
 
-    private static Block serializeRow(BlockBuilder blockBuilder, Object value, Type type, String columnName)
+    private static SqlRow serializeRow(BlockBuilder blockBuilder, Object value, Type type, String columnName)
     {
         if (value == null) {
             checkState(blockBuilder != null, "block builder is null");

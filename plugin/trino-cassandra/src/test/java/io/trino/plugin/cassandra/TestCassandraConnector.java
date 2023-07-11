@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.InetAddresses;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -354,10 +353,10 @@ public class TestCassandraConnector
                     assertEquals(VARCHAR.getSlice(value, 15).toStringUtf8(), "[\"list\"]");
                     assertEquals(VARCHAR.getSlice(value, 16).toStringUtf8(), "{\"map\":1}");
                     assertEquals(VARCHAR.getSlice(value, 17).toStringUtf8(), "[true]");
-                    SqlRow tupleValue = (SqlRow) value.getObject(18, Block.class);
+                    SqlRow tupleValue = value.getObject(18, SqlRow.class);
                     assertThat(tupleValue.getPositionCount()).isEqualTo(1);
                     assertThat(INTEGER.getInt(tupleValue, 0)).isEqualTo(123);
-                    SqlRow udtValue = (SqlRow) value.getObject(19, Block.class);
+                    SqlRow udtValue = value.getObject(19, SqlRow.class);
                     assertThat(udtValue.getPositionCount()).isEqualTo(1);
                     assertThat(INTEGER.getInt(udtValue, 0)).isEqualTo(999);
 

@@ -385,7 +385,7 @@ public class ExpressionInterpreter
             }
 
             RowType rowType = (RowType) type;
-            Block row = (Block) base;
+            SqlRow row = (SqlRow) base;
             Type returnType = type(node);
             String fieldName = fieldIdentifier.getValue();
             List<Field> fields = rowType.getFields();
@@ -1518,7 +1518,7 @@ public class ExpressionInterpreter
                     .resolveBuiltinFunction(FormatFunction.NAME, TypeSignatureProvider.fromTypes(VARCHAR, rowType));
 
             // Construct a row with arguments [1..n] and invoke the underlying function
-            Block row = buildRowValue(rowType, fields -> {
+            SqlRow row = buildRowValue(rowType, fields -> {
                 for (int i = 0; i < arguments.size(); ++i) {
                     writeNativeValue(argumentTypes.get(i), fields.get(i), processedArguments.get(i));
                 }

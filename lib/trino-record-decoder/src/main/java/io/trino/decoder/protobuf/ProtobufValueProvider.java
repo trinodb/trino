@@ -26,6 +26,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -276,7 +277,7 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private Block serializeRow(BlockBuilder blockBuilder, @Nullable Object value, Type type, String columnName)
+    private SqlRow serializeRow(BlockBuilder blockBuilder, @Nullable Object value, Type type, String columnName)
     {
         if (value == null) {
             checkState(blockBuilder != null, "parent block builder is null");
