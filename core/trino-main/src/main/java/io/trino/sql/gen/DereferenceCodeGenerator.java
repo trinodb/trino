@@ -74,18 +74,14 @@ public class DereferenceCodeGenerator
         block.append(ifRowBlockIsNull);
 
         IfStatement ifFieldIsNull = new IfStatement("if row field is null...");
-        ifFieldIsNull.condition()
-                .comment("call rowBlock.isNull(index)")
-                .append(row)
-                .push(index)
-                .invokeInterface(Block.class, "isNull", boolean.class, int.class);
+        ifFieldIsNull.condition(row.invoke("getRawFieldBlock", Block.class, constantInt(index)).invoke("isNull", boolean.class, row.invoke("getRawIndex", int.class)));
 
         ifFieldIsNull.ifTrue()
                 .comment("if the field is null, push null to stack")
                 .putVariable(wasNull, true)
                 .pushJavaDefault(javaType);
 
-        BytecodeExpression value = constantType(callSiteBinder, returnType).getValue(row, constantInt(index));
+        BytecodeExpression value = constantType(callSiteBinder, returnType).getValue(row.invoke("getRawFieldBlock", Block.class, constantInt(index)), row.invoke("getRawIndex", int.class));
 
         ifFieldIsNull.ifFalse()
                 .comment("otherwise call type.getTYPE(row, index)")

@@ -21,6 +21,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
@@ -101,12 +102,14 @@ public class RowToJsonCast
     public static Slice toJsonObject(List<String> fieldNames, List<JsonGeneratorWriter> fieldWriters, SqlRow sqlRow)
     {
         try {
+            int rawIndex = sqlRow.getRawIndex();
             SliceOutput output = new DynamicSliceOutput(40);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeStartObject();
-                for (int i = 0; i < sqlRow.getPositionCount(); i++) {
+                for (int i = 0; i < sqlRow.getFieldCount(); i++) {
                     jsonGenerator.writeFieldName(fieldNames.get(i));
-                    fieldWriters.get(i).writeJsonValue(jsonGenerator, sqlRow, i);
+                    Block fieldBlock = sqlRow.getRawFieldBlock(i);
+                    fieldWriters.get(i).writeJsonValue(jsonGenerator, fieldBlock, rawIndex);
                 }
                 jsonGenerator.writeEndObject();
             }

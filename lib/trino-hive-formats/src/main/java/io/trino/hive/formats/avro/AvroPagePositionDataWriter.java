@@ -534,10 +534,11 @@ public class AvroPagePositionDataWriter
                 throws IOException
         {
             SqlRow sqlRow = type.getObject(block, position);
-            for (BlockPositionEncoder channelEncoder : channelEncoders) {
-                channelEncoder.setBlock(sqlRow);
+            for (int i = 0; i < channelEncoders.length; i++) {
+                channelEncoders[i].setBlock(sqlRow.getRawFieldBlock(i));
             }
-            encodeInternal(i -> i, encoder);
+            int rawIndex = sqlRow.getRawIndex();
+            encodeInternal(i -> rawIndex, encoder);
         }
 
         public void setChannelBlocksFromPage(Page page)

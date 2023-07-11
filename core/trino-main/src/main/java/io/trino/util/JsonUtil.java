@@ -650,12 +650,13 @@ public final class JsonUtil
             }
             else {
                 SqlRow sqlRow = type.getObject(block, position);
+                int rawIndex = sqlRow.getRawIndex();
 
                 List<TypeSignatureParameter> typeSignatureParameters = type.getTypeSignature().getParameters();
                 jsonGenerator.writeStartObject();
-                for (int i = 0; i < sqlRow.getPositionCount(); i++) {
+                for (int i = 0; i < sqlRow.getFieldCount(); i++) {
                     jsonGenerator.writeFieldName(typeSignatureParameters.get(i).getNamedTypeSignature().getName().orElse(""));
-                    fieldWriters.get(i).writeJsonValue(jsonGenerator, sqlRow, i);
+                    fieldWriters.get(i).writeJsonValue(jsonGenerator, sqlRow.getRawFieldBlock(i), rawIndex);
                 }
                 jsonGenerator.writeEndObject();
             }

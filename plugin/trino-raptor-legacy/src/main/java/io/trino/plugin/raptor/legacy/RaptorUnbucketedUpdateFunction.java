@@ -33,7 +33,7 @@ public class RaptorUnbucketedUpdateFunction
     public int getBucket(Page page, int position)
     {
         SqlRow row = page.getBlock(0).getObject(position, SqlRow.class);
-        Slice uuid = UuidType.UUID.getSlice(row, 1); // uuid field of row ID
+        Slice uuid = UuidType.UUID.getSlice(row.getRawFieldBlock(1), row.getRawIndex()); // uuid field of row ID
         return (uuid.hashCode() & Integer.MAX_VALUE) % bucketCount;
     }
 }

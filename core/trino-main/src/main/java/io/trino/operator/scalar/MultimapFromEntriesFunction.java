@@ -91,30 +91,33 @@ public final class MultimapFromEntriesFunction
                 clearEntryIndices(keySet.size());
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
             }
-            SqlRow mapEntry = mapEntryType.getObject(mapEntries, i);
+            SqlRow entry = mapEntryType.getObject(mapEntries, i);
+            int rawIndex = entry.getRawIndex();
 
-            if (mapEntry.isNull(0)) {
+            Block keyBlock = entry.getRawFieldBlock(0);
+            if (keyBlock.isNull(rawIndex)) {
                 clearEntryIndices(keySet.size());
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
-            if (keySet.add(mapEntry, 0)) {
+            if (keySet.add(keyBlock, rawIndex)) {
                 entryIndicesList[keySet.size() - 1].add(i);
             }
             else {
-                entryIndicesList[keySet.positionOf(mapEntry, 0)].add(i);
+                entryIndicesList[keySet.positionOf(keyBlock, rawIndex)].add(i);
             }
         }
 
         SqlMap resultMap = mapValueBuilder.build(keySet.size(), (keyBuilder, valueBuilder) -> {
             for (int i = 0; i < keySet.size(); i++) {
                 IntList indexList = entryIndicesList[i];
+
                 SqlRow keyEntry = mapEntryType.getObject(mapEntries, indexList.getInt(0));
-                keyType.appendTo(keyEntry, 0, keyBuilder);
+                keyType.appendTo(keyEntry.getRawFieldBlock(0), keyEntry.getRawIndex(), keyBuilder);
                 ((ArrayBlockBuilder) valueBuilder).buildEntry(elementBuilder -> {
                     for (int entryIndex : indexList) {
                         SqlRow valueEntry = mapEntryType.getObject(mapEntries, entryIndex);
-                        valueType.appendTo(valueEntry, 1, elementBuilder);
+                        valueType.appendTo(valueEntry.getRawFieldBlock(1), valueEntry.getRawIndex(), elementBuilder);
                     }
                 });
             }
