@@ -48,14 +48,29 @@ public class TestLdapGroupProviderIntegration
     private static final List<ConfigBuilder> CONFIG_BUILDERS;
 
     static {
-        ConfigBuilder withMemberOf = builder -> builder
+        ConfigBuilder cacheDisabledWithMemberOf = builder -> builder
+                .put("cache.enabled", "false")
                 .put("ldap.user-member-of-attribute", "memberOf");
 
-        ConfigBuilder withGroupFilter = builder -> builder
+        ConfigBuilder cacheDisabledWithGroupFilter = builder -> builder
+                .put("cache.enabled", "false")
                 .put("ldap.use-group-filter", "true")
                 .put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com");
 
-        CONFIG_BUILDERS = ImmutableList.of(withMemberOf, withGroupFilter);
+        ConfigBuilder cacheEnabledWithMemberOf = builder -> builder
+                .put("cache.enabled", "true")
+                .put("cache.ttl", "5s")
+                .put("cache.maximum-size", "10")
+                .put("ldap.user-member-of-attribute", "memberOf");
+
+        ConfigBuilder cacheEnabledWithGroupFilter = builder -> builder
+                .put("cache.enabled", "true")
+                .put("cache.ttl", "5s")
+                .put("cache.maximum-size", "10")
+                .put("ldap.use-group-filter", "true")
+                .put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com");
+
+        CONFIG_BUILDERS = ImmutableList.of(cacheDisabledWithMemberOf, cacheDisabledWithGroupFilter, cacheEnabledWithMemberOf, cacheEnabledWithGroupFilter);
     }
 
     private Closer closer;
