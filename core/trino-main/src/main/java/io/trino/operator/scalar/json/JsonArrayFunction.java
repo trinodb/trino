@@ -24,7 +24,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -34,7 +34,6 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.type.Json2016Type;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
@@ -54,7 +53,7 @@ public class JsonArrayFunction
 {
     public static final JsonArrayFunction JSON_ARRAY_FUNCTION = new JsonArrayFunction();
     public static final String JSON_ARRAY_FUNCTION_NAME = "$json_array";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonArrayFunction.class, "jsonArray", RowType.class, Block.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonArrayFunction.class, "jsonArray", RowType.class, SqlRow.class, boolean.class);
     private static final JsonNode EMPTY_ARRAY = new ArrayNode(JsonNodeFactory.instance);
 
     private JsonArrayFunction()
@@ -85,18 +84,18 @@ public class JsonArrayFunction
     }
 
     @UsedByGeneratedCode
-    public static JsonNode jsonArray(RowType elementsRowType, Block elementsRow, boolean nullOnNull)
+    public static JsonNode jsonArray(RowType elementsRowType, SqlRow elementsRow, boolean nullOnNull)
     {
         if (JSON_NO_PARAMETERS_ROW_TYPE.equals(elementsRowType)) {
             return EMPTY_ARRAY;
         }
 
-        List<Block> elements = elementsRow.getChildren();
+        int rawIndex = elementsRow.getRawIndex();
         ImmutableList.Builder<JsonNode> arrayElements = ImmutableList.builder();
 
         for (int i = 0; i < elementsRowType.getFields().size(); i++) {
             Type elementType = elementsRowType.getFields().get(i).getType();
-            Object element = readNativeValue(elementType, elements.get(i), 0);
+            Object element = readNativeValue(elementType, elementsRow.getRawFieldBlock(i), rawIndex);
             checkState(!JSON_ERROR.equals(element), "malformed JSON error suppressed in the input function");
 
             JsonNode elementNode;

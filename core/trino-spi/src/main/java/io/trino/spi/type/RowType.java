@@ -244,10 +244,11 @@ public class RowType
         }
 
         SqlRow sqlRow = getObject(block, position);
-        List<Object> values = new ArrayList<>(sqlRow.getPositionCount());
+        List<Object> values = new ArrayList<>(sqlRow.getFieldCount());
 
-        for (int i = 0; i < sqlRow.getPositionCount(); i++) {
-            values.add(fields.get(i).getType().getObjectValue(session, sqlRow, i));
+        int rawIndex = sqlRow.getRawIndex();
+        for (int i = 0; i < sqlRow.getFieldCount(); i++) {
+            values.add(fields.get(i).getType().getObjectValue(session, sqlRow.getRawFieldBlock(i), rawIndex));
         }
 
         return Collections.unmodifiableList(values);
@@ -274,9 +275,10 @@ public class RowType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         SqlRow sqlRow = (SqlRow) value;
+        int rawIndex = sqlRow.getRawIndex();
         ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
-            for (int i = 0; i < sqlRow.getPositionCount(); i++) {
-                fields.get(i).getType().appendTo(sqlRow, i, fieldBuilders.get(i));
+            for (int i = 0; i < sqlRow.getFieldCount(); i++) {
+                fields.get(i).getType().appendTo(sqlRow.getRawFieldBlock(i), rawIndex, fieldBuilders.get(i));
             }
         });
     }
@@ -301,12 +303,14 @@ public class RowType
         }
 
         SqlRow sqlRow = getObject(block, position);
+        int rawIndex = sqlRow.getRawIndex();
 
         int variableSize = 0;
         for (int i = 0; i < fieldTypes.size(); i++) {
             Type fieldType = fieldTypes.get(i);
-            if (!sqlRow.isNull(i)) {
-                variableSize += fieldType.getFlatVariableWidthSize(sqlRow, i);
+            Block fieldBlock = sqlRow.getRawFieldBlock(i);
+            if (!fieldBlock.isNull(rawIndex)) {
+                variableSize += fieldType.getFlatVariableWidthSize(fieldBlock, rawIndex);
             }
         }
         return variableSize;
@@ -481,18 +485,20 @@ public class RowType
             int variableSizeOffset)
             throws Throwable
     {
+        int rawIndex = row.getRawIndex();
         List<Type> fieldTypes = rowType.getTypeParameters();
         for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
             Type fieldType = fieldTypes.get(fieldIndex);
-            if (row.isNull(fieldIndex)) {
+            Block fieldBlock = row.getRawFieldBlock(fieldIndex);
+            if (fieldBlock.isNull(rawIndex)) {
                 fixedSizeSlice[fixedSizeOffset] = 1;
             }
             else {
                 int fieldVariableLength = 0;
                 if (fieldType.isFlatVariableWidth()) {
-                    fieldVariableLength = fieldType.getFlatVariableWidthSize(row, fieldIndex);
+                    fieldVariableLength = fieldType.getFlatVariableWidthSize(fieldBlock, rawIndex);
                 }
-                fieldWriteFlatMethods.get(fieldIndex).invokeExact((Block) row, fieldIndex, fixedSizeSlice, fixedSizeOffset + 1, variableSizeSlice, variableSizeOffset);
+                fieldWriteFlatMethods.get(fieldIndex).invokeExact((Block) fieldBlock, rawIndex, fixedSizeSlice, fixedSizeOffset + 1, variableSizeSlice, variableSizeOffset);
                 variableSizeOffset += fieldVariableLength;
             }
             fixedSizeOffset += 1 + fieldType.getFlatFixedSize();
@@ -541,14 +547,18 @@ public class RowType
     private static Boolean megamorphicEqualOperator(List<MethodHandle> equalOperators, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
+        int leftRawIndex = leftRow.getRawIndex();
+        int rightRawIndex = rightRow.getRawIndex();
         boolean unknown = false;
         for (int fieldIndex = 0; fieldIndex < equalOperators.size(); fieldIndex++) {
-            if (leftRow.isNull(fieldIndex) || rightRow.isNull(fieldIndex)) {
+            Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
+            Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
+            if (leftFieldBlock.isNull(leftRawIndex) || rightFieldBlock.isNull(rightRawIndex)) {
                 unknown = true;
                 continue;
             }
             MethodHandle equalOperator = equalOperators.get(fieldIndex);
-            Boolean result = (Boolean) equalOperator.invokeExact((Block) leftRow, fieldIndex, (Block) rightRow, fieldIndex);
+            Boolean result = (Boolean) equalOperator.invokeExact(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
             if (result == null) {
                 unknown = true;
             }
@@ -570,11 +580,16 @@ public class RowType
             return FALSE;
         }
 
-        if (leftRow.isNull(currentFieldIndex) || rightRow.isNull(currentFieldIndex)) {
+        int leftRawIndex = leftRow.getRawIndex();
+        int rightRawIndex = rightRow.getRawIndex();
+        Block leftFieldBlock = leftRow.getRawFieldBlock(currentFieldIndex);
+        Block rightFieldBlock = rightRow.getRawFieldBlock(currentFieldIndex);
+
+        if (leftFieldBlock.isNull(leftRawIndex) || rightFieldBlock.isNull(rightRawIndex)) {
             return null;
         }
 
-        Boolean result = (Boolean) currentFieldEqual.invokeExact((Block) leftRow, currentFieldIndex, (Block) rightRow, currentFieldIndex);
+        Boolean result = (Boolean) currentFieldEqual.invokeExact(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
         if (result == TRUE) {
             // this field is equal, so the result is either true or unknown depending on the previous fields
             return previousFieldsEqual;
@@ -633,12 +648,15 @@ public class RowType
     private static long megamorphicHashCodeOperator(List<MethodHandle> hashCodeOperators, SqlRow row)
             throws Throwable
     {
+        int rawIndex = row.getRawIndex();
+
         long result = 1;
         for (int fieldIndex = 0; fieldIndex < hashCodeOperators.size(); fieldIndex++) {
+            Block fieldBlock = row.getRawFieldBlock(fieldIndex);
             long fieldHashCode = NULL_HASH_CODE;
-            if (!row.isNull(fieldIndex)) {
+            if (!fieldBlock.isNull(rawIndex)) {
                 MethodHandle hashCodeOperator = hashCodeOperators.get(fieldIndex);
-                fieldHashCode = (long) hashCodeOperator.invokeExact((Block) row, fieldIndex);
+                fieldHashCode = (long) hashCodeOperator.invokeExact(fieldBlock, rawIndex);
             }
             result = 31 * result + fieldHashCode;
         }
@@ -648,9 +666,12 @@ public class RowType
     private static long chainHashCode(long previousFieldHashCode, int currentFieldIndex, MethodHandle currentFieldHashCodeOperator, SqlRow row)
             throws Throwable
     {
+        Block fieldBlock = row.getRawFieldBlock(currentFieldIndex);
+        int rawIndex = row.getRawIndex();
+
         long fieldHashCode = NULL_HASH_CODE;
-        if (!row.isNull(currentFieldIndex)) {
-            fieldHashCode = (long) currentFieldHashCodeOperator.invokeExact((Block) row, currentFieldIndex);
+        if (!fieldBlock.isNull(rawIndex)) {
+            fieldHashCode = (long) currentFieldHashCodeOperator.invokeExact(fieldBlock, rawIndex);
         }
         return 31 * previousFieldHashCode + fieldHashCode;
     }
@@ -703,9 +724,15 @@ public class RowType
             return leftIsNull != rightIsNull;
         }
 
+        int leftRawIndex = leftRow.getRawIndex();
+        int rightRawIndex = rightRow.getRawIndex();
+
         for (int fieldIndex = 0; fieldIndex < distinctFromOperators.size(); fieldIndex++) {
+            Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
+            Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
+
             MethodHandle equalOperator = distinctFromOperators.get(fieldIndex);
-            boolean result = (boolean) equalOperator.invoke(leftRow, fieldIndex, rightRow, fieldIndex);
+            boolean result = (boolean) equalOperator.invoke(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
             if (result) {
                 return true;
             }
@@ -731,7 +758,9 @@ public class RowType
         if (previousFieldsDistinctFrom) {
             return true;
         }
-        return (boolean) currentFieldDistinctFrom.invokeExact((Block) leftRow, currentFieldIndex, (Block) rightRow, currentFieldIndex);
+        return (boolean) currentFieldDistinctFrom.invokeExact(
+                leftRow.getRawFieldBlock(currentFieldIndex), leftRow.getRawIndex(),
+                rightRow.getRawFieldBlock(currentFieldIndex), rightRow.getRawIndex());
     }
 
     private static List<OperatorMethodHandle> getIndeterminateOperatorInvokers(TypeOperators typeOperators, List<Field> fields)
@@ -777,10 +806,12 @@ public class RowType
         if (row == null) {
             return true;
         }
+        int rawIndex = row.getRawIndex();
         for (int fieldIndex = 0; fieldIndex < indeterminateOperators.size(); fieldIndex++) {
-            if (!row.isNull(fieldIndex)) {
+            Block fieldBlock = row.getRawFieldBlock(fieldIndex);
+            if (!fieldBlock.isNull(rawIndex)) {
                 MethodHandle indeterminateOperator = indeterminateOperators.get(fieldIndex);
-                if ((boolean) indeterminateOperator.invokeExact((Block) row, fieldIndex)) {
+                if ((boolean) indeterminateOperator.invokeExact(fieldBlock, rawIndex)) {
                     return true;
                 }
             }
@@ -791,10 +822,15 @@ public class RowType
     private static boolean chainIndeterminate(boolean previousFieldIndeterminate, int currentFieldIndex, MethodHandle currentFieldIndeterminateOperator, SqlRow row)
             throws Throwable
     {
-        if (row == null || previousFieldIndeterminate || row.isNull(currentFieldIndex)) {
+        if (row == null || previousFieldIndeterminate) {
             return true;
         }
-        return (boolean) currentFieldIndeterminateOperator.invokeExact((Block) row, currentFieldIndex);
+        int rawIndex = row.getRawIndex();
+        Block fieldBlock = row.getRawFieldBlock(currentFieldIndex);
+        if (fieldBlock.isNull(rawIndex)) {
+            return true;
+        }
+        return (boolean) currentFieldIndeterminateOperator.invokeExact(fieldBlock, rawIndex);
     }
 
     private static List<OperatorMethodHandle> getComparisonOperatorInvokers(BiFunction<Type, InvocationConvention, MethodHandle> comparisonOperatorFactory, List<Field> fields)
@@ -837,12 +873,18 @@ public class RowType
     private static long megamorphicComparisonOperator(List<MethodHandle> comparisonOperators, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
+        int leftRawIndex = leftRow.getRawIndex();
+        int rightRawIndex = rightRow.getRawIndex();
+
         for (int fieldIndex = 0; fieldIndex < comparisonOperators.size(); fieldIndex++) {
-            checkElementNotNull(leftRow.isNull(fieldIndex));
-            checkElementNotNull(rightRow.isNull(fieldIndex));
+            Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
+            Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
+
+            checkElementNotNull(leftFieldBlock.isNull(leftRawIndex));
+            checkElementNotNull(rightFieldBlock.isNull(rightRawIndex));
 
             MethodHandle comparisonOperator = comparisonOperators.get(fieldIndex);
-            long result = (long) comparisonOperator.invoke(leftRow, fieldIndex, rightRow, fieldIndex);
+            long result = (long) comparisonOperator.invoke(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
             if (result == 0) {
                 return result;
             }
@@ -857,10 +899,15 @@ public class RowType
             return previousFieldsResult;
         }
 
-        checkElementNotNull(leftRow.isNull(fieldIndex));
-        checkElementNotNull(rightRow.isNull(fieldIndex));
+        int leftRawIndex = leftRow.getRawIndex();
+        int rightRawIndex = rightRow.getRawIndex();
+        Block leftFieldBlock = leftRow.getRawFieldBlock(fieldIndex);
+        Block rightFieldBlock = rightRow.getRawFieldBlock(fieldIndex);
 
-        return (long) nextFieldComparison.invokeExact((Block) leftRow, fieldIndex, (Block) rightRow, fieldIndex);
+        checkElementNotNull(leftFieldBlock.isNull(leftRawIndex));
+        checkElementNotNull(rightFieldBlock.isNull(rightRawIndex));
+
+        return (long) nextFieldComparison.invokeExact(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
     }
 
     private static void checkElementNotNull(boolean isNull)

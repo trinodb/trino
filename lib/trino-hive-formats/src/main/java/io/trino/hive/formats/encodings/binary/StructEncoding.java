@@ -39,22 +39,24 @@ public class StructEncoding
     public void encodeValue(Block block, int position, SliceOutput output)
     {
         SqlRow row = block.getObject(position, SqlRow.class);
+        int rawIndex = row.getRawIndex();
 
         // write values
-        for (int batchStart = 0; batchStart < row.getPositionCount(); batchStart += 8) {
+        for (int batchStart = 0; batchStart < row.getFieldCount(); batchStart += 8) {
             int batchEnd = Math.min(batchStart + 8, structFields.size());
 
             int nullByte = 0;
             for (int fieldId = batchStart; fieldId < batchEnd; fieldId++) {
-                if (!row.isNull(fieldId)) {
+                if (!row.getRawFieldBlock(fieldId).isNull(rawIndex)) {
                     nullByte |= (1 << (fieldId % 8));
                 }
             }
             output.writeByte(nullByte);
             for (int fieldId = batchStart; fieldId < batchEnd; fieldId++) {
-                if (!row.isNull(fieldId)) {
+                Block fieldBlock = row.getRawFieldBlock(fieldId);
+                if (!fieldBlock.isNull(rawIndex)) {
                     BinaryColumnEncoding field = structFields.get(fieldId);
-                    field.encodeValueInto(row, fieldId, output);
+                    field.encodeValueInto(fieldBlock, rawIndex, output);
                 }
             }
         }

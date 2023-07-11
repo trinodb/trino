@@ -141,9 +141,10 @@ class ValidationHash
     private static long rowHash(RowType type, ValidationHash[] fieldHashes, Block block, int position)
     {
         SqlRow row = type.getObject(block, position);
+        int rawIndex = row.getRawIndex();
         long hash = 0;
-        for (int i = 0; i < row.getPositionCount(); i++) {
-            hash = 31 * hash + fieldHashes[i].hash(row, i);
+        for (int i = 0; i < row.getFieldCount(); i++) {
+            hash = 31 * hash + fieldHashes[i].hash(row.getRawFieldBlock(i), rawIndex);
         }
         return hash;
     }

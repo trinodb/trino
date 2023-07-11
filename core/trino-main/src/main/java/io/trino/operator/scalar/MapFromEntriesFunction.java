@@ -82,14 +82,16 @@ public final class MapFromEntriesFunction
                     if (mapEntries.isNull(i)) {
                         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
                     }
-                    SqlRow mapEntry = mapEntryType.getObject(mapEntries, i);
+                    SqlRow entry = mapEntryType.getObject(mapEntries, i);
+                    int rawIndex = entry.getRawIndex();
 
-                    if (mapEntry.isNull(0)) {
+                    Block keyBlock = entry.getRawFieldBlock(0);
+                    if (keyBlock.isNull(rawIndex)) {
                         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
                     }
+                    keyType.appendTo(keyBlock, rawIndex, keyBuilder);
 
-                    keyType.appendTo(mapEntry, 0, keyBuilder);
-                    valueType.appendTo(mapEntry, 1, valueBuilder);
+                    valueType.appendTo(entry.getRawFieldBlock(1), rawIndex, valueBuilder);
                 }
             });
         }

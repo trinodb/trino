@@ -235,26 +235,27 @@ public class MongoPageSink
         }
         if (type instanceof RowType rowType) {
             SqlRow sqlRow = rowType.getObject(block, position);
+            int rawIndex = sqlRow.getRawIndex();
 
             List<Type> fieldTypes = rowType.getTypeParameters();
-            if (fieldTypes.size() != sqlRow.getPositionCount()) {
+            if (fieldTypes.size() != sqlRow.getFieldCount()) {
                 throw new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }
 
             if (isImplicitRowType(rowType)) {
                 List<Object> rowValue = new ArrayList<>();
-                for (int i = 0; i < sqlRow.getPositionCount(); i++) {
-                    Object element = getObjectValue(fieldTypes.get(i), sqlRow, i);
+                for (int i = 0; i < sqlRow.getFieldCount(); i++) {
+                    Object element = getObjectValue(fieldTypes.get(i), sqlRow.getRawFieldBlock(i), rawIndex);
                     rowValue.add(element);
                 }
                 return unmodifiableList(rowValue);
             }
 
             Map<String, Object> rowValue = new HashMap<>();
-            for (int i = 0; i < sqlRow.getPositionCount(); i++) {
+            for (int i = 0; i < sqlRow.getFieldCount(); i++) {
                 rowValue.put(
                         rowType.getTypeSignature().getParameters().get(i).getNamedTypeSignature().getName().orElse("field" + i),
-                        getObjectValue(fieldTypes.get(i), sqlRow, i));
+                        getObjectValue(fieldTypes.get(i), sqlRow.getRawFieldBlock(i), rawIndex));
             }
             return unmodifiableMap(rowValue);
         }

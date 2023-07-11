@@ -23,6 +23,7 @@ import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
@@ -297,11 +298,14 @@ public class JsonSerializer
         public void writeNonNull(JsonGenerator generator, Block block, int position)
                 throws IOException
         {
-            Block rowBlock = requireNonNull(rowType.getObject(block, position));
+            SqlRow sqlRow = rowType.getObject(block, position);
+            int rawIndex = sqlRow.getRawIndex();
+
             generator.writeStartObject();
             for (int field = 0; field < fieldWriters.length; field++) {
                 FieldWriter writer = fieldWriters[field];
-                writer.writeField(generator, rowBlock, field);
+                Block fieldBlock = sqlRow.getRawFieldBlock(field);
+                writer.writeField(generator, fieldBlock, rawIndex);
             }
             generator.writeEndObject();
         }

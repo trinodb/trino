@@ -31,7 +31,6 @@ import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStat
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.ArrayBlockBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
@@ -53,7 +52,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -356,27 +354,8 @@ public class CheckpointWriter
             for (int i = 0; i < fields.size(); i++) {
                 Field field = fields.get(i);
                 BlockBuilder fieldBlockBuilder = fieldBuilders.get(i);
-
-                // anonymous row fields are not expected here
                 Object value = values.get().get(field.getName().orElseThrow());
-                if (field.getType() instanceof RowType) {
-                    Block rowBlock = (Block) value;
-                    // Statistics were not collected
-                    if (rowBlock == null) {
-                        fieldBlockBuilder.appendNull();
-                        continue;
-                    }
-                    checkState(rowBlock.getPositionCount() == 1, "Invalid RowType statistics for writing Delta Lake checkpoint");
-                    if (rowBlock.isNull(0)) {
-                        fieldBlockBuilder.appendNull();
-                    }
-                    else {
-                        field.getType().appendTo(rowBlock, 0, fieldBlockBuilder);
-                    }
-                }
-                else {
-                    writeNativeValue(field.getType(), fieldBlockBuilder, value);
-                }
+                writeNativeValue(field.getType(), fieldBlockBuilder, value);
             }
         });
     }
