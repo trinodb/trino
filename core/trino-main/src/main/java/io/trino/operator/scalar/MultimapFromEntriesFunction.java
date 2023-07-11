@@ -19,6 +19,7 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
@@ -90,28 +91,30 @@ public final class MultimapFromEntriesFunction
                 clearEntryIndices(keySet.size());
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
             }
-            Block mapEntryBlock = mapEntryType.getObject(mapEntries, i);
+            SqlRow mapEntry = mapEntryType.getObject(mapEntries, i);
 
-            if (mapEntryBlock.isNull(0)) {
+            if (mapEntry.isNull(0)) {
                 clearEntryIndices(keySet.size());
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
-            if (keySet.add(mapEntryBlock, 0)) {
+            if (keySet.add(mapEntry, 0)) {
                 entryIndicesList[keySet.size() - 1].add(i);
             }
             else {
-                entryIndicesList[keySet.positionOf(mapEntryBlock, 0)].add(i);
+                entryIndicesList[keySet.positionOf(mapEntry, 0)].add(i);
             }
         }
 
         SqlMap resultMap = mapValueBuilder.build(keySet.size(), (keyBuilder, valueBuilder) -> {
             for (int i = 0; i < keySet.size(); i++) {
                 IntList indexList = entryIndicesList[i];
-                keyType.appendTo(mapEntryType.getObject(mapEntries, indexList.getInt(0)), 0, keyBuilder);
+                SqlRow keyEntry = mapEntryType.getObject(mapEntries, indexList.getInt(0));
+                keyType.appendTo(keyEntry, 0, keyBuilder);
                 ((ArrayBlockBuilder) valueBuilder).buildEntry(elementBuilder -> {
                     for (int entryIndex : indexList) {
-                        valueType.appendTo(mapEntryType.getObject(mapEntries, entryIndex), 1, elementBuilder);
+                        SqlRow valueEntry = mapEntryType.getObject(mapEntries, entryIndex);
+                        valueType.appendTo(valueEntry, 1, elementBuilder);
                     }
                 });
             }

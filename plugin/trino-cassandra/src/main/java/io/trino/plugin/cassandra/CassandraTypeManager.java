@@ -34,8 +34,8 @@ import com.google.common.net.InetAddresses;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -286,7 +286,7 @@ public class CassandraTypeManager
         return sb.toString();
     }
 
-    private Block buildTupleValue(CassandraType type, GettableByIndex row, int position)
+    private SqlRow buildTupleValue(CassandraType type, GettableByIndex row, int position)
     {
         verify(type.getKind() == TUPLE, "Not a TUPLE type");
         TupleValue tupleValue = row.getTupleValue(position);
@@ -304,7 +304,7 @@ public class CassandraTypeManager
         });
     }
 
-    private Block buildUserTypeValue(CassandraType type, GettableByIndex row, int position)
+    private SqlRow buildUserTypeValue(CassandraType type, GettableByIndex row, int position)
     {
         verify(type.getKind() == UDT, "Not a user defined type: %s", type.getKind());
         UdtValue udtValue = row.getUdtValue(position);

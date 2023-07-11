@@ -23,6 +23,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -226,15 +227,15 @@ public final class IcebergAvroDataConversion
             return Collections.unmodifiableMap(map);
         }
         if (type instanceof RowType rowType) {
-            Block rowBlock = block.getObject(position, Block.class);
+            SqlRow sqlRow = rowType.getObject(block, position);
 
             List<Type> fieldTypes = rowType.getTypeParameters();
-            checkArgument(fieldTypes.size() == rowBlock.getPositionCount(), "Expected row value field count does not match type field count");
+            checkArgument(fieldTypes.size() == sqlRow.getPositionCount(), "Expected row value field count does not match type field count");
             List<Types.NestedField> icebergFields = icebergType.asStructType().fields();
 
             Record record = GenericRecord.create(icebergType.asStructType());
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                Object element = toIcebergAvroObject(fieldTypes.get(i), icebergFields.get(i).type(), rowBlock, i);
+            for (int i = 0; i < sqlRow.getPositionCount(); i++) {
+                Object element = toIcebergAvroObject(fieldTypes.get(i), icebergFields.get(i).type(), sqlRow, i);
                 record.set(i, element);
             }
 

@@ -19,6 +19,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.DuplicateMapKeyException;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
@@ -81,14 +82,14 @@ public final class MapFromEntriesFunction
                     if (mapEntries.isNull(i)) {
                         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
                     }
-                    Block mapEntryBlock = mapEntryType.getObject(mapEntries, i);
+                    SqlRow mapEntry = mapEntryType.getObject(mapEntries, i);
 
-                    if (mapEntryBlock.isNull(0)) {
+                    if (mapEntry.isNull(0)) {
                         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
                     }
 
-                    keyType.appendTo(mapEntryBlock, 0, keyBuilder);
-                    valueType.appendTo(mapEntryBlock, 1, valueBuilder);
+                    keyType.appendTo(mapEntry, 0, keyBuilder);
+                    valueType.appendTo(mapEntry, 1, valueBuilder);
                 }
             });
         }

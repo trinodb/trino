@@ -16,11 +16,10 @@ package io.trino.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.RowType;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Array;
@@ -43,6 +42,7 @@ public class TestColumnarRow
 {
     private static final int POSITION_COUNT = 5;
     private static final int FIELD_COUNT = 5;
+    private static final RowType ROW_TYPE = RowType.anonymous(Collections.nCopies(FIELD_COUNT, VARCHAR));
 
     @Test
     public void test()
@@ -56,17 +56,17 @@ public class TestColumnarRow
                 }
             }
         }
-        Block block = createBlockBuilderWithValues(expectedValues).build();
+        Block block = createBlockBuilderWithValues(expectedValues);
         verifyBlock(block, expectedValues);
 
         Slice[][] expectedValuesWithNull = alternatingNullValues(expectedValues);
-        Block blockWithNull = createBlockBuilderWithValues(expectedValuesWithNull).build();
+        Block blockWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
         verifyBlock(blockWithNull, expectedValuesWithNull);
     }
 
     private static <T> void verifyBlock(Block block, T[] expectedValues)
     {
-        assertBlock(block, expectedValues);
+        assertBlock(ROW_TYPE, block, expectedValues);
 
         assertColumnarRow(block, expectedValues);
         assertDictionaryBlock(block, expectedValues);
@@ -77,7 +77,7 @@ public class TestColumnarRow
         Block blockRegion = block.getRegion(offset, length);
         T[] expectedValuesRegion = Arrays.copyOfRange(expectedValues, offset, offset + length);
 
-        assertBlock(blockRegion, expectedValuesRegion);
+        assertBlock(ROW_TYPE, blockRegion, expectedValuesRegion);
 
         assertColumnarRow(blockRegion, expectedValuesRegion);
         assertDictionaryBlock(blockRegion, expectedValuesRegion);
@@ -89,7 +89,7 @@ public class TestColumnarRow
         Block dictionaryBlock = createTestDictionaryBlock(block);
         T[] expectedDictionaryValues = createTestDictionaryExpectedValues(expectedValues);
 
-        assertBlock(dictionaryBlock, expectedDictionaryValues);
+        assertBlock(ROW_TYPE, dictionaryBlock, expectedDictionaryValues);
         assertColumnarRow(dictionaryBlock, expectedDictionaryValues);
         assertRunLengthEncodedBlock(dictionaryBlock, expectedDictionaryValues);
     }
@@ -100,7 +100,7 @@ public class TestColumnarRow
             RunLengthEncodedBlock runLengthEncodedBlock = createTestRleBlock(block, position);
             T[] expectedDictionaryValues = createTestRleExpectedValues(expectedValues, position);
 
-            assertBlock(runLengthEncodedBlock, expectedDictionaryValues);
+            assertBlock(ROW_TYPE, runLengthEncodedBlock, expectedDictionaryValues);
             assertColumnarRow(runLengthEncodedBlock, expectedDictionaryValues);
         }
     }
@@ -121,15 +121,15 @@ public class TestColumnarRow
                 }
 
                 Object expectedElement = Array.get(expectedRow, fieldId);
-                assertBlockPosition(fieldBlock, elementsPosition, expectedElement);
+                assertBlockPosition(ROW_TYPE, fieldBlock, elementsPosition, expectedElement);
                 elementsPosition++;
             }
         }
     }
 
-    public static BlockBuilder createBlockBuilderWithValues(Slice[][] expectedValues)
+    public static Block createBlockBuilderWithValues(Slice[][] expectedValues)
     {
-        RowBlockBuilder blockBuilder = createBlockBuilder(null, 100);
+        RowBlockBuilder blockBuilder = ROW_TYPE.createBlockBuilder(null, 100);
         for (Slice[] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
@@ -148,11 +148,6 @@ public class TestColumnarRow
                 });
             }
         }
-        return blockBuilder;
-    }
-
-    private static RowBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
-    {
-        return new RowBlockBuilder(Collections.nCopies(FIELD_COUNT, VARCHAR), blockBuilderStatus, expectedEntries);
+        return blockBuilder.build();
     }
 }

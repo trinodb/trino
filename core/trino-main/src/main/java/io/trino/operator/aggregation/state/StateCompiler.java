@@ -44,6 +44,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RowValueBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateMetadata;
@@ -260,7 +261,7 @@ public final class StateCompiler
         }
         else if (fields.size() > 1) {
             Variable row = scope.declareVariable(Block.class, "row");
-            deserializerBody.append(row.set(block.invoke("getObject", Object.class, index, constantClass(Block.class)).cast(Block.class)));
+            deserializerBody.append(row.set(block.invoke("getObject", Object.class, index, constantClass(SqlRow.class)).cast(Block.class)));
             int position = 0;
             for (StateField field : fields) {
                 Method setter = getSetter(clazz, field);

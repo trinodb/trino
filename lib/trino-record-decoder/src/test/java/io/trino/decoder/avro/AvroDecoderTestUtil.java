@@ -15,6 +15,7 @@ package io.trino.decoder.avro;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -157,25 +158,25 @@ public final class AvroDecoderTestUtil
         }
     }
 
-    public static void checkRowValues(Block block, Type type, Object value)
+    public static void checkRowValues(SqlRow sqlRow, Type type, Object value)
     {
         assertNotNull(type, "Type is null");
         assertTrue(type instanceof RowType, "Unexpected type");
-        assertNotNull(block, "Block is null");
+        assertNotNull(sqlRow, "sqlRow is null");
         assertNotNull(value, "Value is null");
 
         GenericRecord record = (GenericRecord) value;
         RowType rowType = (RowType) type;
         assertEquals(record.getSchema().getFields().size(), rowType.getFields().size(), "Avro field size mismatch");
-        assertEquals(block.getPositionCount(), rowType.getFields().size(), "Trino type field size mismatch");
+        assertEquals(sqlRow.getPositionCount(), rowType.getFields().size(), "Trino type field size mismatch");
         for (int fieldIndex = 0; fieldIndex < rowType.getFields().size(); fieldIndex++) {
             RowType.Field rowField = rowType.getFields().get(fieldIndex);
             Object expectedValue = record.get(rowField.getName().orElseThrow());
-            if (block.isNull(fieldIndex)) {
+            if (sqlRow.isNull(fieldIndex)) {
                 assertNull(expectedValue);
                 continue;
             }
-            checkField(block, rowField.getType(), fieldIndex, expectedValue);
+            checkField(sqlRow, rowField.getType(), fieldIndex, expectedValue);
         }
     }
 

@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.type.UuidType;
 
@@ -32,7 +32,7 @@ public class RaptorUnbucketedUpdateFunction
     @Override
     public int getBucket(Page page, int position)
     {
-        Block row = page.getBlock(0).getObject(position, Block.class);
+        SqlRow row = page.getBlock(0).getObject(position, SqlRow.class);
         Slice uuid = UuidType.UUID.getSlice(row, 1); // uuid field of row ID
         return (uuid.hashCode() & Integer.MAX_VALUE) % bucketCount;
     }
