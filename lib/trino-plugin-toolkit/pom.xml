@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-plugin-toolkit</artifactId>
-    <name>trino-plugin-toolkit</name>
     <description>Trino - Plugin Toolkit</description>
 
     <properties>

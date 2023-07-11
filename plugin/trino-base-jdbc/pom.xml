@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-base-jdbc</artifactId>
-    <name>trino-base-jdbc</name>
     <description>Trino - Base JDBC Connector</description>
 
     <properties>

@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-filesystem-azure</artifactId>
-    <name>trino-filesystem-azure</name>
     <description>Trino Filesystem - Azure</description>
 
     <properties>

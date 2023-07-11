@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-faulttolerant-tests</artifactId>
-    <name>trino-faulttolerant-tests</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

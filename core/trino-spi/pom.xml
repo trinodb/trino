@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-spi</artifactId>
-    <name>trino-spi</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

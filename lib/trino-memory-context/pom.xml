@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-memory-context</artifactId>
-    <name>trino-memory-context</name>
     <description>Trino - Memory Tracking Framework</description>
 
     <properties>

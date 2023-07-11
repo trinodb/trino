@@ -11,7 +11,6 @@
     </parent>
 
     <artifactId>trino-phoenix5-patched</artifactId>
-    <name>trino-phoenix5-patched</name>
     <description>Trino - patched Phoenix5 client to work with JDK17</description>
 
     <properties>

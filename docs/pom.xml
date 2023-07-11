@@ -10,7 +10,6 @@
 
     <artifactId>trino-docs</artifactId>
     <packaging>pom</packaging>
-    <name>trino-docs</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

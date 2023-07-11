@@ -10,7 +10,6 @@
     </parent>
 
     <artifactId>trino-hive</artifactId>
-    <name>trino-hive</name>
     <description>Trino - Hive Connector</description>
 
     <properties>
