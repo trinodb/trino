@@ -535,7 +535,7 @@ public class RowBlock
         }
         checkReadablePosition(this, position);
 
-        return clazz.cast(new SingleRowBlock(getFieldBlockOffset(position), fieldBlocks));
+        return clazz.cast(new SqlRow(getFieldBlockOffset(position), fieldBlocks));
     }
 
     @Override

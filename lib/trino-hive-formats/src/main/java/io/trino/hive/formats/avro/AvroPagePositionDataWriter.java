@@ -18,8 +18,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -533,9 +533,9 @@ public class AvroPagePositionDataWriter
         void encodeFromBlock(int position, Encoder encoder)
                 throws IOException
         {
-            SingleRowBlock singleRowBlock = (SingleRowBlock) type.getObject(block, position);
+            SqlRow sqlRow = (SqlRow) type.getObject(block, position);
             for (BlockPositionEncoder channelEncoder : channelEncoders) {
-                channelEncoder.setBlock(singleRowBlock);
+                channelEncoder.setBlock(sqlRow);
             }
             encodeInternal(i -> i, encoder);
         }

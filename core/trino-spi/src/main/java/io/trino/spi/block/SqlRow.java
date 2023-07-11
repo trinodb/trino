@@ -26,16 +26,16 @@ import static io.trino.spi.block.BlockUtil.ensureBlocksAreLoaded;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class SingleRowBlock
+public class SqlRow
         implements Block
 {
-    private static final int INSTANCE_SIZE = instanceSize(SingleRowBlock.class);
+    private static final int INSTANCE_SIZE = instanceSize(SqlRow.class);
 
     private final Block[] fieldBlocks;
     private final List<Block> fieldBlocksList;
     private final int rowIndex;
 
-    SingleRowBlock(int rowIndex, Block[] fieldBlocks)
+    SqlRow(int rowIndex, Block[] fieldBlocks)
     {
         this.rowIndex = rowIndex;
         this.fieldBlocks = requireNonNull(fieldBlocks, "fieldBlocks is null");
@@ -96,7 +96,7 @@ public class SingleRowBlock
     @Override
     public String getEncodingName()
     {
-        return SingleRowBlockEncoding.NAME;
+        return SqlRowBlockEncoding.NAME;
     }
 
     @Override
@@ -130,7 +130,7 @@ public class SingleRowBlock
             // All blocks are already loaded
             return this;
         }
-        return new SingleRowBlock(rowIndex, loadedFieldBlocks);
+        return new SqlRow(rowIndex, loadedFieldBlocks);
     }
 
     @Override
