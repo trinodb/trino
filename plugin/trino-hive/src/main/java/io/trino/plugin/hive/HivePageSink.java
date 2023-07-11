@@ -19,10 +19,8 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
@@ -54,6 +52,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
@@ -78,7 +77,6 @@ public class HivePageSink
     private final HiveBucketFunction bucketFunction;
 
     private final HiveWriterPagePartitioner pagePartitioner;
-    private final HdfsEnvironment hdfsEnvironment;
 
     private final int maxOpenWriters;
     private final ListeningExecutorService writeVerificationExecutor;
@@ -86,8 +84,6 @@ public class HivePageSink
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
     private final List<HiveWriter> writers = new ArrayList<>();
-
-    private final ConnectorSession session;
 
     private final long targetMaxFileSize;
     private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
@@ -106,7 +102,6 @@ public class HivePageSink
             boolean isTransactional,
             Optional<HiveBucketProperty> bucketProperty,
             PageIndexerFactory pageIndexerFactory,
-            HdfsEnvironment hdfsEnvironment,
             int maxOpenWriters,
             ListeningExecutorService writeVerificationExecutor,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
@@ -119,7 +114,6 @@ public class HivePageSink
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
         this.isTransactional = isTransactional;
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.maxOpenWriters = maxOpenWriters;
         this.writeVerificationExecutor = requireNonNull(writeVerificationExecutor, "writeVerificationExecutor is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
@@ -167,7 +161,6 @@ public class HivePageSink
             bucketFunction = null;
         }
 
-        this.session = requireNonNull(session, "session is null");
         this.targetMaxFileSize = HiveSessionProperties.getTargetMaxFileSize(session).toBytes();
     }
 
@@ -192,13 +185,7 @@ public class HivePageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        // Must be wrapped in doAs entirely
-        // Implicit FileSystem initializations are possible in HiveRecordWriter#commit -> RecordWriter#close
-        ListenableFuture<Collection<Slice>> result = hdfsEnvironment.doAs(
-                session.getIdentity(),
-                isMergeSink ? this::doMergeSinkFinish : this::doInsertSinkFinish);
-
-        return MoreFutures.toCompletableFuture(result);
+        return toCompletableFuture(isMergeSink ? doMergeSinkFinish() : doInsertSinkFinish());
     }
 
     private ListenableFuture<Collection<Slice>> doMergeSinkFinish()
@@ -245,13 +232,6 @@ public class HivePageSink
     @Override
     public void abort()
     {
-        // Must be wrapped in doAs entirely
-        // Implicit FileSystem initializations are possible in HiveRecordWriter#rollback -> RecordWriter#close
-        hdfsEnvironment.doAs(session.getIdentity(), this::doAbort);
-    }
-
-    private void doAbort()
-    {
         List<Closeable> rollbackActions = Streams.concat(
                         writers.stream()
                                 // writers can contain nulls if an exception is thrown when doAppend expands the writer list
@@ -279,23 +259,13 @@ public class HivePageSink
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        if (page.getPositionCount() > 0) {
-            // Must be wrapped in doAs entirely
-            // Implicit FileSystem initializations are possible in HiveRecordWriter#addRow or #createWriter
-            hdfsEnvironment.doAs(session.getIdentity(), () -> doAppend(page));
-        }
-
-        return NOT_BLOCKED;
-    }
-
-    private void doAppend(Page page)
-    {
         int writeOffset = 0;
         while (writeOffset < page.getPositionCount()) {
             Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, MAX_PAGE_POSITIONS));
             writeOffset += chunk.getPositionCount();
             writePage(chunk);
         }
+        return NOT_BLOCKED;
     }
 
     private void writePage(Page page)
