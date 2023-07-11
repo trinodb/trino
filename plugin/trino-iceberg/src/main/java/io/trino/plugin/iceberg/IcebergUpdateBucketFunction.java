@@ -34,7 +34,7 @@ public class IcebergUpdateBucketFunction
     public int getBucket(Page page, int position)
     {
         SqlRow row = page.getBlock(0).getObject(position, SqlRow.class);
-        Slice value = VARCHAR.getSlice(row, 0); // file path field of row ID
+        Slice value = VARCHAR.getSlice(row.getRawFieldBlock(0), row.getRawIndex()); // file path field of row ID
         return (value.hashCode() & Integer.MAX_VALUE) % bucketCount;
     }
 }

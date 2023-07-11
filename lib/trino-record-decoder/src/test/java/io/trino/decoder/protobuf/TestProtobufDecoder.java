@@ -34,6 +34,7 @@ import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
@@ -434,17 +435,18 @@ public class TestProtobufDecoder
         assertEquals(VARCHAR.getSlice(sqlMap.getRawKeyBlock(), sqlMap.getRawOffset()).toStringUtf8(), "Key");
         assertEquals(VARCHAR.getSlice(sqlMap.getRawValueBlock(), sqlMap.getRawOffset()).toStringUtf8(), "Value");
 
-        Block rowBlock = (Block) decodedRow.get(rowColumn).getObject();
+        SqlRow sqlRow = (SqlRow) decodedRow.get(rowColumn).getObject();
+        int rawIndex = sqlRow.getRawIndex();
         ConnectorSession session = TestingSession.testSessionBuilder().build().toConnectorSession();
-        assertEquals(VARCHAR.getObjectValue(session, rowBlock, 0), stringData);
-        assertEquals(INTEGER.getObjectValue(session, rowBlock, 1), integerData);
-        assertEquals(BIGINT.getObjectValue(session, rowBlock, 2), longData);
-        assertEquals(DOUBLE.getObjectValue(session, rowBlock, 3), doubleData);
-        assertEquals(REAL.getObjectValue(session, rowBlock, 4), floatData);
-        assertEquals(BOOLEAN.getObjectValue(session, rowBlock, 5), booleanData);
-        assertEquals(VARCHAR.getObjectValue(session, rowBlock, 6), enumData);
-        assertEquals(TIMESTAMP_MICROS.getObjectValue(session, rowBlock, 7), sqlTimestamp.roundTo(6));
-        assertEquals(VARBINARY.getObjectValue(session, rowBlock, 8), new SqlVarbinary(bytesData));
+        assertEquals(VARCHAR.getObjectValue(session, sqlRow.getRawFieldBlock(0), rawIndex), stringData);
+        assertEquals(INTEGER.getObjectValue(session, sqlRow.getRawFieldBlock(1), rawIndex), integerData);
+        assertEquals(BIGINT.getObjectValue(session, sqlRow.getRawFieldBlock(2), rawIndex), longData);
+        assertEquals(DOUBLE.getObjectValue(session, sqlRow.getRawFieldBlock(3), rawIndex), doubleData);
+        assertEquals(REAL.getObjectValue(session, sqlRow.getRawFieldBlock(4), rawIndex), floatData);
+        assertEquals(BOOLEAN.getObjectValue(session, sqlRow.getRawFieldBlock(5), rawIndex), booleanData);
+        assertEquals(VARCHAR.getObjectValue(session, sqlRow.getRawFieldBlock(6), rawIndex), enumData);
+        assertEquals(TIMESTAMP_MICROS.getObjectValue(session, sqlRow.getRawFieldBlock(7), rawIndex), sqlTimestamp.roundTo(6));
+        assertEquals(VARBINARY.getObjectValue(session, sqlRow.getRawFieldBlock(8), rawIndex), new SqlVarbinary(bytesData));
     }
 
     @Test

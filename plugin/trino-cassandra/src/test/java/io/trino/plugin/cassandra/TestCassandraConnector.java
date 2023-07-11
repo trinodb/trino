@@ -283,13 +283,14 @@ public class TestCassandraConnector
                     assertEquals(keyValue, Long.toString(rowNumber));
 
                     SqlRow tupleValueBlock = (SqlRow) cursor.getObject(columnIndex.get("typetuple"));
-                    assertThat(tupleValueBlock.getPositionCount()).isEqualTo(3);
+                    assertThat(tupleValueBlock.getFieldCount()).isEqualTo(3);
 
                     CassandraColumnHandle tupleColumnHandle = (CassandraColumnHandle) columnHandles.get(columnIndex.get("typetuple"));
                     List<CassandraType> tupleArgumentTypes = tupleColumnHandle.getCassandraType().getArgumentTypes();
-                    assertThat(tupleArgumentTypes.get(0).getTrinoType().getLong(tupleValueBlock, 0)).isEqualTo(rowNumber);
-                    assertThat(tupleArgumentTypes.get(1).getTrinoType().getSlice(tupleValueBlock, 1).toStringUtf8()).isEqualTo("text-" + rowNumber);
-                    assertThat(tupleArgumentTypes.get(2).getTrinoType().getLong(tupleValueBlock, 2)).isEqualTo(Float.floatToRawIntBits(1.11f * rowNumber));
+                    int rawIndex = tupleValueBlock.getRawIndex();
+                    assertThat(tupleArgumentTypes.get(0).getTrinoType().getLong(tupleValueBlock.getRawFieldBlock(0), rawIndex)).isEqualTo(rowNumber);
+                    assertThat(tupleArgumentTypes.get(1).getTrinoType().getSlice(tupleValueBlock.getRawFieldBlock(1), rawIndex).toStringUtf8()).isEqualTo("text-" + rowNumber);
+                    assertThat(tupleArgumentTypes.get(2).getTrinoType().getLong(tupleValueBlock.getRawFieldBlock(2), rawIndex)).isEqualTo(Float.floatToRawIntBits(1.11f * rowNumber));
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);
@@ -333,32 +334,33 @@ public class TestCassandraConnector
 
                     String key = cursor.getSlice(columnIndex.get("key")).toStringUtf8();
                     SqlRow value = (SqlRow) cursor.getObject(columnIndex.get("typeudt"));
+                    int valueRawIndex = value.getRawIndex();
 
                     assertEquals(key, "key");
-                    assertEquals(VARCHAR.getSlice(value, 0).toStringUtf8(), "text");
-                    assertEquals(trinoUuidToJavaUuid(UUID.getSlice(value, 1)).toString(), "01234567-0123-0123-0123-0123456789ab");
-                    assertEquals(INTEGER.getInt(value, 2), -2147483648);
-                    assertEquals(BIGINT.getLong(value, 3), -9223372036854775808L);
-                    assertEquals(VARBINARY.getSlice(value, 4).toStringUtf8(), "01234");
-                    assertEquals(TIMESTAMP_MILLIS.getLong(value, 5), 117964800000L);
-                    assertEquals(VARCHAR.getSlice(value, 6).toStringUtf8(), "ansi");
-                    assertTrue(BOOLEAN.getBoolean(value, 7));
-                    assertEquals(DOUBLE.getDouble(value, 8), 99999999999999997748809823456034029568D);
-                    assertEquals(DOUBLE.getDouble(value, 9), 4.9407e-324);
-                    assertEquals(REAL.getObjectValue(SESSION, value, 10), 1.4E-45f);
-                    assertEquals(InetAddresses.toAddrString(InetAddress.getByAddress(IpAddressType.IPADDRESS.getSlice(value, 11).getBytes())), "0.0.0.0");
-                    assertEquals(VARCHAR.getSlice(value, 12).toStringUtf8(), "varchar");
-                    assertEquals(VARCHAR.getSlice(value, 13).toStringUtf8(), "-9223372036854775808");
-                    assertEquals(trinoUuidToJavaUuid(UUID.getSlice(value, 14)).toString(), "d2177dd0-eaa2-11de-a572-001b779c76e3");
-                    assertEquals(VARCHAR.getSlice(value, 15).toStringUtf8(), "[\"list\"]");
-                    assertEquals(VARCHAR.getSlice(value, 16).toStringUtf8(), "{\"map\":1}");
-                    assertEquals(VARCHAR.getSlice(value, 17).toStringUtf8(), "[true]");
-                    SqlRow tupleValue = value.getObject(18, SqlRow.class);
-                    assertThat(tupleValue.getPositionCount()).isEqualTo(1);
-                    assertThat(INTEGER.getInt(tupleValue, 0)).isEqualTo(123);
-                    SqlRow udtValue = value.getObject(19, SqlRow.class);
-                    assertThat(udtValue.getPositionCount()).isEqualTo(1);
-                    assertThat(INTEGER.getInt(udtValue, 0)).isEqualTo(999);
+                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(0), valueRawIndex).toStringUtf8(), "text");
+                    assertEquals(trinoUuidToJavaUuid(UUID.getSlice(value.getRawFieldBlock(1), valueRawIndex)).toString(), "01234567-0123-0123-0123-0123456789ab");
+                    assertEquals(INTEGER.getInt(value.getRawFieldBlock(2), valueRawIndex), -2147483648);
+                    assertEquals(BIGINT.getLong(value.getRawFieldBlock(3), valueRawIndex), -9223372036854775808L);
+                    assertEquals(VARBINARY.getSlice(value.getRawFieldBlock(4), valueRawIndex).toStringUtf8(), "01234");
+                    assertEquals(TIMESTAMP_MILLIS.getLong(value.getRawFieldBlock(5), valueRawIndex), 117964800000L);
+                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(6), valueRawIndex).toStringUtf8(), "ansi");
+                    assertTrue(BOOLEAN.getBoolean(value.getRawFieldBlock(7), valueRawIndex));
+                    assertEquals(DOUBLE.getDouble(value.getRawFieldBlock(8), valueRawIndex), 99999999999999997748809823456034029568D);
+                    assertEquals(DOUBLE.getDouble(value.getRawFieldBlock(9), valueRawIndex), 4.9407e-324);
+                    assertEquals(REAL.getObjectValue(SESSION, value.getRawFieldBlock(10), valueRawIndex), 1.4E-45f);
+                    assertEquals(InetAddresses.toAddrString(InetAddress.getByAddress(IpAddressType.IPADDRESS.getSlice(value.getRawFieldBlock(11), valueRawIndex).getBytes())), "0.0.0.0");
+                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(12), valueRawIndex).toStringUtf8(), "varchar");
+                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(13), valueRawIndex).toStringUtf8(), "-9223372036854775808");
+                    assertEquals(trinoUuidToJavaUuid(UUID.getSlice(value.getRawFieldBlock(14), valueRawIndex)).toString(), "d2177dd0-eaa2-11de-a572-001b779c76e3");
+                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(15), valueRawIndex).toStringUtf8(), "[\"list\"]");
+                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(16), valueRawIndex).toStringUtf8(), "{\"map\":1}");
+                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(17), valueRawIndex).toStringUtf8(), "[true]");
+                    SqlRow tupleValue = value.getRawFieldBlock(18).getObject(valueRawIndex, SqlRow.class);
+                    assertThat(tupleValue.getFieldCount()).isEqualTo(1);
+                    assertThat(INTEGER.getInt(tupleValue.getRawFieldBlock(0), tupleValue.getRawIndex())).isEqualTo(123);
+                    SqlRow udtValue = value.getRawFieldBlock(19).getObject(valueRawIndex, SqlRow.class);
+                    assertThat(udtValue.getFieldCount()).isEqualTo(1);
+                    assertThat(INTEGER.getInt(udtValue.getRawFieldBlock(0), tupleValue.getRawIndex())).isEqualTo(999);
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);

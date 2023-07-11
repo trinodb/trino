@@ -68,8 +68,9 @@ public class TestSimpleRowType
     {
         return buildRowValue(TYPE, fieldBuilders -> {
             SqlRow sqlRow = (SqlRow) value;
-            BIGINT.writeLong(fieldBuilders.get(0), sqlRow.getSingleValueBlock(0).getLong(0, 0) + 1);
-            VARCHAR.writeSlice(fieldBuilders.get(1), sqlRow.getSingleValueBlock(1).getSlice(0, 0, 1));
+            int rawIndex = sqlRow.getRawIndex();
+            BIGINT.writeLong(fieldBuilders.get(0), BIGINT.getLong(sqlRow.getRawFieldBlock(0), rawIndex) + 1);
+            VARCHAR.writeSlice(fieldBuilders.get(1), VARCHAR.getSlice(sqlRow.getRawFieldBlock(1), rawIndex).slice(0, 1));
         });
     }
 

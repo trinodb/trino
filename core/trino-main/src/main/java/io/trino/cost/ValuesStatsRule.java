@@ -95,8 +95,8 @@ public class ValuesStatsRule
         checkState(valuesNode.getRows().isPresent(), "rows is empty");
         return valuesNode.getRows().get().stream()
                 .map(row -> {
-                    Object rowValue = evaluateConstantExpression(row, rowType, plannerContext, session, new AllowAllAccessControl(), ImmutableMap.of());
-                    return readNativeValue(symbolType, (SqlRow) rowValue, symbolId);
+                    SqlRow rowValue = (SqlRow) evaluateConstantExpression(row, rowType, plannerContext, session, new AllowAllAccessControl(), ImmutableMap.of());
+                    return readNativeValue(symbolType, rowValue.getRawFieldBlock(symbolId), rowValue.getRawIndex());
                 })
                 .collect(toList());
     }
