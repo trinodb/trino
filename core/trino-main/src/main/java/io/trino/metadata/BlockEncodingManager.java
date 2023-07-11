@@ -26,7 +26,7 @@ import io.trino.spi.block.MapBlockEncoding;
 import io.trino.spi.block.RowBlockEncoding;
 import io.trino.spi.block.RunLengthBlockEncoding;
 import io.trino.spi.block.ShortArrayBlockEncoding;
-import io.trino.spi.block.SingleRowBlockEncoding;
+import io.trino.spi.block.SqlRowBlockEncoding;
 import io.trino.spi.block.VariableWidthBlockEncoding;
 
 import java.util.Map;
@@ -53,7 +53,7 @@ public final class BlockEncodingManager
         addBlockEncoding(new ArrayBlockEncoding());
         addBlockEncoding(new MapBlockEncoding());
         addBlockEncoding(new RowBlockEncoding());
-        addBlockEncoding(new SingleRowBlockEncoding());
+        addBlockEncoding(new SqlRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
         addBlockEncoding(new LazyBlockEncoding());
     }

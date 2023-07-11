@@ -18,7 +18,7 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.type.ArrayType;
@@ -41,14 +41,14 @@ public final class MinMaxByNStateFactory
         @Override
         public final void merge(MinMaxByNState other)
         {
-            SingleRowBlock serializedState = ((SingleMinMaxByNState) other).removeTempSerializedState();
+            SqlRow sqlRow = ((SingleMinMaxByNState) other).removeTempSerializedState();
 
-            int capacity = toIntExact(BIGINT.getLong(serializedState, 0));
+            int capacity = toIntExact(BIGINT.getLong(sqlRow, 0));
             initialize(capacity);
             TypedKeyValueHeap typedKeyValueHeap = getTypedKeyValueHeap();
 
-            Block keys = new ArrayType(typedKeyValueHeap.getKeyType()).getObject(serializedState, 1);
-            Block values = new ArrayType(typedKeyValueHeap.getValueType()).getObject(serializedState, 2);
+            Block keys = new ArrayType(typedKeyValueHeap.getKeyType()).getObject(sqlRow, 1);
+            Block values = new ArrayType(typedKeyValueHeap.getValueType()).getObject(sqlRow, 2);
             typedKeyValueHeap.addAll(keys, values);
         }
 
@@ -160,7 +160,7 @@ public final class MinMaxByNStateFactory
         private final LongFunction<TypedKeyValueHeap> heapFactory;
 
         private TypedKeyValueHeap typedHeap;
-        private SingleRowBlock tempSerializedState;
+        private SqlRow tempSerializedState;
 
         public SingleMinMaxByNState(LongFunction<TypedKeyValueHeap> heapFactory)
         {
@@ -224,17 +224,17 @@ public final class MinMaxByNStateFactory
             return typedHeap;
         }
 
-        void setTempSerializedState(SingleRowBlock tempSerializedState)
+        void setTempSerializedState(SqlRow tempSerializedState)
         {
             this.tempSerializedState = tempSerializedState;
         }
 
-        SingleRowBlock removeTempSerializedState()
+        SqlRow removeTempSerializedState()
         {
-            SingleRowBlock block = tempSerializedState;
-            checkState(block != null, "tempDeserializeBlock is null");
+            SqlRow sqlRow = tempSerializedState;
+            checkState(sqlRow != null, "tempDeserializeBlock is null");
             tempSerializedState = null;
-            return block;
+            return sqlRow;
         }
     }
 }

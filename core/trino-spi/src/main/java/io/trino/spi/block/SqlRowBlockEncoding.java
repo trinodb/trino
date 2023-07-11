@@ -19,7 +19,7 @@ import io.airlift.slice.SliceOutput;
 
 import java.util.List;
 
-public class SingleRowBlockEncoding
+public class SqlRowBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "ROW_ELEMENT";
@@ -33,10 +33,10 @@ public class SingleRowBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        SingleRowBlock singleRowBlock = (SingleRowBlock) block;
-        List<Block> fieldBlocks = singleRowBlock.getFieldBlocks();
+        SqlRow sqlRow = (SqlRow) block;
+        List<Block> fieldBlocks = sqlRow.getFieldBlocks();
         int numFields = fieldBlocks.size();
-        int rowIndex = singleRowBlock.getRowIndex();
+        int rowIndex = sqlRow.getRowIndex();
         sliceOutput.appendInt(numFields);
         for (int i = 0; i < numFields; i++) {
             blockEncodingSerde.writeBlock(sliceOutput, fieldBlocks.get(i).getRegion(rowIndex, 1));
@@ -51,6 +51,6 @@ public class SingleRowBlockEncoding
         for (int i = 0; i < fieldBlocks.length; i++) {
             fieldBlocks[i] = blockEncodingSerde.readBlock(sliceInput);
         }
-        return new SingleRowBlock(0, fieldBlocks);
+        return new SqlRow(0, fieldBlocks);
     }
 }
