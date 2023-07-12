@@ -11,13 +11,13 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.inject.Inject;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
+import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.sqlserver.SqlServerClient;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
