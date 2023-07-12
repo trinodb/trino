@@ -77,11 +77,12 @@ public class TextLineReaderFactory
             LineReader lineReader = new TextLineReader(inputStream, fileBufferSize, start, length);
 
             //  Only skip header rows when the split is at the beginning of the file
-            if (headerCount > 0) {
+            if (headerCount > 0 && start == 0) {
                 skipHeader(lineReader, headerCount);
             }
 
-            if (footerCount > 0) {
+            //  Only skip footer rows when the split is at the end of the file
+            if (footerCount > 0 && (start + length == inputFile.length())) {
                 lineReader = new FooterAwareLineReader(lineReader, footerCount, this::createLineBuffer);
             }
             return lineReader;
