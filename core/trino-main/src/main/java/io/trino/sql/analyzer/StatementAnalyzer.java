@@ -4001,7 +4001,7 @@ class StatementAnalyzer
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
 
-                List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate));
+                List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate), session, metadata);
                 if (!windowExpressions.isEmpty()) {
                     throw semanticException(NESTED_WINDOW, windowExpressions.get(0), "HAVING clause cannot contain window functions or row pattern measures");
                 }
