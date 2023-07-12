@@ -22,7 +22,8 @@ import io.trino.spi.type.Decimals;
 import io.trino.tests.QueryTemplate;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
 
@@ -2190,7 +2191,8 @@ public abstract class AbstractTestJoinQueries
                 "    orderkey % 2 = 0");
     }
 
-    @Test(timeOut = 120_000)
+    @Test
+    @Timeout(120)
     public void testInnerJoinWithEmptyBuildSide()
     {
         // TODO: increase lineitem schema size when build side short-circuit is fixed
@@ -2202,7 +2204,8 @@ public abstract class AbstractTestJoinQueries
                 "SELECT 0 WHERE false");
     }
 
-    @Test(timeOut = 120_000)
+    @Test
+    @Timeout(120)
     public void testRightJoinWithEmptyBuildSide()
     {
         // TODO: increase lineitem schema size when build side short-circuit is fixed
@@ -2232,7 +2235,8 @@ public abstract class AbstractTestJoinQueries
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM lineitem LEFT JOIN small_part ON lineitem.partkey = small_part.partkey");
     }
 
-    @Test(timeOut = 120_000)
+    @Test
+    @Timeout(120)
     public void testInnerJoinWithEmptyProbeSide()
     {
         // TODO: increase lineitem schema size when probe side short-circuit is fixed
@@ -2252,7 +2256,8 @@ public abstract class AbstractTestJoinQueries
                 "WITH small_part AS (SELECT * FROM part WHERE name = 'a') SELECT lineitem.orderkey FROM small_part RIGHT JOIN lineitem ON  small_part.partkey = lineitem.partkey");
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testRightJoinWithOuterJoinInLookupSource()
     {
         assertQuery(
