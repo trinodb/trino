@@ -45,7 +45,6 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -159,12 +158,11 @@ public class TestRaptorSplitManager
 
     @Test
     public void testAssignRandomNodeWhenBackupAvailable()
-            throws URISyntaxException
     {
         TestingNodeManager nodeManager = new TestingNodeManager();
         CatalogName connectorId = new CatalogName("raptor");
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
-        InternalNode node = new InternalNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false);
+        InternalNode node = new InternalNode(UUID.randomUUID().toString(), URI.create("http://127.0.0.1/"), NodeVersion.UNKNOWN, false);
         nodeManager.addNode(node);
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, true);
 

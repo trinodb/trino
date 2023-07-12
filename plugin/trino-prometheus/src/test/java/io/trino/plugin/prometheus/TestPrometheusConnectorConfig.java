@@ -20,7 +20,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -34,10 +33,9 @@ public class TestPrometheusConnectorConfig
 {
     @Test
     public void testDefaults()
-            throws URISyntaxException
     {
         assertRecordedDefaults(recordDefaults(PrometheusConnectorConfig.class)
-                .setPrometheusURI(new URI("http://localhost:9090"))
+                .setPrometheusURI(URI.create("http://localhost:9090"))
                 .setQueryChunkSizeDuration(new Duration(1, DAYS))
                 .setMaxQueryRangeDuration(new Duration(21, DAYS))
                 .setCacheDuration(new Duration(30, SECONDS))
@@ -80,10 +78,9 @@ public class TestPrometheusConnectorConfig
 
     @Test
     public void testFailOnDurationLessThanQueryChunkConfig()
-            throws Exception
     {
         PrometheusConnectorConfig config = new PrometheusConnectorConfig();
-        config.setPrometheusURI(new URI("http://doesnotmatter.com"));
+        config.setPrometheusURI(URI.create("http://doesnotmatter.com"));
         config.setQueryChunkSizeDuration(new Duration(21, DAYS));
         config.setMaxQueryRangeDuration(new Duration(1, DAYS));
         config.setCacheDuration(new Duration(30, SECONDS));
