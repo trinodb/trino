@@ -14,10 +14,15 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.Comment;
+import io.trino.sql.tree.CreateCatalog;
+import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
+import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
@@ -25,6 +30,12 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.ShowCatalogs;
+import io.trino.sql.tree.ShowColumns;
+import io.trino.sql.tree.ShowFunctions;
+import io.trino.sql.tree.ShowSchemas;
+import io.trino.sql.tree.ShowSession;
+import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
@@ -36,10 +47,95 @@ import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.tree.SaveMode.FAIL;
+import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlFormatter
 {
+    @Test
+    public void testShowCatalogs()
+    {
+        assertThat(formatSql(
+                new ShowCatalogs(Optional.empty(), Optional.empty())))
+                .isEqualTo("SHOW CATALOGS");
+        assertThat(formatSql(
+                new ShowCatalogs(Optional.of("%"), Optional.empty())))
+                .isEqualTo("SHOW CATALOGS LIKE '%'");
+        assertThat(formatSql(
+                new ShowCatalogs(Optional.of("%$_%"), Optional.of("$"))))
+                .isEqualTo("SHOW CATALOGS LIKE '%$_%' ESCAPE '$'");
+    }
+
+    @Test
+    public void testShowSchemas()
+    {
+        assertThat(formatSql(
+                new ShowSchemas(Optional.empty(), Optional.empty(), Optional.empty())))
+                .isEqualTo("SHOW SCHEMAS");
+        assertThat(formatSql(
+                new ShowSchemas(Optional.empty(), Optional.of("%"), Optional.empty())))
+                .isEqualTo("SHOW SCHEMAS LIKE '%'");
+        assertThat(formatSql(
+                new ShowSchemas(Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
+                .isEqualTo("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'");
+    }
+
+    @Test
+    public void testShowTables()
+    {
+        assertThat(formatSql(
+                new ShowTables(Optional.empty(), Optional.empty(), Optional.empty())))
+                .isEqualTo("SHOW TABLES");
+        assertThat(formatSql(
+                new ShowTables(Optional.empty(), Optional.of("%"), Optional.empty())))
+                .isEqualTo("SHOW TABLES LIKE '%'");
+        assertThat(formatSql(
+                new ShowTables(Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
+                .isEqualTo("SHOW TABLES LIKE '%$_%' ESCAPE '$'");
+    }
+
+    @Test
+    public void testShowColumns()
+    {
+        assertThat(formatSql(
+                new ShowColumns(QualifiedName.of("a"), Optional.empty(), Optional.empty())))
+                .isEqualTo("SHOW COLUMNS FROM a");
+        assertThat(formatSql(
+                new ShowColumns(QualifiedName.of("a"), Optional.of("%"), Optional.empty())))
+                .isEqualTo("SHOW COLUMNS FROM a LIKE '%'");
+        assertThat(formatSql(
+                new ShowColumns(QualifiedName.of("a"), Optional.of("%$_%"), Optional.of("$"))))
+                .isEqualTo("SHOW COLUMNS FROM a LIKE '%$_%' ESCAPE '$'");
+    }
+
+    @Test
+    public void testShowFunctions()
+    {
+        assertThat(formatSql(
+                new ShowFunctions(Optional.empty(), Optional.empty())))
+                .isEqualTo("SHOW FUNCTIONS");
+        assertThat(formatSql(
+                new ShowFunctions(Optional.of("%"), Optional.empty())))
+                .isEqualTo("SHOW FUNCTIONS LIKE '%'");
+        assertThat(formatSql(
+                new ShowFunctions(Optional.of("%$_%"), Optional.of("$"))))
+                .isEqualTo("SHOW FUNCTIONS LIKE '%$_%' ESCAPE '$'");
+    }
+
+    @Test
+    public void testShowSession()
+    {
+        assertThat(formatSql(
+                new ShowSession(Optional.empty(), Optional.empty())))
+                .isEqualTo("SHOW SESSION");
+        assertThat(formatSql(
+                new ShowSession(Optional.of("%"), Optional.empty())))
+                .isEqualTo("SHOW SESSION LIKE '%'");
+        assertThat(formatSql(
+                new ShowSession(Optional.of("%$_%"), Optional.of("$"))))
+                .isEqualTo("SHOW SESSION LIKE '%$_%' ESCAPE '$'");
+    }
+
     @Test
     public void testIdentifiers()
     {
@@ -61,6 +157,30 @@ public class TestSqlFormatter
         // Non-ANSI compliant identifier
         assertThat(formatSql(new Identifier("1", true))).isEqualTo("\"1\"");
         assertThat(formatSql(new Identifier("\"1\"", true))).isEqualTo("\"\"\"1\"\"\"");
+    }
+
+    @Test
+    public void testCreateCatalog()
+    {
+        assertThat(formatSql(
+                new CreateCatalog(
+                        new Identifier("test"),
+                        false,
+                        new Identifier("conn"),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty())))
+                .isEqualTo("CREATE CATALOG test USING conn");
+        assertThat(formatSql(
+                new CreateCatalog(
+                        new Identifier("test"),
+                        false,
+                        new Identifier("conn"),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.of("test comment"))))
+                .isEqualTo("CREATE CATALOG test USING conn\n" +
+                        "COMMENT 'test comment'");
     }
 
     @Test
@@ -109,6 +229,81 @@ public class TestSqlFormatter
                 .isEqualTo(String.format(createTableSql, "table_name", "column_name"));
         assertThat(formatSql(createTableAsSelect.apply("exists", "exists")))
                 .isEqualTo(String.format(createTableSql, "\"exists\"", "\"exists\""));
+    }
+
+    @Test
+    public void testCreateView()
+    {
+        assertThat(formatSql(
+                new CreateView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        false,
+                        Optional.empty(),
+                        Optional.empty())))
+                .isEqualTo("CREATE VIEW test AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  t\n");
+    }
+
+    @Test
+    public void testCreateMaterializedView()
+    {
+        assertThat(formatSql(
+                new CreateMaterializedView(
+                        Optional.empty(),
+                        QualifiedName.of("test_mv"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("test_base"))),
+                        false,
+                        false,
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo("CREATE MATERIALIZED VIEW test_mv AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  test_base\n");
+    }
+
+    @Test
+    public void testAddColumn()
+    {
+        assertThat(formatSql(
+                new AddColumn(
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        false, false)))
+                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR");
+    }
+
+    @Test
+    public void testCommentOnTable()
+    {
+        assertThat(formatSql(
+                new Comment(Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("test"))))
+                .isEqualTo("COMMENT ON TABLE a IS 'test'");
+    }
+
+    @Test
+    public void testCommentOnView()
+    {
+        assertThat(formatSql(
+                new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("test"))))
+                .isEqualTo("COMMENT ON VIEW a IS 'test'");
+    }
+
+    @Test
+    public void testCommentOnColumn()
+    {
+        assertThat(formatSql(
+                new Comment(Comment.Type.COLUMN, QualifiedName.of("test", "a"), Optional.of("test"))))
+                .isEqualTo("COMMENT ON COLUMN test.a IS 'test'");
     }
 
     @Test
