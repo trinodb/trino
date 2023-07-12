@@ -300,7 +300,6 @@ public class TestHivePageSink
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, HDFS_ENVIRONMENT),
                 HDFS_FILE_SYSTEM_FACTORY,
-                HDFS_ENVIRONMENT,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastore),
                 new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), typeOperators),
