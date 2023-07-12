@@ -295,7 +295,7 @@ public class TestExtract
     @Test
     public void testMillisecond()
     {
-        assertThatThrownBy(() -> assertions.expression("EXTRACT(MILLISECOND FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')").evaluate())
+        assertThatThrownBy(assertions.expression("EXTRACT(MILLISECOND FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")::evaluate)
                 .isInstanceOf(ParsingException.class)
                 .hasMessage("line 1:12: Invalid EXTRACT field: MILLISECOND");
 
@@ -600,7 +600,7 @@ public class TestExtract
     @Test
     public void testWeekOfYear()
     {
-        assertThatThrownBy(() -> assertions.expression("EXTRACT(WEEK_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')").evaluate())
+        assertThatThrownBy(assertions.expression("EXTRACT(WEEK_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")::evaluate)
                 .isInstanceOf(ParsingException.class)
                 .hasMessage("line 1:12: Invalid EXTRACT field: WEEK_OF_YEAR");
 

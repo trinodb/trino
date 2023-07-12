@@ -89,16 +89,16 @@ public class TestJsonFunctions
         assertThat(assertions.function("is_json_scalar", "'{\"a\": 1, \"b\": 2}'"))
                 .isEqualTo(false);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("is_json_scalar", "''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("is_json_scalar", "''")::evaluate)
                 .hasMessage("Invalid JSON value: ");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("is_json_scalar", "'[1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("is_json_scalar", "'[1'")::evaluate)
                 .hasMessage("Invalid JSON value: [1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("is_json_scalar", "'1 trailing'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("is_json_scalar", "'1 trailing'")::evaluate)
                 .hasMessage("Invalid JSON value: 1 trailing");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("is_json_scalar", "'[1, 2] trailing'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("is_json_scalar", "'[1, 2] trailing'")::evaluate)
                 .hasMessage("Invalid JSON value: [1, 2] trailing");
     }
 
@@ -663,28 +663,28 @@ public class TestJsonFunctions
     @Test
     public void testInvalidJsonParse()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON 'INVALID'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("JSON 'INVALID'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'INVALID'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("json_parse", "'INVALID'")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'\"x\": 1'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("json_parse", "'\"x\": 1'")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'{}{'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("json_parse", "'{}{'")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'{} \"a\"'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("json_parse", "'{} \"a\"'")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'{}{abc'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("json_parse", "'{}{abc'")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'{}abc'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("json_parse", "'{}abc'")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("json_parse", "''")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
@@ -747,19 +747,19 @@ public class TestJsonFunctions
         assertThat(assertions.function("json_size", "JSON '[1,2,3]'", "null"))
                 .isNull(BIGINT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("json_size", "'{\"\":\"\"}'", "''").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("json_size", "'{\"\":\"\"}'", "''")::evaluate)
                 .hasMessage("Invalid JSON path: ''");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("json_size", "'{\"\":\"\"}'", "CHAR ' '").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("json_size", "'{\"\":\"\"}'", "CHAR ' '")::evaluate)
                 .hasMessage("Invalid JSON path: ' '");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("json_size", "'{\"\":\"\"}'", "'.'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("json_size", "'{\"\":\"\"}'", "'.'")::evaluate)
                 .hasMessage("Invalid JSON path: '.'");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("json_size", "'{\"\":\"\"}'", "'null'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("json_size", "'{\"\":\"\"}'", "'null'")::evaluate)
                 .hasMessage("Invalid JSON path: 'null'");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("json_size", "'{\"\":\"\"}'", "'null'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("json_size", "'{\"\":\"\"}'", "'null'")::evaluate)
                 .hasMessage("Invalid JSON path: 'null'");
     }
 }

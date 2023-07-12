@@ -156,10 +156,10 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("LINESTRING (1 1, 2 2, 1 3)");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_AsText", "ST_LineFromText('MULTILINESTRING EMPTY')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_LineFromText('MULTILINESTRING EMPTY')")::evaluate)
                 .hasMessage("ST_LineFromText only applies to LINE_STRING. Input type is: MULTI_LINE_STRING");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_AsText", "ST_LineFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_LineFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')")::evaluate)
                 .hasMessage("ST_LineFromText only applies to LINE_STRING. Input type is: POLYGON");
     }
 
@@ -174,7 +174,7 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("POLYGON ((1 1, 4 1, 4 4, 1 4, 1 1))");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_AsText", "ST_Polygon('LINESTRING (1 1, 2 2, 1 3)')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_Polygon('LINESTRING (1 1, 2 2, 1 3)')")::evaluate)
                 .hasMessage("ST_Polygon only applies to POLYGON. Input type is: LINE_STRING");
     }
 
@@ -244,10 +244,10 @@ public class TestGeoFunctions
                 .isNull(GEOMETRY);
 
         // negative distance
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_Buffer", "ST_Point(0, 0)", "-1.2").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_Buffer", "ST_Point(0, 0)", "-1.2")::evaluate)
                 .hasMessage("distance is negative");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_Buffer", "ST_Point(0, 0)", "-infinity()").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_Buffer", "ST_Point(0, 0)", "-infinity()")::evaluate)
                 .hasMessage("distance is negative");
 
         // infinity() and nan() distance
@@ -255,7 +255,7 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("MULTIPOLYGON EMPTY");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_Buffer", "ST_Point(0, 0)", "nan()").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_Buffer", "ST_Point(0, 0)", "nan()")::evaluate)
                 .hasMessage("distance is NaN");
     }
 
@@ -401,7 +401,7 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_IsClosed", "ST_GeometryFromText('LINESTRING (1 1, 2 2, 1 3)')"))
                 .isEqualTo(false);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_IsClosed", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_IsClosed", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')")::evaluate)
                 .hasMessage("ST_IsClosed only applies to LINE_STRING or MULTI_LINE_STRING. Input type is: POLYGON");
     }
 
@@ -461,7 +461,7 @@ public class TestGeoFunctions
                 .isEqualTo("POLYGON ((1 0, 4 0, 4 1, 3 1, 3 3, 2 3, 2 1, 1 1, 1 0))");
 
         // Negative distance tolerance is invalid.
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_AsText", "simplify_geometry(ST_GeometryFromText('POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))'), -0.5)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "simplify_geometry(ST_GeometryFromText('POLYGON ((1 0, 1 1, 2 1, 2 3, 3 3, 3 1, 4 1, 4 0, 1 0))'), -0.5)")::evaluate)
                 .hasMessage("distanceTolerance is negative");
     }
 
@@ -539,7 +539,7 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Length", "ST_GeometryFromText('MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))')"))
                 .isEqualTo(6.0);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_Length", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_Length", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')")::evaluate)
                 .hasMessage("ST_Length only applies to LINE_STRING or MULTI_LINE_STRING. Input type is: POLYGON");
     }
 
@@ -633,10 +633,10 @@ public class TestGeoFunctions
         assertThat(assertions.function("line_locate_point", "ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)')", "ST_GeometryFromText('POINT EMPTY')"))
                 .isNull(DOUBLE);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("line_locate_point", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')", "ST_Point(0.4, 1)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("line_locate_point", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')", "ST_Point(0.4, 1)")::evaluate)
                 .hasMessage("First argument to line_locate_point must be a LineString or a MultiLineString. Got: Polygon");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("line_locate_point", "ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("line_locate_point", "ST_GeometryFromText('LINESTRING (0 0, 0 1, 2 1)')", "ST_GeometryFromText('POLYGON ((1 1, 1 4, 4 4, 4 1))')")::evaluate)
                 .hasMessage("Second argument to line_locate_point must be a Point. Got: Polygon");
     }
 
@@ -664,13 +664,13 @@ public class TestGeoFunctions
         assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 0.5, "POINT (1 4)");
         assertLineInterpolatePoint("LINESTRING (0 0, 1 0, 1 9)", 1.0, "POINT (1 9)");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("line_interpolate_point", "ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)')", "-0.5").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("line_interpolate_point", "ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)')", "-0.5")::evaluate)
                 .hasMessage("fraction must be between 0 and 1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("line_interpolate_point", "ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)')", "2.0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("line_interpolate_point", "ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)')", "2.0")::evaluate)
                 .hasMessage("fraction must be between 0 and 1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("line_interpolate_point", "ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))')", "0.2").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("line_interpolate_point", "ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))')", "0.2")::evaluate)
                 .hasMessage("line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
     }
 
@@ -686,13 +686,13 @@ public class TestGeoFunctions
         assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 0.5, "5.000000000000001 5.000000000000001", "10 10");
         assertLineInterpolatePoints("LINESTRING (0 0, 1 1, 10 10)", 1, "10 10");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("line_interpolate_points", "ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)')", "-0.5").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("line_interpolate_points", "ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)')", "-0.5")::evaluate)
                 .hasMessage("fraction must be between 0 and 1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("line_interpolate_points", "ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)')", "2.0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("line_interpolate_points", "ST_GeometryFromText('LINESTRING (0 0, 1 0, 1 9)')", "2.0")::evaluate)
                 .hasMessage("fraction must be between 0 and 1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("line_interpolate_points", "ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))')", "0.2").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("line_interpolate_points", "ST_GeometryFromText('POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))')", "0.2")::evaluate)
                 .hasMessage("line_interpolate_point only applies to LINE_STRING. Input type is: POLYGON");
     }
 
@@ -839,7 +839,7 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_NumInteriorRing", "ST_GeometryFromText('POLYGON ((0 0, 8 0, 0 8, 0 0), (1 1, 1 5, 5 1, 1 1))')"))
                 .isEqualTo(1L);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_NumInteriorRing", "ST_GeometryFromText('LINESTRING (8 4, 5 7)')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_NumInteriorRing", "ST_GeometryFromText('LINESTRING (8 4, 5 7)')")::evaluate)
                 .hasMessage("ST_NumInteriorRing only applies to POLYGON. Input type is: LINE_STRING");
     }
 
@@ -878,7 +878,7 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_IsRing", "ST_GeometryFromText('LINESTRING (0 0, 1 1, 0 2, 0 0)')"))
                 .isEqualTo(true);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_IsRing", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_IsRing", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')")::evaluate)
                 .hasMessage("ST_IsRing only applies to LINE_STRING. Input type is: POLYGON");
     }
 
@@ -893,10 +893,10 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("POINT (5 6)");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_AsText", "ST_StartPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))'))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_StartPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))'))")::evaluate)
                 .hasMessage("ST_StartPoint only applies to LINE_STRING. Input type is: POLYGON");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_AsText", "ST_EndPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))'))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_EndPoint(ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))'))")::evaluate)
                 .hasMessage("ST_EndPoint only applies to LINE_STRING. Input type is: POLYGON");
     }
 
@@ -985,7 +985,7 @@ public class TestGeoFunctions
         assertThat(assertions.function("ST_Y", "ST_GeometryFromText('POINT (1 2)')"))
                 .isEqualTo(2.0);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_Y", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_Y", "ST_GeometryFromText('POLYGON ((2 0, 2 1, 3 1))')")::evaluate)
                 .hasMessage("ST_Y only applies to POINT. Input type is: POLYGON");
     }
 
@@ -1213,10 +1213,10 @@ public class TestGeoFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("LINESTRING (0 0, 5 0, 5 5, 0 5, 0 0)");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_AsText", "ST_ExteriorRing(ST_GeometryFromText('LINESTRING (1 1, 2 2, 1 3)'))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_ExteriorRing(ST_GeometryFromText('LINESTRING (1 1, 2 2, 1 3)'))")::evaluate)
                 .hasMessage("ST_ExteriorRing only applies to POLYGON. Input type is: LINE_STRING");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_AsText", "ST_ExteriorRing(ST_GeometryFromText('MULTIPOLYGON (((1 1, 2 2, 1 3, 1 1)), ((4 4, 5 5, 4 6, 4 4)))'))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_AsText", "ST_ExteriorRing(ST_GeometryFromText('MULTIPOLYGON (((1 1, 2 2, 1 3, 1 1)), ((4 4, 5 5, 4 6, 4 4)))'))")::evaluate)
                 .hasMessage("ST_ExteriorRing only applies to POLYGON. Input type is: MULTI_POLYGON");
     }
 
@@ -1582,13 +1582,13 @@ public class TestGeoFunctions
     @Test
     public void testInvalidWKT()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_LineFromText", "'LINESTRING (0 0, 1)'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_LineFromText", "'LINESTRING (0 0, 1)'")::evaluate)
                 .hasMessage("Invalid WKT: LINESTRING (0 0, 1)");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_GeometryFromText", "'POLYGON(0 0)'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_GeometryFromText", "'POLYGON(0 0)'")::evaluate)
                 .hasMessage("Invalid WKT: POLYGON(0 0)");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_Polygon", "'POLYGON(-1 1, 1 -1)'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_Polygon", "'POLYGON(-1 1, 1 -1)'")::evaluate)
                 .hasMessage("Invalid WKT: POLYGON(-1 1, 1 -1)");
     }
 
@@ -1607,40 +1607,40 @@ public class TestGeoFunctions
         assertThat(assertions.function("great_circle_distance", "36.12", "-86.67", "36.12", "-86.67"))
                 .isEqualTo(0.0);
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("great_circle_distance", "100", "20", "30", "40").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("great_circle_distance", "100", "20", "30", "40")::evaluate)
                 .hasMessage("Latitude must be between -90 and 90");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("great_circle_distance", "10", "20", "300", "40").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("great_circle_distance", "10", "20", "300", "40")::evaluate)
                 .hasMessage("Latitude must be between -90 and 90");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("great_circle_distance", "10", "200", "30", "40").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("great_circle_distance", "10", "200", "30", "40")::evaluate)
                 .hasMessage("Longitude must be between -180 and 180");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("great_circle_distance", "10", "20", "30", "400").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("great_circle_distance", "10", "20", "30", "400")::evaluate)
                 .hasMessage("Longitude must be between -180 and 180");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("great_circle_distance", "nan()", "-86.67", "33.94", "-118.40").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("great_circle_distance", "nan()", "-86.67", "33.94", "-118.40")::evaluate)
                 .hasMessage("Latitude must be between -90 and 90");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("great_circle_distance", "infinity()", "-86.67", "33.94", "-118.40").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("great_circle_distance", "infinity()", "-86.67", "33.94", "-118.40")::evaluate)
                 .hasMessage("Latitude must be between -90 and 90");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("great_circle_distance", "36.12", "nan()", "33.94", "-118.40").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("great_circle_distance", "36.12", "nan()", "33.94", "-118.40")::evaluate)
                 .hasMessage("Longitude must be between -180 and 180");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("great_circle_distance", "36.12", "infinity()", "33.94", "-118.40").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("great_circle_distance", "36.12", "infinity()", "33.94", "-118.40")::evaluate)
                 .hasMessage("Longitude must be between -180 and 180");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("great_circle_distance", "36.12", "-86.67", "nan()", "-118.40").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("great_circle_distance", "36.12", "-86.67", "nan()", "-118.40")::evaluate)
                 .hasMessage("Latitude must be between -90 and 90");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("great_circle_distance", "36.12", "-86.67", "infinity()", "-118.40").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("great_circle_distance", "36.12", "-86.67", "infinity()", "-118.40")::evaluate)
                 .hasMessage("Latitude must be between -90 and 90");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("great_circle_distance", "36.12", "-86.67", "33.94", "nan()").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("great_circle_distance", "36.12", "-86.67", "33.94", "nan()")::evaluate)
                 .hasMessage("Longitude must be between -180 and 180");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("great_circle_distance", "36.12", "-86.67", "33.94", "infinity()").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("great_circle_distance", "36.12", "-86.67", "33.94", "infinity()")::evaluate)
                 .hasMessage("Longitude must be between -180 and 180");
     }
 
@@ -1673,9 +1673,9 @@ public class TestGeoFunctions
 
     private void assertInvalidInteriorRings(String wkt, String geometryType)
     {
-        assertTrinoExceptionThrownBy(() -> assertions.expression("transform(ST_InteriorRings(geometry), x -> ST_AsText(x))")
+        assertTrinoExceptionThrownBy(assertions.expression("transform(ST_InteriorRings(geometry), x -> ST_AsText(x))")
                 .binding("geometry", "ST_GeometryFromText('%s')".formatted(wkt))
-                .evaluate())
+                ::evaluate)
                 .hasMessage("ST_InteriorRings only applies to POLYGON. Input type is: %s".formatted(geometryType));
     }
 
@@ -1855,7 +1855,7 @@ public class TestGeoFunctions
                 .isEqualTo("LINESTRING (1 2, 3 4)");
 
         // Duplicate consecutive points throws exception
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_LineString", "array[ST_Point(1, 2), ST_Point(1, 2)]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_LineString", "array[ST_Point(1, 2), ST_Point(1, 2)]")::evaluate)
                 .hasMessage("Invalid input to ST_LineString: consecutive duplicate points at index 2");
 
         assertThat(assertions.function("ST_LineString", "array[ST_Point(1, 2), ST_Point(3, 4), ST_Point(1, 2)]"))
@@ -1873,33 +1873,33 @@ public class TestGeoFunctions
                 .isEqualTo("LINESTRING EMPTY");
 
         // Only points can be passed
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_LineString", "array[ST_Point(7,8), ST_GeometryFromText('LINESTRING (1 2, 3 4)')]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_LineString", "array[ST_Point(7,8), ST_GeometryFromText('LINESTRING (1 2, 3 4)')]")::evaluate)
                 .hasMessage("ST_LineString takes only an array of valid points, LineString was passed");
 
         // Nulls points are invalid
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_LineString", "array[NULL]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_LineString", "array[NULL]")::evaluate)
                 .hasMessage("Invalid input to ST_LineString: null point at index 1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_LineString", "array[ST_Point(1,2), NULL]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_LineString", "array[ST_Point(1,2), NULL]")::evaluate)
                 .hasMessage("Invalid input to ST_LineString: null point at index 2");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_LineString", "array[ST_Point(1, 2), NULL, ST_Point(3, 4)]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_LineString", "array[ST_Point(1, 2), NULL, ST_Point(3, 4)]")::evaluate)
                 .hasMessage("Invalid input to ST_LineString: null point at index 2");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_LineString", "array[ST_Point(1, 2), NULL, ST_Point(3, 4), NULL]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_LineString", "array[ST_Point(1, 2), NULL, ST_Point(3, 4), NULL]")::evaluate)
                 .hasMessage("Invalid input to ST_LineString: null point at index 2");
 
         // Empty points are invalid
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_LineString", "array[ST_GeometryFromText('POINT EMPTY')]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_LineString", "array[ST_GeometryFromText('POINT EMPTY')]")::evaluate)
                 .hasMessage("Invalid input to ST_LineString: empty point at index 1");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_LineString", "array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY')]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_LineString", "array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY')]")::evaluate)
                 .hasMessage("Invalid input to ST_LineString: empty point at index 2");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_LineString", "array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4)]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_LineString", "array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4)]")::evaluate)
                 .hasMessage("Invalid input to ST_LineString: empty point at index 2");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_LineString", "array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4), ST_GeometryFromText('POINT EMPTY')]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_LineString", "array[ST_Point(1,2), ST_GeometryFromText('POINT EMPTY'), ST_Point(3,4), ST_GeometryFromText('POINT EMPTY')]")::evaluate)
                 .hasMessage("Invalid input to ST_LineString: empty point at index 2");
     }
 
@@ -1926,7 +1926,7 @@ public class TestGeoFunctions
         assertInvalidMultiPoint("geometry is not a point: LineString at index 2", "POINT (7 8)", "LINESTRING (1 2, 3 4)");
 
         // Null point raises exception
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_MultiPoint", "array[null]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_MultiPoint", "array[null]")::evaluate)
                 .hasMessage("Invalid input to ST_MultiPoint: null at index 1");
 
         assertInvalidMultiPoint("null at index 3", "POINT (1 2)", "POINT (1 2)", null);
@@ -2124,7 +2124,7 @@ public class TestGeoFunctions
         assertGeomFromBinary("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)");
 
         // invalid binary
-        assertTrinoExceptionThrownBy(() -> assertions.function("ST_GeomFromBinary", "from_hex('deadbeef')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("ST_GeomFromBinary", "from_hex('deadbeef')")::evaluate)
                 .hasMessage("Invalid WKB");
     }
 
@@ -2159,22 +2159,22 @@ public class TestGeoFunctions
         assertGeometryFromHadoopShape("000000000605000000000000000000F03F000000000000F03F00000000000018400000000000001840020000000A0000000000000005000000000000000000F03F000000000000F03F000000000000F03F0000000000000840000000000000084000000000000008400000000000000840000000000000F03F000000000000F03F000000000000F03F0000000000000040000000000000104000000000000000400000000000001840000000000000184000000000000018400000000000001840000000000000104000000000000000400000000000001040", "MULTIPOLYGON (((1 1, 3 1, 3 3, 1 3, 1 1)), ((2 4, 6 4, 6 6, 2 6, 2 4)))");
 
         // given hadoop shape is too short
-        assertTrinoExceptionThrownBy(() -> assertions.function("geometry_from_hadoop_shape", "from_hex('1234')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("geometry_from_hadoop_shape", "from_hex('1234')")::evaluate)
                 .hasMessage("Hadoop shape input is too short");
 
         // hadoop shape type invalid
-        assertTrinoExceptionThrownBy(() -> assertions.function("geometry_from_hadoop_shape", "from_hex('000000000701000000FFFFFFFFFFFFEFFFFFFFFFFFFFFFEFFF')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("geometry_from_hadoop_shape", "from_hex('000000000701000000FFFFFFFFFFFFEFFFFFFFFFFFFFFFEFFF')")::evaluate)
                 .hasMessage("Invalid Hadoop shape type: 7");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("geometry_from_hadoop_shape", "from_hex('00000000FF01000000FFFFFFFFFFFFEFFFFFFFFFFFFFFFEFFF')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("geometry_from_hadoop_shape", "from_hex('00000000FF01000000FFFFFFFFFFFFEFFFFFFFFFFFFFFFEFFF')")::evaluate)
                 .hasMessage("Invalid Hadoop shape type: -1");
 
         // esri shape invalid
-        assertTrinoExceptionThrownBy(() -> assertions.function("geometry_from_hadoop_shape", "from_hex('000000000101000000FFFFFFFFFFFFEFFFFFFFFFFFFFFFEF')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("geometry_from_hadoop_shape", "from_hex('000000000101000000FFFFFFFFFFFFEFFFFFFFFFFFFFFFEF')")::evaluate)
                 .hasMessage("Invalid Hadoop shape");
 
         // shape type is invalid for given shape
-        assertTrinoExceptionThrownBy(() -> assertions.function("geometry_from_hadoop_shape", "from_hex('000000000501000000000000000000F03F0000000000000040')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("geometry_from_hadoop_shape", "from_hex('000000000501000000000000000000F03F0000000000000040')")::evaluate)
                 .hasMessage("Invalid Hadoop shape");
     }
 
@@ -2276,7 +2276,7 @@ public class TestGeoFunctions
 
     private void assertInvalidGeometryJson(String json, String message)
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("from_geojson_geometry", "'%s'".formatted(json)).evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("from_geojson_geometry", "'%s'".formatted(json))::evaluate)
                 .hasMessage(message);
     }
 }

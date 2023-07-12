@@ -702,7 +702,7 @@ public class QueryAssertions
                     .withRepresentation(ExpressionAssert.TYPE_RENDERER);
         }
 
-        record Result(Type type, Object value) {}
+        public record Result(Type type, Object value) {}
     }
 
     public static class ExpressionAssert

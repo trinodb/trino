@@ -92,10 +92,10 @@ public class TestEncodedPolylineFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("_p~iF~ps|U_ulLnnqC_mqNvxq`@oskPfgkJ");
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("to_encoded_polyline(ST_GeometryFromText('POINT (-120.2 38.5)'))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("to_encoded_polyline(ST_GeometryFromText('POINT (-120.2 38.5)'))")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("to_encoded_polyline(ST_GeometryFromText('MULTILINESTRING ((-122.39174 37.77701))'))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("to_encoded_polyline(ST_GeometryFromText('MULTILINESTRING ((-122.39174 37.77701))'))")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 }

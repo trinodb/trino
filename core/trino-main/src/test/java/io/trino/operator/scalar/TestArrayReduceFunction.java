@@ -142,7 +142,7 @@ public class TestArrayReduceFunction
                 .isEqualTo(123456789066666L);
 
         // TODO: Support coercion of return type of lambda
-        assertTrinoExceptionThrownBy(() -> assertions.expression("reduce(ARRAY [1, NULL, 2], 0, (s, x) -> CAST (s + x AS TINYINT), s -> s)").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("reduce(ARRAY [1, NULL, 2], 0, (s, x) -> CAST (s + x AS TINYINT), s -> s)")::evaluate)
                 .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 }

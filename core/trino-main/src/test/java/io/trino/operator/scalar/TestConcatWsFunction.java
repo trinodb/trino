@@ -177,14 +177,14 @@ public class TestConcatWsFunction
     @Test
     public void testBadArray()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("concat_ws", "','", "ARRAY[1, 15]").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("concat_ws", "','", "ARRAY[1, 15]")::evaluate)
                 .hasMessageContaining("Unexpected parameters");
     }
 
     @Test
     public void testBadArguments()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("concat_ws", "','", "1", "15").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("concat_ws", "','", "1", "15")::evaluate)
                 .hasMessageContaining("Unexpected parameters");
     }
 
@@ -198,14 +198,14 @@ public class TestConcatWsFunction
         for (int i = 1; i <= argumentsLimit; i++) {
             inputValues[i] = ("'" + i + "'");
         }
-        assertTrinoExceptionThrownBy(() -> assertions.function("concat_ws", inputValues).evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("concat_ws", inputValues)::evaluate)
                 .hasMessage("line 1:8: Too many arguments for function call concat_ws()");
     }
 
     @Test
     public void testLowArguments()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.function("concat_ws", "','").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("concat_ws", "','")::evaluate)
                 .hasMessage("There must be two or more arguments");
     }
 }
