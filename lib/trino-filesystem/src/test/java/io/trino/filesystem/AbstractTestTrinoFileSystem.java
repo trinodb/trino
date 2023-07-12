@@ -521,7 +521,7 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
-    void testPaths()
+    public void testPaths()
             throws IOException
     {
         if (isHierarchical()) {
