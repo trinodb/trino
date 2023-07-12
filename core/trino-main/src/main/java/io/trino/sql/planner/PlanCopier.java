@@ -19,30 +19,43 @@ import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.planner.plan.AssignUniqueId;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.GroupIdNode;
+import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
+import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SortNode;
+import io.trino.sql.planner.plan.StatisticsWriterNode;
+import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -132,6 +145,12 @@ public final class PlanCopier
         }
 
         @Override
+        public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
+        {
+            return new DistinctLimitNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getLimit(), node.isPartial(), node.getDistinctSymbols(), node.getHashSymbol());
+        }
+
+        @Override
         public PlanNode visitSample(SampleNode node, RewriteContext<Void> context)
         {
             return new SampleNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getSampleRatio(), node.getSampleType());
@@ -155,6 +174,18 @@ public final class PlanCopier
         public PlanNode visitValues(ValuesNode node, RewriteContext<Void> context)
         {
             return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), node.getRowCount(), node.getRows());
+        }
+
+        @Override
+        public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<Void> context)
+        {
+            return new IndexSourceNode(
+                    idAllocator.getNextId(),
+                    node.getIndexHandle(),
+                    node.getTableHandle(),
+                    node.getLookupSymbols(),
+                    node.getOutputSymbols(),
+                    node.getAssignments());
         }
 
         @Override
@@ -197,6 +228,62 @@ public final class PlanCopier
         }
 
         @Override
+        public PlanNode visitRefreshMaterializedView(RefreshMaterializedViewNode node, RewriteContext<Void> context)
+        {
+            return new RefreshMaterializedViewNode(idAllocator.getNextId(), node.getViewName());
+        }
+
+        @Override
+        public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<Void> context)
+        {
+            return new MergeWriterNode(
+                    idAllocator.getNextId(),
+                    context.rewrite(node.getSource()),
+                    node.getTarget(),
+                    node.getProjectedSymbols(),
+                    node.getPartitioningScheme(),
+                    node.getOutputSymbols());
+        }
+
+        @Override
+        public PlanNode visitMergeProcessor(MergeProcessorNode node, RewriteContext<Void> context)
+        {
+            return new MergeProcessorNode(
+                    idAllocator.getNextId(),
+                    context.rewrite(node.getSource()),
+                    node.getTarget(),
+                    node.getRowIdSymbol(),
+                    node.getMergeRowSymbol(),
+                    node.getDataColumnSymbols(),
+                    node.getRedistributionColumnSymbols(),
+                    node.getOutputSymbols());
+        }
+
+        @Override
+        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Void> context)
+        {
+            return new TableFinishNode(
+                    idAllocator.getNextId(),
+                    context.rewrite(node.getSource()),
+                    node.getTarget(),
+                    node.getRowCountSymbol(),
+                    node.getStatisticsAggregation(),
+                    node.getStatisticsAggregationDescriptor());
+        }
+
+        @Override
+        public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Void> context)
+        {
+            return new StatisticsWriterNode(
+                    idAllocator.getNextId(),
+                    context.rewrite(node.getSource()),
+                    node.getTarget(),
+                    node.getRowCountSymbol(),
+                    node.isRowCountEnabled(),
+                    node.getDescriptor());
+        }
+
+        @Override
         public PlanNode visitPatternRecognition(PatternRecognitionNode node, RewriteContext<Void> context)
         {
             return new PatternRecognitionNode(
@@ -216,6 +303,13 @@ public final class PlanCopier
                     node.getPattern(),
                     node.getSubsets(),
                     node.getVariableDefinitions());
+        }
+
+        @Override
+        public PlanNode visitChooseAlternativeNode(ChooseAlternativeNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> alternatives = node.getSources().stream().map(context::rewrite).collect(Collectors.toList());
+            return new ChooseAlternativeNode(idAllocator.getNextId(), alternatives, node.getOriginalTableScan());
         }
 
         @Override
@@ -252,9 +346,47 @@ public final class PlanCopier
         }
 
         @Override
+        public PlanNode visitMarkDistinct(MarkDistinctNode node, RewriteContext<Void> context)
+        {
+            return new MarkDistinctNode(
+                    idAllocator.getNextId(),
+                    context.rewrite(node.getSource()),
+                    node.getMarkerSymbol(),
+                    node.getDistinctSymbols(),
+                    node.getHashSymbol());
+        }
+
+        @Override
         public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Void> context)
         {
             return new GroupIdNode(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getGroupingSets(), node.getGroupingColumns(), node.getAggregationArguments(), node.getGroupIdSymbol());
+        }
+
+        @Override
+        public PlanNode visitRowNumber(RowNumberNode node, RewriteContext<Void> context)
+        {
+            return new RowNumberNode(
+                    idAllocator.getNextId(),
+                    context.rewrite(node.getSource()),
+                    node.getPartitionBy(),
+                    node.isOrderSensitive(),
+                    node.getRowNumberSymbol(),
+                    node.getMaxRowCountPerPartition(),
+                    node.getHashSymbol());
+        }
+
+        @Override
+        public PlanNode visitTopNRanking(TopNRankingNode node, RewriteContext<Void> context)
+        {
+            return new TopNRankingNode(
+                    idAllocator.getNextId(),
+                    context.rewrite(node.getSource()),
+                    node.getSpecification(),
+                    node.getRankingType(),
+                    node.getRankingSymbol(),
+                    node.getMaxRankingPerPartition(),
+                    node.isPartial(),
+                    node.getHashSymbol());
         }
 
         @Override
@@ -267,6 +399,12 @@ public final class PlanCopier
         public PlanNode visitApply(ApplyNode node, RewriteContext<Void> context)
         {
             return new ApplyNode(idAllocator.getNextId(), context.rewrite(node.getInput()), context.rewrite(node.getSubquery()), node.getSubqueryAssignments(), node.getCorrelation(), node.getOriginSubquery());
+        }
+
+        @Override
+        public PlanNode visitAssignUniqueId(AssignUniqueId node, RewriteContext<Void> context)
+        {
+            return new AssignUniqueId(idAllocator.getNextId(), context.rewrite(node.getSource()), node.getIdColumn());
         }
 
         @Override
