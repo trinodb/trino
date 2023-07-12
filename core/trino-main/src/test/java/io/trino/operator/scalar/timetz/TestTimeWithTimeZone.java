@@ -260,34 +260,34 @@ public class TestTimeWithTimeZone
                 .hasType(createTimeWithTimeZoneType(12))
                 .isEqualTo(timeWithTimeZone(12, 12, 34, 56, 123_456_789_123L, -14 * 60));
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:34:56.1234567891234+08:35'").evaluate())
+        assertThatThrownBy(assertions.expression("TIME '12:34:56.1234567891234+08:35'")::evaluate)
                 .hasMessage("line 1:12: TIME WITH TIME ZONE precision must be in range [0, 12]: 13");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '25:00:00+08:35'").evaluate())
+        assertThatThrownBy(assertions.expression("TIME '25:00:00+08:35'")::evaluate)
                 .hasMessage("line 1:12: '25:00:00+08:35' is not a valid TIME literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:65:00+08:35'").evaluate())
+        assertThatThrownBy(assertions.expression("TIME '12:65:00+08:35'")::evaluate)
                 .hasMessage("line 1:12: '12:65:00+08:35' is not a valid TIME literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:00:65+08:35'").evaluate())
+        assertThatThrownBy(assertions.expression("TIME '12:00:65+08:35'")::evaluate)
                 .hasMessage("line 1:12: '12:00:65+08:35' is not a valid TIME literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:00:00+15:00'").evaluate())
+        assertThatThrownBy(assertions.expression("TIME '12:00:00+15:00'")::evaluate)
                 .hasMessage("line 1:12: '12:00:00+15:00' is not a valid TIME literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:00:00-15:00'").evaluate())
+        assertThatThrownBy(assertions.expression("TIME '12:00:00-15:00'")::evaluate)
                 .hasMessage("line 1:12: '12:00:00-15:00' is not a valid TIME literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:00:00+14:01'").evaluate())
+        assertThatThrownBy(assertions.expression("TIME '12:00:00+14:01'")::evaluate)
                 .hasMessage("line 1:12: '12:00:00+14:01' is not a valid TIME literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:00:00-14:01'").evaluate())
+        assertThatThrownBy(assertions.expression("TIME '12:00:00-14:01'")::evaluate)
                 .hasMessage("line 1:12: '12:00:00-14:01' is not a valid TIME literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:00:00+13:60'").evaluate())
+        assertThatThrownBy(assertions.expression("TIME '12:00:00+13:60'")::evaluate)
                 .hasMessage("line 1:12: '12:00:00+13:60' is not a valid TIME literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIME '12:00:00-13:60'").evaluate())
+        assertThatThrownBy(assertions.expression("TIME '12:00:00-13:60'")::evaluate)
                 .hasMessage("line 1:12: '12:00:00-13:60' is not a valid TIME literal");
     }
 

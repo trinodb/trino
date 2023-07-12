@@ -157,28 +157,28 @@ public class TestSphericalGeoFunctions
                 .matches("ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))')");
 
         // geometries containing invalid latitude or longitude values
-        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('POINT (-340.2 28.9)')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('POINT (-340.2 28.9)')")::evaluate)
                 .hasMessage("Longitude must be between -180 and 180");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('MULTIPOINT ((-40.2 128.9), (-40.2 31.9))')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('MULTIPOINT ((-40.2 128.9), (-40.2 31.9))')")::evaluate)
                 .hasMessage("Latitude must be between -90 and 90");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('LINESTRING (-40.2 28.9, -40.2 31.9, 237.2 31.9)')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('LINESTRING (-40.2 28.9, -40.2 31.9, 237.2 31.9)')")::evaluate)
                 .hasMessage("Longitude must be between -180 and 180");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('MULTILINESTRING ((-40.2 28.9, -40.2 31.9), (-40.2 131.9, -37.2 31.9))')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('MULTILINESTRING ((-40.2 28.9, -40.2 31.9), (-40.2 131.9, -37.2 31.9))')")::evaluate)
                 .hasMessage("Latitude must be between -90 and 90");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('POLYGON ((-40.2 28.9, -40.2 31.9, 237.2 31.9, -37.2 28.9, -40.2 28.9))')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('POLYGON ((-40.2 28.9, -40.2 31.9, 237.2 31.9, -37.2 28.9, -40.2 28.9))')")::evaluate)
                 .hasMessage("Longitude must be between -180 and 180");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 131.9, -37.2 28.9, -40.2 28.9), (-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 131.9, -37.2 28.9, -40.2 28.9), (-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))')")::evaluate)
                 .hasMessage("Latitude must be between -90 and 90");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('MULTIPOLYGON (((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)), ((-39.2 29.9, -39.2 30.9, 238.2 30.9, -38.2 29.9, -39.2 29.9)))')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('MULTIPOLYGON (((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)), ((-39.2 29.9, -39.2 30.9, 238.2 30.9, -38.2 29.9, -39.2 29.9)))')")::evaluate)
                 .hasMessage("Longitude must be between -180 and 180");
 
-        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 131.9, -37.2 31.9), POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)))')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("to_spherical_geography", "ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 131.9, -37.2 31.9), POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)))')")::evaluate)
                 .hasMessage("Latitude must be between -90 and 90");
     }
 
@@ -217,15 +217,15 @@ public class TestSphericalGeoFunctions
                 .isEqualTo((Object) null);
 
         // Invalid polygon (too few vertices)
-        assertTrinoExceptionThrownBy(() -> assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((90 0, 0 0))')))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((90 0, 0 0))')))")::evaluate)
                 .hasMessage("Polygon is not valid: a loop contains less then 3 vertices.");
 
         // Invalid data type (point)
-        assertTrinoExceptionThrownBy(() -> assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))")::evaluate)
                 .hasMessage("When applied to SphericalGeography inputs, ST_Area only supports POLYGON or MULTI_POLYGON. Input type is: POINT");
 
         //Invalid Polygon (duplicated point)
-        assertTrinoExceptionThrownBy(() -> assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')))")::evaluate)
                 .hasMessage("Polygon is not valid: it has two identical consecutive vertices");
 
         // A polygon around the North Pole
