@@ -5267,21 +5267,7 @@ public abstract class BaseHiveConnectorTest
     @Test(dataProvider = "timestampPrecisionAndValues")
     public void testParquetTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
-        doTestParquetTimestampPredicatePushdown(getSession(), timestampPrecision, value);
-    }
-
-    @Test(dataProvider = "timestampPrecisionAndValues")
-    public void testParquetTimestampPredicatePushdownHiveWriter(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
-    {
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "false")
-                .build();
-        doTestParquetTimestampPredicatePushdown(session, timestampPrecision, value);
-    }
-
-    private void doTestParquetTimestampPredicatePushdown(Session baseSession, HiveTimestampPrecision timestampPrecision, LocalDateTime value)
-    {
-        Session session = withTimestampPrecision(baseSession, timestampPrecision);
+        Session session = withTimestampPrecision(getSession(), timestampPrecision);
         String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         assertUpdate("CREATE TABLE " + tableName + " (t TIMESTAMP) WITH (format = 'PARQUET')");
@@ -5379,24 +5365,10 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testParquetDictionaryPredicatePushdown()
     {
-        testParquetDictionaryPredicatePushdown(getSession());
-    }
-
-    @Test
-    public void testParquetDictionaryPredicatePushdownWithHiveWriter()
-    {
-        testParquetDictionaryPredicatePushdown(
-                Session.builder(getSession())
-                        .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "false")
-                        .build());
-    }
-
-    private void testParquetDictionaryPredicatePushdown(Session session)
-    {
         String tableName = "test_parquet_dictionary_pushdown_" + randomNameSuffix();
-        assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
-        assertUpdate(session, "CREATE TABLE " + tableName + " (n BIGINT) WITH (format = 'PARQUET')");
-        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1, 1, 2, 2, 4, 4, 5, 5", 8);
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + " (n BIGINT) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1, 1, 2, 2, 4, 4, 5, 5", 8);
         assertNoDataRead("SELECT * FROM " + tableName + " WHERE n = 3");
     }
 
@@ -7830,7 +7802,7 @@ public abstract class BaseHiveConnectorTest
     public void testCreateTableWithCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         testWithAllStorageFormats((session, hiveStorageFormat) -> {
-            if (isNativeParquetWriter(session, hiveStorageFormat) && compressionCodec == HiveCompressionCodec.LZ4) {
+            if (hiveStorageFormat == HiveStorageFormat.PARQUET && compressionCodec == HiveCompressionCodec.LZ4) {
                 // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
                 assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
                         .hasMessage("Unsupported codec: LZ4");
@@ -8829,16 +8801,8 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
-    private boolean isNativeParquetWriter(Session session, HiveStorageFormat storageFormat)
-    {
-        return storageFormat == HiveStorageFormat.PARQUET &&
-                "true".equals(session.getCatalogProperties("hive").get("parquet_optimized_writer_enabled"));
-    }
-
     private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
     {
-        Session session = getSession();
-        String catalog = session.getCatalog().orElseThrow();
         ImmutableList.Builder<TestingHiveStorageFormat> formats = ImmutableList.builder();
         for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
             if (hiveStorageFormat == HiveStorageFormat.CSV) {
@@ -8849,20 +8813,7 @@ public abstract class BaseHiveConnectorTest
                 // REGEX format is read-only
                 continue;
             }
-            if (hiveStorageFormat == HiveStorageFormat.PARQUET) {
-                formats.add(new TestingHiveStorageFormat(
-                        Session.builder(session)
-                                .setCatalogSessionProperty(catalog, "parquet_optimized_writer_enabled", "false")
-                                .build(),
-                        hiveStorageFormat));
-                formats.add(new TestingHiveStorageFormat(
-                        Session.builder(session)
-                                .setCatalogSessionProperty(catalog, "parquet_optimized_writer_enabled", "true")
-                                .build(),
-                        hiveStorageFormat));
-                continue;
-            }
-            formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
+            formats.add(new TestingHiveStorageFormat(getSession(), hiveStorageFormat));
         }
         return formats.build();
     }

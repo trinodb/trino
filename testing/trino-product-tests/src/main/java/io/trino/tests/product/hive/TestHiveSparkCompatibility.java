@@ -393,13 +393,6 @@ public class TestHiveSparkCompatibility
         testReadTrinoCreatedTable("using_parquet", "PARQUET");
     }
 
-    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testReadTrinoCreatedParquetTableWithHiveWriter()
-    {
-        onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".parquet_optimized_writer_enabled = false");
-        testReadTrinoCreatedTable("using_hive_parquet", "PARQUET");
-    }
-
     private void testReadTrinoCreatedTable(String tableName, String tableFormat)
     {
         String sparkTableName = "trino_created_table_" + tableName + "_" + randomNameSuffix();

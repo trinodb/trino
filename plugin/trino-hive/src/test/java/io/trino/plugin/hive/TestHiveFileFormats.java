@@ -498,15 +498,10 @@ public class TestHiveFileFormats
     }
 
     @Test(dataProvider = "rowCount")
-    public void testOptimizedParquetWriter(int rowCount)
+    public void testParquetWriter(int rowCount)
             throws Exception
     {
-        ConnectorSession session = getHiveSession(
-                new HiveConfig(),
-                new ParquetWriterConfig()
-                        .setParquetOptimizedWriterEnabled(true)
-                        .setValidationPercentage(100.0));
-        assertTrue(HiveSessionProperties.isParquetOptimizedWriterEnabled(session));
+        ConnectorSession session = getHiveSession(new HiveConfig(), new ParquetWriterConfig().setValidationPercentage(100));
 
         List<TestColumn> testColumns = getTestColumnsSupportedByParquet();
         assertThatFileFormat(PARQUET)
