@@ -57,13 +57,15 @@ public class TestDistinctAggregationController
         SymbolAllocator symbolAllocator = new SymbolAllocator();
         Symbol groupingKey = symbolAllocator.newSymbol("groupingKey", BIGINT);
 
+        ValuesNode source = new ValuesNode(new PlanNodeId("source"), 1_000_000);
         AggregationNode aggregationNode = singleAggregation(
                 new PlanNodeId("aggregation"),
-                new ValuesNode(new PlanNodeId("source"), 1_000_000),
+                source,
                 ImmutableMap.of(),
                 singleGroupingSet(ImmutableList.of(groupingKey)));
         Rule.Context context = context(
-                ImmutableMap.of(aggregationNode, new PlanNodeStatsEstimate(1_000_000, ImmutableMap.of())),
+                ImmutableMap.of(source, new PlanNodeStatsEstimate(1_000_000, ImmutableMap.of(
+                        groupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(1_000_000).build()))),
                 symbolAllocator);
 
         assertFalse(controller.shouldAddMarkDistinct(aggregationNode, context));
@@ -78,13 +80,14 @@ public class TestDistinctAggregationController
         Symbol lowCardinalityGroupingKey = symbolAllocator.newSymbol("lowCardinalityGroupingKey", BIGINT);
         Symbol highCardinalityGroupingKey = symbolAllocator.newSymbol("highCardinalityGroupingKey", BIGINT);
 
+        ValuesNode source = new ValuesNode(new PlanNodeId("source"), 1_000_000);
         AggregationNode aggregationNode = singleAggregation(
                 new PlanNodeId("aggregation"),
-                new ValuesNode(new PlanNodeId("source"), 1_000_000),
+                source,
                 ImmutableMap.of(),
                 singleGroupingSet(ImmutableList.of(lowCardinalityGroupingKey, highCardinalityGroupingKey)));
         Rule.Context context = context(
-                ImmutableMap.of(aggregationNode, new PlanNodeStatsEstimate(1_000_000, ImmutableMap.of(
+                ImmutableMap.of(source, new PlanNodeStatsEstimate(1_000_000, ImmutableMap.of(
                         lowCardinalityGroupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(10).build(),
                         highCardinalityGroupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(1_000_000).build()))),
                 symbolAllocator);
@@ -101,13 +104,14 @@ public class TestDistinctAggregationController
         List<Symbol> groupingKeys = ImmutableList.of(
                 symbolAllocator.newSymbol("key1", BIGINT),
                 symbolAllocator.newSymbol("key2", BIGINT));
+        ValuesNode source = new ValuesNode(new PlanNodeId("source"), 1_000_000);
         AggregationNode aggregationNode = singleAggregation(
                 new PlanNodeId("aggregation"),
-                new ValuesNode(new PlanNodeId("source"), 1_000_000),
+                source,
                 ImmutableMap.of(),
                 singleGroupingSet(groupingKeys));
         Rule.Context context = context(
-                ImmutableMap.of(aggregationNode, new PlanNodeStatsEstimate(
+                ImmutableMap.of(source, new PlanNodeStatsEstimate(
                         1_000_000,
                         groupingKeys.stream().collect(toImmutableMap(
                                 Function.identity(),
@@ -126,13 +130,14 @@ public class TestDistinctAggregationController
                 symbolAllocator.newSymbol("key1", BIGINT),
                 symbolAllocator.newSymbol("key2", BIGINT),
                 symbolAllocator.newSymbol("key3", BIGINT));
+        ValuesNode source = new ValuesNode(new PlanNodeId("source"), 1_000_000);
         AggregationNode aggregationNode = singleAggregation(
                 new PlanNodeId("aggregation"),
-                new ValuesNode(new PlanNodeId("source"), 1_000_000),
+                source,
                 ImmutableMap.of(),
                 singleGroupingSet(groupingKeys));
         Rule.Context context = context(
-                ImmutableMap.of(aggregationNode, new PlanNodeStatsEstimate(
+                ImmutableMap.of(source, new PlanNodeStatsEstimate(
                         1_000_000,
                         groupingKeys.stream().collect(toImmutableMap(
                                 Function.identity(),

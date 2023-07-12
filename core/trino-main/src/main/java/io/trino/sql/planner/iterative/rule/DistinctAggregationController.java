@@ -83,10 +83,10 @@ public class DistinctAggregationController
         // NDV stats for multiple grouping keys are unreliable, let's pick a conservative lower bound by taking maximum NDV for all grouping keys.
         // this assumes that grouping keys are 100% correlated.
         // in the case of a lower correlation, the NDV can only be higher.
-        PlanNodeStatsEstimate stats = context.getStatsProvider().getStats(aggregationNode);
+        PlanNodeStatsEstimate sourceStats = context.getStatsProvider().getStats(aggregationNode.getSource());
         double max = Double.NaN;
         for (Symbol groupingKey : aggregationNode.getGroupingKeys()) {
-            double distinctValuesCount = stats.getSymbolStatistics(groupingKey).getDistinctValuesCount();
+            double distinctValuesCount = sourceStats.getSymbolStatistics(groupingKey).getDistinctValuesCount();
             if (Double.isNaN(max) || distinctValuesCount > max) {
                 max = distinctValuesCount;
             }
