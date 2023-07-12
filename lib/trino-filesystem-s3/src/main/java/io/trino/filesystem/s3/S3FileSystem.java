@@ -21,12 +21,15 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
+import software.amazon.awssdk.services.s3.model.InputSerialization;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.OutputSerialization;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 import software.amazon.awssdk.services.s3.model.S3Error;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
@@ -44,16 +47,18 @@ import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static java.util.Objects.requireNonNull;
 
-final class S3FileSystem
+public final class S3FileSystem
         implements TrinoFileSystem
 {
     private final S3Client client;
+    private final S3AsyncClient asyncClient;
     private final S3Context context;
     private final RequestPayer requestPayer;
 
-    public S3FileSystem(S3Client client, S3Context context)
+    public S3FileSystem(S3Client client, S3AsyncClient asyncClient, S3Context context)
     {
         this.client = requireNonNull(client, "client is null");
+        this.asyncClient = requireNonNull(asyncClient, "asyncClient is null");
         this.context = requireNonNull(context, "context is null");
         this.requestPayer = context.requestPayer();
     }
@@ -68,6 +73,11 @@ final class S3FileSystem
     public TrinoInputFile newInputFile(Location location, long length)
     {
         return new S3InputFile(client, context, new S3Location(location), length);
+    }
+
+    public TrinoInputFile newS3SelectInputFile(Location location, String query, boolean enableScanRange, InputSerialization inputSerialization, OutputSerialization outputSerialization)
+    {
+        return new S3SelectInputFile(client, asyncClient, context, new S3Location(location), query, enableScanRange, inputSerialization, outputSerialization);
     }
 
     @Override

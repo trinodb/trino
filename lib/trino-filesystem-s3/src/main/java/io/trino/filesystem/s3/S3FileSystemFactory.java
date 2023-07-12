@@ -20,9 +20,15 @@ import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
+import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
+import software.amazon.awssdk.http.crt.AwsCrtAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
+import software.amazon.awssdk.services.s3.S3BaseClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.sts.StsClient;
@@ -38,13 +44,33 @@ public final class S3FileSystemFactory
         implements TrinoFileSystemFactory
 {
     private final S3Client client;
+    private final S3AsyncClient asyncClient;
     private final S3Context context;
 
     @Inject
     public S3FileSystemFactory(S3FileSystemConfig config)
     {
         S3ClientBuilder s3 = S3Client.builder();
+        applyS3Properties(s3, config);
+        s3.httpClient(buildHttpClient(config));
 
+        S3AsyncClientBuilder asyncS3 = S3AsyncClient.builder();
+        applyS3Properties(asyncS3, config);
+        asyncS3.httpClient(buildAsyncHttpClient(config));
+
+        this.client = s3.build();
+        this.asyncClient = asyncS3.build();
+
+        context = new S3Context(
+                toIntExact(config.getStreamingPartSize().toBytes()),
+                config.isRequesterPays(),
+                config.getSseType(),
+                config.getSseKmsKeyId());
+
+    }
+
+    private static void applyS3Properties(S3BaseClientBuilder<?, ?> s3, S3FileSystemConfig config)
+    {
         if ((config.getAwsAccessKey() != null) && (config.getAwsSecretKey() != null)) {
             s3.credentialsProvider(StaticCredentialsProvider.create(
                     AwsBasicCredentials.create(config.getAwsAccessKey(), config.getAwsSecretKey())));
@@ -70,7 +96,10 @@ public final class S3FileSystemFactory
                     .asyncCredentialUpdateEnabled(true)
                     .build());
         }
+    }
 
+    private static SdkHttpClient buildHttpClient(S3FileSystemConfig config)
+    {
         ApacheHttpClient.Builder httpClient = ApacheHttpClient.builder()
                 .maxConnections(config.getMaxConnections());
 
@@ -83,26 +112,34 @@ public final class S3FileSystemFactory
                     .build());
         }
 
-        s3.httpClientBuilder(httpClient);
+        return httpClient.build();
+    }
 
-        this.client = s3.build();
+    private static SdkAsyncHttpClient buildAsyncHttpClient(S3FileSystemConfig config)
+    {
+        AwsCrtAsyncHttpClient.Builder httpClient = AwsCrtAsyncHttpClient.builder();
+        if (config.getHttpProxy() != null) {
+            String scheme = config.isHttpProxySecure() ? "https" : "http";
+            httpClient.proxyConfiguration(software.amazon.awssdk.http.crt.ProxyConfiguration.builder()
+                    .scheme(scheme)
+                    .host(config.getHttpProxy().getHost())
+                    .port(config.getHttpProxy().getPort())
+                    .build());
+        }
 
-        context = new S3Context(
-                toIntExact(config.getStreamingPartSize().toBytes()),
-                config.isRequesterPays(),
-                config.getSseType(),
-                config.getSseKmsKeyId());
+        return httpClient.build();
     }
 
     @PreDestroy
     public void destroy()
     {
         client.close();
+        asyncClient.close();
     }
 
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new S3FileSystem(client, context);
+        return new S3FileSystem(client, asyncClient, context);
     }
 }

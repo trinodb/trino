@@ -13,19 +13,14 @@
  */
 package io.trino.plugin.hive.s3select;
 
-import com.amazonaws.services.s3.model.CSVInput;
-import com.amazonaws.services.s3.model.CSVOutput;
-import com.amazonaws.services.s3.model.CompressionType;
-import com.amazonaws.services.s3.model.InputSerialization;
-import com.amazonaws.services.s3.model.JSONInput;
-import com.amazonaws.services.s3.model.JSONOutput;
-import com.amazonaws.services.s3.model.JSONType;
-import com.amazonaws.services.s3.model.OutputSerialization;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.s3.S3FileSystem;
+import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.LineDeserializerFactory;
@@ -47,12 +42,14 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.compress.BZip2Codec;
-import org.apache.hadoop.io.compress.CompressionCodec;
-import org.apache.hadoop.io.compress.CompressionCodecFactory;
-import org.apache.hadoop.io.compress.GzipCodec;
+import software.amazon.awssdk.services.s3.model.CSVInput;
+import software.amazon.awssdk.services.s3.model.CSVOutput;
+import software.amazon.awssdk.services.s3.model.CompressionType;
+import software.amazon.awssdk.services.s3.model.InputSerialization;
+import software.amazon.awssdk.services.s3.model.JSONInput;
+import software.amazon.awssdk.services.s3.model.JSONOutput;
+import software.amazon.awssdk.services.s3.model.JSONType;
+import software.amazon.awssdk.services.s3.model.OutputSerialization;
 
 import java.io.IOException;
 import java.util.List;
@@ -81,27 +78,26 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class S3SelectPageSourceProvider
+public class S3SelectPageSourceFactory
         implements HivePageSourceFactory
 {
     private final TextLineReaderFactory lineReaderFactory;
     private final TypeManager typeManager;
-    private final TrinoS3ClientFactory s3ClientFactory;
+    private final S3FileSystemFactory s3FileSystemFactory;
 
     @Inject
-    public S3SelectPageSourceProvider(
+    public S3SelectPageSourceFactory(
             HiveConfig hiveConfig,
             TypeManager typeManager,
-            TrinoS3ClientFactory s3ClientFactory)
+            S3FileSystemFactory s3FileSystemFactory)
     {
         this.lineReaderFactory = new TextLineReaderFactory(1024, 1024, toIntExact(hiveConfig.getTextMaxLineLength().toBytes()));
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.s3ClientFactory = requireNonNull(s3ClientFactory, "s3ClientFactory is null");
+        this.s3FileSystemFactory = requireNonNull(s3FileSystemFactory, "s3FileSystemFactory is null");
     }
 
     @Override
     public Optional<ReaderPageSource> createPageSource(
-            Configuration configuration,
             ConnectorSession session,
             Location path,
             long start,
@@ -144,7 +140,9 @@ public class S3SelectPageSourceProvider
         }
 
         S3SelectDataType s3SelectDataType = s3SelectDataTypeOptional.get();
-        CompressionType compressionType = compressionType(new CompressionCodecFactory(configuration), path);
+        CompressionType compressionType = CompressionKind.forFile(path.fileName())
+                .map(S3SelectPageSourceFactory::compressionType)
+                .orElse(CompressionType.NONE);
 
         LineDeserializerFactory lineDeserializerFactory;
         InputSerialization inputSerialization;
@@ -163,28 +161,32 @@ public class S3SelectPageSourceProvider
                 String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
                 String recordDelimiter = schema.getProperty(LINE_DELIM, "\n");
 
-                CSVInput selectObjectCSVInputSerialization = new CSVInput();
-                selectObjectCSVInputSerialization.setRecordDelimiter(recordDelimiter);
-                selectObjectCSVInputSerialization.setFieldDelimiter(fieldDelimiter);
-                selectObjectCSVInputSerialization.setComments(COMMENTS_CHAR_STR);
-                selectObjectCSVInputSerialization.setQuoteCharacter(quoteChar);
-                selectObjectCSVInputSerialization.setQuoteEscapeCharacter(escapeChar);
+                CSVInput selectObjectCSVInputSerialization = CSVInput.builder()
+                        .recordDelimiter(recordDelimiter)
+                        .fieldDelimiter(fieldDelimiter)
+                        .comments(COMMENTS_CHAR_STR)
+                        .quoteCharacter(quoteChar)
+                        .quoteEscapeCharacter(escapeChar)
+                        .build();
 
-                inputSerialization = new InputSerialization();
-                inputSerialization.setCompressionType(compressionType);
-                inputSerialization.setCsv(selectObjectCSVInputSerialization);
+                inputSerialization = InputSerialization.builder()
+                        .compressionType(compressionType)
+                        .csv(selectObjectCSVInputSerialization)
+                        .build();
 
-                outputSerialization = new OutputSerialization();
-                CSVOutput selectObjectCSVOutputSerialization = new CSVOutput();
-                selectObjectCSVOutputSerialization.setRecordDelimiter(recordDelimiter);
-                selectObjectCSVOutputSerialization.setFieldDelimiter(fieldDelimiter);
-                selectObjectCSVOutputSerialization.setQuoteCharacter(quoteChar);
-                selectObjectCSVOutputSerialization.setQuoteEscapeCharacter(escapeChar);
-                outputSerialization.setCsv(selectObjectCSVOutputSerialization);
+                CSVOutput selectObjectCSVOutputSerialization = CSVOutput.builder()
+                        .recordDelimiter(recordDelimiter)
+                        .fieldDelimiter(fieldDelimiter)
+                        .quoteCharacter(quoteChar)
+                        .quoteEscapeCharacter(escapeChar)
+                        .build();
+                outputSerialization = OutputSerialization.builder()
+                        .csv(selectObjectCSVOutputSerialization)
+                        .build();
 
                 // Works for CSV if AllowQuotedRecordDelimiter is disabled.
                 boolean isQuotedRecordDelimiterAllowed = Boolean.TRUE.equals(
-                        inputSerialization.getCsv().getAllowQuotedRecordDelimiter());
+                        inputSerialization.csv().allowQuotedRecordDelimiter());
                 enableScanRange = CompressionType.NONE.equals(compressionType) && !isQuotedRecordDelimiterAllowed;
             }
             case JSON -> {
@@ -194,16 +196,19 @@ public class S3SelectPageSourceProvider
                 }
 
                 // JSONType.LINES is the only JSON format supported by the Hive JsonSerDe.
-                JSONInput selectObjectJSONInputSerialization = new JSONInput();
-                selectObjectJSONInputSerialization.setType(JSONType.LINES);
+                JSONInput selectObjectJSONInputSerialization = JSONInput.builder()
+                        .type(JSONType.LINES)
+                        .build();
 
-                inputSerialization = new InputSerialization();
-                inputSerialization.setCompressionType(compressionType);
-                inputSerialization.setJson(selectObjectJSONInputSerialization);
+                inputSerialization = InputSerialization.builder()
+                        .compressionType(compressionType)
+                        .json(selectObjectJSONInputSerialization)
+                        .build();
 
-                outputSerialization = new OutputSerialization();
-                JSONOutput selectObjectJSONOutputSerialization = new JSONOutput();
-                outputSerialization.setJson(selectObjectJSONOutputSerialization);
+                JSONOutput selectObjectJSONOutputSerialization = JSONOutput.builder().build();
+                outputSerialization = OutputSerialization.builder()
+                        .json(selectObjectJSONOutputSerialization)
+                        .build();
 
                 enableScanRange = CompressionType.NONE.equals(compressionType);
             }
@@ -243,17 +248,13 @@ public class S3SelectPageSourceProvider
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager, s3SelectDataType, nullCharacterEncoding);
         String ionSqlQuery = queryBuilder.buildSql(projectedReaderColumns, effectivePredicate);
 
-        TrinoInputFile inputFile = new S3SelectInputFile(
-                s3ClientFactory.getS3Client(configuration),
-                new TrinoS3SelectClient(configuration, s3ClientFactory),
-                ionSqlQuery,
+        S3FileSystem fileSystem = (S3FileSystem) s3FileSystemFactory.create(session);
+        TrinoInputFile inputFile = fileSystem.newS3SelectInputFile(
                 path,
-                start,
-                length,
+                ionSqlQuery,
+                enableScanRange,
                 inputSerialization,
-                outputSerialization,
-                enableScanRange);
-
+                outputSerialization);
         try {
             LineReader lineReader = lineReaderFactory.createLineReader(inputFile, start, length, headerCount, footerCount, Optional.empty());
             LinePageSource pageSource = new LinePageSource(lineReader, lineDeserializer, lineReaderFactory.createLineBuffer(), path);
@@ -264,18 +265,12 @@ public class S3SelectPageSourceProvider
         }
     }
 
-    private static CompressionType compressionType(CompressionCodecFactory compressionCodecFactory, Location location)
+    private static CompressionType compressionType(CompressionKind compressionKind)
     {
-        CompressionCodec codec = compressionCodecFactory.getCodec(new Path(location.toString()));
-        if (codec == null) {
-            return CompressionType.NONE;
-        }
-        if (codec instanceof GzipCodec) {
-            return CompressionType.GZIP;
-        }
-        if (codec instanceof BZip2Codec) {
-            return CompressionType.BZIP2;
-        }
-        throw new TrinoException(NOT_SUPPORTED, "Compression extension not supported for S3 Select: " + location);
+        return switch (compressionKind) {
+            case GZIP -> CompressionType.GZIP;
+            case BZIP2 -> CompressionType.BZIP2;
+            default -> throw new TrinoException(NOT_SUPPORTED, "Compression extension not supported for S3 Select: " + compressionKind);
+        };
     }
 }
