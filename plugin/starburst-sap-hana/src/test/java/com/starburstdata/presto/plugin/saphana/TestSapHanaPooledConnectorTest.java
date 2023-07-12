@@ -28,7 +28,10 @@ public class TestSapHanaPooledConnectorTest
                 ImmutableMap.<String, String>builder()
                         .put("connection-pool.enabled", "true")
                         .buildOrThrow(),
-                ImmutableMap.of(),
+                ImmutableMap.<String, String>builder()
+                        .put("scale-writers", "false")
+                        .put("task.scale-writers.enabled", "false")
+                        .buildOrThrow(),
                 TpchTable.getTables());
     }
 }
