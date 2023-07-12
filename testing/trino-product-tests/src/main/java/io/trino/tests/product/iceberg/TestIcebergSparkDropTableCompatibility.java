@@ -22,7 +22,6 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -98,14 +97,8 @@ public class TestIcebergSparkDropTableCompatibility
     private static String getPath(String uri)
     {
         if (uri.startsWith("hdfs://")) {
-            try {
-                return new URI(uri).getPath();
-            }
-            catch (URISyntaxException e) {
-                throw new RuntimeException("Invalid syntax for the URI: " + uri, e);
-            }
+            return URI.create(uri).getPath();
         }
-
         return uri;
     }
 }

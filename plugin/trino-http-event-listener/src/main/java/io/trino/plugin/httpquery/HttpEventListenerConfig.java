@@ -20,7 +20,6 @@ import io.airlift.units.Duration;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
-import java.net.URISyntaxException;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -90,7 +89,6 @@ public class HttpEventListenerConfig
     @ConfigDescription("URL of receiving server. Explicitly set the scheme https:// to use symmetric encryption")
     @Config("http-event-listener.connect-ingest-uri")
     public HttpEventListenerConfig setIngestUri(String ingestUri)
-            throws URISyntaxException
     {
         this.ingestUri = ingestUri;
         return this;

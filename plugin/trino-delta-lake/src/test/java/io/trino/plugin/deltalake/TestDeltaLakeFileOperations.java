@@ -27,7 +27,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -161,7 +160,6 @@ public class TestDeltaLakeFileOperations
 
     @Test
     public void testTableChangesFileSystemAccess()
-            throws URISyntaxException
     {
         assertUpdate("CREATE TABLE table_changes_file_system_access (page_url VARCHAR, key VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true, partitioned_by=ARRAY['key'])");
         assertUpdate("INSERT INTO table_changes_file_system_access VALUES('url1', 'domain1', 1)", 1);
@@ -203,12 +201,11 @@ public class TestDeltaLakeFileOperations
     }
 
     private int countCdfFilesForKey(String partitionValue)
-            throws URISyntaxException
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM table_changes_file_system_access WHERE key = '" + partitionValue + "'");
         String partitionKey = "key=" + partitionValue;
         String tableLocation = path.substring(0, path.lastIndexOf(partitionKey));
-        String partitionCdfFolder = new URI(tableLocation).getPath() + "_change_data/" + partitionKey + "/";
+        String partitionCdfFolder = URI.create(tableLocation).getPath() + "_change_data/" + partitionKey + "/";
         return toIntExact(Arrays.stream(new File(partitionCdfFolder).list()).filter(file -> !file.contains(".crc")).count());
     }
 

@@ -56,7 +56,6 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
@@ -263,9 +262,9 @@ public class TestDeltaLakeGlueMetastore
      * Creates a valid transaction log
      */
     private void createTransactionLog(String deltaLakeTableLocation)
-            throws URISyntaxException, IOException
+            throws IOException
     {
-        File deltaTableLogLocation = new File(new File(new URI(deltaLakeTableLocation)), "_delta_log");
+        File deltaTableLogLocation = new File(new File(URI.create(deltaLakeTableLocation)), "_delta_log");
         verify(deltaTableLogLocation.mkdirs(), "mkdirs() on '%s' failed", deltaTableLogLocation);
         String entry = Resources.toString(Resources.getResource("deltalake/person/_delta_log/00000000000000000000.json"), UTF_8);
         Files.writeString(new File(deltaTableLogLocation, "00000000000000000000.json").toPath(), entry);
