@@ -27,10 +27,12 @@ import io.trino.array.LongBigArray;
 import io.trino.array.ReferenceCountMap;
 import io.trino.array.SliceBigArray;
 import io.trino.array.SqlMapBigArray;
+import io.trino.array.SqlRowBigArray;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapValueBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -55,6 +57,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static io.trino.util.StructuralTestUtil.sqlMapOf;
+import static io.trino.util.StructuralTestUtil.sqlRowOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -201,7 +204,8 @@ public class TestStateCompiler
     {
         Type arrayType = new ArrayType(BIGINT);
         Type mapType = mapType(BIGINT, VARCHAR);
-        Map<String, Type> fieldMap = ImmutableMap.of("Block", arrayType, "SqlMap", mapType);
+        Type rowType = RowType.anonymousRow(VARCHAR, BIGINT, VARCHAR);
+        Map<String, Type> fieldMap = ImmutableMap.of("Block", arrayType, "SqlMap", mapType, "SqlRow", rowType);
         AccumulatorStateFactory<TestComplexState> factory = StateCompiler.generateStateFactory(TestComplexState.class, fieldMap);
         AccumulatorStateSerializer<TestComplexState> serializer = StateCompiler.generateStateSerializer(TestComplexState.class, fieldMap);
         TestComplexState singleState = factory.createSingleState();
@@ -218,6 +222,7 @@ public class TestStateCompiler
         Block array = createLongsBlock(45);
         singleState.setBlock(array);
         singleState.setSqlMap(sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(123L, "testBlock")));
+        singleState.setSqlRow(sqlRowOf(RowType.anonymousRow(VARCHAR, BIGINT, VARCHAR), "a", 777, "b"));
 
         BlockBuilder builder = serializer.getSerializedType().createBlockBuilder(null, 1);
         serializer.serialize(singleState, builder);
@@ -241,6 +246,15 @@ public class TestStateCompiler
                 expectedMap.getRawKeyBlock().getLong(expectedMap.getRawOffset(), 0));
         assertEquals(deserializedMap.getRawValueBlock().getSlice(deserializedMap.getRawOffset(), 0, 9),
                 expectedMap.getRawValueBlock().getSlice(expectedMap.getRawOffset(), 0, 9));
+
+        SqlRow sqlRow = deserializedState.getSqlRow();
+        SqlRow expectedSqlRow = singleState.getSqlRow();
+        assertEquals(VARCHAR.getSlice(sqlRow.getRawFieldBlock(0), sqlRow.getRawIndex()),
+                VARCHAR.getSlice(expectedSqlRow.getRawFieldBlock(0), expectedSqlRow.getRawIndex()));
+        assertEquals(BIGINT.getLong(sqlRow.getRawFieldBlock(1), sqlRow.getRawIndex()),
+                BIGINT.getLong(expectedSqlRow.getRawFieldBlock(1), expectedSqlRow.getRawIndex()));
+        assertEquals(VARCHAR.getSlice(sqlRow.getRawFieldBlock(2), sqlRow.getRawIndex()),
+                VARCHAR.getSlice(expectedSqlRow.getRawFieldBlock(2), expectedSqlRow.getRawIndex()));
     }
 
     private static long getComplexStateRetainedSize(TestComplexState state)
@@ -252,7 +266,7 @@ public class TestStateCompiler
             for (Field field : fields) {
                 Class<?> type = field.getType();
                 field.setAccessible(true);
-                if (type == BlockBigArray.class || type == SqlMapBigArray.class || type == BooleanBigArray.class || type == SliceBigArray.class ||
+                if (type == BlockBigArray.class || type == SqlMapBigArray.class || type == SqlRowBigArray.class || type == BooleanBigArray.class || type == SliceBigArray.class ||
                         type == ByteBigArray.class || type == DoubleBigArray.class || type == LongBigArray.class || type == IntBigArray.class) {
                     MethodHandle sizeOf = Reflection.methodHandle(type, "sizeOf");
                     retainedSize += (long) sizeOf.invokeWithArguments(field.get(state));
@@ -272,7 +286,7 @@ public class TestStateCompiler
         Field[] stateFields = state.getClass().getDeclaredFields();
         try {
             for (Field stateField : stateFields) {
-                if (stateField.getType() != BlockBigArray.class && stateField.getType() != SqlMapBigArray.class && stateField.getType() != SliceBigArray.class) {
+                if (stateField.getType() != BlockBigArray.class && stateField.getType() != SqlMapBigArray.class && stateField.getType() != SqlRowBigArray.class && stateField.getType() != SliceBigArray.class) {
                     continue;
                 }
                 stateField.setAccessible(true);
@@ -329,6 +343,9 @@ public class TestStateCompiler
             });
             retainedSize += sqlMap.getRetainedSizeInBytes();
             groupedState.setSqlMap(sqlMap);
+            SqlRow sqlRow = sqlRowOf(RowType.anonymousRow(VARCHAR, BIGINT, VARCHAR), "a", 777, "b");
+            retainedSize += sqlRow.getRetainedSizeInBytes();
+            groupedState.setSqlRow(sqlRow);
             assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * (i + 1) + getReferenceCountMapOverhead(groupedState));
         }
 
@@ -356,6 +373,9 @@ public class TestStateCompiler
             });
             retainedSize += sqlMap.getRetainedSizeInBytes();
             groupedState.setSqlMap(sqlMap);
+            SqlRow sqlRow = sqlRowOf(RowType.anonymousRow(VARCHAR, BIGINT, VARCHAR), "a", 777, "b");
+            retainedSize += sqlRow.getRetainedSizeInBytes();
+            groupedState.setSqlRow(sqlRow);
             assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * 1000 + getReferenceCountMapOverhead(groupedState));
         }
     }
@@ -412,6 +432,10 @@ public class TestStateCompiler
         SqlMap getSqlMap();
 
         void setSqlMap(SqlMap sqlMap);
+
+        SqlRow getSqlRow();
+
+        void setSqlRow(SqlRow sqlRow);
     }
 
     public interface BooleanState
