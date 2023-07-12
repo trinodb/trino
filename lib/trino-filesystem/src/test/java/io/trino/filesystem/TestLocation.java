@@ -124,6 +124,9 @@ class TestLocation
         assertThatThrownBy(() -> Location.of("x"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("No scheme for file system location: x");
+        assertThatThrownBy(() -> Location.of("dev/null"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No scheme for file system location: dev/null");
         assertThatThrownBy(() -> Location.of("scheme://host:invalid/path"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Invalid port in file system location: scheme://host:invalid/path");
