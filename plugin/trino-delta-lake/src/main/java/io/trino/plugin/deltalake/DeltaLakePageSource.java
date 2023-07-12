@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
+import io.trino.plugin.deltalake.delete.PageFilter;
 import io.trino.plugin.hive.ReaderProjectionsAdapter;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -63,6 +65,7 @@ public class DeltaLakePageSource
     private final Block partitionsBlock;
     private final ConnectorPageSource delegate;
     private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
+    private final Supplier<Optional<PageFilter>> deletePredicate;
 
     public DeltaLakePageSource(
             List<DeltaLakeColumnHandle> columns,
@@ -73,7 +76,8 @@ public class DeltaLakePageSource
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
             String path,
             long fileSize,
-            long fileModifiedTime)
+            long fileModifiedTime,
+            Supplier<Optional<PageFilter>> deletePredicate)
     {
         int size = columns.size();
         requireNonNull(partitionKeys, "partitionKeys is null");
@@ -131,6 +135,7 @@ public class DeltaLakePageSource
         this.rowIdIndex = rowIdIndex;
         this.pathBlock = pathBlock;
         this.partitionsBlock = partitionsBlock;
+        this.deletePredicate = requireNonNull(deletePredicate, "deletePredicate is null");
     }
 
     @Override
@@ -168,6 +173,11 @@ public class DeltaLakePageSource
             if (projectionsAdapter.isPresent()) {
                 dataPage = projectionsAdapter.get().adaptPage(dataPage);
             }
+            Optional<PageFilter> deleteFilterPredicate = deletePredicate.get();
+            if (deleteFilterPredicate.isPresent()) {
+                dataPage = deleteFilterPredicate.get().apply(dataPage);
+            }
+
             int batchSize = dataPage.getPositionCount();
             Block[] blocks = new Block[prefilledBlocks.length];
             for (int i = 0; i < prefilledBlocks.length; i++) {
