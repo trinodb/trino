@@ -820,6 +820,9 @@ public class TestAnalyzer
         assertFails("SELECT 1 FROM (VALUES 1) HAVING count(*) OVER () > 1")
                 .hasErrorCode(NESTED_WINDOW)
                 .hasMessage("line 1:33: HAVING clause cannot contain window functions or row pattern measures");
+        assertFails("SELECT 1 FROM (VALUES 1) HAVING rank() > 1")
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:33: HAVING clause cannot contain window functions or row pattern measures");
 
         // row pattern measure over window
         assertFails("SELECT * FROM t1 WHERE classy OVER ( " +
