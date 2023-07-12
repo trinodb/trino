@@ -238,11 +238,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.alluxio</groupId>
-            <artifactId>alluxio-shaded-client</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
         </dependency>
