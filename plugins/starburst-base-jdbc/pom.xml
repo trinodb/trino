@@ -9,8 +9,8 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>starburst-jdbc</artifactId>
-    <description>Starburst - JDBC</description>
+    <artifactId>starburst-base-jdbc</artifactId>
+    <description>Starburst - Base JDBC Connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
