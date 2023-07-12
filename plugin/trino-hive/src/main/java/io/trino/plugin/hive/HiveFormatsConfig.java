@@ -18,19 +18,19 @@ import io.airlift.configuration.ConfigDescription;
 
 public class HiveFormatsConfig
 {
-    private boolean avroFileNativeReaderEnabled = true;
-    private boolean avroFileNativeWriterEnabled = true;
-    private boolean csvNativeReaderEnabled = true;
-    private boolean csvNativeWriterEnabled = true;
-    private boolean jsonNativeReaderEnabled = true;
-    private boolean jsonNativeWriterEnabled = true;
-    private boolean openXJsonNativeReaderEnabled = true;
-    private boolean openXJsonNativeWriterEnabled = true;
-    private boolean regexNativeReaderEnabled = true;
-    private boolean textFileNativeReaderEnabled = true;
-    private boolean textFileNativeWriterEnabled = true;
-    private boolean sequenceFileNativeReaderEnabled = true;
-    private boolean sequenceFileNativeWriterEnabled = true;
+    private boolean avroFileNativeReaderEnabled;
+    private boolean avroFileNativeWriterEnabled;
+    private boolean csvNativeReaderEnabled;
+    private boolean csvNativeWriterEnabled;
+    private boolean jsonNativeReaderEnabled;
+    private boolean jsonNativeWriterEnabled;
+    private boolean openXJsonNativeReaderEnabled;
+    private boolean openXJsonNativeWriterEnabled;
+    private boolean regexNativeReaderEnabled;
+    private boolean textFileNativeReaderEnabled;
+    private boolean textFileNativeWriterEnabled;
+    private boolean sequenceFileNativeReaderEnabled;
+    private boolean sequenceFileNativeWriterEnabled;
 
     public boolean isAvroFileNativeReaderEnabled()
     {
