@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.salesforce;
 
 import com.google.inject.Inject;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
+import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -24,7 +25,6 @@ import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
