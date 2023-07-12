@@ -23,8 +23,6 @@ import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -121,7 +119,6 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPrestoCacheInvalidatedOnCreateTable()
-            throws URISyntaxException, IOException
     {
         String tableName = "test_dl_ctas_caching_" + randomNameSuffix();
 
