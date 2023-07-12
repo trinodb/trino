@@ -24,7 +24,6 @@ import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
@@ -89,13 +88,7 @@ public class TestImpersonation
     {
         String location = getOnlyElement(executor.executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName)).column(1));
         if (location.startsWith("hdfs://")) {
-            try {
-                URI uri = new URI(location);
-                return uri.getPath();
-            }
-            catch (URISyntaxException e) {
-                throw new RuntimeException(e);
-            }
+            return URI.create(location).getPath();
         }
         return location;
     }
