@@ -120,10 +120,10 @@ public class TestIntervalDayTime
         assertThat(assertions.operator(MULTIPLY, "2.5", "INTERVAL '1' DAY"))
                 .matches("INTERVAL '2 12:00:00.000' DAY TO SECOND");
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "INTERVAL '6' SECOND", "nan()").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "INTERVAL '6' SECOND", "nan()")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "nan()", "INTERVAL '6' DAY").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "nan()", "INTERVAL '6' DAY")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
@@ -142,16 +142,16 @@ public class TestIntervalDayTime
         assertThat(assertions.operator(DIVIDE, "INTERVAL '4' DAY", "2.5"))
                 .matches("INTERVAL '1 14:24:00.000' DAY TO SECOND");
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' SECOND", "nan()").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "INTERVAL '6' SECOND", "nan()")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' DAY", "nan()").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "INTERVAL '6' DAY", "nan()")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' SECOND", "0E0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "INTERVAL '6' SECOND", "0E0")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' DAY", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "INTERVAL '6' DAY", "0")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 

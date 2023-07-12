@@ -59,7 +59,7 @@ public class TestArrayFunctions
                 .binding("c", "3"))
                 .matches("ARRAY[1, 2, 3]");
 
-        assertThatThrownBy(() -> assertions.expression("array[" + Joiner.on(", ").join(nCopies(255, "rand()")) + "]").evaluate())
+        assertThatThrownBy(assertions.expression("array[" + Joiner.on(", ").join(nCopies(255, "rand()")) + "]")::evaluate)
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Too many arguments for array constructor");
     }
@@ -74,7 +74,7 @@ public class TestArrayFunctions
         assertThat(assertions.function("concat", "ARRAY[1]", "ARRAY[2]", "ARRAY[3]"))
                 .matches("ARRAY[1, 2, 3]");
 
-        assertThatThrownBy(() -> assertions.expression("CONCAT(" + Joiner.on(", ").join(nCopies(128, "array[1]")) + ")").evaluate())
+        assertThatThrownBy(assertions.expression("CONCAT(" + Joiner.on(", ").join(nCopies(128, "array[1]")) + ")")::evaluate)
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("line 1:12: Too many arguments for function call concat()");
     }

@@ -121,10 +121,10 @@ public class TestIntervalYearMonth
         assertThat(assertions.operator(MULTIPLY, "2.5", "INTERVAL '1' YEAR"))
                 .matches("INTERVAL '2-6' YEAR TO MONTH");
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "INTERVAL '6' MONTH", "nan()").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "INTERVAL '6' MONTH", "nan()")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "nan()", "INTERVAL '6' YEAR").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(MULTIPLY, "nan()", "INTERVAL '6' YEAR")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
@@ -143,16 +143,16 @@ public class TestIntervalYearMonth
         assertThat(assertions.operator(DIVIDE, "INTERVAL '4' YEAR", "4.8"))
                 .matches("INTERVAL '10' MONTH");
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' MONTH", "nan()").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "INTERVAL '6' MONTH", "nan()")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' YEAR", "nan()").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "INTERVAL '6' YEAR", "nan()")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' MONTH", "0E0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "INTERVAL '6' MONTH", "0E0")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' YEAR", "0").evaluate())
+        assertTrinoExceptionThrownBy(assertions.operator(DIVIDE, "INTERVAL '6' YEAR", "0")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
