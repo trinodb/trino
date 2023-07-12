@@ -28,7 +28,7 @@ public interface LineReader
     long getReadTimeNanos();
 
     /**
-     * Read a line into the buffer. If there are no more lines in the steam, this reader is closed.
+     * Read a line into the buffer. If there are no more lines in the stream, this reader is closed.
      *
      * @return true if a line was read; otherwise, there no more lines and false is returned
      */
