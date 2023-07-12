@@ -15,6 +15,7 @@ import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import com.hubspot.jinjava.Jinjava;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
+import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -30,13 +31,13 @@ import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -382,8 +383,9 @@ public class DynamoDbJdbcClient
         SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
 
         try (Connection connection = connectionFactory.openConnection(session)) {
-            String remoteSchema = getIdentifierMapping().toRemoteSchemaName(session.getIdentity(), connection, schemaTableName.getSchemaName());
-            String remoteTable = getIdentifierMapping().toRemoteTableName(session.getIdentity(), connection, remoteSchema, schemaTableName.getTableName());
+            ConnectorIdentity identity = session.getIdentity();
+            String remoteSchema = getIdentifierMapping().toRemoteSchemaName(getRemoteIdentifiers(connection), identity, schemaTableName.getSchemaName());
+            String remoteTable = getIdentifierMapping().toRemoteTableName(getRemoteIdentifiers(connection), identity, remoteSchema, schemaTableName.getTableName());
 
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
