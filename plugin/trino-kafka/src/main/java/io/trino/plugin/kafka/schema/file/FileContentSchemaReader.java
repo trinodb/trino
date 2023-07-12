@@ -21,9 +21,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -53,12 +53,7 @@ public class FileContentSchemaReader
             throws IOException
     {
         if (isURI(dataSchemaLocation.trim().toLowerCase(ENGLISH))) {
-            try {
-                return new URL(dataSchemaLocation).openStream();
-            }
-            catch (MalformedURLException ignore) {
-                // TODO probably should not be ignored
-            }
+            return Files.newInputStream(Paths.get(URI.create(dataSchemaLocation)));
         }
 
         return new FileInputStream(dataSchemaLocation);
@@ -70,7 +65,7 @@ public class FileContentSchemaReader
             //noinspection ResultOfMethodCallIgnored
             URI.create(location);
         }
-        catch (Exception e) {
+        catch (IllegalArgumentException e) {
             return false;
         }
         return true;

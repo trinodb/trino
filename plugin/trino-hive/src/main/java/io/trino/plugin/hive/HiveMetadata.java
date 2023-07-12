@@ -130,8 +130,8 @@ import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -320,6 +320,7 @@ import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
@@ -1240,10 +1241,10 @@ public class HiveMetadata
     private String validateAndNormalizeAvroSchemaUrl(String url, HdfsContext context)
     {
         try {
-            new URL(url).openStream().close();
+            newInputStream(Paths.get(URI.create(url))).close();
             return url;
         }
-        catch (MalformedURLException e) {
+        catch (IllegalArgumentException e) {
             // try locally
             if (new File(url).exists()) {
                 // hive needs url to have a protocol

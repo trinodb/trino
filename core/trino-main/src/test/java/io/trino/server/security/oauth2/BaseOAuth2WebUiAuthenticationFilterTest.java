@@ -371,7 +371,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
             throws MalformedURLException
     {
         assertThat(redirectUrl).isNotNull();
-        URL location = new URL(redirectUrl);
+        URL location = URI.create(redirectUrl).toURL();
         HttpUrl url = HttpUrl.parse(redirectUrl);
         assertThat(url).isNotNull();
         assertThat(location.getProtocol()).isEqualTo("https");
