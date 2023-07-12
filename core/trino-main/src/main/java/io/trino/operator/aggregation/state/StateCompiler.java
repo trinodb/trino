@@ -39,6 +39,7 @@ import io.trino.array.LongBigArray;
 import io.trino.array.ObjectBigArray;
 import io.trino.array.SliceBigArray;
 import io.trino.array.SqlMapBigArray;
+import io.trino.array.SqlRowBigArray;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
@@ -143,6 +144,9 @@ public final class StateCompiler
         }
         if (type.equals(SqlMap.class)) {
             return SqlMapBigArray.class;
+        }
+        if (type.equals(SqlRow.class)) {
+            return SqlRowBigArray.class;
         }
         return ObjectBigArray.class;
     }
