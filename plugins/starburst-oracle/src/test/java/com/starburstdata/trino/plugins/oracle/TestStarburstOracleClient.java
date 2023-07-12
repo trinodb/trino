@@ -10,6 +10,7 @@
 package com.starburstdata.trino.plugins.oracle;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
@@ -22,8 +23,6 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
-import io.trino.plugin.jdbc.mapping.DatabaseMetaDataRemoteIdentifierSupplier;
-import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.oracle.OracleConfig;
 import io.trino.plugin.oracle.OracleSessionProperties;
 import io.trino.spi.connector.AggregateFunction;
@@ -76,7 +75,7 @@ public class TestStarburstOracleClient
                 throw new UnsupportedOperationException();
             },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
-            new DefaultIdentifierMapping(new DatabaseMetaDataRemoteIdentifierSupplier()),
+            new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);
 
     public static final ConnectorSession SESSION = TestingConnectorSession.builder()
