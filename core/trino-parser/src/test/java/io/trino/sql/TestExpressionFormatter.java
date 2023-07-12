@@ -37,6 +37,12 @@ public class TestExpressionFormatter
         assertFormattedExpression(
                 new StringLiteral("test"),
                 "'test'");
+        assertFormattedExpression(
+                new StringLiteral("攻殻機動隊"),
+                "'攻殻機動隊'");
+        assertFormattedExpression(
+                new StringLiteral("😂"),
+                "'😂'");
     }
 
     @Test
@@ -45,6 +51,12 @@ public class TestExpressionFormatter
         assertFormattedExpression(
                 new CharLiteral("test"),
                 "CHAR 'test'");
+        assertFormattedExpression(
+                new CharLiteral("攻殻機動隊"),
+                "CHAR '攻殻機動隊'");
+        assertFormattedExpression(
+                new CharLiteral("😂"),
+                "CHAR '😂'");
     }
 
     @Test
@@ -53,6 +65,12 @@ public class TestExpressionFormatter
         assertFormattedExpression(
                 new GenericLiteral("VARCHAR", "test"),
                 "VARCHAR 'test'");
+        assertFormattedExpression(
+                new GenericLiteral("VARCHAR", "攻殻機動隊"),
+                "VARCHAR '攻殻機動隊'");
+        assertFormattedExpression(
+                new GenericLiteral("VARCHAR", "😂"),
+                "VARCHAR '😂'");
     }
 
     @Test

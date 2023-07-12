@@ -64,6 +64,9 @@ public class TestSqlFormatter
         assertThat(formatSql(
                 new ShowCatalogs(Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW CATALOGS LIKE '%$_%' ESCAPE '$'");
+        assertThat(formatSql(
+                new ShowCatalogs(Optional.of("%機動隊"), Optional.of("😂"))))
+                .isEqualTo("SHOW CATALOGS LIKE '%機動隊' ESCAPE '😂'");
     }
 
     @Test
@@ -78,6 +81,9 @@ public class TestSqlFormatter
         assertThat(formatSql(
                 new ShowSchemas(Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'");
+        assertThat(formatSql(
+                new ShowSchemas(Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
+                .isEqualTo("SHOW SCHEMAS LIKE '%機動隊' ESCAPE '😂'");
     }
 
     @Test
@@ -92,6 +98,9 @@ public class TestSqlFormatter
         assertThat(formatSql(
                 new ShowTables(Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW TABLES LIKE '%$_%' ESCAPE '$'");
+        assertThat(formatSql(
+                new ShowTables(Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
+                .isEqualTo("SHOW TABLES LIKE '%機動隊' ESCAPE '😂'");
     }
 
     @Test
@@ -106,6 +115,9 @@ public class TestSqlFormatter
         assertThat(formatSql(
                 new ShowColumns(QualifiedName.of("a"), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW COLUMNS FROM a LIKE '%$_%' ESCAPE '$'");
+        assertThat(formatSql(
+                new ShowColumns(QualifiedName.of("a"), Optional.of("%機動隊"), Optional.of("😂"))))
+                .isEqualTo("SHOW COLUMNS FROM a LIKE '%機動隊' ESCAPE '😂'");
     }
 
     @Test
@@ -120,6 +132,9 @@ public class TestSqlFormatter
         assertThat(formatSql(
                 new ShowFunctions(Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW FUNCTIONS LIKE '%$_%' ESCAPE '$'");
+        assertThat(formatSql(
+                new ShowFunctions(Optional.of("%機動隊"), Optional.of("😂"))))
+                .isEqualTo("SHOW FUNCTIONS LIKE '%機動隊' ESCAPE '😂'");
     }
 
     @Test
@@ -134,6 +149,9 @@ public class TestSqlFormatter
         assertThat(formatSql(
                 new ShowSession(Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW SESSION LIKE '%$_%' ESCAPE '$'");
+        assertThat(formatSql(
+                new ShowSession(Optional.of("%機動隊"), Optional.of("😂"))))
+                .isEqualTo("SHOW SESSION LIKE '%機動隊' ESCAPE '😂'");
     }
 
     @Test
@@ -181,6 +199,16 @@ public class TestSqlFormatter
                         Optional.of("test comment"))))
                 .isEqualTo("CREATE CATALOG test USING conn\n" +
                         "COMMENT 'test comment'");
+        assertThat(formatSql(
+                new CreateCatalog(
+                        new Identifier("test"),
+                        false,
+                        new Identifier("conn"),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.of("攻殻機動隊"))))
+                .isEqualTo("CREATE CATALOG test USING conn\n" +
+                        "COMMENT '攻殻機動隊'");
     }
 
     @Test
@@ -207,6 +235,41 @@ public class TestSqlFormatter
                 .isEqualTo(String.format(createTableSql, "table_name", "column_name"));
         assertThat(formatSql(createTable.apply("exists", "exists")))
                 .isEqualTo(String.format(createTableSql, "\"exists\"", "\"exists\""));
+
+        // Create a table with table comment
+        assertThat(formatSql(
+                new CreateTable(
+                        QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
+                                true,
+                                ImmutableList.of(),
+                                Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.of("攻殻機動隊"))))
+                .isEqualTo("CREATE TABLE test (\n" +
+                        "   col VARCHAR\n" +
+                        ")\n" +
+                        "COMMENT '攻殻機動隊'");
+
+        // Create a table with column comment
+        assertThat(formatSql(
+                new CreateTable(
+                        QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
+                                true,
+                                ImmutableList.of(),
+                                Optional.of("攻殻機動隊"))),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo("CREATE TABLE test (\n" +
+                        "   col VARCHAR COMMENT '攻殻機動隊'\n" +
+                        ")");
     }
 
     @Test
@@ -229,6 +292,20 @@ public class TestSqlFormatter
                 .isEqualTo(String.format(createTableSql, "table_name", "column_name"));
         assertThat(formatSql(createTableAsSelect.apply("exists", "exists")))
                 .isEqualTo(String.format(createTableSql, "\"exists\"", "\"exists\""));
+
+        assertThat(formatSql(
+                new CreateTableAsSelect(
+                        QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        FAIL,
+                        ImmutableList.of(),
+                        true,
+                        Optional.of(ImmutableList.of(new Identifier("col", false))),
+                        Optional.of("攻殻機動隊"))))
+                .isEqualTo("CREATE TABLE test( col )\n" +
+                        "COMMENT '攻殻機動隊' AS SELECT *\n" +
+                        "FROM\n" +
+                        "  t\n");
     }
 
     @Test
@@ -243,6 +320,18 @@ public class TestSqlFormatter
                         Optional.empty(),
                         Optional.empty())))
                 .isEqualTo("CREATE VIEW test AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  t\n");
+        assertThat(formatSql(
+                new CreateView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        false,
+                        Optional.of("攻殻機動隊"),
+                        Optional.empty())))
+                .isEqualTo("CREATE VIEW test COMMENT '攻殻機動隊' AS\n" +
                         "SELECT *\n" +
                         "FROM\n" +
                         "  t\n");
@@ -265,6 +354,21 @@ public class TestSqlFormatter
                         "SELECT *\n" +
                         "FROM\n" +
                         "  test_base\n");
+        assertThat(formatSql(
+                new CreateMaterializedView(
+                        Optional.empty(),
+                        QualifiedName.of("test_mv"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("test_base"))),
+                        false,
+                        false,
+                        Optional.empty(),
+                        ImmutableList.of(),
+                        Optional.of("攻殻機動隊"))))
+                .isEqualTo("CREATE MATERIALIZED VIEW test_mv\n" +
+                        "COMMENT '攻殻機動隊' AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  test_base\n");
     }
 
     @Test
@@ -280,6 +384,16 @@ public class TestSqlFormatter
                                 Optional.empty()),
                         false, false)))
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR");
+        assertThat(formatSql(
+                new AddColumn(
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
+                                true,
+                                emptyList(),
+                                Optional.of("攻殻機動隊")),
+                        false, false)))
+                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR COMMENT '攻殻機動隊'");
     }
 
     @Test
@@ -288,6 +402,9 @@ public class TestSqlFormatter
         assertThat(formatSql(
                 new Comment(Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("test"))))
                 .isEqualTo("COMMENT ON TABLE a IS 'test'");
+        assertThat(formatSql(
+                new Comment(Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("攻殻機動隊"))))
+                .isEqualTo("COMMENT ON TABLE a IS '攻殻機動隊'");
     }
 
     @Test
@@ -296,6 +413,9 @@ public class TestSqlFormatter
         assertThat(formatSql(
                 new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("test"))))
                 .isEqualTo("COMMENT ON VIEW a IS 'test'");
+        assertThat(formatSql(
+                new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("攻殻機動隊"))))
+                .isEqualTo("COMMENT ON VIEW a IS '攻殻機動隊'");
     }
 
     @Test
@@ -304,6 +424,9 @@ public class TestSqlFormatter
         assertThat(formatSql(
                 new Comment(Comment.Type.COLUMN, QualifiedName.of("test", "a"), Optional.of("test"))))
                 .isEqualTo("COMMENT ON COLUMN test.a IS 'test'");
+        assertThat(formatSql(
+                new Comment(Comment.Type.COLUMN, QualifiedName.of("test", "a"), Optional.of("攻殻機動隊"))))
+                .isEqualTo("COMMENT ON COLUMN test.a IS '攻殻機動隊'");
     }
 
     @Test
@@ -321,5 +444,12 @@ public class TestSqlFormatter
                         new StringLiteral(new NodeLocation(1, 19), "SELECT * FROM foo WHERE col1 = 'bar'"),
                         ImmutableList.of())))
                 .isEqualTo("EXECUTE IMMEDIATE\n'SELECT * FROM foo WHERE col1 = ''bar'''");
+        assertThat(formatSql(
+                new ExecuteImmediate(
+                        new NodeLocation(1, 1),
+                        new StringLiteral(new NodeLocation(1, 19), "SELECT * FROM foo WHERE col1 = '攻殻機動隊'"),
+                        ImmutableList.of())))
+                .isEqualTo("EXECUTE IMMEDIATE\n" +
+                        "'SELECT * FROM foo WHERE col1 = ''攻殻機動隊'''");
     }
 }
