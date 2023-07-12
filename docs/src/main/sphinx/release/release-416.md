@@ -6,6 +6,8 @@
   `EXECUTE` statements when the source table statistics are missing or 
   inaccurate. ({issue}`16802`)
 * Improve performance of `LIKE` expressions that contain `%`. ({issue}`16167`)
+* Remove the deprecated `preferred-write-partitioning-min-number-of-partitions`
+  configuration property. ({issue}`16802`)
 
 ## Hive connector
 
