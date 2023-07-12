@@ -561,7 +561,7 @@ public class RowType
         return true;
     }
 
-    private static Boolean chainEqual(Boolean previousFieldsEqual, int currentFieldIndex, MethodHandle currentFieldEqual, Block rightRow, Block leftRow)
+    private static Boolean chainEqual(Boolean previousFieldsEqual, int currentFieldIndex, MethodHandle currentFieldEqual, Block leftRow, Block rightRow)
             throws Throwable
     {
         if (previousFieldsEqual == FALSE) {
@@ -572,7 +572,7 @@ public class RowType
             return null;
         }
 
-        Boolean result = (Boolean) currentFieldEqual.invokeExact(rightRow, currentFieldIndex, leftRow, currentFieldIndex);
+        Boolean result = (Boolean) currentFieldEqual.invokeExact(leftRow, currentFieldIndex, rightRow, currentFieldIndex);
         if (result == TRUE) {
             // this field is equal, so result is either true or unknown depending on the previous fields
             return previousFieldsEqual;
@@ -712,7 +712,7 @@ public class RowType
         return false;
     }
 
-    private static boolean chainDistinctFromStart(MethodHandle chain, Block rightRow, Block leftRow)
+    private static boolean chainDistinctFromStart(MethodHandle chain, Block leftRow, Block rightRow)
             throws Throwable
     {
         boolean leftIsNull = leftRow == null;
@@ -720,16 +720,16 @@ public class RowType
         if (leftIsNull || rightIsNull) {
             return leftIsNull != rightIsNull;
         }
-        return (boolean) chain.invokeExact(rightRow, leftRow);
+        return (boolean) chain.invokeExact(leftRow, rightRow);
     }
 
-    private static boolean chainDistinctFrom(boolean previousFieldsDistinctFrom, int currentFieldIndex, MethodHandle currentFieldDistinctFrom, Block rightRow, Block leftRow)
+    private static boolean chainDistinctFrom(boolean previousFieldsDistinctFrom, int currentFieldIndex, MethodHandle currentFieldDistinctFrom, Block leftRow, Block rightRow)
             throws Throwable
     {
         if (previousFieldsDistinctFrom) {
             return true;
         }
-        return (boolean) currentFieldDistinctFrom.invokeExact(rightRow, currentFieldIndex, leftRow, currentFieldIndex);
+        return (boolean) currentFieldDistinctFrom.invokeExact(leftRow, currentFieldIndex, rightRow, currentFieldIndex);
     }
 
     private static List<OperatorMethodHandle> getIndeterminateOperatorInvokers(TypeOperators typeOperators, List<Field> fields)
@@ -848,7 +848,7 @@ public class RowType
         return 0;
     }
 
-    private static long chainComparison(long previousFieldsResult, int fieldIndex, MethodHandle nextFieldComparison, Block rightRow, Block leftRow)
+    private static long chainComparison(long previousFieldsResult, int fieldIndex, MethodHandle nextFieldComparison, Block leftRow, Block rightRow)
             throws Throwable
     {
         if (previousFieldsResult != 0) {
@@ -858,7 +858,7 @@ public class RowType
         checkElementNotNull(leftRow.isNull(fieldIndex));
         checkElementNotNull(rightRow.isNull(fieldIndex));
 
-        return (long) nextFieldComparison.invokeExact(rightRow, fieldIndex, leftRow, fieldIndex);
+        return (long) nextFieldComparison.invokeExact(leftRow, fieldIndex, rightRow, fieldIndex);
     }
 
     private static void checkElementNotNull(boolean isNull)
