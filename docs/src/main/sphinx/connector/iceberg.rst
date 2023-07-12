@@ -65,7 +65,7 @@ is used.
       * ``PARQUET``
       * ``ORC``
       * ``AVRO``
-    - ``ORC``
+    - ``PARQUET``
   * - ``iceberg.compression-codec``
     - The compression codec used when writing files.
       Possible values are:
