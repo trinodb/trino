@@ -81,6 +81,11 @@ public final class PlanCopier
         return new UnaliasSymbolReferences(metadata).reallocateSymbols(copy, fields, symbolAllocator);
     }
 
+    public static PlanNode copyPlan(PlanNode plan, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    {
+        return SimplePlanRewriter.rewriteWith(new Copier(idAllocator, lookup), plan, null);
+    }
+
     private static class Copier
             extends SimplePlanRewriter<Void>
     {
