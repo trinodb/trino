@@ -27,18 +27,22 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.ObjectStorageClass;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
+import software.amazon.awssdk.services.s3.model.RestoreStatus;
 import software.amazon.awssdk.services.s3.model.S3Error;
-import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
@@ -47,6 +51,8 @@ import static java.util.Objects.requireNonNull;
 final class S3FileSystem
         implements TrinoFileSystem
 {
+    private static final Set<ObjectStorageClass> GLACIER_STORAGE_CLASSES = Set.of(ObjectStorageClass.GLACIER, ObjectStorageClass.DEEP_ARCHIVE);
+
     private final S3Client client;
     private final S3Context context;
     private final RequestPayer requestPayer;
@@ -178,8 +184,11 @@ final class S3FileSystem
                 .build();
 
         try {
-            ListObjectsV2Iterable iterable = client.listObjectsV2Paginator(request);
-            return new S3FileIterator(s3Location, iterable.contents().iterator());
+            Iterator<S3Object> iterator = client.listObjectsV2Paginator(request).contents()
+                    .stream()
+                    .filter(this::shouldReadObject)
+                    .iterator();
+            return new S3FileIterator(s3Location, iterator);
         }
         catch (SdkException e) {
             throw new IOException("Failed to list location: " + location, e);
@@ -201,5 +210,35 @@ final class S3FileSystem
     private static void validateS3Location(Location location)
     {
         new S3Location(location);
+    }
+
+    private boolean shouldReadObject(S3Object object)
+    {
+        return switch (context.s3ObjectStorageClassFilter()) {
+            case READ_ALL -> true;
+            case SKIP_ALL_GLACIER -> !isGlacierObject(object);
+            case READ_RESTORED_GLACIER_OBJECTS -> !isGlacierObject(object) || isCompletedRestoredObject(object);
+        };
+    }
+
+    private static boolean isCompletedRestoredObject(S3Object object)
+    {
+        /* There are 3 cases for the restore status:
+         *
+         * 1. The object is not restored, and has not been requested to be restored. We should have a null
+         * value for restoreStatus
+         * 2. The object is in the process of being restored. isRestoreInProgress will be true, but restoreExpiryDate
+         * will be null.
+         * 3. The object has completed restore. isRestoreInProgress will be false, restoreExpiryDate will be some date.
+         *
+         * Since we only care about distinguishing when it is case 3, we can just check restoreExpiryDate for a non-null value. */
+        return Optional.ofNullable(object.restoreStatus())
+                .map(RestoreStatus::restoreExpiryDate)
+                .isPresent();
+    }
+
+    private static boolean isGlacierObject(S3Object object)
+    {
+        return GLACIER_STORAGE_CLASSES.contains(object.storageClass());
     }
 }
