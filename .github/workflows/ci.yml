@@ -381,10 +381,6 @@ jobs:
             source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_adl_tests.sh
           fi
-      - name: Run Hive Alluxio Tests
-        run: |
-          source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
-            plugin/trino-hive-hadoop2/bin/run_hive_alluxio_tests.sh
       - name: Upload test results
         uses: actions/upload-artifact@v3
         # Upload all test reports only on failure, because the artifacts are large

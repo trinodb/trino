@@ -200,11 +200,6 @@
                     <groupId>com.linkedin.calcite</groupId>
                     <artifactId>calcite-core</artifactId>
                 </exclusion>
-                <exclusion>
-                    <!-- conflicts with com.google.protobuf:protobuf-java -->
-                    <groupId>org.alluxio</groupId>
-                    <artifactId>alluxio-shaded-client</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 
@@ -218,11 +213,6 @@
                     <!-- calcite-core and Iceberg have conflicting versions of org.apache.commons:commons-lang3 -->
                     <groupId>com.linkedin.calcite</groupId>
                     <artifactId>calcite-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <!-- conflicts with com.google.protobuf:protobuf-java -->
-                    <groupId>org.alluxio</groupId>
-                    <artifactId>alluxio-shaded-client</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

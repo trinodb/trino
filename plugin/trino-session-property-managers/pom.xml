@@ -155,12 +155,6 @@
             <artifactId>trino-hive</artifactId>
             <type>jar</type>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.alluxio</groupId>
-                    <artifactId>alluxio-shaded-client</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -168,12 +162,6 @@
             <artifactId>trino-hive</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.alluxio</groupId>
-                    <artifactId>alluxio-shaded-client</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
