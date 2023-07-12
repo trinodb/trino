@@ -41,9 +41,4 @@ public class HdfsFileSystemFactory
     {
         return new HdfsFileSystem(environment, new HdfsContext(identity), fileSystemStats);
     }
-
-    public TrinoHdfsFileSystemStats getFileSystemStats()
-    {
-        return fileSystemStats;
-    }
 }
