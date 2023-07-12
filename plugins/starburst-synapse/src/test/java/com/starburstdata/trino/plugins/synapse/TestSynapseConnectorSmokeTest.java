@@ -17,7 +17,7 @@ import java.util.Map;
 
 import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 
-public class TestSynapseConnectorSmokeTest
+public final class TestSynapseConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
     @Override
