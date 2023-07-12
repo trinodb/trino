@@ -24,8 +24,6 @@ import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import io.trino.plugin.hive.LocationService.WriteInfo;
@@ -48,8 +46,6 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.security.Principal;
@@ -177,7 +173,6 @@ public class HiveWriterFactory
             String queryId,
             HivePageSinkMetadataProvider pageSinkMetadataProvider,
             TypeManager typeManager,
-            HdfsEnvironment hdfsEnvironment,
             PageSorter pageSorter,
             DataSize sortBufferSize,
             int maxOpenSortFiles,
@@ -244,17 +239,14 @@ public class HiveWriterFactory
         this.dataColumns = dataColumns.build();
         this.isCreateTransactionalTable = isCreateTable && transaction.isTransactional();
 
-        Location writePath;
         if (isCreateTable) {
             this.table = null;
             WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
             checkArgument(writeInfo.writeMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "CREATE TABLE write mode cannot be DIRECT_TO_TARGET_EXISTING_DIRECTORY");
-            writePath = writeInfo.writePath();
         }
         else {
             this.table = pageSinkMetadataProvider.getTable()
                     .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' was dropped during insert", schemaName, tableName)));
-            writePath = locationService.getQueryWriteInfo(locationHandle).writePath();
         }
 
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
@@ -276,16 +268,6 @@ public class HiveWriterFactory
                 // The session properties collected here are used for events only. Filter out nulls to avoid problems with downstream consumers
                 .filter(entry -> entry.getValue() != null)
                 .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().toString()));
-
-        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(writePath.toString()));
-
-        // make sure the FileSystem is created with the correct Configuration object
-        try {
-            hdfsEnvironment.getFileSystem(session.getIdentity(), new Path(writePath.toString()), conf);
-        }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + writePath, e);
-        }
 
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
     }

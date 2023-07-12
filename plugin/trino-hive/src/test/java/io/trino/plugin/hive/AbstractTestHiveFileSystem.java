@@ -263,7 +263,6 @@ public abstract class AbstractTestHiveFileSystem
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                hdfsEnvironment,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), typeOperators),
