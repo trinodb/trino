@@ -87,12 +87,13 @@ public final class DeltaLakeSchemaSupport
     public static final String COLUMN_MAPPING_MODE_CONFIGURATION_KEY = "delta.columnMapping.mode";
     public static final String COLUMN_MAPPING_PHYSICAL_NAME_CONFIGURATION_KEY = "delta.columnMapping.physicalName";
     public static final String MAX_COLUMN_ID_CONFIGURATION_KEY = "delta.columnMapping.maxColumnId";
+    private static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
 
     // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#valid-feature-names-in-table-features
-    // TODO: Add support for 'deletionVectors' reader features
     private static final Set<String> SUPPORTED_READER_FEATURES = ImmutableSet.<String>builder()
             .add("columnMapping")
             .add("timestampNtz")
+            .add("deletionVectors")
             .build();
 
     public enum ColumnMappingMode
@@ -122,6 +123,11 @@ public final class DeltaLakeSchemaSupport
     public static boolean isAppendOnly(MetadataEntry metadataEntry)
     {
         return parseBoolean(metadataEntry.getConfiguration().getOrDefault(APPEND_ONLY_CONFIGURATION_KEY, "false"));
+    }
+
+    public static boolean isDeletionVectorEnabled(MetadataEntry metadataEntry)
+    {
+        return parseBoolean(metadataEntry.getConfiguration().get(DELETION_VECTORS_CONFIGURATION_KEY));
     }
 
     public static ColumnMappingMode getColumnMappingMode(MetadataEntry metadata)

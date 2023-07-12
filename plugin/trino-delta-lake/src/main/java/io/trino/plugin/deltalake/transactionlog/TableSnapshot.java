@@ -158,6 +158,11 @@ public class TableSnapshot
         return logTail.getFileEntries();
     }
 
+    public List<Transaction> getTransactions()
+    {
+        return logTail.getTransactions();
+    }
+
     public Stream<DeltaLakeTransactionLogEntry> getCheckpointTransactionLogEntries(
             ConnectorSession session,
             Set<CheckpointEntryIterator.EntryType> entryTypes,

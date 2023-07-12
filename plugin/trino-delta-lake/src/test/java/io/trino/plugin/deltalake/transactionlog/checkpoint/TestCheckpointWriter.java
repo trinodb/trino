@@ -178,7 +178,8 @@ public class TestCheckpointWriter
                 Optional.empty(),
                 ImmutableMap.of(
                         "someTag", "someValue",
-                        "otherTag", "otherValue"));
+                        "otherTag", "otherValue"),
+                Optional.empty());
 
         RemoveFileEntry removeFileEntry = new RemoveFileEntry(
                 "removeFilePath",
@@ -314,7 +315,8 @@ public class TestCheckpointWriter
                                 .buildOrThrow()))),
                 ImmutableMap.of(
                         "someTag", "someValue",
-                        "otherTag", "otherValue"));
+                        "otherTag", "otherValue"),
+                Optional.empty());
 
         RemoveFileEntry removeFileEntry = new RemoveFileEntry(
                 "removeFilePath",
@@ -390,7 +392,8 @@ public class TestCheckpointWriter
                                 "row", RowBlock.fromFieldBlocks(1, Optional.empty(), minMaxRowFieldBlocks).getSingleValueBlock(0))),
                         Optional.of(ImmutableMap.of(
                                 "row", RowBlock.fromFieldBlocks(1, Optional.empty(), nullCountRowFieldBlocks).getSingleValueBlock(0))))),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
 
         CheckpointEntries entries = new CheckpointEntries(
                 metadataEntry,
@@ -428,7 +431,8 @@ public class TestCheckpointWriter
                 original.isDataChange(),
                 original.getStatsString(),
                 makeComparable(original.getStats()),
-                original.getTags());
+                original.getTags(),
+                original.getDeletionVector());
     }
 
     private Optional<DeltaLakeParquetFileStatistics> makeComparable(Optional<? extends DeltaLakeFileStatistics> original)
