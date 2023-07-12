@@ -252,32 +252,24 @@ public class FormWebUiAuthenticationFilter
     private NewCookie createAuthenticationCookie(String userName, boolean secure)
     {
         String jwt = jwtGenerator.apply(userName);
-        return new NewCookie(
-                TRINO_UI_COOKIE,
-                jwt,
-                "/ui",
-                null,
-                Cookie.DEFAULT_VERSION,
-                null,
-                NewCookie.DEFAULT_MAX_AGE,
-                null,
-                secure,
-                true);
+
+        return new NewCookie.Builder(TRINO_UI_COOKIE)
+                .value(jwt)
+                .path("/ui")
+                .secure(secure)
+                .httpOnly(true)
+                .build();
     }
 
     public static NewCookie getDeleteCookie(boolean secure)
     {
-        return new NewCookie(
-                TRINO_UI_COOKIE,
-                "delete",
-                "/ui",
-                null,
-                Cookie.DEFAULT_VERSION,
-                null,
-                0,
-                null,
-                secure,
-                true);
+        return new NewCookie.Builder(TRINO_UI_COOKIE)
+                .value("delete")
+                .path("/ui")
+                .maxAge(0)
+                .secure(true)
+                .httpOnly(true)
+                .build();
     }
 
     public boolean isPasswordAllowed(boolean secure)

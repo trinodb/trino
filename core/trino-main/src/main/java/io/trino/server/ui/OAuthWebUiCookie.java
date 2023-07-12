@@ -21,8 +21,6 @@ import java.util.Date;
 import java.util.Optional;
 
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
-import static jakarta.ws.rs.core.Cookie.DEFAULT_VERSION;
-import static jakarta.ws.rs.core.NewCookie.DEFAULT_MAX_AGE;
 import static java.util.function.Predicate.not;
 
 public final class OAuthWebUiCookie
@@ -34,17 +32,13 @@ public final class OAuthWebUiCookie
 
     public static NewCookie create(String token, Instant tokenExpiration)
     {
-        return new NewCookie(
-                OAUTH2_COOKIE,
-                token,
-                UI_LOCATION,
-                null,
-                DEFAULT_VERSION,
-                null,
-                DEFAULT_MAX_AGE,
-                Date.from(tokenExpiration),
-                true,
-                true);
+        return new NewCookie.Builder(OAUTH2_COOKIE)
+                .value(token)
+                .path(UI_LOCATION)
+                .expiry(Date.from(tokenExpiration))
+                .secure(true)
+                .httpOnly(true)
+                .build();
     }
 
     public static Optional<String> read(Cookie cookie)
@@ -56,16 +50,12 @@ public final class OAuthWebUiCookie
 
     public static NewCookie delete()
     {
-        return new NewCookie(
-                OAUTH2_COOKIE,
-                "delete",
-                UI_LOCATION,
-                null,
-                DEFAULT_VERSION,
-                null,
-                0,
-                null,
-                true,
-                true);
+        return new NewCookie.Builder(OAUTH2_COOKIE)
+                .value("delete")
+                .path(UI_LOCATION)
+                .maxAge(0)
+                .secure(true)
+                .httpOnly(true)
+                .build();
     }
 }
