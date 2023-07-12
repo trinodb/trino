@@ -47,7 +47,6 @@ import org.weakref.jmx.Nested;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -266,11 +265,7 @@ public class HeartbeatFailureDetector
     {
         String url = descriptor.getProperties().get(httpsRequired ? "https" : "http");
         if (url != null) {
-            try {
-                return new URI(url);
-            }
-            catch (URISyntaxException ignored) {
-            }
+            return URI.create(url);
         }
         return null;
     }
