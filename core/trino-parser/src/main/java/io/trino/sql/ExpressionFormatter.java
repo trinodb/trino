@@ -13,7 +13,6 @@
  */
 package io.trino.sql;
 
-import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.AllColumns;
@@ -112,10 +111,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.PrimitiveIterator;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.ReservedIdentifiers.reserved;
@@ -1053,35 +1050,7 @@ public final class ExpressionFormatter
 
     static String formatStringLiteral(String s)
     {
-        s = s.replace("'", "''");
-        if (CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(s)) {
-            return "'" + s + "'";
-        }
-
-        StringBuilder builder = new StringBuilder();
-        builder.append("U&'");
-        PrimitiveIterator.OfInt iterator = s.codePoints().iterator();
-        while (iterator.hasNext()) {
-            int codePoint = iterator.nextInt();
-            checkArgument(codePoint >= 0, "Invalid UTF-8 encoding in characters: %s", s);
-            if (isAsciiPrintable(codePoint)) {
-                char ch = (char) codePoint;
-                if (ch == '\\') {
-                    builder.append(ch);
-                }
-                builder.append(ch);
-            }
-            else if (codePoint <= 0xFFFF) {
-                builder.append('\\');
-                builder.append(format("%04X", codePoint));
-            }
-            else {
-                builder.append("\\+");
-                builder.append(format("%06X", codePoint));
-            }
-        }
-        builder.append("'");
-        return builder.toString();
+        return "'" + s.replace("'", "''") + "'";
     }
 
     public static String formatOrderBy(OrderBy orderBy)
