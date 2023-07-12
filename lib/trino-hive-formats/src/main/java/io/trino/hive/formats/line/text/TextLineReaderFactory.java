@@ -76,12 +76,13 @@ public class TextLineReaderFactory
                 lineReader = TextLineReader.createUncompressedReader(inputStream, fileBufferSize, start, length);
             }
 
-            //  Only skip header rows when the split is at the beginning of the file
             if (headerCount > 0) {
+                checkArgument(start == 0 || headerCount == 1, "file cannot be split when there is more than one header row");
                 skipHeader(lineReader, headerCount);
             }
 
             if (footerCount > 0) {
+                checkArgument(start == 0, "file cannot be split when there are footer rows");
                 lineReader = new FooterAwareLineReader(lineReader, footerCount, this::createLineBuffer);
             }
             return lineReader;
