@@ -1666,15 +1666,8 @@ with Parquet files performed by the Hive connector.
         optimized parquet reader by default. The equivalent catalog session
         property is ``parquet_optimized_reader_enabled``.
       - ``true``
-    * - ``parquet.optimized-writer.enabled``
-      - Whether the optimized writer is used when writing Parquet files.
-        Set this property to ``false`` to disable the optimized parquet writer by
-        default. The equivalent catalog session property is
-        ``parquet_optimized_writer_enabled``.
-      - ``true``
-    * - ``parquet.optimized-writer.validation-percentage``
-      - Percentage of parquet files to validate after write by re-reading the whole file
-        when ``parquet.optimized-writer.enabled`` is set to ``true``.
+    * - ``parquet.writer.validation-percentage``
+      - Percentage of Parquet files to validate after write by re-reading the whole file.
         The equivalent catalog session property is ``parquet_optimized_writer_validation_percentage``.
         Validation can be turned off by setting this property to ``0``.
       - ``5``
