@@ -34,6 +34,7 @@ import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.util.Iterator;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -53,8 +54,8 @@ public final class UrlFunctions
     @SqlType("varchar(x)")
     public static Slice urlExtractProtocol(@SqlType("varchar(x)") Slice url)
     {
-        URI uri = parseUrl(url);
-        return (uri == null) ? null : slice(uri.getScheme());
+        URI uri = parseUriArgument(url);
+        return slice(uri.getScheme());
     }
 
     @SqlNullable
@@ -64,8 +65,8 @@ public final class UrlFunctions
     @SqlType("varchar(x)")
     public static Slice urlExtractHost(@SqlType("varchar(x)") Slice url)
     {
-        URI uri = parseUrl(url);
-        return (uri == null) ? null : slice(uri.getHost());
+        URI uri = parseUriArgument(url);
+        return slice(uri.getHost());
     }
 
     @SqlNullable
@@ -75,8 +76,8 @@ public final class UrlFunctions
     @SqlType(StandardTypes.BIGINT)
     public static Long urlExtractPort(@SqlType("varchar(x)") Slice url)
     {
-        URI uri = parseUrl(url);
-        if ((uri == null) || (uri.getPort() < 0)) {
+        URI uri = parseUriArgument(url);
+        if (uri.getPort() < 0) {
             return null;
         }
         return (long) uri.getPort();
@@ -89,8 +90,8 @@ public final class UrlFunctions
     @SqlType("varchar(x)")
     public static Slice urlExtractPath(@SqlType("varchar(x)") Slice url)
     {
-        URI uri = parseUrl(url);
-        return (uri == null) ? null : slice(uri.getPath());
+        URI uri = parseUriArgument(url);
+        return slice(uri.getPath());
     }
 
     @SqlNullable
@@ -100,8 +101,8 @@ public final class UrlFunctions
     @SqlType("varchar(x)")
     public static Slice urlExtractQuery(@SqlType("varchar(x)") Slice url)
     {
-        URI uri = parseUrl(url);
-        return (uri == null) ? null : slice(uri.getQuery());
+        URI uri = parseUriArgument(url);
+        return slice(uri.getQuery());
     }
 
     @SqlNullable
@@ -111,8 +112,8 @@ public final class UrlFunctions
     @SqlType("varchar(x)")
     public static Slice urlExtractFragment(@SqlType("varchar(x)") Slice url)
     {
-        URI uri = parseUrl(url);
-        return (uri == null) ? null : slice(uri.getFragment());
+        URI uri = parseUriArgument(url);
+        return slice(uri.getFragment());
     }
 
     @SqlNullable
@@ -122,8 +123,8 @@ public final class UrlFunctions
     @SqlType("varchar(x)")
     public static Slice urlExtractParameter(@SqlType("varchar(x)") Slice url, @SqlType("varchar(y)") Slice parameterName)
     {
-        URI uri = parseUrl(url);
-        if ((uri == null) || (uri.getRawQuery() == null)) {
+        URI uri = parseUriArgument(url);
+        if (uri.getRawQuery() == null) {
             return null;
         }
 
@@ -184,13 +185,13 @@ public final class UrlFunctions
     }
 
     @Nullable
-    private static URI parseUrl(Slice url)
+    private static URI parseUriArgument(Slice url)
     {
         try {
             return new URI(url.toStringUtf8());
         }
         catch (URISyntaxException e) {
-            return null;
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot parse as URI value '%s': %s".formatted(url.toStringUtf8(), firstNonNull(e.getMessage(), e)), e);
         }
     }
 }
