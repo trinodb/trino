@@ -83,6 +83,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("person_without_checkpoints", "databricks73/person_without_checkpoints"));
     private static final List<ResourceTable> OTHER_TABLES = ImmutableList.of(
             new ResourceTable("no_column_stats", "databricks73/no_column_stats"),
+            new ResourceTable("deletion_vectors", "databricks122/deletion_vectors"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"));
 
@@ -626,6 +627,15 @@ public class TestDeltaLakeBasic
                         entry("delta.identity.start", 1),
                         entry("delta.identity.step", 1),
                         entry("delta.identity.allowExplicitInsert", false));
+    }
+
+    /**
+     * @see databricks122.deletion_vectors
+     */
+    @Test
+    public void testDeletionVectors()
+    {
+        assertQuery("SELECT * FROM deletion_vectors", "VALUES (1, 11)");
     }
 
     @Test

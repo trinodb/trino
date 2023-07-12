@@ -51,6 +51,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -283,7 +284,7 @@ public class TransactionLogAccess
                 .collect(toImmutableList());
     }
 
-    private Stream<AddFileEntry> activeAddEntries(Stream<DeltaLakeTransactionLogEntry> checkpointEntries, Stream<DeltaLakeTransactionLogEntry> jsonEntries)
+    private Stream<AddFileEntry> activeAddEntries(Stream<DeltaLakeTransactionLogEntry> checkpointEntries, List<Transaction> transactions)
     {
         Map<String, AddFileEntry> activeJsonEntries = new LinkedHashMap<>();
         HashSet<String> removedFiles = new HashSet<>();
@@ -291,17 +292,22 @@ public class TransactionLogAccess
         // The json entries containing the last few entries in the log need to be applied on top of the parquet snapshot:
         // - Any files which have been removed need to be excluded
         // - Any files with newer add actions need to be updated with the most recent metadata
-        jsonEntries.forEach(deltaLakeTransactionLogEntry -> {
-            AddFileEntry addEntry = deltaLakeTransactionLogEntry.getAdd();
-            if (addEntry != null) {
-                activeJsonEntries.put(addEntry.getPath(), addEntry);
-            }
+        transactions.forEach(transaction -> {
+            Map<String, AddFileEntry> addFilesInTransaction = new LinkedHashMap<>();
+            Set<String> removedFilesInTransaction = new HashSet<>();
+            transaction.transactionEntries().forEach(deltaLakeTransactionLogEntry -> {
+                if (deltaLakeTransactionLogEntry.getAdd() != null) {
+                    addFilesInTransaction.put(deltaLakeTransactionLogEntry.getAdd().getPath(), deltaLakeTransactionLogEntry.getAdd());
+                }
+                else if (deltaLakeTransactionLogEntry.getRemove() != null) {
+                    removedFilesInTransaction.add(deltaLakeTransactionLogEntry.getRemove().getPath());
+                }
+            });
 
-            RemoveFileEntry removeEntry = deltaLakeTransactionLogEntry.getRemove();
-            if (removeEntry != null) {
-                activeJsonEntries.remove(removeEntry.getPath());
-                removedFiles.add(removeEntry.getPath());
-            }
+            // Process 'remove' entries first because deletion vectors register both 'add' and 'remove' entries and the 'add' entry should be kept
+            removedFiles.addAll(removedFilesInTransaction);
+            removedFilesInTransaction.forEach(activeJsonEntries::remove);
+            activeJsonEntries.putAll(addFilesInTransaction);
         });
 
         Stream<AddFileEntry> filteredCheckpointEntries = checkpointEntries
@@ -367,19 +373,19 @@ public class TransactionLogAccess
     private <T> Stream<T> getEntries(
             TableSnapshot tableSnapshot,
             Set<CheckpointEntryIterator.EntryType> entryTypes,
-            BiFunction<Stream<DeltaLakeTransactionLogEntry>, Stream<DeltaLakeTransactionLogEntry>, Stream<T>> entryMapper,
+            BiFunction<Stream<DeltaLakeTransactionLogEntry>, List<Transaction>, Stream<T>> entryMapper,
             ConnectorSession session,
             TrinoFileSystem fileSystem,
             FileFormatDataSourceStats stats)
     {
         try {
-            Stream<DeltaLakeTransactionLogEntry> jsonEntries = tableSnapshot.getJsonTransactionLogEntries().stream();
+            List<Transaction> transactions = tableSnapshot.getTransactions();
             Stream<DeltaLakeTransactionLogEntry> checkpointEntries = tableSnapshot.getCheckpointTransactionLogEntries(
                     session, entryTypes, checkpointSchemaManager, typeManager, fileSystem, stats);
 
             return entryMapper.apply(
                     checkpointEntries,
-                    jsonEntries);
+                    transactions);
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error reading transaction log for " + tableSnapshot.getTable(), e);
@@ -400,7 +406,7 @@ public class TransactionLogAccess
         return getEntries(
                 tableSnapshot,
                 ImmutableSet.of(entryType),
-                (checkpointStream, jsonStream) -> entryMapper.apply(Stream.concat(checkpointStream, jsonStream)),
+                (checkpointStream, jsonStream) -> entryMapper.apply(Stream.concat(checkpointStream, jsonStream.stream().map(Transaction::transactionEntries).flatMap(Collection::stream))),
                 session,
                 fileSystem,
                 stats);
