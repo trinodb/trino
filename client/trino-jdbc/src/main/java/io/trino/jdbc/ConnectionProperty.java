@@ -33,7 +33,7 @@ interface ConnectionProperty<V, T>
 
     boolean isRequired(Properties properties);
 
-    boolean isAllowed(Properties properties);
+    boolean isValid(Properties properties);
 
     Optional<T> getValue(Properties properties)
             throws SQLException;

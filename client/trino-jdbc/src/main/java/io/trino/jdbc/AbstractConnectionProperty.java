@@ -35,7 +35,7 @@ abstract class AbstractConnectionProperty<V, T>
     private final String key;
     private final Optional<T> defaultValue;
     private final Predicate<Properties> isRequired;
-    private final Predicate<Properties> isAllowed;
+    private final Validator<Properties> validator;
     private final Converter<V, T> converter;
     private final String[] choices;
 
@@ -43,14 +43,14 @@ abstract class AbstractConnectionProperty<V, T>
             PropertyName propertyName,
             Optional<T> defaultValue,
             Predicate<Properties> isRequired,
-            Predicate<Properties> isAllowed,
+            Validator<Properties> validator,
             Converter<V, T> converter)
     {
         this.propertyName = requireNonNull(propertyName, "key is null");
         this.key = propertyName.toString();
         this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
         this.isRequired = requireNonNull(isRequired, "isRequired is null");
-        this.isAllowed = requireNonNull(isAllowed, "isAllowed is null");
+        this.validator = requireNonNull(validator, "validator is null");
         this.converter = requireNonNull(converter, "converter is null");
 
         Class<? super T> type = new TypeToken<T>(getClass()) {}.getRawType();
@@ -70,7 +70,7 @@ abstract class AbstractConnectionProperty<V, T>
     protected AbstractConnectionProperty(
             PropertyName key,
             Predicate<Properties> required,
-            Predicate<Properties> allowed,
+            Validator<Properties> allowed,
             Converter<V, T> converter)
     {
         this(key, Optional.empty(), required, allowed, converter);
@@ -99,9 +99,9 @@ abstract class AbstractConnectionProperty<V, T>
     }
 
     @Override
-    public boolean isAllowed(Properties properties)
+    public boolean isValid(Properties properties)
     {
-        return isAllowed.test(properties);
+        return !validator.validate(properties).isPresent();
     }
 
     @Override
@@ -146,8 +146,11 @@ abstract class AbstractConnectionProperty<V, T>
     public void validate(Properties properties)
             throws SQLException
     {
-        if (properties.containsKey(key) && !isAllowed(properties)) {
-            throw new SQLException(format("Connection property '%s' is not allowed", key));
+        if (properties.containsKey(key)) {
+            Optional<String> message = validator.validate(properties);
+            if (message.isPresent()) {
+                throw new SQLException(message.get());
+            }
         }
 
         getValue(properties);
@@ -155,7 +158,7 @@ abstract class AbstractConnectionProperty<V, T>
 
     protected static final Predicate<Properties> NOT_REQUIRED = properties -> false;
 
-    protected static final Predicate<Properties> ALLOWED = properties -> true;
+    protected static final Validator<Properties> ALLOWED = properties -> Optional.empty();
 
     interface Converter<V, T>
     {
@@ -181,6 +184,29 @@ abstract class AbstractConnectionProperty<V, T>
         throw new IllegalArgumentException("value must be 'true' or 'false'");
     };
 
+    protected interface Validator<T>
+    {
+        Optional<String> validate(T t);
+
+        default Validator<T> and(Validator<? super T> other)
+        {
+            requireNonNull(other, "other is null");
+            // return the first non-empty optional
+            return (t) -> {
+                Optional<String> result = validate(t);
+                if (result.isPresent()) {
+                    return result;
+                }
+                return other.validate(t);
+            };
+        }
+    }
+
+    protected static <T> Validator<T> validator(Predicate<T> predicate, String message)
+    {
+        return t -> Optional.ofNullable(predicate.test(t) ? null : message);
+    }
+
     protected interface CheckedPredicate<T>
     {
         boolean test(T t)
@@ -189,6 +215,7 @@ abstract class AbstractConnectionProperty<V, T>
 
     protected static <T> Predicate<T> checkedPredicate(CheckedPredicate<T> predicate)
     {
+        requireNonNull(predicate, "predicate is null");
         return t -> {
             try {
                 return predicate.test(t);

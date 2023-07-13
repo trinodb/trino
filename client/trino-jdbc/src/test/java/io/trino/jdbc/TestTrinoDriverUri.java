@@ -89,8 +89,8 @@ public class TestTrinoDriverUri
         assertInvalid("jdbc:trino://localhost:8080/blackhole?user=test123", "Connection property 'user' is both in the URL and an argument");
 
         // setting both socks and http proxy
-        assertInvalid("jdbc:trino://localhost:8080?socksProxy=localhost:1080&httpProxy=localhost:8888", "Connection property 'socksProxy' is not allowed");
-        assertInvalid("jdbc:trino://localhost:8080?httpProxy=localhost:8888&socksProxy=localhost:1080", "Connection property 'socksProxy' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?socksProxy=localhost:1080&httpProxy=localhost:8888", "Connection property socksProxy cannot be used when httpProxy is set");
+        assertInvalid("jdbc:trino://localhost:8080?httpProxy=localhost:8888&socksProxy=localhost:1080", "Connection property socksProxy cannot be used when httpProxy is set");
 
         // invalid ssl flag
         assertInvalid("jdbc:trino://localhost:8080?SSL=0", "Connection property 'SSL' value is invalid: 0");
@@ -103,70 +103,70 @@ public class TestTrinoDriverUri
         assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=abc", "Connection property 'SSLVerification' value is invalid: abc");
 
         // ssl verification without ssl
-        assertInvalid("jdbc:trino://localhost:8080?SSLVerification=FULL", "Connection property 'SSLVerification' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSLVerification=FULL", "Connection property SSLVerification requires SSL to be enabled");
 
         // ssl verification using port 443 without ssl
-        assertInvalid("jdbc:trino://localhost:443?SSLVerification=FULL", "Connection property 'SSLVerification' is not allowed");
+        assertInvalid("jdbc:trino://localhost:443?SSLVerification=FULL", "Connection property SSLVerification requires SSL to be enabled");
 
         // ssl key store password without path
-        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLKeyStorePassword=password", "Connection property 'SSLKeyStorePassword' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLKeyStorePassword=password", "Connection property SSLKeyStorePassword requires SSLKeyStorePath to be set");
 
         // ssl key store type without path
-        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLKeyStoreType=type", "Connection property 'SSLKeyStoreType' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLKeyStoreType=type", "Connection property SSLKeyStoreType requires SSLKeyStorePath to be set");
 
         // ssl trust store password without path
-        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLTrustStorePassword=password", "Connection property 'SSLTrustStorePassword' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLTrustStorePassword=password", "Connection property SSLTrustStorePassword requires SSLTrustStorePath to be set");
 
         // ssl trust store type without path
-        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLTrustStoreType=type", "Connection property 'SSLTrustStoreType' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLTrustStoreType=type", "Connection property SSLTrustStoreType requires SSLTrustStorePath to be set or SSLUseSystemTrustStore to be enabled");
 
         // key store path without ssl
-        assertInvalid("jdbc:trino://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property 'SSLKeyStorePath' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property SSLKeyStorePath cannot be set if SSLVerification is NONE");
 
         // key store path using port 443 without ssl
-        assertInvalid("jdbc:trino://localhost:443?SSLKeyStorePath=keystore.jks", "Connection property 'SSLKeyStorePath' is not allowed");
+        assertInvalid("jdbc:trino://localhost:443?SSLKeyStorePath=keystore.jks", "Connection property SSLKeyStorePath cannot be set if SSLVerification is NONE");
 
         // trust store path without ssl
-        assertInvalid("jdbc:trino://localhost:8080?SSLTrustStorePath=truststore.jks", "Connection property 'SSLTrustStorePath' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSLTrustStorePath=truststore.jks", "Connection property SSLTrustStorePath cannot be set if SSLVerification is NONE");
 
         // trust store path using port 443 without ssl
-        assertInvalid("jdbc:trino://localhost:443?SSLTrustStorePath=truststore.jks", "Connection property 'SSLTrustStorePath' is not allowed");
+        assertInvalid("jdbc:trino://localhost:443?SSLTrustStorePath=truststore.jks", "Connection property SSLTrustStorePath cannot be set if SSLVerification is NONE");
 
         // key store password without ssl
-        assertInvalid("jdbc:trino://localhost:8080?SSLKeyStorePassword=password", "Connection property 'SSLKeyStorePassword' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSLKeyStorePassword=password", "Connection property SSLKeyStorePassword requires SSLKeyStorePath to be set");
 
         // trust store password without ssl
-        assertInvalid("jdbc:trino://localhost:8080?SSLTrustStorePassword=password", "Connection property 'SSLTrustStorePassword' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSLTrustStorePassword=password", "Connection property SSLTrustStorePassword requires SSLTrustStorePath to be set");
 
         // key store path with ssl verification mode NONE
-        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=NONE&SSLKeyStorePath=keystore.jks", "Connection property 'SSLKeyStorePath' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=NONE&SSLKeyStorePath=keystore.jks", "Connection property SSLKeyStorePath cannot be set if SSLVerification is NONE");
 
         // ssl key store password with ssl verification mode NONE
-        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=NONE&SSLKeyStorePassword=password", "Connection property 'SSLKeyStorePassword' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=NONE&SSLKeyStorePassword=password", "Connection property SSLKeyStorePassword requires SSLKeyStorePath to be set");
 
         // ssl key store type with ssl verification mode NONE
-        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=NONE&SSLKeyStoreType=type", "Connection property 'SSLKeyStoreType' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=NONE&SSLKeyStoreType=type", "Connection property SSLKeyStoreType requires SSLKeyStorePath to be set");
 
         // trust store path with ssl verification mode NONE
-        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=NONE&SSLTrustStorePath=truststore.jks", "Connection property 'SSLTrustStorePath' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=NONE&SSLTrustStorePath=truststore.jks", "Connection property SSLTrustStorePath cannot be set if SSLVerification is NONE");
 
         // ssl trust store password with ssl verification mode NONE
-        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=NONE&SSLTrustStorePassword=password", "Connection property 'SSLTrustStorePassword' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLVerification=NONE&SSLTrustStorePassword=password", "Connection property SSLTrustStorePassword requires SSLTrustStorePath to be set");
 
         // key store path with ssl verification mode NONE
-        assertInvalid("jdbc:trino://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property 'SSLKeyStorePath' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property SSLKeyStorePath cannot be set if SSLVerification is NONE");
 
         // use system trust store with ssl verification mode NONE
-        assertInvalid("jdbc:trino://localhost:8080?SSLUseSystemTrustStore=true", "Connection property 'SSLUseSystemTrustStore' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSLUseSystemTrustStore=true", "Connection property SSLUseSystemTrustStore cannot be set if SSLVerification is NONE");
 
         // use system trust store with key store path
-        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLUseSystemTrustStore=true&SSLTrustStorePath=truststore.jks", "Connection property 'SSLTrustStorePath' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLUseSystemTrustStore=true&SSLTrustStorePath=truststore.jks", "Connection property SSLTrustStorePath cannot be set if SSLUseSystemTrustStore is enabled");
 
         // kerberos config without service name
-        assertInvalid("jdbc:trino://localhost:8080?KerberosCredentialCachePath=/test", "Connection property 'KerberosCredentialCachePath' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?KerberosCredentialCachePath=/test", "Connection property KerberosCredentialCachePath requires KerberosRemoteServiceName to be set");
 
         // kerberos config with delegated kerberos
-        assertInvalid("jdbc:trino://localhost:8080?KerberosRemoteServiceName=test&KerberosDelegation=true&KerberosCredentialCachePath=/test", "Connection property 'KerberosCredentialCachePath' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?KerberosRemoteServiceName=test&KerberosDelegation=true&KerberosCredentialCachePath=/test", "Connection property KerberosCredentialCachePath cannot be set if KerberosDelegation is enabled");
 
         // invalid extra credentials
         assertInvalid("jdbc:trino://localhost:8080?extraCredentials=:invalid", "Connection property 'extraCredentials' value is invalid:");
@@ -183,7 +183,8 @@ public class TestTrinoDriverUri
         assertInvalid("jdbc:presto://localhost:8080", "Invalid JDBC URL: jdbc:presto://localhost:8080");
 
         // cannot set mutually exclusive properties for non-conforming clients to true
-        assertInvalid("jdbc:trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true", "Connection property 'assumeLiteralNamesInMetadataCallsForNonConformingClients' is not allowed");
+        assertInvalid("jdbc:trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true",
+                "Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled");
     }
 
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' value is empty")
