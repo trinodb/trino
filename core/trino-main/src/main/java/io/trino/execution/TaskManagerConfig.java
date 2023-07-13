@@ -50,7 +50,7 @@ public class TaskManagerConfig
     private boolean statisticsCpuTimerEnabled = true;
     private DataSize maxPartialAggregationMemoryUsage = DataSize.of(16, Unit.MEGABYTE);
     private DataSize maxPartialTopNMemory = DataSize.of(16, Unit.MEGABYTE);
-    private DataSize maxLocalExchangeBufferSize = DataSize.of(32, Unit.MEGABYTE);
+    private DataSize maxLocalExchangeBufferSize = DataSize.of(128, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = DataSize.of(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;

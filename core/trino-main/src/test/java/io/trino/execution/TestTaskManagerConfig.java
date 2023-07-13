@@ -58,7 +58,7 @@ public class TestTaskManagerConfig
                 .setShareIndexLoading(false)
                 .setMaxPartialAggregationMemoryUsage(DataSize.of(16, Unit.MEGABYTE))
                 .setMaxPartialTopNMemory(DataSize.of(16, Unit.MEGABYTE))
-                .setMaxLocalExchangeBufferSize(DataSize.of(32, Unit.MEGABYTE))
+                .setMaxLocalExchangeBufferSize(DataSize.of(128, Unit.MEGABYTE))
                 .setSinkMaxBufferSize(DataSize.of(32, Unit.MEGABYTE))
                 .setSinkMaxBroadcastBufferSize(DataSize.of(200, Unit.MEGABYTE))
                 .setMaxPagePartitioningBufferSize(DataSize.of(32, Unit.MEGABYTE))
