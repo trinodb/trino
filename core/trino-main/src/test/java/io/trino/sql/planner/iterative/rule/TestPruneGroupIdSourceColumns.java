@@ -53,6 +53,34 @@ public class TestPruneGroupIdSourceColumns
     }
 
     @Test
+    public void testPruneInputColumnWithMapping()
+    {
+        tester().assertThat(new PruneGroupIdSourceColumns())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    Symbol k = p.symbol("k");
+                    Symbol newK = p.symbol("newK");
+                    Symbol groupId = p.symbol("group_id");
+                    return p.groupId(
+                            ImmutableList.of(ImmutableList.of(newK)),
+                            ImmutableMap.of(newK, k),
+                            ImmutableList.of(a),
+                            groupId,
+                            p.values(a, b, k));
+                })
+                .matches(
+                        groupId(
+                                ImmutableList.of(ImmutableList.of("newK")),
+                                ImmutableMap.of("newK", "k"),
+                                ImmutableList.of("a"),
+                                "group_id",
+                                strictProject(
+                                        ImmutableMap.of("a", expression("a"), "k", expression("k")),
+                                        values("a", "b", "k"))));
+    }
+
+    @Test
     public void allInputsReferenced()
     {
         tester().assertThat(new PruneGroupIdSourceColumns())
