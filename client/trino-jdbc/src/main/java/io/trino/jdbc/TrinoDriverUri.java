@@ -228,7 +228,7 @@ public final class TrinoDriverUri
     public static <T> T checkRequired(Optional<T> obj, PropertyName name)
             throws SQLException
     {
-        return obj.orElseThrow(() -> new SQLException(format("Connection property '%s' is required", name)));
+        return obj.orElseThrow(() -> new SQLException(format("Connection property %s is required", name)));
     }
 
     public Optional<String> getUser()
@@ -313,7 +313,7 @@ public final class TrinoDriverUri
             String password = this.password.orElse("");
             if (!password.isEmpty() && !password.equals("***empty***")) {
                 if (!useSecureConnection) {
-                    throw new SQLException("Authentication using username/password requires SSL to be enabled");
+                    throw new SQLException("TLS/SSL is required for authentication with username and password");
                 }
                 builder.addInterceptor(basicAuth(getRequiredUser(), password));
             }
@@ -348,7 +348,7 @@ public final class TrinoDriverUri
 
             if (kerberosRemoteServiceName.isPresent()) {
                 if (!useSecureConnection) {
-                    throw new SQLException("Authentication using Kerberos requires SSL to be enabled");
+                    throw new SQLException("TLS/SSL is required for Kerberos authentication");
                 }
                 setupKerberos(
                         builder,
@@ -366,14 +366,14 @@ public final class TrinoDriverUri
 
             if (accessToken.isPresent()) {
                 if (!useSecureConnection) {
-                    throw new SQLException("Authentication using an access token requires SSL to be enabled");
+                    throw new SQLException("TLS/SSL is required for authentication using an access token");
                 }
                 builder.addInterceptor(tokenAuth(accessToken.get()));
             }
 
             if (externalAuthentication.orElse(false)) {
                 if (!useSecureConnection) {
-                    throw new SQLException("Authentication using external authorization requires SSL to be enabled");
+                    throw new SQLException("TLS/SSL is required for authentication using external authorization");
                 }
 
                 // create HTTP client that shares the same settings, but without the external authenticator
@@ -430,7 +430,7 @@ public final class TrinoDriverUri
             for (String queryArg : queryArgs) {
                 List<String> parts = ARG_SPLITTER.splitToList(queryArg);
                 if (parts.size() != 2) {
-                    throw new SQLException(format("Connection argument is not valid connection property: '%s'", queryArg));
+                    throw new SQLException(format("Connection argument is not a valid connection property: '%s'", queryArg));
                 }
                 try {
                     PropertyName.get(parts.get(0));
@@ -439,7 +439,7 @@ public final class TrinoDriverUri
                     throw new SQLException(e.getMessage());
                 }
                 if (result.put(parts.get(0), parts.get(1)) != null) {
-                    throw new SQLException(format("Connection property '%s' is in URL multiple times", parts.get(0)));
+                    throw new SQLException(format("Connection property %s is in the URL multiple times", parts.get(0)));
                 }
             }
         }
@@ -582,7 +582,7 @@ public final class TrinoDriverUri
 
         for (String key : urlProperties.keySet()) {
             if (suppliedProperties.containsKey(key)) {
-                throw new SQLException(format("Connection property '%s' is both in the URL and an argument", key));
+                throw new SQLException(format("Connection property %s is both in the URL and an argument", key));
             }
         }
 

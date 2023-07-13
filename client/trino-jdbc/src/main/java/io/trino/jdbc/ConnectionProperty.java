@@ -33,7 +33,7 @@ interface ConnectionProperty<V, T>
 
     boolean isRequired(Properties properties);
 
-    boolean isAllowed(Properties properties);
+    boolean isValid(Properties properties);
 
     Optional<T> getValue(Properties properties)
             throws SQLException;
@@ -42,7 +42,7 @@ interface ConnectionProperty<V, T>
             throws SQLException
     {
         return getValue(properties).orElseThrow(() ->
-                new SQLException(format("Connection property '%s' is required", getKey())));
+                new SQLException(format("Connection property %s is required", getKey())));
     }
 
     Optional<T> getValueOrDefault(Properties properties, Optional<T> defaultValue)

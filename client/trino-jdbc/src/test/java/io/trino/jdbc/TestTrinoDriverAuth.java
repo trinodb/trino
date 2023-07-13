@@ -319,7 +319,7 @@ public class TestTrinoDriverAuth
 
         assertThatThrownBy(() -> DriverManager.getConnection(url, properties))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'hostnameInCertificate' is not allowed");
+                .hasMessage("Connection property hostnameInCertificate requires SSLVerification to be set to FULL");
     }
 
     @Test
@@ -340,7 +340,7 @@ public class TestTrinoDriverAuth
 
         assertThatThrownBy(() -> DriverManager.getConnection(url, properties))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'hostnameInCertificate' is not allowed");
+                .hasMessage("Connection property hostnameInCertificate requires SSLVerification to be set to FULL");
     }
 
     @Test
@@ -374,7 +374,7 @@ public class TestTrinoDriverAuth
     {
         assertThatThrownBy(() -> createBasicConnection(ImmutableMap.of("SSLVerification", "FULL")))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'SSLVerification' is not allowed");
+                .hasMessage("Connection property SSLVerification requires TLS/SSL to be enabled");
     }
 
     // TODO: testFailedFullSslVerificationMismatchedHostname()
@@ -386,7 +386,7 @@ public class TestTrinoDriverAuth
     {
         assertThatThrownBy(() -> createBasicConnection(ImmutableMap.of("SSLVerification", "CA")))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'SSLVerification' is not allowed");
+                .hasMessage("Connection property SSLVerification requires TLS/SSL to be enabled");
     }
 
     // TODO: testFailedCaSslVerificationInvalidCA()
@@ -396,7 +396,7 @@ public class TestTrinoDriverAuth
     {
         assertThatThrownBy(() -> createConnection(ImmutableMap.of("SSLVerification", "NONE")))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'SSLTrustStorePath' is not allowed");
+                .hasMessage("Connection property SSLTrustStorePath cannot be set if SSLVerification is set to NONE");
     }
 
     @Test

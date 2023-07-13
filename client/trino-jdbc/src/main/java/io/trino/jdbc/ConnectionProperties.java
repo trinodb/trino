@@ -37,7 +37,10 @@ import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.client.ClientSelectedRole.Type.ALL;
 import static io.trino.client.ClientSelectedRole.Type.NONE;
+import static io.trino.jdbc.AbstractConnectionProperty.Validator;
 import static io.trino.jdbc.AbstractConnectionProperty.checkedPredicate;
+import static io.trino.jdbc.AbstractConnectionProperty.validator;
+import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -216,8 +219,9 @@ final class ConnectionProperties
     private static class SocksProxy
             extends AbstractConnectionProperty<String, HostAndPort>
     {
-        private static final Predicate<Properties> NO_HTTP_PROXY =
-                checkedPredicate(properties -> !HTTP_PROXY.getValue(properties).isPresent());
+        private static final Validator<Properties> NO_HTTP_PROXY = validator(
+                checkedPredicate(properties -> !HTTP_PROXY.getValue(properties).isPresent()),
+                format("Connection property %s cannot be used when %s is set", PropertyName.SOCKS_PROXY, PropertyName.HTTP_PROXY));
 
         public SocksProxy()
         {
@@ -228,8 +232,9 @@ final class ConnectionProperties
     private static class HttpProxy
             extends AbstractConnectionProperty<String, HostAndPort>
     {
-        private static final Predicate<Properties> NO_SOCKS_PROXY =
-                checkedPredicate(properties -> !SOCKS_PROXY.getValue(properties).isPresent());
+        private static final Validator<Properties> NO_SOCKS_PROXY = validator(
+                checkedPredicate(properties -> !SOCKS_PROXY.getValue(properties).isPresent()),
+                format("Connection property %s cannot be used when %s is set", PropertyName.HTTP_PROXY, PropertyName.SOCKS_PROXY));
 
         public HttpProxy()
         {
@@ -288,7 +293,7 @@ final class ConnectionProperties
     private static class AssumeLiteralNamesInMetadataCallsForNonConformingClients
             extends AbstractConnectionProperty<String, Boolean>
     {
-        private static final Predicate<Properties> IS_ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED =
+        private static final Predicate<Properties> IS_NOT_ENABLED =
                 checkedPredicate(properties -> !ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties).orElse(false));
 
         public AssumeLiteralNamesInMetadataCallsForNonConformingClients()
@@ -296,8 +301,12 @@ final class ConnectionProperties
             super(
                     PropertyName.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS,
                     NOT_REQUIRED,
-                    AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients.IS_ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED
-                            .or(IS_ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED),
+                    validator(
+                            AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients.IS_NOT_ENABLED.or(IS_NOT_ENABLED),
+                            format(
+                                    "Connection property %s cannot be set if %s is enabled",
+                                    PropertyName.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS,
+                                    PropertyName.ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS)),
                     BOOLEAN_CONVERTER);
         }
     }
@@ -305,7 +314,7 @@ final class ConnectionProperties
     private static class AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients
             extends AbstractConnectionProperty<String, Boolean>
     {
-        private static final Predicate<Properties> IS_ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED =
+        private static final Predicate<Properties> IS_NOT_ENABLED =
                 checkedPredicate(properties -> !ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties).orElse(false));
 
         public AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
@@ -313,8 +322,12 @@ final class ConnectionProperties
             super(
                     PropertyName.ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS,
                     NOT_REQUIRED,
-                    AssumeLiteralNamesInMetadataCallsForNonConformingClients.IS_ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED
-                            .or(IS_ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED),
+                    validator(
+                            AssumeLiteralNamesInMetadataCallsForNonConformingClients.IS_NOT_ENABLED.or(IS_NOT_ENABLED),
+                            format(
+                                    "Connection property %s cannot be set if %s is enabled",
+                                    PropertyName.ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS,
+                                    PropertyName.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS)),
                     BOOLEAN_CONVERTER);
         }
     }
@@ -334,15 +347,27 @@ final class ConnectionProperties
         private static final Predicate<Properties> IF_SSL_ENABLED =
                 checkedPredicate(properties -> SSL.getValue(properties).orElse(false));
 
-        static final Predicate<Properties> IF_SSL_VERIFICATION_ENABLED =
-                IF_SSL_ENABLED.and(checkedPredicate(properties -> !SSL_VERIFICATION.getValue(properties).orElse(SslVerificationMode.FULL).equals(SslVerificationMode.NONE)));
+        static Validator<Properties> validateEnabled(PropertyName propertyName)
+        {
+            return validator(
+                    IF_SSL_ENABLED.and(checkedPredicate(properties -> !SSL_VERIFICATION.getValue(properties).orElse(SslVerificationMode.FULL).equals(SslVerificationMode.NONE))),
+                    format("Connection property %s cannot be set if %s is set to %s", propertyName, PropertyName.SSL_VERIFICATION, SslVerificationMode.NONE));
+        }
 
-        static final Predicate<Properties> IF_FULL_SSL_VERIFICATION_ENABLED =
-                IF_SSL_VERIFICATION_ENABLED.and(checkedPredicate(properties -> !SSL_VERIFICATION.getValue(properties).orElse(SslVerificationMode.FULL).equals(SslVerificationMode.CA)));
+        static Validator<Properties> validateFull(PropertyName propertyName)
+        {
+            return validator(
+                    IF_SSL_ENABLED.and(checkedPredicate(properties -> SSL_VERIFICATION.getValue(properties).orElse(SslVerificationMode.FULL).equals(SslVerificationMode.FULL))),
+                    format("Connection property %s requires %s to be set to %s", propertyName, PropertyName.SSL_VERIFICATION, SslVerificationMode.FULL));
+        }
 
         public SslVerification()
         {
-            super(PropertyName.SSL_VERIFICATION, NOT_REQUIRED, IF_SSL_ENABLED, SslVerificationMode::valueOf);
+            super(
+                    PropertyName.SSL_VERIFICATION,
+                    NOT_REQUIRED,
+                    validator(IF_SSL_ENABLED, format("Connection property %s requires TLS/SSL to be enabled", PropertyName.SSL_VERIFICATION)),
+                    SslVerificationMode::valueOf);
         }
     }
 
@@ -351,67 +376,72 @@ final class ConnectionProperties
     {
         public SslKeyStorePath()
         {
-            super(PropertyName.SSL_KEY_STORE_PATH, NOT_REQUIRED, SslVerification.IF_SSL_VERIFICATION_ENABLED, STRING_CONVERTER);
+            super(PropertyName.SSL_KEY_STORE_PATH, NOT_REQUIRED, SslVerification.validateEnabled(PropertyName.SSL_KEY_STORE_PATH), STRING_CONVERTER);
         }
     }
 
     private static class SslKeyStorePassword
             extends AbstractConnectionProperty<String, String>
     {
-        private static final Predicate<Properties> IF_KEY_STORE =
-                checkedPredicate(properties -> SSL_KEY_STORE_PATH.getValue(properties).isPresent());
+        private static final Validator<Properties> VALID_KEY_STORE = validator(
+                checkedPredicate(properties -> SSL_KEY_STORE_PATH.getValue(properties).isPresent()),
+                format("Connection property %s requires %s to be set", PropertyName.SSL_KEY_STORE_PASSWORD, PropertyName.SSL_KEY_STORE_PATH));
 
         public SslKeyStorePassword()
         {
-            super(PropertyName.SSL_KEY_STORE_PASSWORD, NOT_REQUIRED, IF_KEY_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
+            super(PropertyName.SSL_KEY_STORE_PASSWORD, NOT_REQUIRED, VALID_KEY_STORE.and(SslVerification.validateEnabled(PropertyName.SSL_KEY_STORE_PASSWORD)), STRING_CONVERTER);
         }
     }
 
     private static class SslKeyStoreType
             extends AbstractConnectionProperty<String, String>
     {
-        private static final Predicate<Properties> IF_KEY_STORE =
-                checkedPredicate(properties -> SSL_KEY_STORE_PATH.getValue(properties).isPresent());
+        private static final Validator<Properties> VALID_KEY_STORE = validator(
+                checkedPredicate(properties -> SSL_KEY_STORE_PATH.getValue(properties).isPresent()),
+                format("Connection property %s requires %s to be set", PropertyName.SSL_KEY_STORE_TYPE, PropertyName.SSL_KEY_STORE_PATH));
 
         public SslKeyStoreType()
         {
-            super(PropertyName.SSL_KEY_STORE_TYPE, NOT_REQUIRED, IF_KEY_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
+            super(PropertyName.SSL_KEY_STORE_TYPE, NOT_REQUIRED, VALID_KEY_STORE.and(SslVerification.validateEnabled(PropertyName.SSL_KEY_STORE_TYPE)), STRING_CONVERTER);
         }
     }
 
     private static class SslTrustStorePath
             extends AbstractConnectionProperty<String, String>
     {
-        private static final Predicate<Properties> IF_SYSTEM_TRUST_STORE_NOT_ENABLED =
-                checkedPredicate(properties -> !SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
+        private static final Validator<Properties> VALIDATE_SYSTEM_TRUST_STORE_NOT_ENABLED = validator(
+                checkedPredicate(properties -> !SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false)),
+                format("Connection property %s cannot be set if %s is enabled", PropertyName.SSL_TRUST_STORE_PATH, PropertyName.SSL_USE_SYSTEM_TRUST_STORE));
 
         public SslTrustStorePath()
         {
-            super(PropertyName.SSL_TRUST_STORE_PATH, NOT_REQUIRED, IF_SYSTEM_TRUST_STORE_NOT_ENABLED.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
+            super(PropertyName.SSL_TRUST_STORE_PATH, NOT_REQUIRED, VALIDATE_SYSTEM_TRUST_STORE_NOT_ENABLED.and(SslVerification.validateEnabled(PropertyName.SSL_TRUST_STORE_PATH)), STRING_CONVERTER);
         }
     }
 
     private static class SslTrustStorePassword
             extends AbstractConnectionProperty<String, String>
     {
-        private static final Predicate<Properties> IF_TRUST_STORE =
-                checkedPredicate(properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent());
+        private static final Validator<Properties> VALIDATE_TRUST_STORE = validator(
+                checkedPredicate(properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent()),
+                format("Connection property %s requires %s to be set", PropertyName.SSL_TRUST_STORE_PASSWORD, PropertyName.SSL_TRUST_STORE_PATH));
 
         public SslTrustStorePassword()
         {
-            super(PropertyName.SSL_TRUST_STORE_PASSWORD, NOT_REQUIRED, IF_TRUST_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
+            super(PropertyName.SSL_TRUST_STORE_PASSWORD, NOT_REQUIRED, VALIDATE_TRUST_STORE.and(SslVerification.validateEnabled(PropertyName.SSL_TRUST_STORE_PASSWORD)), STRING_CONVERTER);
         }
     }
 
     private static class SslTrustStoreType
             extends AbstractConnectionProperty<String, String>
     {
-        private static final Predicate<Properties> IF_TRUST_STORE =
-                checkedPredicate(properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent() || SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
+        private static final Validator<Properties> VALIDATE_TRUST_STORE = validator(
+                checkedPredicate(properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent() || SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false)),
+                format("Connection property %s requires %s to be set or %s to be enabled", PropertyName.SSL_TRUST_STORE_TYPE, PropertyName.SSL_TRUST_STORE_PATH, PropertyName.SSL_USE_SYSTEM_TRUST_STORE));
 
         public SslTrustStoreType()
         {
-            super(PropertyName.SSL_TRUST_STORE_TYPE, NOT_REQUIRED, IF_TRUST_STORE.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
+            super(PropertyName.SSL_TRUST_STORE_TYPE, NOT_REQUIRED, VALIDATE_TRUST_STORE.and(SslVerification.validateEnabled(PropertyName.SSL_TRUST_STORE_TYPE)), STRING_CONVERTER);
         }
     }
 
@@ -420,7 +450,7 @@ final class ConnectionProperties
     {
         public SslUseSystemTrustStore()
         {
-            super(PropertyName.SSL_USE_SYSTEM_TRUST_STORE, NOT_REQUIRED, SslVerification.IF_SSL_VERIFICATION_ENABLED, BOOLEAN_CONVERTER);
+            super(PropertyName.SSL_USE_SYSTEM_TRUST_STORE, NOT_REQUIRED, SslVerification.validateEnabled(PropertyName.SSL_USE_SYSTEM_TRUST_STORE), BOOLEAN_CONVERTER);
         }
     }
 
@@ -438,14 +468,20 @@ final class ConnectionProperties
         return checkedPredicate(properties -> KERBEROS_REMOTE_SERVICE_NAME.getValue(properties).isPresent());
     }
 
-    private static Predicate<Properties> isKerberosWithoutDelegation()
+    private static Validator<Properties> validateKerberosWithoutDelegation(PropertyName propertyName)
     {
-        return isKerberosEnabled().and(checkedPredicate(properties -> !KERBEROS_DELEGATION.getValue(properties).orElse(false)));
+        return validator(isKerberosEnabled(), format("Connection property %s requires %s to be set", propertyName, PropertyName.KERBEROS_REMOTE_SERVICE_NAME))
+                .and(validator(
+                        checkedPredicate(properties -> !KERBEROS_DELEGATION.getValue(properties).orElse(false)),
+                        format("Connection property %s cannot be set if %s is enabled", propertyName, PropertyName.KERBEROS_DELEGATION)));
     }
 
-    private static Predicate<Properties> isKerberosWithDelegation()
+    private static Validator<Properties> validateKerberosWithDelegation(PropertyName propertyName)
     {
-        return isKerberosEnabled().and(checkedPredicate(properties -> KERBEROS_DELEGATION.getValue(properties).orElse(false)));
+        return validator(isKerberosEnabled(), format("Connection property %s requires %s to be set", propertyName, PropertyName.KERBEROS_REMOTE_SERVICE_NAME))
+                .and(validator(
+                        checkedPredicate(properties -> KERBEROS_DELEGATION.getValue(properties).orElse(false)),
+                        format("Connection property %s requires %s to be enabled", propertyName, PropertyName.KERBEROS_DELEGATION)));
     }
 
     private static class KerberosServicePrincipalPattern
@@ -462,7 +498,7 @@ final class ConnectionProperties
     {
         public KerberosPrincipal()
         {
-            super(PropertyName.KERBEROS_PRINCIPAL, NOT_REQUIRED, isKerberosWithoutDelegation(), STRING_CONVERTER);
+            super(PropertyName.KERBEROS_PRINCIPAL, NOT_REQUIRED, validateKerberosWithoutDelegation(PropertyName.KERBEROS_PRINCIPAL), STRING_CONVERTER);
         }
     }
 
@@ -480,7 +516,7 @@ final class ConnectionProperties
     {
         public KerberosConfigPath()
         {
-            super(PropertyName.KERBEROS_CONFIG_PATH, NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
+            super(PropertyName.KERBEROS_CONFIG_PATH, NOT_REQUIRED, validateKerberosWithoutDelegation(PropertyName.KERBEROS_CONFIG_PATH), FILE_CONVERTER);
         }
     }
 
@@ -489,7 +525,7 @@ final class ConnectionProperties
     {
         public KerberosKeytabPath()
         {
-            super(PropertyName.KERBEROS_KEYTAB_PATH, NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
+            super(PropertyName.KERBEROS_KEYTAB_PATH, NOT_REQUIRED, validateKerberosWithoutDelegation(PropertyName.KERBEROS_KEYTAB_PATH), FILE_CONVERTER);
         }
     }
 
@@ -498,7 +534,7 @@ final class ConnectionProperties
     {
         public KerberosCredentialCachePath()
         {
-            super(PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH, NOT_REQUIRED, isKerberosWithoutDelegation(), FILE_CONVERTER);
+            super(PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH, NOT_REQUIRED, validateKerberosWithoutDelegation(PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH), FILE_CONVERTER);
         }
     }
 
@@ -516,7 +552,7 @@ final class ConnectionProperties
     {
         public KerberosConstrainedDelegation()
         {
-            super(PropertyName.KERBEROS_CONSTRAINED_DELEGATION, Optional.empty(), NOT_REQUIRED, isKerberosWithDelegation(), GSSCredential.class::cast);
+            super(PropertyName.KERBEROS_CONSTRAINED_DELEGATION, Optional.empty(), NOT_REQUIRED, validateKerberosWithDelegation(PropertyName.KERBEROS_CONSTRAINED_DELEGATION), GSSCredential.class::cast);
         }
     }
 
@@ -564,12 +600,13 @@ final class ConnectionProperties
     private static class ExternalAuthenticationTimeout
             extends AbstractConnectionProperty<String, Duration>
     {
-        private static final Predicate<Properties> IF_EXTERNAL_AUTHENTICATION_ENABLED =
-                checkedPredicate(properties -> EXTERNAL_AUTHENTICATION.getValue(properties).orElse(false));
+        private static final Validator<Properties> VALIDATE_EXTERNAL_AUTHENTICATION_ENABLED = validator(
+                checkedPredicate(properties -> EXTERNAL_AUTHENTICATION.getValue(properties).orElse(false)),
+                format("Connection property %s requires %s to be enabled", PropertyName.EXTERNAL_AUTHENTICATION_TIMEOUT, PropertyName.EXTERNAL_AUTHENTICATION));
 
         public ExternalAuthenticationTimeout()
         {
-            super(PropertyName.EXTERNAL_AUTHENTICATION_TIMEOUT, NOT_REQUIRED, IF_EXTERNAL_AUTHENTICATION_ENABLED, Duration::valueOf);
+            super(PropertyName.EXTERNAL_AUTHENTICATION_TIMEOUT, NOT_REQUIRED, VALIDATE_EXTERNAL_AUTHENTICATION_ENABLED, Duration::valueOf);
         }
     }
 
@@ -662,7 +699,7 @@ final class ConnectionProperties
     {
         public HostnameInCertificate()
         {
-            super(PropertyName.HOSTNAME_IN_CERTIFICATE, NOT_REQUIRED, SslVerification.IF_FULL_SSL_VERIFICATION_ENABLED, STRING_CONVERTER);
+            super(PropertyName.HOSTNAME_IN_CERTIFICATE, NOT_REQUIRED, SslVerification.validateFull(PropertyName.HOSTNAME_IN_CERTIFICATE), STRING_CONVERTER);
         }
     }
 
