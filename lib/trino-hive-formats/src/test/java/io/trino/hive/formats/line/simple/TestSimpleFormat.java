@@ -444,6 +444,9 @@ public class TestSimpleFormat
         assertString(type, "tab " + escape + "\t tab", "tab \t tab", options);
         assertString(type, "new " + escape + "\n line", "new \n line", options);
         assertString(type, "carriage " + escape + "\r return", "carriage \r return", options);
+        assertString(type, "escape " + escape + escape + " char", "escape " + escape + " char", options);
+        assertString(type, "double " + escape + escape + escape + escape + " escape", "double " + escape + escape + " escape", options);
+        assertString(type, "simple " + escape + "X char", "simple X char", options);
 
         String allControlCharacters = IntStream.range(0, 32)
                 .mapToObj(i -> i + " " + ((char) i))
