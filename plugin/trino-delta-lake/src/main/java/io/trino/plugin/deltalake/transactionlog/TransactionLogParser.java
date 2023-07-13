@@ -149,16 +149,16 @@ public final class TransactionLogParser
     @Nullable
     public static Object deserializePartitionValue(DeltaLakeColumnHandle column, Optional<String> valueString)
     {
-        return valueString.map(value -> deserializeColumnValue(column, value, TransactionLogParser::readPartitionTimestamp)).orElse(null);
+        return valueString.map(value -> deserializeColumnValue(column, value, TransactionLogParser::readPartitionTimestampWithZone)).orElse(null);
     }
 
-    private static Long readPartitionTimestamp(String timestamp)
+    private static Long readPartitionTimestampWithZone(String timestamp)
     {
         ZonedDateTime zonedDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER).atZone(UTC);
         return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
     }
 
-    public static Object deserializeColumnValue(DeltaLakeColumnHandle column, String valueString, Function<String, Long> timestampReader)
+    public static Object deserializeColumnValue(DeltaLakeColumnHandle column, String valueString, Function<String, Long> timestampWithZoneReader)
     {
         verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
         Type type = column.getBaseType();
@@ -197,7 +197,7 @@ public final class TransactionLogParser
                 return LocalDate.parse(valueString).toEpochDay();
             }
             if (type.equals(TIMESTAMP_TZ_MILLIS)) {
-                return timestampReader.apply(valueString);
+                return timestampWithZoneReader.apply(valueString);
             }
             if (VARCHAR.equals(type)) {
                 return utf8Slice(valueString);
