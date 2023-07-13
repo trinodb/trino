@@ -21,7 +21,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -31,18 +30,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
-import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -55,23 +50,14 @@ public class TestKuduConnectorTest
     protected static final String ORDER_COLUMNS = "(orderkey bigint, custkey bigint, orderstatus varchar(1), totalprice double, orderdate date, orderpriority varchar(15), clerk varchar(15), shippriority integer, comment varchar(79))";
     public static final String REGION_COLUMNS = "(regionkey bigint, name varchar(25), comment varchar(152))";
 
-    private TestingKuduServer kuduServer;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        kuduServer = new TestingKuduServer();
-        return createKuduQueryRunnerTpch(kuduServer, Optional.empty(), REQUIRED_TPCH_TABLES);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        if (kuduServer != null) {
-            kuduServer.close();
-            kuduServer = null;
-        }
+        return createKuduQueryRunnerTpch(
+                closeAfterClass(new TestingKuduServer()),
+                Optional.empty(),
+                REQUIRED_TPCH_TABLES);
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -79,6 +65,9 @@ public class TestKuduConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_TRUNCATE:
+                return false;
+
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
@@ -96,13 +85,12 @@ public class TestKuduConnectorTest
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
-            case SUPPORTS_DELETE:
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_MERGE:
-                return true;
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
 
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
@@ -136,6 +124,13 @@ public class TestKuduConnectorTest
     public void testCreateSchema()
     {
         assertThatThrownBy(super::testCreateSchema)
+                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
+    }
+
+    @Override
+    public void testCreateSchemaWithNonLowercaseOwnerName()
+    {
+        assertThatThrownBy(super::testCreateSchemaWithNonLowercaseOwnerName)
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
@@ -189,12 +184,11 @@ public class TestKuduConnectorTest
         throw new SkipException("TODO");
     }
 
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
         String extra = "nullable, encoding=auto, compression=default";
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", extra, "")
                 .row("custkey", "bigint", extra, "")
                 .row("orderstatus", "varchar", extra, "")
@@ -205,29 +199,13 @@ public class TestKuduConnectorTest
                 .row("shippriority", "integer", extra, "")
                 .row("comment", "varchar", extra, "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
     @Override
     public void testShowColumns()
     {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "nullable, encoding=auto, compression=default", "")
-                .row("custkey", "bigint", "nullable, encoding=auto, compression=default", "")
-                .row("orderstatus", "varchar", "nullable, encoding=auto, compression=default", "")
-                .row("totalprice", "double", "nullable, encoding=auto, compression=default", "")
-                .row("orderdate", "varchar", "nullable, encoding=auto, compression=default", "")
-                .row("orderpriority", "varchar", "nullable, encoding=auto, compression=default", "")
-                .row("clerk", "varchar", "nullable, encoding=auto, compression=default", "")
-                .row("shippriority", "integer", "nullable, encoding=auto, compression=default", "")
-                .row("comment", "varchar", "nullable, encoding=auto, compression=default", "")
-                .build();
-
-        assertEquals(actual, expectedParametrizedVarchar);
+        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
     @Test
@@ -337,6 +315,15 @@ public class TestKuduConnectorTest
         finally {
             assertUpdate("DROP TABLE " + tableName);
         }
+    }
+
+    @Override
+    public void testAddNotNullColumnToEmptyTable()
+    {
+        // TODO: Enable this test
+        assertThatThrownBy(super::testAddNotNullColumnToEmptyTable)
+                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+        throw new SkipException("TODO");
     }
 
     @Test
@@ -819,7 +806,7 @@ public class TestKuduConnectorTest
     {
         // TODO https://github.com/trinodb/trino/issues/3597 Fix Kudu CREATE TABLE AS SELECT with char(n) type does not preserve trailing spaces
         assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessageContaining("For query: ")
+                .hasMessageContaining("For query")
                 .hasMessageContaining("Actual rows")
                 .hasMessageContaining("Expected rows");
 
@@ -836,9 +823,6 @@ public class TestKuduConnectorTest
     @Override
     public void testDeleteWithComplexPredicate()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
-
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         withTableName("test_delete_complex", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, ORDER_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM orders", 15000);
@@ -857,9 +841,6 @@ public class TestKuduConnectorTest
     public void testDeleteWithSubquery()
     {
         // TODO (https://github.com/trinodb/trino/issues/13210) Migrate these tests to AbstractTestEngineOnlyQueries
-        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
-
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         withTableName("test_delete_subquery", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, NATION_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation", 25);
@@ -869,7 +850,6 @@ public class TestKuduConnectorTest
                     "SELECT * FROM nation WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%')");
         });
 
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         withTableName("test_delete_subquery", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, ORDER_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM orders", 15000);
@@ -907,9 +887,6 @@ public class TestKuduConnectorTest
     @Override
     public void testDeleteWithSemiJoin()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
-
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         withTableName("test_delete_semijoin", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, NATION_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation", 25);
@@ -926,7 +903,6 @@ public class TestKuduConnectorTest
                             "  OR regionkey IN (SELECT regionkey FROM region WHERE length(comment) >= 50)");
         });
 
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         withTableName("test_delete_semijoin", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, ORDER_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM orders", 15000);
@@ -948,8 +924,6 @@ public class TestKuduConnectorTest
     @Override
     public void testDeleteWithVarcharPredicate()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
-
         withTableName("test_delete_varchar", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, ORDER_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM orders", 15000);
@@ -960,27 +934,8 @@ public class TestKuduConnectorTest
 
     @Test
     @Override
-    public void verifySupportsDeleteDeclaration()
-    {
-        if (hasBehavior(SUPPORTS_DELETE)) {
-            // Covered by testDeleteAllDataFromTable
-            return;
-        }
-
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-        withTableName("test_supports_delete", tableName -> {
-            assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, REGION_COLUMNS)));
-            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM region", 5);
-            assertQueryFails("DELETE FROM " + tableName, MODIFYING_ROWS_MESSAGE);
-        });
-    }
-
-    @Test
-    @Override
     public void testDeleteAllDataFromTable()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
-
         withTableName("test_delete_all_data", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, REGION_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM region", 5);
@@ -995,8 +950,6 @@ public class TestKuduConnectorTest
     @Override
     public void testRowLevelDelete()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         withTableName("test_row_delete", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, REGION_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM region", 5);

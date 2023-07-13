@@ -152,9 +152,11 @@ Property name                                                 Description
 
 ``cassandra.tls.enabled``                                     Whether TLS security is enabled, defaults to ``false``.
 
-``cassandra.tls.keystore-path``                               Path to the PEM or JKS key store.
+``cassandra.tls.keystore-path``                               Path to the :doc:`PEM </security/inspect-pem>` or
+                                                              :doc:`JKS </security/inspect-jks>` key store file.
 
-``cassandra.tls.truststore-path``                             Path to the PEM or JKS trust store.
+``cassandra.tls.truststore-path``                             Path to the :doc:`PEM </security/inspect-pem>` or
+                                                              :doc:`JKS </security/inspect-jks>` trust store file.
 
 ``cassandra.tls.keystore-password``                           Password for the key store.
 
@@ -263,6 +265,9 @@ the following table:
     -
   * - ``DATE``
     - ``DATE``
+    -
+  * - ``TIME``
+    - ``TIME(9)``
     -
   * - ``TIMESTAMP``
     - ``TIMESTAMP(3) WITH TIME ZONE``
@@ -392,6 +397,38 @@ statements, the connector supports the following features:
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Cassandra.
+.. _cassandra-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying Cassandra directly. It
+requires syntax native to Cassandra, because the full query is pushed down and
+processed by Cassandra. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+.. include:: query-table-function-ordering.fragment
+
+As a simple example, to select an entire table::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        example.system.query(
+          query => 'SELECT
+            *
+          FROM
+            tpch.nation'
+        )
+      );
 
 DROP TABLE
 ^^^^^^^^^^

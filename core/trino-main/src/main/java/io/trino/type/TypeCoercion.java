@@ -46,10 +46,8 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.Field;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -82,9 +80,7 @@ public final class TypeCoercion
             return true;
         }
 
-        if (source instanceof DecimalType && result instanceof DecimalType) {
-            DecimalType sourceDecimal = (DecimalType) source;
-            DecimalType resultDecimal = (DecimalType) result;
+        if (source instanceof DecimalType sourceDecimal && result instanceof DecimalType resultDecimal) {
             boolean sameDecimalSubtype = (sourceDecimal.isShort() && resultDecimal.isShort())
                     || (!sourceDecimal.isShort() && !resultDecimal.isShort());
             boolean sameScale = sourceDecimal.getScale() == resultDecimal.getScale();
@@ -92,10 +88,7 @@ public final class TypeCoercion
             return sameDecimalSubtype && sameScale && sourcePrecisionIsLessOrEqualToResultPrecision;
         }
 
-        if (source instanceof RowType && result instanceof RowType) {
-            RowType sourceType = (RowType) source;
-            RowType resultType = (RowType) result;
-
+        if (source instanceof RowType sourceType && result instanceof RowType resultType) {
             List<Field> sourceFields = sourceType.getFields();
             List<Field> resultFields = resultType.getFields();
             if (sourceFields.size() != resultFields.size()) {
@@ -335,196 +328,118 @@ public final class TypeCoercion
             return Optional.of(sourceType);
         }
 
-        switch (sourceTypeName) {
-            case UnknownType.NAME: {
-                switch (resultTypeBase) {
-                    case StandardTypes.BOOLEAN:
-                    case StandardTypes.BIGINT:
-                    case StandardTypes.INTEGER:
-                    case StandardTypes.DOUBLE:
-                    case StandardTypes.REAL:
-                    case StandardTypes.VARBINARY:
-                    case StandardTypes.DATE:
-                    case StandardTypes.TIME:
-                    case StandardTypes.TIME_WITH_TIME_ZONE:
-                    case StandardTypes.TIMESTAMP:
-                    case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
-                    case StandardTypes.HYPER_LOG_LOG:
-                    case SetDigestType.NAME:
-                    case StandardTypes.P4_HYPER_LOG_LOG:
-                    case StandardTypes.JSON:
-                    case StandardTypes.INTERVAL_YEAR_TO_MONTH:
-                    case StandardTypes.INTERVAL_DAY_TO_SECOND:
-                    case JoniRegexpType.NAME:
-                    case JsonPathType.NAME:
-                    case ColorType.NAME:
-                    case CodePointsType.NAME:
-                        return Optional.of(lookupType.apply(new TypeSignature(resultTypeBase)));
-                    case StandardTypes.VARCHAR:
-                        return Optional.of(createVarcharType(0));
-                    case StandardTypes.CHAR:
-                        return Optional.of(createCharType(0));
-                    case StandardTypes.DECIMAL:
-                        return Optional.of(createDecimalType(1, 0));
-                    default:
-                        return Optional.empty();
+        return switch (sourceTypeName) {
+            case UnknownType.NAME -> switch (resultTypeBase) {
+                case StandardTypes.BOOLEAN,
+                        StandardTypes.BIGINT,
+                        StandardTypes.INTEGER,
+                        StandardTypes.DOUBLE,
+                        StandardTypes.REAL,
+                        StandardTypes.VARBINARY,
+                        StandardTypes.DATE,
+                        StandardTypes.TIME,
+                        StandardTypes.TIME_WITH_TIME_ZONE,
+                        StandardTypes.TIMESTAMP,
+                        StandardTypes.TIMESTAMP_WITH_TIME_ZONE,
+                        StandardTypes.HYPER_LOG_LOG,
+                        SetDigestType.NAME,
+                        StandardTypes.P4_HYPER_LOG_LOG,
+                        StandardTypes.JSON,
+                        StandardTypes.INTERVAL_YEAR_TO_MONTH,
+                        StandardTypes.INTERVAL_DAY_TO_SECOND,
+                        JoniRegexpType.NAME,
+                        JsonPathType.NAME,
+                        ColorType.NAME,
+                        CodePointsType.NAME -> Optional.of(lookupType.apply(new TypeSignature(resultTypeBase)));
+                case StandardTypes.VARCHAR -> Optional.of(createVarcharType(0));
+                case StandardTypes.CHAR -> Optional.of(createCharType(0));
+                case StandardTypes.DECIMAL -> Optional.of(createDecimalType(1, 0));
+                default -> Optional.empty();
+            };
+            case StandardTypes.TINYINT -> switch (resultTypeBase) {
+                case StandardTypes.SMALLINT -> Optional.of(SMALLINT);
+                case StandardTypes.INTEGER -> Optional.of(INTEGER);
+                case StandardTypes.BIGINT -> Optional.of(BIGINT);
+                case StandardTypes.REAL -> Optional.of(REAL);
+                case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
+                case StandardTypes.DECIMAL -> Optional.of(createDecimalType(3, 0));
+                default -> Optional.empty();
+            };
+            case StandardTypes.SMALLINT -> switch (resultTypeBase) {
+                case StandardTypes.INTEGER -> Optional.of(INTEGER);
+                case StandardTypes.BIGINT -> Optional.of(BIGINT);
+                case StandardTypes.REAL -> Optional.of(REAL);
+                case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
+                case StandardTypes.DECIMAL -> Optional.of(createDecimalType(5, 0));
+                default -> Optional.empty();
+            };
+            case StandardTypes.INTEGER -> switch (resultTypeBase) {
+                case StandardTypes.BIGINT -> Optional.of(BIGINT);
+                case StandardTypes.REAL -> Optional.of(REAL);
+                case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
+                case StandardTypes.DECIMAL -> Optional.of(createDecimalType(10, 0));
+                default -> Optional.empty();
+            };
+            case StandardTypes.BIGINT -> switch (resultTypeBase) {
+                case StandardTypes.REAL -> Optional.of(REAL);
+                case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
+                case StandardTypes.DECIMAL -> Optional.of(createDecimalType(19, 0));
+                default -> Optional.empty();
+            };
+            case StandardTypes.DECIMAL -> switch (resultTypeBase) {
+                case StandardTypes.REAL -> Optional.of(REAL);
+                case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
+                default -> Optional.empty();
+            };
+            case StandardTypes.REAL -> switch (resultTypeBase) {
+                case StandardTypes.DOUBLE -> Optional.of(DOUBLE);
+                default -> Optional.empty();
+            };
+            case StandardTypes.DATE -> switch (resultTypeBase) {
+                case StandardTypes.TIMESTAMP -> Optional.of(createTimestampType(0));
+                case StandardTypes.TIMESTAMP_WITH_TIME_ZONE -> Optional.of(createTimestampWithTimeZoneType(0));
+                default -> Optional.empty();
+            };
+            case StandardTypes.TIME -> switch (resultTypeBase) {
+                case StandardTypes.TIME_WITH_TIME_ZONE -> Optional.of(createTimeWithTimeZoneType(((TimeType) sourceType).getPrecision()));
+                default -> Optional.empty();
+            };
+            case StandardTypes.TIMESTAMP -> switch (resultTypeBase) {
+                case StandardTypes.TIMESTAMP_WITH_TIME_ZONE -> Optional.of(createTimestampWithTimeZoneType(((TimestampType) sourceType).getPrecision()));
+                default -> Optional.empty();
+            };
+            case StandardTypes.VARCHAR -> switch (resultTypeBase) {
+                case StandardTypes.CHAR -> {
+                    VarcharType varcharType = (VarcharType) sourceType;
+                    if (varcharType.isUnbounded()) {
+                        yield Optional.of(createCharType(CharType.MAX_LENGTH));
+                    }
+                    yield Optional.of(createCharType(Math.min(CharType.MAX_LENGTH, varcharType.getBoundedLength())));
                 }
-            }
-            case StandardTypes.TINYINT: {
-                switch (resultTypeBase) {
-                    case StandardTypes.SMALLINT:
-                        return Optional.of(SMALLINT);
-                    case StandardTypes.INTEGER:
-                        return Optional.of(INTEGER);
-                    case StandardTypes.BIGINT:
-                        return Optional.of(BIGINT);
-                    case StandardTypes.REAL:
-                        return Optional.of(REAL);
-                    case StandardTypes.DOUBLE:
-                        return Optional.of(DOUBLE);
-                    case StandardTypes.DECIMAL:
-                        return Optional.of(createDecimalType(3, 0));
-                    default:
-                        return Optional.empty();
-                }
-            }
-            case StandardTypes.SMALLINT: {
-                switch (resultTypeBase) {
-                    case StandardTypes.INTEGER:
-                        return Optional.of(INTEGER);
-                    case StandardTypes.BIGINT:
-                        return Optional.of(BIGINT);
-                    case StandardTypes.REAL:
-                        return Optional.of(REAL);
-                    case StandardTypes.DOUBLE:
-                        return Optional.of(DOUBLE);
-                    case StandardTypes.DECIMAL:
-                        return Optional.of(createDecimalType(5, 0));
-                    default:
-                        return Optional.empty();
-                }
-            }
-            case StandardTypes.INTEGER: {
-                switch (resultTypeBase) {
-                    case StandardTypes.BIGINT:
-                        return Optional.of(BIGINT);
-                    case StandardTypes.REAL:
-                        return Optional.of(REAL);
-                    case StandardTypes.DOUBLE:
-                        return Optional.of(DOUBLE);
-                    case StandardTypes.DECIMAL:
-                        return Optional.of(createDecimalType(10, 0));
-                    default:
-                        return Optional.empty();
-                }
-            }
-            case StandardTypes.BIGINT: {
-                switch (resultTypeBase) {
-                    case StandardTypes.REAL:
-                        return Optional.of(REAL);
-                    case StandardTypes.DOUBLE:
-                        return Optional.of(DOUBLE);
-                    case StandardTypes.DECIMAL:
-                        return Optional.of(createDecimalType(19, 0));
-                    default:
-                        return Optional.empty();
-                }
-            }
-            case StandardTypes.DECIMAL: {
-                switch (resultTypeBase) {
-                    case StandardTypes.REAL:
-                        return Optional.of(REAL);
-                    case StandardTypes.DOUBLE:
-                        return Optional.of(DOUBLE);
-                    default:
-                        return Optional.empty();
-                }
-            }
-            case StandardTypes.REAL: {
-                switch (resultTypeBase) {
-                    case StandardTypes.DOUBLE:
-                        return Optional.of(DOUBLE);
-                    default:
-                        return Optional.empty();
-                }
-            }
-            case StandardTypes.DATE: {
-                switch (resultTypeBase) {
-                    case StandardTypes.TIMESTAMP:
-                        return Optional.of(createTimestampType(0));
-                    case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
-                        return Optional.of(TIMESTAMP_TZ_MILLIS);
-                    default:
-                        return Optional.empty();
-                }
-            }
-            case StandardTypes.TIME: {
-                switch (resultTypeBase) {
-                    case StandardTypes.TIME_WITH_TIME_ZONE:
-                        return Optional.of(TIME_WITH_TIME_ZONE);
-                    default:
-                        return Optional.empty();
-                }
-            }
-            case StandardTypes.TIMESTAMP: {
-                switch (resultTypeBase) {
-                    case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
-                        return Optional.of(createTimestampWithTimeZoneType(((TimestampType) sourceType).getPrecision()));
-                    default:
-                        return Optional.empty();
-                }
-            }
-            case StandardTypes.VARCHAR: {
-                switch (resultTypeBase) {
-                    case StandardTypes.CHAR:
-                        VarcharType varcharType = (VarcharType) sourceType;
-                        if (varcharType.isUnbounded()) {
-                            return Optional.of(createCharType(CharType.MAX_LENGTH));
-                        }
-
-                        return Optional.of(createCharType(Math.min(CharType.MAX_LENGTH, varcharType.getBoundedLength())));
-                    case JoniRegexpType.NAME:
-                        return Optional.of(JONI_REGEXP);
-                    case Re2JRegexpType.NAME:
-                        return Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
-                    case JsonPathType.NAME:
-                        return Optional.of(JSON_PATH);
-                    case CodePointsType.NAME:
-                        return Optional.of(CODE_POINTS);
-                    default:
-                        return Optional.empty();
-                }
-            }
-            case StandardTypes.CHAR: {
-                switch (resultTypeBase) {
-                    case StandardTypes.VARCHAR:
-                        // CHAR could be coercible to VARCHAR, but they cannot be both coercible to each other.
-                        // VARCHAR to CHAR coercion provides natural semantics when comparing VARCHAR literals to CHAR columns.
-                        // WITH CHAR to VARCHAR coercion one would need to pad literals with spaces: char_column_len_5 = 'abc  ', so we would not run unmodified TPC-DS queries.
-                        return Optional.empty();
-                    case JoniRegexpType.NAME:
-                        return Optional.of(JONI_REGEXP);
-                    case Re2JRegexpType.NAME:
-                        return Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
-                    case JsonPathType.NAME:
-                        return Optional.of(JSON_PATH);
-                    case CodePointsType.NAME:
-                        return Optional.of(CODE_POINTS);
-                    default:
-                        return Optional.empty();
-                }
-            }
-            case StandardTypes.P4_HYPER_LOG_LOG: {
-                switch (resultTypeBase) {
-                    case StandardTypes.HYPER_LOG_LOG:
-                        return Optional.of(HYPER_LOG_LOG);
-                    default:
-                        return Optional.empty();
-                }
-            }
-            default:
-                return Optional.empty();
-        }
+                case JoniRegexpType.NAME -> Optional.of(JONI_REGEXP);
+                case Re2JRegexpType.NAME -> Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
+                case JsonPathType.NAME -> Optional.of(JSON_PATH);
+                case CodePointsType.NAME -> Optional.of(CODE_POINTS);
+                default -> Optional.empty();
+            };
+            case StandardTypes.CHAR -> switch (resultTypeBase) {
+                case StandardTypes.VARCHAR ->
+                    // CHAR could be coercible to VARCHAR, but they cannot be both coercible to each other.
+                    // VARCHAR to CHAR coercion provides natural semantics when comparing VARCHAR literals to CHAR columns.
+                    // WITH CHAR to VARCHAR coercion one would need to pad literals with spaces: char_column_len_5 = 'abc  ', so we would not run unmodified TPC-DS queries.
+                        Optional.empty();
+                case JoniRegexpType.NAME -> Optional.of(JONI_REGEXP);
+                case Re2JRegexpType.NAME -> Optional.of(lookupType.apply(RE2J_REGEXP_SIGNATURE));
+                case JsonPathType.NAME -> Optional.of(JSON_PATH);
+                case CodePointsType.NAME -> Optional.of(CODE_POINTS);
+                default -> Optional.empty();
+            };
+            case StandardTypes.P4_HYPER_LOG_LOG -> switch (resultTypeBase) {
+                case StandardTypes.HYPER_LOG_LOG -> Optional.of(HYPER_LOG_LOG);
+                default -> Optional.empty();
+            };
+            default -> Optional.empty();
+        };
     }
 
     public static boolean isCovariantTypeBase(String typeBase)

@@ -13,11 +13,10 @@
  */
 package io.trino.verifier;
 
+import com.google.inject.Inject;
 import io.airlift.event.client.AbstractEventClient;
 import io.airlift.stats.QuantileDigest;
 import io.airlift.units.Duration;
-
-import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.util.Optional;

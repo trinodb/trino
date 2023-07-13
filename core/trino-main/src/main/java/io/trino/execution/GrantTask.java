@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -26,19 +27,15 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GrantOnType;
 
-import javax.inject.Inject;
-
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.execution.PrivilegeUtilities.parseStatementPrivileges;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.trino.spi.StandardErrorCode.INVALID_PRIVILEGE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -88,7 +85,7 @@ public class GrantTask
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", schemaName);
         }
 
-        Set<Privilege> privileges = parseStatementPrivileges(statement);
+        Set<Privilege> privileges = parseStatementPrivileges(statement, statement.getPrivileges());
         for (Privilege privilege : privileges) {
             accessControl.checkCanGrantSchemaPrivilege(session.toSecurityContext(), privilege, schemaName, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
         }
@@ -107,38 +104,12 @@ public class GrantTask
             throw semanticException(NOT_SUPPORTED, statement, "Table %s is redirected to %s and GRANT is not supported with table redirections", tableName, redirection.getRedirectedTableName().get());
         }
 
-        Set<Privilege> privileges = parseStatementPrivileges(statement);
+        Set<Privilege> privileges = parseStatementPrivileges(statement, statement.getPrivileges());
 
         for (Privilege privilege : privileges) {
             accessControl.checkCanGrantTablePrivilege(session.toSecurityContext(), privilege, tableName, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
         }
 
         metadata.grantTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
-    }
-
-    private static Set<Privilege> parseStatementPrivileges(Grant statement)
-    {
-        Set<Privilege> privileges;
-        if (statement.getPrivileges().isPresent()) {
-            privileges = statement.getPrivileges().get().stream()
-                    .map(privilege -> parsePrivilege(statement, privilege))
-                    .collect(toImmutableSet());
-        }
-        else {
-            // All privileges
-            privileges = EnumSet.allOf(Privilege.class);
-        }
-        return privileges;
-    }
-
-    private static Privilege parsePrivilege(Grant statement, String privilegeString)
-    {
-        for (Privilege privilege : Privilege.values()) {
-            if (privilege.name().equalsIgnoreCase(privilegeString)) {
-                return privilege;
-            }
-        }
-
-        throw semanticException(INVALID_PRIVILEGE, statement, "Unknown privilege: '%s'", privilegeString);
     }
 }

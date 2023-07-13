@@ -13,19 +13,16 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.api.gax.rpc.HeaderProvider;
-import com.google.auth.Credentials;
-import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.common.cache.CacheBuilder;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.connector.ConnectorSession;
 
-import javax.inject.Inject;
-
 import java.util.Optional;
+import java.util.Set;
 
 import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
@@ -35,32 +32,31 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class BigQueryClientFactory
 {
     private final IdentityCacheMapping identityCacheMapping;
-    private final BigQueryCredentialsSupplier credentialsSupplier;
-    private final Optional<String> parentProjectId;
     private final Optional<String> projectId;
     private final boolean caseInsensitiveNameMatching;
     private final ViewMaterializationCache materializationCache;
-    private final HeaderProvider headerProvider;
+    private final BigQueryLabelFactory labelFactory;
+
     private final NonEvictableCache<IdentityCacheMapping.IdentityCacheKey, BigQueryClient> clientCache;
     private final Duration metadataCacheTtl;
+    private final Set<BigQueryOptionsConfigurer> optionsConfigurers;
 
     @Inject
     public BigQueryClientFactory(
             IdentityCacheMapping identityCacheMapping,
-            BigQueryCredentialsSupplier credentialsSupplier,
             BigQueryConfig bigQueryConfig,
             ViewMaterializationCache materializationCache,
-            HeaderProvider headerProvider)
+            BigQueryLabelFactory labelFactory,
+            Set<BigQueryOptionsConfigurer> optionsConfigurers)
     {
         this.identityCacheMapping = requireNonNull(identityCacheMapping, "identityCacheMapping is null");
-        this.credentialsSupplier = requireNonNull(credentialsSupplier, "credentialsSupplier is null");
         requireNonNull(bigQueryConfig, "bigQueryConfig is null");
-        this.parentProjectId = bigQueryConfig.getParentProjectId();
         this.projectId = bigQueryConfig.getProjectId();
         this.caseInsensitiveNameMatching = bigQueryConfig.isCaseInsensitiveNameMatching();
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
-        this.headerProvider = requireNonNull(headerProvider, "headerProvider is null");
+        this.labelFactory = requireNonNull(labelFactory, "labelFactory is null");
         this.metadataCacheTtl = bigQueryConfig.getMetadataCacheTtl();
+        this.optionsConfigurers = requireNonNull(optionsConfigurers, "optionsConfigurers is null");
 
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(bigQueryConfig.getServiceCacheTtl().toMillis(), MILLISECONDS);
@@ -71,38 +67,20 @@ public class BigQueryClientFactory
     public BigQueryClient create(ConnectorSession session)
     {
         IdentityCacheMapping.IdentityCacheKey cacheKey = identityCacheMapping.getRemoteUserCacheKey(session);
-
         return uncheckedCacheGet(clientCache, cacheKey, () -> createBigQueryClient(session));
     }
 
     protected BigQueryClient createBigQueryClient(ConnectorSession session)
     {
-        return new BigQueryClient(createBigQuery(session), caseInsensitiveNameMatching, materializationCache, metadataCacheTtl, projectId);
+        return new BigQueryClient(createBigQuery(session), labelFactory, caseInsensitiveNameMatching, materializationCache, metadataCacheTtl, projectId);
     }
 
     protected BigQuery createBigQuery(ConnectorSession session)
     {
-        Optional<Credentials> credentials = credentialsSupplier.getCredentials(session);
-        String billingProjectId = calculateBillingProjectId(parentProjectId, credentials);
-        BigQueryOptions.Builder options = BigQueryOptions.newBuilder()
-                .setHeaderProvider(headerProvider)
-                .setProjectId(billingProjectId);
-        credentials.ifPresent(options::setCredentials);
+        BigQueryOptions.Builder options = BigQueryOptions.newBuilder();
+        for (BigQueryOptionsConfigurer configurer : optionsConfigurers) {
+            options = configurer.configure(options, session);
+        }
         return options.build().getService();
-    }
-
-    // Note that at this point the config has been validated, which means that option 2 or option 3 will always be valid
-    static String calculateBillingProjectId(Optional<String> configParentProjectId, Optional<Credentials> credentials)
-    {
-        // 1. Get from configuration
-        return configParentProjectId
-                // 2. Get from the provided credentials, but only ServiceAccountCredentials contains the project id.
-                // All other credentials types (User, AppEngine, GCE, CloudShell, etc.) take it from the environment
-                .orElseGet(() -> credentials
-                        .filter(ServiceAccountCredentials.class::isInstance)
-                        .map(ServiceAccountCredentials.class::cast)
-                        .map(ServiceAccountCredentials::getProjectId)
-                        // 3. No configuration was provided, so get the default from the environment
-                        .orElseGet(BigQueryOptions::getDefaultProjectId));
     }
 }

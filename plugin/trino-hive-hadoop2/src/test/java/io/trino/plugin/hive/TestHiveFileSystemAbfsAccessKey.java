@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.azure.HiveAzureConfig;
+import io.trino.hdfs.azure.HiveAzureConfig;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 

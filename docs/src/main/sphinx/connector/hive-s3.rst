@@ -95,17 +95,17 @@ S3 configuration properties
     * - ``hive.s3.streaming.part-size``
       - The part size for S3 streaming upload. Defaults to ``16MB``.
     * - ``hive.s3.proxy.host``
-      - Proxy host to use if connecting through a proxy
+      - Proxy host to use if connecting through a proxy.
     * - ``hive.s3.proxy.port``
-      - Proxy port to use if connecting through a proxy
+      - Proxy port to use if connecting through a proxy.
     * - ``hive.s3.proxy.protocol``
       - Proxy protocol. HTTP or HTTPS , defaults to ``HTTPS``.
     * - ``hive.s3.proxy.non-proxy-hosts``
       - Hosts list to access without going through the proxy.
     * - ``hive.s3.proxy.username``
-      - Proxy user name to use if connecting through a proxy
+      - Proxy user name to use if connecting through a proxy.
     * - ``hive.s3.proxy.password``
-      - Proxy password name to use if connecting through a proxy
+      - Proxy password to use if connecting through a proxy.
     * - ``hive.s3.proxy.preemptive-basic-auth``
       - Whether to attempt to authenticate preemptively against proxy when using
         base authorization, defaults to ``false``.
@@ -296,9 +296,9 @@ used by the Trino S3 filesystem when communicating with S3.
 Most of these parameters affect settings on the ``ClientConfiguration``
 object associated with the ``AmazonS3Client``.
 
-===================================== =========================================================== ===============
+===================================== =========================================================== ==========================
 Property name                         Description                                                 Default
-===================================== =========================================================== ===============
+===================================== =========================================================== ==========================
 ``hive.s3.max-error-retries``         Maximum number of error retries, set on the S3 client.      ``10``
 
 ``hive.s3.max-client-retries``        Maximum number of read attempts to retry.                   ``5``
@@ -310,6 +310,8 @@ Property name                         Description                               
 
 ``hive.s3.connect-timeout``           TCP connect timeout.                                        ``5 seconds``
 
+``hive.s3.connect-ttl``               TCP connect TTL, which affects connection reusage.          Connections do not expire.
+
 ``hive.s3.socket-timeout``            TCP socket read timeout.                                    ``5 seconds``
 
 ``hive.s3.max-connections``           Maximum number of simultaneous open connections to S3.      ``500``
@@ -317,7 +319,7 @@ Property name                         Description                               
 ``hive.s3.multipart.min-file-size``   Minimum file size before multi-part upload to S3 is used.   ``16 MB``
 
 ``hive.s3.multipart.min-part-size``   Minimum multi-part upload part size.                        ``5 MB``
-===================================== =========================================================== ===============
+===================================== =========================================================== ==========================
 
 .. _hive-s3-data-encryption:
 

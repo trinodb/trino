@@ -23,6 +23,7 @@ import io.trino.server.security.jwt.JwkService;
 import io.trino.server.security.jwt.JwkSigningKeyResolver;
 
 import java.net.URI;
+import java.util.Map;
 
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,7 +32,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
         extends BaseOAuth2WebUiAuthenticationFilterTest
 {
     @Override
-    protected ImmutableMap<String, String> getOAuth2Config(String idpUrl)
+    protected Map<String, String> getOAuth2Config(String idpUrl)
     {
         return ImmutableMap.<String, String>builder()
                 .put("web-ui.enabled", "true")

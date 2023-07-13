@@ -167,7 +167,7 @@ public class TestHudiSmokeTest
 
     private static Path toPath(String path)
     {
-        // Remove leading 'file:' because $path column returns 'file:/path-to-file' in case of local file system
+        // Remove leading 'file:' because path column returns 'file:/path-to-file' in case of local file system
         return Path.of(path.replaceFirst("^file:", ""));
     }
 }

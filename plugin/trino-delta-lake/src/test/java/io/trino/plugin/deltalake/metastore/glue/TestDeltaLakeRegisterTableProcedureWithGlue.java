@@ -16,13 +16,15 @@ package io.trino.plugin.deltalake.metastore.glue;
 import io.trino.plugin.deltalake.BaseDeltaLakeRegisterTableProcedureTest;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 
+import java.nio.file.Path;
+
 import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
 
 public class TestDeltaLakeRegisterTableProcedureWithGlue
         extends BaseDeltaLakeRegisterTableProcedureTest
 {
     @Override
-    protected HiveMetastore createTestMetastore(String dataDirectory)
+    protected HiveMetastore createTestMetastore(Path dataDirectory)
     {
         return createTestingGlueHiveMetastore(dataDirectory);
     }

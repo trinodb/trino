@@ -13,10 +13,9 @@
  */
 package io.trino.util;
 
-import org.openjdk.jol.info.ClassLayout;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 /**
  * If heap nodes are numbered top down, and left to right as follows:
@@ -48,7 +47,7 @@ public class HeapTraversal
         RIGHT
     }
 
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(HeapTraversal.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(HeapTraversal.class);
     private static final long TOP_BIT_MASK = 1L << (Long.SIZE - 1);
 
     private long shifted;

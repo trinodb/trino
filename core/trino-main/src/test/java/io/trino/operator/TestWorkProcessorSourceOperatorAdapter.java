@@ -16,11 +16,9 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.Duration;
-import io.trino.Session;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
 import io.trino.operator.WorkProcessorSourceOperatorAdapter.AdapterWorkProcessorSourceOperatorFactory;
-import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
@@ -74,8 +72,9 @@ public class TestWorkProcessorSourceOperatorAdapter
                 .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(1));
         assertThat(getOnlyElement(context.getNestedOperatorStats()).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
-                "testConnectorMetric", new LongCount(2),
-                "Physical input read time", new DurationTiming(new Duration(7, NANOSECONDS))));
+                "testConnectorMetric", new LongCount(2)));
+        assertThat(getOnlyElement(context.getNestedOperatorStats()).getPhysicalInputReadTime())
+                .isEqualTo(new Duration(7, NANOSECONDS));
 
         operator.getOutput();
         assertThat(operator.isFinished()).isTrue();
@@ -83,8 +82,9 @@ public class TestWorkProcessorSourceOperatorAdapter
                 .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(2));
         assertThat(getOnlyElement(context.getNestedOperatorStats()).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
-                "testConnectorMetric", new LongCount(3),
-                "Physical input read time", new DurationTiming(new Duration(7, NANOSECONDS))));
+                "testConnectorMetric", new LongCount(3)));
+        assertThat(getOnlyElement(context.getNestedOperatorStats()).getPhysicalInputReadTime())
+                .isEqualTo(new Duration(7, NANOSECONDS));
     }
 
     private static class TestWorkProcessorOperatorFactory
@@ -92,7 +92,7 @@ public class TestWorkProcessorSourceOperatorAdapter
     {
         @Override
         public WorkProcessorSourceOperator create(
-                Session session,
+                OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits)

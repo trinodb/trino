@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.SessionPropertyManager;
@@ -27,8 +28,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SetSession;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

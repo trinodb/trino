@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.metadata.CatalogMetadata.SecurityManagement;
 import io.trino.metadata.CatalogProcedures;
 import io.trino.metadata.CatalogTableFunctions;
@@ -36,11 +37,11 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.FunctionProvider;
+import io.trino.spi.function.table.ArgumentSpecification;
+import io.trino.spi.function.table.ConnectorTableFunction;
+import io.trino.spi.function.table.ReturnTypeSpecification.DescribedTable;
+import io.trino.spi.function.table.TableArgumentSpecification;
 import io.trino.spi.procedure.Procedure;
-import io.trino.spi.ptf.ArgumentSpecification;
-import io.trino.spi.ptf.ConnectorTableFunction;
-import io.trino.spi.ptf.ReturnTypeSpecification.DescribedTable;
-import io.trino.spi.ptf.TableArgumentSpecification;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.split.RecordPageSourceProvider;
 
@@ -62,6 +63,7 @@ public class ConnectorServices
 {
     private static final Logger log = Logger.get(ConnectorServices.class);
 
+    private final Tracer tracer;
     private final CatalogHandle catalogHandle;
     private final Connector connector;
     private final Runnable afterShutdown;
@@ -87,8 +89,9 @@ public class ConnectorServices
 
     private final AtomicBoolean shutdown = new AtomicBoolean();
 
-    public ConnectorServices(CatalogHandle catalogHandle, Connector connector, Runnable afterShutdown)
+    public ConnectorServices(Tracer tracer, CatalogHandle catalogHandle, Connector connector, Runnable afterShutdown)
     {
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connector = requireNonNull(connector, "connector is null");
         this.afterShutdown = requireNonNull(afterShutdown, "afterShutdown is null");
@@ -205,6 +208,11 @@ public class ConnectorServices
         Set<ConnectorCapabilities> capabilities = connector.getCapabilities();
         requireNonNull(capabilities, format("Connector '%s' returned a null capabilities set", catalogHandle));
         this.capabilities = capabilities;
+    }
+
+    public Tracer getTracer()
+    {
+        return tracer;
     }
 
     public CatalogHandle getCatalogHandle()

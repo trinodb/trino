@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.bigquery;
 
-import io.airlift.log.Logger;
+import com.google.inject.Inject;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -22,26 +24,21 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryConnector
         implements Connector
 {
-    private static final Logger log = Logger.get(BigQueryConnector.class);
-
-    private final BigQueryMetadata metadata;
+    private final LifeCycleManager lifeCycleManager;
+    private final BigQueryTransactionManager transactionManager;
     private final BigQuerySplitManager splitManager;
     private final BigQueryPageSourceProvider pageSourceProvider;
     private final BigQueryPageSinkProvider pageSinkProvider;
@@ -50,14 +47,16 @@ public class BigQueryConnector
 
     @Inject
     public BigQueryConnector(
-            BigQueryMetadata metadata,
+            LifeCycleManager lifeCycleManager,
+            BigQueryTransactionManager transactionManager,
             BigQuerySplitManager splitManager,
             BigQueryPageSourceProvider pageSourceProvider,
             BigQueryPageSinkProvider pageSinkProvider,
             Set<ConnectorTableFunction> connectorTableFunctions,
             Set<SessionPropertiesProvider> sessionPropertiesProviders)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
@@ -70,15 +69,25 @@ public class BigQueryConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
-        log.debug("beginTransaction(isolationLevel=%s, readOnly=%s)", isolationLevel, readOnly);
-        checkConnectorSupports(READ_COMMITTED, isolationLevel);
-        return BigQueryTransactionHandle.INSTANCE;
+        return transactionManager.beginTransaction(isolationLevel, readOnly, autoCommit);
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
-        return metadata;
+        return new ClassLoaderSafeConnectorMetadata(transactionManager.getMetadata(transaction), getClass().getClassLoader());
+    }
+
+    @Override
+    public void commit(ConnectorTransactionHandle transactionHandle)
+    {
+        transactionManager.commit(transactionHandle);
+    }
+
+    @Override
+    public void rollback(ConnectorTransactionHandle transactionHandle)
+    {
+        transactionManager.rollback(transactionHandle);
     }
 
     @Override
@@ -109,5 +118,11 @@ public class BigQueryConnector
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifeCycleManager.stop();
     }
 }

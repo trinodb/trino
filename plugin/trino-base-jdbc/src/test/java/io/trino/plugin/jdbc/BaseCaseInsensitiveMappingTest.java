@@ -14,7 +14,6 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logging;
 import io.trino.plugin.jdbc.mapping.IdentifierMappingModule;
 import io.trino.plugin.jdbc.mapping.SchemaMappingRule;
@@ -36,7 +35,6 @@ import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.updat
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 // Tests are using JSON based identifier mapping which is one for all tests
 @Test(singleThreaded = true)
@@ -90,11 +88,10 @@ public abstract class BaseCaseInsensitiveMappingTest
             assertQuery(
                     "SELECT column_name FROM information_schema.columns WHERE table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertEquals(
-                    computeActual("SHOW COLUMNS FROM someschema.nonlowercasetable").getMaterializedRows().stream()
+            assertThat(computeActual("SHOW COLUMNS FROM someschema.nonlowercasetable").getMaterializedRows().stream()
                             .map(row -> row.getField(0))
-                            .collect(toImmutableSet()),
-                    ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
+                            .collect(toImmutableSet()))
+                    .containsOnly("lower_case_name", "mixed_case_name", "upper_case_name");
 
             // Note: until https://github.com/prestodb/presto/issues/2863 is resolved, this is *the* way to access the tables.
 
@@ -145,7 +142,7 @@ public abstract class BaseCaseInsensitiveMappingTest
                         AutoCloseable ignore4 = withSchema("some_schema");
                         AutoCloseable ignore5 = withTable("some_schema", "some_table", "(c int)")) {
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.trino.plugin.jdbc.JdbcClient.getSchemaNames to return a List
-                    assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name: Ambiguous name: casesensitivename");
+                    assertQueryFails("SHOW TABLES FROM casesensitivename", "Error listing tables for catalog \\w+: Failed to find remote schema name: Ambiguous name: casesensitivename");
                     assertQueryFails("SELECT * FROM casesensitivename.some_table_name", "Failed to find remote schema name: Ambiguous name: casesensitivename");
                     assertQuery("SHOW TABLES FROM some_schema", "VALUES 'some_table'");
                     assertQueryReturnsEmptyResult("SELECT * FROM some_schema.some_table");

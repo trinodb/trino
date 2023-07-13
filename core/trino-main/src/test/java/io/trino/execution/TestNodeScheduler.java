@@ -47,7 +47,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSession;
 import io.trino.util.FinalizerService;
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -76,11 +75,11 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -876,7 +875,7 @@ public class TestNodeScheduler
     private static class TestSplitLocal
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestSplitLocal.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(TestSplitLocal.class);
 
         private final HostAddress address;
         private final SplitWeight splitWeight;
@@ -969,7 +968,7 @@ public class TestNodeScheduler
     private static class TestSplitRemote
             implements ConnectorSplit
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TestSplitRemote.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(TestSplitRemote.class);
 
         private final List<HostAddress> hosts;
         private final SplitWeight splitWeight;

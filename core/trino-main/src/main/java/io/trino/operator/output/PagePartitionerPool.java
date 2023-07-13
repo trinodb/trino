@@ -14,11 +14,14 @@
 package io.trino.operator.output;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closer;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Collection;
+import java.util.List;
 import java.util.Queue;
 import java.util.function.Supplier;
 
@@ -74,12 +77,25 @@ public class PagePartitionerPool
     public void close()
     {
         // pagePartitioner.close can take a long time (flush->serialization), we want to keep it out of the synchronized block
-        markClosed().forEach(PagePartitioner::close);
+        Collection<PagePartitioner> toClose = markClosed();
+        closeSafely(toClose);
+    }
+
+    private static void closeSafely(Collection<PagePartitioner> toClose)
+    {
+        try (Closer closer = Closer.create()) {
+            toClose.forEach(closer::register);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private synchronized Collection<PagePartitioner> markClosed()
     {
         closed = true;
-        return ImmutableList.copyOf(free);
+        List<PagePartitioner> toClose = ImmutableList.copyOf(free);
+        free.clear();
+        return toClose;
     }
 }

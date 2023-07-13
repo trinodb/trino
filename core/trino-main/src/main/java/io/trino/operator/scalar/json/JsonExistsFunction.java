@@ -40,6 +40,7 @@ import io.trino.type.JsonPath2016Type;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
@@ -58,8 +59,6 @@ public class JsonExistsFunction
 {
     public static final String JSON_EXISTS_FUNCTION_NAME = "$json_exists";
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonExistsFunction.class, "jsonExists", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class);
-    private static final TrinoException INPUT_ARGUMENT_ERROR = new JsonInputConversionError("malformed input argument to JSON_EXISTS function");
-    private static final TrinoException PATH_PARAMETER_ERROR = new JsonInputConversionError("malformed JSON path parameter to JSON_EXISTS function");
 
     private final FunctionManager functionManager;
     private final Metadata metadata;
@@ -117,12 +116,12 @@ public class JsonExistsFunction
             long errorBehavior)
     {
         if (inputExpression.equals(JSON_ERROR)) {
-            return handleError(errorBehavior, INPUT_ARGUMENT_ERROR); // ERROR ON ERROR was already handled by the input function
+            return handleError(errorBehavior, () -> new JsonInputConversionError("malformed input argument to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
         }
         Object[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
             if (parameter.equals(JSON_ERROR)) {
-                return handleError(errorBehavior, PATH_PARAMETER_ERROR); // ERROR ON ERROR was already handled by the input function
+                return handleError(errorBehavior, () -> new JsonInputConversionError("malformed JSON path parameter to JSON_EXISTS function")); // ERROR ON ERROR was already handled by the input function
             }
         }
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
@@ -138,13 +137,13 @@ public class JsonExistsFunction
             pathResult = evaluator.evaluate(inputExpression, parameters);
         }
         catch (PathEvaluationError e) {
-            return handleError(errorBehavior, e);
+            return handleError(errorBehavior, () -> e);
         }
 
         return !pathResult.isEmpty();
     }
 
-    private static Boolean handleError(long errorBehavior, TrinoException error)
+    private static Boolean handleError(long errorBehavior, Supplier<TrinoException> error)
     {
         switch (ErrorBehavior.values()[(int) errorBehavior]) {
             case FALSE:
@@ -154,7 +153,7 @@ public class JsonExistsFunction
             case UNKNOWN:
                 return null;
             case ERROR:
-                throw error;
+                throw error.get();
         }
         throw new IllegalStateException("unexpected error behavior");
     }

@@ -39,6 +39,8 @@ import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE;
+import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
+import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializer;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormat;
 import static io.trino.plugin.hive.util.HiveUtil.parseHiveTimestamp;
@@ -49,6 +51,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveUtil
@@ -129,6 +132,7 @@ public class TestHiveUtil
         assertUnescapePathName("", "");
         assertUnescapePathName("x", "x");
         assertUnescapePathName("abc", "abc");
+        assertUnescapePathName("abc%", "abc%");
         assertUnescapePathName("%", "%");
         assertUnescapePathName("%41", "A");
         assertUnescapePathName("%41%x", "A%x");
@@ -145,6 +149,30 @@ public class TestHiveUtil
     {
         assertThat(FileUtils.unescapePathName(value)).isEqualTo(expected);
         assertThat(HiveUtil.unescapePathName(value)).isEqualTo(expected);
+    }
+
+    @Test
+    public void testEscapeDatabaseName()
+    {
+        assertThat(escapeSchemaName("schema1")).isEqualTo("schema1");
+        assertThatThrownBy(() -> escapeSchemaName(null))
+                .hasMessage("The provided schemaName cannot be null or empty");
+        assertThatThrownBy(() -> escapeSchemaName(""))
+                .hasMessage("The provided schemaName cannot be null or empty");
+        assertThat(escapeSchemaName("../schema1")).isEqualTo("..%2Fschema1");
+        assertThat(escapeSchemaName("../../schema1")).isEqualTo("..%2F..%2Fschema1");
+    }
+
+    @Test
+    public void testEscapeTableName()
+    {
+        assertThat(escapeTableName("table1")).isEqualTo("table1");
+        assertThatThrownBy(() -> escapeTableName(null))
+                .hasMessage("The provided tableName cannot be null or empty");
+        assertThatThrownBy(() -> escapeTableName(""))
+                .hasMessage("The provided tableName cannot be null or empty");
+        assertThat(escapeTableName("../table1")).isEqualTo("..%2Ftable1");
+        assertThat(escapeTableName("../../table1")).isEqualTo("..%2F..%2Ftable1");
     }
 
     @Test

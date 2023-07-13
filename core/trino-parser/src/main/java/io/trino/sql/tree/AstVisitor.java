@@ -102,6 +102,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitExecuteImmediate(ExecuteImmediate node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitDescribeOutput(DescribeOutput node, C context)
     {
         return visitStatement(node, context);
@@ -582,6 +587,16 @@ public abstract class AstVisitor<R, C>
         return visitTableElement(node, context);
     }
 
+    protected R visitCreateCatalog(CreateCatalog node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropCatalog(DropCatalog node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitCreateSchema(CreateSchema node, C context)
     {
         return visitStatement(node, context);
@@ -852,17 +867,7 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
-    protected R visitCube(Cube node, C context)
-    {
-        return visitGroupingElement(node, context);
-    }
-
     protected R visitGroupingSets(GroupingSets node, C context)
-    {
-        return visitGroupingElement(node, context);
-    }
-
-    protected R visitRollup(Rollup node, C context)
     {
         return visitGroupingElement(node, context);
     }
@@ -1147,12 +1152,67 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitJsonObjectMember(JsonObjectMember node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitJsonArray(JsonArray node, C context)
     {
         return visitExpression(node, context);
     }
 
+    protected R visitJsonArrayElement(JsonArrayElement node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitEmptyTableTreatment(EmptyTableTreatment node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitJsonTable(JsonTable node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
+    protected R visitOrdinalityColumn(OrdinalityColumn node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitValueColumn(ValueColumn node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitQueryColumn(QueryColumn node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitNestedColumns(NestedColumns node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPlanParentChild(PlanParentChild node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPlanSiblings(PlanSiblings node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPlanLeaf(PlanLeaf node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitJsonTableDefaultPlan(JsonTableDefaultPlan node, C context)
     {
         return visitNode(node, context);
     }

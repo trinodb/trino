@@ -15,6 +15,7 @@ package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
 import io.trino.plugin.kudu.properties.PartitionDesign;
@@ -55,8 +56,6 @@ import org.apache.kudu.Schema;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartitionSchema.HashBucketSchema;
 
-import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -66,7 +65,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
-import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -427,7 +425,7 @@ public class KuduMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         // For Kudu, nothing needs to be done finish the merge.
     }
@@ -438,13 +436,11 @@ public class KuduMetadata
         KuduTableHandle handle = (KuduTableHandle) table;
 
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
-        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
         List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
 
         return new ConnectorTableProperties(
                 handle.getConstraint(),
                 tablePartitioning,
-                partitioningColumns,
                 Optional.empty(),
                 localProperties);
     }

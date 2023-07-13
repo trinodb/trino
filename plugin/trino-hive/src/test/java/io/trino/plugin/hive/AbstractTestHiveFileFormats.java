@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -63,7 +64,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
-import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -146,7 +146,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(groups = "hive")
 public abstract class AbstractTestHiveFileFormats
 {
     protected static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
@@ -267,7 +266,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_empty_varchar", javaHiveVarcharObjectInspector, new HiveVarchar("", HiveVarchar.MAX_VARCHAR_LENGTH), Slices.EMPTY_SLICE))
             .add(new TestColumn("t_varchar", javaHiveVarcharObjectInspector, new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH), Slices.utf8Slice("test")))
             .add(new TestColumn("t_varchar_max_length", javaHiveVarcharObjectInspector, new HiveVarchar(VARCHAR_MAX_LENGTH_STRING, HiveVarchar.MAX_VARCHAR_LENGTH), Slices.utf8Slice(VARCHAR_MAX_LENGTH_STRING)))
-            .add(new TestColumn("t_char", CHAR_INSPECTOR_LENGTH_10, "test", Slices.utf8Slice("test"), true))
+            .add(new TestColumn("t_char", CHAR_INSPECTOR_LENGTH_10, "test", Slices.utf8Slice("test")))
             .add(new TestColumn("t_tinyint", javaByteObjectInspector, (byte) 1, (byte) 1))
             .add(new TestColumn("t_smallint", javaShortObjectInspector, (short) 2, (short) 2))
             .add(new TestColumn("t_int", javaIntObjectInspector, 3, 3))
@@ -562,9 +561,6 @@ public abstract class AbstractTestHiveFileFormats
         }
         Page page = pageBuilder.build();
 
-        JobConf jobConf = new JobConf(newEmptyConfiguration());
-        configureCompression(jobConf, compressionCodec);
-
         Properties tableProperties = new Properties();
         tableProperties.setProperty(
                 "columns",
@@ -579,13 +575,13 @@ public abstract class AbstractTestHiveFileFormats
                         .collect(Collectors.joining(",")));
 
         Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
-                new Path(filePath),
+                Location.of(filePath),
                 testColumns.stream()
                         .map(TestColumn::getName)
                         .collect(toList()),
                 StorageFormat.fromHiveStorageFormat(storageFormat),
+                compressionCodec,
                 tableProperties,
-                jobConf,
                 session,
                 OptionalInt.empty(),
                 NO_ACID_TRANSACTION,
@@ -722,8 +718,7 @@ public abstract class AbstractTestHiveFileFormats
         if (isStructuralType(type)) {
             return cursor.getObject(field);
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             if (decimalType.isShort()) {
                 return BigInteger.valueOf(cursor.getLong(field));
             }
@@ -752,8 +747,7 @@ public abstract class AbstractTestHiveFileFormats
                 if (fieldFromCursor == null) {
                     assertEquals(null, testColumn.getExpectedValue(), "Expected null for column " + testColumn.getName());
                 }
-                else if (type instanceof DecimalType) {
-                    DecimalType decimalType = (DecimalType) type;
+                else if (type instanceof DecimalType decimalType) {
                     fieldFromCursor = new BigDecimal((BigInteger) fieldFromCursor, decimalType.getScale());
                     assertEquals(fieldFromCursor, testColumn.getExpectedValue(), "Wrong value for column " + testColumn.getName());
                 }

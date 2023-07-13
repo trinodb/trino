@@ -422,7 +422,6 @@ public class TpchMetadata
         TpchTableHandle tableHandle = (TpchTableHandle) table;
 
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
-        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
         List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
 
         Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
@@ -432,8 +431,8 @@ public class TpchMetadata
                     new TpchPartitioningHandle(
                             TpchTable.ORDERS.getTableName(),
                             calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
-                    ImmutableList.of(orderKeyColumn)));
-            partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
+                    ImmutableList.of(orderKeyColumn),
+                    true));
             localProperties = ImmutableList.of(new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST));
         }
         else if (partitioningEnabled && tableHandle.getTableName().equals(TpchTable.LINE_ITEM.getTableName())) {
@@ -442,8 +441,8 @@ public class TpchMetadata
                     new TpchPartitioningHandle(
                             TpchTable.ORDERS.getTableName(),
                             calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
-                    ImmutableList.of(orderKeyColumn)));
-            partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
+                    ImmutableList.of(orderKeyColumn),
+                    true));
             localProperties = ImmutableList.of(
                     new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST),
                     new SortingProperty<>(columns.get(columnNaming.getName(LineItemColumn.LINE_NUMBER)), SortOrder.ASC_NULLS_FIRST));
@@ -466,7 +465,6 @@ public class TpchMetadata
         return new ConnectorTableProperties(
                 constraint,
                 tablePartitioning,
-                partitioningColumns,
                 Optional.empty(),
                 localProperties);
     }

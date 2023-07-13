@@ -239,6 +239,14 @@ public abstract class AbstractDistributedEngineOnlyQueries
     }
 
     @Test
+    public void testExplainAnalyzeTopLevelTimes()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE SELECT * FROM nation a",
+                "Queued: .*s, Analysis: .*s, Planning: .*s, Execution: .*s\n");
+    }
+
+    @Test
     public void testInsertWithCoercion()
     {
         String tableName = "test_insert_with_coercion_" + randomNameSuffix();

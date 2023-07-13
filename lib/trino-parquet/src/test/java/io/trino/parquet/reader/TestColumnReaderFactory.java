@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader;
 
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.flat.FlatColumnReader;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -36,9 +37,11 @@ public class TestColumnReaderFactory
                 false,
                 new ColumnDescriptor(new String[] {"test"}, new PrimitiveType(OPTIONAL, INT32, "test"), 0, 1),
                 0);
-        assertThat(ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), false))
-                .isNotInstanceOf(FlatColumnReader.class);
-        assertThat(ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), true))
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions().withBatchColumnReaders(false));
+        assertThat(columnReaderFactory.create(field, newSimpleAggregatedMemoryContext()))
+                .isNotInstanceOf(AbstractColumnReader.class);
+        columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions().withBatchColumnReaders(true));
+        assertThat(columnReaderFactory.create(field, newSimpleAggregatedMemoryContext()))
                 .isInstanceOf(FlatColumnReader.class);
     }
 
@@ -50,9 +53,18 @@ public class TestColumnReaderFactory
                 false,
                 new ColumnDescriptor(new String[] {"level1", "level2"}, new PrimitiveType(OPTIONAL, INT32, "test"), 1, 2),
                 0);
-        assertThat(ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), false))
-                .isNotInstanceOf(FlatColumnReader.class);
-        assertThat(ColumnReaderFactory.create(field, UTC, newSimpleAggregatedMemoryContext(), true))
-                .isNotInstanceOf(FlatColumnReader.class);
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions().withBatchColumnReaders(false));
+        assertThat(columnReaderFactory.create(field, newSimpleAggregatedMemoryContext()))
+                .isNotInstanceOf(AbstractColumnReader.class);
+        columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions().withBatchColumnReaders(false).withBatchNestedColumnReaders(true));
+        assertThat(columnReaderFactory.create(field, newSimpleAggregatedMemoryContext()))
+                .isNotInstanceOf(AbstractColumnReader.class);
+
+        columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions().withBatchColumnReaders(true));
+        assertThat(columnReaderFactory.create(field, newSimpleAggregatedMemoryContext()))
+                .isInstanceOf(NestedColumnReader.class);
+        columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions().withBatchColumnReaders(true).withBatchNestedColumnReaders(true));
+        assertThat(columnReaderFactory.create(field, newSimpleAggregatedMemoryContext()))
+                .isInstanceOf(NestedColumnReader.class);
     }
 }

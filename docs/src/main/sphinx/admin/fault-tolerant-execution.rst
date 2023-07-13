@@ -36,27 +36,24 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
 
 .. warning::
 
-  Setting ``retry-policy`` disables :ref:`write operations
-  <sql-write-operations>` with connectors that do not support fault-tolerant
-  execution of write operations, resulting in a "This connector does not support
-  query retries" error message.
+  Setting ``retry-policy`` may cause queries to fail with connectors that do not
+  explicitly support fault-tolerant execution, resulting in a "This connector
+  does not support query retries" error message.
 
   Support for fault-tolerant execution of SQL statements varies on a
-  per-connector basis:
+  per-connector basis, with more details in the documentation for each
+  connector. The following connectors support fault-tolerant execution:
 
-  * Fault-tolerant execution of :ref:`read operations <sql-read-operations>` is
-    supported by all connectors.
-  * Fault tolerant execution of :ref:`write operations <sql-write-operations>`
-    is supported by the following connectors:
-
-    * :doc:`/connector/bigquery`
-    * :doc:`/connector/delta-lake`
-    * :doc:`/connector/hive`
-    * :doc:`/connector/iceberg`
-    * :doc:`/connector/mongodb`
-    * :doc:`/connector/mysql`
-    * :doc:`/connector/postgresql`
-    * :doc:`/connector/sqlserver`
+  * :ref:`BigQuery connector <bigquery-fte-support>`
+  * :ref:`Delta Lake connector <delta-lake-fte-support>`
+  * :ref:`Hive connector <hive-fte-support>`
+  * :ref:`Iceberg connector <iceberg-fte-support>`
+  * :ref:`MongoDB connector <mongodb-fte-support>`
+  * :ref:`MySQL connector <mysql-fte-support>`
+  * :ref:`Oracle connector <oracle-fte-support>`
+  * :ref:`PostgreSQL connector <postgresql-fte-support>`
+  * :ref:`Redshift connector <redshift-fte-support>`
+  * :ref:`SQL Server connector <sqlserver-fte-support>`
 
 The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:
@@ -75,11 +72,12 @@ execution on a Trino cluster:
        more information.
      - ``NONE``
    * - ``exchange.deduplication-buffer-size``
-     - Size of the coordinator's in-memory buffer used by fault-tolerant
-       execution to store output of query :ref:`stages <trino-concept-stage>`.
-       If this buffer is filled during query execution, the query fails with a
-       "Task descriptor storage capacity has been exceeded" error message unless
-       an :ref:`exchange manager <fte-exchange-manager>` is configured.
+     - :ref:`Data size <prop-type-data-size>` of the coordinator's in-memory
+       buffer used by fault-tolerant execution to store output of query
+       :ref:`stages <trino-concept-stage>`. If this buffer is filled during
+       query execution, the query fails with a "Task descriptor storage capacity
+       has been exceeded" error message unless an :ref:`exchange manager
+       <fte-exchange-manager>` is configured.
      - ``32MB``
    * - ``exchange.compression-enabled``
      - Enable compression of spooling data. Setting to ``true`` is recommended
@@ -179,33 +177,29 @@ queries/tasks are no longer retried in the event of repeated failures:
        declaring the query as failed.
      - ``4``
      - Only ``QUERY``
-   * - ``task-retry-attempts-overall``
-     - Maximum number retries across all tasks within a given query
-       before declaring the query as failed.
-     - ``null`` (no limit)
-     - Only ``TASK``
    * - ``task-retry-attempts-per-task``
      - Maximum number of times Trino may attempt to retry a single task before
        declaring the query as failed.
      - ``4``
      - Only ``TASK``
    * - ``retry-initial-delay``
-     - Minimum time that a failed query or task must wait before it is retried. May be
-       overridden with the ``retry_initial_delay`` :ref:`session property
+     - Minimum :ref:`time <prop-type-duration>` that a failed query or task must
+       wait before it is retried. May be overridden with the
+       ``retry_initial_delay`` :ref:`session property
        <session-properties-definition>`.
      - ``10s``
      - ``QUERY`` and ``TASK``
    * - ``retry-max-delay``
-     - Maximum time that a failed query or task must wait before it is retried.
-       Wait time is increased on each subsequent  failure. May be
-       overridden with the ``retry_max_delay`` :ref:`session property
-       <session-properties-definition>`.
+     - Maximum :ref:`time <prop-type-duration>` that a failed query or task must
+       wait before it is retried. Wait time is increased on each subsequent
+       failure. May be overridden with the ``retry_max_delay`` :ref:`session
+       property <session-properties-definition>`.
      - ``1m``
      - ``QUERY`` and ``TASK``
    * - ``retry-delay-scale-factor``
-     - Factor by which retry delay is increased on each query or task failure. May be
-       overridden with the ``retry_delay_scale_factor`` :ref:`session property
-       <session-properties-definition>`.
+     - Factor by which retry delay is increased on each query or task failure.
+       May be overridden with the ``retry_delay_scale_factor`` :ref:`session
+       property <session-properties-definition>`.
      - ``2.0``
      - ``QUERY`` and ``TASK``
 
@@ -231,37 +225,18 @@ properties only apply to a ``TASK`` retry policy.
    * - Property name
      - Description
      - Default value
-   * - ``fault-tolerant-execution-target-task-input-size``
-     - Target size in bytes of all task inputs for a single fault-tolerant task.
-       Applies to tasks that read input from spooled data written by other
-       tasks.
+   * - ``fault-tolerant-execution-standard-split-size``
+     - Standard :ref:`split <trino-concept-splits>` :ref:`data size
+       <prop-type-data-size>` processed by tasks that read data from source
+       tables. Value is interpreted with split weight taken into account. If the
+       weight of splits produced by a catalog denotes that they are lighter or
+       heavier than "standard" split, then the number of splits processed by a
+       single task is adjusted accordingly.
 
        May be overridden for the current session with the
-       ``fault_tolerant_execution_target_task_input_size``
+       ``fault_tolerant_execution_standard_split_size``
        :ref:`session property <session-properties-definition>`.
-     - ``4GB``
-   * - ``fault-tolerant-execution-target-task-split-count``
-     - Target number of standard :ref:`splits <trino-concept-splits>` processed
-       by a single task that reads data from source tables. Value is interpreted
-       with split weight taken into account. If the weight of splits produced by
-       a catalog denotes that they are lighter or heavier than "standard" split,
-       then the number of splits processed by single task is adjusted
-       accordingly.
-
-       May be overridden for the current session with the
-       ``fault_tolerant_execution_target_task_split_count``
-       :ref:`session property <session-properties-definition>`.
-     - ``64``
-   * - ``fault-tolerant-execution-min-task-split-count``
-     - Minimum number of :ref:`splits <trino-concept-splits>` processed by
-       a single task. This value is not split weight-adjusted and serves as
-       protection against situations where catalogs report an incorrect split
-       weight.
-
-       May be overridden for the current session with the
-       ``fault_tolerant_execution_min_task_split_count``
-       :ref:`session property <session-properties-definition>`.
-     - ``16``
+     - ``64MB``
    * - ``fault-tolerant-execution-max-task-split-count``
      - Maximum number of :ref:`splits <trino-concept-splits>` processed by a
        single task. This value is not split weight-adjusted and serves as
@@ -272,6 +247,54 @@ properties only apply to a ``TASK`` retry policy.
        ``fault_tolerant_execution_max_task_split_count``
        :ref:`session property <session-properties-definition>`.
      - ``256``
+   * - ``fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-growth-period``
+     - The number of tasks created for any given non-writer stage of arbitrary
+       distribution before task size is increased.
+     - ``64``
+   * - ``fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-growth-factor``
+     - Growth factor for adaptive sizing of non-writer tasks of arbitrary
+       distribution for fault-tolerant execution. Lower bound is 1.0. For every
+       task size increase, new task target size is old task target size
+       multiplied by this growth factor.
+     - ``1.2``
+   * - ``fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-min``
+     - Initial/minimum target input :ref:`data size <prop-type-data-size>` for
+       non-writer tasks of arbitrary distribution of fault-tolerant execution.
+     - ``512MB``
+   * - ``fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-max``
+     - Maximum target input :ref:`data size <prop-type-data-size>` for each
+       non-writer task of arbitrary distribution of fault-tolerant execution.
+     - ``50GB``
+   * - ``fault-tolerant-execution-arbitrary-distribution-write-task-target-size-growth-period``
+     - The number of tasks created for any given writer stage of arbitrary
+       distribution before task size is increased.
+     - ``64``
+   * - ``fault-tolerant-execution-arbitrary-distribution-write-task-target-size-growth-factor``
+     - Growth factor for adaptive sizing of writer tasks of arbitrary
+       distribution for fault-tolerant execution. Lower bound is 1.0. For every
+       task size increase, new task target size is old task target size
+       multiplied by this growth factor.
+     - ``1.2``
+   * - ``fault-tolerant-execution-arbitrary-distribution-write-task-target-size-min``
+     - Initial/minimum target input :ref:`data size <prop-type-data-size>` for
+       writer tasks of arbitrary distribution of fault-tolerant execution.
+     - ``4GB``
+   * - ``fault-tolerant-execution-arbitrary-distribution-write-task-target-size-max``
+     - Maximum target input :ref:`data size <prop-type-data-size>` for writer
+       tasks of arbitrary distribution of fault-tolerant execution.
+     - ``50GB``
+   * - ``fault-tolerant-execution-hash-distribution-compute-task-target-size``
+     - Target input :ref:`data size <prop-type-data-size>` for non-writer tasks
+       of hash distribution of fault-tolerant execution.
+     - ``512MB``
+   * - ``fault-tolerant-execution-hash-distribution-write-task-target-size``
+     - Target input :ref:`data size <prop-type-data-size>` of writer tasks of
+       hash distribution of fault-tolerant execution.
+     - ``4GB``
+   * - ``fault-tolerant-execution-hash-distribution-write-task-target-max-count``
+     - Soft upper bound on number of writer tasks in a stage of hash
+       distribution of fault-tolerant execution.
+     - ``2000``
 
 Node allocation
 ^^^^^^^^^^^^^^^
@@ -293,8 +316,9 @@ applies to a ``TASK`` retry policy.
      - Description
      - Default value
    * - ``fault-tolerant-execution-task-memory``
-     - Initial task memory estimation used for bin-packing when allocating nodes
-       for tasks. May be overridden for the current session with the
+     - Initial task memory :ref:`data size <prop-type-data-size>` estimation
+       used for bin-packing when allocating nodes for tasks. May be overridden
+       for the current session with the
        ``fault_tolerant_execution_task_memory``
        :ref:`session property <session-properties-definition>`.
      - ``5GB``
@@ -314,20 +338,39 @@ fault-tolerant execution:
      - Default value
      - Retry policy
    * - ``fault-tolerant-execution-task-descriptor-storage-max-memory``
-     - Maximum amount of memory to be used to store task descriptors for fault
-       tolerant queries on coordinator. Extra memory is needed to be able to
-       reschedule tasks in case of a failure.
+     - Maximum :ref:`data size <prop-type-data-size>` of memory to be used to
+       store task descriptors for fault tolerant queries on coordinator. Extra
+       memory is needed to be able to reschedule tasks in case of a failure.
      - (JVM heap size * 0.15)
      - Only ``TASK``
-   * - ``fault-tolerant-execution-partition-count``
-     - Number of partitions to use for distributed joins and aggregations,
-       similar in function to the ``query.hash-partition-count`` :doc:`query
-       management property </admin/properties-query-management>`. It is not
-       recommended to increase this property value above the default of ``50``,
-       which may result in instability and poor performance. May be overridden
-       for the current session with the
-       ``fault_tolerant_execution_partition_count`` :ref:`session property
-       <session-properties-definition>`.
+   * - ``fault-tolerant-execution-max-partition-count``
+     - Maximum number of partitions to use for distributed joins and
+       aggregations, similar in function to the
+       ``query.max-hash-partition-count`` :doc:`query management property
+       </admin/properties-query-management>`. It is not recommended to increase
+       this property value above the default of ``50``, which may result in
+       instability and poor performance. May be overridden for the current
+       session with the ``fault_tolerant_execution_max_partition_count``
+       :ref:`session property <session-properties-definition>`.
+     - ``50``
+     - Only ``TASK``
+   * - ``fault-tolerant-execution-min-partition-count``
+     - Minimum number of partitions to use for distributed joins and
+       aggregations, similar in function to the
+       ``query.min-hash-partition-count`` :doc:`query management property
+       </admin/properties-query-management>`. May be overridden for the current
+       session with the ``fault_tolerant_execution_min_partition_count``
+       :ref:`session property <session-properties-definition>`.
+     - ``4``
+     - Only ``TASK``
+   * - ``fault-tolerant-execution-min-partition-count-for-write``
+     - Minimum number of partitions to use for distributed joins and
+       aggregations in write queries, similar in function to the
+       ``query.min-hash-partition-count-for-write`` :doc:`query management
+       property </admin/properties-query-management>`. May be overridden for
+       the current session with the
+       ``fault_tolerant_execution_min_partition_count_for_write``
+       :ref:`session property <session-properties-definition>`.
      - ``50``
      - Only ``TASK``
    * - ``max-tasks-waiting-for-node-per-stage``
@@ -385,10 +428,11 @@ the property may be configured for:
      - ``2``
      - Any
    * - ``exchange.sink-max-file-size``
-     - Max size of files written by exchange sinks.
+     - Max :ref:`data size <prop-type-data-size>` of files written by exchange
+       sinks.
      - ``1GB``
      - Any
-   * - ``exchange.source-concurrent-reader``
+   * - ``exchange.source-concurrent-readers``
      - Number of concurrent readers to read from spooling storage. The
        larger the number of concurrent readers, the larger the read parallelism
        and memory usage.
@@ -433,7 +477,7 @@ the property may be configured for:
      - ``false``
      - Any S3-compatible storage
    * - ``exchange.s3.upload.part-size``
-     - Part size for S3 multi-part upload.
+     - Part :ref:`data size <prop-type-data-size>` for S3 multi-part upload.
      - ``5MB``
      - Any S3-compatible storage
    * - ``exchange.gcs.json-key-file-path``
@@ -452,7 +496,8 @@ the property may be configured for:
      -
      - Azure Blob Storage
    * - ``exchange.azure.block-size``
-     - Block size for Azure block blob parallel upload.
+     - Block :ref:`data size <prop-type-data-size>` for Azure block blob
+       parallel upload.
      - ``4MB``
      - Azure Blob Storage
    * - ``exchange.azure.max-error-retries``
@@ -461,7 +506,7 @@ the property may be configured for:
      - ``10``
      - Azure Blob Storage
    * - ``exchange.hdfs.block-size``
-     - Block size for HDFS storage.
+     - Block :ref:`data size <prop-type-data-size>` for HDFS storage.
      - ``4MB``
      - HDFS
    * - ``hdfs.config.resources``

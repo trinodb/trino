@@ -14,6 +14,7 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AllowAllAccessControl;
@@ -44,8 +45,6 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.SymbolReference;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.OptionalDouble;

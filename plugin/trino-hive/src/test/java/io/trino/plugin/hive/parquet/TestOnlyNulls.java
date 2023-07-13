@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.io.Resources;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
@@ -27,7 +28,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -90,7 +90,7 @@ public class TestOnlyNulls
         return pageSourceFactory.createPageSource(
                         newEmptyConfiguration(),
                         getHiveSession(new HiveConfig()),
-                        new Path(parquetFile.toURI()),
+                        Location.of(parquetFile.getPath()),
                         0,
                         parquetFile.length(),
                         parquetFile.length(),

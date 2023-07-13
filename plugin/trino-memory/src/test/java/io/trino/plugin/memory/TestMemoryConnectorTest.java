@@ -42,9 +42,9 @@ import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -63,10 +63,12 @@ public class TestMemoryConnectorTest
         return createMemoryQueryRunner(
                 // Adjust DF limits to test edge cases
                 ImmutableMap.<String, String>builder()
-                        .put("dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "100")
-                        .put("dynamic-filtering.small-broadcast.range-row-limit-per-driver", "100")
-                        .put("dynamic-filtering.large-broadcast.max-distinct-values-per-driver", "100")
-                        .put("dynamic-filtering.large-broadcast.range-row-limit-per-driver", "100000")
+                        .put("dynamic-filtering.small.max-distinct-values-per-driver", "100")
+                        .put("dynamic-filtering.small.range-row-limit-per-driver", "100")
+                        .put("dynamic-filtering.large.max-distinct-values-per-driver", "100")
+                        .put("dynamic-filtering.large.range-row-limit-per-driver", "100000")
+                        .put("dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "100")
+                        .put("dynamic-filtering.small-partitioned.range-row-limit-per-driver", "200")
                         .put("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100")
                         .put("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
                         // disable semi join to inner join rewrite to test semi join operators explicitly
@@ -84,10 +86,16 @@ public class TestMemoryConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+                return false;
+
             case SUPPORTS_PREDICATE_PUSHDOWN:
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
             case SUPPORTS_AGGREGATION_PUSHDOWN:
+            case SUPPORTS_DEREFERENCE_PUSHDOWN:
                 return false;
 
             case SUPPORTS_RENAME_SCHEMA:
@@ -98,12 +106,8 @@ public class TestMemoryConnectorTest
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
-            case SUPPORTS_COMMENT_ON_VIEW:
-            case SUPPORTS_COMMENT_ON_VIEW_COLUMN:
-                return true;
-
-            case SUPPORTS_CREATE_VIEW:
-                return true;
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
+                return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;

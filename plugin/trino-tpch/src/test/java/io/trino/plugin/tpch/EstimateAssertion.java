@@ -56,12 +56,11 @@ class EstimateAssertion
 
     private void assertClose(Object actual, Object expected, String comparedValue)
     {
-        if (actual instanceof Slice) {
+        if (actual instanceof Slice actualSlice) {
             assertEquals(actual.getClass(), expected.getClass(), comparedValue);
-            assertEquals(((Slice) actual).toStringUtf8(), ((Slice) expected).toStringUtf8());
+            assertEquals(actualSlice.toStringUtf8(), ((Slice) expected).toStringUtf8());
         }
-        else if (actual instanceof DoubleRange) {
-            DoubleRange actualRange = (DoubleRange) actual;
+        else if (actual instanceof DoubleRange actualRange) {
             DoubleRange expectedRange = (DoubleRange) expected;
             assertClose(actualRange.getMin(), expectedRange.getMin(), comparedValue);
             assertClose(actualRange.getMax(), expectedRange.getMax(), comparedValue);

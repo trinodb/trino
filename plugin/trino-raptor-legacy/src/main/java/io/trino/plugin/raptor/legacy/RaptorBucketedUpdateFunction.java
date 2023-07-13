@@ -18,7 +18,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
 
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 
 public class RaptorBucketedUpdateFunction
         implements BucketFunction
@@ -27,6 +26,6 @@ public class RaptorBucketedUpdateFunction
     public int getBucket(Page page, int position)
     {
         Block row = page.getBlock(0).getObject(position, Block.class);
-        return toIntExact(INTEGER.getLong(row, 0)); // bucket field of row ID
+        return INTEGER.getInt(row, 0); // bucket field of row ID
     }
 }

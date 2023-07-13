@@ -22,54 +22,49 @@ import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ulimit;
 import com.google.common.base.Joiner;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeExecutor;
+import dev.failsafe.RetryPolicy;
+import dev.failsafe.Timeout;
 import io.airlift.log.Logger;
 import io.trino.tests.product.launcher.testcontainers.PrintingLogConsumer;
 import io.trino.tests.product.launcher.util.ConsoleTable;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.FailsafeExecutor;
-import net.jodah.failsafe.RetryPolicy;
-import net.jodah.failsafe.Timeout;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.server.PluginReader.CONNECTOR;
-import static io.trino.server.PluginReader.PASSWORD_AUTHENTICATOR;
+import static io.trino.server.PluginLoader.CONNECTOR;
+import static io.trino.server.PluginLoader.PASSWORD_AUTHENTICATOR;
 import static io.trino.tests.product.launcher.env.DockerContainer.ensurePathExists;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
@@ -98,37 +93,35 @@ public final class Environment
     private final String name;
     private final int startupRetries;
     private final Map<String, DockerContainer> containers;
-    private final Optional<EnvironmentListener> listener;
+    private final EnvironmentListener listener;
     private final boolean attached;
-    private final List<String> configuredConnectors;
-    private final List<String> configuredPasswordAuthenticators;
+    private final Map<String, List<String>> configuredFeatures;
 
     private Environment(
             String name,
             int startupRetries,
             Map<String, DockerContainer> containers,
-            Optional<EnvironmentListener> listener,
+            EnvironmentListener listener,
             boolean attached,
-            List<String> configuredConnectors,
-            List<String> configuredPasswordAuthenticators)
+            Map<String, List<String>> configuredFeatures)
     {
         this.name = requireNonNull(name, "name is null");
         this.startupRetries = startupRetries;
         this.containers = requireNonNull(containers, "containers is null");
         this.listener = requireNonNull(listener, "listener is null");
         this.attached = attached;
-        this.configuredConnectors = requireNonNull(configuredConnectors, "configuredConnectors is null");
-        this.configuredPasswordAuthenticators = requireNonNull(configuredPasswordAuthenticators, "configuredPasswordAuthenticators is null");
+        this.configuredFeatures = requireNonNull(configuredFeatures, "configuredFeatures is null");
     }
 
     public Environment start()
     {
-        RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
+        RetryPolicy<Object> retryPolicy = RetryPolicy.builder()
                 .withMaxRetries(startupRetries)
-                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Could not start environment '%s'", this))
+                .onFailedAttempt(event -> log.warn(event.getLastException(), "Could not start environment '%s'", this))
                 .onRetry(event -> log.info("Trying to start environment '%s', %d failed attempt(s)", this, event.getAttemptCount() + 1))
                 .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", this, event.getElapsedTime(), event.getAttemptCount()))
-                .onFailure(event -> log.info("Environment '%s' failed to start in attempt(s): %d: %s", this, event.getAttemptCount(), event.getFailure()));
+                .onFailure(event -> log.info("Environment '%s' failed to start in attempt(s): %d: %s", this, event.getAttemptCount(), event.getException()))
+                .build();
 
         return Failsafe
                 .with(retryPolicy)
@@ -172,7 +165,7 @@ public final class Environment
             // After deepStart all containers should be running and healthy
             checkState(allContainersHealthy(containers), "Not all containers are running or healthy");
 
-            this.listener.ifPresent(listener -> listener.environmentStarted(this));
+            listener.environmentStarted(this);
             return this;
         }
         catch (InterruptedException e) {
@@ -187,14 +180,16 @@ public final class Environment
     public void stop()
     {
         checkState(!attached, "Cannot stop environment that is attached");
-        this.listener.ifPresent(listener -> listener.environmentStopping(this));
+        listener.environmentStopping(this);
 
         // Allow containers to take up to 5 minutes to stop
-        Timeout<Object> timeout = Timeout.of(ofMinutes(5))
-                .withCancel(true);
+        Timeout<Object> timeout = Timeout.builder(ofMinutes(5))
+                .withInterrupt()
+                .build();
 
-        RetryPolicy<Object> retry = new RetryPolicy<>()
-                .withMaxAttempts(3);
+        RetryPolicy<Object> retry = RetryPolicy.builder()
+                .withMaxAttempts(3)
+                .build();
 
         FailsafeExecutor<Object> executor = Failsafe
                 .with(timeout, retry)
@@ -205,7 +200,7 @@ public final class Environment
                 .filter(DockerContainer::isRunning)
                 .forEach(container -> executor.run(container::tryStop));
 
-        this.listener.ifPresent(listener -> listener.environmentStopped(this));
+        listener.environmentStopped(this);
         pruneEnvironment();
     }
 
@@ -279,14 +274,9 @@ public final class Environment
         return ImmutableList.copyOf(containers.values());
     }
 
-    public List<String> getConfiguredConnectors()
+    public Map<String, List<String>> getConfiguredFeatures()
     {
-        return configuredConnectors;
-    }
-
-    public List<String> getConfiguredPasswordAuthenticators()
-    {
-        return configuredPasswordAuthenticators;
+        return configuredFeatures;
     }
 
     @Override
@@ -304,15 +294,14 @@ public final class Environment
     @JsonProperty
     public List<String> getFeatures()
     {
-        return Stream.of(
-                getConfiguredConnectors().stream().map(x -> CONNECTOR + x),
-                getConfiguredPasswordAuthenticators().stream().map(x -> PASSWORD_AUTHENTICATOR + x)
-        ).flatMap(Function.identity()).collect(toImmutableList());
+        return configuredFeatures.entrySet().stream()
+                .flatMap(entry -> entry.getValue().stream().map(feature -> entry.getKey() + feature))
+                .collect(toImmutableList());
     }
 
-    public static Builder builder(String name)
+    public static Builder builder(String name, PrintStream printStream)
     {
-        return new Builder(name);
+        return new Builder(name, printStream);
     }
 
     @Override
@@ -382,13 +371,14 @@ public final class Environment
         private int startupRetries = 1;
         private Map<String, DockerContainer> containers = new HashMap<>();
         private Optional<Path> logsBaseDir = Optional.empty();
+        private PrintStream printStream;
         private boolean attached;
-        private Set<String> configuredConnectors = new HashSet<>();
-        private Set<String> configuredPasswordAuthenticators = new HashSet<>();
+        private Multimap<String, String> configuredFeatures = HashMultimap.create();
 
-        public Builder(String name)
+        public Builder(String name, PrintStream printStream)
         {
             this.name = requireNonNull(name, "name is null");
+            this.printStream = requireNonNull(printStream, "printStream is null");
         }
 
         public String getEnvironmentName()
@@ -442,8 +432,7 @@ public final class Environment
         {
             requireNonNull(connectorName, "connectorName is null");
             checkState(connectorName.length() != 0, "Cannot register empty string as a connector in an Environment");
-            configuredConnectors.add(connectorName);
-            return this;
+            return addFeature(CONNECTOR, connectorName);
         }
 
         public Builder addConnector(String connectorName, MountableFile configFile)
@@ -469,8 +458,7 @@ public final class Environment
         {
             requireNonNull(name, "name is null");
             checkState(name.length() != 0, "Cannot register empty string as a password authenticator in an Environment");
-            configuredPasswordAuthenticators.add(name);
-            return this;
+            return addFeature(PASSWORD_AUTHENTICATOR, name);
         }
 
         public Builder addPasswordAuthenticator(String name, MountableFile configFile)
@@ -486,6 +474,12 @@ public final class Environment
             requireNonNull(containerPath, "containerPath is null");
             configureContainer(COORDINATOR, container -> container.withCopyFileToContainer(configFile, containerPath));
             return addPasswordAuthenticator(name);
+        }
+
+        public Builder addFeature(String feature, String name)
+        {
+            configuredFeatures.put(feature, name);
+            return this;
         }
 
         private static void updateContainerHostConfig(CreateContainerCmd createContainerCmd)
@@ -570,42 +564,34 @@ public final class Environment
 
         public Environment build()
         {
-            return build(Optional.empty());
+            return build(EnvironmentListener.NOOP);
         }
 
         public Environment build(EnvironmentListener listener)
         {
-            return build(Optional.of(listener));
-        }
+            requireNonNull(listener, "listener is null");
 
-        private Environment build(Optional<EnvironmentListener> listener)
-        {
             switch (outputMode) {
-                case DISCARD:
+                case DISCARD -> {
                     log.warn("Containers logs are not printed to stdout");
-                    setContainerOutputConsumer(Environment.Builder::discardContainerLogs);
-                    break;
-
-                case PRINT:
-                    setContainerOutputConsumer(Environment.Builder::printContainerLogs);
-                    break;
-
-                case PRINT_WRITE:
+                    setContainerOutputConsumer(Builder::discardContainerLogs);
+                }
+                case PRINT -> setContainerOutputConsumer(frame -> printContainerLogs(printStream, frame));
+                case PRINT_WRITE -> {
                     verify(logsBaseDir.isPresent(), "--logs-dir must be set with --output WRITE");
-
                     setContainerOutputConsumer(container -> combineConsumers(
                             writeContainerLogs(container, logsBaseDir.get()),
-                            printContainerLogs(container)));
-                    break;
-
-                case WRITE:
+                            printContainerLogs(printStream, container)));
+                }
+                case WRITE -> {
                     verify(logsBaseDir.isPresent(), "--logs-dir must be set with --output WRITE");
                     setContainerOutputConsumer(container -> writeContainerLogs(container, logsBaseDir.get()));
+                }
             }
 
             containers.forEach((name, container) -> {
                 container
-                        .withEnvironmentListener(listener)
+                        .addContainerListener(listener)
                         .withCreateContainerCmdModifier(createContainerCmd -> {
                             Map<String, Bind> binds = new HashMap<>();
                             HostConfig hostConfig = createContainerCmd.getHostConfig();
@@ -618,14 +604,15 @@ public final class Environment
 
             addConfiguredFeaturesConfig();
 
+            Map<String, List<String>> configuredFeatures = this.configuredFeatures.asMap().entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableList.copyOf(entry.getValue())));
             return new Environment(
                     name,
                     startupRetries,
                     containers,
                     listener,
                     attached,
-                    new ArrayList<>(configuredConnectors),
-                    new ArrayList<>(configuredPasswordAuthenticators));
+                    configuredFeatures);
         }
 
         private static Consumer<OutputFrame> writeContainerLogs(DockerContainer container, Path path)
@@ -642,17 +629,9 @@ public final class Environment
             }
         }
 
-        private static Consumer<OutputFrame> printContainerLogs(DockerContainer container)
+        private static Consumer<OutputFrame> printContainerLogs(PrintStream output, DockerContainer container)
         {
-            try {
-                // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
-                //noinspection resource
-                PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
-                return new PrintingLogConsumer(out, format("%-20s| ", container.getLogicalName()));
-            }
-            catch (UnsupportedEncodingException e) {
-                throw new RuntimeException(e);
-            }
+            return new PrintingLogConsumer(output, format("%-20s| ", container.getLogicalName()));
         }
 
         private static Consumer<OutputFrame> discardContainerLogs(DockerContainer container)
@@ -676,8 +655,11 @@ public final class Environment
                 objectMapper.writeValue(tempFile,
                         Map.of("databases",
                                 Map.of("presto",
-                                        Map.of("configured_connectors", configuredConnectors,
-                                                "configured_password_authenticators", configuredPasswordAuthenticators))));
+                                        Map.of(
+                                                "configured_connectors",
+                                                configuredFeatures.asMap().getOrDefault(CONNECTOR, ImmutableList.of()),
+                                                "configured_password_authenticators",
+                                                configuredFeatures.asMap().getOrDefault(PASSWORD_AUTHENTICATOR, ImmutableList.of())))));
             }
             catch (IOException e) {
                 throw new RuntimeException(e);

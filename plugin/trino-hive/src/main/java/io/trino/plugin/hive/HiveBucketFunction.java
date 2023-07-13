@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.connector.BucketFunction;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;
 import java.util.stream.Collectors;

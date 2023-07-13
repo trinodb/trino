@@ -14,9 +14,9 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient.AlternativeCall;
+import org.apache.thrift.TConfiguration;
 import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransport;
-import org.apache.thrift.transport.TTransportException;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,6 +45,8 @@ public class TestThriftHiveMetastoreClient
                 },
                 "dummy",
                 new MetastoreSupportsDateStatistics(),
+                new AtomicInteger(),
+                new AtomicInteger(),
                 new AtomicInteger(),
                 new AtomicInteger(),
                 new AtomicInteger(),
@@ -80,7 +82,6 @@ public class TestThriftHiveMetastoreClient
 
         @Override
         public void open()
-                throws TTransportException
         {
             throw new UnsupportedOperationException();
         }
@@ -93,14 +94,30 @@ public class TestThriftHiveMetastoreClient
 
         @Override
         public int read(byte[] bytes, int i, int i1)
-                throws TTransportException
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
         public void write(byte[] bytes, int i, int i1)
-                throws TTransportException
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TConfiguration getConfiguration()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void updateKnownMessageSize(long size)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void checkReadBytesAvailable(long numBytes)
         {
             throw new UnsupportedOperationException();
         }

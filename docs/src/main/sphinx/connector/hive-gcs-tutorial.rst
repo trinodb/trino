@@ -1,154 +1,84 @@
-Hive connector GCS tutorial
-===========================
+Google Cloud Storage
+====================
 
-Preliminary steps
------------------
+Object storage connectors can access
+`Google Cloud Storage <https://cloud.google.com/storage/>`_ data using the 
+``gs://`` URI prefix.
 
-Ensure access to GCS
-^^^^^^^^^^^^^^^^^^^^
+Requirements
+-------------
 
-The :doc:`hive` can access
-`Google Cloud Storage <https://cloud.google.com/storage/>`_ data using the
-`Cloud Storage connector <https://cloud.google.com/dataproc/docs/concepts/connectors/cloud-storage>`_.
+To use Google Cloud Storage with non-anonymous access objects, you need:
 
-If your data is publicly available, you do not need to do anything here.
-However, in most cases data is not publicly available, and the Trino cluster needs to have access to it.
-This is typically achieved by creating a service account, which has permissions to access your data.
-You can do this on the
-`service accounts page in GCP <https://console.cloud.google.com/projectselector2/iam-admin/serviceaccounts>`_.
-Once you create a service account, create a key for it and download the key in JSON format.
+* A `Google Cloud service account <https://console.cloud.google.com/projectselector2/iam-admin/serviceaccounts>`_
+* The key for the service account in JSON format
 
-Hive connector configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. _hive-google-cloud-storage-configuration:
 
-Another requirement is that you have enabled and configured a Hive connector in Trino.
-The connector uses Hive metastore for data discovery and is not limited to data residing on HDFS.
+Configuration
+-------------
 
-**Configuring Hive Connector**
+The use of Google Cloud Storage as a storage location for an object storage
+catalog requires setting a configuration property that defines the
+`authentication method for any non-anonymous access object
+<https://cloud.google.com/storage/docs/authentication>`_. Access methods cannot
+be combined.
 
-* URL to Hive metastore:
+The default root path used by the ``gs:\\`` prefix is set in the catalog by the
+contents of the specified key file, or the key file used to create the OAuth
+token.
 
-  * New Hive metastore on GCP:
+.. list-table:: Google Cloud Storage configuration properties
+    :widths: 35, 65
+    :header-rows: 1
 
-    If your Trino nodes are provisioned by GCP, your Hive metastore should also be on GCP
-    to minimize latency and costs. The simplest way to create a new Hive metastore on GCP
-    is to create a small Cloud DataProc cluster (1 master, 0 workers), accessible from
-    your Trino cluster. Follow the steps for existing Hive metastore after finishing this step.
+    * - Property Name
+      - Description
+    * - ``hive.gcs.json-key-file-path``
+      - JSON key file used to authenticate your Google Cloud service account
+        with Google Cloud Storage.  
+    * - ``hive.gcs.use-access-token``
+      - Use client-provided OAuth token to access Google Cloud Storage.
 
-  * Existing Hive metastore:
+The following uses the Delta Lake connector in an example of a minimal
+configuration file for an object storage catalog using a JSON key file:
 
-    To use an existing Hive metastore with a Trino cluster, you need to set the
-    ``hive.metastore.uri`` property in your Hive catalog properties file to
-    ``thrift://${METASTORE_ADDRESS}:${METASTORE_THRIFT_PORT}``.
-    If the metastore uses authentication, please refer to :doc:`hive-security`.
+.. code-block:: properties
 
-* GCS access:
+  connector.name=delta_lake
+  hive.metastore.uri=thrift://example.net:9083
+  hive.gcs.json-key-file-path=${ENV:GCP_CREDENTIALS_FILE_PATH}
 
-  Here are example values for all GCS configuration properties which can be set in Hive
-  catalog properties file:
+General usage
+-------------
 
-  .. code-block:: properties
+Create a schema to use if one does not already exist, as in the following
+example:
 
-      # JSON key file used to access Google Cloud Storage
-      hive.gcs.json-key-file-path=/path/to/gcs_keyfile.json
+.. code-block:: sql
 
-      # Use client-provided OAuth token to access Google Cloud Storage
-      hive.gcs.use-access-token=false
+  CREATE SCHEMA storage_catalog.sales_data_in_gcs WITH (location = 'gs://example_location');
 
-Hive Metastore configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Once you have created a schema, you can create tables in the schema, as in the
+following example:
 
-If your Hive metastore uses StorageBasedAuthorization, it needs to access GCS
-to perform POSIX permission checks.
-Configuring GCS access for Hive is outside the scope of this tutorial, but there
-are some excellent guides online:
+.. code-block:: sql
 
-* `Google: Installing the Cloud Storage connector <https://cloud.google.com/dataproc/docs/concepts/connectors/install-storage-connector>`_
-* `HortonWorks: Working with Google Cloud Storage <https://docs.hortonworks.com/HDPDocuments/HDP3/HDP-3.1.0/bk_cloud-data-access/content/gcp-get-started.html>`_
-* `Cloudera: Configuring Google Cloud Storage Connectivity <https://www.cloudera.com/documentation/enterprise/latest/topics/admin_gcs_config.html>`_
+  CREATE TABLE storage_catalog.sales_data_in_gcs.orders (
+      orderkey bigint,
+      custkey bigint,
+      orderstatus varchar(1),
+      totalprice double,
+      orderdate date,
+      orderpriority varchar(15),
+      clerk varchar(15),
+      shippriority integer,
+      comment varchar(79)
+  );
 
-GCS access is typically configured in ``core-site.xml``, to be used by all components using Apache Hadoop.
+This statement creates the folder ``gs://sales_data_in_gcs/orders`` in the root
+folder defined in the JSON key file.
 
-GCS connector for Hadoop provides an implementation of a Hadoop FileSystem.
-Unfortunately GCS IAM permissions don't map to POSIX permissions required by Hadoop FileSystem,
-so the GCS connector presents fake POSIX file permissions.
-
-When Hive metastore accesses GCS, it see fake POSIX permissions equal to ``0700`` by default.
-If Trino and Hive metastore are running as different user accounts, this causes Hive metastore
-to deny Trino data access.
-There are two possible solutions to this problem:
-
-* Run Trino service and Hive service as the same user.
-* Make sure Hive GCS configuration includes a ``fs.gs.reported.permissions`` property
-  with a value of ``777``.
-
-Accessing GCS data from Trino for the first time
--------------------------------------------------
-
-Accessing data already mapped in the Hive metastore
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If you migrate to Trino from Hive, chances are that your GCS data is already mapped to
-SQL tables in the metastore.
-In that case, you should be able to query it.
-
-Accessing data not yet mapped in the Hive metastore
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To access GCS data that is not yet mapped in the Hive metastore you need to provide the
-schema of the data, the file format, and the data location.
-For example, if you have ORC or Parquet files in an GCS bucket ``my_bucket``, you need to execute a query::
-
-    -- select schema in which the table will be defined, must already exist
-    USE hive.default;
-
-    -- create table
-    CREATE TABLE orders (
-         orderkey bigint,
-         custkey bigint,
-         orderstatus varchar(1),
-         totalprice double,
-         orderdate date,
-         orderpriority varchar(15),
-         clerk varchar(15),
-         shippriority integer,
-         comment varchar(79)
-    ) WITH (
-         external_location = 'gs://my_bucket/path/to/folder',
-         format = 'ORC' -- or 'PARQUET'
-    );
-
-Now you should be able to query the newly mapped table::
-
-    SELECT * FROM orders;
-
-Writing GCS data with Trino
-----------------------------
-
-Prerequisites
-^^^^^^^^^^^^^
-
-Before you attempt to write data to GCS, make sure you have configured everything
-necessary to read data from GCS.
-
-Create export schema
-^^^^^^^^^^^^^^^^^^^^
-
-If Hive metastore contains schema(s) mapped to GCS locations, you can use them to
-export data to GCS.
-If you don't want to use existing schemas, or there are no appropriate schemas in
-the Hive metastore, you need to create a new one::
-
-    CREATE SCHEMA hive.gcs_export WITH (location = 'gs://my_bucket/some/path');
-
-Export data to GCS
-^^^^^^^^^^^^^^^^^^
-
-Once you have a schema pointing to a location, where you want to export the data, you can issue
-the export using a ``CREATE TABLE AS`` statement and select your desired file format. The data
-is written to one or more files within the ``gs://my_bucket/some/path/my_table`` namespace.
-Example::
-
-    CREATE TABLE hive.gcs_export.orders_export
-    WITH (format = 'ORC')
-    AS SELECT * FROM tpch.sf1.orders;
+Your table is now ready to populate with data using ``INSERT`` statements.
+Alternatively, you can use ``CREATE TABLE AS`` statements to create and
+populate the table in a single statement.

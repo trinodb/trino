@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.accumulo;
 
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.spi.TrinoException;
 import org.apache.accumulo.core.client.AccumuloException;
@@ -27,8 +28,6 @@ import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.iterators.IteratorUtil.IteratorScope;
 import org.apache.hadoop.io.Text;
 
-import javax.inject.Inject;
-
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
@@ -36,6 +35,7 @@ import java.util.Set;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -58,7 +58,10 @@ public class AccumuloTableManager
         try {
             connector.namespaceOperations().create(schema);
         }
-        catch (AccumuloException | AccumuloSecurityException | NamespaceExistsException e) {
+        catch (NamespaceExistsException e) {
+            throw new TrinoException(ALREADY_EXISTS, "Namespace already exists: " + schema, e);
+        }
+        catch (AccumuloException | AccumuloSecurityException e) {
             throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to create Accumulo namespace: " + schema, e);
         }
     }

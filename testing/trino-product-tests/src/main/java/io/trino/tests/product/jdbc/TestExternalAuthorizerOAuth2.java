@@ -13,11 +13,10 @@
  */
 package io.trino.tests.product.jdbc;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.jdbc.TestingRedirectHandlerInjector;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tests.product.TpchTableResults;
 import okhttp3.JavaNetCookieJar;
@@ -39,16 +38,14 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryResult.forResultSet;
 import static io.trino.tests.product.TestGroups.OAUTH2;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExternalAuthorizerOAuth2
         extends ProductTest
@@ -67,7 +64,7 @@ public class TestExternalAuthorizerOAuth2
 
     private OkHttpClient httpClient;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
             throws Exception
     {
@@ -120,18 +117,6 @@ public class TestExternalAuthorizerOAuth2
                     ResultSet repeatedResults = repeatedStatement.executeQuery()) {
                 assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.PRESTO_NATION_RESULT);
             }
-        }
-    }
-
-    @Test(groups = {OAUTH2, PROFILE_SPECIFIC_TESTS})
-    public void shouldReturnGroups()
-            throws SQLException
-    {
-        prepareHandler();
-        try (Connection connection = DriverManager.getConnection(jdbcUrl);
-                PreparedStatement statement = connection.prepareStatement("SELECT array_sort(current_groups())");
-                ResultSet rs = statement.executeQuery()) {
-            assertThat(forResultSet(rs)).containsOnly(row(ImmutableList.of("admin", "public")));
         }
     }
 

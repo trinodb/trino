@@ -94,9 +94,23 @@ public final class PageListBuilder
         INTEGER.writeLong(nextColumn(), value);
     }
 
+    public void appendInteger(Integer value)
+    {
+        if (checkNonNull(value)) {
+            appendInteger(value.intValue());
+        }
+    }
+
     public void appendBigint(long value)
     {
         BIGINT.writeLong(nextColumn(), value);
+    }
+
+    public void appendBigint(Long value)
+    {
+        if (checkNonNull(value)) {
+            appendBigint(value.longValue());
+        }
     }
 
     public void appendTimestampTzMillis(long millisUtc, TimeZoneKey timeZoneKey)
@@ -189,5 +203,14 @@ public final class PageListBuilder
         return new PageListBuilder(table.getColumns().stream()
                 .map(ColumnMetadata::getType)
                 .collect(toImmutableList()));
+    }
+
+    private boolean checkNonNull(Object object)
+    {
+        if (object == null) {
+            appendNull();
+            return false;
+        }
+        return true;
     }
 }

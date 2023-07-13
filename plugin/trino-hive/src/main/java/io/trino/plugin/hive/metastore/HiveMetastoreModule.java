@@ -56,7 +56,7 @@ public class HiveMetastoreModule
             bindMetastoreModule("alluxio-deprecated", deferredModule("io.trino.plugin.hive.metastore.alluxio.AlluxioMetastoreModule"));
         }
 
-        install(new DecoratedHiveMetastoreModule());
+        install(new DecoratedHiveMetastoreModule(true));
     }
 
     private void bindMetastoreModule(String name, Module module)

@@ -33,10 +33,10 @@ import java.util.Arrays;
 
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true) // e.g. test methods operate on shared, mutated tempFile
 public class TestFSDataInputStreamTail
@@ -148,7 +148,7 @@ public class TestFSDataInputStreamTail
         }
     }
 
-    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = "Incorrect file size \\(.*\\) for file \\(end of stream not reached\\): file:.*")
+    @Test
     public void testReadTailNoEndOfFileFound()
             throws Exception
     {
@@ -160,12 +160,13 @@ public class TestFSDataInputStreamTail
         assertEquals(fs.getFileLinkStatus(tempFile).getLen(), contents.length);
 
         try (FSDataInputStream is = fs.open(tempFile)) {
-            FSDataInputStreamTail.readTail(tempFile.toString(), 128, is, 16);
-            fail("Expected failure to find end of stream");
+            assertThatThrownBy(() -> FSDataInputStreamTail.readTail(tempFile.toString(), 128, is, 16))
+                    .isInstanceOf(IOException.class)
+                    .hasMessage("Incorrect file size (128) for file (end of stream not reached): " + tempFile);
         }
     }
 
-    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = "Incorrect file size \\(.*\\) for file \\(end of stream not reached\\): file:.*")
+    @Test
     public void testReadTailForFileSizeNoEndOfFileFound()
             throws Exception
     {
@@ -177,8 +178,9 @@ public class TestFSDataInputStreamTail
         assertEquals(fs.getFileLinkStatus(tempFile).getLen(), contents.length);
 
         try (FSDataInputStream is = fs.open(tempFile)) {
-            FSDataInputStreamTail.readTailForFileSize(tempFile.toString(), 128, is);
-            fail("Expected failure to find end of stream");
+            assertThatThrownBy(() -> FSDataInputStreamTail.readTailForFileSize(tempFile.toString(), 128, is))
+                    .isInstanceOf(IOException.class)
+                    .hasMessage("Incorrect file size (128) for file (end of stream not reached): " + tempFile);
         }
     }
 

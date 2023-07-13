@@ -19,13 +19,17 @@ import com.google.common.net.HostAndPort;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.CounterStat;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.hdfs.s3.HiveS3Config;
+import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.AbstractTestHiveFileSystem.TestingHiveMetastore;
 import io.trino.plugin.hive.DefaultHiveMaterializedViewMetadataFactory;
@@ -38,7 +42,6 @@ import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.HiveSplitManager;
 import io.trino.plugin.hive.HiveTransactionManager;
 import io.trino.plugin.hive.LocationService;
-import io.trino.plugin.hive.NamenodeStats;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.NoneHiveRedirectionsProvider;
 import io.trino.plugin.hive.PartitionUpdate;
@@ -46,11 +49,10 @@ import io.trino.plugin.hive.PartitionsSystemTableProvider;
 import io.trino.plugin.hive.PropertiesSystemTableProvider;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
+import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -72,6 +74,7 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.hive.HiveFileSystemTestUtils.filterTable;
 import static io.trino.plugin.hive.HiveFileSystemTestUtils.getSplitsCount;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
@@ -98,13 +101,13 @@ public class S3SelectTestHelper
     private ScheduledExecutorService heartbeatService;
 
     public S3SelectTestHelper(String host,
-                              int port,
-                              String databaseName,
-                              String awsAccessKey,
-                              String awsSecretKey,
-                              String writableBucket,
-                              String testDirectory,
-                              HiveConfig hiveConfig)
+            int port,
+            String databaseName,
+            String awsAccessKey,
+            String awsSecretKey,
+            String writableBucket,
+            String testDirectory,
+            HiveConfig hiveConfig)
     {
         checkArgument(!isNullOrEmpty(host), "Expected non empty host");
         checkArgument(!isNullOrEmpty(databaseName), "Expected non empty databaseName");
@@ -126,7 +129,7 @@ public class S3SelectTestHelper
         HivePartitionManager hivePartitionManager = new HivePartitionManager(this.hiveConfig);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
-        locationService = new HiveLocationService(hdfsEnvironment);
+        locationService = new HiveLocationService(hdfsEnvironment, hiveConfig);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
 
         metastoreClient = new TestingHiveMetastore(
@@ -143,6 +146,7 @@ public class S3SelectTestHelper
                 this.hiveConfig,
                 new HiveMetastoreConfig(),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),
@@ -159,6 +163,7 @@ public class S3SelectTestHelper
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
                 new FileSystemDirectoryLister(),
+                new TransactionScopeCachingDirectoryListerFactory(hiveConfig),
                 new PartitionProjectionService(this.hiveConfig, ImmutableMap.of(), new TestingTypeManager()),
                 true);
         transactionManager = new HiveTransactionManager(metadataFactory);
@@ -166,7 +171,8 @@ public class S3SelectTestHelper
         splitManager = new HiveSplitManager(
                 transactionManager,
                 hivePartitionManager,
-                new NamenodeStats(),
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                new HdfsNamenodeStats(),
                 hdfsEnvironment,
                 new BoundedExecutor(executorService, this.hiveConfig.getMaxSplitIteratorThreads()),
                 new CounterStat(),
@@ -191,12 +197,12 @@ public class S3SelectTestHelper
     }
 
     public S3SelectTestHelper(String host,
-                              int port,
-                              String databaseName,
-                              String awsAccessKey,
-                              String awsSecretKey,
-                              String writableBucket,
-                              String testDirectory)
+            int port,
+            String databaseName,
+            String awsAccessKey,
+            String awsSecretKey,
+            String writableBucket,
+            String testDirectory)
     {
         this(host, port, databaseName, awsAccessKey, awsSecretKey, writableBucket, testDirectory, new HiveConfig().setS3SelectPushdownEnabled(true));
     }
@@ -275,8 +281,8 @@ public class S3SelectTestHelper
     }
 
     static boolean isSplitCountInOpenInterval(int splitCount,
-                                       int lowerBound,
-                                       int upperBound)
+            int lowerBound,
+            int upperBound)
     {
         // Split number may vary, the minimum number of splits being obtained with
         // the first split of maxInitialSplitSize and the rest of maxSplitSize

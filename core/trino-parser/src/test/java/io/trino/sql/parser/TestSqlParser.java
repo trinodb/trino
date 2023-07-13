@@ -38,13 +38,13 @@ import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
-import io.trino.sql.tree.Cube;
 import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.DecimalLiteral;
@@ -56,6 +56,7 @@ import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DoubleLiteral;
+import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
@@ -65,6 +66,7 @@ import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.EmptyPattern;
 import io.trino.sql.tree.EmptyTableTreatment;
 import io.trino.sql.tree.Execute;
+import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
@@ -104,6 +106,8 @@ import io.trino.sql.tree.JsonObjectMember;
 import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonTable;
+import io.trino.sql.tree.JsonTablePlan;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -118,6 +122,7 @@ import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
+import io.trino.sql.tree.NestedColumns;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NotExpression;
@@ -126,6 +131,7 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OneOrMoreQuantifier;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.OrdinalityColumn;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.PathElement;
 import io.trino.sql.tree.PathSpecification;
@@ -133,14 +139,19 @@ import io.trino.sql.tree.PatternAlternation;
 import io.trino.sql.tree.PatternConcatenation;
 import io.trino.sql.tree.PatternSearchMode;
 import io.trino.sql.tree.PatternVariable;
+import io.trino.sql.tree.PlanLeaf;
+import io.trino.sql.tree.PlanParentChild;
+import io.trino.sql.tree.PlanSiblings;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
+import io.trino.sql.tree.PrincipalSpecification.Type;
 import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QuantifiedPattern;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
@@ -155,7 +166,6 @@ import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
-import io.trino.sql.tree.Rollup;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
@@ -203,6 +213,7 @@ import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
+import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
@@ -445,24 +456,102 @@ public class TestSqlParser
                 .isEqualTo(new DecimalLiteral(location, "1.2"));
         assertThat(expression("-1.2"))
                 .isEqualTo(new DecimalLiteral(location, "-1.2"));
+
+        assertThat(expression("123_456_789"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "123_456_789"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(123456789L));
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456_789_", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+
+        assertThat(expression("123_456.789_0123"))
+                .isEqualTo(new DecimalLiteral(new NodeLocation(1, 1), "123_456.789_0123"));
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456.789_0123_", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("_123_456.789_0123", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456_.789_0123", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456._789_0123", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+
+        assertThat(expression("0x123_abc_def"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "0x123_abc_def"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(4893429231L));
+
+        assertThat(expression("0X123_ABC_DEF"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "0X123_ABC_DEF"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(4893429231L));
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("0x123_ABC_DEF_", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+
+        assertThat(expression("0O012_345"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "0O012_345"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(5349L));
+
+        assertThat(expression("0o012_345"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "0o012_345"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(5349L));
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("0o012_345_", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+
+        assertThat(expression("0B110_010"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "0B110_010"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(50L));
+
+        assertThat(expression("0b110_010"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "0b110_010"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(50L));
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("0b110_010_", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+    }
+
+    @Test
+    public void testIdentifier()
+    {
+        assertThat(expression("_123_456"))
+                .isEqualTo(new Identifier(new NodeLocation(1, 1), "_123_456", false));
+
+        assertThat(expression("_0x123_ABC_DEF"))
+                .isEqualTo(new Identifier(new NodeLocation(1, 1), "_0x123_ABC_DEF", false));
+
+        assertThat(expression("_0o012_345"))
+                .isEqualTo(new Identifier(new NodeLocation(1, 1), "_0o012_345", false));
+
+        assertThat(expression("_0b110_010"))
+                .isEqualTo(new Identifier(new NodeLocation(1, 1), "_0b110_010", false));
     }
 
     @Test
     public void testArray()
     {
-        assertExpression("ARRAY []", new Array(ImmutableList.of()));
-        assertExpression("ARRAY [1, 2]", new Array(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))));
-        assertExpression("ARRAY [1e0, 2.5e0]", new Array(ImmutableList.of(new DoubleLiteral("1.0"), new DoubleLiteral("2.5"))));
-        assertExpression("ARRAY ['hi']", new Array(ImmutableList.of(new StringLiteral("hi"))));
-        assertExpression("ARRAY ['hi', 'hello']", new Array(ImmutableList.of(new StringLiteral("hi"), new StringLiteral("hello"))));
+        assertThat(expression("ARRAY []"))
+                .isEqualTo(new Array(location(1, 1), ImmutableList.of()));
+        assertThat(expression("ARRAY [1, 2]"))
+                .isEqualTo(new Array(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 8), "1"), new LongLiteral(location(1, 11), "2"))));
+        assertThat(expression("ARRAY [1e0, 2.5e0]"))
+                .isEqualTo(new Array(location(1, 1), ImmutableList.of(new DoubleLiteral(location(1, 8), "1.0"), new DoubleLiteral(location(1, 13), "2.5"))));
+        assertThat(expression("ARRAY ['hi']"))
+                .isEqualTo(new Array(location(1, 1), ImmutableList.of(new StringLiteral(location(1, 8), "hi"))));
+        assertThat(expression("ARRAY ['hi', 'hello']"))
+                .isEqualTo(new Array(location(1, 1), ImmutableList.of(new StringLiteral(location(1, 8), "hi"), new StringLiteral(location(1, 14), "hello"))));
     }
 
     @Test
     public void testArraySubscript()
     {
-        assertExpression("ARRAY [1, 2][1]", new SubscriptExpression(
-                new Array(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))),
-                new LongLiteral("1")));
+        assertThat(expression("ARRAY [1, 2][1]"))
+                .isEqualTo(new SubscriptExpression(
+                        location(1, 1),
+                        new Array(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 8), "1"), new LongLiteral(location(1, 11), "2"))),
+                        new LongLiteral(location(1, 14), "1")));
 
         assertExpression("CASE WHEN TRUE THEN ARRAY[1,2] END[1]", new SubscriptExpression(
                 new SearchedCaseExpression(
@@ -477,9 +566,16 @@ public class TestSqlParser
     @Test
     public void testRowSubscript()
     {
-        assertExpression("ROW (1, 'a', true)[1]", new SubscriptExpression(
-                new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true"))),
-                new LongLiteral("1")));
+        assertThat(expression("ROW (1, 'a', true)[1]"))
+                .isEqualTo(new SubscriptExpression(
+                        location(1, 1),
+                        new Row(
+                                location(1, 1),
+                                ImmutableList.of(
+                                        new LongLiteral(location(1, 6), "1"),
+                                        new StringLiteral(location(1, 9), "a"),
+                                        new BooleanLiteral(location(1, 14), "true"))),
+                        new LongLiteral(location(1, 20), "1")));
     }
 
     @Test
@@ -557,39 +653,61 @@ public class TestSqlParser
     @Test
     public void testArithmeticUnary()
     {
-        assertExpression("9", new LongLiteral("9"));
+        assertThat(expression("9"))
+                .isEqualTo(new LongLiteral(location(1, 1), "9"));
+        assertThat(expression("+9"))
+                .isEqualTo(positive(location(1, 1), new LongLiteral(location(1, 2), "9")));
+        assertThat(expression("+ 9"))
+                .isEqualTo(positive(location(1, 1), new LongLiteral(location(1, 3), "9")));
 
-        assertExpression("+9", positive(new LongLiteral("9")));
-        assertExpression("+ 9", positive(new LongLiteral("9")));
+        assertThat(expression("++9"))
+                .isEqualTo(positive(location(1, 1), positive(location(1, 2), new LongLiteral(location(1, 3), "9"))));
+        assertThat(expression("+ +9"))
+                .isEqualTo(positive(location(1, 1), positive(location(1, 3), new LongLiteral(location(1, 4), "9"))));
+        assertThat(expression("+ + 9"))
+                .isEqualTo(positive(location(1, 1), positive(location(1, 3), new LongLiteral(location(1, 5), "9"))));
 
-        assertExpression("++9", positive(positive(new LongLiteral("9"))));
-        assertExpression("+ +9", positive(positive(new LongLiteral("9"))));
-        assertExpression("+ + 9", positive(positive(new LongLiteral("9"))));
+        assertThat(expression("+++9"))
+                .isEqualTo(positive(location(1, 1), positive(location(1, 2), positive(location(1, 3), new LongLiteral(location(1, 4), "9")))));
+        assertThat(expression("+ + +9"))
+                .isEqualTo(positive(location(1, 1), positive(location(1, 3), positive(location(1, 5), new LongLiteral(location(1, 6), "9")))));
+        assertThat(expression("+ + + 9"))
+                .isEqualTo(positive(location(1, 1), positive(location(1, 3), positive(location(1, 5), new LongLiteral(location(1, 7), "9")))));
 
-        assertExpression("+++9", positive(positive(positive(new LongLiteral("9")))));
-        assertExpression("+ + +9", positive(positive(positive(new LongLiteral("9")))));
-        assertExpression("+ + + 9", positive(positive(positive(new LongLiteral("9")))));
+        assertThat(expression("-9"))
+                .isEqualTo(new LongLiteral(location(1, 1), "-9"));
+        assertThat(expression("- 9"))
+                .isEqualTo(new LongLiteral(location(1, 1), "-9"));
 
-        assertExpression("-9", new LongLiteral("-9"));
-        assertExpression("- 9", new LongLiteral("-9"));
+        assertThat(expression("- + 9"))
+                .isEqualTo(negative(location(1, 1), positive(location(1, 3), new LongLiteral(location(1, 5), "9"))));
+        assertThat(expression("-+9"))
+                .isEqualTo(negative(location(1, 1), positive(location(1, 2), new LongLiteral(location(1, 3), "9"))));
 
-        assertExpression("- + 9", negative(positive(new LongLiteral("9"))));
-        assertExpression("-+9", negative(positive(new LongLiteral("9"))));
+        assertThat(expression("+ - + 9"))
+                .isEqualTo(positive(location(1, 1), negative(location(1, 3), positive(location(1, 5), new LongLiteral(location(1, 7), "9")))));
+        assertThat(expression("+-+9"))
+                .isEqualTo(positive(location(1, 1), negative(location(1, 2), positive(location(1, 3), new LongLiteral(location(1, 4), "9")))));
 
-        assertExpression("+ - + 9", positive(negative(positive(new LongLiteral("9")))));
-        assertExpression("+-+9", positive(negative(positive(new LongLiteral("9")))));
+        assertThat(expression("- -9"))
+                .isEqualTo(negative(location(1, 1), new LongLiteral(location(1, 3), "-9")));
+        assertThat(expression("- - 9"))
+                .isEqualTo(negative(location(1, 1), new LongLiteral(location(1, 3), "-9")));
 
-        assertExpression("- -9", negative(new LongLiteral("-9")));
-        assertExpression("- - 9", negative(new LongLiteral("-9")));
+        assertThat(expression("- + - + 9"))
+                .isEqualTo(negative(location(1, 1), positive(location(1, 3), negative(location(1, 5), positive(location(1, 7), new LongLiteral(location(1, 9), "9"))))));
+        assertThat(expression("-+-+9"))
+                .isEqualTo(negative(location(1, 1), positive(location(1, 2), negative(location(1, 3), positive(location(1, 4), new LongLiteral(location(1, 5), "9"))))));
 
-        assertExpression("- + - + 9", negative(positive(negative(positive(new LongLiteral("9"))))));
-        assertExpression("-+-+9", negative(positive(negative(positive(new LongLiteral("9"))))));
+        assertThat(expression("+ - + - + 9"))
+                .isEqualTo(positive(location(1, 1), negative(location(1, 3), positive(location(1, 5), negative(location(1, 7), positive(location(1, 9), new LongLiteral(location(1, 11), "9")))))));
+        assertThat(expression("+-+-+9"))
+                .isEqualTo(positive(location(1, 1), negative(location(1, 2), positive(location(1, 3), negative(location(1, 4), positive(location(1, 5), new LongLiteral(location(1, 6), "9")))))));
 
-        assertExpression("+ - + - + 9", positive(negative(positive(negative(positive(new LongLiteral("9")))))));
-        assertExpression("+-+-+9", positive(negative(positive(negative(positive(new LongLiteral("9")))))));
-
-        assertExpression("- - -9", negative(negative(new LongLiteral("-9"))));
-        assertExpression("- - - 9", negative(negative(new LongLiteral("-9"))));
+        assertThat(expression("- - -9"))
+                .isEqualTo(negative(location(1, 1), negative(location(1, 3), new LongLiteral(location(1, 5), "-9"))));
+        assertThat(expression("- - - 9"))
+                .isEqualTo(negative(location(1, 1), negative(location(1, 3), new LongLiteral(location(1, 5), "-9"))));
     }
 
     @Test
@@ -599,21 +717,62 @@ public class TestSqlParser
         assertInvalidExpression("coalesce(5)", "The 'coalesce' function must have at least two arguments");
         assertInvalidExpression("coalesce(1, 2) filter (where true)", "FILTER not valid for 'coalesce' function");
         assertInvalidExpression("coalesce(1, 2) OVER ()", "OVER clause not valid for 'coalesce' function");
-        assertExpression("coalesce(13, 42)", new CoalesceExpression(new LongLiteral("13"), new LongLiteral("42")));
-        assertExpression("coalesce(6, 7, 8)", new CoalesceExpression(new LongLiteral("6"), new LongLiteral("7"), new LongLiteral("8")));
-        assertExpression("coalesce(13, null)", new CoalesceExpression(new LongLiteral("13"), new NullLiteral()));
-        assertExpression("coalesce(null, 13)", new CoalesceExpression(new NullLiteral(), new LongLiteral("13")));
-        assertExpression("coalesce(null, null)", new CoalesceExpression(new NullLiteral(), new NullLiteral()));
+        assertThat(expression("coalesce(13, 42)"))
+                .isEqualTo(new CoalesceExpression(location(1, 1), ImmutableList.of(
+                        new LongLiteral(location(1, 10), "13"),
+                        new LongLiteral(location(1, 14), "42"))));
+        assertThat(expression("coalesce(6, 7, 8)"))
+                .isEqualTo(new CoalesceExpression(location(1, 1), ImmutableList.of(
+                        new LongLiteral(location(1, 10), "6"),
+                        new LongLiteral(location(1, 13), "7"),
+                        new LongLiteral(location(1, 16), "8"))));
+        assertThat(expression("coalesce(13, null)"))
+                .isEqualTo(new CoalesceExpression(location(1, 1), ImmutableList.of(
+                        new LongLiteral(location(1, 10), "13"),
+                        new NullLiteral(location(1, 14)))));
+        assertThat(expression("coalesce(null, 13)"))
+                .isEqualTo(new CoalesceExpression(location(1, 1), ImmutableList.of(
+                        new NullLiteral(location(1, 10)),
+                        new LongLiteral(location(1, 16), "13"))));
+        assertThat(expression("coalesce(null, null)"))
+                .isEqualTo(new CoalesceExpression(location(1, 1), ImmutableList.of(
+                        new NullLiteral(location(1, 10)),
+                        new NullLiteral(location(1, 16)))));
     }
 
     @Test
     public void testIf()
     {
-        assertExpression("if(true, 1, 0)", new IfExpression(new BooleanLiteral("true"), new LongLiteral("1"), new LongLiteral("0")));
-        assertExpression("if(true, 3, null)", new IfExpression(new BooleanLiteral("true"), new LongLiteral("3"), new NullLiteral()));
-        assertExpression("if(false, null, 4)", new IfExpression(new BooleanLiteral("false"), new NullLiteral(), new LongLiteral("4")));
-        assertExpression("if(false, null, null)", new IfExpression(new BooleanLiteral("false"), new NullLiteral(), new NullLiteral()));
-        assertExpression("if(true, 3)", new IfExpression(new BooleanLiteral("true"), new LongLiteral("3"), null));
+        assertThat(expression("if(true, 1, 0)"))
+                .isEqualTo(new IfExpression(
+                        location(1, 1),
+                        new BooleanLiteral(location(1, 4), "true"),
+                        new LongLiteral(location(1, 10), "1"),
+                        new LongLiteral(location(1, 13), "0")));
+        assertThat(expression("if(true, 3, null)"))
+                .isEqualTo(new IfExpression(
+                        location(1, 1),
+                        new BooleanLiteral(location(1, 4), "true"),
+                        new LongLiteral(location(1, 10), "3"),
+                        new NullLiteral(location(1, 13))));
+        assertThat(expression("if(false, null, 4)"))
+                .isEqualTo(new IfExpression(
+                        location(1, 1),
+                        new BooleanLiteral(location(1, 4), "false"),
+                        new NullLiteral(location(1, 11)),
+                        new LongLiteral(location(1, 17), "4")));
+        assertThat(expression("if(false, null, null)"))
+                .isEqualTo(new IfExpression(
+                        location(1, 1),
+                        new BooleanLiteral(location(1, 4), "false"),
+                        new NullLiteral(location(1, 11)),
+                        new NullLiteral(location(1, 17))));
+        assertThat(expression("if(true, 3)"))
+                .isEqualTo(new IfExpression(
+                        location(1, 1),
+                        new BooleanLiteral(location(1, 4), "true"),
+                        new LongLiteral(location(1, 10), "3"),
+                        null));
         assertInvalidExpression("IF(true)", "Invalid number of arguments for 'if' function");
         assertInvalidExpression("IF(true, 1, 0) FILTER (WHERE true)", "FILTER not valid for 'if' function");
         assertInvalidExpression("IF(true, 1, 0) OVER()", "OVER clause not valid for 'if' function");
@@ -622,9 +781,21 @@ public class TestSqlParser
     @Test
     public void testNullIf()
     {
-        assertExpression("nullif(42, 87)", new NullIfExpression(new LongLiteral("42"), new LongLiteral("87")));
-        assertExpression("nullif(42, null)", new NullIfExpression(new LongLiteral("42"), new NullLiteral()));
-        assertExpression("nullif(null, null)", new NullIfExpression(new NullLiteral(), new NullLiteral()));
+        assertThat(expression("nullif(42, 87)"))
+                .isEqualTo(new NullIfExpression(
+                        location(1, 1),
+                        new LongLiteral(location(1, 8), "42"),
+                        new LongLiteral(location(1, 12), "87")));
+        assertThat(expression("nullif(42, null)"))
+                .isEqualTo(new NullIfExpression(
+                        location(1, 1),
+                        new LongLiteral(location(1, 8), "42"),
+                        new NullLiteral(location(1, 12))));
+        assertThat(expression("nullif(null, null)"))
+                .isEqualTo(new NullIfExpression(
+                        location(1, 1),
+                        new NullLiteral(location(1, 8)),
+                        new NullLiteral(location(1, 14))));
         assertInvalidExpression("nullif(1)", "Invalid number of arguments for 'nullif' function");
         assertInvalidExpression("nullif(1, 2, 3)", "Invalid number of arguments for 'nullif' function");
         assertInvalidExpression("nullif(42, 87) filter (where true)", "FILTER not valid for 'nullif' function");
@@ -702,8 +873,21 @@ public class TestSqlParser
     @Test
     public void testBetween()
     {
-        assertExpression("1 BETWEEN 2 AND 3", new BetweenPredicate(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3")));
-        assertExpression("1 NOT BETWEEN 2 AND 3", new NotExpression(new BetweenPredicate(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3"))));
+        assertThat(expression("1 BETWEEN 2 AND 3"))
+                .isEqualTo(new BetweenPredicate(
+                        location(1, 3),
+                        new LongLiteral(location(1, 1), "1"),
+                        new LongLiteral(location(1, 11), "2"),
+                        new LongLiteral(location(1, 17), "3")));
+
+        assertThat(expression("1 NOT BETWEEN 2 AND 3"))
+                .isEqualTo(new NotExpression(
+                        location(1, 3),
+                        new BetweenPredicate(
+                                location(1, 3),
+                                new LongLiteral(location(1, 1), "1"),
+                                new LongLiteral(location(1, 15), "2"),
+                                new LongLiteral(location(1, 21), "3"))));
     }
 
     @Test
@@ -918,47 +1102,83 @@ public class TestSqlParser
                                                 new LongLiteral(location(1, 41), "8"),
                                                 new LongLiteral(location(1, 47), "9"))))));
 
-        assertExpression("1 AND 2 OR 3", LogicalExpression.or(
-                LogicalExpression.and(
-                        new LongLiteral("1"),
-                        new LongLiteral("2")),
-                new LongLiteral("3")));
+        assertThat(expression("1 AND 2 OR 3"))
+                .isEqualTo(new LogicalExpression(
+                        location(1, 1),
+                        LogicalExpression.Operator.OR,
+                        ImmutableList.of(
+                                new LogicalExpression(
+                                        location(1, 1),
+                                        LogicalExpression.Operator.AND,
+                                        ImmutableList.of(new LongLiteral(location(1, 1), "1"), new LongLiteral(location(1, 7), "2"))),
+                                new LongLiteral(location(1, 12), "3"))));
 
-        assertExpression("1 OR 2 AND 3", LogicalExpression.or(
-                new LongLiteral("1"),
-                LogicalExpression.and(
-                        new LongLiteral("2"),
-                        new LongLiteral("3"))));
+        assertThat(expression("1 OR 2 AND 3"))
+                .isEqualTo(new LogicalExpression(
+                        location(1, 1),
+                        LogicalExpression.Operator.OR,
+                        ImmutableList.of(
+                                new LongLiteral(location(1, 1), "1"),
+                                new LogicalExpression(
+                                        location(1, 6),
+                                        LogicalExpression.Operator.AND,
+                                        ImmutableList.of(new LongLiteral(location(1, 6), "2"), new LongLiteral(location(1, 12), "3"))))));
 
-        assertExpression("NOT 1 AND 2", LogicalExpression.and(
-                new NotExpression(new LongLiteral("1")),
-                new LongLiteral("2")));
+        assertThat(expression("NOT 1 AND 2"))
+                .isEqualTo(new LogicalExpression(
+                        location(1, 1),
+                        LogicalExpression.Operator.AND,
+                        ImmutableList.of(
+                                new NotExpression(location(1, 1), new LongLiteral(location(1, 5), "1")),
+                                new LongLiteral(location(1, 11), "2"))));
 
-        assertExpression("NOT 1 OR 2", LogicalExpression.or(
-                new NotExpression(new LongLiteral("1")),
-                new LongLiteral("2")));
+        assertThat(expression("NOT 1 OR 2"))
+                .isEqualTo(new LogicalExpression(
+                        location(1, 1),
+                        LogicalExpression.Operator.OR,
+                        ImmutableList.of(
+                                new NotExpression(location(1, 1), new LongLiteral(location(1, 5), "1")),
+                                new LongLiteral(location(1, 10), "2"))));
 
-        assertExpression("-1 + 2", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
-                new LongLiteral("-1"),
-                new LongLiteral("2")));
+        assertThat(expression("-1 + 2"))
+                .isEqualTo(new ArithmeticBinaryExpression(
+                        location(1, 4),
+                        ArithmeticBinaryExpression.Operator.ADD,
+                        new LongLiteral(location(1, 1), "-1"),
+                        new LongLiteral(location(1, 6), "2")));
 
-        assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
-                        new LongLiteral("1"),
-                        new LongLiteral("2")),
-                new LongLiteral("3")));
+        assertThat(expression("1 - 2 - 3"))
+                .isEqualTo(new ArithmeticBinaryExpression(
+                        location(1, 7),
+                        ArithmeticBinaryExpression.Operator.SUBTRACT,
+                        new ArithmeticBinaryExpression(
+                                location(1, 3),
+                                ArithmeticBinaryExpression.Operator.SUBTRACT,
+                                new LongLiteral(location(1, 1), "1"),
+                                new LongLiteral(location(1, 5), "2")),
+                        new LongLiteral(location(1, 9), "3")));
 
-        assertExpression("1 / 2 / 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.DIVIDE,
-                        new LongLiteral("1"),
-                        new LongLiteral("2")),
-                new LongLiteral("3")));
+        assertThat(expression("1 / 2 / 3"))
+                .isEqualTo(new ArithmeticBinaryExpression(
+                        location(1, 7),
+                        ArithmeticBinaryExpression.Operator.DIVIDE,
+                        new ArithmeticBinaryExpression(
+                                location(1, 3),
+                                ArithmeticBinaryExpression.Operator.DIVIDE,
+                                new LongLiteral(location(1, 1), "1"),
+                                new LongLiteral(location(1, 5), "2")),
+                        new LongLiteral(location(1, 9), "3")));
 
-        assertExpression("1 + 2 * 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
-                new LongLiteral("1"),
-                new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.MULTIPLY,
-                        new LongLiteral("2"),
-                        new LongLiteral("3"))));
+        assertThat(expression("1 + 2 * 3"))
+                .isEqualTo(new ArithmeticBinaryExpression(
+                        location(1, 3),
+                        ArithmeticBinaryExpression.Operator.ADD,
+                        new LongLiteral(location(1, 1), "1"),
+                        new ArithmeticBinaryExpression(
+                                location(1, 7),
+                                ArithmeticBinaryExpression.Operator.MULTIPLY,
+                                new LongLiteral(location(1, 5), "2"),
+                                new LongLiteral(location(1, 9), "3"))));
     }
 
     @Test
@@ -1071,9 +1291,20 @@ public class TestSqlParser
     @Test
     public void testFormat()
     {
-        assertExpression("format('%s', 'abc')", new Format(ImmutableList.of(new StringLiteral("%s"), new StringLiteral("abc"))));
-        assertExpression("format('%d %s', 123, 'x')", new Format(ImmutableList.of(new StringLiteral("%d %s"), new LongLiteral("123"), new StringLiteral("x"))));
+        assertThat(expression("format('%s', 'abc')"))
+                .isEqualTo(new Format(
+                        location(1, 1),
+                        ImmutableList.of(
+                                new StringLiteral(location(1, 8), "%s"),
+                                new StringLiteral(location(1, 14), "abc"))));
 
+        assertThat(expression("format('%d %s', 123, 'x')"))
+                .isEqualTo(new Format(
+                        location(1, 1),
+                        ImmutableList.of(
+                                new StringLiteral(location(1, 8), "%d %s"),
+                                new LongLiteral(location(1, 17), "123"),
+                                new StringLiteral(location(1, 22), "x"))));
         assertInvalidExpression("format()", "The 'format' function must have at least two arguments");
         assertInvalidExpression("format('%s')", "The 'format' function must have at least two arguments");
     }
@@ -1081,30 +1312,41 @@ public class TestSqlParser
     @Test
     public void testCase()
     {
-        assertExpression(
-                "CASE 1 IS NULL WHEN true THEN 2 ELSE 3 END",
-                new SimpleCaseExpression(
-                        new IsNullPredicate(new LongLiteral("1")),
+        assertThat(expression("CASE 1 IS NULL WHEN true THEN 2 ELSE 3 END"))
+                .isEqualTo(new SimpleCaseExpression(
+                        location(1, 1),
+                        new IsNullPredicate(location(1, 8), new LongLiteral(location(1, 6), "1")),
                         ImmutableList.of(
                                 new WhenClause(
-                                        new BooleanLiteral("true"),
-                                        new LongLiteral("2"))),
-                        Optional.of(new LongLiteral("3"))));
+                                        location(1, 16),
+                                        new BooleanLiteral(location(1, 21), "true"),
+                                        new LongLiteral(location(1, 31), "2"))),
+                        Optional.of(new LongLiteral(location(1, 38), "3"))));
     }
 
     @Test
     public void testSearchedCase()
     {
-        assertExpression(
-                "CASE WHEN a > 3 THEN 23 WHEN b = a THEN 33 END",
-                new SearchedCaseExpression(
+        assertThat(expression("CASE WHEN a > 3 THEN 23 WHEN b = a THEN 33 END"))
+                .isEqualTo(new SearchedCaseExpression(
+                        location(1, 1),
                         ImmutableList.of(
                                 new WhenClause(
-                                        new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN, new Identifier("a"), new LongLiteral("3")),
-                                        new LongLiteral("23")),
+                                        location(1, 6),
+                                        new ComparisonExpression(
+                                                location(1, 13),
+                                                ComparisonExpression.Operator.GREATER_THAN,
+                                                new Identifier(location(1, 11), "a", false),
+                                                new LongLiteral(location(1, 15), "3")),
+                                        new LongLiteral(location(1, 22), "23")),
                                 new WhenClause(
-                                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("b"), new Identifier("a")),
-                                        new LongLiteral("33"))),
+                                        location(1, 25),
+                                        new ComparisonExpression(
+                                                location(1, 32),
+                                                ComparisonExpression.Operator.EQUAL,
+                                                new Identifier(location(1, 30), "b", false),
+                                                new Identifier(location(1, 34), "a", false)),
+                                        new LongLiteral(location(1, 41), "33"))),
                         Optional.empty()));
     }
 
@@ -1438,6 +1680,7 @@ public class TestSqlParser
                         new Table(QualifiedName.of("table1")),
                         Optional.empty(),
                         Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(
+                                GroupingSets.Type.EXPLICIT,
                                 ImmutableList.of(
                                         ImmutableList.of(new Identifier("a"))))))),
                         Optional.empty(),
@@ -1456,6 +1699,7 @@ public class TestSqlParser
                         new Table(QualifiedName.of("table1")),
                         Optional.empty(),
                         Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(
+                                GroupingSets.Type.EXPLICIT,
                                 ImmutableList.of(
                                         ImmutableList.of(new Identifier("a")),
                                         ImmutableList.of(new Identifier("b"))))))),
@@ -1471,12 +1715,13 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.of(new GroupBy(false, ImmutableList.of(
                                 new GroupingSets(
+                                        GroupingSets.Type.EXPLICIT,
                                         ImmutableList.of(
                                                 ImmutableList.of(new Identifier("a"), new Identifier("b")),
                                                 ImmutableList.of(new Identifier("a")),
                                                 ImmutableList.of())),
-                                new Cube(ImmutableList.of(new Identifier("c"))),
-                                new Rollup(ImmutableList.of(new Identifier("d")))))),
+                                new GroupingSets(GroupingSets.Type.CUBE, ImmutableList.of(ImmutableList.of(new Identifier("c")))),
+                                new GroupingSets(GroupingSets.Type.ROLLUP, ImmutableList.of(ImmutableList.of(new Identifier("d"))))))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
@@ -1489,16 +1734,66 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.of(new GroupBy(true, ImmutableList.of(
                                 new GroupingSets(
+                                        GroupingSets.Type.EXPLICIT,
                                         ImmutableList.of(
                                                 ImmutableList.of(new Identifier("a"), new Identifier("b")),
                                                 ImmutableList.of(new Identifier("a")),
                                                 ImmutableList.of())),
-                                new Cube(ImmutableList.of(new Identifier("c"))),
-                                new Rollup(ImmutableList.of(new Identifier("d")))))),
+                                new GroupingSets(GroupingSets.Type.CUBE, ImmutableList.of(ImmutableList.of(new Identifier("c")))),
+                                new GroupingSets(GroupingSets.Type.ROLLUP, ImmutableList.of(ImmutableList.of(new Identifier("d"))))))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testCreateCatalog()
+    {
+        assertStatement("CREATE CATALOG test USING conn",
+                new CreateCatalog(new Identifier("test"), false, new Identifier("conn"), ImmutableList.of(), Optional.empty(), Optional.empty()));
+
+        assertStatement("CREATE CATALOG IF NOT EXISTS test USING conn",
+                new CreateCatalog(new Identifier("test"), true, new Identifier("conn"), ImmutableList.of(), Optional.empty(), Optional.empty()));
+
+        assertStatement("CREATE CATALOG test USING conn COMMENT 'awesome' AUTHORIZATION ROLE dragon WITH (\"a\" = 'apple', \"b\" = 123)",
+                new CreateCatalog(
+                        new Identifier("test"),
+                        false,
+                        new Identifier("conn"),
+                        ImmutableList.of(
+                                new Property(new Identifier("a"), new StringLiteral("apple")),
+                                new Property(new Identifier("b"), new LongLiteral("123"))),
+                        Optional.of(new PrincipalSpecification(Type.ROLE, new Identifier("dragon"))),
+                        Optional.of("awesome")));
+
+        assertStatement("CREATE CATALOG \"some name that contains space\" USING \"conn-with-dash\"",
+                new CreateCatalog(
+                        new Identifier("some name that contains space"),
+                        false,
+                        new Identifier("conn-with-dash"),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testDropCatalog()
+    {
+        assertStatement("DROP CATALOG test",
+                new DropCatalog(new Identifier("test"), false, false));
+
+        assertStatement("DROP CATALOG test CASCADE",
+                new DropCatalog(new Identifier("test"), false, true));
+
+        assertStatement("DROP CATALOG IF EXISTS test",
+                new DropCatalog(new Identifier("test"), true, false));
+
+        assertStatement("DROP CATALOG IF EXISTS test RESTRICT",
+                new DropCatalog(new Identifier("test"), true, false));
+
+        assertStatement("DROP CATALOG \"some catalog that contains space\"",
+                new DropCatalog(new Identifier("some catalog that contains space"), false, false));
     }
 
     @Test
@@ -2024,10 +2319,49 @@ public class TestSqlParser
     @Test
     public void testRenameColumn()
     {
-        assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), false, false));
-        assertStatement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), true, false));
-        assertStatement("ALTER TABLE foo.t RENAME COLUMN IF EXISTS a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), false, true));
-        assertStatement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN IF EXISTS a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), true, true));
+        assertThat(statement("ALTER TABLE foo.t RENAME COLUMN a TO b"))
+                .isEqualTo(new RenameColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 13), "foo", false),
+                                new Identifier(location(1, 17), "t", false))),
+                        new Identifier(location(1, 33), "a", false),
+                        new Identifier(location(1, 38), "b", false),
+                        false,
+                        false));
+
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN a TO b"))
+                .isEqualTo(new RenameColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 23), "foo", false),
+                                new Identifier(location(1, 27), "t", false))),
+                        new Identifier(location(1, 43), "a", false),
+                        new Identifier(location(1, 48), "b", false),
+                        true,
+                        false));
+
+        assertThat(statement("ALTER TABLE foo.t RENAME COLUMN IF EXISTS a TO b"))
+                .isEqualTo(new RenameColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 13), "foo", false),
+                                new Identifier(location(1, 17), "t", false))),
+                        new Identifier(location(1, 43), "a", false),
+                        new Identifier(location(1, 48), "b", false),
+                        false,
+                        true));
+
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN IF EXISTS a TO b"))
+                .isEqualTo(new RenameColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 23), "foo", false),
+                                new Identifier(location(1, 27), "t", false))),
+                        new Identifier(location(1, 53), "a", false),
+                        new Identifier(location(1, 58), "b", false),
+                        true,
+                        true));
     }
 
     @Test
@@ -2142,11 +2476,16 @@ public class TestSqlParser
     @Test
     public void testDropColumn()
     {
-        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, false));
-        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), quotedIdentifier("c d"), false, false));
-        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, false));
-        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, true));
-        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, true));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), false, false));
+        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), QualifiedName.of("c d"), false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), true, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), true, true));
+
+        assertStatement("ALTER TABLE foo.t DROP COLUMN \"c.d\"", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c.d"), false, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN c.d", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c", "d"), false, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN b.\"c.d\"", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("b", "c.d"), false, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN \"b.c\".d", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("b.c", "d"), false, false));
     }
 
     @Test
@@ -2698,20 +3037,31 @@ public class TestSqlParser
     @Test
     public void testLambda()
     {
-        assertExpression("() -> x",
-                new LambdaExpression(
+        assertThat(expression("() -> x"))
+                .isEqualTo(new LambdaExpression(
+                        location(1, 1),
                         ImmutableList.of(),
-                        new Identifier("x")));
-        assertExpression("x -> sin(x)",
-                new LambdaExpression(
-                        ImmutableList.of(new LambdaArgumentDeclaration(identifier("x"))),
-                        new FunctionCall(QualifiedName.of("sin"), ImmutableList.of(new Identifier("x")))));
-        assertExpression("(x, y) -> mod(x, y)",
-                new LambdaExpression(
-                        ImmutableList.of(new LambdaArgumentDeclaration(identifier("x")), new LambdaArgumentDeclaration(identifier("y"))),
+                        new Identifier(location(1, 7), "x", false)));
+        assertThat(expression("x -> sin(x)"))
+                .isEqualTo(new LambdaExpression(
+                        location(1, 1),
+                        ImmutableList.of(new LambdaArgumentDeclaration(new Identifier(location(1, 1), "x", false))),
                         new FunctionCall(
-                                QualifiedName.of("mod"),
-                                ImmutableList.of(new Identifier("x"), new Identifier("y")))));
+                                location(1, 6),
+                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 6), "sin", false))),
+                                ImmutableList.of(new Identifier(location(1, 10), "x", false)))));
+        assertThat(expression("(x, y) -> mod(x, y)"))
+                .isEqualTo(new LambdaExpression(
+                        location(1, 1),
+                        ImmutableList.of(
+                                new LambdaArgumentDeclaration(new Identifier(location(1, 2), "x", false)),
+                                new LambdaArgumentDeclaration(new Identifier(location(1, 5), "y", false))),
+                        new FunctionCall(
+                                location(1, 11),
+                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 11), "mod", false))),
+                                ImmutableList.of(
+                                        new Identifier(location(1, 15), "x", false),
+                                        new Identifier(location(1, 18), "y", false)))));
     }
 
     @Test
@@ -2890,6 +3240,28 @@ public class TestSqlParser
     {
         assertStatement("EXECUTE myquery USING 1, 'abc', ARRAY ['hello']",
                 new Execute(identifier("myquery"), ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new Array(ImmutableList.of(new StringLiteral("hello"))))));
+    }
+
+    @Test
+    public void testExecuteImmediate()
+    {
+        assertStatement(
+                "EXECUTE IMMEDIATE 'SELECT * FROM foo'",
+                new ExecuteImmediate(
+                        new NodeLocation(1, 1),
+                        new StringLiteral(new NodeLocation(1, 19), "SELECT * FROM foo"),
+                        emptyList()));
+    }
+
+    @Test
+    public void testExecuteImmediateWithUsing()
+    {
+        assertStatement(
+                "EXECUTE IMMEDIATE 'SELECT ?, ? FROM foo' USING 1, 'abc', ARRAY ['hello']",
+                new ExecuteImmediate(
+                        new NodeLocation(1, 1),
+                        new StringLiteral(new NodeLocation(1, 19), "SELECT ?, ? FROM foo"),
+                        ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new Array(ImmutableList.of(new StringLiteral("hello"))))));
     }
 
     @Test
@@ -4350,6 +4722,71 @@ public class TestSqlParser
                         ImmutableList.of())));
     }
 
+    @Test
+    public void testCopartitionInTableArgumentAlias()
+    {
+        // table argument 'input' is aliased. The alias "copartition" is illegal in this context.
+        assertThatThrownBy(() -> SQL_PARSER.createStatement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input => TABLE(orders) copartition(a, b, c)))",
+                new ParsingOptions()))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 1:54: The word \"COPARTITION\" is ambiguous in this context. " +
+                        "To alias an argument, precede the alias with \"AS\". " +
+                        "To specify co-partitioning, change the argument order so that the last argument cannot be aliased.");
+
+        // table argument 'input' contains an aliased relation with the alias "copartition". The alias is enclosed in the 'TABLE(...)' clause, and the argument itself is not aliased.
+        // The alias "copartition" is legal in this context.
+        assertThat(statement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "                   input => TABLE(SELECT * FROM orders copartition(a, b, c))))"))
+                .isInstanceOf(Query.class);
+
+        // table argument 'input' is aliased. The alias "COPARTITION" is delimited, so it can cause no ambiguity with the COPARTITION clause, and is considered legal in this context.
+        assertThat(statement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input => TABLE(orders) \"COPARTITION\"(a, b, c)))"))
+                .isInstanceOf(Query.class);
+
+        // table argument 'input' is aliased. The alias "copartition" is preceded with the keyword "AS", so it can cause no ambiguity with the COPARTITION clause, and is considered legal in this context.
+        assertThat(statement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input => TABLE(orders) AS copartition(a, b, c)))"))
+                .isInstanceOf(Query.class);
+
+        // the COPARTITION word can be either the alias for argument 'input3', or part of the COPARTITION clause.
+        // It is parsed as the argument alias, and then fails as illegal in this context.
+        assertThatThrownBy(() -> SQL_PARSER.createStatement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input1 => TABLE(customers) PARTITION BY nationkey, " +
+                        "input2 => TABLE(nation) PARTITION BY nationkey, " +
+                        "input3 => TABLE(lineitem) " +
+                        "COPARTITION(customers, nation))) ",
+                new ParsingOptions()))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 1:156: The word \"COPARTITION\" is ambiguous in this context. " +
+                        "To alias an argument, precede the alias with \"AS\". " +
+                        "To specify co-partitioning, change the argument order so that the last argument cannot be aliased.");
+
+        // the above query does not fail if we change the order of arguments so that the last argument before the COPARTITION clause has specified partitioning.
+        // In such case, the COPARTITION word cannot be mistaken for alias.
+        // Note that this transformation of the query is always available. If the table function invocation contains the COPARTITION clause,
+        // at least two table arguments must have partitioning specified.
+        assertThat(statement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input1 => TABLE(customers) PARTITION BY nationkey, " +
+                        "input3 => TABLE(lineitem), " +
+                        "input2 => TABLE(nation) PARTITION BY nationkey " +
+                        "COPARTITION(customers, nation))) "))
+                .isInstanceOf(Query.class);
+    }
+
     private static Query selectAllFrom(Relation relation)
     {
         return new Query(
@@ -4382,6 +4819,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 13), "json_column", false),
                                 JSON,
                                 new StringLiteral(location(1, 26), "lax $[5]"),
+                                Optional.empty(),
                                 ImmutableList.of()),
                         JsonExists.ErrorBehavior.FALSE));
 
@@ -4399,6 +4837,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 44), "json_column", false),
                                 UTF8,
                                 new StringLiteral(location(1, 114), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                Optional.empty(),
                                 ImmutableList.of(
                                         new JsonPathParameter(
                                                 Optional.of(location(1, 252)),
@@ -4425,6 +4864,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 12), "json_column", false),
                                 JSON,
                                 new StringLiteral(location(1, 25), "lax $[5]"),
+                                Optional.empty(),
                                 ImmutableList.of()),
                         Optional.empty(),
                         JsonValue.EmptyOrErrorBehavior.NULL,
@@ -4448,6 +4888,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 43), "json_column", false),
                                 UTF8,
                                 new StringLiteral(location(1, 113), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                Optional.empty(),
                                 ImmutableList.of(
                                         new JsonPathParameter(
                                                 Optional.of(location(1, 251)),
@@ -4478,6 +4919,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 12), "json_column", false),
                                 JSON,
                                 new StringLiteral(location(1, 25), "lax $[5]"),
+                                Optional.empty(),
                                 ImmutableList.of()),
                         Optional.empty(),
                         Optional.empty(),
@@ -4504,6 +4946,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 43), "json_column", false),
                                 UTF8,
                                 new StringLiteral(location(1, 113), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                Optional.empty(),
                                 ImmutableList.of(
                                         new JsonPathParameter(
                                                 Optional.of(location(1, 251)),
@@ -4630,6 +5073,132 @@ public class TestSqlParser
                         true,
                         Optional.of(new GenericDataType(location(1, 208), new Identifier(location(1, 208), "varbinary", false), ImmutableList.of())),
                         Optional.of(UTF32)));
+    }
+
+    @Test
+    public void testJsonTableScalarColumns()
+    {
+        // test json_table with ordinality column, value column, and query column
+        assertThat(statement("SELECT * FROM JSON_TABLE(col, 'lax $' COLUMNS(" +
+                "ordinal_number FOR ORDINALITY, " +
+                "customer_name varchar PATH 'lax $.cust_no' DEFAULT 'anonymous' ON EMPTY null ON ERROR, " +
+                "customer_countries varchar FORMAT JSON PATH 'lax.cust_ctr[*]' WITH WRAPPER KEEP QUOTES null ON EMPTY ERROR ON ERROR," +
+                "customer_regions varchar FORMAT JSON PATH 'lax.cust_reg[*]' EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR) " +
+                "EMPTY ON ERROR)"))
+                .isEqualTo(selectAllFrom(new JsonTable(
+                        location(1, 15),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 26)),
+                                new Identifier(location(1, 26), "col", false),
+                                JSON,
+                                new StringLiteral(location(1, 31), "lax $"),
+                                Optional.empty(),
+                                ImmutableList.of()),
+                        ImmutableList.of(
+                                new OrdinalityColumn(location(1, 47), new Identifier(location(1, 47), "ordinal_number", false)),
+                                new ValueColumn(
+                                        location(1, 78),
+                                        new Identifier(location(1, 78), "customer_name", false),
+                                        new GenericDataType(location(1, 92), new Identifier(location(1, 92), "varchar", false), ImmutableList.of()),
+                                        Optional.of(new StringLiteral(location(1, 105), "lax $.cust_no")),
+                                        JsonValue.EmptyOrErrorBehavior.DEFAULT,
+                                        Optional.of(new StringLiteral(location(1, 129), "anonymous")),
+                                        Optional.of(JsonValue.EmptyOrErrorBehavior.NULL),
+                                        Optional.empty()),
+                                new QueryColumn(
+                                        location(1, 165),
+                                        new Identifier(location(1, 165), "customer_countries", false),
+                                        new GenericDataType(location(1, 184), new Identifier(location(1, 184), "varchar", false), ImmutableList.of()),
+                                        JSON,
+                                        Optional.of(new StringLiteral(location(1, 209), "lax.cust_ctr[*]")),
+                                        JsonQuery.ArrayWrapperBehavior.UNCONDITIONAL,
+                                        Optional.of(JsonQuery.QuotesBehavior.KEEP),
+                                        JsonQuery.EmptyOrErrorBehavior.NULL,
+                                        Optional.of(JsonQuery.EmptyOrErrorBehavior.ERROR)),
+                                new QueryColumn(
+                                        location(1, 281),
+                                        new Identifier(location(1, 281), "customer_regions", false),
+                                        new GenericDataType(location(1, 298), new Identifier(location(1, 298), "varchar", false), ImmutableList.of()),
+                                        JSON,
+                                        Optional.of(new StringLiteral(location(1, 323), "lax.cust_reg[*]")),
+                                        JsonQuery.ArrayWrapperBehavior.WITHOUT,
+                                        Optional.empty(),
+                                        JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY,
+                                        Optional.of(JsonQuery.EmptyOrErrorBehavior.EMPTY_OBJECT))),
+                        Optional.empty(),
+                        Optional.of(JsonTable.ErrorBehavior.EMPTY))));
+    }
+
+    @Test
+    public void testJsonTableNestedColumns()
+    {
+        // test json_table with nested columns and PLAN clause
+        assertThat(statement("SELECT * FROM JSON_TABLE(col, 'lax $' AS customer COLUMNS(" +
+                "NESTED PATH 'lax $.cust_status[*]' AS status COLUMNS(" +
+                "   status varchar PATH 'lax $.type'," +
+                "   fresh boolean PATH 'lax &.new')," +
+                "NESTED PATH 'lax &.cust_comm[*]' AS comment COLUMNS(" +
+                "   comment varchar PATH 'lax $.text'))" +
+                "PLAN (customer OUTER (status CROSS comment))" +
+                "ERROR ON ERROR)"))
+                .isEqualTo(selectAllFrom(new JsonTable(
+                        location(1, 15),
+                        new JsonPathInvocation(
+                                Optional.of(location(1, 26)),
+                                new Identifier(location(1, 26), "col", false),
+                                JSON,
+                                new StringLiteral(location(1, 31), "lax $"),
+                                Optional.of(new Identifier(location(1, 42), "customer", false)),
+                                ImmutableList.of()),
+                        ImmutableList.of(
+                                new NestedColumns(
+                                        location(1, 59),
+                                        new StringLiteral(location(1, 71), "lax $.cust_status[*]"),
+                                        Optional.of(new Identifier(location(1, 97), "status", false)),
+                                        ImmutableList.of(
+                                                new ValueColumn(
+                                                        location(1, 115),
+                                                        new Identifier(location(1, 115), "status", false),
+                                                        new GenericDataType(location(1, 122), new Identifier(location(1, 122), "varchar", false), ImmutableList.of()),
+                                                        Optional.of(new StringLiteral(location(1, 135), "lax $.type")),
+                                                        JsonValue.EmptyOrErrorBehavior.NULL,
+                                                        Optional.empty(),
+                                                        Optional.empty(),
+                                                        Optional.empty()),
+                                                new ValueColumn(
+                                                        location(1, 151),
+                                                        new Identifier(location(1, 151), "fresh", false),
+                                                        new GenericDataType(location(1, 157), new Identifier(location(1, 157), "boolean", false), ImmutableList.of()),
+                                                        Optional.of(new StringLiteral(location(1, 170), "lax &.new")),
+                                                        JsonValue.EmptyOrErrorBehavior.NULL,
+                                                        Optional.empty(),
+                                                        Optional.empty(),
+                                                        Optional.empty()))),
+                                new NestedColumns(
+                                        location(1, 183),
+                                        new StringLiteral(location(1, 195), "lax &.cust_comm[*]"),
+                                        Optional.of(new Identifier(location(1, 219), "comment", false)),
+                                        ImmutableList.of(
+                                                new ValueColumn(
+                                                        location(1, 238),
+                                                        new Identifier(location(1, 238), "comment", false),
+                                                        new GenericDataType(location(1, 246), new Identifier(location(1, 246), "varchar", false), ImmutableList.of()),
+                                                        Optional.of(new StringLiteral(location(1, 259), "lax $.text")),
+                                                        JsonValue.EmptyOrErrorBehavior.NULL,
+                                                        Optional.empty(),
+                                                        Optional.empty(),
+                                                        Optional.empty())))),
+                        Optional.of(new PlanParentChild(
+                                location(1, 279),
+                                JsonTablePlan.ParentChildPlanType.OUTER,
+                                new PlanLeaf(location(1, 279), new Identifier(location(1, 279), "customer", false)),
+                                new PlanSiblings(
+                                        location(1, 295),
+                                        JsonTablePlan.SiblingsPlanType.CROSS,
+                                        ImmutableList.of(
+                                                new PlanLeaf(location(1, 295), new Identifier(location(1, 295), "status", false)),
+                                                new PlanLeaf(location(1, 308), new Identifier(location(1, 308), "comment", false)))))),
+                        Optional.of(JsonTable.ErrorBehavior.ERROR))));
     }
 
     private static QualifiedName makeQualifiedName(String tableName)

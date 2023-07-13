@@ -36,7 +36,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
+import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
@@ -251,44 +251,11 @@ public class TestInsert
         };
     }
 
-    @Test
-    public void testCreateTableAsSelectWithPreferredPartitioningThreshold()
-    {
-        assertDistributedPlan(
-                "CREATE TABLE new_test_table_preferred_partitioning (column1, column2) AS SELECT * FROM (VALUES (1, 2)) t(column1, column2)",
-                withPreferredPartitioningThreshold(),
-                anyTree(
-                        node(TableWriterNode.class,
-                                // round robin
-                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
-                                        values("column1", "column2")))));
-        assertDistributedPlan(
-                "CREATE TABLE new_test_table_preferred_partitioning (column1, column2) AS SELECT * FROM (VALUES (1, 2), (3,4)) t(column1, column2)",
-                withPreferredPartitioningThreshold(),
-                anyTree(
-                        node(TableWriterNode.class,
-                                anyTree(
-                                        exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                        anyTree(values("column1", "column2"))))))));
-    }
-
     private Session withForcedPreferredPartitioning()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
-                .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "16")
-                .setSystemProperty(TASK_WRITER_COUNT, "16")
-                .build();
-    }
-
-    private Session withPreferredPartitioningThreshold()
-    {
-        return Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "2")
+                .setSystemProperty(SCALE_WRITERS, "false")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                 .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "16")
                 .setSystemProperty(TASK_WRITER_COUNT, "16")

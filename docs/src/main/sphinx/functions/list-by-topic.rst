@@ -7,6 +7,7 @@ Aggregate
 
 For more details, see :doc:`aggregate`
 
+* :func:`any_value`
 * :func:`approx_distinct`
 * :func:`approx_most_frequent`
 * :func:`approx_percentile`
@@ -166,10 +167,10 @@ Conditional
 
 For more details, see :doc:`conditional`
 
-* :ref:`coalesce <coalesce_function>`
-* :ref:`if <if_function>`
-* :ref:`nullif <nullif_function>`
-* :ref:`try <try_function>`
+* :ref:`coalesce <coalesce-function>`
+* :ref:`if <if-function>`
+* :ref:`nullif <nullif-function>`
+* :ref:`try <try-function>`
 
 Conversion
 ----------
@@ -186,7 +187,7 @@ Date and time
 
 For more details, see :doc:`datetime`
 
-* :ref:`AT TIME ZONE <at_time_zone_operator>`
+* :ref:`AT TIME ZONE <at-time-zone-operator>`
 * :data:`current_date`
 * :data:`current_time`
 * :data:`current_timestamp`
@@ -315,19 +316,19 @@ JSON
 For more details, see :doc:`json`
 
 * :func:`is_json_scalar`
-* :ref:`json_array() <json_array>`
+* :ref:`json_array() <json-array>`
 * :func:`json_array_contains`
 * :func:`json_array_get`
 * :func:`json_array_length`
-* :ref:`json_exists() <json_exists>`
+* :ref:`json_exists() <json-exists>`
 * :func:`json_extract`
 * :func:`json_extract_scalar`
 * :func:`json_format`
 * :func:`json_parse`
-* :ref:`json_object() <json_object>`
-* :ref:`json_query() <json_query>`
+* :ref:`json_object() <json-object>`
+* :ref:`json_query() <json-query>`
 * :func:`json_size`
-* :ref:`json_value() <json_value>`
+* :ref:`json_value() <json-value>`
 
 Lambda
 ------
@@ -412,6 +413,7 @@ For more details, see :doc:`math`
 * :func:`round`
 * :func:`sign`
 * :func:`sin`
+* :func:`sinh`
 * :func:`sqrt`
 * :func:`tan`
 * :func:`tanh`

@@ -270,7 +270,7 @@ public class CassandraSession
                 .sorted(comparing(CassandraColumnHandle::getOrdinalPosition))
                 .collect(toList());
 
-        CassandraTableHandle tableHandle = new CassandraTableHandle(tableMeta.getKeyspace().asInternal(), tableMeta.getName().asInternal());
+        CassandraNamedRelationHandle tableHandle = new CassandraNamedRelationHandle(tableMeta.getKeyspace().asInternal(), tableMeta.getName().asInternal());
         return new CassandraTable(tableHandle, sortedColumnHandles);
     }
 
@@ -457,14 +457,14 @@ public class CassandraSession
         return executeWithSession(session -> session.prepare(statement));
     }
 
-    public ResultSet execute(Statement statement)
+    public ResultSet execute(Statement<?> statement)
     {
         return executeWithSession(session -> session.execute(statement));
     }
 
     private Iterable<Row> queryPartitionKeysWithInClauses(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
-        CassandraTableHandle tableHandle = table.getTableHandle();
+        CassandraNamedRelationHandle tableHandle = table.getTableHandle();
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
         Select partitionKeys = selectDistinctFrom(tableHandle, partitionKeyColumns)
@@ -476,7 +476,7 @@ public class CassandraSession
 
     private Iterable<Row> queryPartitionKeysLegacyWithMultipleQueries(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
-        CassandraTableHandle tableHandle = table.getTableHandle();
+        CassandraNamedRelationHandle tableHandle = table.getTableHandle();
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
         Set<List<Object>> filterCombinations = Sets.cartesianProduct(filterPrefixes);
@@ -586,25 +586,24 @@ public class CassandraSession
 
     private List<DataType> getTypeArguments(DataType dataType)
     {
-        if (dataType instanceof UserDefinedType) {
-            return ImmutableList.copyOf(((UserDefinedType) dataType).getFieldTypes());
+        if (dataType instanceof UserDefinedType userDefinedType) {
+            return ImmutableList.copyOf(userDefinedType.getFieldTypes());
         }
 
-        if (dataType instanceof MapType) {
-            MapType mapType = (MapType) dataType;
+        if (dataType instanceof MapType mapType) {
             return ImmutableList.of(mapType.getKeyType(), mapType.getValueType());
         }
 
-        if (dataType instanceof ListType) {
-            return ImmutableList.of(((ListType) dataType).getElementType());
+        if (dataType instanceof ListType listType) {
+            return ImmutableList.of(listType.getElementType());
         }
 
-        if (dataType instanceof TupleType) {
-            return ImmutableList.copyOf(((TupleType) dataType).getComponentTypes());
+        if (dataType instanceof TupleType tupleType) {
+            return ImmutableList.copyOf(tupleType.getComponentTypes());
         }
 
-        if (dataType instanceof SetType) {
-            return ImmutableList.of(((SetType) dataType).getElementType());
+        if (dataType instanceof SetType setType) {
+            return ImmutableList.of(setType.getElementType());
         }
 
         return ImmutableList.of();

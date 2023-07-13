@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -24,8 +23,8 @@ import org.testng.annotations.Test;
 
 import java.util.Set;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,19 +33,17 @@ public class TestDeltaLakeDelete
         extends AbstractTestQueryFramework
 {
     private static final String SCHEMA = "default";
-    private final String bucketName = "test-delta-lake-connector-test-" + randomNameSuffix();
 
+    private final String bucketName = "test-delta-lake-connector-test-" + randomNameSuffix();
     private HiveMinioDataLake hiveMinioDataLake;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        verify(!new ParquetWriterConfig().isParquetOptimizedWriterEnabled(), "This test assumes the optimized Parquet writer is disabled by default");
-
         hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
+        QueryRunner queryRunner = createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 ImmutableMap.of(
@@ -216,16 +213,16 @@ public class TestDeltaLakeDelete
                 4);
         assertQuery("SHOW STATS FOR " + tableName,
                 "VALUES " +
-                        "('a', null, null, 0.5, null, 1, 7)," +
-                        "('b', null, null, 0.5, null, 3, 9)," +
-                        "('c', null, null, 0.75, null, 5, 5)," +
+                        "('a', null, 2.0, 0.5, null, 1, 7)," +
+                        "('b', null, 2.0, 0.5, null, 3, 9)," +
+                        "('c', null, 1.0, 0.75, null, 5, 5)," +
                         "(null, null, null, null, 4.0, null, null)");
         assertUpdate("DELETE FROM " + tableName + " WHERE c IS NULL", 3);
         assertQuery("SHOW STATS FOR " + tableName,
                 "VALUES " +
-                        "('a', null, null, 0.0, null, 1, 1)," +
-                        "('b', null, null, 0.0, null, 3, 3)," +
-                        "('c', null, null, 0.0, null, 5, 5)," +
+                        "('a', null, 1.0, 0.0, null, 1, 1)," +
+                        "('b', null, 1.0, 0.0, null, 3, 3)," +
+                        "('c', null, 1.0, 0.0, null, 5, 5)," +
                         "(null, null, null, null, 1.0, null, null)");
     }
 

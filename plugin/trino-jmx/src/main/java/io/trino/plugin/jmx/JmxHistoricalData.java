@@ -15,8 +15,8 @@ package io.trino.plugin.jmx;
 
 import com.google.common.collect.EvictingQueue;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 
-import javax.inject.Inject;
 import javax.management.MBeanServer;
 
 import java.util.ArrayList;

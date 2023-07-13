@@ -13,6 +13,11 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import io.trino.hive.thrift.metastore.DataOperationType;
+import io.trino.hive.thrift.metastore.Database;
+import io.trino.hive.thrift.metastore.FieldSchema;
+import io.trino.hive.thrift.metastore.Partition;
+import io.trino.hive.thrift.metastore.Table;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -29,11 +34,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.hive.metastore.api.DataOperationType;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.Table;
 
 import java.util.List;
 import java.util.Map;
@@ -65,9 +65,13 @@ public interface ThriftMetastore
 
     List<String> getAllTables(String databaseName);
 
+    Optional<List<SchemaTableName>> getAllTables();
+
     List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
 
     List<String> getAllViews(String databaseName);
+
+    Optional<List<SchemaTableName>> getAllViews();
 
     Optional<Database> getDatabase(String databaseName);
 

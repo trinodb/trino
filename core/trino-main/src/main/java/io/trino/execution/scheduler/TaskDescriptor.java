@@ -17,19 +17,18 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ListMultimap;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Multimaps.asMap;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class TaskDescriptor
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TaskDescriptor.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(TaskDescriptor.class);
 
     private final int partitionId;
     private final ListMultimap<PlanNodeId, Split> splits;

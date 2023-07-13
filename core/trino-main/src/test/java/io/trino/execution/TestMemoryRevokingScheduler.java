@@ -50,6 +50,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.tracing.Tracing.noopTracer;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.SqlTask.createSqlTask;
@@ -98,6 +99,7 @@ public class TestMemoryRevokingScheduler
                 taskExecutor,
                 planner,
                 createTestSplitMonitor(),
+                noopTracer(),
                 new TaskManagerConfig());
 
         allOperatorContexts = null;
@@ -267,6 +269,7 @@ public class TestMemoryRevokingScheduler
                 location,
                 "fake",
                 queryContext,
+                noopTracer(),
                 sqlTaskExecutionFactory,
                 executor,
                 sqlTask -> {},

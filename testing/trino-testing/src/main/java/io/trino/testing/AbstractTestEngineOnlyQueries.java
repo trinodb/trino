@@ -23,11 +23,11 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.testing.assertions.Assert;
 import io.trino.tests.QueryTemplate;
 import io.trino.tpch.TpchTable;
 import io.trino.type.SqlIntervalDayTime;
@@ -371,7 +371,9 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT * FROM (VALUES" +
                 "   CAST(NULL AS char(3)), " +
                 "   CAST('   ' AS char(3))) t(x) " +
-                "WHERE x = CAST('  ' AS varchar(2))");
+                "WHERE x = CAST('  ' AS varchar(2))",
+                // H2 returns '' on CAST char(3) to varchar(2)
+                "SELECT '   '");
 
         // with explicit casts
         assertQuery(
@@ -387,13 +389,14 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testVarcharCharComparison()
     {
         // with implicit coercions
-        assertQuery("SELECT * FROM (VALUES" +
+        assertThat(query("SELECT * FROM (VALUES" +
                 "   CAST(NULL AS varchar(3)), " +
                 "   CAST('' AS varchar(3))," +
                 "   CAST(' ' AS varchar(3)), " +
                 "   CAST('  ' AS varchar(3)), " +
                 "   CAST('   ' AS varchar(3))) t(x) " +
-                "WHERE x = CAST('  ' AS char(2))");
+                "WHERE x = CAST('  ' AS char(2))"))
+                .matches("VALUES '', ' ', '  ', '   '");
 
         // with explicit casts
         assertQuery("SELECT * FROM (VALUES" +
@@ -1410,9 +1413,9 @@ public abstract class AbstractTestEngineOnlyQueries
         Session session = Session.builder(getSession())
                 .addPreparedStatement("my_query", "SELECT * FROM nation")
                 .build();
-        MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
-        MaterializedResult expected = resultBuilder(session, UNKNOWN, UNKNOWN).build();
-        Assert.assertEquals(actual, expected);
+        assertThat(query(session, "DESCRIBE INPUT my_query"))
+                .hasOutputTypes(List.of(UNKNOWN, UNKNOWN))
+                .returnsEmptyResult();
     }
 
     @Test
@@ -1602,6 +1605,23 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testExecuteImmediateWithSubqueries()
+    {
+        List<QueryTemplate.Parameter> leftValues = parameter("left").of(
+                "", "1 = ",
+                "EXISTS",
+                "1 IN",
+                "1 = ANY", "1 = ALL",
+                "2 <> ANY", "2 <> ALL",
+                "0 < ALL", "0 < ANY",
+                "1 <= ALL", "1 <= ANY");
+
+        queryTemplate("SELECT %left% (SELECT 1 WHERE 2 = ?)")
+                .replaceAll(leftValues)
+                .forEach(query -> assertQuery("EXECUTE IMMEDIATE '" + query + "' USING 2", "SELECT true"));
+    }
+
+    @Test
     public void testFunctionNotRegistered()
     {
         assertQueryFails(
@@ -1728,7 +1748,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 ")\n" +
                 "ORDER BY orderstatus, clerk";
 
-        Assert.assertEquals(computeActual(sql), computeActual(sql.replace("custom_rank", "rank")));
+        assertQuery(sql, sql.replace("custom_rank", "rank"));
     }
 
     @Test
@@ -2675,7 +2695,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 ") WHERE rn <= 5");
         String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 5";
         MaterializedResult expected = computeExpected(sql, actual.getTypes());
-        Assert.assertEquals(actual, expected);
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
     @Test
@@ -5330,6 +5350,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         Session session = new Session(
                 getSession().getQueryId(),
+                Span.getInvalid(),
                 Optional.empty(),
                 getSession().isClientTransactionSupport(),
                 getSession().getIdentity(),
@@ -5506,7 +5527,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT apply(5 + RANDOM(1), x -> x + TRY(1 / 0))", "SELECT NULL");
 
         // test try with invalid JSON
-        assertQueryFails("SELECT JSON_FORMAT(TRY(JSON 'INVALID'))", "line 1:24: 'INVALID' is not a valid json literal");
+        assertQueryFails("SELECT JSON_FORMAT(TRY(JSON 'INVALID'))", "line 1:24: 'INVALID' is not a valid JSON literal");
         assertQuery("SELECT JSON_FORMAT(TRY (JSON_PARSE('INVALID')))", "SELECT NULL");
 
         // tests that might be constant folded
@@ -5521,7 +5542,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT COALESCE(TRY(CAST(CONCAT('a', CAST(123 AS VARCHAR)) AS BIGINT)), 0)", "SELECT 0L");
         assertQuery("SELECT 123 + TRY(ABS(-9223372036854775807 - 1))", "SELECT NULL");
         assertQuery("SELECT JSON_FORMAT(TRY(JSON '[]')) || '123'", "SELECT '[]123'");
-        assertQueryFails("SELECT JSON_FORMAT(TRY(JSON 'INVALID')) || '123'", "line 1:24: 'INVALID' is not a valid json literal");
+        assertQueryFails("SELECT JSON_FORMAT(TRY(JSON 'INVALID')) || '123'", "line 1:24: 'INVALID' is not a valid JSON literal");
         assertQuery("SELECT TRY(2/1)", "SELECT 2");
         assertQuery("SELECT TRY(2/0)", "SELECT null");
         assertQuery("SELECT COALESCE(TRY(2/0), 0)", "SELECT 0");
@@ -6592,6 +6613,34 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(query("SELECT json_array(name, regionkey RETURNING varchar(100) FORMAT JSON) result " +
                 "              FROM region"))
                 .matches("VALUES (CAST('[\"AFRICA\",0]' AS varchar(100))), ('[\"AMERICA\",1]'), ('[\"ASIA\",2]'), ('[\"EUROPE\",3]'), ('[\"MIDDLE EAST\",4]')");
+    }
+
+    @Test
+    public void testColumnNames()
+    {
+        MaterializedResult showFunctionsResult = computeActual("SHOW FUNCTIONS");
+        assertEquals(showFunctionsResult.getColumnNames(), ImmutableList.of("Function", "Return Type", "Argument Types", "Function Type", "Deterministic", "Description"));
+
+        MaterializedResult showCatalogsResult = computeActual("SHOW CATALOGS");
+        assertEquals(showCatalogsResult.getColumnNames(), ImmutableList.of("Catalog"));
+
+        MaterializedResult selectAllResult = computeActual("SELECT * FROM nation");
+        assertEquals(selectAllResult.getColumnNames(), ImmutableList.of("nationkey", "name", "regionkey", "comment"));
+
+        MaterializedResult selectResult = computeActual("SELECT nationkey, regionkey FROM nation");
+        assertEquals(selectResult.getColumnNames(), ImmutableList.of("nationkey", "regionkey"));
+
+        MaterializedResult selectJsonArrayResult = computeActual("SELECT json_array(name, regionkey) from nation");
+        assertEquals(selectJsonArrayResult.getColumnNames(), ImmutableList.of("_col0"));
+
+        MaterializedResult selectJsonArrayAsResult = computeActual("SELECT json_array(name, regionkey) result from nation");
+        assertEquals(selectJsonArrayAsResult.getColumnNames(), ImmutableList.of("result"));
+
+        MaterializedResult showColumnResult = computeActual("SHOW COLUMNS FROM nation");
+        assertEquals(showColumnResult.getColumnNames(), ImmutableList.of("Column", "Type", "Extra", "Comment"));
+
+        MaterializedResult showCreateTableResult = computeActual("SHOW CREATE TABLE nation");
+        assertEquals(showCreateTableResult.getColumnNames(), ImmutableList.of("Create Table"));
     }
 
     private static ZonedDateTime zonedDateTime(String value)

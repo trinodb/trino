@@ -14,101 +14,96 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.type.SqlVarbinary;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.nio.charset.Charset;
 
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestJsonOutputFunctions
-        extends AbstractTestFunctions
 {
     private static final String JSON_EXPRESSION = "\"$varchar_to_json\"('{\"key1\" : 1e0, \"key2\" : true, \"key3\" : null}', true)";
     private static final String OUTPUT = "{\"key1\":1.0,\"key2\":true,\"key3\":null}";
 
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testJsonToVarchar()
     {
-        assertFunction(
-                "\"$json_to_varchar\"(" + JSON_EXPRESSION + ", TINYINT '1', true)",
-                VARCHAR,
-                OUTPUT);
+        assertThat(assertions.expression("\"$json_to_varchar\"(" + JSON_EXPRESSION + ", TINYINT '1', true)"))
+                .hasType(VARCHAR)
+                .isEqualTo(OUTPUT);
     }
 
     @Test
     public void testJsonToVarbinaryUtf8()
     {
-        byte[] bytes = OUTPUT.getBytes(UTF_8);
-        SqlVarbinary varbinaryOutput = new SqlVarbinary(bytes);
+        assertThat(assertions.expression("\"$json_to_varbinary\"(" + JSON_EXPRESSION + ", TINYINT '1', true)"))
+                .isEqualTo(new SqlVarbinary(OUTPUT.getBytes(UTF_8)));
 
-        assertFunction(
-                "\"$json_to_varbinary\"(" + JSON_EXPRESSION + ", TINYINT '1', true)",
-                VARBINARY,
-                varbinaryOutput);
-
-        assertFunction(
-                "\"$json_to_varbinary_utf8\"(" + JSON_EXPRESSION + ", TINYINT '1', true)",
-                VARBINARY,
-                varbinaryOutput);
+        assertThat(assertions.expression("\"$json_to_varbinary_utf8\"(" + JSON_EXPRESSION + ", TINYINT '1', true)"))
+                .isEqualTo(new SqlVarbinary(OUTPUT.getBytes(UTF_8)));
     }
 
     @Test
     public void testJsonToVarbinaryUtf16()
     {
-        byte[] bytes = OUTPUT.getBytes(UTF_16LE);
-        SqlVarbinary varbinaryOutput = new SqlVarbinary(bytes);
-
-        assertFunction(
-                "\"$json_to_varbinary_utf16\"(" + JSON_EXPRESSION + ", TINYINT '1', true)",
-                VARBINARY,
-                varbinaryOutput);
+        assertThat(assertions.expression("\"$json_to_varbinary_utf16\"(" + JSON_EXPRESSION + ", TINYINT '1', true)"))
+                .isEqualTo(new SqlVarbinary(OUTPUT.getBytes(UTF_16LE)));
     }
 
     @Test
     public void testJsonToVarbinaryUtf32()
     {
-        byte[] bytes = OUTPUT.getBytes(Charset.forName("UTF-32LE"));
-        SqlVarbinary varbinaryOutput = new SqlVarbinary(bytes);
-
-        assertFunction(
-                "\"$json_to_varbinary_utf32\"(" + JSON_EXPRESSION + ", TINYINT '1', true)",
-                VARBINARY,
-                varbinaryOutput);
+        assertThat(assertions.expression("\"$json_to_varbinary_utf32\"(" + JSON_EXPRESSION + ", TINYINT '1', true)"))
+                .isEqualTo(new SqlVarbinary(OUTPUT.getBytes(Charset.forName("UTF-32LE"))));
     }
 
     @Test
     public void testQuotesBehavior()
     {
-        String jsonScalarString = "\"$varchar_to_json\"('\"some_text\"', true)";
-
         // keep quotes on scalar string
-        assertFunction(
-                "\"$json_to_varchar\"(" + jsonScalarString + ", TINYINT '1', false)",
-                VARCHAR,
-                "\"some_text\"");
+        assertThat(assertions.expression("\"$json_to_varchar\"(\"$varchar_to_json\"('\"some_text\"', true), TINYINT '1', false)"))
+                .hasType(VARCHAR)
+                .isEqualTo("\"some_text\"");
 
         // omit quotes on scalar string
-        assertFunction(
-                "\"$json_to_varchar\"(" + jsonScalarString + ", TINYINT '1', true)",
-                VARCHAR,
-                "some_text");
+        assertThat(assertions.expression("\"$json_to_varchar\"(\"$varchar_to_json\"('\"some_text\"', true), TINYINT '1', true)"))
+                .hasType(VARCHAR)
+                .isEqualTo("some_text");
 
         // quotes behavior does not apply to nested string. the quotes are preserved
-        assertFunction(
-                "\"$json_to_varchar\"(\"$varchar_to_json\"('[\"some_text\"]', true), TINYINT '1', true)",
-                VARCHAR,
-                "[\"some_text\"]");
+        assertThat(assertions.expression("\"$json_to_varchar\"(\"$varchar_to_json\"('[\"some_text\"]', true), TINYINT '1', true)"))
+                .hasType(VARCHAR)
+                .isEqualTo("[\"some_text\"]");
     }
 
     @Test
     public void testNullInput()
     {
-        assertFunction(
-                "\"$json_to_varchar\"(null, TINYINT '1', true)",
-                VARCHAR,
-                null);
+        assertThat(assertions.expression("\"$json_to_varchar\"(null, TINYINT '1', true)"))
+                .isNull(VARCHAR);
     }
 }

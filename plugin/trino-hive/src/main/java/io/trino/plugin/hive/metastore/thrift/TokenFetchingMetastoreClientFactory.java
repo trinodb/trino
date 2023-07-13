@@ -16,12 +16,13 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.plugin.base.security.UserNameProvider;
+import io.trino.plugin.hive.ForHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.thrift.TException;
-
-import javax.inject.Inject;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -36,6 +37,7 @@ public class TokenFetchingMetastoreClientFactory
         implements IdentityAwareMetastoreClientFactory
 {
     private final TokenAwareMetastoreClientFactory clientProvider;
+    private final UserNameProvider userNameProvider;
     private final boolean impersonationEnabled;
     private final NonEvictableLoadingCache<String, DelegationToken> delegationTokenCache;
     private final long refreshPeriod;
@@ -43,10 +45,12 @@ public class TokenFetchingMetastoreClientFactory
     @Inject
     public TokenFetchingMetastoreClientFactory(
             TokenAwareMetastoreClientFactory tokenAwareMetastoreClientFactory,
+            @ForHiveMetastore UserNameProvider userNameProvider,
             ThriftMetastoreConfig thriftConfig)
     {
         this.clientProvider = requireNonNull(tokenAwareMetastoreClientFactory, "tokenAwareMetastoreClientFactory is null");
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
+        this.userNameProvider = requireNonNull(userNameProvider, "userNameProvider is null");
 
         this.delegationTokenCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
@@ -70,7 +74,7 @@ public class TokenFetchingMetastoreClientFactory
             return createMetastoreClient();
         }
 
-        String username = identity.map(ConnectorIdentity::getUser)
+        String username = identity.map(userNameProvider::get)
                 .orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
 
         DelegationToken cachedDelegationToken = getDelegationToken(username);

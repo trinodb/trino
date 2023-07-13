@@ -70,7 +70,7 @@ public abstract class AbstractTestParquetPageSkipping
         assertUpdate(
                 Session.builder(getSession())
                         .setCatalogSessionProperty(catalog, "parquet_writer_page_size", "10000B")
-                        .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "100GB")
+                        .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "2GB")
                         .build(),
                 format("INSERT INTO %s SELECT *, ARRAY[rand(), rand(), rand()] FROM tpch.tiny.orders", tableName),
                 15000);

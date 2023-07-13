@@ -35,6 +35,7 @@ import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -267,6 +268,7 @@ public class FailedDispatchQuery
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
                 0,
                 0,
                 0,
@@ -288,6 +290,8 @@ public class FailedDispatchQuery
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 false,
+                OptionalDouble.empty(),
+                OptionalDouble.empty(),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -325,6 +329,7 @@ public class FailedDispatchQuery
                 DataSize.ofBytes(0),
                 ImmutableList.of(),
                 DynamicFiltersStats.EMPTY,
+                ImmutableList.of(),
                 ImmutableList.of());
     }
 }

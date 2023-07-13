@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -40,7 +41,6 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
-import io.trino.spi.SplitWeight;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -58,7 +58,6 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -118,6 +117,7 @@ public class MockRemoteTaskFactory
                         Optional.empty()),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
+                Optional.empty(),
                 ImmutableList.of(sourceId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StatsAndCosts.empty(),
@@ -128,14 +128,28 @@ public class MockRemoteTaskFactory
         for (Split sourceSplit : splits) {
             initialSplits.put(sourceId, sourceSplit);
         }
-        return createRemoteTask(TEST_SESSION, taskId, newNode, testFragment, initialSplits.build(), PipelinedOutputBuffers.createInitial(BROADCAST), partitionedSplitCountTracker, ImmutableSet.of(), Optional.empty(), true);
+        return createRemoteTask(
+                TEST_SESSION,
+                Span.getInvalid(),
+                taskId,
+                newNode,
+                false,
+                testFragment,
+                initialSplits.build(),
+                PipelinedOutputBuffers.createInitial(BROADCAST),
+                partitionedSplitCountTracker,
+                ImmutableSet.of(),
+                Optional.empty(),
+                true);
     }
 
     @Override
     public MockRemoteTask createRemoteTask(
             Session session,
+            Span stageSpan,
             TaskId taskId,
             InternalNode node,
+            boolean speculative,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
@@ -237,35 +251,8 @@ public class MockRemoteTaskFactory
         @Override
         public TaskInfo getTaskInfo()
         {
-            TaskState state = taskStateMachine.getState();
-            List<ExecutionFailureInfo> failures = ImmutableList.of();
-            if (state == TaskState.FAILED) {
-                failures = toFailures(taskStateMachine.getFailureCauses());
-            }
-
             return new TaskInfo(
-                    new TaskStatus(
-                            taskStateMachine.getTaskId(),
-                            TASK_INSTANCE_ID,
-                            nextTaskInfoVersion.getAndIncrement(),
-                            state,
-                            location,
-                            nodeId,
-                            failures,
-                            0,
-                            0,
-                            outputBuffer.getStatus(),
-                            DataSize.ofBytes(0),
-                            DataSize.ofBytes(0),
-                            Optional.empty(),
-                            DataSize.ofBytes(0),
-                            DataSize.ofBytes(0),
-                            DataSize.ofBytes(0),
-                            0,
-                            new Duration(0, MILLISECONDS),
-                            INITIAL_DYNAMIC_FILTERS_VERSION,
-                            0L,
-                            0L),
+                    getTaskStatus(),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -275,18 +262,25 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public TaskStatus getTaskStatus()
+        public synchronized TaskStatus getTaskStatus()
         {
+            TaskState state = taskStateMachine.getState();
+            List<ExecutionFailureInfo> failures = ImmutableList.of();
+            if (state == TaskState.FAILED || state == TaskState.FAILING) {
+                failures = toFailures(taskStateMachine.getFailureCauses());
+            }
+
             TaskStats stats = taskContext.getTaskStats();
             PartitionedSplitsInfo combinedSplitsInfo = getPartitionedSplitsInfo();
             PartitionedSplitsInfo queuedSplitsInfo = getQueuedPartitionedSplitsInfo();
             return new TaskStatus(taskStateMachine.getTaskId(),
                     TASK_INSTANCE_ID,
                     nextTaskInfoVersion.get(),
-                    taskStateMachine.getState(),
+                    state,
                     location,
                     nodeId,
-                    ImmutableList.of(),
+                    false,
+                    failures,
                     queuedSplitsInfo.getCount(),
                     combinedSplitsInfo.getCount() - queuedSplitsInfo.getCount(),
                     outputBuffer.getStatus(),
@@ -305,6 +299,9 @@ public class MockRemoteTaskFactory
 
         private synchronized void updateSplitQueueSpace()
         {
+            if (runningDrivers == 0 && taskStateMachine.getState().isTerminating()) {
+                taskStateMachine.terminationComplete();
+            }
             if (unacknowledgedSplits < maxUnacknowledgedSplits && getQueuedPartitionedSplitsInfo().getWeightSum() < 900L) {
                 if (!whenSplitQueueHasSpace.isDone()) {
                     whenSplitQueueHasSpace.set(null);
@@ -355,8 +352,9 @@ public class MockRemoteTaskFactory
 
         public synchronized void startSplits(int maxRunning)
         {
-            runningDrivers = splits.size();
-            runningDrivers = Math.min(runningDrivers, maxRunning);
+            if (!taskStateMachine.getState().isTerminatingOrDone()) {
+                runningDrivers = Math.min(splits.size(), maxRunning);
+            }
             updateSplitQueueSpace();
         }
 
@@ -364,7 +362,10 @@ public class MockRemoteTaskFactory
         public void start()
         {
             taskStateMachine.addStateChangeListener(newValue -> {
-                if (newValue.isDone()) {
+                if (newValue.isTerminating()) {
+                    updateSplitQueueSpace(); // potentially finish termination if runningDrivers is zero
+                }
+                else if (newValue.isDone()) {
                     clearSplits();
                 }
             });
@@ -399,6 +400,12 @@ public class MockRemoteTaskFactory
         public void setOutputBuffers(OutputBuffers outputBuffers)
         {
             outputBuffer.setOutputBuffers(outputBuffers);
+        }
+
+        @Override
+        public void setSpeculative(boolean speculative)
+        {
+            // ignore
         }
 
         @Override
@@ -440,13 +447,6 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public void fail(Throwable cause)
-        {
-            taskStateMachine.failed(cause);
-            clearSplits();
-        }
-
-        @Override
         public void failRemotely(Throwable cause)
         {
             taskStateMachine.failed(cause);
@@ -454,27 +454,42 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public PartitionedSplitsInfo getPartitionedSplitsInfo()
+        public void failLocallyImmediately(Throwable cause)
+        {
+            taskStateMachine.failed(cause);
+            clearSplits();
+        }
+
+        @Override
+        public synchronized PartitionedSplitsInfo getPartitionedSplitsInfo()
         {
             if (taskStateMachine.getState().isDone()) {
                 return PartitionedSplitsInfo.forZeroSplits();
             }
-            synchronized (this) {
-                int count = 0;
-                long weight = 0;
-                for (PlanNodeId tableScanPlanNodeId : fragment.getPartitionedSources()) {
-                    Collection<Split> partitionedSplits = splits.get(tableScanPlanNodeId);
-                    count += partitionedSplits.size();
-                    weight = addExact(weight, SplitWeight.rawValueSum(partitionedSplits, Split::getSplitWeight));
+            // Queued splits are ignored once a task beings terminating, since they will never be started
+            boolean countQueued = !taskStateMachine.getState().isTerminating();
+            // Let's consider the first drivers encountered to be "running"
+            int remainingRunning = runningDrivers;
+            int splitCount = 0;
+            long splitWeight = 0;
+            for (PlanNodeId tableScanPlanNodeId : fragment.getPartitionedSources()) {
+                for (Split split : splits.get(tableScanPlanNodeId)) {
+                    if (countQueued || remainingRunning > 0) {
+                        if (remainingRunning > 0) {
+                            remainingRunning--;
+                        }
+                        splitCount++;
+                        splitWeight = addExact(splitWeight, split.getSplitWeight().getRawValue());
+                    }
                 }
-                return PartitionedSplitsInfo.forSplitCountAndWeightSum(count, weight);
             }
+            return PartitionedSplitsInfo.forSplitCountAndWeightSum(splitCount, splitWeight);
         }
 
         @Override
         public synchronized PartitionedSplitsInfo getQueuedPartitionedSplitsInfo()
         {
-            if (taskStateMachine.getState().isDone()) {
+            if (taskStateMachine.getState().isTerminatingOrDone()) {
                 return PartitionedSplitsInfo.forZeroSplits();
             }
             // Let's consider the first drivers encountered to be "running"

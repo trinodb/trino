@@ -34,18 +34,14 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.IN_OUT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
-import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.THROW_ON_NULL;
-import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.UNDEFINED_VALUE_FOR_NULL;
-import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.constant;
 import static java.lang.invoke.MethodHandles.dropArguments;
 import static java.lang.invoke.MethodHandles.explicitCastArguments;
 import static java.lang.invoke.MethodHandles.filterArguments;
-import static java.lang.invoke.MethodHandles.filterReturnValue;
 import static java.lang.invoke.MethodHandles.guardWithTest;
 import static java.lang.invoke.MethodHandles.identity;
 import static java.lang.invoke.MethodHandles.insertArguments;
@@ -53,6 +49,7 @@ import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.invoke.MethodHandles.publicLookup;
 import static java.lang.invoke.MethodHandles.throwException;
+import static java.lang.invoke.MethodHandles.zero;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 
@@ -60,17 +57,12 @@ public final class ScalarFunctionAdapter
 {
     private static final MethodHandle IS_NULL_METHOD = lookupIsNullMethod();
 
-    private final NullAdaptationPolicy nullAdaptationPolicy;
-
-    public ScalarFunctionAdapter(NullAdaptationPolicy nullAdaptationPolicy)
-    {
-        this.nullAdaptationPolicy = requireNonNull(nullAdaptationPolicy, "nullAdaptationPolicy is null");
-    }
+    private ScalarFunctionAdapter() {}
 
     /**
      * Can the actual calling convention of a method be converted to the expected calling convention?
      */
-    public boolean canAdapt(InvocationConvention actualConvention, InvocationConvention expectedConvention)
+    public static boolean canAdapt(InvocationConvention actualConvention, InvocationConvention expectedConvention)
     {
         requireNonNull(actualConvention, "actualConvention is null");
         requireNonNull(expectedConvention, "expectedConvention is null");
@@ -103,7 +95,7 @@ public final class ScalarFunctionAdapter
         return true;
     }
 
-    private boolean canAdaptReturn(
+    private static boolean canAdaptReturn(
             InvocationReturnConvention actualReturnConvention,
             InvocationReturnConvention expectedReturnConvention)
     {
@@ -115,23 +107,15 @@ public final class ScalarFunctionAdapter
             return true;
         }
 
-        if (expectedReturnConvention == FAIL_ON_NULL && actualReturnConvention == NULLABLE_RETURN) {
-            switch (nullAdaptationPolicy) {
-                case THROW_ON_NULL:
-                case UNDEFINED_VALUE_FOR_NULL:
-                    return true;
-                case UNSUPPORTED:
-                case RETURN_NULL_ON_NULL:
-                    return false;
-                default:
-                    return false;
-            }
+        if (expectedReturnConvention == DEFAULT_ON_NULL
+                && (actualReturnConvention == NULLABLE_RETURN || actualReturnConvention == FAIL_ON_NULL)) {
+            return true;
         }
 
         return false;
     }
 
-    private boolean canAdaptParameter(
+    private static boolean canAdaptParameter(
             InvocationArgumentConvention actualArgumentConvention,
             InvocationArgumentConvention expectedArgumentConvention,
             InvocationReturnConvention returnConvention)
@@ -160,17 +144,7 @@ public final class ScalarFunctionAdapter
         if (expectedArgumentConvention == BOXED_NULLABLE || expectedArgumentConvention == NULL_FLAG) {
             // null able to not nullable has special handling
             if (actualArgumentConvention == NEVER_NULL) {
-                switch (nullAdaptationPolicy) {
-                    case THROW_ON_NULL:
-                    case UNDEFINED_VALUE_FOR_NULL:
-                        return true;
-                    case RETURN_NULL_ON_NULL:
-                        return returnConvention != FAIL_ON_NULL;
-                    case UNSUPPORTED:
-                        return false;
-                    default:
-                        return false;
-                }
+                return returnConvention != FAIL_ON_NULL;
             }
 
             return true;
@@ -182,7 +156,7 @@ public final class ScalarFunctionAdapter
     /**
      * Adapt the method handle from the actual calling convention of a method be converted to the expected calling convention?
      */
-    public MethodHandle adapt(
+    public static MethodHandle adapt(
             MethodHandle methodHandle,
             List<Type> actualArgumentTypes,
             InvocationConvention actualConvention,
@@ -234,7 +208,7 @@ public final class ScalarFunctionAdapter
         return methodHandle;
     }
 
-    private MethodHandle adaptReturn(
+    private static MethodHandle adaptReturn(
             MethodHandle methodHandle,
             InvocationReturnConvention actualReturnConvention,
             InvocationReturnConvention expectedReturnConvention)
@@ -251,34 +225,24 @@ public final class ScalarFunctionAdapter
             }
         }
 
-        if (expectedReturnConvention == FAIL_ON_NULL) {
+        if (expectedReturnConvention == FAIL_ON_NULL && actualReturnConvention == NULLABLE_RETURN) {
+            throw new IllegalArgumentException("Nullable return can not be adapted fail on null");
+        }
+
+        if (expectedReturnConvention == DEFAULT_ON_NULL) {
+            if (actualReturnConvention == FAIL_ON_NULL) {
+                return methodHandle;
+            }
             if (actualReturnConvention == NULLABLE_RETURN) {
-                if (nullAdaptationPolicy == UNSUPPORTED || nullAdaptationPolicy == RETURN_NULL_ON_NULL) {
-                    throw new IllegalArgumentException("Nullable return can not be adapted fail on null");
-                }
-
-                if (nullAdaptationPolicy == UNDEFINED_VALUE_FOR_NULL) {
-                    // currently, we just perform unboxing, which converts nulls to Java primitive default value
-                    methodHandle = explicitCastArguments(methodHandle, methodHandle.type().changeReturnType(unwrap(returnType)));
-                    return methodHandle;
-                }
-
-                if (nullAdaptationPolicy == THROW_ON_NULL) {
-                    MethodHandle adapter = identity(returnType);
-                    adapter = explicitCastArguments(adapter, adapter.type().changeReturnType(unwrap(returnType)));
-                    adapter = guardWithTest(
-                            isNullArgument(adapter.type(), 0),
-                            throwTrinoNullArgumentException(adapter.type()),
-                            adapter);
-
-                    return filterReturnValue(methodHandle, adapter);
-                }
+                // perform unboxing, which converts nulls to Java primitive default value
+                methodHandle = explicitCastArguments(methodHandle, methodHandle.type().changeReturnType(unwrap(returnType)));
+                return methodHandle;
             }
         }
         throw new IllegalArgumentException("Unsupported return convention: " + actualReturnConvention);
     }
 
-    private MethodHandle adaptParameter(
+    private static MethodHandle adaptParameter(
             MethodHandle methodHandle,
             int parameterIndex,
             Type argumentType,
@@ -311,7 +275,7 @@ public final class ScalarFunctionAdapter
             }
 
             if (actualArgumentConvention == NULL_FLAG) {
-                // actual method takes value and null flag, so change method handle to not have the flag and always pass false to the actual method
+                // actual method takes value and null flag, so change method handles to not have the flag and always pass false to the actual method
                 return insertArguments(methodHandle, parameterIndex + 1, false);
             }
 
@@ -321,46 +285,26 @@ public final class ScalarFunctionAdapter
         // caller will pass Java null for SQL null
         if (expectedArgumentConvention == BOXED_NULLABLE) {
             if (actualArgumentConvention == NEVER_NULL) {
-                if (nullAdaptationPolicy == UNSUPPORTED) {
-                    throw new IllegalArgumentException("Not null argument can not be adapted to nullable");
-                }
-
                 // box argument
                 Class<?> boxedType = wrap(methodHandle.type().parameterType(parameterIndex));
                 MethodType targetType = methodHandle.type().changeParameterType(parameterIndex, boxedType);
                 methodHandle = explicitCastArguments(methodHandle, targetType);
 
-                if (nullAdaptationPolicy == UNDEFINED_VALUE_FOR_NULL) {
-                    // currently, we just perform unboxing, which converts nulls to Java primitive default value
-                    return methodHandle;
+                if (returnConvention == FAIL_ON_NULL) {
+                    throw new IllegalArgumentException("RETURN_NULL_ON_NULL adaptation can not be used with FAIL_ON_NULL return convention");
                 }
-
-                if (nullAdaptationPolicy == RETURN_NULL_ON_NULL) {
-                    if (returnConvention == FAIL_ON_NULL) {
-                        throw new IllegalArgumentException("RETURN_NULL_ON_NULL adaptation can not be used with FAIL_ON_NULL return convention");
-                    }
-                    return guardWithTest(
-                            isNullArgument(methodHandle.type(), parameterIndex),
-                            returnNull(methodHandle.type()),
-                            methodHandle);
-                }
-
-                if (nullAdaptationPolicy == THROW_ON_NULL) {
-                    MethodType adapterType = methodType(boxedType, boxedType);
-                    MethodHandle adapter = guardWithTest(
-                            isNullArgument(adapterType, 0),
-                            throwTrinoNullArgumentException(adapterType),
-                            identity(boxedType));
-
-                    return collectArguments(methodHandle, parameterIndex, adapter);
-                }
+                MethodHandle nullReturnValue = getNullShortCircuitResult(methodHandle, returnConvention);
+                return guardWithTest(
+                        isNullArgument(methodHandle.type(), parameterIndex),
+                        nullReturnValue,
+                        methodHandle);
             }
 
             if (actualArgumentConvention == NULL_FLAG) {
                 // The conversion is described below in reverse order as this is how method handle adaptation works.  The provided example
                 // signature is based on a boxed Long argument.
 
-                // 3. unbox the value (if null the java default is sent)
+                // 3. unbox the value (if null, the java default is sent)
                 // long, boolean => Long, boolean
                 Class<?> parameterType = methodHandle.type().parameterType(parameterIndex);
                 methodHandle = explicitCastArguments(methodHandle, methodHandle.type().changeParameterType(parameterIndex, wrap(parameterType)));
@@ -388,39 +332,18 @@ public final class ScalarFunctionAdapter
         // caller will pass boolean true in the next argument for SQL null
         if (expectedArgumentConvention == NULL_FLAG) {
             if (actualArgumentConvention == NEVER_NULL) {
-                if (nullAdaptationPolicy == UNSUPPORTED) {
-                    throw new IllegalArgumentException("Not null argument can not be adapted to nullable");
-                }
-
-                if (nullAdaptationPolicy == UNDEFINED_VALUE_FOR_NULL) {
-                    // add null flag to call
-                    methodHandle = dropArguments(methodHandle, parameterIndex + 1, boolean.class);
-                    return methodHandle;
-                }
-
                 // if caller sets null flag, return null, otherwise invoke target
-                if (nullAdaptationPolicy == RETURN_NULL_ON_NULL) {
-                    if (returnConvention == FAIL_ON_NULL) {
-                        throw new IllegalArgumentException("RETURN_NULL_ON_NULL adaptation can not be used with FAIL_ON_NULL return convention");
-                    }
-                    // add null flag to call
-                    methodHandle = dropArguments(methodHandle, parameterIndex + 1, boolean.class);
-                    return guardWithTest(
-                            isTrueNullFlag(methodHandle.type(), parameterIndex),
-                            returnNull(methodHandle.type()),
-                            methodHandle);
+                if (returnConvention == FAIL_ON_NULL) {
+                    throw new IllegalArgumentException("RETURN_NULL_ON_NULL adaptation can not be used with FAIL_ON_NULL return convention");
                 }
+                // add a null flag to call
+                methodHandle = dropArguments(methodHandle, parameterIndex + 1, boolean.class);
 
-                if (nullAdaptationPolicy == THROW_ON_NULL) {
-                    MethodHandle adapter = identity(methodHandle.type().parameterType(parameterIndex));
-                    adapter = dropArguments(adapter, 1, boolean.class);
-                    adapter = guardWithTest(
-                            isTrueNullFlag(adapter.type(), 0),
-                            throwTrinoNullArgumentException(adapter.type()),
-                            adapter);
-
-                    return collectArguments(methodHandle, parameterIndex, adapter);
-                }
+                MethodHandle nullReturnValue = getNullShortCircuitResult(methodHandle, returnConvention);
+                return guardWithTest(
+                        isTrueNullFlag(methodHandle.type(), parameterIndex),
+                        nullReturnValue,
+                        methodHandle);
             }
 
             if (actualArgumentConvention == BOXED_NULLABLE) {
@@ -435,29 +358,23 @@ public final class ScalarFunctionAdapter
             MethodHandle getBlockValue = getBlockValue(argumentType, methodHandle.type().parameterType(parameterIndex));
 
             if (actualArgumentConvention == NEVER_NULL) {
-                if (nullAdaptationPolicy == UNDEFINED_VALUE_FOR_NULL) {
-                    // Current, null is not checked, so whatever type returned is passed through
-                    methodHandle = collectArguments(methodHandle, parameterIndex, getBlockValue);
-                    return methodHandle;
-                }
-
-                if (nullAdaptationPolicy == RETURN_NULL_ON_NULL && returnConvention != FAIL_ON_NULL) {
+                if (returnConvention != FAIL_ON_NULL) {
                     // if caller sets null flag, return null, otherwise invoke target
                     methodHandle = collectArguments(methodHandle, parameterIndex, getBlockValue);
+
+                    MethodHandle nullReturnValue = getNullShortCircuitResult(methodHandle, returnConvention);
                     return guardWithTest(
                             isBlockPositionNull(methodHandle.type(), parameterIndex),
-                            returnNull(methodHandle.type()),
+                            nullReturnValue,
                             methodHandle);
                 }
 
-                if (nullAdaptationPolicy == THROW_ON_NULL || nullAdaptationPolicy == UNSUPPORTED || nullAdaptationPolicy == RETURN_NULL_ON_NULL) {
-                    MethodHandle adapter = guardWithTest(
-                            isBlockPositionNull(getBlockValue.type(), 0),
-                            throwTrinoNullArgumentException(getBlockValue.type()),
-                            getBlockValue);
+                MethodHandle adapter = guardWithTest(
+                        isBlockPositionNull(getBlockValue.type(), 0),
+                        throwTrinoNullArgumentException(getBlockValue.type()),
+                        getBlockValue);
 
-                    return collectArguments(methodHandle, parameterIndex, adapter);
-                }
+                return collectArguments(methodHandle, parameterIndex, adapter);
             }
 
             if (actualArgumentConvention == BOXED_NULLABLE) {
@@ -498,29 +415,23 @@ public final class ScalarFunctionAdapter
             MethodHandle getInOutValue = getInOutValue(argumentType, methodHandle.type().parameterType(parameterIndex));
 
             if (actualArgumentConvention == NEVER_NULL) {
-                if (nullAdaptationPolicy == UNDEFINED_VALUE_FOR_NULL) {
-                    // Current, null is not checked, so whatever value returned is passed through
-                    methodHandle = collectArguments(methodHandle, parameterIndex, getInOutValue);
-                    return methodHandle;
-                }
-
-                if (nullAdaptationPolicy == RETURN_NULL_ON_NULL && returnConvention != FAIL_ON_NULL) {
+                if (returnConvention != FAIL_ON_NULL) {
                     // if caller sets null flag, return null, otherwise invoke target
                     methodHandle = collectArguments(methodHandle, parameterIndex, getInOutValue);
+
+                    MethodHandle nullReturnValue = getNullShortCircuitResult(methodHandle, returnConvention);
                     return guardWithTest(
                             isInOutNull(methodHandle.type(), parameterIndex),
-                            returnNull(methodHandle.type()),
+                            nullReturnValue,
                             methodHandle);
                 }
 
-                if (nullAdaptationPolicy == THROW_ON_NULL || nullAdaptationPolicy == UNSUPPORTED || nullAdaptationPolicy == RETURN_NULL_ON_NULL) {
-                    MethodHandle adapter = guardWithTest(
-                            isInOutNull(getInOutValue.type(), 0),
-                            throwTrinoNullArgumentException(getInOutValue.type()),
-                            getInOutValue);
+                MethodHandle adapter = guardWithTest(
+                        isInOutNull(getInOutValue.type(), 0),
+                        throwTrinoNullArgumentException(getInOutValue.type()),
+                        getInOutValue);
 
-                    return collectArguments(methodHandle, parameterIndex, adapter);
-                }
+                return collectArguments(methodHandle, parameterIndex, adapter);
             }
 
             if (actualArgumentConvention == BOXED_NULLABLE) {
@@ -628,7 +539,7 @@ public final class ScalarFunctionAdapter
         }
         // Add boolean null flag
         handle = dropArguments(handle, 1, boolean.class);
-        // if flag is true, return null, otherwise invoke identity
+        // if the flag is true, return null, otherwise invoke identity
         return guardWithTest(
                 isTrueNullFlag(handle.type(), 0),
                 returnNull(handle.type()),
@@ -646,7 +557,7 @@ public final class ScalarFunctionAdapter
         MethodHandle isNull = IS_NULL_METHOD;
         // Cast in incoming type: isNull(T):boolean
         isNull = explicitCastArguments(isNull, methodType(boolean.class, methodType.parameterType(index)));
-        // Add extra argument to match expected method type
+        // Add extra argument to match the expected method type
         isNull = permuteArguments(isNull, methodType.changeReturnType(boolean.class), index);
         return isNull;
     }
@@ -661,7 +572,7 @@ public final class ScalarFunctionAdapter
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
         }
-        // Add extra argument to match expected method type
+        // Add extra argument to match the expected method type
         isNull = permuteArguments(isNull, methodType.changeReturnType(boolean.class), index, index + 1);
         return isNull;
     }
@@ -689,6 +600,31 @@ public final class ScalarFunctionAdapter
             throw new AssertionError(e);
         }
         return isNull;
+    }
+
+    private static MethodHandle getNullShortCircuitResult(MethodHandle methodHandle, InvocationReturnConvention returnConvention)
+    {
+        MethodHandle nullReturnValue;
+        if (returnConvention == DEFAULT_ON_NULL) {
+            nullReturnValue = returnDefault(methodHandle.type());
+        }
+        else {
+            nullReturnValue = returnNull(methodHandle.type());
+        }
+        return nullReturnValue;
+    }
+
+    private static MethodHandle returnDefault(MethodType methodType)
+    {
+        // Start with a constant default value of the expected return type: f():R
+        MethodHandle returnDefault = zero(methodType.returnType());
+
+        // Add extra argument to match expected method type: f(a, b, c, ..., n):R
+        returnDefault = permuteArguments(returnDefault, methodType.changeReturnType(methodType.returnType()));
+
+        // Convert return to a primitive is necessary: f(a, b, c, ..., n):r
+        returnDefault = explicitCastArguments(returnDefault, methodType);
+        return returnDefault;
     }
 
     private static MethodHandle returnNull(MethodType methodType)
@@ -735,13 +671,5 @@ public final class ScalarFunctionAdapter
     private static Class<?> unwrap(Class<?> type)
     {
         return methodType(type).unwrap().returnType();
-    }
-
-    public enum NullAdaptationPolicy
-    {
-        UNSUPPORTED,
-        THROW_ON_NULL,
-        RETURN_NULL_ON_NULL,
-        UNDEFINED_VALUE_FOR_NULL
     }
 }

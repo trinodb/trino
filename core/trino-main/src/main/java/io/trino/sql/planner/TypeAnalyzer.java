@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
@@ -26,8 +27,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 

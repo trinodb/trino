@@ -140,6 +140,28 @@ public class TestReusableConnectionFactory
     }
 
     @Test
+    public void testConnectionIsNotReusedWhenDelegateIsClosed()
+            throws Exception
+    {
+        MockConnectionFactory mockConnectionFactory = new MockConnectionFactory();
+        ReusableConnectionFactory connectionFactory = new ReusableConnectionFactory(mockConnectionFactory, FOREVER, HUGE_SIZE);
+        Connection connection = connectionFactory.openConnection(ALICE);
+
+        Connection delegate = ((ReusableConnectionFactory.CachedConnection) connection).delegate();
+        delegate.close();
+        connection.close();
+
+        Connection secondConnection = connectionFactory.openConnection(ALICE);
+        Connection secondDelegate = ((ReusableConnectionFactory.CachedConnection) secondConnection).delegate();
+
+        assertThat(delegate).isNotEqualTo(secondDelegate);
+        secondConnection.close();
+
+        assertThat(mockConnectionFactory.openedConnections).isEqualTo(2);
+        assertThat(mockConnectionFactory.closedConnections).isEqualTo(1);
+    }
+
+    @Test
     public void testConnectionIsNotReusedWhenAutoCommitDisabled()
             throws Exception
     {
@@ -188,6 +210,12 @@ public class TestReusableConnectionFactory
         protected Connection delegate()
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean isClosed()
+        {
+            return closed;
         }
 
         @Override

@@ -28,24 +28,38 @@ import static java.util.Objects.requireNonNull;
 public final class GroupingSets
         extends GroupingElement
 {
+    public enum Type
+    {
+        EXPLICIT,
+        ROLLUP,
+        CUBE
+    }
+
+    private final Type type;
     private final List<List<Expression>> sets;
 
-    public GroupingSets(List<List<Expression>> groupingSets)
+    public GroupingSets(Type type, List<List<Expression>> groupingSets)
     {
-        this(Optional.empty(), groupingSets);
+        this(Optional.empty(), type, groupingSets);
     }
 
-    public GroupingSets(NodeLocation location, List<List<Expression>> sets)
+    public GroupingSets(NodeLocation location, Type type, List<List<Expression>> sets)
     {
-        this(Optional.of(location), sets);
+        this(Optional.of(location), type, sets);
     }
 
-    private GroupingSets(Optional<NodeLocation> location, List<List<Expression>> sets)
+    private GroupingSets(Optional<NodeLocation> location, Type type, List<List<Expression>> sets)
     {
         super(location);
+        this.type = requireNonNull(type, "type is null");
         requireNonNull(sets, "sets is null");
         checkArgument(!sets.isEmpty(), "grouping sets cannot be empty");
         this.sets = sets.stream().map(ImmutableList::copyOf).collect(toImmutableList());
+    }
+
+    public Type getType()
+    {
+        return type;
     }
 
     public List<List<Expression>> getSets()
@@ -82,20 +96,21 @@ public final class GroupingSets
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        GroupingSets groupingSets = (GroupingSets) o;
-        return Objects.equals(sets, groupingSets.sets);
+        GroupingSets that = (GroupingSets) o;
+        return type == that.type && sets.equals(that.sets);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(sets);
+        return Objects.hash(type, sets);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
+                .add("type", type)
                 .add("sets", sets)
                 .toString();
     }
@@ -108,6 +123,6 @@ public final class GroupingSets
         }
 
         GroupingSets that = (GroupingSets) other;
-        return Objects.equals(sets, that.sets);
+        return Objects.equals(sets, that.sets) && Objects.equals(type, that.type);
     }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>406</version>
+        <version>420</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -27,6 +27,7 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+            <version>1.7</version> <!-- JDK8 support dropped by version 1.8+ -->
         </dependency>
 
         <dependency>
@@ -190,8 +191,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.oracle.ojdbc</groupId>
-            <artifactId>ojdbc8</artifactId>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc11</artifactId>
             <version>${dep.oracle.version}</version>
             <scope>test</scope>
         </dependency>
@@ -221,8 +222,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>javax.ws.rs-api</artifactId>
+            <groupId>jakarta.ws.rs</groupId>
+            <artifactId>jakarta.ws.rs-api</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -234,7 +235,7 @@
 
         <dependency>
             <groupId>org.eclipse.jetty.toolchain</groupId>
-            <artifactId>jetty-servlet-api</artifactId>
+            <artifactId>jetty-jakarta-servlet-api</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -297,6 +298,20 @@
                         <propertiesEncoding>ISO-8859-1</propertiesEncoding>
                     </configuration>
                 </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <configuration>
+                        <rules>
+                            <requireUpperBoundDeps>
+                                <excludes combine.children="append">
+                                    <exclude>io.airlift:units</exclude>
+                                </excludes>
+                            </requireUpperBoundDeps>
+                        </rules>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -313,7 +328,6 @@
                         <configuration>
                             <createSourcesJar>true</createSourcesJar>
                             <shadeSourcesContent>true</shadeSourcesContent>
-                            <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                             <relocations>
                                 <relocation>
                                     <pattern>io.trino.client</pattern>
@@ -340,8 +354,8 @@
                                     <shadedPattern>${shadeBase}.javax.annotation</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>javax.inject</pattern>
-                                    <shadedPattern>${shadeBase}.javax.inject</shadedPattern>
+                                    <pattern>jakarta.annotation</pattern>
+                                    <shadedPattern>${shadeBase}.jakarta.annotation</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.joda.time</pattern>
@@ -356,8 +370,12 @@
                                     <shadedPattern>${shadeBase}.okio</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>net.jodah.failsafe</pattern>
-                                    <shadedPattern>${shadeBase}.net.jodah.failsafe</shadedPattern>
+                                    <pattern>dev.failsafe</pattern>
+                                    <shadedPattern>${shadeBase}.dev.failsafe</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>kotlin</pattern>
+                                    <shadedPattern>${shadeBase}.kotlin</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>
@@ -370,10 +388,18 @@
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
+                                        <exclude>org/jetbrains/**</exclude>
+                                        <exclude>org/intellij/**</exclude>
                                         <exclude>META-INF/maven/**</exclude>
                                         <exclude>META-INF/services/com.fasterxml.**</exclude>
-                                        <exclude>META-INF/proguard/okhttp3.pro</exclude>
+                                        <exclude>META-INF/proguard/**</exclude>
                                         <exclude>LICENSE</exclude>
+                                        <exclude>META-INF/**.kotlin_module</exclude>
+                                        <exclude>META-INF/versions/**</exclude>
+                                        <exclude>META-INF/NOTICE**</exclude>
+                                        <exclude>META-INF/*-NOTICE</exclude>
+                                        <exclude>META-INF/*-LICENSE</exclude>
+                                        <exclude>META-INF/LICENSE**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
@@ -383,4 +409,31 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>ci</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <jdbc-jar>${project.build.directory}/${project.name}-${project.version}.jar</jdbc-jar>
+                            </systemPropertyVariables>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

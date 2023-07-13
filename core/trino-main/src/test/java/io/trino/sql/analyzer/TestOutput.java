@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.trino.execution.Column;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.sql.analyzer.Analysis.SourceColumn;
 import org.testng.annotations.Test;
 
@@ -34,6 +35,7 @@ public class TestOutput
     {
         Output expected = new Output(
                 "connectorId",
+                new CatalogVersion("default"),
                 "schema",
                 "table",
                 Optional.of(

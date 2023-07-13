@@ -18,7 +18,6 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.operator.GroupByHash;
-import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.Work;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -37,7 +36,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.operator.GroupByHash.createGroupByHash;
@@ -78,22 +76,22 @@ public class UnloadedIndexKeyRecordSet
             Page page = request.getPage();
 
             // Move through the positions while advancing the cursors in lockstep
-            Work<GroupByIdBlock> work = groupByHash.getGroupIds(page.getColumns(distinctChannels));
+            Work<int[]> work = groupByHash.getGroupIds(page.getColumns(distinctChannels));
             boolean done = work.process();
             // TODO: this class does not yield wrt memory limit; enable it
             verify(done);
-            GroupByIdBlock groupIds = work.getResult();
+            int[] groupIds = work.getResult();
             int positionCount = page.getBlock(0).getPositionCount();
-            long nextDistinctId = -1;
-            checkArgument(groupIds.getGroupCount() <= Integer.MAX_VALUE);
-            IntList positions = new IntArrayList((int) groupIds.getGroupCount());
+            int nextDistinctId = -1;
+            int groupCount = groupByHash.getGroupCount();
+            IntList positions = new IntArrayList(groupCount);
             for (int position = 0; position < positionCount; position++) {
                 // We are reading ahead in the cursors, so we need to filter any nulls since they cannot join
                 if (!containsNullValue(position, page)) {
                     // Only include the key if it is not already in the index
                     if (existingSnapshot.getJoinPosition(position, page) == UNLOADED_INDEX_KEY) {
                         // Only add the position if we have not seen this tuple before (based on the distinct channels)
-                        long groupId = groupIds.getGroupId(position);
+                        int groupId = groupIds[position];
                         if (nextDistinctId < groupId) {
                             nextDistinctId = groupId;
                             positions.add(position);

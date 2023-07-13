@@ -25,7 +25,14 @@
       <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem</value>
       <description>The FileSystem for gs: (GCS) uris.</description>
     </property>
-
+    <property>
+       <name>fs.gs.path.encoding</name>
+       <value>uri-path</value>
+       <description>
+         Path codec used that used for decoding and encoding Cloud Storage object
+         paths. Valid path codecs are `legacy` and `uri-path`.
+       </description>
+    </property>
     <property>
       <name>fs.AbstractFileSystem.gs.impl</name>
       <value>com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS</value>

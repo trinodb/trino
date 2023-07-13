@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>406</version>
+        <version>420</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -56,6 +56,7 @@
         <plugins>
             <!-- Build archive files -->
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <configuration>
                     <descriptors>
@@ -89,6 +90,22 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules>
+                        <bannedDependencies>
+                            <includes combine.children="append">
+                                <!-- allow vulnerable snakeyaml version until benchto is updated -->
+                                <include>org.yaml:snakeyaml:1.33</include>
+                                <!-- benchto still uses javax.annotation -->
+                                <include>javax.annotation:javax.annotation-api</include>
+                            </includes>
+                        </bannedDependencies>
+                    </rules>
+                </configuration>
             </plugin>
         </plugins>
     </build>

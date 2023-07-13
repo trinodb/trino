@@ -26,12 +26,12 @@ import org.testng.annotations.Test;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import static io.trino.execution.QueryRunnerUtil.cancelQuery;
+import static io.trino.execution.QueryRunnerUtil.createQuery;
+import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
-import static io.trino.execution.TestQueryRunnerUtil.cancelQuery;
-import static io.trino.execution.TestQueryRunnerUtil.createQuery;
-import static io.trino.execution.TestQueryRunnerUtil.waitForQueryState;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 

@@ -13,7 +13,10 @@
  */
 package io.trino.connector;
 
+import com.google.inject.Inject;
 import io.airlift.node.NodeInfo;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.connector.informationschema.InformationSchemaConnector;
 import io.trino.connector.system.CoordinatorSystemTablesProvider;
 import io.trino.connector.system.StaticSystemTablesProvider;
@@ -38,7 +41,6 @@ import io.trino.transaction.TransactionManager;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;
@@ -66,12 +68,13 @@ public class DefaultCatalogFactory
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeInfo nodeInfo;
     private final VersionEmbedder versionEmbedder;
+    private final OpenTelemetry openTelemetry;
     private final TransactionManager transactionManager;
     private final TypeManager typeManager;
 
     private final boolean schedulerIncludeCoordinator;
 
-    private final ConcurrentMap<String, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorName, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
     @Inject
     public DefaultCatalogFactory(
@@ -83,6 +86,7 @@ public class DefaultCatalogFactory
             PageIndexerFactory pageIndexerFactory,
             NodeInfo nodeInfo,
             VersionEmbedder versionEmbedder,
+            OpenTelemetry openTelemetry,
             TransactionManager transactionManager,
             TypeManager typeManager,
             NodeSchedulerConfig nodeSchedulerConfig)
@@ -95,6 +99,7 @@ public class DefaultCatalogFactory
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
+        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
@@ -104,7 +109,7 @@ public class DefaultCatalogFactory
     public synchronized void addConnectorFactory(ConnectorFactory connectorFactory, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
     {
         InternalConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(
-                connectorFactory.getName(),
+                new ConnectorName(connectorFactory.getName()),
                 new InternalConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory));
         checkArgument(existingConnectorFactory == null, "Connector '%s' is already registered", connectorFactory.getName());
     }
@@ -121,34 +126,44 @@ public class DefaultCatalogFactory
                 catalogProperties.getCatalogHandle(),
                 factory.getDuplicatePluginClassLoaderFactory(),
                 handleResolver);
-        Connector connector = createConnector(
-                catalogProperties.getCatalogHandle().getCatalogName(),
-                catalogProperties.getCatalogHandle(),
-                factory.getConnectorFactory(),
-                duplicatePluginClassLoaderFactory,
-                catalogProperties.getProperties());
-        return createCatalog(
-                catalogProperties.getCatalogHandle(),
-                factory.getConnectorFactory().getName(),
-                connector,
-                duplicatePluginClassLoaderFactory::destroy,
-                Optional.of(catalogProperties));
+        try {
+            Connector connector = createConnector(
+                    catalogProperties.getCatalogHandle().getCatalogName(),
+                    catalogProperties.getCatalogHandle(),
+                    factory.getConnectorFactory(),
+                    duplicatePluginClassLoaderFactory,
+                    catalogProperties.getProperties());
+            return createCatalog(
+                    catalogProperties.getCatalogHandle(),
+                    catalogProperties.getConnectorName(),
+                    connector,
+                    duplicatePluginClassLoaderFactory::destroy,
+                    Optional.of(catalogProperties));
+        }
+        catch (Throwable e) {
+            duplicatePluginClassLoaderFactory.destroy();
+            throw e;
+        }
     }
 
     @Override
-    public CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector)
+    public CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector)
     {
         return createCatalog(catalogHandle, connectorName, connector, () -> {}, Optional.empty());
     }
 
-    private CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector, Runnable destroy, Optional<CatalogProperties> catalogProperties)
+    private CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector, Runnable destroy, Optional<CatalogProperties> catalogProperties)
     {
+        Tracer tracer = createTracer(catalogHandle);
+
         ConnectorServices catalogConnector = new ConnectorServices(
+                tracer,
                 catalogHandle,
                 connector,
                 destroy);
 
         ConnectorServices informationSchemaConnector = new ConnectorServices(
+                tracer,
                 createInformationSchemaCatalogHandle(catalogHandle),
                 new InformationSchemaConnector(catalogHandle.getCatalogName(), nodeManager, metadata, accessControl),
                 () -> {});
@@ -166,6 +181,7 @@ public class DefaultCatalogFactory
         }
 
         ConnectorServices systemConnector = new ConnectorServices(
+                tracer,
                 createSystemTablesCatalogHandle(catalogHandle),
                 new SystemConnector(
                         nodeManager,
@@ -191,6 +207,8 @@ public class DefaultCatalogFactory
     {
         ConnectorContext context = new ConnectorContextInstance(
                 catalogHandle,
+                openTelemetry,
+                createTracer(catalogHandle),
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogHandle, schedulerIncludeCoordinator),
                 versionEmbedder,
                 typeManager,
@@ -202,6 +220,11 @@ public class DefaultCatalogFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             return connectorFactory.create(catalogName, properties, context);
         }
+    }
+
+    private Tracer createTracer(CatalogHandle catalogHandle)
+    {
+        return openTelemetry.getTracer("trino.catalog." + catalogHandle.getCatalogName());
     }
 
     private static class InternalConnectorFactory

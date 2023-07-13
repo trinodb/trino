@@ -72,7 +72,7 @@ public class TestEqualityInference
     @Test
     public void testTransitivity()
     {
-        EqualityInference inference = EqualityInference.newInstance(
+        EqualityInference inference = new EqualityInference(
                 metadata,
                 equals("a1", "b1"),
                 equals("b1", "c1"),
@@ -110,7 +110,7 @@ public class TestEqualityInference
     @Test
     public void testTriviallyRewritable()
     {
-        Expression expression = EqualityInference.newInstance(metadata)
+        Expression expression = new EqualityInference(metadata)
                 .rewrite(someExpression("a1", "a2"), symbols("a1", "a2"));
 
         assertEquals(expression, someExpression("a1", "a2"));
@@ -119,7 +119,7 @@ public class TestEqualityInference
     @Test
     public void testUnrewritable()
     {
-        EqualityInference inference = EqualityInference.newInstance(
+        EqualityInference inference = new EqualityInference(
                 metadata,
                 equals("a1", "b1"),
                 equals("a2", "b2"));
@@ -131,7 +131,7 @@ public class TestEqualityInference
     @Test
     public void testParseEqualityExpression()
     {
-        EqualityInference inference = EqualityInference.newInstance(
+        EqualityInference inference = new EqualityInference(
                 metadata,
                 equals("a1", "b1"),
                 equals("a1", "c1"),
@@ -144,7 +144,7 @@ public class TestEqualityInference
     @Test
     public void testExtractInferrableEqualities()
     {
-        EqualityInference inference = EqualityInference.newInstance(
+        EqualityInference inference = new EqualityInference(
                 metadata,
                 ExpressionUtils.and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")));
 
@@ -158,7 +158,7 @@ public class TestEqualityInference
     @Test
     public void testEqualityPartitionGeneration()
     {
-        EqualityInference inference = EqualityInference.newInstance(
+        EqualityInference inference = new EqualityInference(
                 metadata,
                 equals(nameReference("a1"), nameReference("b1")),
                 equals(add("a1", "a1"), multiply(nameReference("a1"), number(2))),
@@ -193,7 +193,7 @@ public class TestEqualityInference
 
         // There should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
-        EqualityInference newInference = EqualityInference.newInstance(
+        EqualityInference newInference = new EqualityInference(
                 metadata,
                 ImmutableList.<Expression>builder()
                         .addAll(equalityPartition.getScopeEqualities())
@@ -211,7 +211,7 @@ public class TestEqualityInference
     @Test
     public void testMultipleEqualitySetsPredicateGeneration()
     {
-        EqualityInference inference = EqualityInference.newInstance(
+        EqualityInference inference = new EqualityInference(
                 metadata,
                 equals("a1", "b1"),
                 equals("b1", "c1"),
@@ -240,7 +240,7 @@ public class TestEqualityInference
 
         // Again, there should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
-        EqualityInference newInference = EqualityInference.newInstance(
+        EqualityInference newInference = new EqualityInference(
                 metadata,
                 ImmutableList.<Expression>builder()
                         .addAll(equalityPartition.getScopeEqualities())
@@ -258,7 +258,7 @@ public class TestEqualityInference
     @Test
     public void testSubExpressionRewrites()
     {
-        EqualityInference inference = EqualityInference.newInstance(
+        EqualityInference inference = new EqualityInference(
                 metadata,
                 equals(nameReference("a1"), add("b", "c")), // a1 = b + c
                 equals(nameReference("a2"), multiply(nameReference("b"), add("b", "c"))), // a2 = b * (b + c)
@@ -277,7 +277,7 @@ public class TestEqualityInference
     @Test
     public void testConstantEqualities()
     {
-        EqualityInference inference = EqualityInference.newInstance(
+        EqualityInference inference = new EqualityInference(
                 metadata,
                 equals("a1", "b1"),
                 equals("b1", "c1"),
@@ -300,7 +300,7 @@ public class TestEqualityInference
     @Test
     public void testEqualityGeneration()
     {
-        EqualityInference inference = EqualityInference.newInstance(
+        EqualityInference inference = new EqualityInference(
                 metadata,
                 equals(nameReference("a1"), add("b", "c")), // a1 = b + c
                 equals(nameReference("e1"), add("b", "d")), // e1 = b + d
@@ -327,7 +327,7 @@ public class TestEqualityInference
                 new SubscriptExpression(new Array(ImmutableList.of(new NullLiteral())), nameReference("b")));
 
         for (Expression candidate : candidates) {
-            EqualityInference inference = EqualityInference.newInstance(
+            EqualityInference inference = new EqualityInference(
                     metadata,
                     equals(nameReference("b"), nameReference("x")),
                     equals(nameReference("a"), candidate));

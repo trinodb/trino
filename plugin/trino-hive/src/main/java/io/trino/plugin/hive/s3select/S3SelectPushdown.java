@@ -17,9 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.type.DecimalTypeInfo;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.io.compress.BZip2Codec;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.mapred.InputFormat;
@@ -95,7 +94,7 @@ public final class S3SelectPushdown
         return false;
     }
 
-    public static boolean isCompressionCodecSupported(InputFormat<?, ?> inputFormat, Path path)
+    public static boolean isCompressionCodecSupported(InputFormat<?, ?> inputFormat, String path)
     {
         if (inputFormat instanceof TextInputFormat textInputFormat) {
             // S3 Select supports the following formats: uncompressed, GZIP and BZIP2.
@@ -107,10 +106,7 @@ public final class S3SelectPushdown
         return false;
     }
 
-    public static boolean isSplittable(boolean s3SelectPushdownEnabled,
-                                       Properties schema,
-                                       InputFormat<?, ?> inputFormat,
-                                       Path path)
+    public static boolean isSplittable(boolean s3SelectPushdownEnabled, Properties schema, InputFormat<?, ?> inputFormat, String path)
     {
         if (!s3SelectPushdownEnabled) {
             return true;
@@ -123,7 +119,7 @@ public final class S3SelectPushdown
         return false;
     }
 
-    private static boolean isUncompressed(InputFormat<?, ?> inputFormat, Path path)
+    private static boolean isUncompressed(InputFormat<?, ?> inputFormat, String path)
     {
         if (inputFormat instanceof TextInputFormat textInputFormat) {
             // S3 Select supports splitting uncompressed files

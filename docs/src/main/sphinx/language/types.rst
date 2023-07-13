@@ -176,6 +176,8 @@ Date and time
 
 See also :doc:`/functions/datetime`
 
+.. _date-data-type:
+
 ``DATE``
 ^^^^^^^^
 
@@ -303,7 +305,7 @@ Example: ``INTERVAL '2' DAY``
 Structural
 ----------
 
-.. _array_type:
+.. _array-type:
 
 ``ARRAY``
 ^^^^^^^^^
@@ -312,7 +314,7 @@ An array of the given component type.
 
 Example: ``ARRAY[1, 2, 3]``
 
-.. _map_type:
+.. _map-type:
 
 ``MAP``
 ^^^^^^^
@@ -321,7 +323,7 @@ A map between the given component types.
 
 Example: ``MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])``
 
-.. _row_type:
+.. _row-type:
 
 ``ROW``
 ^^^^^^^
@@ -345,7 +347,7 @@ Example: ``ROW(1, 2.0)[1]``
 Network address
 ---------------
 
-.. _ipaddress_type:
+.. _ipaddress-type:
 
 ``IPADDRESS``
 ^^^^^^^^^^^^^
@@ -363,7 +365,7 @@ Examples: ``IPADDRESS '10.0.0.1'``, ``IPADDRESS '2001:db8::1'``
 UUID
 ----
 
-.. _uuid_type:
+.. _uuid-type:
 
 ``UUID``
 ^^^^^^^^
@@ -377,9 +379,9 @@ HyperLogLog
 -----------
 
 Calculating the approximate distinct count can be done much more cheaply than an exact count using the
-`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_ data sketch. See :doc:`/functions/hyperloglog`.
+`HyperLogLog <https://wikipedia.org/wiki/HyperLogLog>`_ data sketch. See :doc:`/functions/hyperloglog`.
 
-.. _hyperloglog_type:
+.. _hyperloglog-type:
 
 ``HyperLogLog``
 ^^^^^^^^^^^^^^^
@@ -387,30 +389,30 @@ Calculating the approximate distinct count can be done much more cheaply than an
 A HyperLogLog sketch allows efficient computation of :func:`approx_distinct`. It starts as a
 sparse representation, switching to a dense representation when it becomes more efficient.
 
-.. _p4hyperloglog_type:
+.. _p4hyperloglog-type:
 
 ``P4HyperLogLog``
 ^^^^^^^^^^^^^^^^^
 
-A P4HyperLogLog sketch is similar to :ref:`hyperloglog_type`, but it starts (and remains)
+A P4HyperLogLog sketch is similar to :ref:`hyperloglog-type`, but it starts (and remains)
 in the dense representation.
 
 SetDigest
 ---------
 
-.. _setdigest_type:
+.. _setdigest-type:
 
 ``SetDigest``
 ^^^^^^^^^^^^^
 
 A SetDigest (setdigest) is a data sketch structure used
-in calculating `Jaccard similarity coefficient <https://en.wikipedia.org/wiki/Jaccard_index>`_
+in calculating `Jaccard similarity coefficient <https://wikipedia.org/wiki/Jaccard_index>`_
 between two sets.
 
 SetDigest encapsulates the following components:
 
-- `HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_
-- `MinHash with a single hash function <http://en.wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
+- `HyperLogLog <https://wikipedia.org/wiki/HyperLogLog>`_
+- `MinHash with a single hash function <http://wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
 
 The HyperLogLog structure is used for the approximation of the distinct elements
 in the original set.
@@ -423,7 +425,7 @@ SetDigests are additive, meaning they can be merged together.
 Quantile digest
 ---------------
 
-.. _qdigest_type:
+.. _qdigest-type:
 
 ``QDigest``
 ^^^^^^^^^^^
@@ -446,7 +448,7 @@ daily, and quickly merged to retrieve the 99th percentile value.
 T-Digest
 --------
 
-.. _tdigest_type:
+.. _tdigest-type:
 
 ``TDigest``
 ^^^^^^^^^^^

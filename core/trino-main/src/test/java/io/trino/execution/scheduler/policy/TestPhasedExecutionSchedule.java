@@ -18,6 +18,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.graph.EndpointPair;
 import com.google.common.graph.Graph;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.opentelemetry.api.trace.Span;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.RemoteTask;
@@ -330,6 +331,12 @@ public class TestPhasedExecutionSchedule
 
         @Override
         public int getAttemptId()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Span getStageSpan()
         {
             throw new UnsupportedOperationException();
         }

@@ -14,8 +14,10 @@
 package io.trino.connector;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.CatalogProcedures;
@@ -35,9 +37,6 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.function.FunctionProvider;
-
-import javax.inject.Inject;
-import javax.inject.Singleton;
 
 import java.util.Optional;
 import java.util.Set;

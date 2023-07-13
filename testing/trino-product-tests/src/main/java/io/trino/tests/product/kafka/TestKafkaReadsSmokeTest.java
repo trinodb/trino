@@ -33,7 +33,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
 import static io.trino.tests.product.TestGroups.KAFKA;
@@ -42,6 +41,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKafkaReadsSmokeTest
         extends ProductTest

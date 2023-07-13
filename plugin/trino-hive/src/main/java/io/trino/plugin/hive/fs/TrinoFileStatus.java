@@ -14,34 +14,43 @@
 package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.ImmutableList;
-import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
+import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.FileEntry.Block;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class TrinoFileStatus
         implements Comparable<TrinoFileStatus>
 {
+    private static final long INSTANCE_SIZE = instanceSize(TrinoFileStatus.class);
+
     private final List<BlockLocation> blockLocations;
-    private final Path path;
+    private final String path;
     private final boolean isDirectory;
     private final long length;
     private final long modificationTime;
 
-    public TrinoFileStatus(LocatedFileStatus fileStatus)
+    public TrinoFileStatus(FileEntry entry)
     {
-        this(BlockLocation.fromHiveBlockLocations(fileStatus.getBlockLocations()),
-                fileStatus.getPath(),
-                fileStatus.isDirectory(),
-                fileStatus.getLen(),
-                fileStatus.getModificationTime());
+        this(entry.blocks()
+                        .orElseGet(() -> List.of(new Block(List.of(), 0, entry.length())))
+                        .stream()
+                        .map(BlockLocation::new)
+                        .collect(toImmutableList()),
+                entry.location().toString(),
+                false,
+                entry.length(),
+                entry.lastModified().toEpochMilli());
     }
 
-    public TrinoFileStatus(List<BlockLocation> blockLocations, Path path, boolean isDirectory, long length, long modificationTime)
+    public TrinoFileStatus(List<BlockLocation> blockLocations, String path, boolean isDirectory, long length, long modificationTime)
     {
         this.blockLocations = ImmutableList.copyOf(requireNonNull(blockLocations, "blockLocations is null"));
         this.path = requireNonNull(path, "path is null");
@@ -55,14 +64,9 @@ public class TrinoFileStatus
         return blockLocations;
     }
 
-    public Path getPath()
+    public String getPath()
     {
         return path;
-    }
-
-    public boolean isDirectory()
-    {
-        return isDirectory;
     }
 
     public long getLength()
@@ -73,6 +77,13 @@ public class TrinoFileStatus
     public long getModificationTime()
     {
         return modificationTime;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(blockLocations, BlockLocation::getRetainedSizeInBytes)
+                + estimatedSizeOf(path);
     }
 
     @Override

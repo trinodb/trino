@@ -20,7 +20,7 @@ import io.trino.execution.Column;
 import io.trino.execution.Input;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableSchema;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -64,10 +64,18 @@ public class InputExtractor
 
     private Input createInput(Session session, TableHandle table, Set<Column> columns, PlanFragmentId fragmentId, PlanNodeId planNodeId)
     {
-        TableSchema tableSchema = metadata.getTableSchema(session, table);
-        SchemaTableName schemaTable = tableSchema.getTable();
+        CatalogSchemaTableName tableName = metadata.getTableName(session, table);
+        SchemaTableName schemaTable = tableName.getSchemaTableName();
         Optional<Object> inputMetadata = metadata.getInfo(session, table);
-        return new Input(tableSchema.getCatalogName(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns), fragmentId, planNodeId);
+        return new Input(
+                tableName.getCatalogName(),
+                table.getCatalogHandle().getVersion(),
+                schemaTable.getSchemaName(),
+                schemaTable.getTableName(),
+                inputMetadata,
+                ImmutableList.copyOf(columns),
+                fragmentId,
+                planNodeId);
     }
 
     private class Visitor

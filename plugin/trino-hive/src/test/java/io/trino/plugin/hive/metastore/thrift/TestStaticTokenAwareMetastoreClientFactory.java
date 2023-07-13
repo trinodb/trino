@@ -17,7 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.TestingTicker;
-import org.apache.hadoop.hive.metastore.api.Table;
+import io.trino.hive.thrift.metastore.Table;
 import org.apache.thrift.TException;
 import org.testng.annotations.Test;
 

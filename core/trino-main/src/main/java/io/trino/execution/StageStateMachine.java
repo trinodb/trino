@@ -18,6 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.operator.BlockedReason;
@@ -29,8 +33,8 @@ import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.tracing.TrinoAttributes;
 import io.trino.util.Failures;
-import io.trino.util.Optionals;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.joda.time.DateTime;
 
@@ -82,6 +86,7 @@ public class StageStateMachine
 
     private final StateMachine<StageState> stageState;
     private final StateMachine<Optional<StageInfo>> finalStageInfo;
+    private final Span stageSpan;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
@@ -98,6 +103,8 @@ public class StageStateMachine
             PlanFragment fragment,
             Map<PlanNodeId, TableInfo> tables,
             Executor executor,
+            Tracer tracer,
+            Span querySpan,
             SplitSchedulerStats schedulerStats)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
@@ -109,6 +116,20 @@ public class StageStateMachine
         stageState.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
 
         finalStageInfo = new StateMachine<>("final stage " + stageId, executor, Optional.empty());
+
+        stageSpan = tracer.spanBuilder("stage")
+                .setParent(Context.current().with(querySpan))
+                .setAttribute(TrinoAttributes.QUERY_ID, stageId.getQueryId().toString())
+                .setAttribute(TrinoAttributes.STAGE_ID, stageId.toString())
+                .startSpan();
+
+        stageState.addStateChangeListener(state -> {
+            stageSpan.addEvent("stage_state", Attributes.of(
+                    TrinoAttributes.EVENT_STATE, state.toString()));
+            if (state.isDone()) {
+                stageSpan.end();
+            }
+        });
     }
 
     public StageId getStageId()
@@ -124,6 +145,11 @@ public class StageStateMachine
     public PlanFragment getFragment()
     {
         return fragment;
+    }
+
+    public Span getStageSpan()
+    {
+        return stageSpan;
     }
 
     /**
@@ -274,7 +300,9 @@ public class StageStateMachine
             TaskState taskState = taskInfo.getTaskStatus().getState();
             TaskStats taskStats = taskInfo.getStats();
 
-            if (taskState == TaskState.FAILED) {
+            boolean taskFailedOrFailing = taskState == TaskState.FAILED || taskState == TaskState.FAILING;
+
+            if (taskFailedOrFailing) {
                 failedTasks++;
             }
 
@@ -284,7 +312,7 @@ public class StageStateMachine
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
             }
 
@@ -295,7 +323,7 @@ public class StageStateMachine
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
                 failedCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             }
@@ -320,6 +348,10 @@ public class StageStateMachine
         OptionalDouble progressPercentage = OptionalDouble.empty();
         if (isScheduled && totalDrivers != 0) {
             progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
+        }
+        OptionalDouble runningPercentage = OptionalDouble.empty();
+        if (isScheduled && totalDrivers != 0) {
+            runningPercentage = OptionalDouble.of(min(100, (runningDrivers * 100.0) / totalDrivers));
         }
 
         return new BasicStageStats(
@@ -355,7 +387,8 @@ public class StageStateMachine
                 fullyBlocked,
                 blockedReasons,
 
-                progressPercentage);
+                progressPercentage,
+                runningPercentage);
     }
 
     public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
@@ -424,7 +457,7 @@ public class StageStateMachine
         long failedInputBlockedTime = 0;
 
         long bufferedDataSize = 0;
-        Optional<TDigestHistogram> outputBufferUtilization = Optional.empty();
+        ImmutableList.Builder<TDigestHistogram> bufferUtilizationHistograms = ImmutableList.builderWithExpectedSize(taskInfos.size());
         long outputDataSize = 0;
         long failedOutputDataSize = 0;
         long outputPositions = 0;
@@ -454,8 +487,9 @@ public class StageStateMachine
             else {
                 runningTasks++;
             }
+            boolean taskFailedOrFailing = taskState == TaskState.FAILED || taskState == TaskState.FAILING;
 
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedTasks++;
             }
 
@@ -468,14 +502,14 @@ public class StageStateMachine
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
             }
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
                 failedCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             }
@@ -500,7 +534,7 @@ public class StageStateMachine
             inputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
 
             bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
-            outputBufferUtilization = Optionals.combine(outputBufferUtilization, taskInfo.getOutputBuffers().getUtilization(), TDigestHistogram::mergeWith);
+            taskInfo.getOutputBuffers().getUtilization().ifPresent(bufferUtilizationHistograms::add);
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
 
@@ -508,7 +542,7 @@ public class StageStateMachine
 
             physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
 
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedPhysicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
                 failedPhysicalInputPositions += taskStats.getPhysicalInputPositions();
                 failedPhysicalInputReadTime += taskStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
@@ -605,7 +639,7 @@ public class StageStateMachine
                 succinctDuration(inputBlockedTime, NANOSECONDS),
                 succinctDuration(failedInputBlockedTime, NANOSECONDS),
                 succinctBytes(bufferedDataSize),
-                outputBufferUtilization,
+                TDigestHistogram.merge(bufferUtilizationHistograms.build()),
                 succinctBytes(outputDataSize),
                 succinctBytes(failedOutputDataSize),
                 outputPositions,

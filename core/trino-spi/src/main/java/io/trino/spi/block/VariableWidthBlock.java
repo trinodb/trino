@@ -16,7 +16,6 @@ package io.trino.spi.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -24,6 +23,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
@@ -34,12 +34,11 @@ import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.compactSlice;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
-import static java.lang.Math.toIntExact;
 
 public class VariableWidthBlock
         extends AbstractVariableWidthBlock
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(VariableWidthBlock.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(VariableWidthBlock.class);
 
     private final int arrayOffset;
     private final int positionCount;

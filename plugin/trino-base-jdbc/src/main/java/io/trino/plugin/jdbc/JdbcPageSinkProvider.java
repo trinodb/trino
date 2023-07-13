@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.inject.Inject;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -22,15 +23,13 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
-import javax.inject.Inject;
-
 import static java.util.Objects.requireNonNull;
 
 public class JdbcPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final JdbcClient jdbcClient;
-    private RemoteQueryModifier queryModifier;
+    private final RemoteQueryModifier queryModifier;
 
     @Inject
     public JdbcPageSinkProvider(JdbcClient jdbcClient, RemoteQueryModifier remoteQueryModifier)

@@ -21,12 +21,10 @@ import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.hdfs.BlockMissingException;
 
 import java.io.IOException;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -82,9 +80,6 @@ public class HdfsOrcDataSource
         }
         catch (Exception e) {
             String message = format("Error reading from %s at position %s", this, position);
-            if (e instanceof BlockMissingException) {
-                throw new TrinoException(HIVE_MISSING_DATA, message, e);
-            }
             if (e instanceof IOException) {
                 throw new TrinoException(HIVE_FILESYSTEM_ERROR, message, e);
             }

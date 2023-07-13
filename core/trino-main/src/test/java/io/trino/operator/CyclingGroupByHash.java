@@ -16,14 +16,11 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
-import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 /**
  * GroupByHash that provides a round robin group ID assignment.
@@ -31,7 +28,7 @@ import static java.lang.Math.toIntExact;
 public class CyclingGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(CyclingGroupByHash.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(CyclingGroupByHash.class);
 
     private final int totalGroupCount;
     private int maxGroupId;
@@ -73,15 +70,15 @@ public class CyclingGroupByHash
     }
 
     @Override
-    public Work<GroupByIdBlock> getGroupIds(Page page)
+    public Work<int[]> getGroupIds(Page page)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, page.getChannelCount());
+        int[] groupIds = new int[page.getPositionCount()];
         for (int i = 0; i < page.getPositionCount(); i++) {
-            BIGINT.writeLong(blockBuilder, currentGroupId);
+            groupIds[i] = currentGroupId;
             maxGroupId = Math.max(currentGroupId, maxGroupId);
             currentGroupId = (currentGroupId + 1) % totalGroupCount;
         }
-        return new CompletedWork<>(new GroupByIdBlock(getGroupCount(), blockBuilder.build()));
+        return new CompletedWork<>(groupIds);
     }
 
     @Override

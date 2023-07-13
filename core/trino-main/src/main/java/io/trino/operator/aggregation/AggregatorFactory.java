@@ -66,7 +66,7 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createIntermediateAccumulator(lambdaProviders);
         }
-        return new Aggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel);
+        return new Aggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel, accumulatorFactory.createAggregationMaskBuilder());
     }
 
     public GroupedAggregator createGroupedAggregator()
@@ -78,7 +78,7 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createGroupedIntermediateAccumulator(lambdaProviders);
         }
-        return new GroupedAggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel);
+        return new GroupedAggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel, accumulatorFactory.createAggregationMaskBuilder());
     }
 
     public GroupedAggregator createUnspillGroupedAggregator(Step step, int inputChannel)
@@ -90,7 +90,7 @@ public class AggregatorFactory
         else {
             accumulator = accumulatorFactory.createGroupedIntermediateAccumulator(lambdaProviders);
         }
-        return new GroupedAggregator(accumulator, step, intermediateType, finalType, ImmutableList.of(inputChannel), maskChannel);
+        return new GroupedAggregator(accumulator, step, intermediateType, finalType, ImmutableList.of(inputChannel), maskChannel, accumulatorFactory.createAggregationMaskBuilder());
     }
 
     public boolean isSpillable()

@@ -26,6 +26,7 @@ import javax.net.ssl.TrustManagerFactory;
 import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
+import java.util.Optional;
 
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -74,7 +75,7 @@ public class TestInsecureQueryRunner
         QueryRunner queryRunner = createQueryRunner(createClientSession(server), true);
 
         try (Query query = queryRunner.startQuery("query with insecure mode")) {
-            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, false, false);
+            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false);
         }
 
         assertEquals(server.takeRequest().getPath(), "/v1/statement");

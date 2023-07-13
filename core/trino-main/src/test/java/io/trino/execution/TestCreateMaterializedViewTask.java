@@ -75,6 +75,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
@@ -117,7 +118,7 @@ public class TestCreateMaterializedViewTask
     private AnalyzerFactory analyzerFactory;
     private MaterializedViewPropertyManager materializedViewPropertyManager;
     private LocalQueryRunner queryRunner;
-    private CatalogHandle testCatlogHandle;
+    private CatalogHandle testCatalogHandle;
 
     @BeforeMethod
     public void setUp()
@@ -136,7 +137,7 @@ public class TestCreateMaterializedViewTask
                                 .build())
                         .build(),
                 ImmutableMap.of());
-        testCatlogHandle = queryRunner.getCatalogHandle(TEST_CATALOG_NAME);
+        testCatalogHandle = queryRunner.getCatalogHandle(TEST_CATALOG_NAME);
 
         materializedViewPropertyManager = queryRunner.getMaterializedViewPropertyManager();
 
@@ -147,7 +148,8 @@ public class TestCreateMaterializedViewTask
                 new AllowAllAccessControl(),
                 queryRunner.getTablePropertyManager(),
                 queryRunner.getAnalyzePropertyManager()),
-                new StatementRewrite(ImmutableSet.of()));
+                new StatementRewrite(ImmutableSet.of()),
+                plannerContext.getTracer());
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl());
     }
 
@@ -275,7 +277,7 @@ public class TestCreateMaterializedViewTask
                 accessControl,
                 new TablePropertyManager(CatalogServiceProvider.fail()),
                 new AnalyzePropertyManager(CatalogServiceProvider.fail()));
-        AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, new StatementRewrite(ImmutableSet.of()));
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, new StatementRewrite(ImmutableSet.of()), plannerContext.getTracer());
         assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, accessControl, parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .isInstanceOf(AccessDeniedException.class)
@@ -297,6 +299,7 @@ public class TestCreateMaterializedViewTask
                 directExecutor(),
                 metadata,
                 WarningCollector.NOOP,
+                createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
                 new NodeVersion("test"));
@@ -320,7 +323,7 @@ public class TestCreateMaterializedViewTask
         public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
         {
             if (TEST_CATALOG_NAME.equals(catalogName)) {
-                return Optional.of(testCatlogHandle);
+                return Optional.of(testCatalogHandle);
             }
             return Optional.empty();
         }
@@ -337,7 +340,7 @@ public class TestCreateMaterializedViewTask
             if (tableName.asSchemaTableName().equals(MOCK_TABLE.getTable())) {
                 return Optional.of(
                         new TableHandle(
-                                testCatlogHandle,
+                                testCatalogHandle,
                                 new TestingTableHandle(tableName.asSchemaTableName()),
                                 TestingConnectorTransactionHandle.INSTANCE));
             }

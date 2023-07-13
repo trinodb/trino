@@ -104,7 +104,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     public void setup()
     {
         // create lineitem table in test connector
-        getQueryRunner().installPlugin(new TestPlugin(getRetryPolicy() == RetryPolicy.TASK));
+        getQueryRunner().installPlugin(new TestingPlugin(getRetryPolicy() == RetryPolicy.TASK));
         getQueryRunner().installPlugin(new TpchPlugin());
         getQueryRunner().installPlugin(new TpcdsPlugin());
         getQueryRunner().installPlugin(new MemoryPlugin());
@@ -425,12 +425,12 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
         computeActual(session, query);
     }
 
-    private class TestPlugin
+    private class TestingPlugin
             implements Plugin
     {
         private final boolean isTaskRetryMode;
 
-        public TestPlugin(boolean isTaskRetryMode)
+        public TestingPlugin(boolean isTaskRetryMode)
         {
             this.isTaskRetryMode = isTaskRetryMode;
         }

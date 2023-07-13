@@ -10,6 +10,7 @@ be found in the [docs module](../docs).
 * [Code style](#code-style)
 * [Additional IDE configuration](#additional-ide-configuration)
 * [Building the Web UI](#building-the-web-ui)
+* [CI pipeline](#ci-pipeline)
 
 ## Commits and pull requests
 
@@ -21,21 +22,26 @@ When writing a Git commit message, follow these [guidelines](https://chris.beams
 
 Pull requests are usually merged into `master` using the  [`rebase and merge`](https://docs.github.com/en/github/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges#rebase-and-merge-your-pull-request-commits) strategy.
 
-A typical pull request should strive to contain a single logical change (but not necessarily a single commit).
-Unrelated changes should generally be extracted into their own PRs.
+A typical pull request should strive to contain a single logical change (but not
+necessarily a single commit). Unrelated changes should generally be extracted
+into their own PRs.
 
-If a pull request does consist of multiple commits, it is expected that every prefix of it is correct. That is,
-there might be preparatory commits at the bottom of the stack that don't bring any value by themselves,
-but none of the commits should introduce an error that is fixed by some future commit.
-Every commit should build and pass all tests.
+If a pull request does consist of multiple commits, it is expected that every
+prefix of it is correct. That is, there might be preparatory commits at the 
+bottom of the stack that don't bring any value by themselves, but none of the
+commits should introduce an error that is fixed by some future commit. Every
+commit should build and pass all tests.
 
-Commit messages and history are also important, as they are used by other developers to keep track of
-the motivation behind changes. Keep logical diffs grouped together in separate commits, and order commits
-in a way that explains the progress of the changes. Rewriting and reordering commits may be a
-necessary part of the PR review process as the code changes. Mechanical changes (like refactoring and renaming)
-should be separated from logical and functional changes. E.g. deduplicating code or extracting helper methods should happen
-in a separate commit from the commit where new features or behavior is introduced. This makes reviewing the code
-much easier and reduces the chance of introducing unintended changes in behavior.
+Commit messages and history are also important, as they are used by other
+developers to keep track of the motivation behind changes. Keep logical diffs
+grouped together in separate commits, and order commits in a way that explains
+the progress of the changes. Rewriting and reordering commits may be a necessary
+part of the PR review process as the code changes. Mechanical changes (like
+refactoring and renaming)should be separated from logical and functional
+changes. E.g. deduplicating code or extracting helper methods should happen in a
+separate commit from the commit where new features or behavior is introduced.
+This makes reviewing the code much easier and reduces the chance of introducing
+unintended changes in behavior.
 
 ## Code Style
 
@@ -49,10 +55,11 @@ In addition to those you should also adhere to the following:
 
 ### Readability
 
-The purpose of code style rules is to maintain code readability and developer efficiency when
-working with the code. All the code style rules explained below are good guidelines to follow
-but there may be exceptional situations where we purposefully depart from them. When readability
-and code style rule are at odds, the readability is more important.
+The purpose of code style rules is to maintain code readability and developer
+efficiency when working with the code. All the code style rules explained below
+are good guidelines to follow but there may be exceptional situations where we
+purposefully depart from them. When readability and code style rule are at odds,
+the readability is more important.
 
 ### Consistency
 
@@ -138,20 +145,22 @@ the code base like `ttl` are allowed and encouraged.
 
 ### Avoid default clause in exhaustive enum-based switch statements
 
-Avoid using the `default` clause when the switch statement is meant to cover all the
-enum values. Handling the unknown option case after the switch statement allows static code
-analysis tools (e.g. Error Prone's `MissingCasesInEnumSwitch` check) report a problem
-when the enum definition is updated but the code using it is not.
+Avoid using the `default` clause when the switch statement is meant to cover all
+the enum values. Handling the unknown option case after the switch statement
+allows static code analysis tools (e.g. Error Prone's `MissingCasesInEnumSwitch`
+check) report a problem when the enum definition is updated but the code using
+it is not.
 
 ## Additional IDE configuration
 
-When using IntelliJ to develop Trino, we recommend starting with all of the default inspections,
-with some modifications.
+When using IntelliJ to develop Trino, we recommend starting with all of the
+default inspections, with some modifications.
 
 Enable the following inspections:
 
 - ``Java | Internationalization | Implicit platform default charset``,
-- ``Java | Control flow issues | Redundant 'else'`` (including ``Report when there are no more statements after the 'if' statement`` option),
+- ``Java | Control flow issues | Redundant 'else'`` (including
+  ``Report when there are no more statements after the 'if' statement`` option),
 - ``Java | Class structure | Utility class is not 'final'``,
 - ``Java | Class structure | Utility class with 'public' constructor``,
 - ``Java | Class structure | Utility class without 'private' constructor``.
@@ -170,41 +179,98 @@ Enable errorprone ([Error Prone Installation#IDEA](https://errorprone.info/docs/
 - Install ``Error Prone Compiler`` plugin from marketplace,
 - Check the `errorprone-compiler` profile in the Maven tab
 
-This should be enough - IDEA should automatically copy the compiler options from the POMs to each module. If that doesn't work, you can do it manually:
+This should be enough - IDEA should automatically copy the compiler options from
+the POMs to each module. If that doesn't work, you can do it manually:
 
 - In ``Java Compiler`` tab, select ``Javac with error-prone`` as the compiler,
-- Update ``Additional command line parameters`` and copy the contents of ``compilerArgs`` in the top-level POM (except for ``-Xplugin:ErrorProne``) there
+- Update ``Additional command line parameters`` and copy the contents of
+  ``compilerArgs`` in the top-level POM (except for ``-Xplugin:ErrorProne``)
+  there
   - Remove the XML comments...
-  - ...except the ones which denote checks which fail in IDEA, which you should "unwrap"
+  - ...except the ones which denote checks which fail in IDEA, which you should
+    "unwrap"
 - Remove everything from the list under ``Override compiler parameters per-module``
 
-Note that the version of errorprone used by the IDEA plugin might be older than the one configured in the `pom.xml` and you might need to disable some checks that are not yet supported by that older version. When in doubt, always check with the full Maven build (``./mvnw clean install -DskipTests -Perrorprone-compiler``).
+Note that the version of errorprone used by the IDEA plugin might be older than
+the one configured in the `pom.xml` and you might need to disable some checks
+that are not yet supported by that older version. When in doubt, always check
+with the full Maven build (``./mvnw clean install -DskipTests -Perrorprone-compiler``).
 
 ### Language injection in IDE
 
-In order to enable language injection inside Intellij IDEA, some code elements can be annotated with the `@org.intellij.lang.annotations.Language` annotation. To make it useful, we recommend:
+In order to enable language injection inside Intellij IDEA, some code elements
+can be annotated with the `@org.intellij.lang.annotations.Language` annotation.
+To make it useful, we recommend:
 
-- Set the project-wide SQL dialect in ``Languages & Frameworks | SQL Dialects`` - "Generic SQL" is a decent choice here,
+- Set the project-wide SQL dialect in ``Languages & Frameworks | SQL Dialects``
+  "Generic SQL" is a decent choice here,
 - Disable inspection ``SQL | No data source configured``,
 - Optionally disable inspection ``Language injection | Language mismatch``.
 
-Even if the IDE does not support language injection this annotation is useful for documenting the API's intent. Considering the above, we recommend annotating with `@Language`:
+Even if the IDE does not support language injection this annotation is useful
+for documenting the API's intent. Considering the above, we recommend annotating
+with `@Language`:
 
-- All API parameters which are expecting to take a `String` containing a statement written in SQL (or any other language, like regular expressions),
-- Local variables which otherwise would not be properly recognized by IDE for language injection.
+- All API parameters which are expecting to take a `String` containing an SQL
+  statement (or any other language, like regular expressions),
+- Local variables which otherwise would not be properly recognized by IDE for
+  language injection.
 
 ## Building the Web UI
 
-The Trino Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible Javascript, which is then checked in to the Trino source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
+The Trino Web UI is composed of several React components and is written in JSX
+and ES6. This source code is compiled and packaged into browser-compatible
+Javascript, which is then checked in to the Trino source code (in the `dist`
+folder). You must have [Node.js](https://nodejs.org/en/download/) and
+[Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update
+this folder after making changes, simply run:
 
     yarn --cwd core/trino-main/src/main/resources/webapp/src install
 
-If no Javascript dependencies have changed (i.e., no changes to `package.json`), it is faster to run:
+If no Javascript dependencies have changed (i.e., no changes to `package.json`),
+it is faster to run:
 
     yarn --cwd core/trino-main/src/main/resources/webapp/src run package
 
-To simplify iteration, you can also run in `watch` mode, which automatically re-compiles when changes to source files are detected:
+To simplify iteration, you can also run in `watch` mode, which automatically
+re-compiles when changes to source files are detected:
 
     yarn --cwd core/trino-main/src/main/resources/webapp/src run watch
 
-To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
+To iterate quickly, simply re-build the project in IntelliJ after packaging is
+complete. Project resources will be hot-reloaded and changes are reflected on
+browser refresh.
+
+## Releases
+
+Trino aims for frequent releases, generally once per week. This is a goal but
+not a guarantee, as critical bugs may lead to a release being pushed back or
+require an extra emergency release to patch the issue.
+
+At the start of each release cycle, a GitHub issue is filed and pinned to track
+all necessary release notes. For example, see [the issue for Trino 395](https://github.com/trinodb/trino/issues/13913).
+In addition, a release notes pull request is updated and maintained throughout
+the week, tracking all merged commits to ensure every change is properly
+documented and noted. This uses the [release note template](../docs/release-template.md),
+with changes in each section arranged to have new features first, performance
+improvements second, and bugfixes third. See [the release notes for 395](https://github.com/trinodb/trino/pull/13975)
+as an example.
+
+Once it is time to release, the release process is kicked off. A code freeze is
+announced on the Trino Slack in the #releases channel, and then a maintainer
+utilizes the [release scripts](https://github.com/trinodb/release-scripts) to
+update Trino to the next version.
+
+## CI pipeline
+
+### Maven offline mode
+
+The CI pipeline runs most Maven commands in offline mode to avoid dependency on Maven Central.
+
+Before calling Maven a job should execute the `./.github/actions/setup` compound action to
+download all the dependencies it will require. 
+
+It uses two complementary tools to detect and download Maven dependencies, 
+but some plugin dependencies are not expressed in the tree hierarchy.
+
+These dynamic dependencies must be listed as `<DynamicDependency>` entries in the root `pom.xml`.

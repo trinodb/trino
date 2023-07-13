@@ -92,6 +92,8 @@ public interface QueryManager
     QueryState getQueryState(QueryId queryId)
             throws NoSuchElementException;
 
+    boolean hasQuery(QueryId queryId);
+
     /**
      * Updates the client heartbeat time, to prevent the query from be automatically purged.
      * If the query does not exist, the call is ignored.

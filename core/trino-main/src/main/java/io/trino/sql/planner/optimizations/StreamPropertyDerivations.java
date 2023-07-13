@@ -63,6 +63,8 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -100,6 +102,7 @@ import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.Strea
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class StreamPropertyDerivations
@@ -287,19 +290,24 @@ public final class StreamPropertyDerivations
                     .filter(entry -> !entry.getValue().isNull())  // TODO consider allowing nulls
                     .forEach(entry -> constants.add(entry.getKey()));
 
-            Optional<Set<Symbol>> streamPartitionSymbols = layout.getStreamPartitioningColumns()
-                    .flatMap(columns -> getNonConstantSymbols(columns, assignments, constants));
+            Optional<Set<Symbol>> partitioningSymbols = layout.getTablePartitioning().flatMap(partitioning -> {
+                if (!partitioning.isSingleSplitPerPartition()) {
+                    return Optional.empty();
+                }
+                Optional<Set<Symbol>> symbols = getNonConstantSymbols(partitioning.getPartitioningColumns(), assignments, constants);
+                // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
+                // the connector does not guarantee a single split in this case (since it might not understand
+                // that the value is a constant).
+                if (symbols.isPresent() && symbols.get().isEmpty()) {
+                    return Optional.empty();
+                }
+                return symbols;
+            });
 
-            // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
-            // the connector does not guarantee a single split in this case (since it might not understand
-            // that the value is a constant).
-            if (streamPartitionSymbols.isPresent() && streamPartitionSymbols.get().isEmpty()) {
-                return new StreamProperties(MULTIPLE, Optional.empty(), false);
-            }
-            return new StreamProperties(MULTIPLE, streamPartitionSymbols, false);
+            return new StreamProperties(MULTIPLE, partitioningSymbols, false);
         }
 
-        private static Optional<Set<Symbol>> getNonConstantSymbols(Set<ColumnHandle> columnHandles, Map<ColumnHandle, Symbol> assignments, Set<ColumnHandle> globalConstants)
+        private static Optional<Set<Symbol>> getNonConstantSymbols(List<ColumnHandle> columnHandles, Map<ColumnHandle, Symbol> assignments, Set<ColumnHandle> globalConstants)
         {
             // Strip off the constants from the partitioning columns (since those are not required for translation)
             Set<ColumnHandle> constantsStrippedPartitionColumns = columnHandles.stream()
@@ -567,6 +575,32 @@ public final class StreamPropertyDerivations
 
             boolean preservesOrdering = node.getRowsPerMatch().isOneRow() || node.getSkipToPosition() == PAST_LAST;
             return translatedProperties.unordered(!preservesOrdering);
+        }
+
+        @Override
+        public StreamProperties visitTableFunction(TableFunctionNode node, List<StreamProperties> inputProperties)
+        {
+            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+        }
+
+        @Override
+        public StreamProperties visitTableFunctionProcessor(TableFunctionProcessorNode node, List<StreamProperties> inputProperties)
+        {
+            if (node.getSource().isEmpty()) {
+                return StreamProperties.singleStream(); // TODO allow multiple; return partitioning properties
+            }
+
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            Set<Symbol> passThroughInputs = Sets.intersection(ImmutableSet.copyOf(node.getSource().orElseThrow().getOutputSymbols()), ImmutableSet.copyOf(node.getOutputSymbols()));
+            StreamProperties translatedProperties = properties.translate(column -> {
+                if (passThroughInputs.contains(column)) {
+                    return Optional.of(column);
+                }
+                return Optional.empty();
+            });
+
+            return translatedProperties.unordered(true);
         }
 
         @Override

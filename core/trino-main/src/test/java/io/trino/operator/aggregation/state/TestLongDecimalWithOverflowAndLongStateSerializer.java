@@ -20,8 +20,6 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestLongDecimalWithOverflowAndLongStateSerializer
 {
@@ -35,11 +33,9 @@ public class TestLongDecimalWithOverflowAndLongStateSerializer
         state.getDecimalArray()[1] = low;
         state.setOverflow(overflow);
         state.setLong(count);
-        state.setNotNull();
 
         LongDecimalWithOverflowAndLongState outState = roundTrip(state, expectedLength);
 
-        assertTrue(outState.isNotNull());
         assertEquals(outState.getDecimalArray()[0], high);
         assertEquals(outState.getDecimalArray()[1], low);
         assertEquals(outState.getOverflow(), overflow);
@@ -54,7 +50,7 @@ public class TestLongDecimalWithOverflowAndLongStateSerializer
 
         LongDecimalWithOverflowAndLongState outState = roundTrip(state, 0);
 
-        assertFalse(outState.isNotNull());
+        assertEquals(outState.getLong(), 0);
     }
 
     private LongDecimalWithOverflowAndLongState roundTrip(LongDecimalWithOverflowAndLongState state, int expectedLength)

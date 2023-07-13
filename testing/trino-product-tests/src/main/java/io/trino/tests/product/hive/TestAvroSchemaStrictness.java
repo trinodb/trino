@@ -13,24 +13,23 @@
  */
 package io.trino.tests.product.hive;
 
+import com.google.inject.Inject;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.file.Files.newInputStream;
 import static java.sql.JDBCType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Avro 1.8.2 was not strict about schema validation, causing the more-strict

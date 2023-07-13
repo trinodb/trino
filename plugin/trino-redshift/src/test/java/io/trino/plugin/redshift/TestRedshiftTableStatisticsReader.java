@@ -240,7 +240,6 @@ public class TestRedshiftTableStatisticsReader
             executeInRedshift("CREATE MATERIALIZED VIEW " + schemaAndTable +
                     " AS SELECT custkey, mktsegment, comment FROM " + TEST_SCHEMA + ".customer");
             executeInRedshift("REFRESH MATERIALIZED VIEW " + schemaAndTable);
-            executeInRedshift("ANALYZE VERBOSE " + schemaAndTable);
             TableStatistics tableStatistics = statsReader.readTableStatistics(
                     SESSION,
                     new JdbcTableHandle(

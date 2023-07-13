@@ -26,21 +26,20 @@ public class ColumnarArray
     {
         requireNonNull(block, "block is null");
 
-        if (block instanceof LazyBlock) {
-            block = ((LazyBlock) block).getBlock();
+        if (block instanceof LazyBlock lazyBlock) {
+            block = lazyBlock.getBlock();
         }
-        if (block instanceof DictionaryBlock) {
-            return toColumnarArray((DictionaryBlock) block);
+        if (block instanceof DictionaryBlock dictionaryBlock) {
+            return toColumnarArray(dictionaryBlock);
         }
-        if (block instanceof RunLengthEncodedBlock) {
-            return toColumnarArray((RunLengthEncodedBlock) block);
+        if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
+            return toColumnarArray(runLengthEncodedBlock);
         }
 
-        if (!(block instanceof AbstractArrayBlock)) {
+        if (!(block instanceof AbstractArrayBlock arrayBlock)) {
             throw new IllegalArgumentException("Invalid array block: " + block.getClass().getName());
         }
 
-        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
         Block elementsBlock = arrayBlock.getRawElementBlock();
 
         // trim elements to just visible region

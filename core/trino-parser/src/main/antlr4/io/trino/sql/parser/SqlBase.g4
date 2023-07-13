@@ -42,6 +42,13 @@ statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
+    | CREATE CATALOG (IF NOT EXISTS)? catalog=identifier
+         USING connectorName=identifier
+         (COMMENT string)?
+         (AUTHORIZATION principal)?
+         (WITH properties)?                                            #createCatalog
+    | DROP CATALOG (IF EXISTS)? catalog=identifier
+         (CASCADE | RESTRICT)?                                         #dropCatalog
     | CREATE SCHEMA (IF NOT EXISTS)? qualifiedName
         (AUTHORIZATION principal)?
         (WITH properties)?                                             #createSchema
@@ -164,6 +171,7 @@ statement
     | PREPARE identifier FROM statement                                #prepare
     | DEALLOCATE PREPARE identifier                                    #deallocate
     | EXECUTE identifier (USING expression (',' expression)*)?         #execute
+    | EXECUTE IMMEDIATE string (USING expression (',' expression)*)?   #executeImmediate
     | DESCRIBE INPUT identifier                                        #describeInput
     | DESCRIBE OUTPUT identifier                                       #describeOutput
     | SET PATH pathSpecification                                       #setPath
@@ -264,8 +272,8 @@ groupBy
 
 groupingElement
     : groupingSet                                            #singleGroupingSet
-    | ROLLUP '(' (expression (',' expression)*)? ')'         #rollup
-    | CUBE '(' (expression (',' expression)*)? ')'           #cube
+    | ROLLUP '(' (groupingSet (',' groupingSet)*)? ')'       #rollup
+    | CUBE '(' (groupingSet (',' groupingSet)*)? ')'         #cube
     | GROUPING SETS '(' groupingSet (',' groupingSet)* ')'   #multipleGroupingSets
     ;
 
@@ -411,6 +419,51 @@ relationPrimary
     | LATERAL '(' query ')'                                           #lateral
     | TABLE '(' tableFunctionCall ')'                                 #tableFunctionInvocation
     | '(' relation ')'                                                #parenthesizedRelation
+    | JSON_TABLE '('
+        jsonPathInvocation
+        COLUMNS '(' jsonTableColumn (',' jsonTableColumn)* ')'
+        (PLAN '(' jsonTableSpecificPlan ')'
+        | PLAN DEFAULT '(' jsonTableDefaultPlan ')'
+        )?
+        ((ERROR | EMPTY) ON ERROR)?
+      ')'                                                             #jsonTable
+    ;
+
+jsonTableColumn
+    : identifier FOR ORDINALITY                                     #ordinalityColumn
+    | identifier type
+        (PATH string)?
+        (emptyBehavior=jsonValueBehavior ON EMPTY)?
+        (errorBehavior=jsonValueBehavior ON ERROR)?                 #valueColumn
+    | identifier type FORMAT jsonRepresentation
+        (PATH string)?
+        (jsonQueryWrapperBehavior WRAPPER)?
+        ((KEEP | OMIT) QUOTES (ON SCALAR TEXT_STRING)?)?
+        (emptyBehavior=jsonQueryBehavior ON EMPTY)?
+        (errorBehavior=jsonQueryBehavior ON ERROR)?                 #queryColumn
+    | NESTED PATH? string (AS identifier)?
+        COLUMNS '(' jsonTableColumn (',' jsonTableColumn)* ')'      #nestedColumns
+    ;
+
+jsonTableSpecificPlan
+    : jsonTablePathName                                         #leafPlan
+    | jsonTablePathName (OUTER | INNER) planPrimary             #joinPlan
+    | planPrimary UNION planPrimary (UNION planPrimary)*        #unionPlan
+    | planPrimary CROSS planPrimary (CROSS planPrimary)*        #crossPlan
+    ;
+
+jsonTablePathName
+    : identifier
+    ;
+
+planPrimary
+    : jsonTablePathName
+    | '(' jsonTableSpecificPlan ')'
+    ;
+
+jsonTableDefaultPlan
+    : (OUTER | INNER) (',' (UNION | CROSS))?
+    | (UNION | CROSS) (',' (OUTER | INNER))?
     ;
 
 tableFunctionCall
@@ -564,6 +617,7 @@ primaryExpression
 
 jsonPathInvocation
     : jsonValueExpression ',' path=string
+        (AS pathName=identifier)?
         (PASSING jsonArgument (',' jsonArgument)*)?
     ;
 
@@ -833,20 +887,20 @@ nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
     | BERNOULLI | BOTH
-    | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
+    | CALL | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
     | DATA | DATE | DAY | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DISTRIBUTED | DOUBLE
     | EMPTY | ENCODING | ERROR | EXCLUDING | EXPLAIN
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
-    | IF | IGNORE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
+    | IF | IGNORE | IMMEDIATE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
     | KEEP | KEY | KEYS
     | LAST | LATERAL | LEADING | LEVEL | LIMIT | LOCAL | LOGICAL
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
-    | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
+    | NESTED | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OBJECT | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW
-    | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
+    | PARTITION | PARTITIONS | PASSING | PAST | PATH | PATTERN | PER | PERIOD | PERMUTE | PLAN | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES | PRUNE
     | QUOTES
     | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURNING | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
     | SCALAR | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
@@ -881,6 +935,7 @@ CALL: 'CALL';
 CASCADE: 'CASCADE';
 CASE: 'CASE';
 CAST: 'CAST';
+CATALOG: 'CATALOG';
 CATALOGS: 'CATALOGS';
 COLUMN: 'COLUMN';
 COLUMNS: 'COLUMNS';
@@ -954,6 +1009,7 @@ HAVING: 'HAVING';
 HOUR: 'HOUR';
 IF: 'IF';
 IGNORE: 'IGNORE';
+IMMEDIATE: 'IMMEDIATE';
 IN: 'IN';
 INCLUDING: 'INCLUDING';
 INITIAL: 'INITIAL';
@@ -973,6 +1029,7 @@ JSON_ARRAY: 'JSON_ARRAY';
 JSON_EXISTS: 'JSON_EXISTS';
 JSON_OBJECT: 'JSON_OBJECT';
 JSON_QUERY: 'JSON_QUERY';
+JSON_TABLE: 'JSON_TABLE';
 JSON_VALUE: 'JSON_VALUE';
 KEEP: 'KEEP';
 KEY: 'KEY';
@@ -1000,6 +1057,7 @@ MERGE: 'MERGE';
 MINUTE: 'MINUTE';
 MONTH: 'MONTH';
 NATURAL: 'NATURAL';
+NESTED: 'NESTED';
 NEXT: 'NEXT';
 NFC : 'NFC';
 NFD : 'NFD';
@@ -1036,6 +1094,7 @@ PATTERN: 'PATTERN';
 PER: 'PER';
 PERIOD: 'PERIOD';
 PERMUTE: 'PERMUTE';
+PLAN : 'PLAN';
 POSITION: 'POSITION';
 PRECEDING: 'PRECEDING';
 PRECISION: 'PRECISION';
@@ -1164,12 +1223,15 @@ BINARY_LITERAL
     ;
 
 INTEGER_VALUE
-    : DIGIT+
+    : DECIMAL_INTEGER
+    | HEXADECIMAL_INTEGER
+    | OCTAL_INTEGER
+    | BINARY_INTEGER
     ;
 
 DECIMAL_VALUE
-    : DIGIT+ '.' DIGIT*
-    | '.' DIGIT+
+    : DECIMAL_INTEGER '.' DECIMAL_INTEGER?
+    | '.' DECIMAL_INTEGER
     ;
 
 DOUBLE_VALUE
@@ -1191,6 +1253,22 @@ QUOTED_IDENTIFIER
 
 BACKQUOTED_IDENTIFIER
     : '`' ( ~'`' | '``' )* '`'
+    ;
+
+fragment DECIMAL_INTEGER
+    : DIGIT ('_'? DIGIT)*
+    ;
+
+fragment HEXADECIMAL_INTEGER
+    : '0X' ('_'? (DIGIT | [A-F]))+
+    ;
+
+fragment OCTAL_INTEGER
+    : '0O' ('_'? [0-7])+
+    ;
+
+fragment BINARY_INTEGER
+    : '0B' ('_'? [01])+
     ;
 
 fragment EXPONENT

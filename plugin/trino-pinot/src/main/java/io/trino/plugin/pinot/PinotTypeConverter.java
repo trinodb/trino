@@ -14,12 +14,14 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.base.Suppliers;
+import com.google.inject.Inject;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -30,24 +32,15 @@ import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.core.operator.transform.TransformResultMetadata;
 import org.apache.pinot.spi.data.FieldSpec;
 
-import javax.inject.Inject;
-
 import java.util.Optional;
 import java.util.function.Supplier;
 
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.StandardTypes.JSON;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class PinotTypeConverter
 {
-    // Supplier is used for compatibility unit tests using TestingTypeManager.
+    // Supplier is used for compatibility with unit tests using TestingTypeManager.
     // TestingTypeManager does not support json type.
     private final Supplier<Type> jsonTypeSupplier;
 
@@ -55,7 +48,7 @@ public class PinotTypeConverter
     public PinotTypeConverter(TypeManager typeManager)
     {
         requireNonNull(typeManager, "typeManager is null");
-        this.jsonTypeSupplier = Suppliers.memoize(() -> typeManager.getType(new TypeSignature(JSON)));
+        this.jsonTypeSupplier = Suppliers.memoize(() -> typeManager.getType(new TypeSignature(StandardTypes.JSON)));
     }
 
     public Type toTrinoType(FieldSpec field)
@@ -108,27 +101,27 @@ public class PinotTypeConverter
     {
         switch (columnDataType) {
             case INT:
-                return INTEGER;
+                return IntegerType.INTEGER;
             case LONG:
-                return BIGINT;
+                return BigintType.BIGINT;
             case FLOAT:
-                return REAL;
+                return RealType.REAL;
             case DOUBLE:
-                return DOUBLE;
+                return DoubleType.DOUBLE;
             case STRING:
-                return VARCHAR;
+                return VarcharType.VARCHAR;
             case JSON:
                 return jsonTypeSupplier.get();
             case BYTES:
-                return VARBINARY;
+                return VarbinaryType.VARBINARY;
             case INT_ARRAY:
-                return new ArrayType(INTEGER);
+                return new ArrayType(IntegerType.INTEGER);
             case LONG_ARRAY:
-                return new ArrayType(BIGINT);
+                return new ArrayType(BigintType.BIGINT);
             case DOUBLE_ARRAY:
-                return new ArrayType(DOUBLE);
+                return new ArrayType(DoubleType.DOUBLE);
             case STRING_ARRAY:
-                return new ArrayType(VARCHAR);
+                return new ArrayType(VarcharType.VARCHAR);
             default:
                 break;
         }

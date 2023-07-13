@@ -42,6 +42,7 @@ public class PlanNodeStats
     private final long planNodeInputPositions;
     private final DataSize planNodeInputDataSize;
     private final DataSize planNodePhysicalInputDataSize;
+    private final Duration planNodePhysicalInputReadTime;
     private final long planNodeOutputPositions;
     private final DataSize planNodeOutputDataSize;
     private final DataSize planNodeSpilledDataSize;
@@ -56,6 +57,7 @@ public class PlanNodeStats
             long planNodeInputPositions,
             DataSize planNodeInputDataSize,
             DataSize planNodePhysicalInputDataSize,
+            Duration planNodePhysicalInputReadTime,
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
             DataSize planNodeSpilledDataSize,
@@ -68,6 +70,7 @@ public class PlanNodeStats
         this.planNodeBlockedTime = requireNonNull(planNodeBlockedTime, "planNodeBlockedTime is null");
         this.planNodeInputPositions = planNodeInputPositions;
         this.planNodePhysicalInputDataSize = planNodePhysicalInputDataSize;
+        this.planNodePhysicalInputReadTime = planNodePhysicalInputReadTime;
         this.planNodeInputDataSize = planNodeInputDataSize;
         this.planNodeOutputPositions = planNodeOutputPositions;
         this.planNodeOutputDataSize = planNodeOutputDataSize;
@@ -121,6 +124,11 @@ public class PlanNodeStats
     public DataSize getPlanNodePhysicalInputDataSize()
     {
         return planNodePhysicalInputDataSize;
+    }
+
+    public Duration getPlanNodePhysicalInputReadTime()
+    {
+        return planNodePhysicalInputReadTime;
     }
 
     public long getPlanNodeOutputPositions()
@@ -181,6 +189,7 @@ public class PlanNodeStats
                 new Duration(planNodeBlockedTime.toMillis() + other.getPlanNodeBlockedTime().toMillis(), MILLISECONDS),
                 planNodeInputPositions, planNodeInputDataSize,
                 succinctBytes(this.planNodePhysicalInputDataSize.toBytes() + other.planNodePhysicalInputDataSize.toBytes()),
+                new Duration(planNodePhysicalInputReadTime.toMillis() + other.getPlanNodePhysicalInputReadTime().toMillis(), MILLISECONDS),
                 planNodeOutputPositions, planNodeOutputDataSize,
                 succinctBytes(this.planNodeSpilledDataSize.toBytes() + other.planNodeSpilledDataSize.toBytes()),
                 operatorStats);

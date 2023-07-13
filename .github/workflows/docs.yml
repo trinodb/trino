@@ -17,7 +17,7 @@ env:
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
+  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T 1C -DskipTests -Dair.check.skip-all"
   MAVEN_TEST: "-B --strict-checksums -Dair.check.skip-all --fail-at-end"
   RETRY: .github/bin/retry
 
@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-java@v3
         with:
-          distribution: 'zulu'
+          distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
@@ -60,7 +60,7 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -am -pl ':trino-docs'
+          $RETRY $MAVEN install -B --strict-checksums -V -T 1C -DskipTests -P ci -am -pl ':trino-docs'
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'
@@ -85,7 +85,7 @@ jobs:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
       - uses: actions/setup-java@v3
         with:
-          distribution: 'zulu'
+          distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers

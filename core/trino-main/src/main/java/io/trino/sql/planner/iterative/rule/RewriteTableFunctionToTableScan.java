@@ -23,7 +23,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
-import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
@@ -32,13 +32,13 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.matching.Pattern.empty;
 import static io.trino.sql.planner.plan.Patterns.sources;
-import static io.trino.sql.planner.plan.Patterns.tableFunction;
+import static io.trino.sql.planner.plan.Patterns.tableFunctionProcessor;
 import static java.util.Objects.requireNonNull;
 
 public class RewriteTableFunctionToTableScan
-        implements Rule<TableFunctionNode>
+        implements Rule<TableFunctionProcessorNode>
 {
-    private static final Pattern<TableFunctionNode> PATTERN = tableFunction()
+    private static final Pattern<TableFunctionProcessorNode> PATTERN = tableFunctionProcessor()
             .with(empty(sources()));
 
     private final PlannerContext plannerContext;
@@ -49,31 +49,31 @@ public class RewriteTableFunctionToTableScan
     }
 
     @Override
-    public Pattern<TableFunctionNode> getPattern()
+    public Pattern<TableFunctionProcessorNode> getPattern()
     {
         return PATTERN;
     }
 
     @Override
-    public Result apply(TableFunctionNode tableFunctionNode, Captures captures, Context context)
+    public Result apply(TableFunctionProcessorNode node, Captures captures, Context context)
     {
-        Optional<TableFunctionApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyTableFunction(context.getSession(), tableFunctionNode.getHandle());
+        Optional<TableFunctionApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyTableFunction(context.getSession(), node.getHandle());
 
         if (result.isEmpty()) {
             return Result.empty();
         }
 
         List<ColumnHandle> columnHandles = result.get().getColumnHandles();
-        checkState(tableFunctionNode.getOutputSymbols().size() == columnHandles.size(), "returned table does not match the node's output");
+        checkState(node.getOutputSymbols().size() == columnHandles.size(), "returned table does not match the node's output");
         ImmutableMap.Builder<Symbol, ColumnHandle> assignments = ImmutableMap.builder();
         for (int i = 0; i < columnHandles.size(); i++) {
-            assignments.put(tableFunctionNode.getOutputSymbols().get(i), columnHandles.get(i));
+            assignments.put(node.getOutputSymbols().get(i), columnHandles.get(i));
         }
 
         return Result.ofPlanNode(new TableScanNode(
-                tableFunctionNode.getId(),
+                node.getId(),
                 result.get().getTableHandle(),
-                tableFunctionNode.getOutputSymbols(),
+                node.getOutputSymbols(),
                 assignments.buildOrThrow(),
                 TupleDomain.all(),
                 Optional.empty(),

@@ -7,6 +7,9 @@ inputs:
   cache:
     description: "Cache Maven repo"
     default: true
+  download_dependencies:
+    description: "Download all Maven dependencies so Maven can work in offline mode"
+    default: true
 
 runs:
   using: composite
@@ -33,17 +36,21 @@ runs:
       - uses: actions/setup-java@v3
         if: ${{ inputs.java-version != '' }}
         with:
-          distribution: 'zulu'
+          distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: ${{ inputs.java-version }}
       - name: Cache local Maven repo
         id: cache
-        if: ${{ inputs.cache }}
+        if: ${{ format('{0}', inputs.cache) == 'true' }}
         uses: actions/cache@v3
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
+      - name: Fetch any missing dependencies
+        shell: bash
+        if: ${{ format('{0}', inputs.download_dependencies) == 'true' }}
+        run: ./.github/bin/download-maven-dependencies.sh
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash

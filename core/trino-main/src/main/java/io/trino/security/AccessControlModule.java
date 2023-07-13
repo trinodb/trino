@@ -51,10 +51,7 @@ public class AccessControlModule
 
         AccessControl loggingInvocationsAccessControl = newProxy(
                 AccessControl.class,
-                new LoggingInvocationHandler(
-                        accessControlManager,
-                        new LoggingInvocationHandler.ReflectiveParameterNamesProvider(),
-                        logger::debug));
+                new LoggingInvocationHandler(accessControlManager, logger::debug));
 
         return ForwardingAccessControl.of(() -> {
             if (logger.isDebugEnabled()) {

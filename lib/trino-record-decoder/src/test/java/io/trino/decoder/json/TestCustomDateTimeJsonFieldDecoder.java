@@ -23,7 +23,7 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -50,9 +50,9 @@ public class TestCustomDateTimeJsonFieldDecoder
         timeTester.assertDecodedAs("\"15:13:18\"", TIME_MILLIS, 47_718_000_000_000_000L);
         timeJustHourTester.assertDecodedAs("\"15\"", TIME_MILLIS, 54_000_000_000_000_000L);
         timeJustHourTester.assertDecodedAs("15", TIME_MILLIS, 54_000_000_000_000_000L);
-        timeTester.assertDecodedAs("\"15:13:18\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(47_718_000_000_000L, 0));
-        timeWTZTester.assertDecodedAs("\"15:13:18.123-04:00\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(54_798_123_000_000L, -4 * 60));
-        timeWTZTester.assertDecodedAs("\"15:13:18.123+08:00\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(54_798_123_000_000L, 8 * 60));
+        timeTester.assertDecodedAs("\"15:13:18\"", TIME_TZ_MILLIS, packTimeWithTimeZone(47_718_000_000_000L, 0));
+        timeWTZTester.assertDecodedAs("\"15:13:18.123-04:00\"", TIME_TZ_MILLIS, packTimeWithTimeZone(54_798_123_000_000L, -4 * 60));
+        timeWTZTester.assertDecodedAs("\"15:13:18.123+08:00\"", TIME_TZ_MILLIS, packTimeWithTimeZone(54_798_123_000_000L, 8 * 60));
         dateTester.assertDecodedAs("\"02/2018/11\"", DATE, 17573);
     }
 
@@ -65,8 +65,8 @@ public class TestCustomDateTimeJsonFieldDecoder
         timeTester.assertDecodedAsNull("null", TIME_MILLIS);
         timeTester.assertMissingDecodedAsNull(TIME_MILLIS);
 
-        timeTester.assertDecodedAsNull("null", TIME_WITH_TIME_ZONE);
-        timeTester.assertMissingDecodedAsNull(TIME_WITH_TIME_ZONE);
+        timeTester.assertDecodedAsNull("null", TIME_TZ_MILLIS);
+        timeTester.assertMissingDecodedAsNull(TIME_TZ_MILLIS);
 
         timestampTester.assertDecodedAsNull("null", TIMESTAMP_MILLIS);
         timestampTester.assertMissingDecodedAsNull(TIMESTAMP_MILLIS);

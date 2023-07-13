@@ -105,14 +105,26 @@ to the following table:
   * - ``TINYINT``
     - ``TINYINT``
     -
+  * - ``TINYINT UNSIGNED``
+    - ``SMALLINT``
+    -
   * - ``SMALLINT``
     - ``SMALLINT``
+    -
+  * - ``SMALLINT UNSIGNED``
+    - ``INTEGER``
     -
   * - ``INT``
     - ``INTEGER``
     -
+  * - ``INT UNSIGNED``
+    - ``BIGINT``
+    -
   * - ``BIGINT``
     - ``BIGINT``
+    -
+  * - ``BIGINT UNSIGNED``
+    - ``DECIMAL(20, 0)``
     -
   * - ``FLOAT``
     - ``REAL``
@@ -288,10 +300,10 @@ processed in MariaDB. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
-As an example, select the age of employees by using ``TIMESTAMPDIFF`` and
-``CURDATE``::
+As an example, query the ``example`` catalog and select the age of employees by
+using ``TIMESTAMPDIFF`` and ``CURDATE``::
 
     SELECT
       age
@@ -308,6 +320,8 @@ As an example, select the age of employees by using ``TIMESTAMPDIFF`` and
             tiny.employees'
         )
       );
+
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------

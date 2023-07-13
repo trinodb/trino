@@ -15,12 +15,12 @@ package io.trino.plugin.deltalake.statistics;
 
 import com.google.common.cache.Cache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
 import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Qualifier;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -28,6 +28,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.trino.collect.cache.CacheUtils.invalidateAllIf;
 import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.annotation.ElementType.FIELD;
@@ -44,7 +45,7 @@ public class CachingExtendedStatisticsAccess
     private static final long CACHE_MAX_SIZE = 1000;
 
     private final ExtendedStatisticsAccess delegate;
-    private final Cache<String, Optional<ExtendedStatistics>> cache = EvictableCacheBuilder.newBuilder()
+    private final Cache<CacheKey, Optional<ExtendedStatistics>> cache = EvictableCacheBuilder.newBuilder()
             .expireAfterWrite(CACHE_EXPIRATION)
             .maximumSize(CACHE_MAX_SIZE)
             .build();
@@ -56,10 +57,10 @@ public class CachingExtendedStatisticsAccess
     }
 
     @Override
-    public Optional<ExtendedStatistics> readExtendedStatistics(ConnectorSession session, String tableLocation)
+    public Optional<ExtendedStatistics> readExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation)
     {
         try {
-            return uncheckedCacheGet(cache, tableLocation, () -> delegate.readExtendedStatistics(session, tableLocation));
+            return uncheckedCacheGet(cache, new CacheKey(schemaTableName, tableLocation), () -> delegate.readExtendedStatistics(session, schemaTableName, tableLocation));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -68,27 +69,44 @@ public class CachingExtendedStatisticsAccess
     }
 
     @Override
-    public void updateExtendedStatistics(ConnectorSession session, String tableLocation, ExtendedStatistics statistics)
+    public void updateExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, ExtendedStatistics statistics)
     {
-        delegate.updateExtendedStatistics(session, tableLocation, statistics);
-        cache.invalidate(tableLocation);
+        delegate.updateExtendedStatistics(session, schemaTableName, tableLocation, statistics);
+        cache.invalidate(new CacheKey(schemaTableName, tableLocation));
     }
 
     @Override
-    public void deleteExtendedStatistics(ConnectorSession session, String tableLocation)
+    public void deleteExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation)
     {
-        delegate.deleteExtendedStatistics(session, tableLocation);
-        cache.invalidate(tableLocation);
+        delegate.deleteExtendedStatistics(session, schemaTableName, tableLocation);
+        cache.invalidate(new CacheKey(schemaTableName, tableLocation));
     }
 
-    public void invalidateCache(String tableLocation)
+    public void invalidateCache()
     {
-        // for explicit cache invalidation
-        cache.invalidate(tableLocation);
+        cache.invalidateAll();
+    }
+
+    // for explicit cache invalidation
+    public void invalidateCache(SchemaTableName schemaTableName, Optional<String> tableLocation)
+    {
+        requireNonNull(schemaTableName, "schemaTableName is null");
+        // Invalidate by location in case one table (location) unregistered and re-register under different name
+        tableLocation.ifPresent(location -> invalidateAllIf(cache, cacheKey -> cacheKey.location().equals(location)));
+        invalidateAllIf(cache, cacheKey -> cacheKey.tableName().equals(schemaTableName));
     }
 
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
-    @Qualifier
-    public @interface ForCachingExtendedStatisticsAccess {};
+    @BindingAnnotation
+    public @interface ForCachingExtendedStatisticsAccess {}
+
+    private record CacheKey(SchemaTableName tableName, String location)
+    {
+        CacheKey
+        {
+            requireNonNull(tableName, "tableName is null");
+            requireNonNull(location, "location is null");
+        }
+    }
 }

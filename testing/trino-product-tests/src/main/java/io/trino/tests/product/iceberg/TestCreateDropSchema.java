@@ -13,14 +13,13 @@
  */
 package io.trino.tests.product.iceberg;
 
+import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
 import org.testng.annotations.Test;
-
-import javax.inject.Inject;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.ICEBERG;
@@ -39,7 +38,7 @@ public class TestCreateDropSchema
     @Named("databases.hive.warehouse_directory_path")
     private String warehouseDirectory;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void useIceberg()
     {
         onTrino().executeQuery("USE iceberg.default");

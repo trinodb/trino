@@ -16,17 +16,16 @@ package io.trino.server.security.oauth2;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Inject;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
 import com.nimbusds.oauth2.sdk.id.Issuer;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderConfigurationRequest;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.time.Duration;
@@ -77,12 +76,13 @@ public class OidcDiscovery
     @Override
     public OAuth2ServerConfig get()
     {
-        return Failsafe.with(new RetryPolicy<>()
+        return Failsafe.with(RetryPolicy.builder()
                         .withMaxAttempts(-1)
                         .withMaxDuration(discoveryTimeout)
                         .withDelay(Duration.ofSeconds(1))
                         .abortOn(IllegalStateException.class)
-                        .onFailedAttempt(attempt -> LOG.debug("OpenID Connect Metadata read failed: %s", attempt.getLastFailure())))
+                        .onFailedAttempt(attempt -> LOG.debug("OpenID Connect Metadata read failed: %s", attempt.getLastException()))
+                        .build())
                 .get(() -> httpClient.execute(new OIDCProviderConfigurationRequest(issuer), this::parseConfigurationResponse));
     }
 

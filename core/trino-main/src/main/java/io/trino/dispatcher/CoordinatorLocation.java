@@ -13,7 +13,7 @@
  */
 package io.trino.dispatcher;
 
-import javax.ws.rs.core.UriInfo;
+import jakarta.ws.rs.core.UriInfo;
 
 import java.net.URI;
 

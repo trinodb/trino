@@ -16,12 +16,11 @@ package io.trino.plugin.raptor.legacy.metadata;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.raptor.legacy.util.DaoSupplier;
 import org.jdbi.v3.core.ConnectionFactory;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.inject.Singleton;
 
 import java.sql.DriverManager;
 

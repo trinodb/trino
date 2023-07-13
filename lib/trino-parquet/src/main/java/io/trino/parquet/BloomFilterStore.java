@@ -16,6 +16,9 @@ package io.trino.parquet;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
+import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.BloomFilterHeader;
@@ -32,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter.UPPER_BOUND_BYTES;
@@ -90,6 +94,30 @@ public class BloomFilterStore
         catch (IOException exception) {
             throw new UncheckedIOException("Failed to read Bloom filter data", exception);
         }
+    }
+
+    public static Optional<BloomFilterStore> getBloomFilterStore(
+            ParquetDataSource dataSource,
+            BlockMetaData blockMetadata,
+            TupleDomain<ColumnDescriptor> parquetTupleDomain,
+            ParquetReaderOptions options)
+    {
+        if (!options.useBloomFilter() || parquetTupleDomain.isAll() || parquetTupleDomain.isNone()) {
+            return Optional.empty();
+        }
+
+        boolean hasBloomFilter = blockMetadata.getColumns().stream().anyMatch(BloomFilterStore::hasBloomFilter);
+        if (!hasBloomFilter) {
+            return Optional.empty();
+        }
+
+        Map<ColumnDescriptor, Domain> parquetDomains = parquetTupleDomain.getDomains()
+                .orElseThrow(() -> new IllegalStateException("Predicate other than none should have domains"));
+        Set<ColumnPath> columnsFilteredPaths = parquetDomains.keySet().stream()
+                .map(column -> ColumnPath.get(column.getPath()))
+                .collect(toImmutableSet());
+
+        return Optional.of(new BloomFilterStore(dataSource, blockMetadata, columnsFilteredPaths));
     }
 
     public static boolean hasBloomFilter(ColumnChunkMetaData columnMetaData)

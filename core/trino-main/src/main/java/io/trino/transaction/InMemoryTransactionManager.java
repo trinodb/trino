@@ -13,6 +13,7 @@
  */
 package io.trino.transaction;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -48,6 +50,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -55,6 +58,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
+import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static io.trino.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
 import static io.trino.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -156,6 +160,15 @@ public class InMemoryTransactionManager
         return transactions.values().stream()
                 .map(TransactionMetadata::getTransactionInfo)
                 .collect(toImmutableList());
+    }
+
+    @Override
+    public Set<TransactionId> getTransactionsUsingCatalog(CatalogHandle catalogHandle)
+    {
+        return transactions.values().stream()
+                .filter(transactionMetadata -> transactionMetadata.isUsingCatalog(catalogHandle))
+                .map(TransactionMetadata::getTransactionId)
+                .collect(toImmutableSet());
     }
 
     @Override
@@ -303,6 +316,12 @@ public class InMemoryTransactionManager
     }
 
     @Override
+    public void blockCommit(TransactionId transactionId, String reason)
+    {
+        getTransactionMetadata(transactionId).blockCommit(reason);
+    }
+
+    @Override
     public void fail(TransactionId transactionId)
     {
         // Mark transaction as failed, but don't remove it.
@@ -325,6 +344,7 @@ public class InMemoryTransactionManager
         private final boolean autoCommitContext;
         private final Executor finishingExecutor;
 
+        private final AtomicReference<String> commitBlocked = new AtomicReference<>();
         private final AtomicReference<Boolean> completedSuccessfully = new AtomicReference<>();
         private final AtomicReference<Long> idleStartTime = new AtomicReference<>();
 
@@ -351,6 +371,11 @@ public class InMemoryTransactionManager
             this.finishingExecutor = requireNonNull(finishingExecutor, "finishingExecutor is null");
         }
 
+        public TransactionId getTransactionId()
+        {
+            return transactionId;
+        }
+
         public void setActive()
         {
             idleStartTime.set(null);
@@ -367,6 +392,11 @@ public class InMemoryTransactionManager
             return idleStartTime != null && Duration.nanosSince(idleStartTime).compareTo(idleTimeout) > 0;
         }
 
+        public void blockCommit(String reason)
+        {
+            commitBlocked.set(requireNonNull(reason, "reason is null"));
+        }
+
         public void checkOpenTransaction()
         {
             Boolean completedStatus = this.completedSuccessfully.get();
@@ -377,6 +407,14 @@ public class InMemoryTransactionManager
                 }
                 throw new TrinoException(TRANSACTION_ALREADY_ABORTED, "Current transaction is aborted, commands ignored until end of transaction block");
             }
+        }
+
+        public synchronized boolean isUsingCatalog(CatalogHandle catalogHandle)
+        {
+            return registeredCatalogs.values().stream()
+                    .flatMap(Optional::stream)
+                    .map(Catalog::getCatalogHandle)
+                    .anyMatch(catalogHandle::equals);
         }
 
         private synchronized List<CatalogInfo> getActiveCatalogs()
@@ -392,9 +430,9 @@ public class InMemoryTransactionManager
 
         private synchronized List<CatalogInfo> listCatalogs()
         {
-            // register all known catalogs
+            // register all known catalogs - but don't verify so failed catalogs can be listed
             catalogManager.getCatalogNames()
-                    .forEach(this::tryRegisterCatalog);
+                    .forEach(catalogName -> registeredCatalogs.computeIfAbsent(catalogName, catalogManager::getCatalog));
 
             return registeredCatalogs.values().stream()
                     .filter(Optional::isPresent)
@@ -405,8 +443,9 @@ public class InMemoryTransactionManager
 
         private synchronized Optional<CatalogHandle> tryRegisterCatalog(String catalogName)
         {
-            return registeredCatalogs.computeIfAbsent(catalogName, catalogManager::getCatalog)
-                    .map(Catalog::getCatalogHandle);
+            Optional<Catalog> catalog = registeredCatalogs.computeIfAbsent(catalogName, catalogManager::getCatalog);
+            catalog.ifPresent(Catalog::verify);
+            return catalog.map(Catalog::getCatalogHandle);
         }
 
         private synchronized CatalogMetadata getTransactionCatalogMetadata(CatalogHandle catalogHandle)
@@ -454,6 +493,16 @@ public class InMemoryTransactionManager
                 }
                 // Transaction already aborted
                 return immediateFailedFuture(new TrinoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted"));
+            }
+
+            String commitBlockedReason = commitBlocked.get();
+            if (commitBlockedReason != null) {
+                return Futures.transform(
+                        abortInternal(),
+                        ignored -> {
+                            throw new TrinoException(ADMINISTRATIVELY_KILLED, commitBlockedReason);
+                        },
+                        directExecutor());
             }
 
             CatalogHandle writeCatalogHandle = this.writtenCatalog.get();
@@ -526,7 +575,16 @@ public class InMemoryTransactionManager
                     .sorted()
                     .collect(toUnmodifiableList());
 
-            return new TransactionInfo(transactionId, isolationLevel, readOnly, autoCommitContext, createTime, idleTime, catalogNames, writtenCatalogName);
+            return new TransactionInfo(
+                    transactionId,
+                    isolationLevel,
+                    readOnly,
+                    autoCommitContext,
+                    createTime,
+                    idleTime,
+                    catalogNames,
+                    writtenCatalogName,
+                    ImmutableSet.copyOf(activeCatalogs.keySet()));
         }
     }
 }

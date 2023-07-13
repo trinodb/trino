@@ -60,7 +60,7 @@ public class QualifiedName
     {
         this.originalParts = originalParts;
         // Iteration instead of stream for performance reasons
-        ImmutableList.Builder partsBuilder = ImmutableList.builderWithExpectedSize(originalParts.size());
+        ImmutableList.Builder<String> partsBuilder = ImmutableList.builderWithExpectedSize(originalParts.size());
         for (Identifier identifier : originalParts) {
             partsBuilder.add(mapIdentifier(identifier));
         }

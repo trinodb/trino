@@ -56,6 +56,7 @@ import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
+import static io.trino.operator.PositionSearcher.findEndPosition;
 import static io.trino.operator.WindowFunctionDefinition.window;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -796,7 +797,7 @@ public class TestWindowOperator
     private static void assertFindEndPosition(String values, int expected)
     {
         char[] array = values.toCharArray();
-        assertEquals(WindowOperator.findEndPosition(0, array.length, (first, second) -> array[first] == array[second]), expected);
+        assertEquals(findEndPosition(0, array.length, (first, second) -> array[first] == array[second]), expected);
     }
 
     private WindowOperatorFactory createFactoryUnbounded(

@@ -26,9 +26,7 @@ import static java.util.Objects.requireNonNull;
 
 public class MongoIndex
 {
-    private final String name;
     private final List<MongodbIndexKey> keys;
-    private final boolean unique;
 
     public static List<MongoIndex> parse(ListIndexesIterable<Document> indexes)
     {
@@ -36,13 +34,11 @@ public class MongoIndex
         for (Document index : indexes) {
             // TODO: v, ns, sparse fields
             Document key = (Document) index.get("key");
-            String name = index.getString("name");
-            boolean unique = index.getBoolean("unique", false);
 
             if (key.containsKey("_fts")) { // Full Text Search
                 continue;
             }
-            builder.add(new MongoIndex(name, parseKey(key), unique));
+            builder.add(new MongoIndex(parseKey(key)));
         }
 
         return builder.build();
@@ -70,26 +66,14 @@ public class MongoIndex
         return builder.build();
     }
 
-    public MongoIndex(String name, List<MongodbIndexKey> keys, boolean unique)
+    public MongoIndex(List<MongodbIndexKey> keys)
     {
-        this.name = name;
         this.keys = keys;
-        this.unique = unique;
-    }
-
-    public String getName()
-    {
-        return name;
     }
 
     public List<MongodbIndexKey> getKeys()
     {
         return keys;
-    }
-
-    public boolean isUnique()
-    {
-        return unique;
     }
 
     public static class MongodbIndexKey

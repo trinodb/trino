@@ -57,6 +57,7 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestPagePartitionerPool
@@ -84,23 +85,7 @@ public class TestPagePartitionerPool
 
         OutputBufferMock outputBuffer = new OutputBufferMock();
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-        PartitionedOutputOperatorFactory factory = new PartitionedOutputOperatorFactory(
-                0,
-                new PlanNodeId("0"),
-                ImmutableList.of(BIGINT),
-                PageChannelSelector.identitySelection(),
-                new BucketPartitionFunction((page, position) -> 0, new int[1]),
-                ImmutableList.of(0),
-                ImmutableList.of(),
-                false,
-                OptionalInt.empty(),
-                outputBuffer,
-                new TestingPagesSerdeFactory(),
-                maxPagePartitioningBufferSize,
-                new PositionsAppenderFactory(new BlockTypeOperators()),
-                Optional.empty(),
-                memoryContext,
-                2);
+        PartitionedOutputOperatorFactory factory = createFactory(maxPagePartitioningBufferSize, outputBuffer, memoryContext);
 
         assertEquals(memoryContext.getBytes(), 0);
         // first split, too small for a flush
@@ -147,6 +132,52 @@ public class TestPagePartitionerPool
         assertEquals(outputBuffer.totalEnqueuedPageCount(), 9);
         // pool is closed, all operators are finished/flushed, the retained memory should be 0
         assertEquals(memoryContext.getBytes(), 0);
+    }
+
+    @Test
+    public void testMemoryReleasedOnFailure()
+    {
+        Page split = new Page(createLongsBlock(1));
+        // one split fit in the buffer but 2 do not
+        DataSize maxPagePartitioningBufferSize = DataSize.ofBytes(split.getSizeInBytes() + 1);
+        RuntimeException exception = new RuntimeException();
+        OutputBufferMock outputBuffer = new OutputBufferMock() {
+            @Override
+            public void enqueue(int partition, List<Slice> pages)
+            {
+                throw exception;
+            }
+        };
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        PartitionedOutputOperatorFactory factory = createFactory(maxPagePartitioningBufferSize, outputBuffer, memoryContext);
+
+        long initialRetainedBytesOneOperator = processSplitsConcurrently(factory, memoryContext, split);
+        assertThat(memoryContext.getBytes()).isGreaterThanOrEqualTo(initialRetainedBytesOneOperator + split.getSizeInBytes());
+
+        assertThatThrownBy(factory::noMoreOperators).isEqualTo(exception);
+        assertEquals(memoryContext.getBytes(), 0);
+    }
+
+    private static PartitionedOutputOperatorFactory createFactory(DataSize maxPagePartitioningBufferSize, OutputBufferMock outputBuffer, AggregatedMemoryContext memoryContext)
+    {
+        return new PartitionedOutputOperatorFactory(
+                0,
+                new PlanNodeId("0"),
+                ImmutableList.of(BIGINT),
+                PageChannelSelector.identitySelection(),
+                new BucketPartitionFunction((page, position) -> 0, new int[1]),
+                ImmutableList.of(0),
+                ImmutableList.of(),
+                false,
+                OptionalInt.empty(),
+                outputBuffer,
+                new TestingPagesSerdeFactory(),
+                maxPagePartitioningBufferSize,
+                new PositionsAppenderFactory(new BlockTypeOperators()),
+                Optional.empty(),
+                memoryContext,
+                2,
+                Optional.empty());
     }
 
     private long processSplitsConcurrently(PartitionedOutputOperatorFactory factory, AggregatedMemoryContext memoryContext, Page... splits)

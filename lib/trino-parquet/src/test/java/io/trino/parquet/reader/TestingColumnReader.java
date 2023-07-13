@@ -24,8 +24,8 @@ import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.Int128ArrayBlock;
-import io.trino.spi.block.Int96ArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -135,14 +135,14 @@ public class TestingColumnReader
             .put(TIME_MILLIS, LongArrayBlock.class)
             .put(TIMESTAMP_MILLIS, LongArrayBlock.class)
             .put(TIMESTAMP_TZ_MILLIS, LongArrayBlock.class)
-            .put(TIMESTAMP_TZ_NANOS, Int96ArrayBlock.class)
-            .put(TIMESTAMP_PICOS, Int96ArrayBlock.class)
+            .put(TIMESTAMP_TZ_NANOS, Fixed12Block.class)
+            .put(TIMESTAMP_PICOS, Fixed12Block.class)
             .put(UUID, Int128ArrayBlock.class)
             .buildOrThrow();
 
     private static final IntFunction<DictionaryValuesWriter> DICTIONARY_INT_WRITER =
             length -> new PlainIntegerDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-    private static final IntFunction<DictionaryValuesWriter> DICTIONARY_LONG_WRITER =
+    public static final IntFunction<DictionaryValuesWriter> DICTIONARY_LONG_WRITER =
             length -> new PlainLongDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
     private static final IntFunction<DictionaryValuesWriter> DICTIONARY_FIXED_LENGTH_WRITER =
             length -> new PlainFixedLenArrayDictionaryValuesWriter(Integer.MAX_VALUE, length, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
@@ -211,7 +211,7 @@ public class TestingColumnReader
         }
         return result;
     };
-    private static final Writer<Number> WRITE_LONG_TIMESTAMP = (writer, values) -> {
+    public static final Writer<Number> WRITE_LONG_TIMESTAMP = (writer, values) -> {
         Number[] result = new Number[values.length];
         for (int i = 0; i < values.length; i++) {
             if (values[i] != null) {
@@ -324,6 +324,21 @@ public class TestingColumnReader
                     Int128 longDecimal = Int128.valueOf(values[i]);
                     result[2 * i] = longDecimal.getHigh();
                     result[2 * i + 1] = longDecimal.getLow();
+                }
+            }
+            return result;
+        };
+    }
+
+    private static Writer<String> writeFixedWidthBinary(int typeLength)
+    {
+        return (writer, values) -> {
+            String[] result = new String[values.length];
+            for (int i = 0; i < values.length; i++) {
+                if (values[i] != null) {
+                    byte[] bytes = Arrays.copyOf(Integer.toString(values[i]).getBytes(UTF_8), typeLength);
+                    writer.writeBytes(Binary.fromConstantByteArray(bytes));
+                    result[i] = new String(bytes, UTF_8);
                 }
             }
             return result;
@@ -520,7 +535,7 @@ public class TestingColumnReader
         };
     }
 
-    private static Assertion<Number> assertLongTimestamp(int precision)
+    public static Assertion<Number> assertLongTimestamp(int precision)
     {
         int multiplier = IntMath.pow(10, precision);
         return (values, block, offset, blockOffset) ->
@@ -636,22 +651,31 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(FLOAT, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_FLOAT_WRITER, WRITE_FLOAT, ASSERT_DOUBLE_STORED_AS_FLOAT),
                 new ColumnReaderFormat<>(DOUBLE, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_DOUBLE_WRITER, WRITE_DOUBLE, ASSERT_DOUBLE),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
+                // INT32 can be read as a ShortDecimalType in Trino without decimal logical type annotation as well
+                new ColumnReaderFormat<>(INT32, createDecimalType(8, 0), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, BIGINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT32, INTEGER, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, SMALLINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_SHORT, ASSERT_SHORT),
                 new ColumnReaderFormat<>(INT32, TINYINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_BYTE, ASSERT_BYTE),
                 new ColumnReaderFormat<>(BINARY, VARCHAR, PLAIN_WRITER, DICTIONARY_BINARY_WRITER, WRITE_BINARY, ASSERT_BINARY),
+                new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, null, VARCHAR, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeFixedWidthBinary(8), ASSERT_BINARY),
                 new ColumnReaderFormat<>(INT64, decimalType(0, 16), createDecimalType(16), PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT64, BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
+                new ColumnReaderFormat<>(INT64, INTEGER, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_INT),
+                new ColumnReaderFormat<>(INT64, SMALLINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_SHORT),
+                new ColumnReaderFormat<>(INT64, TINYINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_BYTE),
                 new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 8, decimalType(0, 2), createDecimalType(2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_SHORT_DECIMAL, ASSERT_LONG),
                 new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, decimalType(2, 38), createDecimalType(38, 2), FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, writeLongDecimal(16), ASSERT_INT_128),
                 new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, uuidType(), UUID, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_UUID, ASSERT_INT_128),
                 new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, null, UUID, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_UUID, ASSERT_INT_128),
                 // Trino type precision is irrelevant since the data is always stored as picoseconds
                 new ColumnReaderFormat<>(INT64, timeType(false, MICROS), TimeType.TIME_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertTime(6)),
+                // Reading a column TimeLogicalTypeAnnotation as a BIGINT
+                new ColumnReaderFormat<>(INT64, timeType(false, MICROS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
                 // Short decimals
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
-                new ColumnReaderFormat<>(INT32, createDecimalType(9), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
+                // INT32 values can be read as zero scale decimals provided the precision is at least 10 to accommodate the largest possible integer
+                new ColumnReaderFormat<>(INT32, createDecimalType(10), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), BIGINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_LONG),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), INTEGER, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), SMALLINT, PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_SHORT, ASSERT_SHORT),

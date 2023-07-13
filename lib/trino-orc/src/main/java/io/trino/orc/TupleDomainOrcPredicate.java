@@ -50,8 +50,6 @@ import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.Decimals.rescale;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -230,11 +228,11 @@ public class TupleDomainOrcPredicate
                 return Domain.create(ValueSet.of(BOOLEAN, false), hasNullValue);
             }
         }
-        else if (isShortDecimal(type) && columnStatistics.getDecimalStatistics() != null) {
-            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> rescale(value, (DecimalType) type).unscaledValue().longValue());
+        else if (type instanceof DecimalType decimalType && decimalType.isShort() && columnStatistics.getDecimalStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> rescale(value, decimalType).unscaledValue().longValue());
         }
-        else if (isLongDecimal(type) && columnStatistics.getDecimalStatistics() != null) {
-            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> Int128.valueOf(rescale(value, (DecimalType) type).unscaledValue()));
+        else if (type instanceof DecimalType decimalType && !decimalType.isShort() && columnStatistics.getDecimalStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getDecimalStatistics(), value -> Int128.valueOf(rescale(value, decimalType).unscaledValue()));
         }
         else if (type instanceof CharType && columnStatistics.getStringStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getStringStatistics(), value -> truncateToLengthAndTrimSpaces(value, type));
@@ -300,7 +298,7 @@ public class TupleDomainOrcPredicate
 
     private static <T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, RangeStatistics<T> rangeStatistics)
     {
-        return createDomain(type, hasNullValue, rangeStatistics, value -> value);
+        return createDomain(type, hasNullValue, rangeStatistics, Function.identity());
     }
 
     private static <F, T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, RangeStatistics<F> rangeStatistics, Function<F, T> function)

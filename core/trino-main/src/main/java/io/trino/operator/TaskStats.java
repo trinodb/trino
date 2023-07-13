@@ -36,6 +36,7 @@ public class TaskStats
     private final DateTime createTime;
     private final DateTime firstStartTime;
     private final DateTime lastStartTime;
+    private final DateTime terminatingStartTime;
     private final DateTime lastEndTime;
     private final DateTime endTime;
 
@@ -97,6 +98,7 @@ public class TaskStats
                 null,
                 null,
                 null,
+                null,
                 endTime,
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -143,6 +145,7 @@ public class TaskStats
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("firstStartTime") DateTime firstStartTime,
             @JsonProperty("lastStartTime") DateTime lastStartTime,
+            @JsonProperty("terminatingStartTime") DateTime terminatingStartTime,
             @JsonProperty("lastEndTime") DateTime lastEndTime,
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
@@ -200,6 +203,7 @@ public class TaskStats
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.firstStartTime = firstStartTime;
         this.lastStartTime = lastStartTime;
+        this.terminatingStartTime = terminatingStartTime;
         this.lastEndTime = lastEndTime;
         this.endTime = endTime;
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
@@ -291,6 +295,13 @@ public class TaskStats
     public DateTime getLastStartTime()
     {
         return lastStartTime;
+    }
+
+    @Nullable
+    @JsonProperty
+    public DateTime getTerminatingStartTime()
+    {
+        return terminatingStartTime;
     }
 
     @Nullable
@@ -541,6 +552,7 @@ public class TaskStats
                 createTime,
                 firstStartTime,
                 lastStartTime,
+                terminatingStartTime,
                 lastEndTime,
                 endTime,
                 elapsedTime,
@@ -589,6 +601,7 @@ public class TaskStats
                 createTime,
                 firstStartTime,
                 lastStartTime,
+                terminatingStartTime,
                 lastEndTime,
                 endTime,
                 elapsedTime,

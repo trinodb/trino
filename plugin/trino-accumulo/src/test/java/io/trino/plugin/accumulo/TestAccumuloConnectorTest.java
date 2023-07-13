@@ -18,7 +18,6 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.assertions.Assert;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -58,6 +57,11 @@ public class TestAccumuloConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+                return false;
+
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
@@ -76,8 +80,8 @@ public class TestAccumuloConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
-            case SUPPORTS_CREATE_VIEW:
-                return true;
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
+                return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
@@ -260,11 +264,10 @@ public class TestAccumuloConnectorTest
         }
     }
 
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "Accumulo row ID", "")
                 .row("custkey", "bigint", "Accumulo column custkey:custkey. Indexed: false", "")
                 .row("orderstatus", "varchar(1)", "Accumulo column orderstatus:orderstatus. Indexed: false", "")
@@ -275,8 +278,6 @@ public class TestAccumuloConnectorTest
                 .row("shippriority", "integer", "Accumulo column shippriority:shippriority. Indexed: false", "")
                 .row("comment", "varchar(79)", "Accumulo column comment:comment. Indexed: false", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        Assert.assertEquals(actualColumns, expectedColumns);
     }
 
     @Test

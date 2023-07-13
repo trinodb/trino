@@ -19,13 +19,11 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.Session;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
 import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.WorkProcessorAssertion.Transform;
-import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
@@ -215,8 +213,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 .containsEntry("testSourceClosed", new LongCount(1));
         assertEquals(sourceOperatorStats.getConnectorMetrics().getMetrics(), ImmutableMap.of(
                 "testSourceConnectorMetric", new LongCount(2),
-                "testSourceConnectorClosed", new LongCount(1),
-                "Physical input read time", new DurationTiming(new Duration(7, NANOSECONDS))));
+                "testSourceConnectorClosed", new LongCount(1)));
 
         assertEquals(sourceOperatorStats.getDynamicFilterSplitsProcessed(), 42L);
 
@@ -253,8 +250,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 .containsEntry("testSourceClosed", new LongCount(1));
         assertEquals(operatorSummaries.get(0).getConnectorMetrics().getMetrics(), ImmutableMap.of(
                 "testSourceConnectorMetric", new LongCount(2),
-                "testSourceConnectorClosed", new LongCount(1),
-                "Physical input read time", new DurationTiming(new Duration(7, NANOSECONDS))));
+                "testSourceConnectorClosed", new LongCount(1)));
         assertThat(operatorSummaries.get(1).getMetrics().getMetrics())
                 .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(1));
@@ -345,7 +341,7 @@ public class TestWorkProcessorPipelineSourceOperator
         }
 
         @Override
-        public WorkProcessorSourceOperator create(Session session, MemoryTrackingContext memoryTrackingContext, DriverYieldSignal yieldSignal, WorkProcessor<Split> splits)
+        public WorkProcessorSourceOperator create(OperatorContext operatorContext, MemoryTrackingContext memoryTrackingContext, DriverYieldSignal yieldSignal, WorkProcessor<Split> splits)
         {
             assertNull(sourceOperator, "source operator already created");
             sourceOperator = new TestWorkProcessorSourceOperator(

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
-import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -96,8 +95,7 @@ public class ExpressionOptimizer
                     .collect(toImmutableList());
 
             // TODO: optimize function calls with lambda arguments. For example, apply(x -> x + 2, 1)
-            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(session, call.getResolvedFunction());
-            if (arguments.stream().allMatch(ConstantExpression.class::isInstance) && functionMetadata.isDeterministic()) {
+            if (arguments.stream().allMatch(ConstantExpression.class::isInstance) && call.getResolvedFunction().isDeterministic()) {
                 List<Object> constantArguments = arguments.stream()
                         .map(ConstantExpression.class::cast)
                         .map(ConstantExpression::getValue)
@@ -123,8 +121,7 @@ public class ExpressionOptimizer
                 case IF: {
                     checkState(specialForm.getArguments().size() == 3, "IF function should have 3 arguments. Get " + specialForm.getArguments().size());
                     RowExpression optimizedOperand = specialForm.getArguments().get(0).accept(this, context);
-                    if (optimizedOperand instanceof ConstantExpression) {
-                        ConstantExpression constantOperand = (ConstantExpression) optimizedOperand;
+                    if (optimizedOperand instanceof ConstantExpression constantOperand) {
                         checkState(constantOperand.getType().equals(BOOLEAN), "Operand of IF function should be BOOLEAN type. Get type " + constantOperand.getType().getDisplayName());
                         if (Boolean.TRUE.equals(constantOperand.getValue())) {
                             return specialForm.getArguments().get(1).accept(this, context);
@@ -190,9 +187,8 @@ public class ExpressionOptimizer
 
         private CallExpression rewriteCast(CallExpression call)
         {
-            if (call.getArguments().get(0) instanceof CallExpression) {
+            if (call.getArguments().get(0) instanceof CallExpression innerCall) {
                 // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
-                CallExpression innerCall = (CallExpression) call.getArguments().get(0);
                 if (innerCall.getResolvedFunction().getSignature().getName().equals("json_parse")) {
                     checkArgument(innerCall.getType().equals(JSON));
                     checkArgument(innerCall.getArguments().size() == 1);

@@ -25,6 +25,7 @@ import io.trino.sql.jsonpath.tree.ComparisonPredicate;
 import io.trino.sql.jsonpath.tree.ConjunctionPredicate;
 import io.trino.sql.jsonpath.tree.ContextVariable;
 import io.trino.sql.jsonpath.tree.DatetimeMethod;
+import io.trino.sql.jsonpath.tree.DescendantMemberAccessor;
 import io.trino.sql.jsonpath.tree.DisjunctionPredicate;
 import io.trino.sql.jsonpath.tree.DoubleMethod;
 import io.trino.sql.jsonpath.tree.ExistsPredicate;
@@ -255,6 +256,16 @@ public class TestPathParser
                 .isEqualTo(new JsonPath(
                         true,
                         new MemberAccessor(new ContextVariable(), Optional.of("Key Name"))));
+    }
+
+    @Test
+    public void testDescendantMemberAccessor()
+    {
+        assertThat(path("lax $..Key_Identifier"))
+                .isEqualTo(new JsonPath(true, new DescendantMemberAccessor(new ContextVariable(), "Key_Identifier")));
+
+        assertThat(path("lax $..\"Key Name\""))
+                .isEqualTo(new JsonPath(true, new DescendantMemberAccessor(new ContextVariable(), "Key Name")));
     }
 
     @Test

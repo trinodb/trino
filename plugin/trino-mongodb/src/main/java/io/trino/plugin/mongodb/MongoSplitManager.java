@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -23,8 +23,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -49,6 +47,6 @@ public class MongoSplitManager
     {
         MongoSplit split = new MongoSplit(addresses);
 
-        return new FixedSplitSource(ImmutableList.of(split));
+        return new FixedSplitSource(split);
     }
 }

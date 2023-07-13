@@ -24,7 +24,8 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.StructuralTestUtil.mapType;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestWindowQueries
         extends AbstractTestQueryFramework
@@ -122,14 +123,13 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testDistinctWindow()
     {
-        MaterializedResult actual = computeActual(
+        assertThat(query(
                 "SELECT RANK() OVER (PARTITION BY orderdate ORDER BY COUNT(DISTINCT clerk)) rnk " +
                         "FROM orders " +
                         "GROUP BY orderdate, custkey " +
                         "ORDER BY rnk " +
-                        "LIMIT 1");
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT).row(1L).build();
-        assertEquals(actual, expected);
+                        "LIMIT 1"))
+                .matches("VALUES BIGINT '1'");
     }
 
     @Test
@@ -166,80 +166,75 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testWindowsSameOrdering()
     {
-        MaterializedResult actual = computeActual("SELECT " +
-                "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)," +
-                "min(tax) OVER(PARTITION BY suppkey ORDER BY shipdate)" +
-                "FROM lineitem " +
-                "ORDER BY 1 " +
-                "LIMIT 10");
-
-        MaterializedResult expected = resultBuilder(getSession(), DOUBLE, DOUBLE)
-                .row(1.0, 0.0)
-                .row(2.0, 0.0)
-                .row(2.0, 0.0)
-                .row(3.0, 0.0)
-                .row(3.0, 0.0)
-                .row(4.0, 0.0)
-                .row(4.0, 0.0)
-                .row(5.0, 0.0)
-                .row(5.0, 0.0)
-                .row(5.0, 0.0)
-                .build();
-
-        assertEquals(actual, expected);
+        assertThat(query("""
+                SELECT
+                sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey),
+                min(tax) OVER(PARTITION BY suppkey ORDER BY shipdate)
+                FROM lineitem
+                ORDER BY 1
+                LIMIT 10"""))
+                .matches(resultBuilder(getSession(), DOUBLE, DOUBLE)
+                        .row(1.0, 0.0)
+                        .row(2.0, 0.0)
+                        .row(2.0, 0.0)
+                        .row(3.0, 0.0)
+                        .row(3.0, 0.0)
+                        .row(4.0, 0.0)
+                        .row(4.0, 0.0)
+                        .row(5.0, 0.0)
+                        .row(5.0, 0.0)
+                        .row(5.0, 0.0)
+                        .build());
     }
 
     @Test
     public void testWindowsPrefixPartitioning()
     {
-        MaterializedResult actual = computeActual("SELECT " +
-                "max(tax) OVER(PARTITION BY suppkey, tax ORDER BY receiptdate)," +
-                "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)" +
-                "FROM lineitem " +
-                "ORDER BY 2, 1 " +
-                "LIMIT 10");
-
-        MaterializedResult expected = resultBuilder(getSession(), DOUBLE, DOUBLE)
-                .row(0.06, 1.0)
-                .row(0.02, 2.0)
-                .row(0.06, 2.0)
-                .row(0.02, 3.0)
-                .row(0.08, 3.0)
-                .row(0.03, 4.0)
-                .row(0.03, 4.0)
-                .row(0.02, 5.0)
-                .row(0.03, 5.0)
-                .row(0.07, 5.0)
-                .build();
-
-        assertEquals(actual, expected);
+        assertThat(query("""
+                SELECT
+                max(tax) OVER (PARTITION BY suppkey, tax ORDER BY receiptdate),
+                sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)
+                FROM lineitem
+                ORDER BY 2, 1
+                LIMIT 10"""))
+                .matches(resultBuilder(getSession(), DOUBLE, DOUBLE)
+                        .row(0.06, 1.0)
+                        .row(0.02, 2.0)
+                        .row(0.06, 2.0)
+                        .row(0.02, 3.0)
+                        .row(0.08, 3.0)
+                        .row(0.03, 4.0)
+                        .row(0.03, 4.0)
+                        .row(0.02, 5.0)
+                        .row(0.03, 5.0)
+                        .row(0.07, 5.0)
+                        .build());
     }
 
     @Test
     public void testWindowsDifferentPartitions()
     {
-        MaterializedResult actual = computeActual("SELECT " +
-                "sum(quantity) OVER(PARTITION BY suppkey ORDER BY orderkey)," +
-                "count(discount) OVER(PARTITION BY partkey ORDER BY receiptdate)," +
-                "min(tax) OVER(PARTITION BY suppkey, tax ORDER BY receiptdate)" +
-                "FROM lineitem " +
-                "ORDER BY 1, 2 " +
-                "LIMIT 10");
-
-        MaterializedResult expected = resultBuilder(getSession(), DOUBLE, BIGINT, DOUBLE)
-                .row(1.0, 10L, 0.06)
-                .row(2.0, 4L, 0.06)
-                .row(2.0, 16L, 0.02)
-                .row(3.0, 3L, 0.08)
-                .row(3.0, 38L, 0.02)
-                .row(4.0, 10L, 0.03)
-                .row(4.0, 10L, 0.03)
-                .row(5.0, 9L, 0.03)
-                .row(5.0, 13L, 0.07)
-                .row(5.0, 15L, 0.02)
-                .build();
-
-        assertEquals(actual, expected);
+        assertThat(query("""
+                SELECT
+                sum(quantity) OVER (PARTITION BY suppkey ORDER BY orderkey),
+                count(discount) OVER (PARTITION BY partkey ORDER BY receiptdate),
+                    min(tax) OVER (PARTITION BY suppkey, tax ORDER BY receiptdate)
+                FROM lineitem
+                ORDER BY 1, 2
+                LIMIT 10
+                """))
+                .matches(resultBuilder(getSession(), DOUBLE, BIGINT, DOUBLE)
+                        .row(1.0, 10L, 0.06)
+                        .row(2.0, 4L, 0.06)
+                        .row(2.0, 16L, 0.02)
+                        .row(3.0, 3L, 0.08)
+                        .row(3.0, 38L, 0.02)
+                        .row(4.0, 10L, 0.03)
+                        .row(4.0, 10L, 0.03)
+                        .row(5.0, 9L, 0.03)
+                        .row(5.0, 13L, 0.07)
+                        .row(5.0, 15L, 0.02)
+                        .build());
     }
 
     @Test
@@ -285,31 +280,8 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testWindowFunctionWithoutParameters()
     {
-        MaterializedResult actual = computeActual("SELECT count() over(partition by custkey) FROM orders WHERE custkey < 3 ORDER BY custkey");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(9L)
-                .row(9L)
-                .row(9L)
-                .row(9L)
-                .row(9L)
-                .row(9L)
-                .row(9L)
-                .row(9L)
-                .row(9L)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertThat(query("SELECT count() over(partition by custkey) FROM orders WHERE custkey < 3 ORDER BY custkey"))
+                .matches("VALUES BIGINT '9',9,9,9,9,9,9,9,9, 10,10,10,10,10,10,10,10,10,10");
     }
 
     @Test
@@ -339,29 +311,27 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testWindowFunctionsFromAggregate()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT * FROM (\n" +
-                "  SELECT orderstatus, clerk, sales\n" +
-                "  , rank() OVER (PARTITION BY x.orderstatus ORDER BY sales DESC) rnk\n" +
-                "  FROM (\n" +
-                "    SELECT orderstatus, clerk, sum(totalprice) sales\n" +
-                "    FROM orders\n" +
-                "    GROUP BY orderstatus, clerk\n" +
-                "   ) x\n" +
-                ") x\n" +
-                "WHERE rnk <= 2\n" +
-                "ORDER BY orderstatus, rnk");
-
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, DOUBLE, BIGINT)
-                .row("F", "Clerk#000000090", 2784836.61, 1L)
-                .row("F", "Clerk#000000084", 2674447.15, 2L)
-                .row("O", "Clerk#000000500", 2569878.29, 1L)
-                .row("O", "Clerk#000000050", 2500162.92, 2L)
-                .row("P", "Clerk#000000071", 841820.99, 1L)
-                .row("P", "Clerk#000001000", 643679.49, 2L)
-                .build();
-
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(query("""
+                SELECT * FROM (
+                  SELECT orderstatus, clerk, sales
+                  , rank() OVER (PARTITION BY x.orderstatus ORDER BY sales DESC) rnk
+                  FROM (
+                    SELECT orderstatus, clerk, sum(totalprice) sales
+                    FROM orders
+                    GROUP BY orderstatus, clerk
+                   ) x
+                ) x
+                WHERE rnk <= 2
+                ORDER BY orderstatus, rnk
+                """))
+                .matches(resultBuilder(getSession(), createVarcharType(1), createVarcharType(15), DOUBLE, BIGINT)
+                        .row("F", "Clerk#000000090", 2784836.61, 1L)
+                        .row("F", "Clerk#000000084", 2674447.15, 2L)
+                        .row("O", "Clerk#000000500", 2569878.29, 1L)
+                        .row("O", "Clerk#000000050", 2500162.92, 2L)
+                        .row("P", "Clerk#000000071", 841820.99, 1L)
+                        .row("P", "Clerk#000001000", 643679.49, 2L)
+                        .build());
     }
 
     @Test
@@ -382,35 +352,27 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testSameWindowFunctionsTwoCoerces()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT 12.0E0 * row_number() OVER ()/row_number() OVER(),\n" +
-                "row_number() OVER()\n" +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)\n" +
-                "ORDER BY 2 DESC\n" +
-                "LIMIT 5");
+        assertThat(query("""
+                SELECT
+                  12.0E0 * row_number() OVER ()/row_number() OVER(),
+                  row_number() OVER()
+                FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10)
+                ORDER BY 2 DESC
+                LIMIT 5
+                """))
+                .matches(resultBuilder(getSession(), DOUBLE, BIGINT)
+                        .row(12.0, 10L)
+                        .row(12.0, 9L)
+                        .row(12.0, 8L)
+                        .row(12.0, 7L)
+                        .row(12.0, 6L)
+                        .build());
 
-        MaterializedResult expected = resultBuilder(getSession(), DOUBLE, BIGINT)
-                .row(12.0, 10L)
-                .row(12.0, 9L)
-                .row(12.0, 8L)
-                .row(12.0, 7L)
-                .row(12.0, 6L)
-                .build();
-
-        assertEquals(actual, expected);
-
-        actual = computeActual("" +
-                "SELECT (MAX(x.a) OVER () - x.a) * 100.0E0 / MAX(x.a) OVER ()\n" +
-                "FROM (VALUES 1, 2, 3, 4) x(a)");
-
-        expected = resultBuilder(getSession(), DOUBLE)
-                .row(75.0)
-                .row(50.0)
-                .row(25.0)
-                .row(0.0)
-                .build();
-
-        assertEquals(actual, expected);
+        assertThat(query("""
+                SELECT (MAX(x.a) OVER () - x.a) * 100.0E0 / MAX(x.a) OVER ()
+                FROM (VALUES 1, 2, 3, 4) x(a)
+                """))
+                .matches("VALUES 75.0, 50.0, 25.0, 0.0E0");
     }
 
     @Test
@@ -460,16 +422,12 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testWindowFunctionWithGroupBy()
     {
-        MaterializedResult actual = computeActual("" +
-                "SELECT *, rank() OVER (PARTITION BY x)\n" +
-                "FROM (SELECT 'foo' x)\n" +
-                "GROUP BY 1");
-
-        MaterializedResult expected = resultBuilder(getSession(), createVarcharType(3), BIGINT)
-                .row("foo", 1L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertThat(query("""
+                SELECT *, rank() OVER (PARTITION BY x)
+                FROM (SELECT 'foo' x)
+                GROUP BY 1
+                """))
+                .matches("VALUES ('foo', BIGINT '1')");
     }
 
     @Test
@@ -608,39 +566,34 @@ public abstract class AbstractTestWindowQueries
     @Test
     public void testWindowFrames()
     {
-        MaterializedResult actual = computeActual("SELECT * FROM (\n" +
-                "  SELECT orderkey, orderstatus\n" +
-                "    , sum(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey\n" +
-                "        ROWS BETWEEN mod(custkey, 2) PRECEDING AND custkey / 500 FOLLOWING)\n" +
-                "    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x\n" +
-                "  ) x\n" +
-                "ORDER BY orderkey LIMIT 5");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT, VARCHAR, BIGINT)
-                .row(1L, "O", 1001L)
-                .row(2L, "O", 3007L)
-                .row(3L, "F", 3014L)
-                .row(4L, "O", 4045L)
-                .row(5L, "F", 2008L)
-                .build();
-
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(query("""
+                SELECT * FROM (
+                  SELECT orderkey, orderstatus
+                    , sum(orderkey + 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey
+                        ROWS BETWEEN mod(custkey, 2) PRECEDING AND custkey / 500 FOLLOWING)
+                    FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 10) x
+                  ) x
+                ORDER BY orderkey
+                LIMIT 5
+                """))
+                .matches(resultBuilder(getSession(), BIGINT, createVarcharType(1), BIGINT)
+                        .row(1L, "O", 1001L)
+                        .row(2L, "O", 3007L)
+                        .row(3L, "F", 3014L)
+                        .row(4L, "O", 4045L)
+                        .row(5L, "F", 2008L)
+                        .build());
     }
 
     @Test
     public void testWindowNoChannels()
     {
-        MaterializedResult actual = computeActual("SELECT rank() OVER ()\n" +
-                "FROM (SELECT * FROM orders LIMIT 10)\n" +
-                "LIMIT 3");
-
-        MaterializedResult expected = resultBuilder(getSession(), BIGINT)
-                .row(1L)
-                .row(1L)
-                .row(1L)
-                .build();
-
-        assertEquals(actual, expected);
+        assertThat(query("""
+                SELECT rank() OVER ()
+                FROM (SELECT * FROM orders LIMIT 10)
+                LIMIT 3
+                """))
+                .matches("VALUES BIGINT '1', 1, 1");
     }
 
     @Test

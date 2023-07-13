@@ -13,19 +13,17 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
+import com.google.inject.Inject;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.UUID;
 
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 
 public class AzureTransactionLogSynchronizer
@@ -42,19 +40,18 @@ public class AzureTransactionLogSynchronizer
     // This approach should be compatible with OSS Delta Lake.
     // We assume ADLS Gen2 supports atomic renames which will not overwrite existing files
     @Override
-    public void write(ConnectorSession session, String clusterId, Path newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, String clusterId, Location newLogEntryPath, byte[] entryContents)
     {
-        String tmpFileName = newLogEntryPath.getName() + "." + UUID.randomUUID() + ".tmp";
-        String tmpFilePath = new Path(newLogEntryPath.getParent(), tmpFileName).toString();
+        Location tmpFilePath = newLogEntryPath.appendSuffix("." + UUID.randomUUID() + ".tmp");
 
         boolean conflict = false;
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            try (OutputStream outputStream = fileSystem.newOutputFile(tmpFilePath).create(newSimpleAggregatedMemoryContext())) {
+            try (OutputStream outputStream = fileSystem.newOutputFile(tmpFilePath).create()) {
                 outputStream.write(entryContents);
             }
             try {
-                fileSystem.renameFile(tmpFilePath, newLogEntryPath.toString());
+                fileSystem.renameFile(tmpFilePath, newLogEntryPath);
             }
             catch (IOException e) {
                 conflict = true;

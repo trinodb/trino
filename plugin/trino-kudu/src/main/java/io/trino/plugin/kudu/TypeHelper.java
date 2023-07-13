@@ -164,8 +164,7 @@ public final class TypeHelper
         if (type instanceof VarbinaryType) {
             return ((Slice) nativeValue).toByteBuffer();
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             if (decimalType.isShort()) {
                 return new BigDecimal(BigInteger.valueOf((long) nativeValue), decimalType.getScale());
             }
@@ -235,9 +234,8 @@ public final class TypeHelper
         if (type == RealType.REAL) {
             return floatToRawIntBits(row.getFloat(field));
         }
-        if (type instanceof DecimalType) {
-            DecimalType dtype = (DecimalType) type;
-            if (dtype.isShort()) {
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
                 return row.getDecimal(field).unscaledValue().longValue();
             }
             throw new IllegalStateException("getLong not supported for long decimal: " + type);

@@ -14,20 +14,24 @@
 package io.trino.filesystem;
 
 import java.io.IOException;
+import java.time.Instant;
 
 public interface TrinoInputFile
 {
     TrinoInput newInput()
             throws IOException;
 
+    TrinoInputStream newStream()
+            throws IOException;
+
     long length()
             throws IOException;
 
-    long modificationTime()
+    Instant lastModified()
             throws IOException;
 
     boolean exists()
             throws IOException;
 
-    String location();
+    Location location();
 }

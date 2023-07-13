@@ -1658,6 +1658,13 @@ public class TestMathFunctions
         assertThat(assertions.function("round", "DOUBLE '3000.1234567890123456789'", "16"))
                 .isEqualTo(3000.1234567890124);
 
+        // 1.8E292*10^16 is infinity.
+        assertThat(assertions.function("round", "DOUBLE '1.8E292'", "16"))
+                .isEqualTo(1.8E292);
+
+        assertThat(assertions.function("round", "DOUBLE '-1.8E292'", "16"))
+                .isEqualTo(-1.8E292);
+
         assertThat(assertions.function("round", "TINYINT '3'", "TINYINT '1'"))
                 .isEqualTo((byte) 3);
 
@@ -1701,6 +1708,13 @@ public class TestMathFunctions
         // 3000 * 10^16 exceeds Long.MAX_VALUE. Note that value has limited precision even before round is invoked
         assertThat(assertions.function("round", "REAL '3000.1234567890123456789'", "16"))
                 .isEqualTo(3000.1235f);
+
+        // 3.4028235e+38 * 10 ^ 271 is infinity
+        assertThat(assertions.function("round", "REAL '3.4028235e+38'", "271"))
+                .isEqualTo(3.4028235e+38f);
+
+        assertThat(assertions.function("round", "REAL '-3.4028235e+38'", "271"))
+                .isEqualTo(-3.4028235e+38f);
 
         assertThat(assertions.function("round", "3", "1"))
                 .isEqualTo(3);
@@ -2497,6 +2511,21 @@ public class TestMathFunctions
         }
 
         assertThat(assertions.function("sin", "NULL"))
+                .isNull(DOUBLE);
+    }
+
+    @Test
+    public void testSinh()
+    {
+        for (double doubleValue : DOUBLE_VALUES) {
+            assertThat(assertions.function("sinh", Double.toString(doubleValue)))
+                    .isEqualTo(Math.sinh(doubleValue));
+
+            assertThat(assertions.function("sinh", "REAL '%s'".formatted((float) doubleValue)))
+                    .isEqualTo(Math.sinh((float) doubleValue));
+        }
+
+        assertThat(assertions.function("sinh", "NULL"))
                 .isNull(DOUBLE);
     }
 

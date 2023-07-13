@@ -23,7 +23,6 @@ import io.airlift.log.Logger;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
-import io.trino.plugin.base.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import org.weakref.jmx.guice.MBeanModule;
@@ -57,10 +56,7 @@ public class JdbcDiagnosticModule
     {
         Logger logger = Logger.get(format("io.trino.plugin.jdbc.%s.jdbcclient", catalogName));
 
-        JdbcClient loggingInvocationsJdbcClient = newProxy(JdbcClient.class, new LoggingInvocationHandler(
-                client,
-                new ReflectiveParameterNamesProvider(),
-                logger::debug));
+        JdbcClient loggingInvocationsJdbcClient = newProxy(JdbcClient.class, new LoggingInvocationHandler(client, logger::debug));
 
         return new StatisticsAwareJdbcClient(ForwardingJdbcClient.of(() -> {
             if (logger.isDebugEnabled()) {

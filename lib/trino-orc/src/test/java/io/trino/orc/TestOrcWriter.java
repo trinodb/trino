@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.trino.orc.OrcTester.LocalTrinoOutputFile;
+import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.orc.metadata.Footer;
 import io.trino.orc.metadata.OrcMetadataReader;
@@ -67,7 +67,7 @@ public class TestOrcWriter
             List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR);
 
             OrcWriter writer = new OrcWriter(
-                    OutputStreamOrcDataSink.create(new LocalTrinoOutputFile(tempFile.getFile())),
+                    OutputStreamOrcDataSink.create(new LocalOutputFile(tempFile.getFile())),
                     ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
                     types,
                     OrcType.createRootOrcType(columnNames, types),
@@ -117,7 +117,7 @@ public class TestOrcWriter
                 // read the footer
                 Slice tailBuffer = orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), toIntExact(stripe.getFooterLength()));
                 try (InputStream inputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), tailBuffer, Optional.empty(), newSimpleAggregatedMemoryContext()))) {
-                    StripeFooter stripeFooter = new OrcMetadataReader().readStripeFooter(footer.getTypes(), inputStream, ZoneId.of("UTC"));
+                    StripeFooter stripeFooter = new OrcMetadataReader(new OrcReaderOptions()).readStripeFooter(footer.getTypes(), inputStream, ZoneId.of("UTC"));
 
                     int size = 0;
                     boolean dataStreamStarted = false;

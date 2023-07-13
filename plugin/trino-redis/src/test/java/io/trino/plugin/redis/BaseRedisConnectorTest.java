@@ -47,11 +47,18 @@ public abstract class BaseRedisConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
+                return false;
+
             case SUPPORTS_INSERT:
             case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
                 return false;
 
             case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             default:

@@ -22,6 +22,7 @@ import io.trino.spi.type.RowType;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -36,8 +37,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestParquetPageSourceFactory
 {
-    @Test
-    public void testGetNestedMixedRepetitionColumnType()
+    @Test(dataProvider = "useColumnNames")
+    public void testGetNestedMixedRepetitionColumnType(boolean useColumnNames)
     {
         RowType rowType = rowType(
                 RowType.field(
@@ -64,7 +65,16 @@ public class TestParquetPageSourceFactory
                         new GroupType(OPTIONAL, "optional_level2",
                                 new PrimitiveType(REQUIRED, INT32, "required_level3"))));
         assertEquals(
-                ParquetPageSourceFactory.getColumnType(columnHandle, fileSchema, true).get(),
+                ParquetPageSourceFactory.getColumnType(columnHandle, fileSchema, useColumnNames).get(),
                 fileSchema.getType("optional_level1"));
+    }
+
+    @DataProvider
+    public Object[][] useColumnNames()
+    {
+        return new Object[][] {
+                {true}, // use column name
+                {false} // use column index
+        };
     }
 }

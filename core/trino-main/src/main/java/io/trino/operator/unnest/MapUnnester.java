@@ -15,18 +15,17 @@ package io.trino.operator.unnest;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarMap;
-import org.openjdk.jol.info.ClassLayout;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.unnest.UnnestOperator.ensureCapacity;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class MapUnnester
         implements Unnester
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MapUnnester.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(MapUnnester.class);
 
     private final UnnestBlockBuilder keyBlockBuilder;
     private final UnnestBlockBuilder valueBlockBuilder;

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.clickhouse;
 
-import com.clickhouse.client.ClickHouseVersion;
+import com.clickhouse.data.ClickHouseVersion;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 

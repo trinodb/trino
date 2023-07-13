@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.NonEvictableLoadingCache;
@@ -39,8 +40,6 @@ import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.JdbiException;
 import org.jdbi.v3.core.result.ResultIterator;
-
-import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.JDBCType;
@@ -375,6 +374,7 @@ public class DatabaseShardManager
                     SECONDS.sleep(multiplyExact(attempt, 2));
                 }
                 catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
                     throw metadataError(ie);
                 }
             }

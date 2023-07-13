@@ -13,7 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
-import io.trino.operator.aggregation.state.NullableLongState;
+import io.trino.operator.aggregation.state.LongState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
@@ -39,31 +39,25 @@ public final class MaxDataSizeForStats
 
     @InputFunction
     @TypeParameter("T")
-    public static void input(@AggregationState NullableLongState state, @BlockPosition @SqlType("T") Block block, @BlockIndex int index)
+    public static void input(@AggregationState LongState state, @NullablePosition @BlockPosition @SqlType("T") Block block, @BlockIndex int index)
     {
         update(state, block.getEstimatedDataSizeForStats(index));
     }
 
     @CombineFunction
-    public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState otherState)
+    public static void combine(@AggregationState LongState state, @AggregationState LongState otherState)
     {
         update(state, otherState.getValue());
     }
 
-    private static void update(NullableLongState state, long size)
+    private static void update(LongState state, long size)
     {
-        if (state.isNull()) {
-            state.setNull(false);
-            state.setValue(size);
-        }
-        else {
-            state.setValue(max(state.getValue(), size));
-        }
+        state.setValue(max(state.getValue(), size));
     }
 
     @OutputFunction(StandardTypes.BIGINT)
-    public static void output(@AggregationState NullableLongState state, BlockBuilder out)
+    public static void output(@AggregationState LongState state, BlockBuilder out)
     {
-        NullableLongState.write(BigintType.BIGINT, state, out);
+        BigintType.BIGINT.writeLong(out, state.getValue());
     }
 }

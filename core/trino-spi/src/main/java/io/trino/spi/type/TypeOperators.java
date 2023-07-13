@@ -30,9 +30,7 @@ import java.lang.invoke.MethodType;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
@@ -49,7 +47,6 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -59,11 +56,9 @@ import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class TypeOperators
 {
-    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(RETURN_NULL_ON_NULL);
     private final BiFunction<Object, Supplier<Object>, Object> cache;
 
     public TypeOperators()
@@ -173,18 +168,16 @@ public class TypeOperators
     private OperatorAdaptor getOperatorAdaptor(Type type, Optional<SortOrder> sortOrder, InvocationConvention callingConvention, OperatorType operatorType)
     {
         OperatorConvention operatorConvention = new OperatorConvention(type, operatorType, sortOrder, callingConvention);
-        return (OperatorAdaptor) cache.apply(operatorConvention, () -> new OperatorAdaptor(functionAdapter, operatorConvention));
+        return (OperatorAdaptor) cache.apply(operatorConvention, () -> new OperatorAdaptor(operatorConvention));
     }
 
     private class OperatorAdaptor
     {
-        private final ScalarFunctionAdapter functionAdapter;
         private final OperatorConvention operatorConvention;
         private MethodHandle adapted;
 
-        public OperatorAdaptor(ScalarFunctionAdapter functionAdapter, OperatorConvention operatorConvention)
+        public OperatorAdaptor(OperatorConvention operatorConvention)
         {
-            this.functionAdapter = functionAdapter;
             this.operatorConvention = operatorConvention;
         }
 
@@ -203,32 +196,32 @@ public class TypeOperators
             return methodHandle;
         }
 
-        private MethodHandle adaptOperator(OperatorConvention operatorConvention, OperatorMethodHandle operatorMethodHandle)
+        private static MethodHandle adaptOperator(OperatorConvention operatorConvention, OperatorMethodHandle operatorMethodHandle)
         {
-            return functionAdapter.adapt(
+            return ScalarFunctionAdapter.adapt(
                     operatorMethodHandle.getMethodHandle(),
                     getOperatorArgumentTypes(operatorConvention),
                     operatorMethodHandle.getCallingConvention(),
-                    operatorConvention.getCallingConvention());
+                    operatorConvention.callingConvention());
         }
 
         private OperatorMethodHandle selectOperatorMethodHandleToAdapt(OperatorConvention operatorConvention)
         {
             List<OperatorMethodHandle> operatorMethodHandles = getOperatorMethodHandles(operatorConvention).stream()
                     .sorted(Comparator.comparing(TypeOperators::getScore).reversed())
-                    .collect(toUnmodifiableList());
+                    .toList();
 
             for (OperatorMethodHandle operatorMethodHandle : operatorMethodHandles) {
-                if (functionAdapter.canAdapt(operatorMethodHandle.getCallingConvention(), operatorConvention.getCallingConvention())) {
+                if (ScalarFunctionAdapter.canAdapt(operatorMethodHandle.getCallingConvention(), operatorConvention.callingConvention())) {
                     return operatorMethodHandle;
                 }
             }
 
             throw new TrinoException(FUNCTION_NOT_FOUND, format(
                     "%s %s operator can not be adapted to convention (%s). Available implementations: %s",
-                    operatorConvention.getType(),
-                    operatorConvention.getOperatorType(),
-                    operatorConvention.getCallingConvention(),
+                    operatorConvention.type(),
+                    operatorConvention.operatorType(),
+                    operatorConvention.callingConvention(),
                     operatorMethodHandles.stream()
                             .map(OperatorMethodHandle::getCallingConvention)
                             .map(Object::toString)
@@ -237,77 +230,81 @@ public class TypeOperators
 
         private Collection<OperatorMethodHandle> getOperatorMethodHandles(OperatorConvention operatorConvention)
         {
-            TypeOperatorDeclaration typeOperatorDeclaration = operatorConvention.getType().getTypeOperatorDeclaration(TypeOperators.this);
-            requireNonNull(typeOperatorDeclaration, "typeOperators is null for " + operatorConvention.getType());
-            switch (operatorConvention.getOperatorType()) {
-                case EQUAL:
-                    return typeOperatorDeclaration.getEqualOperators();
-                case HASH_CODE:
+            TypeOperatorDeclaration typeOperatorDeclaration = operatorConvention.type().getTypeOperatorDeclaration(TypeOperators.this);
+            requireNonNull(typeOperatorDeclaration, "typeOperators is null for " + operatorConvention.type());
+            return switch (operatorConvention.operatorType()) {
+                case EQUAL -> typeOperatorDeclaration.getEqualOperators();
+                case HASH_CODE -> {
                     Collection<OperatorMethodHandle> hashCodeOperators = typeOperatorDeclaration.getHashCodeOperators();
                     if (hashCodeOperators.isEmpty()) {
-                        return typeOperatorDeclaration.getXxHash64Operators();
+                        yield typeOperatorDeclaration.getXxHash64Operators();
                     }
-                    return hashCodeOperators;
-                case XX_HASH_64:
-                    return typeOperatorDeclaration.getXxHash64Operators();
-                case IS_DISTINCT_FROM:
+                    yield hashCodeOperators;
+                }
+                case XX_HASH_64 -> typeOperatorDeclaration.getXxHash64Operators();
+                case IS_DISTINCT_FROM -> {
                     Collection<OperatorMethodHandle> distinctFromOperators = typeOperatorDeclaration.getDistinctFromOperators();
                     if (distinctFromOperators.isEmpty()) {
-                        return List.of(generateDistinctFromOperator(operatorConvention));
+                        yield List.of(generateDistinctFromOperator(operatorConvention));
                     }
-                    return distinctFromOperators;
-                case INDETERMINATE:
+                    yield distinctFromOperators;
+                }
+                case INDETERMINATE -> {
                     Collection<OperatorMethodHandle> indeterminateOperators = typeOperatorDeclaration.getIndeterminateOperators();
                     if (indeterminateOperators.isEmpty()) {
-                        return List.of(defaultIndeterminateOperator(operatorConvention.getType().getJavaType()));
+                        yield List.of(defaultIndeterminateOperator(operatorConvention.type().getJavaType()));
                     }
-                    return indeterminateOperators;
-                case COMPARISON_UNORDERED_LAST:
-                    if (operatorConvention.getSortOrder().isPresent()) {
-                        return List.of(generateOrderingOperator(operatorConvention));
+                    yield indeterminateOperators;
+                }
+                case COMPARISON_UNORDERED_LAST -> {
+                    if (operatorConvention.sortOrder().isPresent()) {
+                        yield List.of(generateOrderingOperator(operatorConvention));
                     }
                     Collection<OperatorMethodHandle> comparisonUnorderedLastOperators = typeOperatorDeclaration.getComparisonUnorderedLastOperators();
                     if (comparisonUnorderedLastOperators.isEmpty()) {
-                        // if a type only provides one comparison operator it is assumed that the type does not have unordered values
-                        return typeOperatorDeclaration.getComparisonUnorderedFirstOperators();
+                        // if a type only provides one comparison operator, it is assumed that the type does not have unordered values
+                        yield typeOperatorDeclaration.getComparisonUnorderedFirstOperators();
                     }
-                    return comparisonUnorderedLastOperators;
-                case COMPARISON_UNORDERED_FIRST:
-                    if (operatorConvention.getSortOrder().isPresent()) {
-                        return List.of(generateOrderingOperator(operatorConvention));
+                    yield comparisonUnorderedLastOperators;
+                }
+                case COMPARISON_UNORDERED_FIRST -> {
+                    if (operatorConvention.sortOrder().isPresent()) {
+                        yield List.of(generateOrderingOperator(operatorConvention));
                     }
                     Collection<OperatorMethodHandle> comparisonUnorderedFirstOperators = typeOperatorDeclaration.getComparisonUnorderedFirstOperators();
                     if (comparisonUnorderedFirstOperators.isEmpty()) {
-                        // if a type only provides one comparison operator it is assumed that the type does not have unordered values
-                        return typeOperatorDeclaration.getComparisonUnorderedLastOperators();
+                        // if a type only provides one comparison operator, it is assumed that the type does not have unordered values
+                        yield typeOperatorDeclaration.getComparisonUnorderedLastOperators();
                     }
-                    return comparisonUnorderedFirstOperators;
-                case LESS_THAN:
+                    yield comparisonUnorderedFirstOperators;
+                }
+                case LESS_THAN -> {
                     Collection<OperatorMethodHandle> lessThanOperators = typeOperatorDeclaration.getLessThanOperators();
                     if (lessThanOperators.isEmpty()) {
-                        return List.of(generateLessThanOperator(operatorConvention, false));
+                        yield List.of(generateLessThanOperator(operatorConvention, false));
                     }
-                    return lessThanOperators;
-                case LESS_THAN_OR_EQUAL:
+                    yield lessThanOperators;
+                }
+                case LESS_THAN_OR_EQUAL -> {
                     Collection<OperatorMethodHandle> lessThanOrEqualOperators = typeOperatorDeclaration.getLessThanOrEqualOperators();
                     if (lessThanOrEqualOperators.isEmpty()) {
-                        return List.of(generateLessThanOperator(operatorConvention, true));
+                        yield List.of(generateLessThanOperator(operatorConvention, true));
                     }
-                    return lessThanOrEqualOperators;
-                default:
-                    throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.getOperatorType());
-            }
+                    yield lessThanOrEqualOperators;
+                }
+                default -> throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.operatorType());
+            };
         }
 
         private OperatorMethodHandle generateDistinctFromOperator(OperatorConvention operatorConvention)
         {
-            if (operatorConvention.getCallingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, BLOCK_POSITION))) {
-                OperatorConvention equalOperator = new OperatorConvention(operatorConvention.getType(), EQUAL, Optional.empty(), simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+            if (operatorConvention.callingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, BLOCK_POSITION))) {
+                OperatorConvention equalOperator = new OperatorConvention(operatorConvention.type(), EQUAL, Optional.empty(), simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
                 MethodHandle equalMethodHandle = adaptOperator(equalOperator);
                 return adaptBlockPositionEqualToDistinctFrom(equalMethodHandle);
             }
 
-            OperatorConvention equalOperator = new OperatorConvention(operatorConvention.getType(), EQUAL, Optional.empty(), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
+            OperatorConvention equalOperator = new OperatorConvention(operatorConvention.type(), EQUAL, Optional.empty(), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
             MethodHandle equalMethodHandle = adaptOperator(equalOperator);
             return adaptNeverNullEqualToDistinctFrom(equalMethodHandle);
         }
@@ -315,14 +312,14 @@ public class TypeOperators
         private OperatorMethodHandle generateLessThanOperator(OperatorConvention operatorConvention, boolean orEqual)
         {
             InvocationConvention comparisonCallingConvention;
-            if (operatorConvention.getCallingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, BLOCK_POSITION))) {
+            if (operatorConvention.callingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, BLOCK_POSITION))) {
                 comparisonCallingConvention = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
             }
             else {
                 comparisonCallingConvention = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
             }
 
-            OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.getType(), COMPARISON_UNORDERED_LAST, Optional.empty(), comparisonCallingConvention);
+            OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.type(), COMPARISON_UNORDERED_LAST, Optional.empty(), comparisonCallingConvention);
             MethodHandle comparisonMethod = adaptOperator(comparisonOperator);
             if (orEqual) {
                 return adaptComparisonToLessThanOrEqual(new OperatorMethodHandle(comparisonCallingConvention, comparisonMethod));
@@ -332,36 +329,28 @@ public class TypeOperators
 
         private OperatorMethodHandle generateOrderingOperator(OperatorConvention operatorConvention)
         {
-            SortOrder sortOrder = operatorConvention.getSortOrder().orElseThrow(() -> new IllegalArgumentException("Operator convention does not contain a sort order"));
-            OperatorType comparisonType = operatorConvention.getOperatorType();
-            if (operatorConvention.getCallingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, BLOCK_POSITION))) {
-                OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.getType(), comparisonType, Optional.empty(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+            SortOrder sortOrder = operatorConvention.sortOrder().orElseThrow(() -> new IllegalArgumentException("Operator convention does not contain a sort order"));
+            OperatorType comparisonType = operatorConvention.operatorType();
+            if (operatorConvention.callingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, BLOCK_POSITION))) {
+                OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.type(), comparisonType, Optional.empty(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
                 MethodHandle comparisonInvoker = adaptOperator(comparisonOperator);
                 return adaptBlockPositionComparisonToOrdering(sortOrder, comparisonInvoker);
             }
 
-            OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.getType(), comparisonType, Optional.empty(), simpleConvention(FAIL_ON_NULL, NULL_FLAG, NULL_FLAG));
+            OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.type(), comparisonType, Optional.empty(), simpleConvention(FAIL_ON_NULL, NULL_FLAG, NULL_FLAG));
             MethodHandle comparisonInvoker = adaptOperator(comparisonOperator);
             return adaptNeverNullComparisonToOrdering(sortOrder, comparisonInvoker);
         }
 
-        private List<Type> getOperatorArgumentTypes(OperatorConvention operatorConvention)
+        private static List<Type> getOperatorArgumentTypes(OperatorConvention operatorConvention)
         {
-            switch (operatorConvention.getOperatorType()) {
-                case EQUAL:
-                case IS_DISTINCT_FROM:
-                case COMPARISON_UNORDERED_LAST:
-                case COMPARISON_UNORDERED_FIRST:
-                case LESS_THAN:
-                case LESS_THAN_OR_EQUAL:
-                    return List.of(operatorConvention.getType(), operatorConvention.getType());
-                case HASH_CODE:
-                case XX_HASH_64:
-                case INDETERMINATE:
-                    return List.of(operatorConvention.getType());
-                default:
-                    throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.getOperatorType());
-            }
+            return switch (operatorConvention.operatorType()) {
+                case EQUAL, IS_DISTINCT_FROM, COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST, LESS_THAN, LESS_THAN_OR_EQUAL ->
+                        List.of(operatorConvention.type(), operatorConvention.type());
+                case HASH_CODE, XX_HASH_64, INDETERMINATE ->
+                        List.of(operatorConvention.type());
+                default -> throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.operatorType());
+            };
         }
     }
 
@@ -379,71 +368,14 @@ public class TypeOperators
         return score;
     }
 
-    private static final class OperatorConvention
+    private record OperatorConvention(Type type, OperatorType operatorType, Optional<SortOrder> sortOrder, InvocationConvention callingConvention)
     {
-        private final Type type;
-        private final OperatorType operatorType;
-        private final Optional<SortOrder> sortOrder;
-        private final InvocationConvention callingConvention;
-
-        public OperatorConvention(Type type, OperatorType operatorType, Optional<SortOrder> sortOrder, InvocationConvention callingConvention)
+        private OperatorConvention
         {
-            this.type = requireNonNull(type, "type is null");
-            this.operatorType = requireNonNull(operatorType, "operatorType is null");
-            this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
-            this.callingConvention = requireNonNull(callingConvention, "callingConvention is null");
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            OperatorConvention operatorConvention = (OperatorConvention) o;
-            return type.equals(operatorConvention.type) &&
-                    operatorType == operatorConvention.operatorType &&
-                    sortOrder.equals(operatorConvention.sortOrder) &&
-                    callingConvention.equals(operatorConvention.callingConvention);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(type, operatorType, sortOrder, callingConvention);
-        }
-
-        @Override
-        public String toString()
-        {
-            return new StringJoiner(", ", OperatorConvention.class.getSimpleName() + "[", "]")
-                    .add("type=" + type)
-                    .add("operatorType=" + sortOrder.map(order -> "ORDER_" + order).orElseGet(operatorType::toString))
-                    .add("callingConvention=" + callingConvention)
-                    .toString();
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
-
-        public OperatorType getOperatorType()
-        {
-            return operatorType;
-        }
-
-        public Optional<SortOrder> getSortOrder()
-        {
-            return sortOrder;
-        }
-
-        public InvocationConvention getCallingConvention()
-        {
-            return callingConvention;
+            requireNonNull(type, "type is null");
+            requireNonNull(operatorType, "operatorType is null");
+            requireNonNull(sortOrder, "sortOrder is null");
+            requireNonNull(callingConvention, "callingConvention is null");
         }
     }
 

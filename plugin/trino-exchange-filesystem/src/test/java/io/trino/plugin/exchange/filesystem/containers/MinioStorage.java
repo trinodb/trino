@@ -58,6 +58,7 @@ public class MinioStorage
                 .endpointOverride(URI.create("http://localhost:" + minio.getMinioApiEndpoint().getPort()))
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(ACCESS_KEY, SECRET_KEY)))
                 .region(US_EAST_1)
+                .forcePathStyle(true)
                 .build();
         CreateBucketRequest createBucketRequest = CreateBucketRequest.builder()
                 .bucket(bucketName)
@@ -92,8 +93,9 @@ public class MinioStorage
                 .put("exchange.s3.aws-access-key", MinioStorage.ACCESS_KEY)
                 .put("exchange.s3.aws-secret-key", MinioStorage.SECRET_KEY)
                 .put("exchange.s3.region", "us-east-1")
+                .put("exchange.s3.path-style-access", "true")
                 .put("exchange.s3.endpoint", "http://" + minioStorage.getMinio().getMinioApiEndpoint())
-                // create more granular source handles given the fault-tolerant-execution-target-task-input-size is set to lower value for testing
+                // create more granular source handles given the fault-tolerant execution target task input size is set to lower value for testing
                 .put("exchange.source-handle-target-data-size", "1MB")
                 .buildOrThrow();
     }

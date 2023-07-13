@@ -14,10 +14,9 @@
 package io.trino.plugin.iceberg.procedure;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Provider;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.TableProcedureMetadata;
-
-import javax.inject.Provider;
 
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_SNAPSHOTS;

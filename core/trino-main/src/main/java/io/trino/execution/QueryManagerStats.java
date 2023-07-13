@@ -59,13 +59,6 @@ public class QueryManagerStats
         managedQueryExecution.addStateChangeListener(new StatisticsListener(managedQueryExecution));
     }
 
-    public void trackQueryStats(QueryExecution managedQueryExecution)
-    {
-        submittedQueries.update(1);
-        managedQueryExecution.addStateChangeListener(new StatisticsListener());
-        managedQueryExecution.addFinalQueryInfoListener(finalQueryInfo -> queryFinished(new BasicQueryInfo(finalQueryInfo)));
-    }
-
     private void queryStarted()
     {
         startedQueries.update(1);

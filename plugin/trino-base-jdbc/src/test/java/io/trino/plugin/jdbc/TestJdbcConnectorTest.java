@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
@@ -137,6 +138,14 @@ public class TestJdbcConnectorTest
     {
         assertThatThrownBy(super::testDeleteWithLike)
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Override
+    public void testReadMetadataWithRelationsConcurrentModifications()
+    {
+        // Under concurrently, H2 sometimes returns null table name in DatabaseMetaData.getTables's ResultSet
+        // See https://github.com/trinodb/trino/issues/16658 for more information
+        throw new SkipException("Skipped due to H2 problems");
     }
 
     @Test
@@ -256,6 +265,13 @@ public class TestJdbcConnectorTest
     }
 
     @Override
+    public void testNativeQueryColumnAlias()
+    {
+        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
+                .matches("VALUES CAST('AFRICA' AS VARCHAR(25))");
+    }
+
+    @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
         return format("NULL not allowed for column \"%s\"(?s).*", columnName.toUpperCase(ENGLISH));
@@ -281,17 +297,6 @@ public class TestJdbcConnectorTest
     }
 
     @Override
-    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
-    {
-        if (setup.sourceColumnType().equals("char(20)") && setup.newColumnType().equals("varchar")) {
-            // H2 trims trailing spaces
-            return Optional.of(setup.withNewValueLiteral("rtrim(%s)".formatted(setup.newValueLiteral())));
-        }
-
-        return Optional.of(setup);
-    }
-
-    @Override
     protected JdbcSqlExecutor onRemoteDatabase()
     {
         return new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
@@ -302,5 +307,41 @@ public class TestJdbcConnectorTest
         return Session.builder(getSession())
                 .setCatalogSessionProperty("jdbc", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
                 .build();
+    }
+
+    @Override
+    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("(?s)(.*The name that starts with .* is too long\\..*)");
+    }
+
+    @Override
+    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("(?s)(.*The name that starts with .* is too long\\..*)");
+    }
+
+    @Override
+    protected void verifyTableNameLengthFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("(?s)(.*The name that starts with .* is too long\\..*)");
+    }
+
+    @Override
+    protected OptionalInt maxColumnNameLength()
+    {
+        return OptionalInt.of(256);
+    }
+
+    @Override
+    protected OptionalInt maxSchemaNameLength()
+    {
+        return OptionalInt.of(256);
+    }
+
+    @Override
+    protected OptionalInt maxTableNameLength()
+    {
+        return OptionalInt.of(256);
     }
 }

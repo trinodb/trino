@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
@@ -40,6 +41,7 @@ import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -47,11 +49,11 @@ import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -193,11 +195,21 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        return tables.values().stream()
+        throw new UnsupportedOperationException("The deprecated listTableColumns is not supported because streamTableColumns is implemented instead");
+    }
+
+    @Override
+    public synchronized Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        // This list must be materialized before returning, otherwise the iterator could throw a ConcurrentModificationException
+        // if another thread modifies the tables map before the iterator is fully consumed
+        List<TableColumnsMetadata> columnsMetadata = tables.values().stream()
                 .filter(table -> prefix.matches(table.getSchemaTableName()))
-                .collect(toImmutableMap(TableInfo::getSchemaTableName, handle -> handle.getMetadata().getColumns()));
+                .map(tableInfo -> TableColumnsMetadata.forTable(tableInfo.getSchemaTableName(), tableInfo.getMetadata().getColumns()))
+                .collect(toImmutableList());
+        return columnsMetadata.iterator();
     }
 
     @Override

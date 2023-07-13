@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.tpcds;
 
+import com.google.inject.Inject;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -23,8 +25,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
-import javax.inject.Inject;
-
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -32,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class TpcdsConnector
         implements Connector
 {
+    private final LifeCycleManager lifeCycleManager;
     private final TpcdsMetadata metadata;
     private final TpcdsSplitManager splitManager;
     private final TpcdsRecordSetProvider recordSetProvider;
@@ -40,12 +41,14 @@ public class TpcdsConnector
 
     @Inject
     public TpcdsConnector(
+            LifeCycleManager lifeCycleManager,
             TpcdsMetadata metadata,
             TpcdsSplitManager splitManager,
             TpcdsRecordSetProvider recordSetProvider,
             TpcdsNodePartitioningProvider nodePartitioningProvider,
             TpcdsSessionProperties sessionProperties)
     {
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
@@ -87,5 +90,11 @@ public class TpcdsConnector
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties.getSessionProperties();
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifeCycleManager.stop();
     }
 }

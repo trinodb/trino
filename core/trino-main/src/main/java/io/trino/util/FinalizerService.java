@@ -15,9 +15,9 @@ package io.trino.util;
 
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 

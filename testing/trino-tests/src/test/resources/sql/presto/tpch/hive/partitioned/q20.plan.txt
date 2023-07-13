@@ -12,12 +12,14 @@ remote exchange (GATHER, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["partkey_21", "suppkey_22"])
                                                     partial aggregation over (partkey_21, suppkey_22)
-                                                        scan lineitem
+                                                        dynamic filter (["partkey_21", "suppkey_22", "suppkey_22"])
+                                                            scan lineitem
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["partkey", "suppkey_6"])
                                                 join (INNER, PARTITIONED, can skip output duplicates):
                                                     remote exchange (REPARTITION, HASH, ["partkey"])
-                                                        scan partsupp
+                                                        dynamic filter (["partkey", "suppkey_6"])
+                                                            scan partsupp
                                                     final aggregation over (partkey_13)
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["partkey_13"])
@@ -30,7 +32,8 @@ remote exchange (GATHER, SINGLE, [])
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["suppkey"])
                         join (INNER, REPLICATED):
-                            scan supplier
+                            dynamic filter (["nationkey"])
+                                scan supplier
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     scan nation

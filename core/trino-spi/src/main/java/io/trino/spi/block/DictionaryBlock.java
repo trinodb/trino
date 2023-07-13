@@ -15,7 +15,6 @@ package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,6 +22,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
@@ -30,14 +30,13 @@ import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DictionaryBlock.class).instanceSize() + ClassLayout.parseClass(DictionaryId.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(DictionaryBlock.class) + instanceSize(DictionaryId.class);
     private static final int NULL_NOT_FOUND = -1;
 
     private final int positionCount;

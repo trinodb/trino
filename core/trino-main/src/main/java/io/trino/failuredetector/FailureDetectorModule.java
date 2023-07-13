@@ -14,22 +14,22 @@
 package io.trino.failuredetector;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import org.weakref.jmx.guice.ExportBinder;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
 
 public class FailureDetectorModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
-        httpClientBinder(binder)
-                .bindHttpClient("failure-detector", ForFailureDetector.class)
-                .withTracing();
+        install(internalHttpClientModule("failure-detector", ForFailureDetector.class)
+                .withTracing()
+                .build());
 
         configBinder(binder).bindConfig(FailureDetectorConfig.class);
 

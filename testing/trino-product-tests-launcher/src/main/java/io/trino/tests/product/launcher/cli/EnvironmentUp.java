@@ -15,10 +15,10 @@ package io.trino.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.trino.tests.product.launcher.Extensions;
-import io.trino.tests.product.launcher.LauncherModule;
 import io.trino.tests.product.launcher.docker.ContainerUtil;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
@@ -30,15 +30,15 @@ import org.testcontainers.DockerClientFactory;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
 
-import javax.inject.Inject;
-
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
-import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
@@ -51,7 +51,7 @@ import static picocli.CommandLine.Option;
         description = "Start an environment",
         usageHelpAutoWidth = true)
 public final class EnvironmentUp
-        implements Callable<Integer>
+        extends LauncherCommand
 {
     private static final Logger log = Logger.get(EnvironmentUp.class);
 
@@ -64,23 +64,17 @@ public final class EnvironmentUp
     @Mixin
     public EnvironmentUpOptions environmentUpOptions = new EnvironmentUpOptions();
 
-    private final Module additionalEnvironments;
-
-    public EnvironmentUp(Extensions extensions)
+    public EnvironmentUp(OutputStream outputStream, Extensions extensions)
     {
-        this.additionalEnvironments = extensions.getAdditionalEnvironments();
+        super(EnvironmentUp.Execution.class, outputStream, extensions);
     }
 
     @Override
-    public Integer call()
+    List<Module> getCommandModules()
     {
-        return runCommand(
-                ImmutableList.<Module>builder()
-                        .add(new LauncherModule())
-                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
-                        .add(environmentUpOptions.toModule())
-                        .build(),
-                EnvironmentUp.Execution.class);
+        return ImmutableList.of(
+                new EnvironmentModule(environmentOptions, extensions.getAdditionalEnvironments()),
+                environmentUpOptions.toModule());
     }
 
     public static class EnvironmentUpOptions
@@ -109,37 +103,39 @@ public final class EnvironmentUp
             implements Callable<Integer>
     {
         private final EnvironmentFactory environmentFactory;
-        private final boolean withoutTrinoMaster;
+        private final boolean withoutCoordinator;
         private final boolean background;
         private final String environment;
         private final EnvironmentConfig environmentConfig;
         private final Optional<Path> logsDirBase;
         private final DockerContainer.OutputMode outputMode;
         private final Map<String, String> extraOptions;
+        private final PrintStream printStream;
 
         @Inject
-        public Execution(EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
+        public Execution(EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions, PrintStream printStream)
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
-            this.withoutTrinoMaster = options.withoutTrinoMaster;
+            this.withoutCoordinator = options.withoutCoordinator;
             this.background = environmentUpOptions.background;
             this.environment = environmentUpOptions.environment;
             this.outputMode = requireNonNull(options.output, "options.output is null");
             this.logsDirBase = requireNonNull(environmentUpOptions.logsDirBase, "environmentUpOptions.logsDirBase is null");
             this.extraOptions = ImmutableMap.copyOf(requireNonNull(environmentUpOptions.extraOptions, "environmentUpOptions.extraOptions is null"));
+            this.printStream = requireNonNull(printStream, "printStream is null");
         }
 
         @Override
         public Integer call()
         {
             Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
-            Environment.Builder builder = environmentFactory.get(environment, environmentConfig, extraOptions)
+            Environment.Builder builder = environmentFactory.get(environment, printStream, environmentConfig, extraOptions)
                     .setContainerOutputMode(outputMode)
                     .setLogsBaseDir(environmentLogPath)
                     .removeContainer(TESTS);
 
-            if (withoutTrinoMaster) {
+            if (withoutCoordinator) {
                 builder.removeContainers(container -> isTrinoContainer(container.getLogicalName()));
             }
 

@@ -14,7 +14,7 @@
 package io.trino.tests.product.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.deltalake.util.DatabricksVersion;
@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -31,13 +30,16 @@ import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_113_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnDelta;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnDelta;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeDatabricksCreateTableCompatibility
@@ -45,7 +47,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
 {
     private DatabricksVersion databricksRuntimeVersion;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         super.setUp();
@@ -88,7 +90,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             testInsert(tableName, ImmutableList.of());
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -131,7 +133,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             testInsert(tableName, ImmutableList.of());
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -176,7 +178,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
                             row(null, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -223,7 +225,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
                             row(null, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -256,9 +258,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
                 tableDirectory));
 
         try {
-            assertThat(onTrino().executeQuery("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'delta' AND schema_name = 'default' AND table_name = '" + tableName + "'"))
-                    .containsOnly(row("test comment"));
-
+            assertEquals(getTableCommentOnTrino("default", tableName), "test comment");
             assertEquals(getTableCommentOnDelta("default", tableName), "test comment");
         }
         finally {
@@ -308,13 +308,13 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test comment");
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
     private String getDatabricksDefaultTableProperties()
     {
-        if (databricksRuntimeVersion.equals(DATABRICKS_113_RUNTIME_VERSION)) {
+        if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
             return "TBLPROPERTIES (\n" +
                     "  'delta.minReaderVersion' = '1',\n" +
                     "  'delta.minWriterVersion' = '2')\n";

@@ -23,7 +23,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_PARTITION_COUNT;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -64,6 +65,24 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     }
 
     @Override
+    public void testWriterTasksCountLimitUnpartitioned(boolean scaleWriters, boolean redistributeWrites, int expectedFilesCount)
+    {
+        // Not applicable for fault-tolerant mode.
+    }
+
+    @Override
+    public void testWriterTasksCountLimitPartitionedScaleWritersDisabled()
+    {
+        // Not applicable for fault-tolerant mode.
+    }
+
+    @Override
+    public void testWriterTasksCountLimitPartitionedScaleWritersEnabled()
+    {
+        // Not applicable for fault-tolerant mode.
+    }
+
+    @Override
     public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
     {
         // Not applicable for fault-tolerant mode.
@@ -73,7 +92,8 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     public void testMaxOutputPartitionCountCheck()
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(FAULT_TOLERANT_EXECUTION_PARTITION_COUNT, "51")
+                .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "51")
+                .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "51")
                 .build();
         assertQueryFails(session, "SELECT nationkey, count(*) FROM nation GROUP BY nationkey", "Max number of output partitions exceeded for exchange.*");
     }

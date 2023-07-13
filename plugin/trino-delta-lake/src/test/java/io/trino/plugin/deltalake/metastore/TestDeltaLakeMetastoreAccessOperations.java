@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake.metastore;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import com.google.common.collect.Sets;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -24,6 +23,7 @@ import io.trino.Session;
 import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
 import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
+import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -32,27 +32,22 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.CREATE_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_DATABASE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.CREATE_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.DROP_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_DATABASE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
-import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestDeltaLakeMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {
     private static final Session TEST_SESSION = testSessionBuilder()
-            .setCatalog("delta_lake")
+            .setCatalog("delta")
             .setSchema("test_schema")
             .build();
 
@@ -67,10 +62,10 @@ public class TestDeltaLakeMetastoreAccessOperations
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake").toFile();
         metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir));
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), new CountingAccessMetastoreModule(metastore)));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), Optional.empty(), new CountingAccessMetastoreModule(metastore)));
         ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
         deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
-        queryRunner.createCatalog("delta_lake", "delta-lake", deltaLakeProperties.buildOrThrow());
+        queryRunner.createCatalog("delta", "delta_lake", deltaLakeProperties.buildOrThrow());
 
         queryRunner.execute("CREATE SCHEMA test_schema");
         return queryRunner;
@@ -245,31 +240,20 @@ public class TestDeltaLakeMetastoreAccessOperations
                         .build());
     }
 
+    @Test
+    public void testDropTable()
+    {
+        assertUpdate("CREATE TABLE test_drop_table AS SELECT 20050910 as a_number", 1);
+
+        assertMetastoreInvocations("DROP TABLE test_drop_table",
+                ImmutableMultiset.builder()
+                        .add(GET_TABLE)
+                        .add(DROP_TABLE)
+                        .build());
+    }
+
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
     {
-        metastore.resetCounters();
-        getQueryRunner().execute(query);
-        Multiset<CountingAccessHiveMetastore.Methods> actualInvocations = metastore.getMethodInvocations();
-
-        if (expectedInvocations.equals(actualInvocations)) {
-            return;
-        }
-
-        List<String> mismatchReport = Sets.union(expectedInvocations.elementSet(), actualInvocations.elementSet()).stream()
-                .filter(key -> expectedInvocations.count(key) != actualInvocations.count(key))
-                .flatMap(key -> {
-                    int expectedCount = expectedInvocations.count(key);
-                    int actualCount = actualInvocations.count(key);
-                    if (actualCount < expectedCount) {
-                        return Stream.of(format("%s more occurrences of %s", expectedCount - actualCount, key));
-                    }
-                    if (actualCount > expectedCount) {
-                        return Stream.of(format("%s fewer occurrences of %s", actualCount - expectedCount, key));
-                    }
-                    return Stream.of();
-                })
-                .collect(toImmutableList());
-
-        fail("Expected: \n\t\t" + join(",\n\t\t", mismatchReport));
+        CountingAccessHiveMetastoreUtil.assertMetastoreInvocations(metastore, getQueryRunner(), getSession(), query, expectedInvocations);
     }
 }

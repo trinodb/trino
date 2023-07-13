@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -28,15 +27,15 @@ import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RaptorSplit.class).instanceSize());
-    private static final int UUID_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(UUID.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(RaptorSplit.class);
+    private static final int UUID_INSTANCE_SIZE = instanceSize(UUID.class);
 
     private final Set<UUID> shardUuids;
     private final OptionalInt bucketNumber;

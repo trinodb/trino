@@ -14,10 +14,10 @@
 package io.trino.array;
 
 import io.airlift.slice.Slice;
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static org.testng.Assert.assertEquals;
@@ -25,8 +25,8 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestSliceBigArray
 {
-    private static final long BIG_ARRAY_INSTANCE_SIZE = ClassLayout.parseClass(SliceBigArray.class).instanceSize() + new ReferenceCountMap().sizeOf() + new ObjectBigArray<Slice>().sizeOf();
-    private static final long SLICE_INSTANCE_SIZE = ClassLayout.parseClass(Slice.class).instanceSize();
+    private static final long BIG_ARRAY_INSTANCE_SIZE = instanceSize(SliceBigArray.class) + new ReferenceCountMap().sizeOf() + new ObjectBigArray<Slice>().sizeOf();
+    private static final long SLICE_INSTANCE_SIZE = instanceSize(Slice.class);
     private static final int CAPACITY = 32;
     private final byte[] firstBytes = new byte[1234];
     private final byte[] secondBytes = new byte[4567];

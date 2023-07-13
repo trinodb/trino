@@ -74,7 +74,7 @@ public class TestOrcLz4
 
                 for (int position = 0; position < page.getPositionCount(); position++) {
                     BIGINT.getLong(xBlock, position);
-                    INTEGER.getLong(yBlock, position);
+                    INTEGER.getInt(yBlock, position);
                     BIGINT.getLong(zBlock, position);
                 }
             }

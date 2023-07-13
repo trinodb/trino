@@ -129,7 +129,7 @@ public class TestDriver
         // let these threads race
         scheduledExecutor.submit(() -> driver.processForDuration(new Duration(1, TimeUnit.NANOSECONDS))); // don't want to call isFinishedInternal in processFor
         scheduledExecutor.submit(driver::close);
-        while (!driverContext.isDone()) {
+        while (!driverContext.isTerminatingOrDone()) {
             Uninterruptibles.sleepUninterruptibly(1, TimeUnit.MILLISECONDS);
         }
     }
@@ -210,6 +210,8 @@ public class TestDriver
         assertThatThrownBy(() -> driverProcessFor.get(1, TimeUnit.SECONDS))
                 .isInstanceOf(ExecutionException.class)
                 .hasCause(new TrinoException(GENERIC_INTERNAL_ERROR, "Driver was interrupted"));
+
+        assertTrue(driver.getDestroyedFuture().isDone());
     }
 
     @Test
@@ -230,10 +232,12 @@ public class TestDriver
 
         assertTrue(driver.processForDuration(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         assertTrue(driver.isFinished());
+        assertFalse(driver.getDestroyedFuture().isDone());
 
         brokenOperator.unlock();
 
         assertTrue(driverClose.get());
+        assertTrue(driver.getDestroyedFuture().isDone());
     }
 
     @Test
@@ -309,7 +313,7 @@ public class TestDriver
 
         driver.updateSplitAssignment(new SplitAssignment(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, newMockSplit())), true));
 
-        assertFalse(driver.isFinished());
+        assertFalse(driver.getDestroyedFuture().isDone());
         // processFor always returns NOT_BLOCKED, because DriveLockResult was not acquired
         assertTrue(driver.processForDuration(new Duration(1, TimeUnit.SECONDS)).isDone());
         assertFalse(driver.isFinished());
@@ -320,6 +324,8 @@ public class TestDriver
         assertThatThrownBy(() -> driverProcessFor.get(1, TimeUnit.SECONDS))
                 .isInstanceOf(ExecutionException.class)
                 .hasCause(new TrinoException(GENERIC_INTERNAL_ERROR, "Driver was interrupted"));
+
+        assertTrue(driver.getDestroyedFuture().isDone());
     }
 
     private static Split newMockSplit()

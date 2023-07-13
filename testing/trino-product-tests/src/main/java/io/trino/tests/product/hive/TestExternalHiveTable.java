@@ -26,7 +26,6 @@ import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABL
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
@@ -35,6 +34,7 @@ import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONE
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExternalHiveTable
         extends ProductTest
@@ -71,6 +71,7 @@ public class TestExternalHiveTable
                 row(null, null, null, null, 5.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + EXTERNAL_TABLE_NAME + " PARTITION (p_regionkey) COMPUTE STATISTICS FOR COLUMNS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + EXTERNAL_TABLE_NAME)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 38.0, 5.0, 0.0, null, null, null),

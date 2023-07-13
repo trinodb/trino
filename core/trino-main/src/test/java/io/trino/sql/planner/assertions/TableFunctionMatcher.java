@@ -19,14 +19,16 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
-import io.trino.spi.ptf.Argument;
-import io.trino.spi.ptf.Descriptor;
-import io.trino.spi.ptf.DescriptorArgument;
-import io.trino.spi.ptf.ScalarArgument;
-import io.trino.spi.ptf.TableArgument;
+import io.trino.spi.function.table.Argument;
+import io.trino.spi.function.table.Descriptor;
+import io.trino.spi.function.table.DescriptorArgument;
+import io.trino.spi.function.table.ScalarArgument;
+import io.trino.spi.function.table.TableArgument;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.tree.SymbolReference;
 
@@ -35,10 +37,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -115,13 +119,23 @@ public class TableFunctionMatcher
                 }
                 if (expectedTableArgument.rowSemantics() != argumentProperties.isRowSemantics() ||
                         expectedTableArgument.pruneWhenEmpty() != argumentProperties.isPruneWhenEmpty() ||
-                        expectedTableArgument.passThroughColumns() != argumentProperties.isPassThroughColumns()) {
+                        expectedTableArgument.passThroughColumns() != argumentProperties.getPassThroughSpecification().declaredAsPassThrough()) {
                     return NO_MATCH;
                 }
                 boolean specificationMatches = expectedTableArgument.specification()
                         .map(specification -> specification.getExpectedValue(symbolAliases))
                         .equals(argumentProperties.getSpecification());
                 if (!specificationMatches) {
+                    return NO_MATCH;
+                }
+                Set<SymbolReference> expectedPassThrough = expectedTableArgument.passThroughSymbols().stream()
+                        .map(symbolAliases::get)
+                        .collect(toImmutableSet());
+                Set<SymbolReference> actualPassThrough = argumentProperties.getPassThroughSpecification().columns().stream()
+                        .map(PassThroughColumn::symbol)
+                        .map(Symbol::toSymbolReference)
+                        .collect(toImmutableSet());
+                if (!expectedPassThrough.equals(actualPassThrough)) {
                     return NO_MATCH;
                 }
             }
@@ -246,16 +260,24 @@ public class TableFunctionMatcher
             boolean rowSemantics,
             boolean pruneWhenEmpty,
             boolean passThroughColumns,
-            Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification)
+            Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
+            Set<String> passThroughSymbols)
             implements ArgumentValue
     {
-        public TableArgumentValue(int sourceIndex, boolean rowSemantics, boolean pruneWhenEmpty, boolean passThroughColumns, Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification)
+        public TableArgumentValue(
+                int sourceIndex,
+                boolean rowSemantics,
+                boolean pruneWhenEmpty,
+                boolean passThroughColumns,
+                Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
+                Set<String> passThroughSymbols)
         {
             this.sourceIndex = sourceIndex;
             this.rowSemantics = rowSemantics;
             this.pruneWhenEmpty = pruneWhenEmpty;
             this.passThroughColumns = passThroughColumns;
             this.specification = requireNonNull(specification, "specification is null");
+            this.passThroughSymbols = ImmutableSet.copyOf(passThroughSymbols);
         }
 
         public static class Builder
@@ -265,6 +287,7 @@ public class TableFunctionMatcher
             private boolean pruneWhenEmpty;
             private boolean passThroughColumns;
             private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
+            private Set<String> passThroughSymbols = ImmutableSet.of();
 
             private Builder(int sourceIndex)
             {
@@ -301,9 +324,15 @@ public class TableFunctionMatcher
                 return this;
             }
 
+            public Builder passThroughSymbols(Set<String> symbols)
+            {
+                this.passThroughSymbols = symbols;
+                return this;
+            }
+
             private TableArgumentValue build()
             {
-                return new TableArgumentValue(sourceIndex, rowSemantics, pruneWhenEmpty, passThroughColumns, specification);
+                return new TableArgumentValue(sourceIndex, rowSemantics, pruneWhenEmpty, passThroughColumns, specification, passThroughSymbols);
             }
         }
     }

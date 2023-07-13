@@ -19,6 +19,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
@@ -60,8 +61,8 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -185,6 +186,7 @@ public class PageFunctionCompiler
         }
 
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(projection);
+        boolean isExpressionDeterministic = isDeterministic(result.getRewrittenExpression());
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
@@ -203,11 +205,12 @@ public class PageFunctionCompiler
             throw new TrinoException(COMPILER_ERROR, e);
         }
 
+        MethodHandle pageProjectionConstructor = constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, Page.class, SelectedPositions.class);
         return () -> new GeneratedPageProjection(
                 result.getRewrittenExpression(),
-                isDeterministic(result.getRewrittenExpression()),
+                isExpressionDeterministic,
                 result.getInputChannels(),
-                constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, Page.class, SelectedPositions.class));
+                pageProjectionConstructor);
     }
 
     private static ParameterizedType generateProjectionWorkClassName(Optional<String> classNameSuffix)
@@ -225,7 +228,6 @@ public class PageFunctionCompiler
 
         FieldDefinition blockBuilderField = classDefinition.declareField(a(PRIVATE), "blockBuilder", BlockBuilder.class);
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
-        FieldDefinition pageField = classDefinition.declareField(a(PRIVATE), "page", Page.class);
         FieldDefinition selectedPositionsField = classDefinition.declareField(a(PRIVATE), "selectedPositions", SelectedPositions.class);
         FieldDefinition nextIndexOrPositionField = classDefinition.declareField(a(PRIVATE), "nextIndexOrPosition", int.class);
         FieldDefinition resultField = classDefinition.declareField(a(PRIVATE), "result", Block.class);
@@ -233,7 +235,7 @@ public class PageFunctionCompiler
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         // process
-        generateProcessMethod(classDefinition, blockBuilderField, sessionField, pageField, selectedPositionsField, nextIndexOrPositionField, resultField);
+        generateProcessMethod(classDefinition, blockBuilderField, sessionField, selectedPositionsField, nextIndexOrPositionField, resultField);
 
         // getResult
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "getResult", type(Object.class), ImmutableList.of());
@@ -259,10 +261,14 @@ public class PageFunctionCompiler
                 .invokeConstructor(Object.class)
                 .append(thisVariable.setField(blockBuilderField, blockBuilder))
                 .append(thisVariable.setField(sessionField, session))
-                .append(thisVariable.setField(pageField, page))
                 .append(thisVariable.setField(selectedPositionsField, selectedPositions))
                 .append(thisVariable.setField(nextIndexOrPositionField, selectedPositions.invoke("getOffset", int.class)))
                 .append(thisVariable.setField(resultField, constantNull(Block.class)));
+
+        for (int channel : getInputChannels(projection)) {
+            FieldDefinition blockField = classDefinition.declareField(a(PRIVATE, FINAL), "block_" + channel, Block.class);
+            body.append(thisVariable.setField(blockField, page.invoke("getBlock", Block.class, constantInt(channel))));
+        }
 
         cachedInstanceBinder.generateInitializations(thisVariable, body);
         body.ret();
@@ -274,7 +280,6 @@ public class PageFunctionCompiler
             ClassDefinition classDefinition,
             FieldDefinition blockBuilder,
             FieldDefinition session,
-            FieldDefinition page,
             FieldDefinition selectedPositions,
             FieldDefinition nextIndexOrPosition,
             FieldDefinition result)
@@ -301,14 +306,14 @@ public class PageFunctionCompiler
                         .condition(lessThan(index, to))
                         .update(index.increment())
                         .body(new BytecodeBlock()
-                                .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), positions.getElement(index))))));
+                                .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), positions.getElement(index))))));
 
         ifStatement.ifFalse(new ForLoop("range based loop")
                 .initialize(index.set(from))
                 .condition(lessThan(index, to))
                 .update(index.increment())
                 .body(new BytecodeBlock()
-                        .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), thisVariable.getField(page), index))));
+                        .append(thisVariable.invoke("evaluate", void.class, thisVariable.getField(session), index))));
 
         body.comment("result = this.blockBuilder.build(); return true;")
                 .append(thisVariable.setField(result, thisVariable.getField(blockBuilder).invoke("build", Block.class)))
@@ -327,7 +332,6 @@ public class PageFunctionCompiler
             FieldDefinition blockBuilder)
     {
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter page = arg("page", Page.class);
         Parameter position = arg("position", int.class);
 
         MethodDefinition method = classDefinition.declareMethod(
@@ -336,7 +340,6 @@ public class PageFunctionCompiler
                 type(void.class),
                 ImmutableList.<Parameter>builder()
                         .add(session)
-                        .add(page)
                         .add(position)
                         .build());
 
@@ -346,13 +349,11 @@ public class PageFunctionCompiler
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
 
-        declareBlockVariables(projection, page, scope, body);
-
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         RowExpressionCompiler compiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
-                fieldReferenceCompiler(callSiteBinder),
+                fieldReferenceCompilerProjection(callSiteBinder),
                 functionManager,
                 compiledLambdaMap);
 
@@ -609,6 +610,14 @@ public class PageFunctionCompiler
     private static List<Integer> getInputChannels(RowExpression expression)
     {
         return getInputChannels(ImmutableList.of(expression));
+    }
+
+    private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompilerProjection(CallSiteBinder callSiteBinder)
+    {
+        return new InputReferenceCompiler(
+                (scope, field) -> scope.getThis().getField("block_" + field, Block.class),
+                (scope, field) -> scope.getVariable("position"),
+                callSiteBinder);
     }
 
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(CallSiteBinder callSiteBinder)

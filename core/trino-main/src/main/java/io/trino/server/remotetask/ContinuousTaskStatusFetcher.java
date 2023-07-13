@@ -22,6 +22,7 @@ import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.SpanBuilder;
 import io.trino.execution.StateMachine;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStatus;
@@ -34,6 +35,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -62,6 +64,7 @@ class ContinuousTaskStatusFetcher
     private final Duration refreshMaxWait;
     private final Executor executor;
     private final HttpClient httpClient;
+    private final Supplier<SpanBuilder> spanBuilderFactory;
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
 
@@ -79,6 +82,7 @@ class ContinuousTaskStatusFetcher
             DynamicFiltersFetcher dynamicFiltersFetcher,
             Executor executor,
             HttpClient httpClient,
+            Supplier<SpanBuilder> spanBuilderFactory,
             Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats)
@@ -95,6 +99,7 @@ class ContinuousTaskStatusFetcher
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.spanBuilderFactory = requireNonNull(spanBuilderFactory, "spanBuilderFactory is null");
 
         this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
@@ -146,6 +151,7 @@ class ContinuousTaskStatusFetcher
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(TRINO_CURRENT_VERSION, Long.toString(taskStatus.getVersion()))
                 .setHeader(TRINO_MAX_WAIT, refreshMaxWait.toString())
+                .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 
         errorTracker.startRequest();

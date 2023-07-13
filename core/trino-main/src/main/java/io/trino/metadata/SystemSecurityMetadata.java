@@ -176,7 +176,7 @@ public interface SystemSecurityMetadata
     /**
      * A column was renamed
      */
-    void columnRenamed(Session session, CatalogSchemaTableName table, String oldColumn, String newColumn);
+    void columnRenamed(Session session, CatalogSchemaTableName table, String oldName, String newName);
 
     /**
      * A column was dropped

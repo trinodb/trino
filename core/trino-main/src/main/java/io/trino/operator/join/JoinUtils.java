@@ -133,41 +133,37 @@ public final class JoinUtils
 
     private static boolean isRemoteReplicatedExchange(PlanNode node)
     {
-        if (!(node instanceof ExchangeNode)) {
+        if (!(node instanceof ExchangeNode exchangeNode)) {
             return false;
         }
 
-        ExchangeNode exchangeNode = (ExchangeNode) node;
         return exchangeNode.getScope() == REMOTE && exchangeNode.getType() == REPLICATE;
     }
 
     private static boolean isRemoteReplicatedSourceNode(PlanNode node)
     {
-        if (!(node instanceof RemoteSourceNode)) {
+        if (!(node instanceof RemoteSourceNode remoteSourceNode)) {
             return false;
         }
 
-        RemoteSourceNode remoteSourceNode = (RemoteSourceNode) node;
         return remoteSourceNode.getExchangeType() == REPLICATE;
     }
 
     private static boolean isLocalRepartitionExchange(PlanNode node)
     {
-        if (!(node instanceof ExchangeNode)) {
+        if (!(node instanceof ExchangeNode exchangeNode)) {
             return false;
         }
 
-        ExchangeNode exchangeNode = (ExchangeNode) node;
         return exchangeNode.getScope() == LOCAL && exchangeNode.getType() == REPARTITION;
     }
 
     private static boolean isLocalGatherExchange(PlanNode node)
     {
-        if (!(node instanceof ExchangeNode)) {
+        if (!(node instanceof ExchangeNode exchangeNode)) {
             return false;
         }
 
-        ExchangeNode exchangeNode = (ExchangeNode) node;
         return exchangeNode.getScope() == LOCAL && exchangeNode.getType() == GATHER;
     }
 }

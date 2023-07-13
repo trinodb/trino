@@ -35,6 +35,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Namespace;
@@ -55,12 +56,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
-import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
@@ -195,11 +196,13 @@ public class TrinoRestCatalog
             SchemaTableName schemaTableName,
             Schema schema,
             PartitionSpec partitionSpec,
+            SortOrder sortOrder,
             String location,
             Map<String, String> properties)
     {
         return restSessionCatalog.buildTable(convert(session), toIdentifier(schemaTableName), schema)
                 .withPartitionSpec(partitionSpec)
+                .withSortOrder(sortOrder)
                 .withLocation(location)
                 .withProperties(properties)
                 .createTransaction();
@@ -212,11 +215,25 @@ public class TrinoRestCatalog
     }
 
     @Override
+    public void unregisterTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "unregisterTable is not supported for Iceberg REST catalogs");
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        if (!restSessionCatalog.dropTable(convert(session), toIdentifier(schemaTableName))) {
+        if (!restSessionCatalog.purgeTable(convert(session), toIdentifier(schemaTableName))) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to drop table: %s", schemaTableName));
         }
+    }
+
+    @Override
+    public void dropCorruptedTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        // Since it is currently not possible to obtain the table location, even if we drop the table from the metastore,
+        // it is still impossible to delete the table location.
+        throw new TrinoException(NOT_SUPPORTED, "Cannot drop corrupted table %s from Iceberg REST catalog".formatted(schemaTableName));
     }
 
     @Override
@@ -274,7 +291,7 @@ public class TrinoRestCatalog
         if (databaseLocation.endsWith("/")) {
             return databaseLocation + tableName;
         }
-        return join("/", databaseLocation, tableName);
+        return appendPath(databaseLocation, tableName);
     }
 
     private String createLocationForTable(String baseTableName)
@@ -393,7 +410,7 @@ public class TrinoRestCatalog
     private SessionCatalog.SessionContext convert(ConnectorSession session)
     {
         return switch (sessionType) {
-            case NONE -> SessionCatalog.SessionContext.createEmpty();
+            case NONE -> new SessionContext(randomUUID().toString(), null, null, ImmutableMap.of(), session.getIdentity());
             case USER -> {
                 String sessionId = format("%s-%s", session.getUser(), session.getSource().orElse("default"));
 
@@ -420,7 +437,7 @@ public class TrinoRestCatalog
                         .put(OAuth2Properties.JWT_TOKEN_TYPE, subjectJwt)
                         .buildOrThrow();
 
-                yield new SessionCatalog.SessionContext(sessionId, session.getUser(), credentials, properties);
+                yield new SessionCatalog.SessionContext(sessionId, session.getUser(), credentials, properties, session.getIdentity());
             }
         };
     }

@@ -54,7 +54,8 @@ public class TestNullsDecoder
     {
         boolean[] values = nullValuesProvider.getPositions();
         byte[] encoded = encode(values);
-        NullsDecoder decoder = new NullsDecoder(Slices.wrappedBuffer(encoded));
+        NullsDecoder decoder = new NullsDecoder();
+        decoder.init(Slices.wrappedBuffer(encoded));
         boolean[] result = new boolean[N];
         int nonNullCount = 0;
         for (int i = 0; i < N; i += batchSize) {
@@ -74,7 +75,8 @@ public class TestNullsDecoder
     {
         boolean[] values = nullValuesProvider.getPositions();
         byte[] encoded = encode(values);
-        NullsDecoder decoder = new NullsDecoder(Slices.wrappedBuffer(encoded));
+        NullsDecoder decoder = new NullsDecoder();
+        decoder.init(Slices.wrappedBuffer(encoded));
         int nonNullCount = 0;
         int numberOfBatches = (N + batchSize - 1) / batchSize;
         Random random = new Random(batchSize * 0xFFFFFFFFL * N);

@@ -124,8 +124,7 @@ public class TestValidateScaledWritersUsage
                         .source(planBuilder.tableWithExchangeCreate(
                                 planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true, true),
                                 tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
+                                symbol)));
         validatePlan(root);
     }
 
@@ -146,8 +145,7 @@ public class TestValidateScaledWritersUsage
                         .source(planBuilder.tableWithExchangeCreate(
                                 planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false, true),
                                 tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
+                                symbol)));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("The scaled writer partitioning scheme is set but writer target no_bytes_written_reported:INSTANCE doesn't support reporting physical written bytes");
@@ -176,8 +174,7 @@ public class TestValidateScaledWritersUsage
                         .source(planBuilder.tableWithExchangeCreate(
                                 planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false, true),
                                 tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
+                                symbol)));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("The scaled writer partitioning scheme is set but writer target no_bytes_written_reported:INSTANCE doesn't support reporting physical written bytes");
@@ -206,8 +203,7 @@ public class TestValidateScaledWritersUsage
                         .source(planBuilder.tableWithExchangeCreate(
                                 planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true, true),
                                 tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
+                                symbol)));
         validatePlan(root);
     }
 
@@ -228,8 +224,7 @@ public class TestValidateScaledWritersUsage
                         .source(planBuilder.tableWithExchangeCreate(
                                 planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false, true),
                                 tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))));
+                                symbol)));
         validatePlan(root);
     }
 
@@ -244,7 +239,6 @@ public class TestValidateScaledWritersUsage
                                 ImmutableList.of(symbol),
                                 ImmutableList.of("column_a"),
                                 Optional.empty(),
-                                Optional.empty(),
                                 planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true, true),
                                 planBuilder.exchange(innerExchange ->
                                         innerExchange
@@ -257,8 +251,7 @@ public class TestValidateScaledWritersUsage
                         .source(planBuilder.tableWithExchangeCreate(
                                 planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false, true),
                                 tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
+                                symbol)));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("The scaled writer partitioning scheme is set but writer target no_bytes_written_reported:INSTANCE doesn't support reporting physical written bytes");
@@ -281,8 +274,7 @@ public class TestValidateScaledWritersUsage
                         .source(planBuilder.tableWithExchangeCreate(
                                 planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, true, false),
                                 tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
+                                symbol)));
 
         if (scaledWriterPartitionHandle == SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION) {
             validatePlan(root);
@@ -317,8 +309,7 @@ public class TestValidateScaledWritersUsage
                         .source(planBuilder.tableWithExchangeCreate(
                                 planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, true, false),
                                 tableWriterSource,
-                                symbol,
-                                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)))));
+                                symbol)));
 
         if (scaledWriterPartitionHandle == SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION) {
             validatePlan(root);

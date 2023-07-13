@@ -14,17 +14,25 @@
 package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.SimpleSliceInputStream;
+import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
 
+import java.util.Arrays;
 import java.util.OptionalInt;
 import java.util.Random;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
+import static io.trino.parquet.ParquetEncoding.DELTA_BINARY_PACKED;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
+import static io.trino.parquet.ParquetReaderUtils.toShortExact;
 import static io.trino.parquet.reader.TestData.randomInt;
-import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.ShortApacheParquetValueDecoder;
 import static io.trino.parquet.reader.flat.ShortColumnAdapter.SHORT_ADAPTER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,15 +42,48 @@ public final class TestShortValueDecoders
     @Override
     protected Object[][] tests()
     {
+        PrimitiveField field = createField(INT32, OptionalInt.empty(), SMALLINT);
+        ValueDecoders valueDecoders = new ValueDecoders(field);
         return testArgs(
                 new TestType<>(
-                        createField(INT32, OptionalInt.empty(), SMALLINT),
-                        ValueDecoders::getShortDecoder,
+                        field,
+                        valueDecoders::getShortDecoder,
                         ShortApacheParquetValueDecoder::new,
                         SHORT_ADAPTER,
                         (actual, expected) -> assertThat(actual).isEqualTo(expected)),
-                ImmutableList.of(PLAIN, RLE_DICTIONARY),
-                ShortInputProvider.values());
+                ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_BINARY_PACKED),
+                generateInputDataProviders());
+    }
+
+    private static InputDataProvider[] generateInputDataProviders()
+    {
+        return Stream.concat(
+                        Arrays.stream(ShortInputProvider.values()),
+                        IntStream.range(1, 17)
+                                .mapToObj(TestShortValueDecoders::createRandomInputDataProvider))
+                .toArray(InputDataProvider[]::new);
+    }
+
+    private static InputDataProvider createRandomInputDataProvider(int bitWidth)
+    {
+        return new InputDataProvider() {
+            @Override
+            public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
+            {
+                Random random = new Random(123L * bitWidth * dataSize);
+                short[] values = new short[dataSize];
+                for (int i = 0; i < dataSize; i++) {
+                    values[i] = toShortExact(randomInt(random, bitWidth));
+                }
+                return writeShorts(valuesWriter, values);
+            }
+
+            @Override
+            public String toString()
+            {
+                return "SHORT_RANDOM(" + bitWidth + ")";
+            }
+        };
     }
 
     private enum ShortInputProvider
@@ -59,6 +100,15 @@ public final class TestShortValueDecoders
                 return writeShorts(valuesWriter, values);
             }
         },
+        SHORT_CONSTANT {
+            @Override
+            public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
+            {
+                short[] values = new short[dataSize];
+                Arrays.fill(values, (short) 4123);
+                return writeShorts(valuesWriter, values);
+            }
+        },
         SHORT_REPEAT {
             @Override
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
@@ -68,18 +118,6 @@ public final class TestShortValueDecoders
                 short[] values = new short[dataSize];
                 for (int i = 0; i < dataSize; i++) {
                     values[i] = constants[random.nextInt(constants.length)];
-                }
-                return writeShorts(valuesWriter, values);
-            }
-        },
-        SHORT_RANDOM {
-            @Override
-            public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
-            {
-                Random random = new Random(dataSize);
-                short[] values = new short[dataSize];
-                for (int i = 0; i < dataSize; i++) {
-                    values[i] = (short) randomInt(random, 16);
                 }
                 return writeShorts(valuesWriter, values);
             }
@@ -93,5 +131,36 @@ public final class TestShortValueDecoders
         }
 
         return getWrittenBuffer(valuesWriter);
+    }
+
+    private static final class ShortApacheParquetValueDecoder
+            implements ValueDecoder<short[]>
+    {
+        private final ValuesReader delegate;
+
+        public ShortApacheParquetValueDecoder(ValuesReader delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            initialize(input, delegate);
+        }
+
+        @Override
+        public void read(short[] values, int offset, int length)
+        {
+            for (int i = offset; i < offset + length; i++) {
+                values[i] = toShortExact(delegate.readInteger());
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
     }
 }

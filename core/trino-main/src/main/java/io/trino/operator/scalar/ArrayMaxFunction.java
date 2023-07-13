@@ -31,7 +31,6 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.util.Failures.internalError;
-import static java.lang.Float.intBitsToFloat;
 
 @ScalarFunction("array_max")
 @Description("Get maximum value of array")
@@ -166,17 +165,11 @@ public final class ArrayMaxFunction
             if (block.isNull(position)) {
                 return null;
             }
-            if (selectedPosition < 0 || floatGreater(getReal(block, position), getReal(block, selectedPosition))) {
+            if (selectedPosition < 0 || floatGreater(REAL.getFloat(block, position), REAL.getFloat(block, selectedPosition))) {
                 selectedPosition = position;
             }
         }
         return REAL.getLong(block, selectedPosition);
-    }
-
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    private static float getReal(Block block, int position)
-    {
-        return intBitsToFloat((int) REAL.getLong(block, position));
     }
 
     private static boolean floatGreater(float left, float right)

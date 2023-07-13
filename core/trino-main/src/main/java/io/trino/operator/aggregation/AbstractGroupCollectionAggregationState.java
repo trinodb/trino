@@ -20,13 +20,12 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 /**
  * Instances of this state use a single PageBuilder for all groups.
@@ -34,7 +33,7 @@ import static java.lang.Math.toIntExact;
 public abstract class AbstractGroupCollectionAggregationState<T>
         extends AbstractGroupedAccumulatorState
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AbstractGroupCollectionAggregationState.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(AbstractGroupCollectionAggregationState.class);
     private static final int MAX_NUM_BLOCKS = 30000;
     private static final short NULL = -1;
 

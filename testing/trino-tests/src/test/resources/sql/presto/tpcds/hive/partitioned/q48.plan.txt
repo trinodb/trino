@@ -5,12 +5,14 @@ final aggregation over ()
                 join (INNER, REPLICATED):
                     join (INNER, PARTITIONED):
                         remote exchange (REPARTITION, HASH, ["ca_address_sk"])
-                            scan customer_address
+                            dynamic filter (["ca_address_sk"])
+                                scan customer_address
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["ss_addr_sk"])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        scan store_sales
+                                        dynamic filter (["ss_cdemo_sk", "ss_sold_date_sk", "ss_store_sk"])
+                                            scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan date_dim

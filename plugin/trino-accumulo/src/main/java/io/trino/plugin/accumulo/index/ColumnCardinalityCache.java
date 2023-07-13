@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
+import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -28,6 +29,7 @@ import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
 import io.trino.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.trino.spi.TrinoException;
+import jakarta.annotation.PreDestroy;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.data.Key;
@@ -35,11 +37,7 @@ import org.apache.accumulo.core.data.PartialKey;
 import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.io.Text;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -125,11 +123,11 @@ public class ColumnCardinalityCache
     public Multimap<Long, AccumuloColumnConstraint> getCardinalities(String schema, String table, Authorizations auths, Multimap<AccumuloColumnConstraint, Range> idxConstraintRangePairs, long earlyReturnThreshold, Duration pollingDuration)
     {
         // Submit tasks to the executor to fetch column cardinality, adding it to the Guava cache if necessary
-        CompletionService<Pair<Long, AccumuloColumnConstraint>> executor = new ExecutorCompletionService<>(executorService);
+        CompletionService<Entry<Long, AccumuloColumnConstraint>> executor = new ExecutorCompletionService<>(executorService);
         idxConstraintRangePairs.asMap().forEach((key, value) -> executor.submit(() -> {
             long cardinality = getColumnCardinality(schema, table, auths, key.getFamily(), key.getQualifier(), value);
             LOG.debug("Cardinality for column %s is %s", key.getName(), cardinality);
-            return Pair.of(cardinality, key);
+            return Map.entry(cardinality, key);
         }));
 
         // Create a multi map sorted by cardinality
@@ -143,10 +141,10 @@ public class ColumnCardinalityCache
 
                 // Poll each task, retrieving the result if it is done
                 for (int i = 0; i < numTasks; ++i) {
-                    Future<Pair<Long, AccumuloColumnConstraint>> futureCardinality = executor.poll();
+                    Future<Entry<Long, AccumuloColumnConstraint>> futureCardinality = executor.poll();
                     if (futureCardinality != null && futureCardinality.isDone()) {
-                        Pair<Long, AccumuloColumnConstraint> columnCardinality = futureCardinality.get();
-                        cardinalityToConstraints.put(columnCardinality.getLeft(), columnCardinality.getRight());
+                        Entry<Long, AccumuloColumnConstraint> columnCardinality = futureCardinality.get();
+                        cardinalityToConstraints.put(columnCardinality.getKey(), columnCardinality.getValue());
                     }
                 }
 

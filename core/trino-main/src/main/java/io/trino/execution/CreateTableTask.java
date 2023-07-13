@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ColumnPropertyManager;
@@ -44,8 +45,6 @@ import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.TableElement;
-
-import javax.inject.Inject;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -153,8 +152,7 @@ public class CreateTableTask
         Map<String, Object> inheritedProperties = ImmutableMap.of();
         boolean includingProperties = false;
         for (TableElement element : statement.getElements()) {
-            if (element instanceof ColumnDefinition) {
-                ColumnDefinition column = (ColumnDefinition) element;
+            if (element instanceof ColumnDefinition column) {
                 String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
                 Type type;
                 try {
@@ -190,8 +188,7 @@ public class CreateTableTask
                         .setProperties(columnProperties)
                         .build());
             }
-            else if (element instanceof LikeClause) {
-                LikeClause likeClause = (LikeClause) element;
+            else if (element instanceof LikeClause likeClause) {
                 QualifiedObjectName originalLikeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
                 if (plannerContext.getMetadata().getCatalogHandle(session, originalLikeTableName.getCatalogName()).isEmpty()) {
                     throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", originalLikeTableName.getCatalogName());
@@ -294,6 +291,7 @@ public class CreateTableTask
         }
         outputConsumer.accept(new Output(
                 catalogName,
+                catalogHandle.getVersion(),
                 tableName.getSchemaName(),
                 tableName.getObjectName(),
                 Optional.of(tableMetadata.getColumns().stream()

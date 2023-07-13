@@ -44,6 +44,7 @@ public final class TestGroups
     public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
     public static final String HIVE_PARTITIONING = "hive_partitioning";
     public static final String HIVE_SPARK = "hive_spark";
+    public static final String HIVE_SPARK_NO_STATS_FALLBACK = "hive_spark_no_stats_fallback";
     public static final String HIVE_COMPRESSION = "hive_compression";
     public static final String HIVE_TRANSACTIONAL = "hive_transactional";
     public static final String HIVE_VIEWS = "hive_views";
@@ -51,6 +52,7 @@ public final class TestGroups
     public static final String HIVE_CACHING = "hive_caching";
     public static final String HIVE_ICEBERG_REDIRECTIONS = "hive_iceberg_redirections";
     public static final String HIVE_HUDI_REDIRECTIONS = "hive_hudi_redirections";
+    public static final String HIVE_KERBEROS = "hive_kerberos";
     public static final String AUTHORIZATION = "authorization";
     public static final String HIVE_COERCION = "hive_coercion";
     public static final String AZURE = "azure";
@@ -67,11 +69,13 @@ public final class TestGroups
     public static final String CANCEL_QUERY = "cancel_query";
     public static final String LARGE_QUERY = "large_query";
     public static final String KAFKA = "kafka";
+    public static final String KAFKA_CONFLUENT_LICENSE = "kafka_confluent_license";
     public static final String TWO_HIVES = "two_hives";
     public static final String ICEBERG = "iceberg";
     public static final String ICEBERG_FORMAT_VERSION_COMPATIBILITY = "iceberg_format_version_compatibility";
     public static final String ICEBERG_REST = "iceberg_rest";
     public static final String ICEBERG_JDBC = "iceberg_jdbc";
+    public static final String ICEBERG_NESSIE = "iceberg_nessie";
     public static final String AVRO = "avro";
     public static final String PHOENIX = "phoenix";
     public static final String CLICKHOUSE = "clickhouse";
@@ -84,9 +88,12 @@ public final class TestGroups
     public static final String DELTA_LAKE_DATABRICKS = "delta-lake-databricks";
     public static final String DELTA_LAKE_EXCLUDE_73 = "delta-lake-exclude-73";
     public static final String DELTA_LAKE_EXCLUDE_91 = "delta-lake-exclude-91";
+    public static final String DELTA_LAKE_EXCLUDE_104 = "delta-lake-exclude-104";
     public static final String DELTA_LAKE_EXCLUDE_113 = "delta-lake-exclude-113";
+    public static final String DELTA_LAKE_EXCLUDE_122 = "delta-lake-exclude-122";
     public static final String HUDI = "hudi";
     public static final String PARQUET = "parquet";
+    public static final String IGNITE = "ignite";
 
     private TestGroups() {}
 }

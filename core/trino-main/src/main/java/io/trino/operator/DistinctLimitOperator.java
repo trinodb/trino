@@ -112,8 +112,8 @@ public class DistinctLimitOperator
     private long nextDistinctId;
 
     // for yield when memory is not available
-    private GroupByIdBlock groupByIds;
-    private Work<GroupByIdBlock> unfinishedWork;
+    private int[] groupByIds;
+    private Work<int[]> unfinishedWork;
 
     public DistinctLimitOperator(OperatorContext operatorContext, List<Integer> distinctChannels, List<Type> distinctTypes, long limit, Optional<Integer> hashChannel, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators)
     {
@@ -136,7 +136,7 @@ public class DistinctLimitOperator
                 distinctTypes,
                 distinctChannelInts,
                 hashChannel,
-                toIntExact(Math.min(limit, 10_000)),
+                toIntExact(min(limit, 10_000)),
                 joinCompiler,
                 blockTypeOperators,
                 this::updateMemoryReservation);
@@ -191,13 +191,13 @@ public class DistinctLimitOperator
 
         verifyNotNull(inputPage);
 
-        long resultingPositions = min(groupByIds.getGroupCount() - nextDistinctId, remainingLimit);
+        long resultingPositions = min(groupByHash.getGroupCount() - nextDistinctId, remainingLimit);
         Page result = null;
         if (resultingPositions > 0) {
             int[] distinctPositions = new int[toIntExact(resultingPositions)];
             int distinctCount = 0;
-            for (int position = 0; position < groupByIds.getPositionCount() && distinctCount < distinctPositions.length; position++) {
-                if (groupByIds.getGroupId(position) == nextDistinctId) {
+            for (int position = 0; position < inputPage.getPositionCount() && distinctCount < distinctPositions.length; position++) {
+                if (groupByIds[position] == nextDistinctId) {
                     distinctPositions[distinctCount++] = position;
                     nextDistinctId++;
                 }

@@ -17,25 +17,26 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import io.trino.plugin.hive.HiveErrorCode;
 import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.plugin.hive.type.CharTypeInfo;
+import io.trino.plugin.hive.type.DecimalTypeInfo;
+import io.trino.plugin.hive.type.ListTypeInfo;
+import io.trino.plugin.hive.type.MapTypeInfo;
+import io.trino.plugin.hive.type.PrimitiveTypeInfo;
+import io.trino.plugin.hive.type.StructTypeInfo;
+import io.trino.plugin.hive.type.TypeInfo;
+import io.trino.plugin.hive.type.UnionTypeInfo;
+import io.trino.plugin.hive.type.VarcharTypeInfo;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.hive.common.type.HiveChar;
-import org.apache.hadoop.hive.common.type.HiveVarchar;
-import org.apache.hadoop.hive.serde2.typeinfo.CharTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.UnionTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 
 import javax.annotation.Nullable;
 
@@ -44,6 +45,7 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hive.formats.UnionToRowCoercionUtils.rowTypeSignatureForUnionOfTypes;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.HiveType.HIVE_BINARY;
 import static io.trino.plugin.hive.HiveType.HIVE_BOOLEAN;
@@ -56,9 +58,13 @@ import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
-import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
-import static io.trino.plugin.hive.util.HiveUtil.isMapType;
-import static io.trino.plugin.hive.util.HiveUtil.isRowType;
+import static io.trino.plugin.hive.type.CharTypeInfo.MAX_CHAR_LENGTH;
+import static io.trino.plugin.hive.type.TypeInfoFactory.getCharTypeInfo;
+import static io.trino.plugin.hive.type.TypeInfoFactory.getListTypeInfo;
+import static io.trino.plugin.hive.type.TypeInfoFactory.getMapTypeInfo;
+import static io.trino.plugin.hive.type.TypeInfoFactory.getStructTypeInfo;
+import static io.trino.plugin.hive.type.TypeInfoFactory.getVarcharTypeInfo;
+import static io.trino.plugin.hive.type.VarcharTypeInfo.MAX_VARCHAR_LENGTH;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -74,26 +80,16 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.TypeSignature.rowType;
-import static io.trino.spi.type.TypeSignatureParameter.namedField;
 import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getListTypeInfo;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getMapTypeInfo;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getStructTypeInfo;
-import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharTypeInfo;
 
 public final class HiveTypeTranslator
 {
     private HiveTypeTranslator() {}
-
-    public static final String UNION_FIELD_TAG_NAME = "tag";
-    public static final String UNION_FIELD_FIELD_PREFIX = "field";
-    public static final Type UNION_FIELD_TAG_TYPE = TINYINT;
 
     public static TypeInfo toTypeInfo(Type type)
     {
@@ -119,24 +115,21 @@ public final class HiveTypeTranslator
         if (DOUBLE.equals(type)) {
             return HIVE_DOUBLE.getTypeInfo();
         }
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             if (varcharType.isUnbounded()) {
                 return HIVE_STRING.getTypeInfo();
             }
-            if (varcharType.getBoundedLength() <= HiveVarchar.MAX_VARCHAR_LENGTH) {
+            if (varcharType.getBoundedLength() <= MAX_VARCHAR_LENGTH) {
                 return getVarcharTypeInfo(varcharType.getBoundedLength());
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, HiveVarchar.MAX_VARCHAR_LENGTH));
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, MAX_VARCHAR_LENGTH));
         }
-        if (type instanceof CharType) {
-            CharType charType = (CharType) type;
+        if (type instanceof CharType charType) {
             int charLength = charType.getLength();
-            if (charLength <= HiveChar.MAX_CHAR_LENGTH) {
+            if (charLength <= MAX_CHAR_LENGTH) {
                 return getCharTypeInfo(charLength);
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported CHAR types: CHAR(<=%d).",
-                    type, HiveChar.MAX_CHAR_LENGTH));
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported CHAR types: CHAR(<=%d).", type, MAX_CHAR_LENGTH));
         }
         if (VARBINARY.equals(type)) {
             return HIVE_BINARY.getTypeInfo();
@@ -147,20 +140,19 @@ public final class HiveTypeTranslator
         if (type instanceof TimestampType) {
             return HIVE_TIMESTAMP.getTypeInfo();
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
         }
-        if (isArrayType(type)) {
-            TypeInfo elementType = toTypeInfo(type.getTypeParameters().get(0));
+        if (type instanceof ArrayType arrayType) {
+            TypeInfo elementType = toTypeInfo(arrayType.getElementType());
             return getListTypeInfo(elementType);
         }
-        if (isMapType(type)) {
-            TypeInfo keyType = toTypeInfo(type.getTypeParameters().get(0));
-            TypeInfo valueType = toTypeInfo(type.getTypeParameters().get(1));
+        if (type instanceof MapType mapType) {
+            TypeInfo keyType = toTypeInfo(mapType.getKeyType());
+            TypeInfo valueType = toTypeInfo(mapType.getValueType());
             return getMapTypeInfo(keyType, valueType);
         }
-        if (isRowType(type)) {
+        if (type instanceof RowType) {
             ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
             for (TypeSignatureParameter parameter : type.getTypeSignature().getParameters()) {
                 if (!parameter.isNamedTypeSignature()) {
@@ -216,13 +208,9 @@ public final class HiveTypeTranslator
                 // Use a row type to represent a union type in Hive for reading
                 UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
                 List<TypeInfo> unionObjectTypes = unionTypeInfo.getAllUnionObjectTypeInfos();
-                ImmutableList.Builder<TypeSignatureParameter> typeSignatures = ImmutableList.builder();
-                typeSignatures.add(namedField(UNION_FIELD_TAG_NAME, UNION_FIELD_TAG_TYPE.getTypeSignature()));
-                for (int i = 0; i < unionObjectTypes.size(); i++) {
-                    TypeInfo unionObjectType = unionObjectTypes.get(i);
-                    typeSignatures.add(namedField(UNION_FIELD_FIELD_PREFIX + i, toTypeSignature(unionObjectType, timestampPrecision)));
-                }
-                return rowType(typeSignatures.build());
+                return rowTypeSignatureForUnionOfTypes(unionObjectTypes.stream()
+                        .map(unionObjectType -> toTypeSignature(unionObjectType, timestampPrecision))
+                        .collect(toImmutableList()));
         }
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
     }

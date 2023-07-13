@@ -39,6 +39,8 @@ public interface RemoteTask
 
     void setOutputBuffers(OutputBuffers outputBuffers);
 
+    void setSpeculative(boolean speculative);
+
     /**
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
@@ -62,7 +64,10 @@ public interface RemoteTask
 
     PartitionedSplitsInfo getPartitionedSplitsInfo();
 
-    void fail(Throwable cause);
+    /**
+     * Fails task from the coordinator perspective immediately, without waiting for acknowledgement from the remote task
+     */
+    void failLocallyImmediately(Throwable cause);
 
     /**
      * Fails task remotely; only transitions to failed state when we receive confirmation that remote operation is completed

@@ -72,6 +72,11 @@ public abstract class AbstractIntType
     @Override
     public final long getLong(Block block, int position)
     {
+        return getInt(block, position);
+    }
+
+    public final int getInt(Block block, int position)
+    {
         return block.getInt(position, 0);
     }
 

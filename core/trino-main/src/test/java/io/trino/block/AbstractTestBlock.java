@@ -27,8 +27,6 @@ import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
 import io.trino.spi.block.SingleRowBlockWriter;
 import io.trino.spi.block.TestingBlockEncodingSerde;
-import org.openjdk.jol.info.ClassLayout;
-import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
@@ -41,6 +39,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -56,7 +55,6 @@ import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public abstract class AbstractTestBlock
 {
     private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde(TESTING_TYPE_MANAGER::getType);
@@ -89,7 +87,7 @@ public abstract class AbstractTestBlock
 
     private void assertRetainedSize(Block block)
     {
-        long retainedSize = ClassLayout.parseClass(block.getClass()).instanceSize();
+        long retainedSize = instanceSize(block.getClass());
         Field[] fields = block.getClass().getDeclaredFields();
         try {
             for (Field field : fields) {
@@ -146,7 +144,7 @@ public abstract class AbstractTestBlock
                     retainedSize += sizeOf((short[]) field.get(block));
                 }
                 else if (type == DictionaryId.class) {
-                    retainedSize += ClassLayout.parseClass(DictionaryId.class).instanceSize();
+                    retainedSize += instanceSize(DictionaryId.class);
                 }
                 else if (type == MapHashTables.class) {
                     retainedSize += ((MapHashTables) field.get(block)).getRetainedSizeInBytes();
@@ -262,9 +260,7 @@ public abstract class AbstractTestBlock
 
         assertFalse(block.isNull(position));
 
-        if (expectedValue instanceof Slice) {
-            Slice expectedSliceValue = (Slice) expectedValue;
-
+        if (expectedValue instanceof Slice expectedSliceValue) {
             if (isByteAccessSupported()) {
                 for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_BYTE; offset++) {
                     assertEquals(block.getByte(position, offset), expectedSliceValue.getByte(offset));
@@ -302,25 +298,22 @@ public abstract class AbstractTestBlock
 
             assertPositionEquals(block, position, expectedSliceValue);
         }
-        else if (expectedValue instanceof long[]) {
+        else if (expectedValue instanceof long[] expected) {
             Block actual = block.getObject(position, Block.class);
-            long[] expected = (long[]) expectedValue;
             assertEquals(actual.getPositionCount(), expected.length);
             for (int i = 0; i < expected.length; i++) {
                 assertEquals(BIGINT.getLong(actual, i), expected[i]);
             }
         }
-        else if (expectedValue instanceof Slice[]) {
+        else if (expectedValue instanceof Slice[] expected) {
             Block actual = block.getObject(position, Block.class);
-            Slice[] expected = (Slice[]) expectedValue;
             assertEquals(actual.getPositionCount(), expected.length);
             for (int i = 0; i < expected.length; i++) {
                 assertEquals(VARCHAR.getSlice(actual, i), expected[i]);
             }
         }
-        else if (expectedValue instanceof long[][]) {
+        else if (expectedValue instanceof long[][] expected) {
             Block actual = block.getObject(position, Block.class);
-            long[][] expected = (long[][]) expectedValue;
             assertEquals(actual.getPositionCount(), expected.length);
             for (int i = 0; i < expected.length; i++) {
                 assertPositionValue(actual, i, expected[i]);

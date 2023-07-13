@@ -83,6 +83,71 @@ public final class ParquetReaderUtils
         return value | inputByte << 28;
     }
 
+    public static long readUleb128Long(SimpleSliceInputStream input)
+    {
+        byte[] inputBytes = input.getByteArray();
+        int offset = input.getByteArrayOffset();
+        // Manual loop unrolling shows improvements in BenchmarkReadUleb128Long
+        long inputByte = inputBytes[offset];
+        long value = inputByte & 0x7F;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(1);
+            return value;
+        }
+        inputByte = inputBytes[offset + 1];
+        value |= (inputByte & 0x7F) << 7;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(2);
+            return value;
+        }
+        inputByte = inputBytes[offset + 2];
+        value |= (inputByte & 0x7F) << 14;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(3);
+            return value;
+        }
+        inputByte = inputBytes[offset + 3];
+        value |= (inputByte & 0x7F) << 21;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(4);
+            return value;
+        }
+        inputByte = inputBytes[offset + 4];
+        value |= (inputByte & 0x7F) << 28;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(5);
+            return value;
+        }
+        inputByte = inputBytes[offset + 5];
+        value |= (inputByte & 0x7F) << 35;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(6);
+            return value;
+        }
+        inputByte = inputBytes[offset + 6];
+        value |= (inputByte & 0x7F) << 42;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(7);
+            return value;
+        }
+        inputByte = inputBytes[offset + 7];
+        value |= (inputByte & 0x7F) << 49;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(8);
+            return value;
+        }
+        inputByte = inputBytes[offset + 8];
+        value |= (inputByte & 0x7F) << 56;
+        if ((inputByte & 0x80) == 0) {
+            input.skip(9);
+            return value;
+        }
+        inputByte = inputBytes[offset + 9];
+        verify((inputByte & 0x80) == 0, "ULEB128 variable-width long should not be longer than 10 bytes");
+        input.skip(10);
+        return value | inputByte << 63;
+    }
+
     public static int readFixedWidthInt(SimpleSliceInputStream input, int bytesWidth)
     {
         return switch (bytesWidth) {
@@ -96,6 +161,27 @@ public final class ParquetReaderUtils
             case 4 -> input.readInt();
             default -> throw new IllegalArgumentException(format("Encountered bytesWidth (%d) that requires more than 4 bytes", bytesWidth));
         };
+    }
+
+    /**
+     * For storing signed values (not the deltas themselves) in DELTA_BINARY_PACKED encoding, zigzag encoding
+     * (<a href="https://developers.google.com/protocol-buffers/docs/encoding#signed-integers">...</a>)
+     * is used to map negative values to positive ones and then apply ULEB128 on the result.
+     */
+    public static long zigzagDecode(long value)
+    {
+        return (value >>> 1) ^ -(value & 1);
+    }
+
+    /**
+     * Returns the result of arguments division rounded up.
+     * <p>
+     * Works only for positive numbers.
+     * The sum of dividend and divisor cannot exceed Integer.MAX_VALUE
+     */
+    public static int ceilDiv(int dividend, int divisor)
+    {
+        return (dividend + divisor - 1) / divisor;
     }
 
     /**
@@ -152,12 +238,28 @@ public final class ParquetReaderUtils
         return (byte) (value ? 0 : 1);
     }
 
+    public static short toShortExact(long value)
+    {
+        if ((short) value != value) {
+            throw new ArithmeticException("short overflow");
+        }
+        return (short) value;
+    }
+
     public static short toShortExact(int value)
     {
         if ((short) value != value) {
             throw new ArithmeticException(format("Value %d exceeds short range", value));
         }
         return (short) value;
+    }
+
+    public static byte toByteExact(long value)
+    {
+        if ((byte) value != value) {
+            throw new ArithmeticException("byte overflow");
+        }
+        return (byte) value;
     }
 
     public static byte toByteExact(int value)

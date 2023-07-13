@@ -15,6 +15,7 @@ package io.trino.plugin.hive.s3;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveQueryRunner;
@@ -94,42 +95,49 @@ public final class S3HiveQueryRunner
         private String s3SecretKey;
         private String bucketName;
 
+        @CanIgnoreReturnValue
         public Builder setHiveMetastoreEndpoint(HostAndPort hiveMetastoreEndpoint)
         {
             this.hiveMetastoreEndpoint = requireNonNull(hiveMetastoreEndpoint, "hiveMetastoreEndpoint is null");
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setThriftMetastoreTimeout(Duration thriftMetastoreTimeout)
         {
             this.thriftMetastoreTimeout = requireNonNull(thriftMetastoreTimeout, "thriftMetastoreTimeout is null");
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setThriftMetastoreConfig(ThriftMetastoreConfig thriftMetastoreConfig)
         {
             this.thriftMetastoreConfig = requireNonNull(thriftMetastoreConfig, "thriftMetastoreConfig is null");
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setS3Endpoint(String s3Endpoint)
         {
             this.s3Endpoint = requireNonNull(s3Endpoint, "s3Endpoint is null");
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setS3AccessKey(String s3AccessKey)
         {
             this.s3AccessKey = requireNonNull(s3AccessKey, "s3AccessKey is null");
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setS3SecretKey(String s3SecretKey)
         {
             this.s3SecretKey = requireNonNull(s3SecretKey, "s3SecretKey is null");
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder setBucketName(String bucketName)
         {
             this.bucketName = requireNonNull(bucketName, "bucketName is null");
@@ -170,9 +178,9 @@ public final class S3HiveQueryRunner
 
         DistributedQueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .setHiveProperties(ImmutableMap.of("hive.security", ALLOW_ALL))
                 .setSkipTimezoneSetup(true)
                 .setInitialTables(TpchTable.getTables())
-                .setSecurity(ALLOW_ALL)
                 .build();
         Logger log = Logger.get(S3HiveQueryRunner.class);
         log.info("======== SERVER STARTED ========");

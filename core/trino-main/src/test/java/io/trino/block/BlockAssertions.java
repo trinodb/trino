@@ -154,8 +154,7 @@ public final class BlockAssertions
         if (type == SMALLINT) {
             return createRandomSmallintsBlock(positionCount, nullRate);
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             if (decimalType.isShort()) {
                 return createRandomLongsBlock(positionCount, nullRate);
             }
@@ -182,8 +181,7 @@ public final class BlockAssertions
         if (type == VARBINARY) {
             return createRandomVarbinariesBlock(positionCount, nullRate);
         }
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             if (timestampType.isShort()) {
                 return createRandomShortTimestampBlock(timestampType, positionCount, nullRate);
             }
@@ -227,8 +225,7 @@ public final class BlockAssertions
             Block valuesBlock = createRandomBlockForType(((ArrayType) type).getElementType(), offsets[positionCount], nullRate);
             return fromElementBlock(positionCount, Optional.ofNullable(isNull), offsets, valuesBlock);
         }
-        if (type instanceof MapType) {
-            MapType mapType = (MapType) type;
+        if (type instanceof MapType mapType) {
             Block keyBlock = createRandomBlockForType(mapType.getKeyType(), offsets[positionCount], 0.0f);
             Block valueBlock = createRandomBlockForType(mapType.getValueType(), offsets[positionCount], nullRate);
 

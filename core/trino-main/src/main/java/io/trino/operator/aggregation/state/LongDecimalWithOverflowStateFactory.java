@@ -17,12 +17,13 @@ import io.trino.array.BooleanBigArray;
 import io.trino.array.LongBigArray;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
 
 public class LongDecimalWithOverflowStateFactory
@@ -44,14 +45,14 @@ public class LongDecimalWithOverflowStateFactory
             extends AbstractGroupedAccumulatorState
             implements LongDecimalWithOverflowState
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedLongDecimalWithOverflowState.class).instanceSize());
-        protected final BooleanBigArray isNotNull = new BooleanBigArray();
+        private static final int INSTANCE_SIZE = instanceSize(GroupedLongDecimalWithOverflowState.class);
+        private final BooleanBigArray isNotNull = new BooleanBigArray();
         /**
          * Stores 128-bit decimals as pairs of longs
          */
-        protected final LongBigArray unscaledDecimals = new LongBigArray();
+        private final LongBigArray unscaledDecimals = new LongBigArray();
         @Nullable
-        protected LongBigArray overflows; // lazily initialized on the first overflow
+        private LongBigArray overflows; // lazily initialized on the first overflow
 
         @Override
         public void ensureCapacity(long size)
@@ -134,12 +135,12 @@ public class LongDecimalWithOverflowStateFactory
     public static class SingleLongDecimalWithOverflowState
             implements LongDecimalWithOverflowState
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleLongDecimalWithOverflowState.class).instanceSize());
-        protected static final int SIZE = (int) sizeOf(new long[2]);
+        private static final int INSTANCE_SIZE = instanceSize(SingleLongDecimalWithOverflowState.class);
+        private static final int SIZE = (int) sizeOf(new long[2]) + SIZE_OF_BYTE + SIZE_OF_LONG;
 
-        protected final long[] unscaledDecimal = new long[2];
-        protected boolean isNotNull;
-        protected long overflow;
+        private final long[] unscaledDecimal = new long[2];
+        private boolean isNotNull;
+        private long overflow;
 
         public SingleLongDecimalWithOverflowState() {}
 

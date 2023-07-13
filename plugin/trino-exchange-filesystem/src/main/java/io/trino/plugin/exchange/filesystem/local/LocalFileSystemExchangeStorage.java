@@ -24,7 +24,6 @@ import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -50,6 +49,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.createFile;
@@ -137,7 +137,7 @@ public class LocalFileSystemExchangeStorage
     private static class LocalExchangeStorageReader
             implements ExchangeStorageReader
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LocalExchangeStorageReader.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(LocalExchangeStorageReader.class);
 
         @GuardedBy("this")
         private final Queue<ExchangeSourceFile> sourceFiles;
@@ -216,7 +216,7 @@ public class LocalFileSystemExchangeStorage
     private static class LocalExchangeStorageWriter
             implements ExchangeStorageWriter
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LocalExchangeStorageWriter.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(LocalExchangeStorageWriter.class);
 
         private final OutputStream outputStream;
 

@@ -113,7 +113,7 @@ public class TestIcebergPartitionEvolution
                 .filter(file -> ((String) file.getField(0)).contains("regionkey="))
                 .collect(toImmutableList());
 
-        expectedInitialFiles = toIntExact((long) computeActual("SELECT DISTINCT substring(name, 1, 1) FROM nation WHERE nationkey < 10").getRowCount());
+        expectedInitialFiles = computeActual("SELECT DISTINCT substring(name, 1, 1) FROM nation WHERE nationkey < 10").getRowCount();
         assertThat(initialFiles).hasSize(expectedInitialFiles);
         assertEquals(initialFiles.stream().mapToLong(row -> (long) row.getField(1)).sum(), 10L);
 

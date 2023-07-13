@@ -34,7 +34,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspect
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTimeZone;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -45,6 +44,7 @@ import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
@@ -54,7 +54,6 @@ import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createRecordWriter;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getRowColumnInspectors;
 import static io.trino.plugin.hive.util.HiveWriteUtils.initializeSerializer;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -62,7 +61,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 public class RecordFileWriter
         implements FileWriter
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RecordFileWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(RecordFileWriter.class);
 
     private final Path path;
     private final JobConf conf;

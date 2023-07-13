@@ -63,7 +63,8 @@ public class FileSingleStreamSpiller
     private final FileHolder targetFile;
     private final Closer closer = Closer.create();
     private final PagesSerdeFactory serdeFactory;
-    private final Optional<SecretKey> encryptionKey;
+    private volatile Optional<SecretKey> encryptionKey;
+    private final boolean encrypted;
     private final SpillerStats spillerStats;
     private final SpillContext localSpillContext;
     private final LocalMemoryContext memoryContext;
@@ -88,6 +89,7 @@ public class FileSingleStreamSpiller
     {
         this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
         this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
+        this.encrypted = encryptionKey.isPresent();
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats is null");
         this.localSpillContext = spillContext.newLocalSpillContext();
@@ -144,6 +146,9 @@ public class FileSingleStreamSpiller
     private void writePages(Iterator<Page> pageIterator)
     {
         checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
+
+        Optional<SecretKey> encryptionKey = this.encryptionKey;
+        checkState(encrypted == encryptionKey.isPresent(), "encryptionKey has been discarded");
         PageSerializer serializer = serdeFactory.createSerializer(encryptionKey);
         try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE)) {
             while (pageIterator.hasNext()) {
@@ -168,7 +173,11 @@ public class FileSingleStreamSpiller
         writable = false;
 
         try {
+            Optional<SecretKey> encryptionKey = this.encryptionKey;
+            checkState(encrypted == encryptionKey.isPresent(), "encryptionKey has been discarded");
             PageDeserializer deserializer = serdeFactory.createDeserializer(encryptionKey);
+            // encryption key is safe to discard since it now belongs to the PageDeserializer and repeated reads are disallowed
+            this.encryptionKey = Optional.empty();
             InputStream input = closer.register(targetFile.newInputStream());
             Iterator<Page> pages = PagesSerdeUtil.readPages(deserializer, input);
             return closeWhenExhausted(pages, input);
@@ -182,6 +191,8 @@ public class FileSingleStreamSpiller
     @Override
     public void close()
     {
+        encryptionKey = Optional.empty();
+
         closer.register(localSpillContext);
         closer.register(() -> memoryContext.setBytes(0));
         try {

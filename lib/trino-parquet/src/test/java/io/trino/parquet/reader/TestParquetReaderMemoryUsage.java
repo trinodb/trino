@@ -14,44 +14,33 @@
 package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.Field;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.parquet.writer.ParquetSchemaConverter;
-import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.type.Type;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.MessageColumnIO;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.ParquetTestUtils.generateInputPages;
+import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
@@ -66,7 +55,15 @@ public class TestParquetReaderMemoryUsage
         List<String> columnNames = ImmutableList.of("columnA", "columnB");
         List<Type> types = ImmutableList.of(INTEGER, BIGINT);
 
-        ParquetDataSource dataSource = new TestingParquetDataSource(writeParquetFile(types, columnNames), new ParquetReaderOptions());
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxBlockSize(DataSize.ofBytes(1000))
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, 5)),
+                new ParquetReaderOptions());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         assertThat(parquetMetadata.getBlocks().size()).isGreaterThan(1);
         // Verify file has only non-dictionary encodings as dictionary memory usage is already tested in TestFlatColumnReader#testMemoryUsage
@@ -108,55 +105,6 @@ public class TestParquetReaderMemoryUsage
 
         reader.close();
         assertThat(memoryContext.getBytes()).isEqualTo(0);
-    }
-
-    private static Slice writeParquetFile(List<Type> types, List<String> columnNames)
-            throws IOException
-    {
-        checkArgument(types.size() == columnNames.size());
-        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames, false, false);
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ParquetWriter writer = new ParquetWriter(
-                outputStream,
-                schemaConverter.getMessageType(),
-                schemaConverter.getPrimitiveTypes(),
-                ParquetWriterOptions.builder()
-                        .setMaxPageSize(DataSize.ofBytes(100))
-                        .setMaxBlockSize(DataSize.ofBytes(1))
-                        .build(),
-                CompressionCodecName.SNAPPY,
-                "test-version",
-                false,
-                Optional.of(DateTimeZone.getDefault()),
-                Optional.empty());
-
-        for (io.trino.spi.Page inputPage : generateInputPages(types, 100, 5)) {
-            checkArgument(types.size() == inputPage.getChannelCount());
-            writer.write(inputPage);
-        }
-        writer.close();
-        return Slices.wrappedBuffer(outputStream.toByteArray());
-    }
-
-    private static List<io.trino.spi.Page> generateInputPages(List<Type> types, int positionsPerPage, int pageCount)
-    {
-        ImmutableList.Builder<io.trino.spi.Page> pagesBuilder = ImmutableList.builder();
-        for (int i = 0; i < pageCount; i++) {
-            List<Block> blocks = types.stream()
-                    .map(type -> generateBlock(type, positionsPerPage))
-                    .collect(toImmutableList());
-            pagesBuilder.add(new Page(blocks.toArray(Block[]::new)));
-        }
-        return pagesBuilder.build();
-    }
-
-    private static Block generateBlock(Type type, int positions)
-    {
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, positions);
-        for (int i = 0; i < positions; i++) {
-            writeNativeValue(type, blockBuilder, ThreadLocalRandom.current().nextLong(0, 1000));
-        }
-        return blockBuilder.build();
     }
 
     private static ParquetReader createParquetReader(

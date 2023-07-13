@@ -58,9 +58,9 @@ public class TestPushPartialAggregationThroughJoin
                         .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("RIGHT_GROUP_BY"))
                         .step(PARTIAL)))
                 .matches(project(ImmutableMap.of(
-                        "LEFT_GROUP_BY", PlanMatchPattern.expression("LEFT_GROUP_BY"),
-                        "RIGHT_GROUP_BY", PlanMatchPattern.expression("RIGHT_GROUP_BY"),
-                        "AVG", PlanMatchPattern.expression("AVG")),
+                                "LEFT_GROUP_BY", PlanMatchPattern.expression("LEFT_GROUP_BY"),
+                                "RIGHT_GROUP_BY", PlanMatchPattern.expression("RIGHT_GROUP_BY"),
+                                "AVG", PlanMatchPattern.expression("AVG")),
                         join(INNER, builder -> builder
                                 .equiCriteria("LEFT_EQUI", "RIGHT_EQUI")
                                 .filter("LEFT_NON_EQUI <= RIGHT_NON_EQUI")

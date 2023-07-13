@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,8 +24,10 @@ import com.google.common.collect.Lists;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveMetastoreClosure;
@@ -42,6 +45,7 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadataMetastore;
 import io.trino.plugin.hive.util.RetryDriver;
+import io.trino.plugin.hive.util.ValidTxnWriteIdList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -51,15 +55,11 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.hadoop.hive.common.ValidTxnWriteIdList;
-import org.apache.hadoop.hive.metastore.api.DataOperationType;
-import org.apache.hadoop.hive.ql.io.AcidUtils;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -86,6 +86,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -97,7 +98,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -111,6 +111,7 @@ import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveWriteUtils.checkedDelete;
@@ -124,12 +125,17 @@ import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.security.PrincipalType.USER;
+import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.hadoop.hive.metastore.conf.MetastoreConf.ConfVars.TXN_TIMEOUT;
-import static org.apache.hadoop.hive.metastore.conf.MetastoreConf.getTimeVar;
 
 public class SemiTransactionalHiveMetastore
         implements SqlStandardAccessControlMetadataMetastore
@@ -239,6 +245,15 @@ public class SemiTransactionalHiveMetastore
         return delegate.getAllTables(databaseName);
     }
 
+    public synchronized Optional<List<SchemaTableName>> getAllTables()
+    {
+        checkReadable();
+        if (!tableActions.isEmpty()) {
+            throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
+        }
+        return delegate.getAllTables();
+    }
+
     public synchronized Optional<Table> getTable(String databaseName, String tableName)
     {
         checkReadable();
@@ -287,12 +302,12 @@ public class SemiTransactionalHiveMetastore
         return delegate.getSupportedColumnStatistics(type);
     }
 
-    public synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName)
+    public synchronized PartitionStatistics getTableStatistics(String databaseName, String tableName, Optional<Set<String>> columns)
     {
         checkReadable();
         Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
         if (tableAction == null) {
-            return delegate.getTableStatistics(databaseName, tableName);
+            return delegate.getTableStatistics(databaseName, tableName, columns);
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -309,7 +324,7 @@ public class SemiTransactionalHiveMetastore
         throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
 
-    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
+    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> columns, Set<String> partitionNames)
     {
         checkReadable();
         Optional<Table> table = getTable(databaseName, tableName);
@@ -340,7 +355,7 @@ public class SemiTransactionalHiveMetastore
             }
         }
 
-        Map<String, PartitionStatistics> delegateResult = delegate.getPartitionStatistics(databaseName, tableName, partitionNamesToQuery.build());
+        Map<String, PartitionStatistics> delegateResult = delegate.getPartitionStatistics(databaseName, tableName, partitionNamesToQuery.build(), Optional.of(columns));
         if (!delegateResult.isEmpty()) {
             resultBuilder.putAll(delegateResult);
         }
@@ -411,6 +426,15 @@ public class SemiTransactionalHiveMetastore
             throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
         }
         return delegate.getAllViews(databaseName);
+    }
+
+    public synchronized Optional<List<SchemaTableName>> getAllViews()
+    {
+        checkReadable();
+        if (!tableActions.isEmpty()) {
+            throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
+        }
+        return delegate.getAllViews();
     }
 
     public synchronized void createDatabase(ConnectorSession session, Database database)
@@ -672,7 +696,7 @@ public class SemiTransactionalHiveMetastore
             if (isAcidTransactionRunning()) {
                 table = Table.builder(table).setWriteId(OptionalLong.of(currentHiveTransaction.orElseThrow().getTransaction().getWriteId())).build();
             }
-            PartitionStatistics currentStatistics = getTableStatistics(databaseName, tableName);
+            PartitionStatistics currentStatistics = getTableStatistics(databaseName, tableName, Optional.empty());
             HdfsContext hdfsContext = new HdfsContext(session);
             tableActions.put(
                     schemaTableName,
@@ -718,7 +742,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Table table = getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
-        if (!table.getTableType().equals(MANAGED_TABLE.toString())) {
+        if (!table.getTableType().equals(MANAGED_TABLE.name())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot delete from non-managed Hive table");
         }
         if (!table.getPartitionColumns().isEmpty()) {
@@ -742,7 +766,7 @@ public class SemiTransactionalHiveMetastore
             ConnectorSession session,
             String databaseName,
             String tableName,
-            Path currentLocation,
+            Location currentLocation,
             List<PartitionUpdateAndMergeResults> partitionUpdateAndMergeResults,
             List<Partition> partitions)
     {
@@ -768,7 +792,7 @@ public class SemiTransactionalHiveMetastore
                             new TableAndMergeResults(
                                     table,
                                     Optional.of(principalPrivileges),
-                                    Optional.of(currentLocation),
+                                    Optional.of(new Path(currentLocation.toString())),
                                     partitionUpdateAndMergeResults,
                                     partitions),
                             hdfsContext,
@@ -1219,7 +1243,7 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, getRequiredTableOwner(databaseName, tableName), grantee, grantor, privileges, grantOption));
     }
 
-    public synchronized String declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, SchemaTableName schemaTableName)
+    public synchronized String declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Location stagingPathRoot, SchemaTableName schemaTableName)
     {
         setShared();
         if (writeMode == WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
@@ -1232,7 +1256,7 @@ public class SemiTransactionalHiveMetastore
         String queryId = session.getQueryId();
         String declarationId = queryId + "_" + declaredIntentionsToWriteCounter;
         declaredIntentionsToWriteCounter++;
-        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(declarationId, writeMode, hdfsContext, queryId, stagingPathRoot, schemaTableName));
+        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(declarationId, writeMode, hdfsContext, queryId, new Path(stagingPathRoot.toString()), schemaTableName));
         return declarationId;
     }
 
@@ -1373,10 +1397,47 @@ public class SemiTransactionalHiveMetastore
 
     private long getServerExpectedHeartbeatIntervalMillis()
     {
-        String hiveServerTransactionTimeout = delegate.getConfigValue(TXN_TIMEOUT.getVarname()).orElseGet(() -> TXN_TIMEOUT.getDefaultVal().toString());
-        Configuration configuration = newEmptyConfiguration();
-        configuration.set(TXN_TIMEOUT.toString(), hiveServerTransactionTimeout);
-        return getTimeVar(configuration, TXN_TIMEOUT, MILLISECONDS) / 2;
+        String timeout = delegate.getConfigValue("metastore.txn.timeout").orElse("300s");
+        return metastoreTimeToMillis(timeout) / 2;
+    }
+
+    private static final Pattern METASTORE_TIME = Pattern.compile("([0-9]+)([a-zA-Z]+)");
+
+    // based on org.apache.hadoop.hive.metastore.conf.MetastoreConf#convertTimeStr
+    private static long metastoreTimeToMillis(String value)
+    {
+        if (CharMatcher.inRange('0', '9').matches(value.charAt(value.length() - 1))) {
+            return SECONDS.toMillis(parseLong(value));
+        }
+
+        Matcher matcher = METASTORE_TIME.matcher(value);
+        checkArgument(matcher.matches(), "Invalid time unit: %s", value);
+
+        long duration = parseLong(matcher.group(1));
+        String unit = matcher.group(2).toLowerCase(ENGLISH);
+
+        if (unit.equals("s") || unit.startsWith("sec")) {
+            return SECONDS.toMillis(duration);
+        }
+        if (unit.equals("ms") || unit.startsWith("msec")) {
+            return duration;
+        }
+        if (unit.equals("m") || unit.startsWith("min")) {
+            return MINUTES.toMillis(duration);
+        }
+        if (unit.equals("us") || unit.startsWith("usec")) {
+            return MICROSECONDS.toMillis(duration);
+        }
+        if (unit.equals("ns") || unit.startsWith("nsec")) {
+            return NANOSECONDS.toMillis(duration);
+        }
+        if (unit.equals("h") || unit.startsWith("hour")) {
+            return HOURS.toMillis(duration);
+        }
+        if (unit.equals("d") || unit.startsWith("day")) {
+            return DAYS.toMillis(duration);
+        }
+        throw new IllegalArgumentException("Invalid time unit " + unit);
     }
 
     public Optional<ValidTxnWriteIdList> getValidWriteIds(ConnectorSession session, HiveTableHandle tableHandle)
@@ -1385,7 +1446,7 @@ public class SemiTransactionalHiveMetastore
         synchronized (this) {
             String queryId = session.getQueryId();
             checkState(currentQueryId.equals(Optional.of(queryId)), "Invalid query id %s while current query is %s", queryId, currentQueryId);
-            if (!AcidUtils.isTransactionalTable(tableHandle.getTableParameters().orElseThrow(() -> new IllegalStateException("tableParameters missing")))) {
+            if (!isTransactionalTable(tableHandle.getTableParameters().orElseThrow(() -> new IllegalStateException("tableParameters missing")))) {
                 return Optional.empty();
             }
             if (currentHiveTransaction.isEmpty()) {

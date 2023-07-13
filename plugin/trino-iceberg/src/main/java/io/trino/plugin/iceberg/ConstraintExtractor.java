@@ -56,6 +56,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static java.lang.Math.toIntExact;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
@@ -125,6 +126,20 @@ public final class ConstraintExtractor
                         constant,
                         assignments);
             }
+
+            if (firstArgument instanceof Call firstAsCall &&
+                    firstAsCall.getFunctionName().equals(new FunctionName("year")) &&
+                    firstAsCall.getArguments().size() == 1 &&
+                    getOnlyElement(firstAsCall.getArguments()).getType() instanceof TimestampWithTimeZoneType &&
+                    secondArgument instanceof Constant constant &&
+                    // if types do no match, this cannot be a comparison function
+                    firstArgument.getType().equals(secondArgument.getType())) {
+                return unwrapYearInTimestampTzComparison(
+                        call.getFunctionName(),
+                        getOnlyElement(firstAsCall.getArguments()),
+                        constant,
+                        assignments);
+            }
         }
 
         return Optional.empty();
@@ -167,7 +182,7 @@ public final class ConstraintExtractor
     private static Optional<Domain> unwrapTimestampTzToDateCast(IcebergColumnHandle column, FunctionName functionName, long date)
     {
         Type type = column.getType();
-        checkArgument(type.equals(TIMESTAMP_TZ_MICROS), "Column of unexpected type %s: %s ", type, column);
+        checkArgument(type.equals(TIMESTAMP_TZ_MICROS), "Column of unexpected type %s: %s", type, column);
 
         // Verify no overflow. Date values must be in integer range.
         verify(date <= Integer.MAX_VALUE, "Date value out of range: %s", date);
@@ -177,6 +192,26 @@ public final class ConstraintExtractor
         LongTimestampWithTimeZone startOfDate = LongTimestampWithTimeZone.fromEpochMillisAndFraction(date * MILLISECONDS_PER_DAY, 0, UTC_KEY);
         LongTimestampWithTimeZone startOfNextDate = LongTimestampWithTimeZone.fromEpochMillisAndFraction((date + 1) * MILLISECONDS_PER_DAY, 0, UTC_KEY);
 
+        return createDomain(functionName, type, startOfDate, startOfNextDate);
+    }
+
+    private static Optional<Domain> unwrapYearInTimestampTzComparison(FunctionName functionName, Type type, Constant constant)
+    {
+        checkArgument(constant.getValue() != null, "Unexpected constant: %s", constant);
+        checkArgument(type.equals(TIMESTAMP_TZ_MICROS), "Unexpected type: %s", type);
+
+        int year = toIntExact((Long) constant.getValue());
+        ZonedDateTime periodStart = ZonedDateTime.of(year, 1, 1, 0, 0, 0, 0, UTC);
+        ZonedDateTime periodEnd = periodStart.plusYears(1);
+
+        LongTimestampWithTimeZone start = LongTimestampWithTimeZone.fromEpochSecondsAndFraction(periodStart.toEpochSecond(), 0, UTC_KEY);
+        LongTimestampWithTimeZone end = LongTimestampWithTimeZone.fromEpochSecondsAndFraction(periodEnd.toEpochSecond(), 0, UTC_KEY);
+
+        return createDomain(functionName, type, start, end);
+    }
+
+    private static Optional<Domain> createDomain(FunctionName functionName, Type type, LongTimestampWithTimeZone startOfDate, LongTimestampWithTimeZone startOfNextDate)
+    {
         if (functionName.equals(EQUAL_OPERATOR_FUNCTION_NAME)) {
             return Optional.of(Domain.create(ValueSet.ofRanges(Range.range(type, startOfDate, true, startOfNextDate, false)), false));
         }
@@ -242,7 +277,8 @@ public final class ConstraintExtractor
     private static Optional<Domain> unwrapDateTruncInComparison(String unit, FunctionName functionName, Constant constant)
     {
         Type type = constant.getType();
-        checkArgument(constant.getValue() != null && type.equals(TIMESTAMP_TZ_MICROS), "Unexpected constant: %s", constant);
+        checkArgument(constant.getValue() != null, "Unexpected constant: %s", constant);
+        checkArgument(type.equals(TIMESTAMP_TZ_MICROS), "Unexpected type: %s", type);
 
         // Normalized to UTC because for comparisons the zone is irrelevant
         ZonedDateTime dateTime = Instant.ofEpochMilli(((LongTimestampWithTimeZone) constant.getValue()).getEpochMillis())
@@ -313,6 +349,37 @@ public final class ConstraintExtractor
             }
             return Optional.of(Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, end)), false));
         }
+        return Optional.empty();
+    }
+
+    private static Optional<TupleDomain<IcebergColumnHandle>> unwrapYearInTimestampTzComparison(
+            // upon invocation, we don't know if this really is a comparison
+            FunctionName functionName,
+            ConnectorExpression yearSource,
+            Constant constant,
+            Map<String, ColumnHandle> assignments)
+    {
+        if (!(yearSource instanceof Variable sourceVariable)) {
+            // Engine unwraps year in comparisons in UnwrapYearInComparison. Within a connector we can do more than
+            // engine only for source columns. We cannot draw many conclusions for intermediate expressions without
+            // knowing them well.
+            return Optional.empty();
+        }
+
+        if (constant.getValue() == null) {
+            // Comparisons with NULL should be simplified by the engine
+            return Optional.empty();
+        }
+
+        IcebergColumnHandle column = resolve(sourceVariable, assignments);
+        if (column.getType() instanceof TimestampWithTimeZoneType type) {
+            // Iceberg supports only timestamp(6) with time zone
+            checkArgument(type.getPrecision() == 6, "Unexpected type: %s", column.getType());
+
+            return unwrapYearInTimestampTzComparison(functionName, type, constant)
+                    .map(domain -> TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)));
+        }
+
         return Optional.empty();
     }
 

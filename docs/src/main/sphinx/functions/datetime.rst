@@ -24,7 +24,7 @@ Operator Example                                               Result
 ``-``    ``interval '3' year - interval '5' month``            ``2-7``
 ======== ===================================================== ===========================
 
-.. _at_time_zone_operator:
+.. _at-time-zone-operator:
 
 Time zone conversion
 --------------------
@@ -117,15 +117,30 @@ Date and time functions
         SELECT from_iso8601_date('2020-123');
         -- 2020-05-02
 
-.. function:: at_timezone(timestamp, zone) -> timestamp(p) with time zone
+.. function:: at_timezone(timestamp(p), zone) -> timestamp(p) with time zone
 
-    Change the time zone component of ``timestamp`` with precision ``p`` to
-    ``zone`` while preserving the instant in time.
+    Returns the timestamp specified in ``timestamp`` with the time zone
+    converted from the session time zone to the time zone specified in ``zone``
+    with precision ``p``. In the following example, the session time zone is set
+    to ``America/New_York``, which is three hours ahead of
+    ``America/Los_Angeles``::
 
-.. function:: with_timezone(timestamp, zone) -> timestamp(p) with time zone
+        SELECT current_timezone()
+        -- America/New_York
 
-    Returns a timestamp with time zone from ``timestamp`` with precision ``p``
-    and ``zone``.
+        SELECT at_timezone(TIMESTAMP '2022-11-01 09:08:07.321', 'America/Los_Angeles')
+        -- 2022-11-01 06:08:07.321 America/Los_Angeles
+
+.. function:: with_timezone(timestamp(p), zone) -> timestamp(p) with time zone
+
+    Returns the timestamp specified in ``timestamp`` with the time zone
+    specified in ``zone`` with precision ``p``::
+
+        SELECT current_timezone()
+        -- America/New_York
+
+        SELECT with_timezone(TIMESTAMP '2022-11-01 09:08:07.321', 'America/Los_Angeles')
+        -- 2022-11-01 09:08:07.321 America/Los_Angeles
 
 .. function:: from_unixtime(unixtime) -> timestamp(3) with time zone
 
@@ -527,7 +542,7 @@ Convenience extraction functions
     Returns the `ISO week`_ of the year from ``x``.
     The value ranges from ``1`` to ``53``.
 
-    .. _ISO week: https://en.wikipedia.org/wiki/ISO_week_date
+    .. _ISO week: https://wikipedia.org/wiki/ISO_week_date
 
 .. function:: week_of_year(x) -> bigint
 

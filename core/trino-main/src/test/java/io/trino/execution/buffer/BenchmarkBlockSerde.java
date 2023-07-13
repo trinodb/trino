@@ -24,7 +24,6 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDecimal;
@@ -96,7 +95,7 @@ public class BenchmarkBlockSerde
     }
 
     @Benchmark
-    public Object serializeInt96(LongTimestampBenchmarkData data)
+    public Object serializeFixed12(LongTimestampBenchmarkData data)
     {
         return serializePages(data);
     }
@@ -242,7 +241,7 @@ public class BenchmarkBlockSerde
             else if (BIGINT.equals(type)) {
                 BIGINT.writeLong(blockBuilder, ((Number) value).longValue());
             }
-            else if (Decimals.isLongDecimal(type)) {
+            else if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
                 type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) value).toBigDecimal().unscaledValue()));
             }
             else if (type instanceof VarcharType) {

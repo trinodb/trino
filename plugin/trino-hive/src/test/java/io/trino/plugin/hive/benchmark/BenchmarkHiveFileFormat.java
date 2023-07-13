@@ -111,11 +111,7 @@ public class BenchmarkHiveFileFormat
             "TRINO_RCTEXT",
             "TRINO_ORC",
             "TRINO_PARQUET",
-            "TRINO_OPTIMIZED_PARQUET",
-            "HIVE_RCBINARY",
-            "HIVE_RCTEXT",
-            "HIVE_ORC",
-            "HIVE_PARQUET"})
+            "TRINO_OPTIMIZED_PARQUET"})
     private BenchmarkFileFormat benchmarkFileFormat;
 
     private FileFormat fileFormat;

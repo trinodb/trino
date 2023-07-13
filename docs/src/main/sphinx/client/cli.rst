@@ -16,6 +16,10 @@ It can be used with Java version 8 and higher.
 The CLI uses the :doc:`Trino client REST API </develop/client-protocol>` over
 HTTP/HTTPS to communicate with the coordinator on the cluster.
 
+The CLI version should be identical to the version of the Trino cluster, or
+newer. Older versions typically work, but only a subset is regularly tested.
+Versions before 350 are not supported.
+
 .. _cli-installation:
 
 Installation
@@ -157,10 +161,19 @@ mode:
       EMACS editors. Defaults to ``EMACS``.
   * - ``--http-proxy``
     - Configures the URL of the HTTP proxy to connect to Trino.
+  * - ``--history-file``
+    - Path to the :ref:`history file <cli-history>`. Defaults to ``~/.trino_history``.
   * - ``--network-logging``
     - Configures the level of detail provided for network logging of the CLI.
       Defaults to ``NONE``, other options are ``BASIC``, ``HEADERS``, or
       ``BODY``.
+  * - ``--output-format-interactive=<format>``
+    - Specify the :ref:`format <cli-output-format>` to use
+      for printing query results. Defaults to ``ALIGNED``.
+  * - ``--pager=<pager>``
+    - Path to the pager program used to display the query results. Set to
+      an empty value to completely disable pagination. Defaults to ``less``
+      with a carefully selected set of options.
   * - ``--no-progress``
     - Do not show query processing progress.
   * - ``--password``
@@ -186,7 +199,7 @@ mode:
       :doc:`/admin/resource-groups`.
   * - ``--timezone``
     - Sets the time zone for the session using the `time zone name
-      <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_. Defaults
+      <https://wikipedia.org/wiki/List_of_tz_database_time_zones>`_. Defaults
       to the timezone set on your workstation.
   * - ``--user``
     - Sets the username for :ref:`cli-username-password-auth`. Defaults to your
@@ -272,7 +285,22 @@ and prompts the CLI for your password:
 
 .. code-block:: text
 
-  ./trino --server https://trino.example.com --user=myusername --password
+  ./trino --server https://trino.example.com --user=exampleusername --password
+
+Alternatively, set the password as the value of the ``TRINO_PASSWORD``
+environment variable. Typically use single quotes to avoid problems with
+special characters such as ``$``:
+
+.. code-block:: text
+
+  export TRINO_PASSWORD='LongSecurePassword123!@#'
+
+If the ``TRINO_PASSWORD`` environment variable is set, you are not prompted
+to provide a password to connect with the CLI.
+
+.. code-block:: text
+
+  ./trino --server https://trino.example.com --user=exampleusername --password
 
 .. _cli-external-sso-auth:
 
@@ -342,7 +370,7 @@ enabled.
 
 Invoking the CLI with Kerberos support enabled requires a number of additional
 command line options. You also need the :ref:`Kerberos configuration files
-<server_kerberos_principals>` for your user on the machine running the CLI. The
+<server-kerberos-principals>` for your user on the machine running the CLI. The
 simplest way to invoke the CLI is with a wrapper script:
 
 .. code-block:: text
@@ -416,9 +444,12 @@ Pagination
 
 By default, the results of queries are paginated using the ``less`` program
 which is configured with a carefully selected set of options. This behavior
-can be overridden by setting the environment variable ``TRINO_PAGER`` to the
-name of a different program such as ``more`` or `pspg <https://github.com/okbob/pspg>`_,
+can be overridden by setting the ``--pager`` option or
+the ``TRINO_PAGER`` environment variable to the name of a different program
+such as ``more`` or `pspg <https://github.com/okbob/pspg>`_,
 or it can be set to an empty value to completely disable pagination.
+
+.. _cli-history:
 
 History
 -------
@@ -429,7 +460,8 @@ history by scrolling or searching. Use the up and down arrows to scroll and
 press :kbd:`Enter`.
 
 By default, you can locate the Trino history file in ``~/.trino_history``.
-Use the ``TRINO_HISTORY_FILE`` environment variable to change the default.
+Use the ``--history-file`` option or the ```TRINO_HISTORY_FILE`` environment variable
+to change the default.
 
 Auto suggestion
 ^^^^^^^^^^^^^^^
@@ -469,6 +501,7 @@ set them to either ``true`` or ``false``. For example:
 
 .. code-block:: properties
 
+    output-format-interactive=AUTO
     timezone=Europe/Warsaw
     user=trino-client
     network-logging=BASIC
@@ -501,49 +534,10 @@ mode:
       exit immediately.
   * - ``--output-format=<format>``
     - Specify the :ref:`format <cli-output-format>` to use
-      for printing query results.
+      for printing query results. Defaults to ``CSV``.
   * - ``--progress``
     - Show query progress in batch mode. It does not affect the output,
       which, for example can be safely redirected to a file.
-
-.. _cli-output-format:
-
-Output formats
-^^^^^^^^^^^^^^
-
-The Trino CLI provides the option ``--output-format`` to control how the output
-is displayed when running in non-interactive mode. The available options
-shown in the following table must be entered in uppercase. The default value
-is ``CSV``.
-
-.. list-table:: Output format options
-  :widths: 25, 75
-  :header-rows: 1
-
-  * - Option
-    - Description
-  * - ``CSV``
-    - Comma-separated values, each value quoted. No header row.
-  * - ``CSV_HEADER``
-    - Comma-separated values, quoted with header row.
-  * - ``CSV_UNQUOTED``
-    - Comma-separated values without quotes.
-  * - ``CSV_HEADER_UNQUOTED``
-    - Comma-separated values with header row but no quotes.
-  * - ``TSV``
-    - Tab-separated values.
-  * - ``TSV_HEADER``
-    - Tab-separated values with header row.
-  * - ``JSON``
-    - Output rows emitted as JSON objects with name-value pairs.
-  * - ``ALIGNED``
-    - Output emitted as an ASCII character table with values.
-  * - ``VERTICAL``
-    - Output emitted as record-oriented top-down lines, one per value.
-  * - ``NULL``
-    - Suppresses normal query results. This can be useful during development
-      to test a query's shell return code or to see whether it results in
-      error messages.
 
 Examples
 ^^^^^^^^
@@ -608,6 +602,49 @@ and displays an error message (which is unaffected by the output format):
 
     Query 20200707_170726_00030_2iup9 failed: line 1:25: Column 'region' cannot be resolved
     SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
+
+.. _cli-output-format:
+
+Output formats
+--------------
+
+The Trino CLI provides the options ``--output-format``
+and ``--output-format-interactive`` to control how the output is displayed.
+The available options shown in the following table must be entered
+in uppercase. The default value is ``ALIGNED`` in interactive mode,
+and ``CSV`` in non-interactive mode.
+
+.. list-table:: Output format options
+  :widths: 25, 75
+  :header-rows: 1
+
+  * - Option
+    - Description
+  * - ``CSV``
+    - Comma-separated values, each value quoted. No header row.
+  * - ``CSV_HEADER``
+    - Comma-separated values, quoted with header row.
+  * - ``CSV_UNQUOTED``
+    - Comma-separated values without quotes.
+  * - ``CSV_HEADER_UNQUOTED``
+    - Comma-separated values with header row but no quotes.
+  * - ``TSV``
+    - Tab-separated values.
+  * - ``TSV_HEADER``
+    - Tab-separated values with header row.
+  * - ``JSON``
+    - Output rows emitted as JSON objects with name-value pairs.
+  * - ``ALIGNED``
+    - Output emitted as an ASCII character table with values.
+  * - ``VERTICAL``
+    - Output emitted as record-oriented top-down lines, one per value.
+  * - ``AUTO``
+    - Same as ``ALIGNED`` if output would fit the current terminal width,
+      and ``VERTICAL`` otherwise.
+  * - ``NULL``
+    - Suppresses normal query results. This can be useful during development
+      to test a query's shell return code or to see whether it results in
+      error messages.
 
 .. _cli-troubleshooting:
 

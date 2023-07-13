@@ -19,7 +19,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
-import org.bson.Document;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -34,10 +33,10 @@ public class MongoTableHandle
     private final SchemaTableName schemaTableName;
     private final RemoteTableName remoteTableName;
     private final TupleDomain<ColumnHandle> constraint;
-    private final Optional<Document> filter;
+    private final Optional<String> filter;
     private final OptionalInt limit;
 
-    public MongoTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<Document> filter)
+    public MongoTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<String> filter)
     {
         this(schemaTableName, remoteTableName, filter, TupleDomain.all(), OptionalInt.empty());
     }
@@ -46,7 +45,7 @@ public class MongoTableHandle
     public MongoTableHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
-            @JsonProperty("filter") Optional<Document> filter,
+            @JsonProperty("filter") Optional<String> filter,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("limit") OptionalInt limit)
     {
@@ -70,7 +69,7 @@ public class MongoTableHandle
     }
 
     @JsonProperty
-    public Optional<Document> getFilter()
+    public Optional<String> getFilter()
     {
         return filter;
     }

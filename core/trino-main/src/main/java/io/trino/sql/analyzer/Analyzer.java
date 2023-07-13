@@ -15,7 +15,11 @@ package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.Session;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.sql.rewrite.StatementRewrite;
@@ -36,6 +40,7 @@ import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
 import static io.trino.sql.analyzer.QueryType.OTHERS;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer
@@ -46,6 +51,8 @@ public class Analyzer
     private final List<Expression> parameters;
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
+    private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
+    private final Tracer tracer;
     private final StatementRewrite statementRewrite;
 
     Analyzer(
@@ -55,6 +62,8 @@ public class Analyzer
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            Tracer tracer,
             StatementRewrite statementRewrite)
     {
         this.session = requireNonNull(session, "session is null");
@@ -63,28 +72,41 @@ public class Analyzer
         this.parameters = parameters;
         this.parameterLookup = parameterLookup;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.statementRewrite = requireNonNull(statementRewrite, "statementRewrite is null");
     }
 
     public Analysis analyze(Statement statement)
     {
-        return analyze(statement, OTHERS);
+        Span span = tracer.spanBuilder("analyzer")
+                .setParent(Context.current().with(session.getQuerySpan()))
+                .startSpan();
+        try (var ignored = scopedSpan(span)) {
+            return analyze(statement, OTHERS);
+        }
     }
 
     public Analysis analyze(Statement statement, QueryType queryType)
     {
-        Statement rewrittenStatement = statementRewrite.rewrite(analyzerFactory, session, statement, parameters, parameterLookup, warningCollector);
+        Statement rewrittenStatement = statementRewrite.rewrite(analyzerFactory, session, statement, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, queryType);
         StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
-        analyzer.analyze(rewrittenStatement, Optional.empty());
 
-        // check column access permissions for each table
-        analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
-                tableColumnReferences.forEach((tableName, columns) ->
-                        accessControlInfo.getAccessControl().checkCanSelectFromColumns(
-                                accessControlInfo.getSecurityContext(session.getRequiredTransactionId(), session.getQueryId()),
-                                tableName,
-                                columns)));
+        try (var ignored = scopedSpan(tracer, "analyze")) {
+            analyzer.analyze(rewrittenStatement, Optional.empty());
+        }
+
+        try (var ignored = scopedSpan(tracer, "access-control")) {
+            // check column access permissions for each table
+            analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
+                    tableColumnReferences.forEach((tableName, columns) ->
+                            accessControlInfo.getAccessControl().checkCanSelectFromColumns(
+                                    accessControlInfo.getSecurityContext(session.getRequiredTransactionId(), session.getQueryId()),
+                                    tableName,
+                                    columns)));
+        }
+
         return analysis;
     }
 

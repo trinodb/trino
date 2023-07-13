@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.trino.connector.CatalogServiceProvider;
@@ -50,8 +51,6 @@ import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -289,6 +288,24 @@ public class AccessControlManager
         requireNonNull(queryOwner, "queryOwner is null");
 
         systemAuthorizationCheck(control -> control.checkCanKillQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwner));
+    }
+
+    @Override
+    public void checkCanCreateCatalog(SecurityContext securityContext, String catalog)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(catalog, "catalog is null");
+
+        systemAuthorizationCheck(control -> control.checkCanCreateCatalog(securityContext.toSystemSecurityContext(), catalog));
+    }
+
+    @Override
+    public void checkCanDropCatalog(SecurityContext securityContext, String catalog)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(catalog, "catalog is null");
+
+        systemAuthorizationCheck(control -> control.checkCanDropCatalog(securityContext.toSystemSecurityContext(), catalog));
     }
 
     @Override

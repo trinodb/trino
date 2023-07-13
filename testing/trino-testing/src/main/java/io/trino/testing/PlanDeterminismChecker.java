@@ -20,6 +20,7 @@ import io.trino.sql.planner.planprinter.PlanPrinter;
 
 import java.util.function.Function;
 
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static org.testng.Assert.assertEquals;
 
@@ -58,7 +59,7 @@ public class PlanDeterminismChecker
     private String getPlanText(Session session, String sql)
     {
         return localQueryRunner.inTransaction(session, transactionSession -> {
-            Plan plan = localQueryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP);
+            Plan plan = localQueryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
             return PlanPrinter.textLogicalPlan(
                     plan.getRoot(),
                     plan.getTypes(),

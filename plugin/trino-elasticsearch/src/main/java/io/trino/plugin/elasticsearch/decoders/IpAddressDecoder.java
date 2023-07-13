@@ -53,8 +53,7 @@ public class IpAddressDecoder
         if (value == null) {
             output.appendNull();
         }
-        else if (value instanceof String) {
-            String address = (String) value;
+        else if (value instanceof String address) {
             Slice slice = castToIpAddress(Slices.utf8Slice(address));
             ipAddressType.writeSlice(output, slice);
         }

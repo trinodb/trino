@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -25,8 +26,6 @@ import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.resourcegroups.ResourceGroup;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -80,8 +79,7 @@ public class FileResourceGroupConfigurationManager
         }
         catch (IllegalArgumentException e) {
             Throwable cause = e.getCause();
-            if (cause instanceof UnrecognizedPropertyException) {
-                UnrecognizedPropertyException ex = (UnrecognizedPropertyException) cause;
+            if (cause instanceof UnrecognizedPropertyException ex) {
                 String message = format("Unknown property at line %s:%s: %s",
                         ex.getLocation().getLineNr(),
                         ex.getLocation().getColumnNr(),

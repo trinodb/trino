@@ -8,15 +8,18 @@ remote exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["partkey_19"])
                                 partial aggregation over (partkey_19)
                                     join (INNER, REPLICATED):
-                                        scan partsupp
+                                        dynamic filter (["partkey_19", "suppkey_20"])
+                                            scan partsupp
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 join (INNER, REPLICATED):
-                                                    scan supplier
+                                                    dynamic filter (["nationkey_29"])
+                                                        scan supplier
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             join (INNER, REPLICATED):
-                                                                scan nation
+                                                                dynamic filter (["regionkey_37"])
+                                                                    scan nation
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan region
@@ -26,18 +29,21 @@ remote exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["suppkey_5"])
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, ["partkey_4"])
-                                            scan partsupp
+                                            dynamic filter (["partkey_4", "suppkey_5"])
+                                                scan partsupp
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["partkey"])
                                                 scan part
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["suppkey"])
                                         join (INNER, REPLICATED):
-                                            scan supplier
+                                            dynamic filter (["nationkey"])
+                                                scan supplier
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     join (INNER, REPLICATED):
-                                                        scan nation
+                                                        dynamic filter (["regionkey"])
+                                                            scan nation
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan region

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -33,6 +34,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -41,8 +43,8 @@ import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
-import io.trino.spi.ptf.Argument;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.Argument;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -265,7 +267,7 @@ public class Analysis
     {
         return target.map(target -> {
             QualifiedObjectName name = target.getName();
-            return new Output(name.getCatalogName(), name.getSchemaName(), name.getObjectName(), target.getColumns());
+            return new Output(name.getCatalogName(), target.getCatalogVersion(), name.getSchemaName(), name.getObjectName(), target.getColumns());
         });
     }
 
@@ -276,9 +278,9 @@ public class Analysis
         }
     }
 
-    public void setUpdateTarget(QualifiedObjectName targetName, Optional<Table> targetTable, Optional<List<OutputColumn>> targetColumns)
+    public void setUpdateTarget(CatalogVersion catalogVersion, QualifiedObjectName targetName, Optional<Table> targetTable, Optional<List<OutputColumn>> targetColumns)
     {
-        this.target = Optional.of(new UpdateTarget(targetName, targetTable, targetColumns));
+        this.target = Optional.of(new UpdateTarget(catalogVersion, targetName, targetTable, targetColumns));
     }
 
     public boolean isUpdateTarget(Table table)
@@ -1080,7 +1082,7 @@ public class Analysis
 
     public List<Expression> getRowFilters(Table node)
     {
-        return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+        return unmodifiableList(rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of()));
     }
 
     public List<Expression> getCheckConstraints(Table node)
@@ -1113,7 +1115,7 @@ public class Analysis
 
     public Map<String, Expression> getColumnMasks(Table table)
     {
-        return columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of());
+        return unmodifiableMap(columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
     }
 
     public List<TableInfo> getReferencedTables()
@@ -1152,8 +1154,8 @@ public class Analysis
 
     public List<RoutineInfo> getRoutines()
     {
-        return resolvedFunctions.entrySet().stream()
-                .map(entry -> new RoutineInfo(entry.getValue().function.getSignature().getName(), entry.getValue().getAuthorization()))
+        return resolvedFunctions.values().stream()
+                .map(value -> new RoutineInfo(value.function.getSignature().getName(), value.getAuthorization()))
                 .collect(toImmutableList());
     }
 
@@ -1473,15 +1475,15 @@ public class Analysis
     {
         private final List<Expression> originalExpressions;
 
-        private final List<Set<FieldId>> cubes;
-        private final List<List<FieldId>> rollups;
+        private final List<List<Set<FieldId>>> cubes;
+        private final List<List<Set<FieldId>>> rollups;
         private final List<List<Set<FieldId>>> ordinarySets;
         private final List<Expression> complexExpressions;
 
         public GroupingSetAnalysis(
                 List<Expression> originalExpressions,
-                List<Set<FieldId>> cubes,
-                List<List<FieldId>> rollups,
+                List<List<Set<FieldId>>> cubes,
+                List<List<Set<FieldId>>> rollups,
                 List<List<Set<FieldId>>> ordinarySets,
                 List<Expression> complexExpressions)
         {
@@ -1497,12 +1499,12 @@ public class Analysis
             return originalExpressions;
         }
 
-        public List<Set<FieldId>> getCubes()
+        public List<List<Set<FieldId>>> getCubes()
         {
             return cubes;
         }
 
-        public List<List<FieldId>> getRollups()
+        public List<List<Set<FieldId>>> getRollups()
         {
             return rollups;
         }
@@ -1520,8 +1522,12 @@ public class Analysis
         public Set<FieldId> getAllFields()
         {
             return Streams.concat(
-                    cubes.stream().flatMap(Collection::stream),
-                    rollups.stream().flatMap(Collection::stream),
+                    cubes.stream()
+                            .flatMap(Collection::stream)
+                            .flatMap(Collection::stream),
+                    rollups.stream()
+                            .flatMap(Collection::stream)
+                            .flatMap(Collection::stream),
                     ordinarySets.stream()
                             .flatMap(Collection::stream)
                             .flatMap(Collection::stream))
@@ -2034,15 +2040,22 @@ public class Analysis
 
     private static class UpdateTarget
     {
+        private final CatalogVersion catalogVersion;
         private final QualifiedObjectName name;
         private final Optional<Table> table;
         private final Optional<List<OutputColumn>> columns;
 
-        public UpdateTarget(QualifiedObjectName name, Optional<Table> table, Optional<List<OutputColumn>> columns)
+        public UpdateTarget(CatalogVersion catalogVersion, QualifiedObjectName name, Optional<Table> table, Optional<List<OutputColumn>> columns)
         {
+            this.catalogVersion = requireNonNull(catalogVersion, "catalogVersion is null");
             this.name = requireNonNull(name, "name is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = columns.map(ImmutableList::copyOf);
+        }
+
+        private CatalogVersion getCatalogVersion()
+        {
+            return catalogVersion;
         }
 
         public QualifiedObjectName getName()
@@ -2172,48 +2185,56 @@ public class Analysis
 
             private Builder() {}
 
+            @CanIgnoreReturnValue
             public Builder withArgumentName(String argumentName)
             {
                 this.argumentName = argumentName;
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withName(QualifiedName name)
             {
                 this.name = Optional.of(name);
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withRelation(Relation relation)
             {
                 this.relation = relation;
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withPartitionBy(List<Expression> partitionBy)
             {
                 this.partitionBy = Optional.of(partitionBy);
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withOrderBy(OrderBy orderBy)
             {
                 this.orderBy = Optional.of(orderBy);
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withPruneWhenEmpty(boolean pruneWhenEmpty)
             {
                 this.pruneWhenEmpty = pruneWhenEmpty;
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withRowSemantics(boolean rowSemantics)
             {
                 this.rowSemantics = rowSemantics;
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withPassThroughColumns(boolean passThroughColumns)
             {
                 this.passThroughColumns = passThroughColumns;

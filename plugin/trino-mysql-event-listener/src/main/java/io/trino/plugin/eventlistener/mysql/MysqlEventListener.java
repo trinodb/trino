@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.eventlistener.mysql;
 
+import com.google.common.base.Joiner;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
 import io.trino.spi.TrinoWarning;
@@ -30,8 +32,7 @@ import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import java.time.Duration;
 import java.util.List;
@@ -47,6 +48,10 @@ import static java.util.Objects.requireNonNull;
 public class MysqlEventListener
         implements EventListener
 {
+    private static final Logger log = Logger.get(MysqlEventListener.class);
+
+    private static final long MAX_OPERATOR_SUMMARIES_JSON_LENGTH = 16 * 1024 * 1024;
+
     private final QueryDao dao;
     private final JsonCodec<Set<String>> clientTagsJsonCodec;
     private final JsonCodec<Map<String, String>> sessionPropertiesJsonCodec;
@@ -131,11 +136,13 @@ public class MysqlEventListener
                 stats.getResourceWaitingTime().map(Duration::toMillis).orElse(0L),
                 stats.getAnalysisTime().map(Duration::toMillis).orElse(0L),
                 stats.getPlanningTime().map(Duration::toMillis).orElse(0L),
+                stats.getPlanningCpuTime().map(Duration::toMillis).orElse(0L),
                 stats.getExecutionTime().map(Duration::toMillis).orElse(0L),
                 stats.getInputBlockedTime().map(Duration::toMillis).orElse(0L),
                 stats.getFailedInputBlockedTime().map(Duration::toMillis).orElse(0L),
                 stats.getOutputBlockedTime().map(Duration::toMillis).orElse(0L),
                 stats.getFailedOutputBlockedTime().map(Duration::toMillis).orElse(0L),
+                stats.getPhysicalInputReadTime().map(Duration::toMillis).orElse(0L),
                 stats.getPeakUserMemoryBytes(),
                 stats.getPeakTaskTotalMemory(),
                 stats.getPhysicalInputBytes(),
@@ -151,8 +158,23 @@ public class MysqlEventListener
                 stats.getCumulativeMemory(),
                 stats.getFailedCumulativeMemory(),
                 stats.getCompletedSplits(),
-                context.getRetryPolicy());
+                context.getRetryPolicy(),
+                createOperatorSummariesJson(metadata.getQueryId(), stats.getOperatorSummaries()));
         dao.store(entity);
+    }
+
+    private Optional<String> createOperatorSummariesJson(String queryId, List<String> summaries)
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append("[");
+        Joiner.on(",").appendTo(builder, summaries);
+        builder.append("]");
+        String result = builder.toString();
+        if (result.length() > MAX_OPERATOR_SUMMARIES_JSON_LENGTH) {
+            log.info("Exceeded maximum operator summaries length for query %s: %s", queryId, result);
+            return Optional.empty();
+        }
+        return Optional.of(result);
     }
 
     @Override

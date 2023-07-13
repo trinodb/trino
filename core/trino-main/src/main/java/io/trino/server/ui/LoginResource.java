@@ -14,19 +14,18 @@
 package io.trino.server.ui;
 
 import com.google.common.io.Resources;
+import com.google.inject.Inject;
 import io.trino.server.security.ResourceSecurity;
-
-import javax.inject.Inject;
-import javax.ws.rs.FormParam;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.NewCookie;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.SecurityContext;
-import javax.ws.rs.core.UriInfo;
+import jakarta.ws.rs.FormParam;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.NewCookie;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
+import jakarta.ws.rs.core.UriInfo;
 
 import java.io.IOException;
 import java.net.URI;
@@ -42,9 +41,9 @@ import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.getDeleteCookie;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.redirectFromSuccessfulLoginResponse;
+import static jakarta.ws.rs.core.MediaType.TEXT_HTML;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.MediaType.TEXT_HTML;
 
 @Path("")
 public class LoginResource

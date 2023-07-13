@@ -120,6 +120,26 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot access catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCreateCatalog(String catalogName)
+    {
+        denyCreateCatalog(catalogName, null);
+    }
+
+    public static void denyCreateCatalog(String catalogName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDropCatalog(String catalogName)
+    {
+        denyDropCatalog(catalogName, null);
+    }
+
+    public static void denyDropCatalog(String catalogName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyCreateSchema(String schemaName)
     {
         denyCreateSchema(schemaName, null);
@@ -433,6 +453,16 @@ public class AccessDeniedException
     public static void denySetViewAuthorization(String viewName, TrinoPrincipal principal, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot set authorization for view %s to %s%s", viewName, principal, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denySetViewComment(String viewName)
+    {
+        denySetViewComment(viewName, null);
+    }
+
+    public static void denySetViewComment(String viewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set comment for view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyDropView(String viewName)

@@ -21,12 +21,12 @@ import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.Stream;
 import io.trino.orc.metadata.Stream.StreamKind;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static java.lang.Math.toIntExact;
 
@@ -36,7 +36,7 @@ import static java.lang.Math.toIntExact;
 public class ByteArrayOutputStream
         implements ValueOutputStream<ByteArrayStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ByteArrayOutputStream.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ByteArrayOutputStream.class);
     private final OrcOutputBuffer buffer;
     private final List<ByteArrayStreamCheckpoint> checkpoints = new ArrayList<>();
     private final StreamKind streamKind;

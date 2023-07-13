@@ -19,13 +19,13 @@ import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequiremen
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ContextDsl.executeWith;
 import static io.trino.tempto.sql.SqlContexts.createViewAs;
 import static io.trino.tests.product.TestGroups.CREATE_DROP_VIEW;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Requires(ImmutableNationTable.class)
 public class TestCreateDropView

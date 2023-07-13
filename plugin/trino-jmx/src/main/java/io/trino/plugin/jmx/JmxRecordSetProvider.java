@@ -15,6 +15,7 @@ package io.trino.plugin.jmx;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ColumnHandle;
@@ -27,7 +28,6 @@ import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
 
-import javax.inject.Inject;
 import javax.management.Attribute;
 import javax.management.JMException;
 import javax.management.MBeanServer;

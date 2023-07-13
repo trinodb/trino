@@ -87,11 +87,13 @@ public class TestNodeLocalDynamicSplitPruning
         HiveConfig config = new HiveConfig();
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         try (TempFile tempFile = new TempFile()) {
-            ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForBucketSplitPruning()));
-            assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
+            try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForBucketSplitPruning()))) {
+                assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
+            }
 
-            ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getNonSelectiveBucketTupleDomain()));
-            assertEquals(nonEmptyPageSource.getClass(), HivePageSource.class);
+            try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getNonSelectiveBucketTupleDomain()))) {
+                assertEquals(nonEmptyPageSource.getClass(), HivePageSource.class);
+            }
         }
     }
 
@@ -102,11 +104,13 @@ public class TestNodeLocalDynamicSplitPruning
         HiveConfig config = new HiveConfig();
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         try (TempFile tempFile = new TempFile()) {
-            ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForPartitionSplitPruning()));
-            assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
+            try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForPartitionSplitPruning()))) {
+                assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
+            }
 
-            ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getNonSelectivePartitionTupleDomain()));
-            assertEquals(nonEmptyPageSource.getClass(), HivePageSource.class);
+            try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getNonSelectivePartitionTupleDomain()))) {
+                assertEquals(nonEmptyPageSource.getClass(), HivePageSource.class);
+            }
         }
     }
 
@@ -116,8 +120,6 @@ public class TestNodeLocalDynamicSplitPruning
         splitProperties.setProperty(FILE_INPUT_FORMAT, hiveConfig.getHiveStorageFormat().getInputFormat());
         splitProperties.setProperty(SERIALIZATION_LIB, hiveConfig.getHiveStorageFormat().getSerde());
         HiveSplit split = new HiveSplit(
-                SCHEMA_NAME,
-                TABLE_NAME,
                 "",
                 "file:///" + outputFile.getAbsolutePath(),
                 0,
@@ -129,14 +131,12 @@ public class TestNodeLocalDynamicSplitPruning
                 ImmutableList.of(),
                 OptionalInt.of(1),
                 OptionalInt.of(1),
-                0,
                 false,
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty(),
-                0,
                 SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
@@ -207,7 +207,13 @@ public class TestNodeLocalDynamicSplitPruning
     private static TestingConnectorSession getSession(HiveConfig config)
     {
         return TestingConnectorSession.builder()
-                .setPropertyMetadata(new HiveSessionProperties(config, new OrcReaderConfig(), new OrcWriterConfig(), new ParquetReaderConfig(), new ParquetWriterConfig()).getSessionProperties())
+                .setPropertyMetadata(new HiveSessionProperties(
+                        config,
+                        new HiveFormatsConfig(),
+                        new OrcReaderConfig(),
+                        new OrcWriterConfig(),
+                        new ParquetReaderConfig(),
+                        new ParquetWriterConfig()).getSessionProperties())
                 .build();
     }
 

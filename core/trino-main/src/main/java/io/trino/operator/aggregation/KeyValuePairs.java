@@ -19,21 +19,20 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.type.TypeUtils.expectedValueSize;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class KeyValuePairs
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(KeyValuePairs.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(KeyValuePairs.class);
     private static final int EXPECTED_ENTRIES = 10;
     private static final int EXPECTED_ENTRY_SIZE = 16;
     private static final float FILL_RATIO = 0.75f;

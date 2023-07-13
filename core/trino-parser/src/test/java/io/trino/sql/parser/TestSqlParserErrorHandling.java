@@ -50,7 +50,7 @@ public class TestSqlParserErrorHandling
                 Arguments.of("select * from foo where @what",
                         "line 1:25: mismatched input '@'. Expecting: <expression>"),
                 Arguments.of("select * from 'oops",
-                        "line 1:15: mismatched input '''. Expecting: '(', 'LATERAL', 'TABLE', 'UNNEST', <identifier>"),
+                        "line 1:15: mismatched input '''. Expecting: '(', 'JSON_TABLE', 'LATERAL', 'TABLE', 'UNNEST', <identifier>"),
                 Arguments.of("select *\nfrom x\nfrom",
                         "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FETCH', 'FOR', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', " +
                                 "'LIMIT', 'MATCH_RECOGNIZE', 'NATURAL', 'OFFSET', 'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', 'WINDOW', <EOF>, <identifier>"),
@@ -59,9 +59,9 @@ public class TestSqlParserErrorHandling
                 Arguments.of("select ",
                         "line 1:8: mismatched input '<EOF>'. Expecting: '*', 'ALL', 'DISTINCT', <expression>"),
                 Arguments.of("select * from",
-                        "line 1:14: mismatched input '<EOF>'. Expecting: '(', 'LATERAL', 'TABLE', 'UNNEST', <identifier>"),
+                        "line 1:14: mismatched input '<EOF>'. Expecting: '(', 'JSON_TABLE', 'LATERAL', 'TABLE', 'UNNEST', <identifier>"),
                 Arguments.of("select * from  ",
-                        "line 1:16: mismatched input '<EOF>'. Expecting: '(', 'LATERAL', 'TABLE', 'UNNEST', <identifier>"),
+                        "line 1:16: mismatched input '<EOF>'. Expecting: '(', 'JSON_TABLE', 'LATERAL', 'TABLE', 'UNNEST', <identifier>"),
                 Arguments.of("select * from `foo`",
                         "line 1:15: backquoted identifiers are not supported; use double quotes to quote identifiers"),
                 Arguments.of("select * from foo `bar`",
@@ -87,7 +87,7 @@ public class TestSqlParserErrorHandling
                 Arguments.of("select foo(DISTINCT ,1)",
                         "line 1:21: mismatched input ','. Expecting: <expression>"),
                 Arguments.of("CREATE )",
-                        "line 1:8: mismatched input ')'. Expecting: 'MATERIALIZED', 'OR', 'ROLE', 'SCHEMA', 'TABLE', 'VIEW'"),
+                        "line 1:8: mismatched input ')'. Expecting: 'CATALOG', 'MATERIALIZED', 'OR', 'ROLE', 'SCHEMA', 'TABLE', 'VIEW'"),
                 Arguments.of("CREATE TABLE ) AS (VALUES 1)",
                         "line 1:14: mismatched input ')'. Expecting: 'IF', <identifier>"),
                 Arguments.of("CREATE TABLE foo ",
@@ -99,9 +99,9 @@ public class TestSqlParserErrorHandling
                 Arguments.of("SELECT grouping(a+2) FROM (VALUES (1)) AS t (a) GROUP BY a+2",
                         "line 1:18: mismatched input '+'. Expecting: ')', ',', '.'"),
                 Arguments.of("SELECT x() over (ROWS select) FROM t",
-                        "line 1:23: mismatched input 'select'. Expecting: 'BETWEEN', 'CURRENT', 'UNBOUNDED', <expression>"),
+                        "line 1:23: mismatched input 'select'. Expecting: ')', 'BETWEEN', 'CURRENT', 'GROUPS', 'MEASURES', 'ORDER', 'PARTITION', 'RANGE', 'ROWS', 'UNBOUNDED', <expression>"),
                 Arguments.of("SELECT X() OVER (ROWS UNBOUNDED) FROM T",
-                        "line 1:32: mismatched input ')'. Expecting: 'FOLLOWING', 'PRECEDING'"),
+                        "line 1:32: mismatched input ')'. Expecting: '%', '(', '*', '+', '-', '->', '.', '/', 'AND', 'AT', 'FOLLOWING', 'OR', 'OVER', 'PRECEDING', '[', '||', <predicate>, <string>"),
                 Arguments.of("SELECT a FROM x ORDER BY (SELECT b FROM t WHERE ",
                         "line 1:49: mismatched input '<EOF>'. Expecting: <expression>"),
                 Arguments.of("SELECT a FROM a AS x TABLESAMPLE x ",
@@ -115,7 +115,7 @@ public class TestSqlParserErrorHandling
                 Arguments.of("CREATE TABLE t (x bigint) COMMENT ",
                         "line 1:35: mismatched input '<EOF>'. Expecting: <string>"),
                 Arguments.of("SELECT * FROM ( ",
-                        "line 1:17: mismatched input '<EOF>'. Expecting: '(', 'LATERAL', 'TABLE', 'UNNEST', <identifier>, <query>"),
+                        "line 1:17: mismatched input '<EOF>'. Expecting: '(', 'JSON_TABLE', 'LATERAL', 'TABLE', 'UNNEST', <identifier>, <query>"),
                 Arguments.of("SELECT CAST(a AS )",
                         "line 1:18: mismatched input ')'. Expecting: <type>"),
                 Arguments.of("SELECT CAST(a AS decimal()",
@@ -136,8 +136,8 @@ public class TestSqlParserErrorHandling
                 Arguments.of("SELECT a FROM \"\".s.t",
                         "line 1:15: Zero-length delimited identifier not allowed"),
                 Arguments.of("WITH t AS (SELECT 1 SELECT t.* FROM t",
-                        "line 1:21: mismatched input 'SELECT'. Expecting: '%', '(', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AS', 'AT', 'EXCEPT', 'FETCH', 'FROM', " +
-                                "'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'SELECT', 'TABLE', 'UNION', 'VALUES', 'WHERE', 'WINDOW', '[', '||', <EOF>, " +
+                        "line 1:21: mismatched input 'SELECT'. Expecting: '%', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AS', 'AT', 'EXCEPT', 'FETCH', 'FROM', " +
+                                "'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'OR', 'ORDER', 'UNION', 'WHERE', 'WINDOW', '[', '||', " +
                                 "<identifier>, <predicate>"),
                 Arguments.of("SHOW CATALOGS LIKE '%$_%' ESCAPE",
                         "line 1:33: mismatched input '<EOF>'. Expecting: <string>"),
@@ -160,7 +160,13 @@ public class TestSqlParserErrorHandling
                 Arguments.of("SELECT * FROM t FOR TIMESTAMP AS OF TIMESTAMP WHERE",
                         "line 1:52: mismatched input '<EOF>'. Expecting: <expression>"),
                 Arguments.of("SELECT * FROM t FOR VERSION AS OF TIMESTAMP WHERE",
-                        "line 1:50: mismatched input '<EOF>'. Expecting: <expression>"));
+                        "line 1:50: mismatched input '<EOF>'. Expecting: <expression>"),
+                Arguments.of("SELECT ROW(DATE '2022-10-10', DOUBLE 12.0)",
+                        "line 1:38: mismatched input '12.0'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', 'AND', 'AT', 'OR', 'ORDER', 'OVER', 'PRECISION', '[', '||', <predicate>, <string>"),
+                Arguments.of("VALUES(DATE 2)",
+                        "line 1:13: mismatched input '2'. Expecting: '%', '(', ')', '*', '+', ',', '-', '->', '.', '/', 'AND', 'AT', 'OR', 'OVER', '[', '||', <predicate>, <string>"),
+                Arguments.of("SELECT count(DISTINCT *) FROM (VALUES 1)",
+                        "line 1:23: mismatched input '*'. Expecting: <expression>"));
     }
 
     @Test
@@ -178,7 +184,7 @@ public class TestSqlParserErrorHandling
                         "1 * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * " +
                         "1 * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * " +
                         "1 * 2 * 3 * 4 * 5 * 6 * 7 * 8 * 9",
-                "line 1:375: mismatched input '<EOF>'. Expecting: '%', '*', '+', '-', '/', 'AT', 'THEN', '||'");
+                "line 1:375: mismatched input '<EOF>'. Expecting: '%', '*', '+', '-', '.', '/', 'AND', 'AT', 'OR', 'THEN', '[', '||', <predicate>");
     }
 
     @Test
@@ -208,7 +214,7 @@ public class TestSqlParserErrorHandling
                         "OR (f()\n" +
                         "OR (f()\n" +
                         "GROUP BY id",
-                "line 24:1: mismatched input 'GROUP'. Expecting: ')', ',', '.', 'FILTER', 'IGNORE', 'OVER', 'RESPECT', '['");
+                "line 24:1: mismatched input 'GROUP'. Expecting: '%', ')', '*', '+', ',', '-', '.', '/', 'AND', 'AT', 'FILTER', 'IGNORE', 'OR', 'OVER', 'RESPECT', '[', '||', <predicate>");
     }
 
     @ParameterizedTest

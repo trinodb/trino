@@ -33,7 +33,6 @@ import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.index.strtree.AbstractNode;
 import org.locationtech.jts.index.strtree.ItemBoundable;
 import org.locationtech.jts.index.strtree.STRtree;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Map;
@@ -41,21 +40,21 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.operator.PagesSpatialIndex.EMPTY_INDEX;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 
 public class PagesSpatialIndexSupplier
         implements Supplier<PagesSpatialIndex>
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PagesSpatialIndexSupplier.class).instanceSize());
-    private static final int ENVELOPE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Envelope.class).instanceSize());
-    private static final int STRTREE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(STRtree.class).instanceSize());
-    private static final int ABSTRACT_NODE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AbstractNode.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(PagesSpatialIndexSupplier.class);
+    private static final int ENVELOPE_INSTANCE_SIZE = instanceSize(Envelope.class);
+    private static final int STRTREE_INSTANCE_SIZE = instanceSize(STRtree.class);
+    private static final int ABSTRACT_NODE_INSTANCE_SIZE = instanceSize(AbstractNode.class);
 
     private final Session session;
     private final LongArrayList addresses;
@@ -133,7 +132,7 @@ public class PagesSpatialIndexSupplier
             int partition = -1;
             if (partitionChannel.isPresent()) {
                 Block partitionBlock = channels.get(partitionChannel.get()).get(blockIndex);
-                partition = toIntExact(INTEGER.getLong(partitionBlock, blockPosition));
+                partition = INTEGER.getInt(partitionBlock, blockPosition);
             }
 
             rtree.insert(getEnvelope(ogcGeometry, radius), new GeometryWithPosition(ogcGeometry, partition, position));

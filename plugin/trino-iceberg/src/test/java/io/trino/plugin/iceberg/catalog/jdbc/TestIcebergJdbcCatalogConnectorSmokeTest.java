@@ -14,17 +14,43 @@
 package io.trino.plugin.iceberg.catalog.jdbc;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
+import io.trino.hadoop.ConfigurationInstantiator;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.jdbc.JdbcCatalog;
+import org.testng.annotations.AfterClass;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
+import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
+import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
+import static java.lang.String.format;
+import static org.apache.iceberg.CatalogProperties.CATALOG_IMPL;
+import static org.apache.iceberg.CatalogProperties.URI;
+import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
+import static org.apache.iceberg.CatalogUtil.buildIcebergCatalog;
+import static org.apache.iceberg.jdbc.JdbcCatalog.PROPERTY_PREFIX;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergJdbcCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
+    private JdbcCatalog jdbcCatalog;
+    private File warehouseLocation;
+
     public TestIcebergJdbcCatalogConnectorSmokeTest()
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
@@ -46,17 +72,40 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        warehouseLocation = Files.createTempDirectory("test_iceberg_jdbc_catalog_smoke_test").toFile();
+        closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
         TestingIcebergJdbcServer server = closeAfterClass(new TestingIcebergJdbcServer());
+        jdbcCatalog = (JdbcCatalog) buildIcebergCatalog("tpch", ImmutableMap.<String, String>builder()
+                        .put(CATALOG_IMPL, JdbcCatalog.class.getName())
+                        .put(URI, server.getJdbcUrl())
+                        .put(PROPERTY_PREFIX + "user", USER)
+                        .put(PROPERTY_PREFIX + "password", PASSWORD)
+                        .put(WAREHOUSE_LOCATION, warehouseLocation.getAbsolutePath())
+                        .buildOrThrow(),
+                ConfigurationInstantiator.newEmptyConfiguration());
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "jdbc")
+                                .put("iceberg.jdbc-catalog.driver-class", "org.postgresql.Driver")
                                 .put("iceberg.jdbc-catalog.connection-url", server.getJdbcUrl())
+                                .put("iceberg.jdbc-catalog.connection-user", USER)
+                                .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
                                 .put("iceberg.jdbc-catalog.catalog-name", "tpch")
+                                .put("iceberg.register-table-procedure.enabled", "true")
+                                .put("iceberg.writer-sort-buffer-size", "1MB")
+                                .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroy()
+    {
+        jdbcCatalog.close();
+        jdbcCatalog = null;
     }
 
     @Override
@@ -83,62 +132,47 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
     @Override
     protected void dropTableFromMetastore(String tableName)
     {
-        // used when registering a table, which is not supported by the JDBC catalog
+        jdbcCatalog.dropTable(toIdentifier(tableName), false);
     }
 
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        // used when registering a table, which is not supported by the JDBC catalog
-        throw new UnsupportedOperationException("metadata location for register_table is not supported");
+        BaseTable table = (BaseTable) jdbcCatalog.loadTable(toIdentifier(tableName));
+        return table.operations().current().metadataFileLocation();
     }
 
     @Override
-    public void testRegisterTableWithTableLocation()
+    protected String schemaPath()
     {
-        assertThatThrownBy(super::testRegisterTableWithTableLocation)
-                .hasMessageContaining("register_table procedure is disabled");
+        return format("%s/%s", warehouseLocation, getSession().getSchema().orElseThrow());
     }
 
     @Override
-    public void testRegisterTableWithComments()
+    protected boolean locationExists(String location)
     {
-        assertThatThrownBy(super::testRegisterTableWithComments)
-                .hasMessageContaining("register_table procedure is disabled");
+        return Files.exists(Path.of(location));
+    }
+
+    private TableIdentifier toIdentifier(String tableName)
+    {
+        return TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
     }
 
     @Override
-    public void testRegisterTableWithShowCreateTable()
+    protected void deleteDirectory(String location)
     {
-        assertThatThrownBy(super::testRegisterTableWithShowCreateTable)
-                .hasMessageContaining("register_table procedure is disabled");
+        try {
+            deleteRecursively(Path.of(location), ALLOW_INSECURE);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override
-    public void testRegisterTableWithReInsert()
+    protected boolean isFileSorted(Location path, String sortColumnName)
     {
-        assertThatThrownBy(super::testRegisterTableWithReInsert)
-                .hasMessageContaining("register_table procedure is disabled");
-    }
-
-    @Override
-    public void testRegisterTableWithDroppedTable()
-    {
-        assertThatThrownBy(super::testRegisterTableWithDroppedTable)
-                .hasMessageContaining("register_table procedure is disabled");
-    }
-
-    @Override
-    public void testRegisterTableWithDifferentTableName()
-    {
-        assertThatThrownBy(super::testRegisterTableWithDifferentTableName)
-                .hasMessageContaining("register_table procedure is disabled");
-    }
-
-    @Override
-    public void testRegisterTableWithMetadataFile()
-    {
-        assertThatThrownBy(super::testRegisterTableWithMetadataFile)
-                .hasMessageContaining("metadata location for register_table is not supported");
+        return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
 }

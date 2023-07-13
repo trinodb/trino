@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -27,40 +28,40 @@ import io.trino.Session;
 import io.trino.execution.FailureInjector;
 import io.trino.execution.FailureInjector.InjectedFailure;
 import io.trino.execution.SqlTaskManager;
+import io.trino.execution.SqlTaskManager.SqlTaskWithResults;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
-import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.security.ResourceSecurity;
+import io.trino.spi.connector.CatalogHandle;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.container.AsyncResponse;
+import jakarta.ws.rs.container.CompletionCallback;
+import jakarta.ws.rs.container.Suspended;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.GenericEntity;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.UriInfo;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import javax.inject.Inject;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.container.AsyncResponse;
-import javax.ws.rs.container.CompletionCallback;
-import javax.ws.rs.container.Suspended;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.GenericEntity;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.core.UriInfo;
-
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -70,6 +71,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
+import static io.trino.execution.buffer.BufferResult.emptyResults;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
@@ -148,12 +150,15 @@ public class TaskResource
             return;
         }
 
-        TaskInfo taskInfo = taskManager.updateTask(session,
+        TaskInfo taskInfo = taskManager.updateTask(
+                session,
                 taskId,
+                taskUpdateRequest.getStageSpan(),
                 taskUpdateRequest.getFragment(),
                 taskUpdateRequest.getSplitAssignments(),
                 taskUpdateRequest.getOutputIds(),
-                taskUpdateRequest.getDynamicFilterDomains());
+                taskUpdateRequest.getDynamicFilterDomains(),
+                taskUpdateRequest.isSpeculative());
 
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
@@ -189,11 +194,14 @@ public class TaskResource
         }
 
         Duration waitTime = randomizeWaitTime(maxWait);
-        ListenableFuture<TaskInfo> futureTaskInfo = addTimeout(
-                taskManager.getTaskInfo(taskId, currentVersion),
-                () -> taskManager.getTaskInfo(taskId),
-                waitTime,
-                timeoutExecutor);
+        ListenableFuture<TaskInfo> futureTaskInfo = taskManager.getTaskInfo(taskId, currentVersion);
+        if (!futureTaskInfo.isDone()) {
+            futureTaskInfo = addTimeout(
+                    futureTaskInfo,
+                    () -> taskManager.getTaskInfo(taskId),
+                    waitTime,
+                    timeoutExecutor);
+        }
 
         if (shouldSummarize(uriInfo)) {
             futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize, directExecutor());
@@ -232,11 +240,14 @@ public class TaskResource
         // TODO: With current implementation, a newly completed driver group won't trigger immediate HTTP response,
         // leading to a slight delay of approx 1 second, which is not a major issue for any query that are heavy weight enough
         // to justify group-by-group execution. In order to fix this, REST endpoint /v1/{task}/status will need change.
-        ListenableFuture<TaskStatus> futureTaskStatus = addTimeout(
-                taskManager.getTaskStatus(taskId, currentVersion),
-                () -> taskManager.getTaskStatus(taskId),
-                waitTime,
-                timeoutExecutor);
+        ListenableFuture<TaskStatus> futureTaskStatus = taskManager.getTaskStatus(taskId, currentVersion);
+        if (!futureTaskStatus.isDone()) {
+            futureTaskStatus = addTimeout(
+                    futureTaskStatus,
+                    () -> taskManager.getTaskStatus(taskId),
+                    waitTime,
+                    timeoutExecutor);
+        }
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
@@ -322,52 +333,26 @@ public class TaskResource
             return;
         }
 
-        TaskState state = taskManager.getTaskStatus(taskId).getState();
-        boolean taskFailed = state == TaskState.ABORTED || state == TaskState.FAILED;
-
         long start = System.nanoTime();
-        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
+        SqlTaskWithResults taskWithResults = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
+        ListenableFuture<BufferResult> bufferResultFuture = taskWithResults.getResultsFuture();
+        BufferResult emptyBufferResults = emptyResults(taskWithResults.getTaskInstanceId(), token, false);
+
         Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
-        bufferResultFuture = addTimeout(
-                bufferResultFuture,
-                () -> BufferResult.emptyResults(taskManager.getTaskInstanceId(taskId), token, false),
-                waitTime,
-                timeoutExecutor);
+        if (!bufferResultFuture.isDone()) {
+            bufferResultFuture = addTimeout(
+                    bufferResultFuture,
+                    () -> emptyBufferResults,
+                    waitTime,
+                    timeoutExecutor);
+        }
 
-        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, result -> {
-            List<Slice> serializedPages = result.getSerializedPages();
-
-            GenericEntity<?> entity = null;
-            Status status;
-            if (serializedPages.isEmpty()) {
-                status = Status.NO_CONTENT;
-            }
-            else {
-                entity = new GenericEntity<>(serializedPages, new TypeToken<List<Slice>>() {}.getType());
-                status = Status.OK;
-            }
-
-            return Response.status(status)
-                    .entity(entity)
-                    .header(TRINO_TASK_INSTANCE_ID, result.getTaskInstanceId())
-                    .header(TRINO_PAGE_TOKEN, result.getToken())
-                    .header(TRINO_PAGE_NEXT_TOKEN, result.getNextToken())
-                    .header(TRINO_BUFFER_COMPLETE, result.isBufferComplete())
-                    .header(TRINO_TASK_FAILED, taskFailed)
-                    .build();
-        }, directExecutor());
+        ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, results -> createBufferResultResponse(taskWithResults, results), directExecutor());
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, responseFuture, responseExecutor)
-                .withTimeout(timeout,
-                        Response.status(Status.NO_CONTENT)
-                                .header(TRINO_TASK_INSTANCE_ID, taskManager.getTaskInstanceId(taskId))
-                                .header(TRINO_PAGE_TOKEN, token)
-                                .header(TRINO_PAGE_NEXT_TOKEN, token)
-                                .header(TRINO_BUFFER_COMPLETE, false)
-                                .header(TRINO_TASK_FAILED, taskFailed)
-                                .build());
+                .withTimeout(timeout, () -> createBufferResultResponse(taskWithResults, emptyBufferResults));
 
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
         asyncResponse.register((CompletionCallback) throwable -> resultsRequestTime.add(Duration.nanosSince(start)));
@@ -405,6 +390,15 @@ public class TaskResource
 
         taskManager.destroyTaskResults(taskId, bufferId);
         asyncResponse.resume(Response.noContent().build());
+    }
+
+    @ResourceSecurity(INTERNAL_ONLY)
+    @POST
+    @Path("pruneCatalogs")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public void pruneCatalogs(Set<CatalogHandle> catalogHandles)
+    {
+        taskManager.pruneCatalogs(catalogHandles);
     }
 
     private boolean injectFailure(
@@ -515,5 +509,33 @@ public class TaskResource
         // Randomize in [T/2, T], so wait is not near zero and the client-supplied max wait time is respected
         long halfWaitMillis = waitTime.toMillis() / 2;
         return new Duration(halfWaitMillis + ThreadLocalRandom.current().nextLong(halfWaitMillis), MILLISECONDS);
+    }
+
+    private static Response createBufferResultResponse(SqlTaskWithResults taskWithResults, BufferResult result)
+    {
+        // This response may have been created as the result of a timeout, so refresh the task heartbeat
+        taskWithResults.recordHeartbeat();
+
+        List<Slice> serializedPages = result.getSerializedPages();
+
+        GenericEntity<?> entity = null;
+        Status status;
+        if (serializedPages.isEmpty()) {
+            status = Status.NO_CONTENT;
+        }
+        else {
+            entity = new GenericEntity<>(serializedPages, new TypeToken<List<Slice>>() {}.getType());
+            status = Status.OK;
+        }
+
+        return Response.status(status)
+                .entity(entity)
+                .header(TRINO_TASK_INSTANCE_ID, result.getTaskInstanceId())
+                .header(TRINO_PAGE_TOKEN, result.getToken())
+                .header(TRINO_PAGE_NEXT_TOKEN, result.getNextToken())
+                .header(TRINO_BUFFER_COMPLETE, result.isBufferComplete())
+                // check for task failure after getting the result to ensure it's consistent with isBufferComplete()
+                .header(TRINO_TASK_FAILED, taskWithResults.isTaskFailedOrFailing())
+                .build();
     }
 }

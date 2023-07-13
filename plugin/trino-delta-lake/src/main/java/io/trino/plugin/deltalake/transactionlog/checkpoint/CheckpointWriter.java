@@ -15,8 +15,10 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableList;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.TrinoOutputFile;
+import io.trino.parquet.writer.ParquetSchemaConverter;
+import io.trino.parquet.writer.ParquetWriter;
+import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -26,11 +28,9 @@ import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
-import io.trino.plugin.hive.RecordFileWriter;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.MapType;
@@ -38,24 +38,21 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
+import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.hdfs.ConfigurationUtils.toJobConf;
-import static io.trino.plugin.deltalake.DeltaLakeSchemaProperties.buildHiveSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonValueToTrinoValue;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toJsonValues;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.toNullCounts;
@@ -63,10 +60,6 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ex
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY;
-import static io.trino.plugin.hive.HiveCompressionCodec.SNAPPY;
-import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.multiplyExact;
@@ -87,24 +80,27 @@ public class CheckpointWriter
 
     private final TypeManager typeManager;
     private final CheckpointSchemaManager checkpointSchemaManager;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final String trinoVersion;
 
-    public CheckpointWriter(TypeManager typeManager, CheckpointSchemaManager checkpointSchemaManager, HdfsEnvironment hdfsEnvironment)
+    public CheckpointWriter(TypeManager typeManager, CheckpointSchemaManager checkpointSchemaManager, String trinoVersion)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
     }
 
-    public void write(ConnectorSession session, CheckpointEntries entries, Path targetPath)
+    public void write(CheckpointEntries entries, TrinoOutputFile outputFile)
+            throws IOException
     {
         Map<String, String> configuration = entries.getMetadataEntry().getConfiguration();
         boolean writeStatsAsJson = Boolean.parseBoolean(configuration.getOrDefault(DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY, "true"));
         // The default value is false in https://github.com/delta-io/delta/blob/master/PROTOCOL.md#checkpoint-format, but Databricks defaults to true
         boolean writeStatsAsStruct = Boolean.parseBoolean(configuration.getOrDefault(DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY, "true"));
 
+        ProtocolEntry protocolEntry = entries.getProtocolEntry();
+
         RowType metadataEntryType = checkpointSchemaManager.getMetadataEntryType();
-        RowType protocolEntryType = checkpointSchemaManager.getProtocolEntryType();
+        RowType protocolEntryType = checkpointSchemaManager.getProtocolEntryType(protocolEntry.getReaderFeatures().isPresent(), protocolEntry.getWriterFeatures().isPresent());
         RowType txnEntryType = checkpointSchemaManager.getTxnEntryType();
         RowType addEntryType = checkpointSchemaManager.getAddEntryType(entries.getMetadataEntry(), writeStatsAsJson, writeStatsAsStruct);
         RowType removeEntryType = checkpointSchemaManager.getRemoveEntryType();
@@ -122,22 +118,18 @@ public class CheckpointWriter
                 addEntryType,
                 removeEntryType);
 
-        Properties schema = buildHiveSchema(columnNames, columnTypes);
+        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(columnTypes, columnNames, false, false);
 
-        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), targetPath);
-        configureCompression(conf, SNAPPY);
-        JobConf jobConf = toJobConf(conf);
-
-        RecordFileWriter writer = new RecordFileWriter(
-                targetPath,
-                columnNames,
-                fromHiveStorageFormat(PARQUET),
-                schema,
-                PARQUET.getEstimatedWriterMemoryUsage(),
-                jobConf,
-                typeManager,
-                DateTimeZone.UTC,
-                session);
+        ParquetWriter writer = new ParquetWriter(
+                outputFile.create(),
+                schemaConverter.getMessageType(),
+                schemaConverter.getPrimitiveTypes(),
+                ParquetWriterOptions.builder().build(),
+                CompressionCodec.SNAPPY,
+                trinoVersion,
+                false,
+                Optional.of(DateTimeZone.UTC),
+                Optional.empty());
 
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
 
@@ -154,8 +146,8 @@ public class CheckpointWriter
         }
         // Not writing commit infos for now. DB does not keep them in the checkpoints by default
 
-        writer.appendRows(pageBuilder.build());
-        writer.commit();
+        writer.write(pageBuilder.build());
+        writer.close();
     }
 
     private void writeMetadataEntry(PageBuilder pageBuilder, RowType entryType, MetadataEntry metadataEntry)
@@ -188,8 +180,15 @@ public class CheckpointWriter
         pageBuilder.declarePosition();
         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(PROTOCOL_BLOCK_CHANNEL);
         BlockBuilder entryBlockBuilder = blockBuilder.beginBlockEntry();
-        writeLong(entryBlockBuilder, entryType, 0, "minReaderVersion", (long) protocolEntry.getMinReaderVersion());
-        writeLong(entryBlockBuilder, entryType, 1, "minWriterVersion", (long) protocolEntry.getMinWriterVersion());
+        int fieldId = 0;
+        writeLong(entryBlockBuilder, entryType, fieldId++, "minReaderVersion", (long) protocolEntry.getMinReaderVersion());
+        writeLong(entryBlockBuilder, entryType, fieldId++, "minWriterVersion", (long) protocolEntry.getMinWriterVersion());
+        if (protocolEntry.getReaderFeatures().isPresent()) {
+            writeStringList(entryBlockBuilder, entryType, fieldId++, "readerFeatures", protocolEntry.getReaderFeatures().get().stream().collect(toImmutableList()));
+        }
+        if (protocolEntry.getWriterFeatures().isPresent()) {
+            writeStringList(entryBlockBuilder, entryType, fieldId++, "writerFeatures", protocolEntry.getWriterFeatures().get().stream().collect(toImmutableList()));
+        }
         blockBuilder.closeEntry();
 
         // null for others
@@ -258,7 +257,7 @@ public class CheckpointWriter
     private Map<String, Type> getColumnTypeMapping(MetadataEntry deltaMetadata)
     {
         return extractSchema(deltaMetadata, typeManager).stream()
-                .collect(toImmutableMap(DeltaLakeColumnMetadata::getName, DeltaLakeColumnMetadata::getType));
+                .collect(toImmutableMap(DeltaLakeColumnMetadata::getPhysicalName, DeltaLakeColumnMetadata::getPhysicalColumnType));
     }
 
     private Optional<String> getStatsString(DeltaLakeJsonFileStatistics parsedStats)
@@ -317,11 +316,11 @@ public class CheckpointWriter
     {
         RowType.Field valuesField = validateAndGetField(type, fieldId, fieldName);
         RowType valuesFieldType = (RowType) valuesField.getType();
-        BlockBuilder fieldBlockBuilder = blockBuilder.beginBlockEntry();
         if (values.isEmpty()) {
             blockBuilder.appendNull();
         }
         else {
+            BlockBuilder fieldBlockBuilder = blockBuilder.beginBlockEntry();
             for (RowType.Field valueField : valuesFieldType.getFields()) {
                 // anonymous row fields are not expected here
                 Object value = values.get().get(valueField.getName().orElseThrow());
@@ -344,8 +343,8 @@ public class CheckpointWriter
                     writeNativeValue(valueField.getType(), fieldBlockBuilder, value);
                 }
             }
+            blockBuilder.closeEntry();
         }
-        blockBuilder.closeEntry();
     }
 
     private Optional<Map<String, Object>> preprocessMinMaxValues(RowType valuesType, Optional<Map<String, Object>> valuesOptional, boolean isJson)
@@ -380,16 +379,16 @@ public class CheckpointWriter
     {
         return valuesOptional.map(
                 values ->
-                    values.entrySet().stream()
-                            .collect(toMap(
-                                    Map.Entry::getKey,
-                                    entry -> {
-                                        Object value = entry.getValue();
-                                        if (value instanceof Integer) {
-                                            return (long) (int) value;
-                                        }
-                                        return value;
-                                    })));
+                        values.entrySet().stream()
+                                .collect(toMap(
+                                        Map.Entry::getKey,
+                                        entry -> {
+                                            Object value = entry.getValue();
+                                            if (value instanceof Integer) {
+                                                return (long) (int) value;
+                                            }
+                                            return value;
+                                        })));
     }
 
     private void writeRemoveFileEntry(PageBuilder pageBuilder, RowType entryType, RemoveFileEntry removeFileEntry)
@@ -458,7 +457,7 @@ public class CheckpointWriter
                 mapBuilder.appendNull();
             }
             else {
-                mapType.getKeyType().writeSlice(mapBuilder, utf8Slice(entry.getValue()));
+                mapType.getValueType().writeSlice(mapBuilder, utf8Slice(entry.getValue()));
             }
         }
         blockBuilder.closeEntry();

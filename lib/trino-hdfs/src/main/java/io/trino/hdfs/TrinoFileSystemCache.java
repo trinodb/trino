@@ -41,7 +41,6 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.util.EnumSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -118,21 +117,18 @@ public class TrinoFileSystemCache
         try {
             fileSystemHolder = cache.compute(key, (k, currentFileSystemHolder) -> {
                 if (currentFileSystemHolder == null) {
+                    // ConcurrentHashMap.compute guarantees that remapping function is invoked at most once, so cacheSize remains eventually consistent with cache.size()
                     if (cacheSize.getAndUpdate(currentSize -> Math.min(currentSize + 1, maxSize)) >= maxSize) {
                         throw new RuntimeException(
                                 new IOException(format("FileSystem max cache size has been reached: %s", maxSize)));
                     }
                     return new FileSystemHolder(conf, privateCredentials);
                 }
-                else {
-                    // Update file system instance when credentials change.
-                    if (currentFileSystemHolder.credentialsChanged(uri, conf, privateCredentials)) {
-                        return new FileSystemHolder(conf, privateCredentials);
-                    }
-                    else {
-                        return currentFileSystemHolder;
-                    }
+                // Update file system instance when credentials change.
+                if (currentFileSystemHolder.credentialsChanged(uri, conf, privateCredentials)) {
+                    return new FileSystemHolder(conf, privateCredentials);
                 }
+                return currentFileSystemHolder;
             });
 
             // Now create the filesystem object outside of cache's lock
@@ -235,17 +231,15 @@ public class TrinoFileSystemCache
         String proxyUser;
         AuthenticationMethod authenticationMethod = userGroupInformation.getAuthenticationMethod();
         switch (authenticationMethod) {
-            case SIMPLE:
-            case KERBEROS:
+            case SIMPLE, KERBEROS -> {
                 realUser = userGroupInformation.getUserName();
                 proxyUser = null;
-                break;
-            case PROXY:
+            }
+            case PROXY -> {
                 realUser = userGroupInformation.getRealUser().getUserName();
                 proxyUser = userGroupInformation.getUserName();
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported authentication method: " + authenticationMethod);
+            }
+            default -> throw new IllegalArgumentException("Unsupported authentication method: " + authenticationMethod);
         }
         return new FileSystemKey(scheme, authority, unique, realUser, proxyUser);
     }
@@ -253,16 +247,12 @@ public class TrinoFileSystemCache
     private static Set<?> getPrivateCredentials(UserGroupInformation userGroupInformation)
     {
         AuthenticationMethod authenticationMethod = userGroupInformation.getAuthenticationMethod();
-        switch (authenticationMethod) {
-            case SIMPLE:
-                return ImmutableSet.of();
-            case KERBEROS:
-                return ImmutableSet.copyOf(getSubject(userGroupInformation).getPrivateCredentials());
-            case PROXY:
-                return getPrivateCredentials(userGroupInformation.getRealUser());
-            default:
-                throw new IllegalArgumentException("Unsupported authentication method: " + authenticationMethod);
-        }
+        return switch (authenticationMethod) {
+            case SIMPLE -> ImmutableSet.of();
+            case KERBEROS -> ImmutableSet.copyOf(getSubject(userGroupInformation).getPrivateCredentials());
+            case PROXY -> getPrivateCredentials(userGroupInformation.getRealUser());
+            default -> throw new IllegalArgumentException("Unsupported authentication method: " + authenticationMethod);
+        };
     }
 
     private static boolean isHdfs(URI uri)
@@ -271,56 +261,14 @@ public class TrinoFileSystemCache
         return "hdfs".equals(scheme) || "viewfs".equals(scheme);
     }
 
-    private static class FileSystemKey
+    @SuppressWarnings("unused")
+    private record FileSystemKey(String scheme, String authority, long unique, String realUser, String proxyUser)
     {
-        private final String scheme;
-        private final String authority;
-        private final long unique;
-        private final String realUser;
-        private final String proxyUser;
-
-        public FileSystemKey(String scheme, String authority, long unique, String realUser, String proxyUser)
+        private FileSystemKey
         {
-            this.scheme = requireNonNull(scheme, "scheme is null");
-            this.authority = requireNonNull(authority, "authority is null");
-            this.unique = unique;
-            this.realUser = requireNonNull(realUser, "realUser");
-            this.proxyUser = proxyUser;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            FileSystemKey that = (FileSystemKey) o;
-            return Objects.equals(scheme, that.scheme) &&
-                    Objects.equals(authority, that.authority) &&
-                    Objects.equals(unique, that.unique) &&
-                    Objects.equals(realUser, that.realUser) &&
-                    Objects.equals(proxyUser, that.proxyUser);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(scheme, authority, unique, realUser, proxyUser);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("scheme", scheme)
-                    .add("authority", authority)
-                    .add("unique", unique)
-                    .add("realUser", realUser)
-                    .add("proxyUser", proxyUser)
-                    .toString();
+            requireNonNull(scheme, "scheme is null");
+            requireNonNull(authority, "authority is null");
+            requireNonNull(realUser, "realUser");
         }
     }
 
@@ -342,7 +290,7 @@ public class TrinoFileSystemCache
             if (fileSystem == null) {
                 synchronized (this) {
                     if (fileSystem == null) {
-                        fileSystem = TrinoFileSystemCache.createFileSystem(uri, conf);
+                        fileSystem = createFileSystem(uri, conf);
                     }
                 }
             }
@@ -358,8 +306,8 @@ public class TrinoFileSystemCache
             // Kerberos re-login occurs, re-create the file system and cache it using
             // the same key.
             // - Extra credentials are used to authenticate with certain file systems.
-            return (isHdfs(newUri) && !this.privateCredentials.equals(newPrivateCredentials))
-                    || !this.cacheCredentials.equals(newConf.get(CACHE_KEY, ""));
+            return (isHdfs(newUri) && !privateCredentials.equals(newPrivateCredentials))
+                    || !cacheCredentials.equals(newConf.get(CACHE_KEY, ""));
         }
 
         public FileSystem getFileSystem()
@@ -440,7 +388,7 @@ public class TrinoFileSystemCache
         public RemoteIterator<LocatedFileStatus> listFiles(Path path, boolean recursive)
                 throws IOException
         {
-            return fs.listFiles(path, recursive);
+            return new RemoteIteratorWrapper(fs.listFiles(path, recursive), this);
         }
     }
 
@@ -448,12 +396,15 @@ public class TrinoFileSystemCache
             extends FSDataOutputStream
     {
         @SuppressWarnings({"FieldCanBeLocal", "unused"})
-        private final FileSystem fileSystem;
+        // Keep reference to FileSystemWrapper which owns the FSDataOutputStream.
+        // Otherwise, GC on FileSystemWrapper could trigger finalizer that closes wrapped FileSystem object and that would break
+        // FSDataOutputStream delegate.
+        private final FileSystemWrapper owningFileSystemWrapper;
 
-        public OutputStreamWrapper(FSDataOutputStream delegate, FileSystem fileSystem)
+        public OutputStreamWrapper(FSDataOutputStream delegate, FileSystemWrapper owningFileSystemWrapper)
         {
             super(delegate, null, delegate.getPos());
-            this.fileSystem = fileSystem;
+            this.owningFileSystemWrapper = requireNonNull(owningFileSystemWrapper, "owningFileSystemWrapper is null");
         }
 
         @Override
@@ -467,18 +418,52 @@ public class TrinoFileSystemCache
             extends FSDataInputStream
     {
         @SuppressWarnings({"FieldCanBeLocal", "unused"})
-        private final FileSystem fileSystem;
+        // Keep reference to FileSystemWrapper which owns the FSDataInputStream.
+        // Otherwise, GC on FileSystemWrapper could trigger finalizer that closes wrapped FileSystem object and that would break
+        // FSDataInputStream delegate.
+        private final FileSystemWrapper owningFileSystemWrapper;
 
-        public InputStreamWrapper(FSDataInputStream inputStream, FileSystem fileSystem)
+        public InputStreamWrapper(FSDataInputStream inputStream, FileSystemWrapper owningFileSystemWrapper)
         {
             super(inputStream);
-            this.fileSystem = fileSystem;
+            this.owningFileSystemWrapper = requireNonNull(owningFileSystemWrapper, "owningFileSystemWrapper is null");
         }
 
         @Override
         public InputStream getWrappedStream()
         {
             return ((FSDataInputStream) super.getWrappedStream()).getWrappedStream();
+        }
+    }
+
+    private static class RemoteIteratorWrapper
+            implements RemoteIterator<LocatedFileStatus>
+    {
+        private final RemoteIterator<LocatedFileStatus> delegate;
+        @SuppressWarnings({"FieldCanBeLocal", "unused"})
+        // Keep reference to FileSystemWrapper which owns the RemoteIterator.
+        // Otherwise, GC on FileSystemWrapper could trigger finalizer that closes wrapped FileSystem object and that would break
+        // RemoteIterator delegate.
+        private final FileSystemWrapper owningFileSystemWrapper;
+
+        public RemoteIteratorWrapper(RemoteIterator<LocatedFileStatus> delegate, FileSystemWrapper owningFileSystemWrapper)
+        {
+            this.delegate = delegate;
+            this.owningFileSystemWrapper = requireNonNull(owningFileSystemWrapper, "owningFileSystemWrapper is null");
+        }
+
+        @Override
+        public boolean hasNext()
+                throws IOException
+        {
+            return delegate.hasNext();
+        }
+
+        @Override
+        public LocatedFileStatus next()
+                throws IOException
+        {
+            return delegate.next();
         }
     }
 

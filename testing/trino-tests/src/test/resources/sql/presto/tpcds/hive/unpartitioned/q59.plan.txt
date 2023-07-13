@@ -10,10 +10,12 @@ local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["d_day_name", "d_week_seq", "ss_store_sk"])
                                         partial aggregation over (d_day_name, d_week_seq, ss_store_sk)
                                             join (INNER, REPLICATED):
-                                                scan store_sales
+                                                dynamic filter (["ss_sold_date_sk", "ss_store_sk"])
+                                                    scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                        scan date_dim
+                                                        dynamic filter (["d_week_seq"])
+                                                            scan date_dim
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["expr_210", "s_store_sk"])
                     join (INNER, PARTITIONED):
@@ -29,10 +31,12 @@ local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["d_day_name_89", "d_week_seq_79", "ss_store_sk_56"])
                                                                 partial aggregation over (d_day_name_89, d_week_seq_79, ss_store_sk_56)
                                                                     join (INNER, REPLICATED):
-                                                                        scan store_sales
+                                                                        dynamic filter (["ss_sold_date_sk_49", "ss_store_sk_56"])
+                                                                            scan store_sales
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                                scan date_dim
+                                                                                dynamic filter (["d_week_seq_79"])
+                                                                                    scan date_dim
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan date_dim
@@ -43,7 +47,8 @@ local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["s_store_sk_122"])
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, ["s_store_id"])
-                                        scan store
+                                        dynamic filter (["s_store_id"])
+                                            scan store
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["s_store_id_123"])
                                             scan store

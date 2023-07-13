@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.aws.athena.projection.Projection;
 import io.trino.plugin.hive.aws.athena.projection.ProjectionFactory;
@@ -28,8 +29,6 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -134,7 +133,7 @@ public final class PartitionProjectionService
                 metastoreTablePropertiesBuilder,
                 PARTITION_PROJECTION_LOCATION_TEMPLATE,
                 METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE,
-                value -> value.toString().toLowerCase(Locale.ENGLISH));
+                Object::toString);
 
         // Handle Column Properties
         tableMetadata.getColumns().stream()

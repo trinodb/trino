@@ -26,7 +26,6 @@ import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -36,6 +35,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
@@ -44,13 +44,12 @@ import static io.trino.orc.reader.ReaderUtils.unpackByteNulls;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class BooleanColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BooleanColumnReader.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(BooleanColumnReader.class);
 
     private final OrcColumn column;
 

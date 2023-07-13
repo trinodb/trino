@@ -108,8 +108,7 @@ public interface ImplementationDependency
                 return new LiteralImplementationDependency(((LiteralParameter) annotation).value());
             }
 
-            if (annotation instanceof FunctionDependency) {
-                FunctionDependency functionDependency = (FunctionDependency) annotation;
+            if (annotation instanceof FunctionDependency functionDependency) {
                 return new FunctionImplementationDependency(
                         QualifiedFunctionName.of(functionDependency.name()),
                         Arrays.stream(functionDependency.argumentTypes())
@@ -118,8 +117,7 @@ public interface ImplementationDependency
                         toInvocationConvention(functionDependency.convention()),
                         type);
             }
-            if (annotation instanceof OperatorDependency) {
-                OperatorDependency operatorDependency = (OperatorDependency) annotation;
+            if (annotation instanceof OperatorDependency operatorDependency) {
                 OperatorType operator = operatorDependency.operator();
                 checkArgument(operator != OperatorType.CAST && operator != OperatorType.SATURATED_FLOOR_CAST, "%s not supported for OperatorDependency", operator);
                 return new OperatorImplementationDependency(
@@ -130,8 +128,7 @@ public interface ImplementationDependency
                         toInvocationConvention(operatorDependency.convention()),
                         type);
             }
-            if (annotation instanceof CastDependency) {
-                CastDependency castDependency = (CastDependency) annotation;
+            if (annotation instanceof CastDependency castDependency) {
                 return new CastImplementationDependency(
                         parseTypeSignature(castDependency.fromType(), literalParameters),
                         parseTypeSignature(castDependency.toType(), literalParameters),

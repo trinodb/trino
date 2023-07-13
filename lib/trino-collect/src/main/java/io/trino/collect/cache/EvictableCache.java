@@ -41,6 +41,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
@@ -292,6 +293,13 @@ class EvictableCache<K, V>
             @Override
             public V putIfAbsent(K key, V value)
             {
+                throw new UnsupportedOperationException("The operation is not supported, as in inherently races with cache invalidation");
+            }
+
+            @Override
+            public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction)
+            {
+                // default implementation of ConcurrentMap#compute uses not supported putIfAbsent in some cases
                 throw new UnsupportedOperationException("The operation is not supported, as in inherently races with cache invalidation");
             }
 

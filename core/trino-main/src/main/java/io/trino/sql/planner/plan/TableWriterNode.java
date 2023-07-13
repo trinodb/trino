@@ -36,12 +36,12 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.tree.Table;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -57,7 +57,6 @@ public class TableWriterNode
     private final List<Symbol> columns;
     private final List<String> columnNames;
     private final Optional<PartitioningScheme> partitioningScheme;
-    private final Optional<PartitioningScheme> preferredPartitioningScheme;
     private final Optional<StatisticAggregations> statisticsAggregation;
     private final Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor;
     private final List<Symbol> outputs;
@@ -72,7 +71,6 @@ public class TableWriterNode
             @JsonProperty("columns") List<Symbol> columns,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme,
-            @JsonProperty("preferredPartitioningScheme") Optional<PartitioningScheme> preferredPartitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation,
             @JsonProperty("statisticsAggregationDescriptor") Optional<StatisticAggregationsDescriptor<Symbol>> statisticsAggregationDescriptor)
     {
@@ -89,11 +87,9 @@ public class TableWriterNode
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
-        this.preferredPartitioningScheme = requireNonNull(preferredPartitioningScheme, "preferredPartitioningScheme is null");
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
         this.statisticsAggregationDescriptor = requireNonNull(statisticsAggregationDescriptor, "statisticsAggregationDescriptor is null");
         checkArgument(statisticsAggregation.isPresent() == statisticsAggregationDescriptor.isPresent(), "statisticsAggregation and statisticsAggregationDescriptor must be either present or absent");
-        checkArgument(partitioningScheme.isEmpty() || preferredPartitioningScheme.isEmpty(), "Both partitioningScheme and preferredPartitioningScheme cannot be present");
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.<Symbol>builder()
                 .add(rowCountSymbol)
@@ -148,12 +144,6 @@ public class TableWriterNode
     }
 
     @JsonProperty
-    public Optional<PartitioningScheme> getPreferredPartitioningScheme()
-    {
-        return preferredPartitioningScheme;
-    }
-
-    @JsonProperty
     public Optional<StatisticAggregations> getStatisticsAggregation()
     {
         return statisticsAggregation;
@@ -186,7 +176,7 @@ public class TableWriterNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountSymbol, fragmentSymbol, columns, columnNames, partitioningScheme, preferredPartitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
+        return new TableWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, rowCountSymbol, fragmentSymbol, columns, columnNames, partitioningScheme, statisticsAggregation, statisticsAggregationDescriptor);
     }
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
@@ -207,6 +197,8 @@ public class TableWriterNode
         public abstract boolean supportsReportingWrittenBytes(Metadata metadata, Session session);
 
         public abstract boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session);
+
+        public abstract OptionalInt getMaxWriterTasks(Metadata metadata, Session session);
     }
 
     // only used during planning -- will not be serialized
@@ -245,6 +237,12 @@ public class TableWriterNode
             return layout.map(tableLayout -> tableLayout.getLayout().supportsMultipleWritersPerPartition()).orElse(true);
         }
 
+        @Override
+        public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
+        {
+            return metadata.getMaxWriterTasks(session, catalog);
+        }
+
         public Optional<TableLayout> getLayout()
         {
             return layout;
@@ -269,18 +267,21 @@ public class TableWriterNode
         private final SchemaTableName schemaTableName;
         private final boolean reportingWrittenBytesSupported;
         private final boolean multipleWritersPerPartitionSupported;
+        private final OptionalInt maxWriterTasks;
 
         @JsonCreator
         public CreateTarget(
                 @JsonProperty("handle") OutputTableHandle handle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
                 @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported,
-                @JsonProperty("multipleWritersPerPartitionSupported") boolean multipleWritersPerPartitionSupported)
+                @JsonProperty("multipleWritersPerPartitionSupported") boolean multipleWritersPerPartitionSupported,
+                @JsonProperty("maxWriterTasks") OptionalInt maxWriterTasks)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.reportingWrittenBytesSupported = reportingWrittenBytesSupported;
             this.multipleWritersPerPartitionSupported = multipleWritersPerPartitionSupported;
+            this.maxWriterTasks = requireNonNull(maxWriterTasks, "maxWriterTasks is null");
         }
 
         @JsonProperty
@@ -323,6 +324,12 @@ public class TableWriterNode
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return multipleWritersPerPartitionSupported;
+        }
+
+        @Override
+        public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
+        {
+            return maxWriterTasks;
         }
     }
 
@@ -368,6 +375,12 @@ public class TableWriterNode
                     .map(layout -> layout.getLayout().supportsMultipleWritersPerPartition())
                     .orElse(true);
         }
+
+        @Override
+        public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
+        {
+            return metadata.getMaxWriterTasks(session, handle.getCatalogHandle().getCatalogName());
+        }
     }
 
     public static class InsertTarget
@@ -377,18 +390,21 @@ public class TableWriterNode
         private final SchemaTableName schemaTableName;
         private final boolean reportingWrittenBytesSupported;
         private final boolean multipleWritersPerPartitionSupported;
+        private final OptionalInt maxWriterTasks;
 
         @JsonCreator
         public InsertTarget(
                 @JsonProperty("handle") InsertTableHandle handle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
                 @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported,
-                @JsonProperty("multipleWritersPerPartitionSupported") boolean multipleWritersPerPartitionSupported)
+                @JsonProperty("multipleWritersPerPartitionSupported") boolean multipleWritersPerPartitionSupported,
+                @JsonProperty("maxWriterTasks") OptionalInt maxWriterTasks)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.reportingWrittenBytesSupported = reportingWrittenBytesSupported;
             this.multipleWritersPerPartitionSupported = multipleWritersPerPartitionSupported;
+            this.maxWriterTasks = requireNonNull(maxWriterTasks, "maxWriterTasks is null");
         }
 
         @JsonProperty
@@ -432,25 +448,26 @@ public class TableWriterNode
         {
             return multipleWritersPerPartitionSupported;
         }
+
+        @Override
+        public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
+        {
+            return maxWriterTasks;
+        }
     }
 
     public static class RefreshMaterializedViewReference
             extends WriterTarget
     {
-        private final Table table;
+        private final String table;
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
 
-        public RefreshMaterializedViewReference(Table table, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
+        public RefreshMaterializedViewReference(String table, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
         {
             this.table = requireNonNull(table, "table is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "storageTableHandle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
-        }
-
-        public Table getTable()
-        {
-            return table;
         }
 
         public TableHandle getStorageTableHandle()
@@ -466,7 +483,7 @@ public class TableWriterNode
         @Override
         public String toString()
         {
-            return table.toString();
+            return table;
         }
 
         @Override
@@ -481,6 +498,12 @@ public class TableWriterNode
             return metadata.getInsertLayout(session, storageTableHandle)
                     .map(layout -> layout.getLayout().supportsMultipleWritersPerPartition())
                     .orElse(true);
+        }
+
+        @Override
+        public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
+        {
+            return metadata.getMaxWriterTasks(session, storageTableHandle.getCatalogHandle().getCatalogName());
         }
     }
 
@@ -548,6 +571,12 @@ public class TableWriterNode
                     .map(layout -> layout.getLayout().supportsMultipleWritersPerPartition())
                     .orElse(true);
         }
+
+        @Override
+        public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
+        {
+            return metadata.getMaxWriterTasks(session, tableHandle.getCatalogHandle().getCatalogName());
+        }
     }
 
     public static class DeleteTarget
@@ -597,6 +626,12 @@ public class TableWriterNode
 
         @Override
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
         {
             throw new UnsupportedOperationException();
         }
@@ -671,6 +706,12 @@ public class TableWriterNode
         {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 
     public static class TableExecuteTarget
@@ -742,6 +783,12 @@ public class TableWriterNode
                     .map(layout -> layout.getLayout().supportsMultipleWritersPerPartition())
                     .orElse(true);
         }
+
+        @Override
+        public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
+        {
+            return metadata.getMaxWriterTasks(session, executeHandle.getCatalogHandle().getCatalogName());
+        }
     }
 
     public static class MergeTarget
@@ -805,6 +852,12 @@ public class TableWriterNode
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return false;
+        }
+
+        @Override
+        public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
+        {
+            return OptionalInt.empty();
         }
     }
 

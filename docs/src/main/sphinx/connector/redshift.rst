@@ -142,6 +142,14 @@ statements, the connector supports the following features:
 
 .. include:: alter-schema-limitation.fragment
 
+.. _redshift-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -159,9 +167,10 @@ processed in Redshift. This can be useful for accessing native features which
 are not implemented in Trino or for improving query performance in situations
 where running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
-For example, select the top 10 nations by population::
+For example, query the ``example`` catalog and select the top 10 nations by
+population::
 
     SELECT
       *
@@ -177,3 +186,4 @@ For example, select the top 10 nations by population::
         )
       );
 
+.. include:: query-table-function-ordering.fragment

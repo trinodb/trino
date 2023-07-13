@@ -21,6 +21,8 @@ import java.util.TreeSet;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterators.transform;
+import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.HIGH_TO_LOW;
+import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -30,16 +32,36 @@ import static java.util.Objects.requireNonNull;
 public final class IndexedPriorityQueue<E>
         implements UpdateablePriorityQueue<E>
 {
+    public enum PriorityOrdering {
+        LOW_TO_HIGH,
+        HIGH_TO_LOW
+    }
+
     private final Map<E, Entry<E>> index = new HashMap<>();
-    private final Set<Entry<E>> queue = new TreeSet<>((entry1, entry2) -> {
-        int priorityComparison = Long.compare(entry2.getPriority(), entry1.getPriority());
-        if (priorityComparison != 0) {
-            return priorityComparison;
-        }
-        return Long.compare(entry1.getGeneration(), entry2.getGeneration());
-    });
+    private final Set<Entry<E>> queue;
 
     private long generation;
+
+    public IndexedPriorityQueue()
+    {
+        this(HIGH_TO_LOW);
+    }
+
+    public IndexedPriorityQueue(PriorityOrdering priorityOrdering)
+    {
+        queue = switch (priorityOrdering) {
+            case LOW_TO_HIGH -> new TreeSet<>(
+                    comparingLong((Entry<E> entry) -> entry.getPriority())
+                            .thenComparingLong(Entry::getGeneration));
+            case HIGH_TO_LOW -> new TreeSet<>((entry1, entry2) -> {
+                int priorityComparison = Long.compare(entry2.getPriority(), entry1.getPriority());
+                if (priorityComparison != 0) {
+                    return priorityComparison;
+                }
+                return Long.compare(entry1.getGeneration(), entry2.getGeneration());
+            });
+        };
+    }
 
     @Override
     public boolean addOrUpdate(E element, long priority)
@@ -82,6 +104,34 @@ public final class IndexedPriorityQueue<E>
     @Override
     public E poll()
     {
+        Entry<E> entry = pollEntry();
+        if (entry == null) {
+            return null;
+        }
+        return entry.getValue();
+    }
+
+    public Prioritized<E> getPrioritized(E element)
+    {
+        Entry<E> entry = index.get(element);
+        if (entry == null) {
+            return null;
+        }
+
+        return new Prioritized<>(entry.getValue(), entry.getPriority());
+    }
+
+    public Prioritized<E> pollPrioritized()
+    {
+        Entry<E> entry = pollEntry();
+        if (entry == null) {
+            return null;
+        }
+        return new Prioritized<>(entry.getValue(), entry.getPriority());
+    }
+
+    private Entry<E> pollEntry()
+    {
         Iterator<Entry<E>> iterator = queue.iterator();
         if (!iterator.hasNext()) {
             return null;
@@ -89,18 +139,35 @@ public final class IndexedPriorityQueue<E>
         Entry<E> entry = iterator.next();
         iterator.remove();
         checkState(index.remove(entry.getValue()) != null, "Failed to remove entry from index");
-        return entry.getValue();
+        return entry;
     }
 
     @Override
     public E peek()
     {
+        Entry<E> entry = peekEntry();
+        if (entry == null) {
+            return null;
+        }
+        return entry.getValue();
+    }
+
+    public Prioritized<E> peekPrioritized()
+    {
+        Entry<E> entry = peekEntry();
+        if (entry == null) {
+            return null;
+        }
+        return new Prioritized<>(entry.getValue(), entry.getPriority());
+    }
+
+    public Entry<E> peekEntry()
+    {
         Iterator<Entry<E>> iterator = queue.iterator();
         if (!iterator.hasNext()) {
             return null;
         }
-        Entry<E> entry = iterator.next();
-        return entry.getValue();
+        return iterator.next();
     }
 
     @Override
@@ -147,6 +214,28 @@ public final class IndexedPriorityQueue<E>
         public long getGeneration()
         {
             return generation;
+        }
+    }
+
+    public static class Prioritized<V>
+    {
+        private final V value;
+        private final long priority;
+
+        public Prioritized(V value, long priority)
+        {
+            this.value = requireNonNull(value, "value is null");
+            this.priority = priority;
+        }
+
+        public V getValue()
+        {
+            return value;
+        }
+
+        public long getPriority()
+        {
+            return priority;
         }
     }
 }

@@ -51,10 +51,11 @@ import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public class TestTableRedirection
         extends AbstractTestQueryFramework
@@ -356,8 +357,8 @@ public class TestTableRedirection
     @Test
     public void testDescribeTable()
     {
-        assertEquals(computeActual(format("DESCRIBE %s.%s", SCHEMA_ONE, VALID_REDIRECTION_SRC)),
-                computeActual(format("DESCRIBE %s.%s", SCHEMA_TWO, VALID_REDIRECTION_TARGET)));
+        assertThat(query(format("DESCRIBE %s.%s", SCHEMA_ONE, VALID_REDIRECTION_SRC)))
+                .matches(format("DESCRIBE %s.%s", SCHEMA_TWO, VALID_REDIRECTION_TARGET));
 
         assertThatThrownBy(() -> query((format("DESCRIBE %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC))))
                 .hasMessageContaining(

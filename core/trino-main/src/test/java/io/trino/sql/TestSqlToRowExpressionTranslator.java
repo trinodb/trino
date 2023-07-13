@@ -37,7 +37,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 public class TestSqlToRowExpressionTranslator
 {

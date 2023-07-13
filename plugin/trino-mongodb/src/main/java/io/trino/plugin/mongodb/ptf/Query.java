@@ -16,6 +16,8 @@ package io.trino.plugin.mongodb.ptf;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.airlift.slice.Slice;
 import io.trino.plugin.mongodb.MongoColumnHandle;
 import io.trino.plugin.mongodb.MongoMetadata;
@@ -25,24 +27,22 @@ import io.trino.plugin.mongodb.RemoteTableName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.ptf.AbstractConnectorTableFunction;
-import io.trino.spi.ptf.Argument;
-import io.trino.spi.ptf.ConnectorTableFunction;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
-import io.trino.spi.ptf.Descriptor;
-import io.trino.spi.ptf.ScalarArgument;
-import io.trino.spi.ptf.ScalarArgumentSpecification;
-import io.trino.spi.ptf.TableFunctionAnalysis;
+import io.trino.spi.function.table.AbstractConnectorTableFunction;
+import io.trino.spi.function.table.Argument;
+import io.trino.spi.function.table.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.Descriptor;
+import io.trino.spi.function.table.ScalarArgument;
+import io.trino.spi.function.table.ScalarArgumentSpecification;
+import io.trino.spi.function.table.TableFunctionAnalysis;
 import org.bson.Document;
 import org.bson.json.JsonParseException;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.util.List;
 import java.util.Map;
@@ -50,7 +50,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.ptf.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -108,7 +108,11 @@ public class Query
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             String database = ((Slice) ((ScalarArgument) arguments.get("DATABASE")).getValue()).toStringUtf8();
             String collection = ((Slice) ((ScalarArgument) arguments.get("COLLECTION")).getValue()).toStringUtf8();
@@ -120,8 +124,10 @@ public class Query
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Only lowercase collection name is supported");
             }
             RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(new SchemaTableName(database, collection));
+            // Don't store Document object to MongoTableHandle for avoiding serialization issue
+            parseFilter(filter);
 
-            MongoTableHandle tableHandle = new MongoTableHandle(new SchemaTableName(database, collection), remoteTableName, Optional.of(parseFilter(filter)));
+            MongoTableHandle tableHandle = new MongoTableHandle(new SchemaTableName(database, collection), remoteTableName, Optional.of(filter));
             ConnectorTableSchema tableSchema = metadata.getTableSchema(session, tableHandle);
             Map<String, ColumnHandle> columnsByName = metadata.getColumnHandles(session, tableHandle);
             List<ColumnHandle> columns = tableSchema.getColumns().stream()
@@ -144,13 +150,13 @@ public class Query
         }
     }
 
-    private static Document parseFilter(String filter)
+    public static Document parseFilter(String filter)
     {
         try {
             return Document.parse(filter);
         }
         catch (JsonParseException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Can't parse 'filter' argument as json");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Can't parse 'filter' argument as json", e);
         }
     }
 

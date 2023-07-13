@@ -31,7 +31,6 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Cube;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentPath;
 import io.trino.sql.tree.CurrentSchema;
@@ -84,7 +83,6 @@ import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
-import io.trino.sql.tree.Rollup;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SearchedCaseExpression;
@@ -169,9 +167,9 @@ public final class ExpressionFormatter
         @Override
         protected String visitRow(Row node, Void context)
         {
-            return "ROW (" + Joiner.on(", ").join(node.getItems().stream()
+            return node.getItems().stream()
                     .map(child -> process(child, context))
-                    .collect(toList())) + ")";
+                    .collect(joining(", ", "ROW (", ")"));
         }
 
         @Override
@@ -298,11 +296,9 @@ public final class ExpressionFormatter
         @Override
         protected String visitArray(Array node, Void context)
         {
-            ImmutableList.Builder<String> valueStrings = ImmutableList.builder();
-            for (Expression value : node.getValues()) {
-                valueStrings.add(formatSql(value));
-            }
-            return "ARRAY[" + Joiner.on(",").join(valueStrings.build()) + "]";
+            return node.getValues().stream()
+                    .map(SqlFormatter::formatSql)
+                    .collect(joining(",", "ARRAY[", "]"));
         }
 
         @Override
@@ -316,7 +312,7 @@ public final class ExpressionFormatter
         {
             return literalFormatter
                     .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> Long.toString(node.getValue()));
+                    .orElseGet(node::getValue);
         }
 
         @Override
@@ -993,9 +989,9 @@ public final class ExpressionFormatter
 
         private String joinExpressions(List<Expression> expressions)
         {
-            return Joiner.on(", ").join(expressions.stream()
-                    .map((e) -> process(e, null))
-                    .iterator());
+            return expressions.stream()
+                    .map(e -> process(e, null))
+                    .collect(joining(", "));
         }
 
         /**
@@ -1095,9 +1091,9 @@ public final class ExpressionFormatter
 
     public static String formatSortItems(List<SortItem> sortItems)
     {
-        return Joiner.on(", ").join(sortItems.stream()
+        return sortItems.stream()
                 .map(sortItemFormatterFunction())
-                .iterator());
+                .collect(joining(", "));
     }
 
     private static String formatWindow(Window window)
@@ -1220,9 +1216,7 @@ public final class ExpressionFormatter
 
     static String formatGroupBy(List<GroupingElement> groupingElements)
     {
-        ImmutableList.Builder<String> resultStrings = ImmutableList.builder();
-
-        for (GroupingElement groupingElement : groupingElements) {
+        return groupingElements.stream().map(groupingElement -> {
             String result = "";
             if (groupingElement instanceof SimpleGroupBy) {
                 List<Expression> columns = groupingElement.getExpressions();
@@ -1234,20 +1228,28 @@ public final class ExpressionFormatter
                 }
             }
             else if (groupingElement instanceof GroupingSets) {
-                result = format("GROUPING SETS (%s)", Joiner.on(", ").join(
-                        ((GroupingSets) groupingElement).getSets().stream()
-                                .map(ExpressionFormatter::formatGroupingSet)
-                                .iterator()));
+                String type;
+                switch (((GroupingSets) groupingElement).getType()) {
+                    case EXPLICIT:
+                        type = "GROUPING SETS";
+                        break;
+                    case CUBE:
+                        type = "CUBE";
+                        break;
+                    case ROLLUP:
+                        type = "ROLLUP";
+                        break;
+                    default:
+                        throw new UnsupportedOperationException();
+                }
+
+                result = ((GroupingSets) groupingElement).getSets().stream()
+                        .map(ExpressionFormatter::formatGroupingSet)
+                        .collect(joining(", ", type + " (", ")"));
             }
-            else if (groupingElement instanceof Cube) {
-                result = format("CUBE %s", formatGroupingSet(groupingElement.getExpressions()));
-            }
-            else if (groupingElement instanceof Rollup) {
-                result = format("ROLLUP %s", formatGroupingSet(groupingElement.getExpressions()));
-            }
-            resultStrings.add(result);
-        }
-        return Joiner.on(", ").join(resultStrings.build());
+            return result;
+        })
+        .collect(joining(", "));
     }
 
     private static boolean isAsciiPrintable(int codePoint)
@@ -1257,9 +1259,9 @@ public final class ExpressionFormatter
 
     private static String formatGroupingSet(List<Expression> groupingSet)
     {
-        return format("(%s)", Joiner.on(", ").join(groupingSet.stream()
+        return groupingSet.stream()
                 .map(ExpressionFormatter::formatExpression)
-                .iterator()));
+                .collect(joining(", ", "(", ")"));
     }
 
     private static Function<SortItem, String> sortItemFormatterFunction()
@@ -1305,6 +1307,10 @@ public final class ExpressionFormatter
         builder.append(formatJsonExpression(pathInvocation.getInputExpression(), Optional.of(pathInvocation.getInputFormat())))
                 .append(", ")
                 .append(formatExpression(pathInvocation.getJsonPath()));
+
+        pathInvocation.getPathName().ifPresent(pathName -> builder
+                .append(" AS ")
+                .append(formatExpression(pathName)));
 
         if (!pathInvocation.getPathParameters().isEmpty()) {
             builder.append(" PASSING ");

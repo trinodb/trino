@@ -15,14 +15,13 @@ package io.trino.cost;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.matching.Pattern;
 import io.trino.matching.pattern.TypeOfPattern;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.PlanNode;
-
-import javax.inject.Inject;
 
 import java.lang.reflect.Modifier;
 import java.util.Iterator;

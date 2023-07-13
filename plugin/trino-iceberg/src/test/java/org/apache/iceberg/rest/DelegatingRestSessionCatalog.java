@@ -36,7 +36,7 @@ public class DelegatingRestSessionCatalog
 
     DelegatingRestSessionCatalog(RESTCatalogAdapter adapter, Catalog delegate)
     {
-        super(properties -> adapter);
+        super(properties -> adapter, null);
         this.adapter = requireNonNull(adapter, "adapter is null");
         this.delegate = requireNonNull(delegate, "delegate catalog is null");
     }
@@ -65,7 +65,7 @@ public class DelegatingRestSessionCatalog
                 .setHttpAcceptQueueSize(10)
                 .setHttpEnabled(true);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
-        RESTCatalogServlet servlet = new RESTCatalogServlet(adapter);
+        RestCatalogServlet servlet = new RestCatalogServlet(adapter);
 
         return new TestingHttpServer(httpServerInfo, nodeInfo, config, servlet, ImmutableMap.of());
     }

@@ -21,9 +21,32 @@ import java.util.concurrent.CompletableFuture;
 
 public interface ConnectorMergeSink
 {
+    /**
+     * Represents an inserted row.
+     */
     int INSERT_OPERATION_NUMBER = 1;
+
+    /**
+     * Represents a deleted row.
+     */
     int DELETE_OPERATION_NUMBER = 2;
+
+    /**
+     * Represents an updated row when using {@link RowChangeParadigm#CHANGE_ONLY_UPDATED_COLUMNS}.
+     */
     int UPDATE_OPERATION_NUMBER = 3;
+
+    /**
+     * Represents a new version of an updated row, to be inserted, when using
+     * {@link RowChangeParadigm#DELETE_ROW_AND_INSERT_ROW}.
+     */
+    int UPDATE_INSERT_OPERATION_NUMBER = 4;
+
+    /**
+     * Represents an old version of an updated row, to be deleted, when using
+     * {@link RowChangeParadigm#DELETE_ROW_AND_INSERT_ROW}.
+     */
+    int UPDATE_DELETE_OPERATION_NUMBER = 5;
 
     /**
      * Store the page resulting from a merge. The page consists of {@code n} channels, numbered {@code 0..n-1}:
@@ -34,6 +57,8 @@ public interface ConnectorMergeSink
      *         <li>{@link #INSERT_OPERATION_NUMBER}</li>
      *         <li>{@link #DELETE_OPERATION_NUMBER}</li>
      *         <li>{@link #UPDATE_OPERATION_NUMBER}</li>
+     *         <li>{@link #UPDATE_INSERT_OPERATION_NUMBER}</li>
+     *         <li>{@link #UPDATE_DELETE_OPERATION_NUMBER}</li>
      *     </ul>
      *     <li>Block {@code n-1} is a connector-specific rowId column, whose handle was previously returned by
      *         {@link ConnectorMetadata#getMergeRowIdColumnHandle(ConnectorSession, ConnectorTableHandle) getMergeRowIdColumnHandle()}

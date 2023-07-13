@@ -188,7 +188,7 @@ public class DisabledSystemSecurityMetadata
     public void columnCreated(Session session, CatalogSchemaTableName table, String column) {}
 
     @Override
-    public void columnRenamed(Session session, CatalogSchemaTableName table, String oldColumn, String newColumn) {}
+    public void columnRenamed(Session session, CatalogSchemaTableName table, String oldName, String newName) {}
 
     @Override
     public void columnDropped(Session session, CatalogSchemaTableName table, String column) {}

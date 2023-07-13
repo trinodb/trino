@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -126,5 +127,38 @@ public class BinaryColumnAdapter
     public long getSizeInBytes(BinaryBuffer values)
     {
         return values.getRetainedSize();
+    }
+
+    @Override
+    public BinaryBuffer merge(List<BinaryBuffer> buffers)
+    {
+        if (buffers.size() == 0) {
+            return new BinaryBuffer(0);
+        }
+
+        int valueCount = 0;
+        for (BinaryBuffer binaryBuffer : buffers) {
+            valueCount += binaryBuffer.getValueCount();
+        }
+        BinaryBuffer result = new BinaryBuffer(valueCount);
+        for (BinaryBuffer binaryBuffer : buffers) {
+            result.addChunk(binaryBuffer.asSlice());
+        }
+        int[] resultOffsets = result.getOffsets();
+        int[] firstOffsets = buffers.get(0).getOffsets();
+        System.arraycopy(firstOffsets, 0, resultOffsets, 0, firstOffsets.length);
+
+        int dataOffset = firstOffsets[firstOffsets.length - 1];
+        int outputArrayOffset = firstOffsets.length;
+        for (int i = 1; i < buffers.size(); i++) {
+            int[] currentOffsets = buffers.get(i).getOffsets();
+            for (int j = 1; j < currentOffsets.length; j++) {
+                resultOffsets[outputArrayOffset + j - 1] = dataOffset + currentOffsets[j];
+            }
+            outputArrayOffset += currentOffsets.length - 1;
+            dataOffset = resultOffsets[outputArrayOffset - 1];
+        }
+
+        return result;
     }
 }

@@ -44,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.CatalogManager.NO_CATALOGS;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -256,6 +257,7 @@ public class TestStartTransactionTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
+                createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
                 new NodeVersion("test"));

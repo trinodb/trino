@@ -21,10 +21,12 @@ import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
-import io.trino.plugin.hive.azure.HiveAzureConfig;
-import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
-import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
-import io.trino.plugin.hive.gcs.HiveGcsConfig;
+import io.trino.hdfs.azure.HiveAzureConfig;
+import io.trino.hdfs.azure.TrinoAzureConfigurationInitializer;
+import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
+import io.trino.hdfs.gcs.HiveGcsConfig;
+import io.trino.hdfs.s3.HiveS3Config;
+import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreFactory;
@@ -33,12 +35,11 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.TokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.UgiBasedMetastoreClientFactory;
-import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
@@ -116,7 +117,7 @@ public final class TestingThriftHiveMetastoreBuilder
     {
         checkState(tokenAwareMetastoreClientFactory != null, "metastore client not set");
         ThriftHiveMetastoreFactory metastoreFactory = new ThriftHiveMetastoreFactory(
-                new UgiBasedMetastoreClientFactory(tokenAwareMetastoreClientFactory, thriftMetastoreConfig),
+                new UgiBasedMetastoreClientFactory(tokenAwareMetastoreClientFactory, SIMPLE_USER_NAME_PROVIDER, thriftMetastoreConfig),
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 hiveConfig.isTranslateHiveViews(),
                 thriftMetastoreConfig,

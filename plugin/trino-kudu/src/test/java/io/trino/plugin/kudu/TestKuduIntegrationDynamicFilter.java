@@ -16,6 +16,7 @@ package io.trino.plugin.kudu;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
@@ -36,7 +37,6 @@ import io.trino.tpch.TpchTable;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -60,30 +60,18 @@ import static org.testng.Assert.assertTrue;
 public class TestKuduIntegrationDynamicFilter
         extends AbstractTestQueryFramework
 {
-    private TestingKuduServer kuduServer;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        kuduServer = new TestingKuduServer();
         return createKuduQueryRunnerTpch(
-                kuduServer,
+                closeAfterClass(new TestingKuduServer()),
                 Optional.of(""),
                 ImmutableMap.of("dynamic_filtering_wait_timeout", "1h"),
                 ImmutableMap.of(
-                        "dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "100",
-                        "dynamic-filtering.small-broadcast.range-row-limit-per-driver", "100"),
+                        "dynamic-filtering.small.max-distinct-values-per-driver", "100",
+                        "dynamic-filtering.small.range-row-limit-per-driver", "100"),
                 TpchTable.getTables());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        if (kuduServer != null) {
-            kuduServer.close();
-            kuduServer = null;
-        }
     }
 
     @Test(timeOut = 30_000)
@@ -101,7 +89,7 @@ public class TestKuduIntegrationDynamicFilter
         Optional<TableHandle> tableHandle = runner.getMetadata().getTableHandle(session, tableName);
         assertTrue(tableHandle.isPresent());
         SplitSource splitSource = runner.getSplitManager()
-                .getSplits(session, tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
+                .getSplits(session, Span.getInvalid(), tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
         List<Split> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
             splits.addAll(splitSource.getNextBatch(1000).get().getSplits());

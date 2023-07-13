@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.inject.Inject;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
 import io.airlift.node.NodeInfo;
@@ -25,11 +26,9 @@ import io.trino.execution.TaskFailureListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;

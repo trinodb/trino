@@ -2,7 +2,7 @@
 IP Address Functions
 ====================
 
-.. _ip_address_contains:
+.. _ip-address-contains:
 
 .. function:: contains(network, address) -> boolean
     :noindex:

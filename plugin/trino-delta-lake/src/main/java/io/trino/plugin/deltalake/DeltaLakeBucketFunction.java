@@ -16,15 +16,15 @@ package io.trino.plugin.deltalake;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spi.type.TypeUtils;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
@@ -32,18 +32,15 @@ import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 public class DeltaLakeBucketFunction
         implements BucketFunction
 {
-    private final List<Type> types;
     private final int bucketCount;
     private final List<MethodHandle> hashCodeInvokers;
 
     public DeltaLakeBucketFunction(TypeOperators typeOperators, List<DeltaLakeColumnHandle> partitioningColumns, int bucketCount)
     {
-        this.types = partitioningColumns.stream()
-                .map(DeltaLakeColumnHandle::getType)
-                .collect(toImmutableList());
         this.hashCodeInvokers = partitioningColumns.stream()
-                .map(DeltaLakeColumnHandle::getType)
-                .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL)))
+                .peek(column -> verify(column.isBaseColumn(), "Unexpected dereference: %s", column))
+                .map(DeltaLakeColumnHandle::getBaseType)
+                .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)))
                 .collect(toImmutableList());
         this.bucketCount = bucketCount;
     }
@@ -54,28 +51,22 @@ public class DeltaLakeBucketFunction
         long hash = 0;
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
             Block block = page.getBlock(channel);
-            Object value = TypeUtils.readNativeValue(types.get(channel), block, position);
-            long valueHash = hashValue(hashCodeInvokers.get(channel), value);
+            long valueHash = hashValue(hashCodeInvokers.get(channel), block, position);
             hash = (31 * hash) + valueHash;
         }
         return (int) ((hash & Long.MAX_VALUE) % bucketCount);
     }
 
-    private static long hashValue(MethodHandle method, Object value)
+    private static long hashValue(MethodHandle method, Block block, int position)
     {
-        if (value == null) {
+        if (block.isNull(position)) {
             return NULL_HASH_CODE;
         }
         try {
-            return (long) method.invoke(value);
+            return (long) method.invokeExact(block, position);
         }
         catch (Throwable throwable) {
-            if (throwable instanceof Error) {
-                throw (Error) throwable;
-            }
-            if (throwable instanceof RuntimeException) {
-                throw (RuntimeException) throwable;
-            }
+            throwIfUnchecked(throwable);
             throw new RuntimeException(throwable);
         }
     }

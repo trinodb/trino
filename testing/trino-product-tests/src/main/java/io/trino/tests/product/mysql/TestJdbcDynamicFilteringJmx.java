@@ -13,26 +13,26 @@
  */
 package io.trino.tests.product.mysql;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.MYSQL;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onMySql;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJdbcDynamicFilteringJmx
         extends ProductTest
 {
     private static final String TABLE_NAME = "test.nation_tmp";
 
-    @BeforeTestWithContext
-    @AfterTestWithContext
+    @BeforeMethodWithContext
+    @AfterMethodWithContext
     public void dropTestTable()
     {
         onMySql().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
@@ -50,9 +50,9 @@ public class TestJdbcDynamicFilteringJmx
         assertThat(onTrino().executeQuery(format("SELECT COUNT(*) FROM mysql.%s a JOIN tpch.tiny.nation b ON a.nationkey = b.nationkey AND b.name = 'INDIA'", TABLE_NAME)))
                 .containsOnly(row(1));
 
-        assertThat(onTrino().executeQuery("SELECT \"completeddynamicfilters.totalcount\" FROM jmx.current.\"io.trino.plugin.jdbc:name=mysql,type=dynamicfilteringstats\""))
+        assertThat(onTrino().executeQuery("SELECT \"completeddynamicfilters.totalcount\" FROM jmx.current.\"io.trino.plugin.jdbc:name=mysql,type=dynamicfilteringstats\" WHERE node = 'presto-master'"))
                 .containsOnly(row(1));
-        assertThat(onTrino().executeQuery("SELECT \"totaldynamicfilters.totalcount\" FROM jmx.current.\"io.trino.plugin.jdbc:name=mysql,type=dynamicfilteringstats\""))
+        assertThat(onTrino().executeQuery("SELECT \"totaldynamicfilters.totalcount\" FROM jmx.current.\"io.trino.plugin.jdbc:name=mysql,type=dynamicfilteringstats\" WHERE node = 'presto-master'"))
                 .containsOnly(row(1));
     }
 }

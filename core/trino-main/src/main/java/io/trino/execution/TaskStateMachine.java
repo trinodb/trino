@@ -32,7 +32,15 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.trino.execution.TaskState.ABORTED;
+import static io.trino.execution.TaskState.ABORTING;
+import static io.trino.execution.TaskState.CANCELED;
+import static io.trino.execution.TaskState.CANCELING;
+import static io.trino.execution.TaskState.FAILED;
+import static io.trino.execution.TaskState.FAILING;
+import static io.trino.execution.TaskState.FINISHED;
 import static io.trino.execution.TaskState.FLUSHING;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskState.TERMINAL_TASK_STATES;
@@ -59,7 +67,7 @@ public class TaskStateMachine
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.executor = requireNonNull(executor, "executor is null");
-        taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING, TERMINAL_TASK_STATES);
+        taskState = new StateMachine<>("task " + taskId, executor, RUNNING, TERMINAL_TASK_STATES);
         taskState.addStateChangeListener(newState -> log.debug("Task %s is %s", taskId, newState));
     }
 
@@ -103,31 +111,47 @@ public class TaskStateMachine
 
     public void finished()
     {
-        transitionToDoneState(TaskState.FINISHED);
+        taskState.setIf(FINISHED, currentState -> !currentState.isTerminatingOrDone());
     }
 
     public void cancel()
     {
-        transitionToDoneState(TaskState.CANCELED);
+        startTermination(CANCELING);
     }
 
     public void abort()
     {
-        transitionToDoneState(TaskState.ABORTED);
+        startTermination(ABORTING);
     }
 
     public void failed(Throwable cause)
     {
         failureCauses.add(cause);
-        transitionToDoneState(TaskState.FAILED);
+        startTermination(FAILING);
     }
 
-    private void transitionToDoneState(TaskState doneState)
+    public void terminationComplete()
     {
-        requireNonNull(doneState, "doneState is null");
-        checkArgument(doneState.isDone(), "doneState %s is not a done state", doneState);
+        TaskState currentState = taskState.get();
+        if (currentState.isDone()) {
+            return; // ignore redundant completion events
+        }
+        checkState(currentState.isTerminating(), "current state %s is not a terminating state", currentState);
+        TaskState newState = switch (currentState) {
+            case CANCELING -> CANCELED;
+            case ABORTING -> ABORTED;
+            case FAILING -> FAILED;
+            default -> throw new IllegalStateException("Unhandled terminating state: " + currentState);
+        };
+        taskState.compareAndSet(currentState, newState);
+    }
 
-        taskState.setIf(doneState, currentState -> !currentState.isDone());
+    private void startTermination(TaskState terminatingState)
+    {
+        requireNonNull(terminatingState, "terminatingState is null");
+        checkArgument(terminatingState.isTerminating(), "terminatingState %s is not a terminating state", terminatingState);
+
+        taskState.setIf(terminatingState, currentState -> !currentState.isTerminatingOrDone());
     }
 
     /**

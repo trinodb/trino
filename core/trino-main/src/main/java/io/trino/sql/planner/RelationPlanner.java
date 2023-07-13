@@ -47,6 +47,8 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
@@ -283,7 +285,7 @@ class RelationPlanner
         for (Expression filter : filters) {
             planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, analysis.getSubqueries(filter));
 
-            Expression predicate = planBuilder.rewrite(filter);
+            Expression predicate = coerceIfNecessary(analysis, filter, planBuilder.rewrite(filter));
             predicate = predicateTransformation.apply(predicate);
             planBuilder = planBuilder.withNewRoot(new FilterNode(
                     idAllocator.getNextId(),
@@ -428,38 +430,53 @@ class RelationPlanner
                 specification = Optional.of(new DataOrganizationSpecification(partitionBy, orderBy));
             }
 
-            sources.add(sourcePlanBuilder.getRoot());
-            sourceProperties.add(new TableArgumentProperties(
-                    tableArgument.getArgumentName(),
-                    tableArgument.isRowSemantics(),
-                    tableArgument.isPruneWhenEmpty(),
-                    tableArgument.isPassThroughColumns(),
-                    requiredColumns,
-                    specification));
-
             // add output symbols passed from the table argument
+            ImmutableList.Builder<PassThroughColumn> passThroughColumns = ImmutableList.builder();
             if (tableArgument.isPassThroughColumns()) {
                 // the original output symbols from the source node, not coerced
                 // note: hidden columns are included. They are present in sourcePlan.fieldMappings
                 outputSymbols.addAll(sourcePlan.getFieldMappings());
+                Set<Symbol> partitionBy = specification
+                        .map(DataOrganizationSpecification::getPartitionBy)
+                        .map(ImmutableSet::copyOf)
+                        .orElse(ImmutableSet.of());
+                sourcePlan.getFieldMappings().stream()
+                        .map(symbol -> new PassThroughColumn(symbol, partitionBy.contains(symbol)))
+                        .forEach(passThroughColumns::add);
             }
             else if (tableArgument.getPartitionBy().isPresent()) {
                 tableArgument.getPartitionBy().get().stream()
                         // the original symbols for partitioning columns, not coerced
                         .map(sourcePlanBuilder::translate)
-                        .forEach(outputSymbols::add);
+                        .forEach(symbol -> {
+                            outputSymbols.add(symbol);
+                            passThroughColumns.add(new PassThroughColumn(symbol, true));
+                        });
             }
+
+            sources.add(sourcePlanBuilder.getRoot());
+            sourceProperties.add(new TableArgumentProperties(
+                    tableArgument.getArgumentName(),
+                    tableArgument.isRowSemantics(),
+                    tableArgument.isPruneWhenEmpty(),
+                    new PassThroughSpecification(tableArgument.isPassThroughColumns(), passThroughColumns.build()),
+                    requiredColumns,
+                    specification));
         }
 
         PlanNode root = new TableFunctionNode(
                 idAllocator.getNextId(),
                 functionAnalysis.getFunctionName(),
+                functionAnalysis.getCatalogHandle(),
                 functionAnalysis.getArguments(),
                 properOutputs,
                 sources.build(),
                 sourceProperties.build(),
                 functionAnalysis.getCopartitioningLists(),
-                new TableFunctionHandle(functionAnalysis.getCatalogHandle(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
+                new TableFunctionHandle(
+                        functionAnalysis.getCatalogHandle(),
+                        functionAnalysis.getConnectorTableFunctionHandle(),
+                        functionAnalysis.getTransactionHandle()));
 
         return new RelationPlan(root, analysis.getScope(node), outputSymbols.build(), outerContext);
     }
@@ -840,7 +857,7 @@ class RelationPlanner
             rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, subqueries);
 
             for (Expression expression : complexJoinExpressions) {
-                postInnerJoinConditions.add(rootPlanBuilder.rewrite(expression));
+                postInnerJoinConditions.add(coerceIfNecessary(analysis, expression, rootPlanBuilder.rewrite(expression)));
             }
             root = rootPlanBuilder.getRoot();
 
@@ -1025,7 +1042,7 @@ class RelationPlanner
                 .withAdditionalMappings(leftPlanBuilder.getTranslations().getMappings())
                 .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings());
 
-        Expression rewrittenFilterCondition = translationMap.rewrite(filterExpression);
+        Expression rewrittenFilterCondition = coerceIfNecessary(analysis, filterExpression, translationMap.rewrite(filterExpression));
 
         PlanBuilder planBuilder = subqueryPlanner.appendCorrelatedJoin(
                 leftPlanBuilder,

@@ -68,6 +68,7 @@ public class DeltaLakeConfig
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
+    private boolean collectExtendedStatisticsOnWrite = true;
     private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private boolean deleteSchemaLocationsFallback;
@@ -76,6 +77,7 @@ public class DeltaLakeConfig
     private boolean uniqueTableLocation = true;
     private boolean legacyCreateTableWithExistingLocationEnabled;
     private boolean registerTableProcedureEnabled;
+    private boolean projectionPushdownEnabled = true;
 
     public Duration getMetadataCacheTtl()
     {
@@ -346,6 +348,19 @@ public class DeltaLakeConfig
         return this;
     }
 
+    public boolean isCollectExtendedStatisticsOnWrite()
+    {
+        return collectExtendedStatisticsOnWrite;
+    }
+
+    @Config("delta.extended-statistics.collect-on-write")
+    @ConfigDescription("Enables automatic column level extended statistics collection on write")
+    public DeltaLakeConfig setCollectExtendedStatisticsOnWrite(boolean collectExtendedStatisticsOnWrite)
+    {
+        this.collectExtendedStatisticsOnWrite = collectExtendedStatisticsOnWrite;
+        return this;
+    }
+
     @NotNull
     public HiveCompressionCodec getCompressionCodec()
     {
@@ -459,6 +474,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setRegisterTableProcedureEnabled(boolean registerTableProcedureEnabled)
     {
         this.registerTableProcedureEnabled = registerTableProcedureEnabled;
+        return this;
+    }
+
+    public boolean isProjectionPushdownEnabled()
+    {
+        return projectionPushdownEnabled;
+    }
+
+    @Config("delta.projection-pushdown-enabled")
+    @ConfigDescription("Read only required fields from a row type")
+    public DeltaLakeConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
+    {
+        this.projectionPushdownEnabled = projectionPushdownEnabled;
         return this;
     }
 }

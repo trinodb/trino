@@ -76,7 +76,7 @@ The ``PARTITION BY`` clause allows you to break up the input table into
 separate sections, that are independently processed for pattern matching.
 Without a partition declaration, the whole input table is used. This behavior
 is analogous to the semantics of ``PARTITION BY`` clause in :ref:`window
-specification<window_clause>`. In the example, the ``orders`` table is
+specification<window-clause>`. In the example, the ``orders`` table is
 partitioned by the ``custkey`` value, so that pattern matching is performed for
 all orders of a specific customer independently from orders of other
 customers.
@@ -89,7 +89,7 @@ The optional ``ORDER BY`` clause is generally useful to allow matching on an
 ordered data set. For example, sorting the input by ``orderdate`` allows for
 matching on a trend of changes over time.
 
-.. _row_pattern_measures:
+.. _row-pattern-measures:
 
 Row pattern measures
 --------------------
@@ -117,16 +117,16 @@ final row of the match.
 
 Measure expressions can refer to the columns of the input table. They also
 allow special syntax to combine the input information with the details of the
-match (see :ref:`pattern_recognition_expressions`).
+match (see :ref:`pattern-recognition-expressions`).
 
 Each measure defines an output column of the pattern recognition. The column
 can be referenced with the ``measure_name``.
 
 The ``MEASURES`` clause is optional. When no measures are specified, certain
-input columns (depending on :ref:`ROWS PER MATCH<rows_per_match>` clause) are
+input columns (depending on :ref:`ROWS PER MATCH<rows-per-match>` clause) are
 the output of the pattern recognition.
 
-.. _rows_per_match:
+.. _rows-per-match:
 
 Rows per match
 --------------
@@ -149,7 +149,7 @@ Rows that are unmatched (that is, neither included in some non-empty match, nor
 being the starting row of an empty match), are not included in the output.
 
 For ``ALL ROWS PER MATCH``, every row of a match produces an output row, unless
-it is excluded from the output by the :ref:`exclusion_syntax`. Output consists
+it is excluded from the output by the :ref:`exclusion-syntax`. Output consists
 of ``PARTITION BY`` columns, ``ORDER BY`` columns, measures and remaining
 columns from the input table. By default, empty matches are shown and unmatched
 rows are skipped, similarly as with the ``ONE ROW PER MATCH`` option. However,
@@ -173,7 +173,7 @@ shows empty matches and produces additional output row for each unmatched row.
 
 There are special rules for computing row pattern measures for empty matches
 and unmatched rows. They are explained in
-:ref:`empty_matches_and_unmatched_rows`.
+:ref:`empty-matches-and-unmatched-rows`.
 
 Unmatched rows can only occur when the pattern does not allow an empty match.
 Otherwise, they are considered as starting rows of empty matches. The option
@@ -181,7 +181,7 @@ Otherwise, they are considered as starting rows of empty matches. The option
 recognition is expected to pass all input rows, and it is not certain whether
 the pattern allows an empty match.
 
-.. _after_match_skip:
+.. _after-match-skip:
 
 After match skip
 ----------------
@@ -210,8 +210,8 @@ The following ``AFTER MATCH SKIP`` options allow to resume pattern matching
 based on the components of the pattern. Pattern matching starts from the last
 (default) or first row matched to a certain row pattern variable. It can be
 either a primary pattern variable (they are explained in
-:ref:`row_pattern_syntax`) or a
-:ref:`union variable<row_pattern_union_variables>`::
+:ref:`row-pattern-syntax`) or a
+:ref:`union variable<row-pattern-union-variables>`::
 
     AFTER MATCH SKIP TO [ FIRST | LAST ] pattern_variable
 
@@ -226,7 +226,7 @@ detection of overlapping matches. The combination of ``ALL ROWS PER MATCH WITH
 UNMATCHED ROWS`` with ``AFTER MATCH SKIP PAST LAST ROW`` is the only
 configuration that guarantees exactly one output row for each input row.
 
-.. _row_pattern_syntax:
+.. _row-pattern-syntax:
 
 Row pattern syntax
 ------------------
@@ -241,7 +241,7 @@ The basic element of row pattern is a primary pattern variable. Like pattern
 matching in character strings searches for characters, pattern matching in row
 sequences searches for rows which can be "labeled" with certain primary pattern
 variables. A primary pattern variable has a form of an identifier and is
-:ref:`defined<row_pattern_variable_definitions>` by a boolean condition. This
+:ref:`defined<row-pattern-variable-definitions>` by a boolean condition. This
 condition determines whether a particular input row can be mapped to this
 variable and take part in the match.
 
@@ -313,7 +313,7 @@ empty pattern
 
     ()
 
-.. _exclusion_syntax:
+.. _exclusion-syntax:
 
 exclusion syntax
 ^^^^^^^^^^^^^^^^
@@ -392,12 +392,12 @@ repetitions is the least desired option and 5 repetitions -- the most desired.
 With ``{3, 5}?``, 3 repetitions are most desired. Similarly, ``?`` prefers 1
 repetition, while ``??`` prefers 0 repetitions.
 
-.. _row_pattern_union_variables:
+.. _row-pattern-union-variables:
 
 Row pattern union variables
 ---------------------------
 
-As explained in :ref:`row_pattern_syntax`, primary pattern variables are the
+As explained in :ref:`row-pattern-syntax`, primary pattern variables are the
 basic elements of row pattern. In addition to primary pattern variables, you
 can define union variables. They are introduced in the ``SUBSET`` clause::
 
@@ -417,7 +417,7 @@ access the last row matched to either ``A`` or ``B``. Define ``SUBSET U =
 failure if ``A`` or ``B`` is not present in the match. ``AFTER MATCH SKIP TO
 LAST U`` does not fail.
 
-.. _row_pattern_variable_definitions:
+.. _row-pattern-variable-definitions:
 
 Row pattern variable definitions
 --------------------------------
@@ -452,15 +452,15 @@ matched to every row.
 
 Boolean expressions in the ``DEFINE`` clause allow the same special syntax as
 expressions in the ``MEASURES`` clause. Details are explained in
-:ref:`pattern_recognition_expressions`.
+:ref:`pattern-recognition-expressions`.
 
-.. _pattern_recognition_expressions:
+.. _pattern-recognition-expressions:
 
 Row pattern recognition expressions
 -----------------------------------
 
-Expressions in :ref:`MEASURES<row_pattern_measures>` and
-:ref:`DEFINE<row_pattern_variable_definitions>` clauses are scalar expressions
+Expressions in :ref:`MEASURES<row-pattern-measures>` and
+:ref:`DEFINE<row-pattern-variable-definitions>` clauses are scalar expressions
 evaluated over rows of the input table. They support special syntax, specific
 to pattern recognition context. They can combine input information with the
 information about the current match. Special syntax allows to access pattern
@@ -618,7 +618,7 @@ Aggregate functions
 It is allowed to use aggregate functions in a row pattern recognition context.
 Aggregate functions are evaluated over all rows of the current match or over a
 subset of rows based on the matched pattern variables. The
-:ref:`running and final semantics<running_and_final>` are supported, with
+:ref:`running and final semantics<running-and-final>` are supported, with
 ``running`` as the default.
 
 The following expression returns the average value of the ``totalprice`` column
@@ -713,7 +713,7 @@ to support the ``count(*)`` behavior over a limited set of rows::
 
     count(U.*) /* count rows matched to pattern variables from subset U */
 
-.. _running_and_final:
+.. _running-and-final:
 
 ``RUNNING`` and ``FINAL`` semantics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -754,7 +754,7 @@ With the option ``ONE ROW PER MATCH``, row pattern measures are evaluated from
 the position of the final row in the match. Therefore, ``running`` and
 ``final`` semantics are the same.
 
-.. _empty_matches_and_unmatched_rows:
+.. _empty-matches-and-unmatched-rows:
 
 Evaluating expressions in empty matches and unmatched rows
 ----------------------------------------------------------
@@ -779,13 +779,13 @@ When evaluating row pattern measures for an empty match:
 
 Like every match, an empty match has its starting row. All input values which
 are to be output along with the measures (as explained in
-:ref:`rows_per_match`), are the values from the starting row.
+:ref:`rows-per-match`), are the values from the starting row.
 
 An unmatched row is a row that is neither part of any non-empty match nor the
 starting row of an empty match. With the option ``ALL ROWS PER MATCH WITH
 UNMATCHED ROWS``, a single output row is produced. In that row, all row pattern
 measures are ``null``. All input values which are to be output along with the
-measures (as explained in :ref:`rows_per_match`), are the values from the
+measures (as explained in :ref:`rows-per-match`), are the values from the
 unmatched row. Using the ``match_number`` function as a measure can help
 differentiate between an empty match and unmatched row.
 

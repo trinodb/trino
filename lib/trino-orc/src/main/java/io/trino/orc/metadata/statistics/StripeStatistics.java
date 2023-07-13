@@ -14,16 +14,15 @@
 package io.trino.orc.metadata.statistics;
 
 import io.trino.orc.metadata.ColumnMetadata;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class StripeStatistics
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(StripeStatistics.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(StripeStatistics.class);
 
     private final ColumnMetadata<ColumnStatistics> columnStatistics;
     private final long retainedSizeInBytes;

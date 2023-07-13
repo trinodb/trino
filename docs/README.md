@@ -8,9 +8,11 @@ The `docs` module contains the reference documentation for Trino.
 - [Default build](#default-build)
 - [Viewing documentation](#viewing-documentation)
 - [Versioning](#versioning)
+- [Style check](#style-check)
 - [Contribution requirements](#contribution-requirements)
 - [Workflow](#workflow)
 - [Videos](#videos)
+- [Docker container](#docker-container)
 
 ## Writing and contributing
 
@@ -41,6 +43,7 @@ it, default to using "a SQL."
 
 Other useful resources:
 
+- [Style check](#style-check)
 - [Google Technical Writing Courses](https://developers.google.com/tech-writing)
 - [RST cheatsheet](https://github.com/ralsina/rst-cheatsheet/blob/master/rst-cheatsheet.rst)
 
@@ -164,6 +167,38 @@ docs/build
 This is especially useful when deploying doc patches for a release where the
 Maven pom has already moved to the next SNAPSHOT version.
 
+## Style check
+
+The project contains a configured setup for [Vale](https://vale.sh) and the
+Google developer documentation style. Vale is a command-line tool to check for
+editorial style issues of a document or a set of documents.
+
+Install vale with brew on macOS or follow the instructions on the website.
+
+```
+brew install vale
+```
+
+The `docs` folder contains the necessary configuration to use vale for any
+document in the repository:
+
+* `.vale` directory with Google style setup
+* `.vale/Vocab/Base/accept.txt` file for additional approved words and spelling
+* `.vale.ini` configuration file configured for rst and md files
+
+With this setup you can validate an individual file from the root by specifying
+the path:
+
+```
+vale src/main/sphinx/overview/sep-ui.rst
+```
+
+You can also use directory paths and all files within.
+
+Treat all output from vale as another help towards better docs. Fixing any
+issues is not required, but can help with learning more about the [Google style
+guide](https://developers.google.com/style) that we try to follow.
+
 ## Contribution requirements
 
 
@@ -220,4 +255,35 @@ contribution](https://trino.io/development/process.html).
    In this case, the five-minute video [Learning Trino SQL with
    Docker](https://www.youtube.com/watch?v=y58sb9bW2mA) gives you a starting
    point for setting up a test system on your laptop.
+
+## Docker container
+
+The build of the docs uses a Docker container that includes Sphinx and the
+required libraries. The container is referenced in the `SPHINX_IMAGE` variable
+in the `build` script.
+
+The specific details for the container are available in `Dockerfile`, and
+`requirements.in`. The file `requirements.txt` must be updated after any changes
+to `requirements.in`.
+
+The container must be published to the GitHub container registry at ghcr.io with
+the necessary access credentials and the following command, after modification
+of the version tag `xxx` to the new desired value as used in the `build` script:
+
+```
+docker buildx build docs --platform=linux/arm64,linux/amd64 --tag ghcr.io/trinodb/build/sphinx:xxx --provenance=false --push
+```
+
+Note that the version must be updated and the command automatically also
+publishes the container with support for arm64 and amd64 processors. This is
+necessary so the build performs well on both hardware platforms.
+
+After the container is published, you can update the `build` script and merge
+the related pull request.
+
+Example PRs:
+
+* https://github.com/trinodb/trino/pull/17778
+* https://github.com/trinodb/trino/pull/13225
+
 

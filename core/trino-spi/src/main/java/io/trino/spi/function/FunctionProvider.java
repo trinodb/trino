@@ -14,17 +14,33 @@
 package io.trino.spi.function;
 
 import io.trino.spi.Experimental;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
 
-@Experimental(eta = "2022-10-31")
+@Experimental(eta = "2023-03-31")
 public interface FunctionProvider
 {
-    ScalarFunctionImplementation getScalarFunctionImplementation(
+    default ScalarFunctionImplementation getScalarFunctionImplementation(
             FunctionId functionId,
             BoundSignature boundSignature,
             FunctionDependencies functionDependencies,
-            InvocationConvention invocationConvention);
+            InvocationConvention invocationConvention)
+    {
+        throw new UnsupportedOperationException("%s does not provide scalar functions".formatted(getClass().getName()));
+    }
 
-    AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies);
+    default AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    {
+        throw new UnsupportedOperationException("%s does not provide aggregation functions".formatted(getClass().getName()));
+    }
 
-    WindowFunctionSupplier getWindowFunctionSupplier(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies);
+    default WindowFunctionSupplier getWindowFunctionSupplier(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    {
+        throw new UnsupportedOperationException("%s does not provide window functions".formatted(getClass().getName()));
+    }
+
+    default TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
+    {
+        throw new UnsupportedOperationException("%s does not provide table functions".formatted(getClass().getName()));
+    }
 }

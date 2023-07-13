@@ -36,6 +36,7 @@ import io.trino.sql.jsonpath.tree.ComparisonPredicate;
 import io.trino.sql.jsonpath.tree.ConjunctionPredicate;
 import io.trino.sql.jsonpath.tree.ContextVariable;
 import io.trino.sql.jsonpath.tree.DatetimeMethod;
+import io.trino.sql.jsonpath.tree.DescendantMemberAccessor;
 import io.trino.sql.jsonpath.tree.DisjunctionPredicate;
 import io.trino.sql.jsonpath.tree.DoubleMethod;
 import io.trino.sql.jsonpath.tree.ExistsPredicate;
@@ -252,6 +253,13 @@ public class JsonPathAnalyzer
             }
             // TODO process the format template, record the processed format, and deduce the returned type
             throw semanticException(NOT_SUPPORTED, pathNode, "datetime method in JSON path is not yet supported");
+        }
+
+        @Override
+        protected Type visitDescendantMemberAccessor(DescendantMemberAccessor node, Void context)
+        {
+            process(node.getBase());
+            return null;
         }
 
         @Override

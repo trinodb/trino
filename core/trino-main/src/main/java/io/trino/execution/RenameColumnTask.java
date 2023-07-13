@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -24,8 +25,6 @@ import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameColumn;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -80,7 +79,8 @@ public class RenameColumnTask
         String source = statement.getSource().getValue().toLowerCase(ENGLISH);
         String target = statement.getTarget().getValue().toLowerCase(ENGLISH);
 
-        accessControl.checkCanRenameColumn(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
+        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName);
+        accessControl.checkCanRenameColumn(session.toSecurityContext(), qualifiedTableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         ColumnHandle columnHandle = columnHandles.get(source);
@@ -99,7 +99,7 @@ public class RenameColumnTask
             throw semanticException(NOT_SUPPORTED, statement, "Cannot rename hidden column");
         }
 
-        metadata.renameColumn(session, tableHandle, columnHandle, target);
+        metadata.renameColumn(session, tableHandle, qualifiedTableName.asCatalogSchemaTableName(), columnHandle, target);
 
         return immediateVoidFuture();
     }

@@ -17,14 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,7 +53,7 @@ public class CassandraPartitionManager
         this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
     }
 
-    public CassandraPartitionResult getPartitions(CassandraTableHandle cassandraTableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public CassandraPartitionResult getPartitions(CassandraNamedRelationHandle cassandraTableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
         // TODO support repeated applyFilter
         checkArgument(cassandraTableHandle.getPartitions().isEmpty(), "getPartitions() currently does not take into account table handle's partitions");

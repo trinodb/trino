@@ -17,6 +17,7 @@ import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 
 import java.util.List;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -48,6 +49,16 @@ public class FilteredRowRanges
     public long getRowCount()
     {
         return rowCount;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("parquetRowRanges", parquetRowRanges)
+                .add("rowRanges", rowRanges)
+                .add("rowCount", rowCount)
+                .toString();
     }
 
     /**

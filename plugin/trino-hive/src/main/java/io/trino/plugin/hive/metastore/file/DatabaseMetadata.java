@@ -27,6 +27,7 @@ import static java.util.Objects.requireNonNull;
 public class DatabaseMetadata
 {
     private final Optional<String> writerVersion;
+    private final Optional<String> location;
     private final Optional<String> ownerName;
     private final Optional<PrincipalType> ownerType;
     private final Map<String, String> parameters;
@@ -34,11 +35,13 @@ public class DatabaseMetadata
     @JsonCreator
     public DatabaseMetadata(
             @JsonProperty("writerVersion") Optional<String> writerVersion,
+            @JsonProperty("location") Optional<String> location,
             @JsonProperty("ownerName") Optional<String> ownerName,
             @JsonProperty("ownerType") Optional<PrincipalType> ownerType,
             @JsonProperty("parameters") Map<String, String> parameters)
     {
         this.writerVersion = requireNonNull(writerVersion, "writerVersion is null");
+        this.location = requireNonNull(location, "location is null");
         this.ownerName = requireNonNull(ownerName, "ownerName is null");
         this.ownerType = requireNonNull(ownerType, "ownerType is null");
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
@@ -47,6 +50,7 @@ public class DatabaseMetadata
     public DatabaseMetadata(String currentVersion, Database database)
     {
         this.writerVersion = Optional.of(requireNonNull(currentVersion, "currentVersion is null"));
+        this.location = database.getLocation();
         this.ownerName = database.getOwnerName();
         this.ownerType = database.getOwnerType();
         this.parameters = database.getParameters();
@@ -56,6 +60,12 @@ public class DatabaseMetadata
     public Optional<String> getWriterVersion()
     {
         return writerVersion;
+    }
+
+    @JsonProperty
+    public Optional<String> getLocation()
+    {
+        return location;
     }
 
     @JsonProperty
@@ -76,11 +86,11 @@ public class DatabaseMetadata
         return parameters;
     }
 
-    public Database toDatabase(String databaseName, String location)
+    public Database toDatabase(String databaseName, String databaseMetadataDirectory)
     {
         return Database.builder()
                 .setDatabaseName(databaseName)
-                .setLocation(Optional.of(location))
+                .setLocation(Optional.of(location.orElse(databaseMetadataDirectory)))
                 .setOwnerName(ownerName)
                 .setOwnerType(ownerType)
                 .setParameters(parameters)

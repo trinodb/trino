@@ -83,10 +83,6 @@ Configuration properties
       - Disables using the address published by Elasticsearch to connect for
         queries.
       -
-    * - ``elasticsearch.legacy-pass-through-query.enabled``
-      - Enables legacy pass-through query. Deprecated, use the :ref:`raw_query
-        table function <elasticsearch-raw-query-function>` instead.
-      - false
 
 TLS security
 ------------
@@ -109,11 +105,11 @@ The allowed configuration values are:
     * - ``elasticsearch.tls.enabled``
       - Enables TLS security.
     * - ``elasticsearch.tls.keystore-path``
-      - The path to the PEM or JKS key store. This file must be readable by the
-        operating system user running Trino.
+      - The path to the :doc:`PEM </security/inspect-pem>` or
+        :doc:`JKS </security/inspect-jks>` key store.
     * - ``elasticsearch.tls.truststore-path``
-      - The path to PEM or JKS trust store. This file must be readable by the
-        operating system user running Trino.
+      - The path to :doc:`PEM </security/inspect-pem>` or
+        :doc:`JKS </security/inspect-jks>` trust store.
     * - ``elasticsearch.tls.keystore-password``
       - The key password for the key store specified by
         ``elasticsearch.tls.keystore-path``.
@@ -444,7 +440,7 @@ This can be useful for accessing native features which are not available in
 Trino or for improving query performance in situations where running a query
 natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
 The ``raw_query`` function requires three parameters:
 
@@ -455,8 +451,9 @@ The ``raw_query`` function requires three parameters:
 Once executed, the query returns a single row containing the resulting JSON
 payload returned by Elasticsearch.
 
-For example, the following use of the ``raw_query`` table function searches for
-documents in the ``orders`` index where the country name is ``ALGERIA``::
+For example, query the ``example`` catalog and use the ``raw_query`` table
+function to search for documents in the ``orders`` index where the country name
+is ``ALGERIA``::
 
     SELECT
       *
@@ -474,3 +471,5 @@ documents in the ``orders`` index where the country name is ``ALGERIA``::
           }'
         )
       );
+
+.. include:: query-table-function-ordering.fragment

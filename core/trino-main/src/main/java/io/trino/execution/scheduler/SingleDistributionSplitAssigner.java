@@ -56,6 +56,7 @@ class SingleDistributionSplitAssigner
             assignment.updatePartition(new PartitionUpdate(
                     0,
                     planNodeId,
+                    true,
                     ImmutableList.copyOf(splits.values()),
                     false));
         }
@@ -63,6 +64,7 @@ class SingleDistributionSplitAssigner
             assignment.updatePartition(new PartitionUpdate(
                     0,
                     planNodeId,
+                    false,
                     ImmutableList.of(),
                     true));
             completedSources.add(planNodeId);

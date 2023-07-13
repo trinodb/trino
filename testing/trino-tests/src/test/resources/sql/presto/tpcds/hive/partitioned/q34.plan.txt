@@ -2,7 +2,8 @@ remote exchange (GATHER, SINGLE, [])
     local exchange (GATHER, UNKNOWN, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             join (INNER, REPLICATED):
-                scan customer
+                dynamic filter (["c_customer_sk"])
+                    scan customer
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPLICATE, BROADCAST, [])
                         final aggregation over (ss_customer_sk, ss_ticket_number)
@@ -12,7 +13,8 @@ remote exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    scan store_sales
+                                                    dynamic filter (["ss_hdemo_sk", "ss_sold_date_sk", "ss_store_sk"])
+                                                        scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim

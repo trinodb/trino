@@ -23,10 +23,10 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.sql.JDBCType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests in this class verify that the test environments have been defined correctly,
@@ -48,7 +48,7 @@ public class TestConfiguredFeatures
         if (configuredConnectors.size() == 0) {
             throw new SkipException("Skip checking configured connectors since none were set in Tempto configuration");
         }
-        String sql = "select distinct connector_name from system.metadata.catalogs";
+        String sql = "SELECT DISTINCT connector_name FROM system.metadata.catalogs";
         assertThat(onTrino().executeQuery(sql))
                 .hasColumns(VARCHAR)
                 .containsOnly(configuredConnectors.stream()

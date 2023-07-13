@@ -74,7 +74,16 @@ def setup(app):
 
 needs_sphinx = '3.0'
 
-extensions = ['myst_parser', 'backquote', 'download', 'issue', 'sphinx_copybutton']
+extensions = [
+    'myst_parser',
+    'backquote',
+    'download',
+    'issue',
+    'sphinx_copybutton',
+    'redirects',
+]
+
+redirects_file = 'redirects.txt'
 
 templates_path = ['templates']
 
@@ -104,6 +113,10 @@ global_replacements = {
     "|trino_version|" : version
 }
 
+myst_enable_extensions = [
+    "colon_fence",
+    "deflist"
+]
 
 # -- Options for HTML output ---------------------------------------------------
 

@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -21,8 +22,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
-
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -44,11 +43,13 @@ public class HudiSessionProperties
     private static final String METADATA_ENABLED = "metadata_enabled";
     private static final String USE_PARQUET_COLUMN_NAMES = "use_parquet_column_names";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
-    private static final String MIN_PARTITION_BATCH_SIZE = "min_partition_batch_size";
-    private static final String MAX_PARTITION_BATCH_SIZE = "max_partition_batch_size";
+    private static final String PARQUET_OPTIMIZED_NESTED_READER_ENABLED = "parquet_optimized_nested_reader_enabled";
     private static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     private static final String STANDARD_SPLIT_WEIGHT_SIZE = "standard_split_weight_size";
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
+    private static final String MAX_SPLITS_PER_SECOND = "max_splits_per_second";
+    private static final String MAX_OUTSTANDING_SPLITS = "max_outstanding_splits";
+    private static final String SPLIT_GENERATOR_PARALLELISM = "split_generator_parallelism";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -82,15 +83,10 @@ public class HudiSessionProperties
                         "Use optimized Parquet reader",
                         parquetReaderConfig.isOptimizedReaderEnabled(),
                         false),
-                integerProperty(
-                        MIN_PARTITION_BATCH_SIZE,
-                        "Minimum number of partitions returned in a single batch.",
-                        hudiConfig.getMinPartitionBatchSize(),
-                        false),
-                integerProperty(
-                        MAX_PARTITION_BATCH_SIZE,
-                        "Maximum number of partitions returned in a single batch.",
-                        hudiConfig.getMaxPartitionBatchSize(),
+                booleanProperty(
+                        PARQUET_OPTIMIZED_NESTED_READER_ENABLED,
+                        "Use optimized Parquet reader for nested columns",
+                        parquetReaderConfig.isOptimizedNestedReaderEnabled(),
                         false),
                 booleanProperty(
                         SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
@@ -111,6 +107,21 @@ public class HudiSessionProperties
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be > 0 and <= 1.0: %s", MINIMUM_ASSIGNED_SPLIT_WEIGHT, value));
                             }
                         },
+                        false),
+                integerProperty(
+                        MAX_SPLITS_PER_SECOND,
+                        "Rate at which splits are enqueued for processing. The queue will throttle if this rate limit is breached.",
+                        hudiConfig.getMaxSplitsPerSecond(),
+                        false),
+                integerProperty(
+                        MAX_OUTSTANDING_SPLITS,
+                        "Maximum outstanding splits in a batch enqueued for processing",
+                        hudiConfig.getMaxOutstandingSplits(),
+                        false),
+                integerProperty(
+                        SPLIT_GENERATOR_PARALLELISM,
+                        "Number of threads to generate splits from partitions",
+                        hudiConfig.getSplitGeneratorParallelism(),
                         false));
     }
 
@@ -141,14 +152,9 @@ public class HudiSessionProperties
         return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 
-    public static int getMinPartitionBatchSize(ConnectorSession session)
+    public static boolean isParquetOptimizedNestedReaderEnabled(ConnectorSession session)
     {
-        return session.getProperty(MIN_PARTITION_BATCH_SIZE, Integer.class);
-    }
-
-    public static int getMaxPartitionBatchSize(ConnectorSession session)
-    {
-        return session.getProperty(MAX_PARTITION_BATCH_SIZE, Integer.class);
+        return session.getProperty(PARQUET_OPTIMIZED_NESTED_READER_ENABLED, Boolean.class);
     }
 
     public static boolean isSizeBasedSplitWeightsEnabled(ConnectorSession session)
@@ -164,5 +170,20 @@ public class HudiSessionProperties
     public static double getMinimumAssignedSplitWeight(ConnectorSession session)
     {
         return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
+    }
+
+    public static int getMaxSplitsPerSecond(ConnectorSession session)
+    {
+        return session.getProperty(MAX_SPLITS_PER_SECOND, Integer.class);
+    }
+
+    public static int getMaxOutstandingSplits(ConnectorSession session)
+    {
+        return session.getProperty(MAX_OUTSTANDING_SPLITS, Integer.class);
+    }
+
+    public static int getSplitGeneratorParallelism(ConnectorSession session)
+    {
+        return session.getProperty(SPLIT_GENERATOR_PARALLELISM, Integer.class);
     }
 }

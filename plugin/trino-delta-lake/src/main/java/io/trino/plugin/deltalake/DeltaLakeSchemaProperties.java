@@ -15,21 +15,14 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.HiveTypeName;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.spi.session.PropertyMetadata;
-import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
-import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
-import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
-import static java.util.stream.Collectors.joining;
 
 public class DeltaLakeSchemaProperties
 {
@@ -55,17 +48,5 @@ public class DeltaLakeSchemaProperties
     public static Optional<String> getLocation(Map<String, Object> schemaProperties)
     {
         return Optional.ofNullable((String) schemaProperties.get(LOCATION_PROPERTY));
-    }
-
-    public static Properties buildHiveSchema(List<String> columnNames, List<Type> columnTypes)
-    {
-        Properties schema = new Properties();
-        schema.setProperty(LIST_COLUMNS, String.join(",", columnNames));
-        schema.setProperty(LIST_COLUMN_TYPES, columnTypes.stream()
-                .map(DeltaHiveTypeTranslator::toHiveType)
-                .map(HiveType::getHiveTypeName)
-                .map(HiveTypeName::toString)
-                .collect(joining(":")));
-        return schema;
     }
 }

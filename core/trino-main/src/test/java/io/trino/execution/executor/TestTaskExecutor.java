@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -625,6 +626,18 @@ public class TestTaskExecutor
         public String getInfo()
         {
             return "testing-split";
+        }
+
+        @Override
+        public int getPipelineId()
+        {
+            return 0;
+        }
+
+        @Override
+        public Span getPipelineSpan()
+        {
+            return Span.getInvalid();
         }
 
         @Override

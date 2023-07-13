@@ -13,10 +13,12 @@
  */
 package io.trino.server.remotetask;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -28,6 +30,9 @@ import io.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.trino.Session;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
 import io.trino.execution.DynamicFilterConfig;
@@ -35,6 +40,7 @@ import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.RemoteTask;
+import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -75,25 +81,25 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingSplit;
 import io.trino.type.TypeDeserializer;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.UriInfo;
 import org.testng.annotations.Test;
-
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -109,12 +115,22 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
+import static io.airlift.testing.Assertions.assertLessThan;
+import static io.airlift.tracing.SpanSerialization.SpanDeserializer;
+import static io.airlift.tracing.SpanSerialization.SpanSerializer;
+import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.SystemSessionProperties.REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED;
+import static io.trino.SystemSessionProperties.REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST;
+import static io.trino.SystemSessionProperties.REMOTE_TASK_MAX_REQUEST_SIZE;
+import static io.trino.SystemSessionProperties.REMOTE_TASK_REQUEST_SIZE_HEADROOM;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
@@ -122,7 +138,7 @@ import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.min;
@@ -131,6 +147,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestHttpRemoteTask
@@ -369,6 +387,83 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
+    @Test(timeOut = 300000)
+    public void testAdaptiveRemoteTaskRequestSize()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperty(REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED, "true")
+                .setSystemProperty(REMOTE_TASK_MAX_REQUEST_SIZE, "10kB")
+                .setSystemProperty(REMOTE_TASK_REQUEST_SIZE_HEADROOM, "1kB")
+                .setSystemProperty(REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST, "1")
+                .build();
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of(), session);
+
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+        remoteTask.start();
+
+        Multimap<PlanNodeId, Split> splits = HashMultimap.create();
+        for (int i = 0; i < 100; i++) {
+            splits.put(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
+        }
+        remoteTask.addSplits(splits);
+
+        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID) != null);
+
+        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == 100); // to check whether all the splits are sent or not
+        assertTrue(testingTaskResource.getCreateOrUpdateCounter() > 1); // to check whether the splits are divided or not
+
+        remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID);
+        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).isNoMoreSplits());
+
+        remoteTask.cancel();
+        poll(() -> remoteTask.getTaskStatus().getState().isDone());
+        poll(() -> remoteTask.getTaskInfo().getTaskStatus().getState().isDone());
+
+        httpRemoteTaskFactory.stop();
+    }
+
+    @Test
+    public void testAdjustSplitBatchSize()
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
+
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperty(REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED, "true")
+                .setSystemProperty(REMOTE_TASK_MAX_REQUEST_SIZE, "100kB")
+                .setSystemProperty(REMOTE_TASK_REQUEST_SIZE_HEADROOM, "10kB")
+                .setSystemProperty(REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST, "1")
+                .build();
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory, ImmutableSet.of(), session);
+
+        testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+
+        Set<ScheduledSplit> splits = new HashSet<>();
+        for (int i = 0; i < 1000; i++) {
+            splits.add(new ScheduledSplit(i, TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit())));
+        }
+
+        // decrease splitBatchSize
+        assertTrue(((HttpRemoteTask) remoteTask).adjustSplitBatchSize(ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, splits, true)), 1000000, 500));
+        assertLessThan(((HttpRemoteTask) remoteTask).splitBatchSize.get(), 250);
+
+        // increase splitBatchSize
+        assertFalse(((HttpRemoteTask) remoteTask).adjustSplitBatchSize(ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, splits, true)), 1000, 100));
+        assertGreaterThan(((HttpRemoteTask) remoteTask).splitBatchSize.get(), 250);
+    }
+
     private void runTest(FailureScenario failureScenario)
             throws Exception
     {
@@ -413,10 +508,17 @@ public class TestHttpRemoteTask
 
     private RemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory, Set<DynamicFilterId> outboundDynamicFilterIds)
     {
+        return createRemoteTask(httpRemoteTaskFactory, outboundDynamicFilterIds, TEST_SESSION);
+    }
+
+    private RemoteTask createRemoteTask(HttpRemoteTaskFactory httpRemoteTaskFactory, Set<DynamicFilterId> outboundDynamicFilterIds, Session session)
+    {
         return httpRemoteTaskFactory.createRemoteTask(
-                TEST_SESSION,
+                session,
+                Span.getInvalid(),
                 new TaskId(new StageId("test", 1), 2, 0),
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
+                false,
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
                 PipelinedOutputBuffers.createInitial(BROADCAST),
@@ -459,6 +561,10 @@ public class TestHttpRemoteTask
                         binder.bind(TypeManager.class).toInstance(TESTING_TYPE_MANAGER);
                         binder.bind(BlockEncodingManager.class).in(SINGLETON);
                         binder.bind(BlockEncodingSerde.class).to(InternalBlockEncodingSerde.class).in(SINGLETON);
+
+                        binder.bind(OpenTelemetry.class).toInstance(OpenTelemetry.noop());
+                        jsonBinder(binder).addSerializerBinding(Span.class).to(SpanSerializer.class);
+                        jsonBinder(binder).addDeserializerBinding(Span.class).to(SpanDeserializer.class);
                     }
 
                     @Provides
@@ -483,6 +589,7 @@ public class TestHttpRemoteTask
                                 taskInfoCodec,
                                 taskUpdateRequestCodec,
                                 failTaskRequestCodec,
+                                noopTracer(),
                                 new RemoteTaskStats(),
                                 dynamicFilterService);
                     }
@@ -766,6 +873,7 @@ public class TestHttpRemoteTask
                     taskState,
                     initialTaskStatus.getSelf(),
                     "fake",
+                    false,
                     initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),
                     initialTaskStatus.getRunningPartitionedDrivers(),

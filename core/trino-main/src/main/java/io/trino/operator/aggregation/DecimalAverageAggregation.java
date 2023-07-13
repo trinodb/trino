@@ -56,17 +56,13 @@ public final class DecimalAverageAggregation
     @LiteralParameters({"p", "s"})
     public static void inputShortDecimal(
             @AggregationState LongDecimalWithOverflowAndLongState state,
-            @BlockPosition @SqlType(value = "decimal(p, s)", nativeContainerType = long.class) Block block,
-            @BlockIndex int position)
+            @SqlType("decimal(p,s)") long rightLow)
     {
         state.addLong(1); // row counter
-
-        state.setNotNull();
 
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
 
-        long rightLow = block.getLong(position, 0);
         long rightHigh = rightLow >> 63;
 
         long overflow = addWithOverflow(
@@ -89,8 +85,6 @@ public final class DecimalAverageAggregation
     {
         state.addLong(1); // row counter
 
-        state.setNotNull();
-
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
 
@@ -111,15 +105,13 @@ public final class DecimalAverageAggregation
     @CombineFunction
     public static void combine(@AggregationState LongDecimalWithOverflowAndLongState state, @AggregationState LongDecimalWithOverflowAndLongState otherState)
     {
-        state.addLong(otherState.getLong()); // row counter
-
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
 
         long[] otherDecimal = otherState.getDecimalArray();
         int otherOffset = otherState.getDecimalArrayOffset();
 
-        if (state.isNotNull()) {
+        if (state.getLong() > 0) {
             long overflow = addWithOverflow(
                     decimal[offset],
                     decimal[offset + 1],
@@ -130,15 +122,16 @@ public final class DecimalAverageAggregation
             state.addOverflow(overflow + otherState.getOverflow());
         }
         else {
-            state.setNotNull();
             decimal[offset] = otherDecimal[otherOffset];
             decimal[offset + 1] = otherDecimal[otherOffset + 1];
             state.setOverflow(otherState.getOverflow());
         }
+
+        state.addLong(otherState.getLong()); // row counter
     }
 
     @OutputFunction("decimal(p,s)")
-    public static void outputShortDecimal(
+    public static void outputDecimal(
             @TypeParameter("decimal(p,s)") Type type,
             @AggregationState LongDecimalWithOverflowAndLongState state,
             BlockBuilder out)

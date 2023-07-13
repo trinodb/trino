@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.BaseEncoding;
-import io.airlift.json.ObjectMapperProvider;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
@@ -46,26 +43,25 @@ import io.trino.plugin.elasticsearch.ptf.RawQuery.RawQueryFunctionHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
-import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
@@ -73,10 +69,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 
-import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -88,14 +83,12 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterators.singletonIterator;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
-import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -108,16 +101,13 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptyIterator;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchMetadata
         implements ConnectorMetadata
 {
-    private static final ObjectMapper JSON_PARSER = new ObjectMapperProvider().get();
-
-    private static final String PASSTHROUGH_QUERY_SUFFIX = "$query";
     private static final String PASSTHROUGH_QUERY_RESULT_COLUMN_NAME = "result";
     private static final ColumnMetadata PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA = ColumnMetadata.builder()
             .setName(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME)
@@ -142,7 +132,6 @@ public class ElasticsearchMetadata
     private final Type ipAddressType;
     private final ElasticsearchClient client;
     private final String schemaName;
-    private final boolean legacyPassThroughQueryEnabled;
 
     @Inject
     public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
@@ -150,7 +139,6 @@ public class ElasticsearchMetadata
         this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
         this.schemaName = config.getDefaultSchema();
-        this.legacyPassThroughQueryEnabled = config.isLegacyPassThroughQueryEnabled();
     }
 
     @Override
@@ -168,44 +156,12 @@ public class ElasticsearchMetadata
             String[] parts = tableName.getTableName().split(":", 2);
             String table = parts[0];
             Optional<String> query = Optional.empty();
-            ElasticsearchTableHandle.Type type = SCAN;
             if (parts.length == 2) {
-                // TODO this query pass-through mechanism is deprecated in favor of the `raw_query` table function.
-                //  it should be eventually removed: https://github.com/trinodb/trino/issues/13050
-                if (table.endsWith(PASSTHROUGH_QUERY_SUFFIX)) {
-                    if (!this.legacyPassThroughQueryEnabled) {
-                        throw new TrinoException(
-                                UNSUPPORTED_SUBQUERY,
-                                "Pass-through query not supported. Please turn it on explicitly using elasticsearch.legacy-pass-through-query.enabled feature toggle");
-                    }
-                    table = table.substring(0, table.length() - PASSTHROUGH_QUERY_SUFFIX.length());
-                    byte[] decoded;
-                    try {
-                        decoded = BaseEncoding.base32().decode(parts[1].toUpperCase(ENGLISH));
-                    }
-                    catch (IllegalArgumentException e) {
-                        throw new TrinoException(INVALID_ARGUMENTS, format("Elasticsearch query for '%s' is not base32-encoded correctly", table), e);
-                    }
-
-                    String queryJson = new String(decoded, UTF_8);
-                    try {
-                        // Ensure this is valid json
-                        JSON_PARSER.readTree(queryJson);
-                    }
-                    catch (JsonProcessingException e) {
-                        throw new TrinoException(INVALID_ARGUMENTS, format("Elasticsearch query for '%s' is not valid JSON", table), e);
-                    }
-
-                    query = Optional.of(queryJson);
-                    type = QUERY;
-                }
-                else {
-                    query = Optional.of(parts[1]);
-                }
+                query = Optional.of(parts[1]);
             }
 
             if (client.indexExists(table) && !client.getIndexMetadata(table).getSchema().getFields().isEmpty()) {
-                return new ElasticsearchTableHandle(type, schemaName, table, query);
+                return new ElasticsearchTableHandle(SCAN, schemaName, table, query);
             }
         }
 
@@ -336,8 +292,8 @@ public class ElasticsearchMetadata
         }
 
         IndexMetadata.Type type = field.getType();
-        if (type instanceof PrimitiveType) {
-            switch (((PrimitiveType) type).getName()) {
+        if (type instanceof PrimitiveType primitiveType) {
+            switch (primitiveType.getName()) {
                 case "float":
                     return new TypeAndDecoder(REAL, new RealDecoder.Descriptor(path));
                 case "double":
@@ -364,15 +320,13 @@ public class ElasticsearchMetadata
         else if (type instanceof ScaledFloatType) {
             return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
         }
-        else if (type instanceof DateTimeType) {
-            if (((DateTimeType) type).getFormats().isEmpty()) {
+        else if (type instanceof DateTimeType dateTimeType) {
+            if (dateTimeType.getFormats().isEmpty()) {
                 return new TypeAndDecoder(TIMESTAMP_MILLIS, new TimestampDecoder.Descriptor(path));
             }
             // otherwise, skip -- we don't support custom formats, yet
         }
-        else if (type instanceof ObjectType) {
-            ObjectType objectType = (ObjectType) type;
-
+        else if (type instanceof ObjectType objectType) {
             ImmutableList.Builder<RowType.Field> rowFieldsBuilder = ImmutableList.builder();
             ImmutableList.Builder<RowDecoder.NameAndDescriptor> decoderFields = ImmutableList.builder();
             for (IndexMetadata.Field rowField : objectType.getFields()) {
@@ -473,18 +427,25 @@ public class ElasticsearchMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
+        throw new UnsupportedOperationException("The deprecated listTableColumns is not supported because streamTableColumns is implemented instead");
+    }
+
+    @Override
+    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
         if (prefix.getSchema().isPresent() && !prefix.getSchema().get().equals(schemaName)) {
-            return ImmutableMap.of();
+            return emptyIterator();
         }
 
         if (prefix.getSchema().isPresent() && prefix.getTable().isPresent()) {
             ConnectorTableMetadata metadata = getTableMetadata(prefix.getSchema().get(), prefix.getTable().get());
-            return ImmutableMap.of(metadata.getTable(), metadata.getColumns());
+            return singletonIterator(TableColumnsMetadata.forTable(metadata.getTable(), metadata.getColumns()));
         }
 
         return listTables(session, prefix.getSchema()).stream()
                 .map(name -> getTableMetadata(name.getSchemaName(), name.getTableName()))
-                .collect(toImmutableMap(ConnectorTableMetadata::getTable, ConnectorTableMetadata::getColumns));
+                .map(tableMetadata -> TableColumnsMetadata.forTable(tableMetadata.getTable(), tableMetadata.getColumns()))
+                .iterator();
     }
 
     @Override
@@ -494,7 +455,6 @@ public class ElasticsearchMetadata
 
         return new ConnectorTableProperties(
                 handle.getConstraint(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of());
@@ -558,8 +518,7 @@ public class ElasticsearchMetadata
         List<ConnectorExpression> expressions = ConnectorExpressions.extractConjuncts(constraint.getExpression());
         List<ConnectorExpression> notHandledExpressions = new ArrayList<>();
         for (ConnectorExpression expression : expressions) {
-            if (expression instanceof Call) {
-                Call call = (Call) expression;
+            if (expression instanceof Call call) {
                 if (isSupportedLikeCall(call)) {
                     List<ConnectorExpression> arguments = call.getArguments();
                     String variableName = ((Variable) arguments.get(0)).getName();
@@ -696,13 +655,7 @@ public class ElasticsearchMetadata
         }
 
         ConnectorTableHandle tableHandle = ((RawQueryFunctionHandle) handle).getTableHandle();
-        ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
-        Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
-        List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
-                .map(ColumnSchema::getName)
-                .map(columnHandlesByName::get)
-                .collect(toImmutableList());
-
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 

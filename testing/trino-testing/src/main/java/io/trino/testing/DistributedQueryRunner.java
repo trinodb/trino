@@ -28,6 +28,7 @@ import io.trino.Session.SessionBuilder;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManager;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.FunctionBundle;
@@ -122,10 +123,6 @@ public class DistributedQueryRunner
     {
         requireNonNull(defaultSession, "defaultSession is null");
 
-        if (backupCoordinatorProperties.isPresent()) {
-            checkArgument(nodeCount >= 2, "the nodeCount must be greater than or equal to two!");
-        }
-
         setupLogging();
 
         try {
@@ -136,7 +133,9 @@ public class DistributedQueryRunner
 
             registerNewWorker = () -> createServer(false, extraProperties, environment, additionalModule, baseDataDir, ImmutableList.of(), ImmutableList.of());
 
-            for (int i = backupCoordinatorProperties.isEmpty() ? 1 : 2; i < nodeCount; i++) {
+            int coordinatorCount = backupCoordinatorProperties.isEmpty() ? 1 : 2;
+            checkArgument(nodeCount >= coordinatorCount, "nodeCount includes coordinator(s) count, so must be at least %s, got: %s", coordinatorCount, nodeCount);
+            for (int i = coordinatorCount; i < nodeCount; i++) {
                 registerNewWorker.run();
             }
 
@@ -237,8 +236,7 @@ public class DistributedQueryRunner
                 .put("node-manager.http-client.min-threads", "1") // default 8
                 .put("exchange.page-buffer-client.max-callback-threads", "5") // default 25
                 .put("exchange.http-client.idle-timeout", "1h")
-                .put("task.max-index-memory", "16kB") // causes index joins to fault load
-                .put("distributed-index-joins-enabled", "true");
+                .put("task.max-index-memory", "16kB"); // causes index joins to fault load
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");
@@ -485,17 +483,7 @@ public class DistributedQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        lock.readLock().lock();
-        try {
-            return trinoClient.execute(session, sql).getResult();
-        }
-        catch (Throwable e) {
-            e.addSuppressed(new Exception("SQL: " + sql));
-            throw e;
-        }
-        finally {
-            lock.readLock().unlock();
-        }
+        return executeWithQueryId(session, sql).getResult();
     }
 
     public MaterializedResultWithQueryId executeWithQueryId(Session session, @Language("SQL") String sql)
@@ -504,6 +492,10 @@ public class DistributedQueryRunner
         try {
             ResultWithQueryId<MaterializedResult> result = trinoClient.execute(session, sql);
             return new MaterializedResultWithQueryId(result.getQueryId(), result.getResult());
+        }
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("SQL: " + sql));
+            throw e;
         }
         finally {
             lock.readLock().unlock();
@@ -518,7 +510,7 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public Plan createPlan(Session session, String sql, WarningCollector warningCollector)
+    public Plan createPlan(Session session, String sql, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         QueryId queryId = executeWithQueryId(session, sql).getQueryId();
         Plan queryPlan = getQueryPlan(queryId);
@@ -622,7 +614,7 @@ public class DistributedQueryRunner
     {
         private Session defaultSession;
         private int nodeCount = 3;
-        private Map<String, String> extraProperties = new HashMap<>();
+        private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private Optional<Map<String, String>> backupCoordinatorProperties = Optional.empty();
         private Consumer<QueryRunner> additionalSetup = queryRunner -> {};
@@ -655,21 +647,42 @@ public class DistributedQueryRunner
         @CanIgnoreReturnValue
         public SELF setExtraProperties(Map<String, String> extraProperties)
         {
-            this.extraProperties = new HashMap<>(extraProperties);
+            this.extraProperties = ImmutableMap.copyOf(extraProperties);
+            return self();
+        }
+
+        @CanIgnoreReturnValue
+        public SELF addExtraProperties(Map<String, String> extraProperties)
+        {
+            this.extraProperties = addProperties(this.extraProperties, extraProperties);
             return self();
         }
 
         @CanIgnoreReturnValue
         public SELF addExtraProperty(String key, String value)
         {
-            this.extraProperties.put(key, value);
+            this.extraProperties = addProperty(this.extraProperties, key, value);
             return self();
         }
 
         @CanIgnoreReturnValue
         public SELF setCoordinatorProperties(Map<String, String> coordinatorProperties)
         {
-            this.coordinatorProperties = coordinatorProperties;
+            this.coordinatorProperties = ImmutableMap.copyOf(coordinatorProperties);
+            return self();
+        }
+
+        @CanIgnoreReturnValue
+        public SELF addCoordinatorProperties(Map<String, String> coordinatorProperties)
+        {
+            this.coordinatorProperties = addProperties(this.coordinatorProperties, coordinatorProperties);
+            return self();
+        }
+
+        @CanIgnoreReturnValue
+        public SELF addCoordinatorProperty(String key, String value)
+        {
+            this.coordinatorProperties = addProperty(this.coordinatorProperties, key, value);
             return self();
         }
 
@@ -690,17 +703,6 @@ public class DistributedQueryRunner
         {
             this.additionalSetup = requireNonNull(additionalSetup, "additionalSetup is null");
             return self();
-        }
-
-        /**
-         * Sets coordinator properties being equal to a map containing given key and value.
-         * Note, that calling this method OVERWRITES previously set property values.
-         * As a result, it should only be used when only one coordinator property needs to be set.
-         */
-        @CanIgnoreReturnValue
-        public SELF setSingleCoordinatorProperty(String key, String value)
-        {
-            return setCoordinatorProperties(ImmutableMap.of(key, value));
         }
 
         @CanIgnoreReturnValue
@@ -793,6 +795,22 @@ public class DistributedQueryRunner
             }
 
             return queryRunner;
+        }
+
+        protected static Map<String, String> addProperties(Map<String, String> properties, Map<String, String> update)
+        {
+            return ImmutableMap.<String, String>builder()
+                    .putAll(requireNonNull(properties, "properties is null"))
+                    .putAll(requireNonNull(update, "update is null"))
+                    .buildOrThrow();
+        }
+
+        protected static ImmutableMap<String, String> addProperty(Map<String, String> extraProperties, String key, String value)
+        {
+            return ImmutableMap.<String, String>builder()
+                    .putAll(requireNonNull(extraProperties, "properties is null"))
+                    .put(requireNonNull(key, "key is null"), requireNonNull(value, "value is null"))
+                    .buildOrThrow();
         }
     }
 }

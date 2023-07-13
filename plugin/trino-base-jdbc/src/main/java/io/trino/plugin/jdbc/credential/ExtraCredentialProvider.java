@@ -13,9 +13,8 @@
  */
 package io.trino.plugin.jdbc.credential;
 
+import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;

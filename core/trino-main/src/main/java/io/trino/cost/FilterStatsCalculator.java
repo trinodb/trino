@@ -18,6 +18,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AllowAllAccessControl;
@@ -49,7 +50,6 @@ import io.trino.sql.tree.SymbolReference;
 import io.trino.util.DisjointSet;
 
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -344,11 +344,10 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitInPredicate(InPredicate node, Void context)
         {
-            if (!(node.getValueList() instanceof InListExpression)) {
+            if (!(node.getValueList() instanceof InListExpression inList)) {
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            InListExpression inList = (InListExpression) node.getValueList();
             ImmutableList<PlanNodeStatsEstimate> equalityEstimates = inList.getValues().stream()
                     .map(inValue -> process(new ComparisonExpression(EQUAL, node.getValue(), inValue)))
                     .collect(toImmutableList());

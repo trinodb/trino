@@ -15,19 +15,26 @@ package io.trino.parquet.reader.decoders;
 
 import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.flat.BinaryBuffer;
 import io.trino.parquet.reader.flat.BitPackingUtils;
-import io.trino.spi.type.DecimalType;
+import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import org.apache.parquet.column.ColumnDescriptor;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.parquet.ParquetReaderUtils.toByteExact;
 import static io.trino.parquet.ParquetReaderUtils.toShortExact;
+import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.reader.flat.BitPackingUtils.unpack;
+import static io.trino.spi.block.Fixed12Block.encodeFixed12;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
 public final class PlainValueDecoders
 {
@@ -72,34 +79,6 @@ public final class PlainValueDecoders
         public void read(int[] values, int offset, int length)
         {
             input.readBytes(Slices.wrappedIntArray(values), offset * Integer.BYTES, length * Integer.BYTES);
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            input.skip(n * Integer.BYTES);
-        }
-    }
-
-    public static final class IntToLongPlainValueDecoder
-            implements ValueDecoder<long[]>
-    {
-        private SimpleSliceInputStream input;
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            this.input = requireNonNull(input, "input is null");
-        }
-
-        @Override
-        public void read(long[] values, int offset, int length)
-        {
-            input.ensureBytesAvailable(Integer.BYTES * length);
-            int endOffset = offset + length;
-            for (int i = offset; i < endOffset; i++) {
-                values[i] = input.readIntUnsafe();
-            }
         }
 
         @Override
@@ -242,19 +221,21 @@ public final class PlainValueDecoders
             implements ValueDecoder<long[]>
     {
         private final int typeLength;
-        private final DecimalType decimalType;
         private final ColumnDescriptor descriptor;
         private final ShortDecimalFixedWidthByteArrayBatchDecoder decimalValueDecoder;
 
         private SimpleSliceInputStream input;
 
-        public ShortDecimalFixedLengthByteArrayDecoder(DecimalType decimalType, ColumnDescriptor descriptor)
+        public ShortDecimalFixedLengthByteArrayDecoder(ColumnDescriptor descriptor)
         {
-            checkArgument(decimalType.isShort(), "Decimal type %s is not a short decimal", decimalType);
-            this.decimalType = decimalType;
-            this.descriptor = requireNonNull(descriptor, "descriptor is null");
+            DecimalLogicalTypeAnnotation decimalAnnotation = (DecimalLogicalTypeAnnotation) descriptor.getPrimitiveType().getLogicalTypeAnnotation();
+            checkArgument(
+                    decimalAnnotation.getPrecision() <= Decimals.MAX_SHORT_PRECISION,
+                    "Decimal type %s is not a short decimal",
+                    decimalAnnotation);
             this.typeLength = descriptor.getPrimitiveType().getTypeLength();
             checkArgument(typeLength > 0 && typeLength <= 16, "Expected column %s to have type length in range (1-16)", descriptor);
+            this.descriptor = descriptor;
             this.decimalValueDecoder = new ShortDecimalFixedWidthByteArrayBatchDecoder(Math.min(typeLength, Long.BYTES));
         }
 
@@ -276,7 +257,7 @@ public final class PlainValueDecoders
             byte[] inputBytes = input.getByteArray();
             int inputBytesOffset = input.getByteArrayOffset();
             for (int i = offset; i < offset + length; i++) {
-                checkBytesFitInShortDecimal(inputBytes, inputBytesOffset, extraBytesLength, decimalType, descriptor);
+                checkBytesFitInShortDecimal(inputBytes, inputBytesOffset, extraBytesLength, descriptor);
                 values[i] = getShortDecimalValue(inputBytes, inputBytesOffset + extraBytesLength, Long.BYTES);
                 inputBytesOffset += typeLength;
             }
@@ -357,6 +338,74 @@ public final class PlainValueDecoders
         public void skip(int n)
         {
             input.skip(n * UUID_SIZE);
+        }
+    }
+
+    public static final class Int96TimestampPlainValueDecoder
+            implements ValueDecoder<int[]>
+    {
+        private static final int LENGTH = SIZE_OF_LONG + SIZE_OF_INT;
+
+        private SimpleSliceInputStream input;
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            this.input = requireNonNull(input, "input is null");
+        }
+
+        @Override
+        public void read(int[] values, int offset, int length)
+        {
+            input.ensureBytesAvailable(length * LENGTH);
+            for (int i = offset; i < offset + length; i++) {
+                DecodedTimestamp timestamp = decodeInt96Timestamp(input.readLongUnsafe(), input.readIntUnsafe());
+                encodeFixed12(timestamp.epochSeconds(), timestamp.nanosOfSecond(), values, i);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            input.skip(n * LENGTH);
+        }
+    }
+
+    public static final class FixedLengthPlainValueDecoder
+            implements ValueDecoder<BinaryBuffer>
+    {
+        private final int typeLength;
+
+        private SimpleSliceInputStream input;
+
+        public FixedLengthPlainValueDecoder(int typeLength)
+        {
+            this.typeLength = typeLength;
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            this.input = requireNonNull(input, "input is null");
+        }
+
+        @Override
+        public void read(BinaryBuffer values, int offset, int length)
+        {
+            values.addChunk(input.readSlice(typeLength * length));
+            int[] outputOffsets = values.getOffsets();
+
+            int inputLength = outputOffsets[offset] + typeLength;
+            for (int i = offset; i < offset + length; i++) {
+                outputOffsets[i + 1] = inputLength;
+                inputLength += typeLength;
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            input.skip(n * typeLength);
         }
     }
 }

@@ -13,11 +13,10 @@
  */
 package io.trino.server.ui;
 
+import com.google.inject.Inject;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.redirectAllFormLoginToUi;

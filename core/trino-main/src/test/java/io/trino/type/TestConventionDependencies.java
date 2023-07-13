@@ -155,7 +155,7 @@ public class TestConventionDependencies
                 @BlockPosition @SqlType(value = StandardTypes.INTEGER, nativeContainerType = long.class) Block block,
                 @BlockIndex int position)
         {
-            return Math.addExact((int) first, (int) INTEGER.getLong(block, position));
+            return Math.addExact((int) first, INTEGER.getInt(block, position));
         }
     }
 }

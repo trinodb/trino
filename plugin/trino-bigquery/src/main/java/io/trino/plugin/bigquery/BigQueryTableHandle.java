@@ -160,8 +160,7 @@ public class BigQueryTableHandle
 
     public static Optional<BigQueryPartitionType> getPartitionType(TableDefinition definition)
     {
-        if (definition instanceof StandardTableDefinition) {
-            StandardTableDefinition standardTableDefinition = (StandardTableDefinition) definition;
+        if (definition instanceof StandardTableDefinition standardTableDefinition) {
             RangePartitioning rangePartition = standardTableDefinition.getRangePartitioning();
             if (rangePartition != null) {
                 return Optional.of(BigQueryPartitionType.RANGE);

@@ -13,12 +13,11 @@
  */
 package io.trino.plugin.hive.security;
 
+import com.google.inject.Inject;
 import io.trino.plugin.hive.HiveTransactionManager;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSecurityContext;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 

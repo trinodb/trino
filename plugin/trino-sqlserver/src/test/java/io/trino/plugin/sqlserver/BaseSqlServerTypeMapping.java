@@ -872,7 +872,7 @@ public abstract class BaseSqlServerTypeMapping
     private void assertSqlServerQueryFails(@Language("SQL") String sql, String expectedMessage)
     {
         assertThatThrownBy(() -> onRemoteDatabase().execute(sql))
-                .getCause()
+                .cause()
                 .hasMessageContaining(expectedMessage);
     }
 

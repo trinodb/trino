@@ -16,14 +16,13 @@ package io.trino.execution.scheduler;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
@@ -38,14 +37,14 @@ import io.trino.metadata.InternalNodeManager.NodesSnapshot;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.memory.MemoryPoolInfo;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.assertj.core.util.VisibleForTesting;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -53,9 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
@@ -64,13 +61,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
@@ -105,7 +101,6 @@ public class BinPackingNodeAllocatorService
     private final DataSize taskRuntimeMemoryEstimationOverhead;
     private final Ticker ticker;
 
-    private final ConcurrentMap<String, Long> allocatedMemory = new ConcurrentHashMap<>();
     private final Deque<PendingAcquire> pendingAcquires = new ConcurrentLinkedDeque<>();
     private final Set<BinPackingNodeLease> fulfilledAcquires = newConcurrentHashSet();
     private final Duration allowedNoMatchingNodePeriod;
@@ -202,6 +197,15 @@ public class BinPackingNodeAllocatorService
     @VisibleForTesting
     synchronized void processPendingAcquires()
     {
+        processPendingAcquires(false);
+        boolean hasNonSpeculativePendingAcquires = pendingAcquires.stream().anyMatch(pendingAcquire -> !pendingAcquire.isSpeculative());
+        if (!hasNonSpeculativePendingAcquires) {
+            processPendingAcquires(true);
+        }
+    }
+
+    private void processPendingAcquires(boolean processSpeculative)
+    {
         // synchronized only for sake manual triggering in test code. In production code it should only be called by single thread
         Iterator<PendingAcquire> iterator = pendingAcquires.iterator();
 
@@ -209,9 +213,9 @@ public class BinPackingNodeAllocatorService
                 nodeManager.getActiveNodesSnapshot(),
                 nodePoolMemoryInfos.get(),
                 fulfilledAcquires,
-                allocatedMemory,
                 scheduleOnCoordinator,
-                taskRuntimeMemoryEstimationOverhead);
+                taskRuntimeMemoryEstimationOverhead,
+                !processSpeculative); // if we are processing non-speculative pending acquires we are ignoring speculative acquired ones
 
         while (iterator.hasNext()) {
             PendingAcquire pendingAcquire = iterator.next();
@@ -222,17 +226,18 @@ public class BinPackingNodeAllocatorService
                 continue;
             }
 
+            if (pendingAcquire.isSpeculative() != processSpeculative) {
+                continue;
+            }
+
             BinPackingSimulation.ReserveResult result = simulation.tryReserve(pendingAcquire);
             switch (result.getStatus()) {
                 case RESERVED:
                     InternalNode reservedNode = result.getNode().orElseThrow();
                     fulfilledAcquires.add(pendingAcquire.getLease());
-                    updateAllocatedMemory(reservedNode, pendingAcquire.getMemoryLease());
                     pendingAcquire.getFuture().set(reservedNode);
                     if (pendingAcquire.getFuture().isCancelled()) {
                         // completing future was unsuccessful - request was cancelled in the meantime
-                        pendingAcquire.getLease().deallocateMemory(reservedNode);
-
                         fulfilledAcquires.remove(pendingAcquire.getLease());
 
                         // run once again when we are done
@@ -272,9 +277,9 @@ public class BinPackingNodeAllocatorService
     }
 
     @Override
-    public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement)
+    public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, boolean speculative)
     {
-        BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes());
+        BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), speculative);
         PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, memoryRequirement, nodeLease, ticker);
         pendingAcquires.add(pendingAcquire);
         wakeupProcessPendingAcquires();
@@ -287,20 +292,6 @@ public class BinPackingNodeAllocatorService
         // nothing to do here. leases should be released by the calling party.
         // TODO would be great to be able to validate if it actually happened but close() is called from SqlQueryScheduler code
         //      and that can be done before all leases are yet returned from running (soon to be failed) tasks.
-    }
-
-    private void updateAllocatedMemory(InternalNode node, long delta)
-    {
-        allocatedMemory.compute(
-                node.getNodeIdentifier(),
-                (key, oldValue) -> {
-                    verify(delta > 0 || (oldValue != null && oldValue >= -delta), "tried to release more than allocated (%s vs %s) for node %s", -delta, oldValue, key);
-                    long newValue = oldValue == null ? delta : oldValue + delta;
-                    if (newValue == 0) {
-                        return null; // delete
-                    }
-                    return newValue;
-                });
     }
 
     private static class PendingAcquire
@@ -350,6 +341,11 @@ public class BinPackingNodeAllocatorService
         {
             noMatchingNodeStopwatch.reset();
         }
+
+        public boolean isSpeculative()
+        {
+            return lease.isSpeculative();
+        }
     }
 
     private class BinPackingNodeLease
@@ -357,13 +353,14 @@ public class BinPackingNodeAllocatorService
     {
         private final SettableFuture<InternalNode> node = SettableFuture.create();
         private final AtomicBoolean released = new AtomicBoolean();
-        private final AtomicBoolean memoryDeallocated = new AtomicBoolean();
         private final long memoryLease;
         private final AtomicReference<TaskId> taskId = new AtomicReference<>();
+        private final AtomicBoolean speculative;
 
-        private BinPackingNodeLease(long memoryLease)
+        private BinPackingNodeLease(long memoryLease, boolean speculative)
         {
             this.memoryLease = memoryLease;
+            this.speculative = new AtomicBoolean(speculative);
         }
 
         @Override
@@ -395,6 +392,21 @@ public class BinPackingNodeAllocatorService
             }
         }
 
+        @Override
+        public void setSpeculative(boolean speculative)
+        {
+            checkArgument(!speculative, "cannot make non-speculative task speculative");
+            boolean changed = this.speculative.compareAndSet(true, false);
+            if (changed) {
+                wakeupProcessPendingAcquires();
+            }
+        }
+
+        public boolean isSpeculative()
+        {
+            return speculative.get();
+        }
+
         public Optional<TaskId> getAttachedTaskId()
         {
             return Optional.ofNullable(this.taskId.get());
@@ -411,7 +423,6 @@ public class BinPackingNodeAllocatorService
             if (released.compareAndSet(false, true)) {
                 node.cancel(true);
                 if (node.isDone() && !node.isCancelled()) {
-                    deallocateMemory(getFutureValue(node));
                     checkState(fulfilledAcquires.remove(this), "node lease %s not found in fulfilledAcquires %s", this, fulfilledAcquires);
                     wakeupProcessPendingAcquires();
                 }
@@ -420,21 +431,16 @@ public class BinPackingNodeAllocatorService
                 throw new IllegalStateException("Node " + node + " already released");
             }
         }
-
-        public void deallocateMemory(InternalNode node)
-        {
-            if (memoryDeallocated.compareAndSet(false, true)) {
-                updateAllocatedMemory(node, -memoryLease);
-            }
-        }
     }
 
     private static class BinPackingSimulation
     {
         private final NodesSnapshot nodesSnapshot;
         private final List<InternalNode> allNodesSorted;
+        private final boolean ignoreAcquiredSpeculative;
         private final Map<String, Long> nodesRemainingMemory;
         private final Map<String, Long> nodesRemainingMemoryRuntimeAdjusted;
+        private final Map<String, Long> speculativeMemoryReserved;
 
         private final Map<String, MemoryPoolInfo> nodeMemoryPoolInfos;
         private final boolean scheduleOnCoordinator;
@@ -443,20 +449,20 @@ public class BinPackingNodeAllocatorService
                 NodesSnapshot nodesSnapshot,
                 Map<String, MemoryPoolInfo> nodeMemoryPoolInfos,
                 Set<BinPackingNodeLease> fulfilledAcquires,
-                Map<String, Long> preReservedMemory,
                 boolean scheduleOnCoordinator,
-                DataSize taskRuntimeMemoryEstimationOverhead)
+                DataSize taskRuntimeMemoryEstimationOverhead,
+                boolean ignoreAcquiredSpeculative)
         {
             this.nodesSnapshot = requireNonNull(nodesSnapshot, "nodesSnapshot is null");
             // use same node ordering for each simulation
             this.allNodesSorted = nodesSnapshot.getAllNodes().stream()
                     .sorted(comparing(InternalNode::getNodeIdentifier))
                     .collect(toImmutableList());
+            this.ignoreAcquiredSpeculative = ignoreAcquiredSpeculative;
 
             requireNonNull(nodeMemoryPoolInfos, "nodeMemoryPoolInfos is null");
             this.nodeMemoryPoolInfos = ImmutableMap.copyOf(nodeMemoryPoolInfos);
 
-            requireNonNull(preReservedMemory, "preReservedMemory is null");
             this.scheduleOnCoordinator = scheduleOnCoordinator;
 
             Map<String, Map<String, Long>> realtimeTasksMemoryPerNode = new HashMap<>();
@@ -469,10 +475,26 @@ public class BinPackingNodeAllocatorService
                 realtimeTasksMemoryPerNode.put(node.getNodeIdentifier(), memoryPoolInfo.getTaskMemoryReservations());
             }
 
+            Map<String, Long> preReservedMemory = new HashMap<>();
             SetMultimap<String, BinPackingNodeLease> fulfilledAcquiresByNode = HashMultimap.create();
             for (BinPackingNodeLease fulfilledAcquire : fulfilledAcquires) {
+                if (ignoreAcquiredSpeculative && fulfilledAcquire.isSpeculative()) {
+                    continue;
+                }
                 InternalNode node = fulfilledAcquire.getAssignedNode();
                 fulfilledAcquiresByNode.put(node.getNodeIdentifier(), fulfilledAcquire);
+                preReservedMemory.compute(node.getNodeIdentifier(), (key, prev) -> (prev == null ? 0L : prev) + fulfilledAcquire.getMemoryLease());
+            }
+
+            speculativeMemoryReserved = new HashMap<>();
+            if (ignoreAcquiredSpeculative) {
+                for (BinPackingNodeLease fulfilledAcquire : fulfilledAcquires) {
+                    if (!fulfilledAcquire.isSpeculative()) {
+                        continue;
+                    }
+                    InternalNode node = fulfilledAcquire.getAssignedNode();
+                    speculativeMemoryReserved.compute(node.getNodeIdentifier(), (key, prev) -> (prev == null ? 0L : prev) + fulfilledAcquire.getMemoryLease());
+                }
             }
 
             nodesRemainingMemory = new HashMap<>();
@@ -538,8 +560,12 @@ public class BinPackingNodeAllocatorService
                 return ReserveResult.NONE_MATCHING;
             }
 
+            Comparator<InternalNode> comparator = comparing(node -> nodesRemainingMemoryRuntimeAdjusted.get(node.getNodeIdentifier()));
+            if (ignoreAcquiredSpeculative) {
+                comparator = resolveTiesWithSpeculativeMemory(comparator);
+            }
             InternalNode selectedNode = candidates.stream()
-                    .max(comparing(node -> nodesRemainingMemoryRuntimeAdjusted.get(node.getNodeIdentifier())))
+                    .max(comparator)
                     .orElseThrow();
 
             if (nodesRemainingMemoryRuntimeAdjusted.get(selectedNode.getNodeIdentifier()) >= acquire.getMemoryLease() || isNodeEmpty(selectedNode.getNodeIdentifier())) {
@@ -557,11 +583,20 @@ public class BinPackingNodeAllocatorService
             // If selected node cannot be used right now, select best one ignoring runtime memory usage and reserve space there
             // for later use. This is important from algorithm liveliness perspective. If we did not reserve space for a task which
             // is too big to be scheduled right now, it could be starved by smaller tasks coming later.
+            Comparator<InternalNode> fallbackComparator = comparing(node -> nodesRemainingMemory.get(node.getNodeIdentifier()));
+            if (ignoreAcquiredSpeculative) {
+                fallbackComparator = resolveTiesWithSpeculativeMemory(fallbackComparator);
+            }
             InternalNode fallbackNode = candidates.stream()
-                    .max(comparing(node -> nodesRemainingMemory.get(node.getNodeIdentifier())))
+                    .max(fallbackComparator)
                     .orElseThrow();
             subtractFromRemainingMemory(fallbackNode.getNodeIdentifier(), acquire.getMemoryLease());
             return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
+        }
+
+        private Comparator<InternalNode> resolveTiesWithSpeculativeMemory(Comparator<InternalNode> comparator)
+        {
+            return comparator.thenComparing(node -> -speculativeMemoryReserved.getOrDefault(node.getNodeIdentifier(), 0L));
         }
 
         private void subtractFromRemainingMemory(String nodeIdentifier, long memoryLease)
@@ -696,16 +731,14 @@ public class BinPackingNodeAllocatorService
 
         private String memoryUsageDistributionInfo()
         {
-            List<Double> quantiles = ImmutableList.of(0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95, 0.99);
-            List<Double> values;
+            double[] quantiles = new double[] {0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95, 0.99};
+            double[] values;
             synchronized (this) {
                 values = memoryUsageDistribution.valuesAt(quantiles);
             }
 
-            return Streams.zip(
-                            quantiles.stream(),
-                            values.stream(),
-                            (quantile, value) -> "" + quantile + "=" + value)
+            return IntStream.range(0, quantiles.length)
+                    .mapToObj(i -> "" + quantiles[i] + "=" + values[i])
                     .collect(Collectors.joining(", ", "[", "]"));
         }
 

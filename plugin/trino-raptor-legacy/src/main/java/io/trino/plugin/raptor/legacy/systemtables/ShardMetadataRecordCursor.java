@@ -24,7 +24,6 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.jdbi.v3.core.Jdbi;
@@ -35,10 +34,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
@@ -53,9 +50,11 @@ import static io.trino.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
+import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -331,36 +330,18 @@ public class ShardMetadataRecordCursor
     @VisibleForTesting
     static Iterator<Long> getTableIds(Jdbi dbi, TupleDomain<Integer> tupleDomain)
     {
-        Map<Integer, Domain> domains = tupleDomain.getDomains().get();
-        Domain schemaNameDomain = domains.get(getColumnIndex(SHARD_METADATA, SCHEMA_NAME));
-        Domain tableNameDomain = domains.get(getColumnIndex(SHARD_METADATA, TABLE_NAME));
-
-        List<String> values = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT table_id FROM tables ");
-        if (schemaNameDomain != null || tableNameDomain != null) {
-            sql.append("WHERE ");
-            List<String> predicates = new ArrayList<>();
-            if (tableNameDomain != null && tableNameDomain.isSingleValue()) {
-                predicates.add("table_name = ?");
-                values.add(getStringValue(tableNameDomain.getSingleValue()));
-            }
-            if (schemaNameDomain != null && schemaNameDomain.isSingleValue()) {
-                predicates.add("schema_name = ?");
-                values.add(getStringValue(schemaNameDomain.getSingleValue()));
-            }
-            sql.append(Joiner.on(" AND ").join(predicates));
-        }
-
         ImmutableList.Builder<Long> tableIds = ImmutableList.builder();
         try (Connection connection = dbi.open().getConnection();
-                PreparedStatement statement = connection.prepareStatement(sql.toString())) {
-            for (int i = 0; i < values.size(); i++) {
-                statement.setString(i + 1, values.get(i));
-            }
-            try (ResultSet resultSet = statement.executeQuery()) {
-                while (resultSet.next()) {
-                    tableIds.add(resultSet.getLong("table_id"));
-                }
+                PreparedStatement statement = PreparedStatementBuilder.create(
+                        connection,
+                        "SELECT table_id FROM tables ",
+                        List.of("schema_name", "table_name"),
+                        List.of(VARCHAR, VARCHAR),
+                        emptySet(),
+                        tupleDomain.filter((key, domain) -> (key == 0) || (key == 1)));
+                ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                tableIds.add(resultSet.getLong("table_id"));
             }
         }
         catch (SQLException | JdbiException e) {

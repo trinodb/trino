@@ -16,10 +16,10 @@ package io.trino.plugin.hudi;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hudi.model.HudiTableType;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hudi.common.model.HoodieTableType;
 
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.util.Objects.requireNonNull;
@@ -30,7 +30,7 @@ public class HudiTableHandle
     private final String schemaName;
     private final String tableName;
     private final String basePath;
-    private final HoodieTableType tableType;
+    private final HudiTableType tableType;
     private final TupleDomain<HiveColumnHandle> partitionPredicates;
     private final TupleDomain<HiveColumnHandle> regularPredicates;
 
@@ -39,7 +39,7 @@ public class HudiTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("basePath") String basePath,
-            @JsonProperty("tableType") HoodieTableType tableType,
+            @JsonProperty("tableType") HudiTableType tableType,
             @JsonProperty("partitionPredicates") TupleDomain<HiveColumnHandle> partitionPredicates,
             @JsonProperty("regularPredicates") TupleDomain<HiveColumnHandle> regularPredicates)
     {
@@ -70,7 +70,7 @@ public class HudiTableHandle
     }
 
     @JsonProperty
-    public HoodieTableType getTableType()
+    public HudiTableType getTableType()
     {
         return tableType;
     }

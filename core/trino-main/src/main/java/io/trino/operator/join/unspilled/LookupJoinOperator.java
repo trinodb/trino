@@ -36,6 +36,10 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.operator.WorkProcessor.flatten;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Like {@link io.trino.operator.join.LookupJoinOperator} but simplified,
+ * without spill support.
+ */
 public class LookupJoinOperator
         implements AdapterWorkProcessorOperator
 {

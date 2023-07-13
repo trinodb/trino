@@ -12,13 +12,13 @@ binary strings. Although Trino supports ``JSON`` type, it is not used or
 produced by the following functions.
 
 Trino supports three functions for querying JSON data:
-:ref:`json_exists<json_exists>`,
-:ref:`json_query<json_query>`, and :ref:`json_value<json_value>`. Each of them
+:ref:`json_exists<json-exists>`,
+:ref:`json_query<json-query>`, and :ref:`json_value<json-value>`. Each of them
 is based on the same mechanism of exploring and processing JSON input using
 JSON path.
 
 Trino also supports two functions for generating JSON data --
-:ref:`json_array<json_array>`, and :ref:`json_object<json_object>`.
+:ref:`json_array<json-array>`, and :ref:`json_object<json-object>`.
 
 .. _json-path-language:
 
@@ -32,7 +32,7 @@ from SQL. The semantics of predicates, operators, etc. in JSON path expressions
 generally follow the semantics of SQL. The JSON path language is case-sensitive
 for keywords and identifiers.
 
-.. _json_path_syntax_and_semantics:
+.. _json-path-syntax-and-semantics:
 
 JSON path syntax and semantics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -49,7 +49,7 @@ sequences, and returns a sequence as the result.
 
     In the lax mode, most path operations first unnest all JSON arrays in the
     input sequence. Any divergence from this rule is mentioned in the following
-    listing. Path modes are explained in :ref:`json_path_modes`.
+    listing. Path modes are explained in :ref:`json-path-modes`.
 
 The JSON path language features are divided into: literals, variables,
 arithmetic binary expressions, arithmetic unary expressions, and a group of
@@ -83,7 +83,7 @@ literals
 
 - null literal
 
-  It has the semantics of the JSON null, not of SQL null. See :ref:`json_comparison_rules`.
+  It has the semantics of the JSON null, not of SQL null. See :ref:`json-comparison-rules`.
 
 .. code-block:: text
 
@@ -224,6 +224,41 @@ All items in the input sequence must be JSON objects.
 The order of values returned from a single JSON object is arbitrary. The
 sub-sequences from all JSON objects are concatenated in the same order in which
 the JSON objects appear in the input sequence.
+
+.. _json-descendant-member-accessor:
+
+descendant member accessor
+''''''''''''''''''''''''''
+
+Returns the values associated with the specified key in all JSON objects on all
+levels of nesting in the input sequence.
+
+.. code-block:: text
+
+    <path>..key
+    <path>.."key"
+
+The order of returned values is that of preorder depth first search. First, the
+enclosing object is visited, and then all child nodes are visited.
+
+This method does not perform array unwrapping in the lax mode. The results
+are the same in the lax and strict modes. The method traverses into JSON
+arrays and JSON objects. Non-structural JSON items are skipped.
+
+Let ``<path>`` be a sequence containing a JSON object:
+
+.. code-block:: text
+
+    {
+        "id" : 1,
+        "notes" : [{"type" : 1, "comment" : "foo"}, {"type" : 2, "comment" : null}],
+        "comment" : ["bar", "baz"]
+    }
+
+.. code-block:: text
+
+    <path>..comment --> ["bar", "baz"], "foo", null
+
 
 array accessor
 ''''''''''''''
@@ -407,7 +442,7 @@ example because the compared types are not compatible, the result in the strict
 mode is ``unknown``. The result in the lax mode depends on whether the ``true``
 comparison or the error was found first.
 
-.. _json_comparison_rules:
+.. _json-comparison-rules:
 
 Comparison rules
 ****************
@@ -567,7 +602,7 @@ Limitations
 The SQL standard describes the ``datetime()`` JSON path item method and the
 ``like_regex()`` JSON path predicate. Trino does not support them.
 
-.. _json_path_modes:
+.. _json-path-modes:
 
 JSON path modes
 ^^^^^^^^^^^^^^^
@@ -643,7 +678,7 @@ method, the item ``"a"`` causes type mismatch.
 
     <path>.floor() --> ERROR
 
-.. _json_exists:
+.. _json-exists:
 
 json_exists
 -----------
@@ -676,7 +711,7 @@ a single JSON item. For a binary string, you can specify encoding.
 
 ``json_path`` is a string literal, containing the path mode specification, and
 the path expression, following the syntax rules described in
-:ref:`json_path_syntax_and_semantics`.
+:ref:`json-path-syntax-and-semantics`.
 
 .. code-block:: text
 
@@ -773,7 +808,7 @@ id         child_3_above_ten
 103        NULL
 ========== ==================
 
-.. _json_query:
+.. _json-query:
 
 json_query
 ----------
@@ -807,7 +842,7 @@ a single JSON item. For a binary string, you can specify encoding.
 
 ``json_path`` is a string literal, containing the path mode specification, and
 the path expression, following the syntax rules described in
-:ref:`json_path_syntax_and_semantics`.
+:ref:`json-path-syntax-and-semantics`.
 
 .. code-block:: text
 
@@ -988,7 +1023,7 @@ to the ``ON ERROR`` clause are:
 - JSON path evaluation errors, e.g. division by zero
 - Output conversion errors
 
-.. _json_value:
+.. _json-value:
 
 json_value
 ----------
@@ -1018,7 +1053,7 @@ a single JSON item. For a binary string, you can specify encoding.
 
 ``json_path`` is a string literal, containing the path mode specification, and
 the path expression, following the syntax rules described in
-:ref:`json_path_syntax_and_semantics`.
+:ref:`json-path-syntax-and-semantics`.
 
 .. code-block:: text
 
@@ -1168,7 +1203,7 @@ id         child
 103        'missing'
 ========== ================
 
-.. _json_array:
+.. _json-array:
 
 json_array
 ----------
@@ -1270,7 +1305,7 @@ The default encoding is UTF8::
     SELECT json_array(true, 1 RETURNING VARBINARY FORMAT JSON ENCODING UTF32)
     --> X'5b 00 00 00 74 00 00 00 72 00 00 00 75 00 00 00 65 00 00 00 2c 00 00 00 31 00 00 00 5d 00 00 00'
 
-.. _json_object:
+.. _json-object:
 
 json_object
 -----------
@@ -1622,6 +1657,9 @@ sections, the following functions are available:
         SELECT json_extract(json, '$.store.book');
         SELECT json_extract(json, '$.store[book]');
         SELECT json_extract(json, '$.store["book name"]');
+
+    The :ref:`json_query function<json-query>` provides a more powerful and
+    feature-rich alternative to parse and extract JSON data.
 
     .. _JSONPath: http://goessner.net/articles/JsonPath/
 

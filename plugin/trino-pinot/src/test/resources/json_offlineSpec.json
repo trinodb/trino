@@ -1,5 +1,5 @@
 {
-    "tableName": "json_table",
+    "tableName": "json_type_table",
     "tableType": "OFFLINE",
     "segmentsConfig": {
         "timeColumnName": "updated_at_seconds",

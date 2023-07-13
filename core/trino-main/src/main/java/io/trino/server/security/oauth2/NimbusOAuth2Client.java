@@ -15,6 +15,7 @@ package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
+import com.google.inject.Inject;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -58,8 +59,6 @@ import com.nimbusds.openid.connect.sdk.validators.InvalidHashException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.server.security.oauth2.OAuth2ServerConfigProvider.OAuth2ServerConfig;
-
-import javax.inject.Inject;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -378,7 +377,7 @@ public class NimbusOAuth2Client
         try {
             UserInfoResponse response = httpClient.execute(new UserInfoRequest(userinfoUrl.get(), new BearerAccessToken(accessToken)), UserInfoResponse::parse);
             if (!response.indicatesSuccess()) {
-                LOG.error("Received bad response from userinfo endpoint: " + response.toErrorResponse().getErrorObject());
+                LOG.error("Received bad response from userinfo endpoint: %s", response.toErrorResponse().getErrorObject());
                 return Optional.empty();
             }
             return Optional.of(response.toSuccessResponse().getUserInfo().toJWTClaimsSet());

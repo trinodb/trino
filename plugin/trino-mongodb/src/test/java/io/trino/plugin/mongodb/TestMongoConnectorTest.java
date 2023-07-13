@@ -32,6 +32,7 @@ import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -60,8 +61,8 @@ import static org.testng.Assert.assertNotNull;
 public class TestMongoConnectorTest
         extends BaseConnectorTest
 {
-    private MongoServer server;
-    private MongoClient client;
+    protected MongoServer server;
+    protected MongoClient client;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -70,6 +71,12 @@ public class TestMongoConnectorTest
         server = new MongoServer();
         client = createMongoClient(server);
         return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @BeforeClass
+    public void initTestSchema()
+    {
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS test");
     }
 
     @AfterClass(alwaysRun = true)
@@ -86,18 +93,28 @@ public class TestMongoConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+                return true;
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+            case SUPPORTS_TRUNCATE:
+                return false;
+
+            case SUPPORTS_DEREFERENCE_PUSHDOWN:
+                return false;
+
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
-            case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_SET_COLUMN_TYPE:
+            case SUPPORTS_DROP_FIELD:
+                return false;
+
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
-
-            case SUPPORTS_DELETE:
-                return true;
 
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -150,15 +167,16 @@ public class TestMongoConnectorTest
     @Test(dataProvider = "guessFieldTypesProvider")
     public void testGuessFieldTypes(String mongoValue, String trinoValue)
     {
+        String tableName = "test_guess_field_type_" + randomNameSuffix();
         Document document = Document.parse(format("{\"test\":%s}", mongoValue));
 
-        assertUpdate("DROP TABLE IF EXISTS test.test_guess_field_type");
-        client.getDatabase("test").getCollection("test_guess_field_type").insertOne(document);
+        assertUpdate("DROP TABLE IF EXISTS test." + tableName);
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
 
-        assertThat(query("SELECT test FROM test.test_guess_field_type"))
+        assertThat(query("SELECT test FROM test." + tableName))
                 .matches("SELECT " + trinoValue);
 
-        assertUpdate("DROP TABLE test.test_guess_field_type");
+        assertUpdate("DROP TABLE test." + tableName);
     }
 
     @DataProvider
@@ -183,9 +201,10 @@ public class TestMongoConnectorTest
     @Test
     public void createTableWithEveryType()
     {
-        String query = "" +
-                "CREATE TABLE test_types_table AS " +
-                "SELECT" +
+        String tableName = "test_types_table_" + randomNameSuffix();
+        String query = "CREATE TABLE " +
+                tableName +
+                " AS SELECT" +
                 " 'foo' _varchar" +
                 ", cast('bar' as varbinary) _varbinary" +
                 ", cast(1 as bigint) _bigint" +
@@ -199,7 +218,7 @@ public class TestMongoConnectorTest
 
         assertUpdate(query, 1);
 
-        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_types_table").toTestTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM " + tableName).toTestTypes();
         assertEquals(results.getRowCount(), 1);
         MaterializedRow row = results.getMaterializedRows().get(0);
         assertEquals(row.getField(0), "foo");
@@ -211,16 +230,17 @@ public class TestMongoConnectorTest
         assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
         assertEquals(row.getField(8), "{\"name\":\"alice\"}");
         assertEquals(row.getField(9), new BigDecimal("12.30000"));
-        assertUpdate("DROP TABLE test_types_table");
+        assertUpdate("DROP TABLE " + tableName);
 
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test
     public void testInsertWithEveryType()
     {
-        String createSql = "" +
-                "CREATE TABLE test_insert_types_table " +
+        String tableName = "test_insert_types_table_" + randomNameSuffix();
+        String createSql = "CREATE TABLE " +
+                tableName +
                 "(" +
                 "  vc varchar" +
                 ", vb varbinary" +
@@ -234,9 +254,9 @@ public class TestMongoConnectorTest
                 ")";
         getQueryRunner().execute(getSession(), createSql);
 
-        String insertSql = "" +
-                "INSERT INTO test_insert_types_table " +
-                "SELECT" +
+        String insertSql = "INSERT INTO " +
+                tableName +
+                " SELECT" +
                 " 'foo' _varchar" +
                 ", cast('bar' as varbinary) _varbinary" +
                 ", cast(1 as bigint) _bigint" +
@@ -248,7 +268,7 @@ public class TestMongoConnectorTest
                 ", JSON '{\"name\":\"alice\"}' _json";
         getQueryRunner().execute(getSession(), insertSql);
 
-        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_insert_types_table").toTestTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM " + tableName).toTestTypes();
         assertEquals(results.getRowCount(), 1);
         MaterializedRow row = results.getMaterializedRows().get(0);
         assertEquals(row.getField(0), "foo");
@@ -259,8 +279,8 @@ public class TestMongoConnectorTest
         assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
         assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
         assertEquals(row.getField(8), "{\"name\":\"alice\"}");
-        assertUpdate("DROP TABLE test_insert_types_table");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_insert_types_table"));
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Override
@@ -328,16 +348,17 @@ public class TestMongoConnectorTest
     @Test
     public void testJson()
     {
-        assertUpdate("CREATE TABLE test_json (id INT, col JSON)");
+        String tableName = "test_json_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, col JSON)");
 
-        assertUpdate("INSERT INTO test_json VALUES (1, JSON '{\"name\":\"alice\"}')", 1);
-        assertQuery("SELECT json_extract_scalar(col, '$.name') FROM test_json WHERE id = 1", "SELECT 'alice'");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, JSON '{\"name\":\"alice\"}')", 1);
+        assertQuery("SELECT json_extract_scalar(col, '$.name') FROM " + tableName + " WHERE id = 1", "SELECT 'alice'");
 
-        assertUpdate("INSERT INTO test_json VALUES (2, JSON '{\"numbers\":[1, 2, 3]}')", 1);
-        assertQuery("SELECT json_extract(col, '$.numbers[0]') FROM test_json WHERE id = 2", "SELECT 1");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, JSON '{\"numbers\":[1, 2, 3]}')", 1);
+        assertQuery("SELECT json_extract(col, '$.numbers[0]') FROM " + tableName + " WHERE id = 2", "SELECT 1");
 
-        assertUpdate("INSERT INTO test_json VALUES (3, NULL)", 1);
-        assertQuery("SELECT col FROM test_json WHERE id = 3", "SELECT NULL");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, NULL)", 1);
+        assertQuery("SELECT col FROM " + tableName + " WHERE id = 3", "SELECT NULL");
 
         assertQueryFails(
                 "CREATE TABLE test_json_scalar AS SELECT JSON '1' AS col",
@@ -347,55 +368,76 @@ public class TestMongoConnectorTest
                 "CREATE TABLE test_json_array AS SELECT JSON '[\"a\", \"b\", \"c\"]' AS col",
                 "Can't convert json to MongoDB Document.*");
 
-        assertUpdate("DROP TABLE test_json");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
     public void testArrays()
     {
-        assertUpdate("CREATE TABLE tmp_array1 AS SELECT ARRAY[1, 2, NULL] AS col", 1);
-        assertQuery("SELECT col[2] FROM tmp_array1", "SELECT 2");
-        assertQuery("SELECT col[3] FROM tmp_array1", "SELECT NULL");
+        String arrayIntegerTable = "test_array_integer" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + arrayIntegerTable + " AS SELECT ARRAY[1, 2, NULL] AS col", 1);
+        assertQuery("SELECT col[2] FROM " + arrayIntegerTable, "SELECT 2");
+        assertQuery("SELECT col[3] FROM " + arrayIntegerTable, "SELECT NULL");
+        assertUpdate("DROP TABLE " + arrayIntegerTable);
 
-        assertUpdate("CREATE TABLE tmp_array2 AS SELECT ARRAY[1.0E0, 2.5E0, 3.5E0] AS col", 1);
-        assertQuery("SELECT col[2] FROM tmp_array2", "SELECT 2.5");
+        String arrayDoubleTable = "test_array_double" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + arrayDoubleTable + " AS SELECT ARRAY[1.0E0, 2.5E0, 3.5E0] AS col", 1);
+        assertQuery("SELECT col[2] FROM " + arrayDoubleTable, "SELECT 2.5");
+        assertUpdate("DROP TABLE " + arrayDoubleTable);
 
-        assertUpdate("CREATE TABLE tmp_array3 AS SELECT ARRAY['puppies', 'kittens', NULL] AS col", 1);
-        assertQuery("SELECT col[2] FROM tmp_array3", "SELECT 'kittens'");
-        assertQuery("SELECT col[3] FROM tmp_array3", "SELECT NULL");
+        String arrayVarcharTable = "test_array_varchar" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + arrayVarcharTable + " AS SELECT ARRAY['puppies', 'kittens', NULL] AS col", 1);
+        assertQuery("SELECT col[2] FROM " + arrayVarcharTable, "SELECT 'kittens'");
+        assertQuery("SELECT col[3] FROM " + arrayVarcharTable, "SELECT NULL");
+        assertUpdate("DROP TABLE " + arrayVarcharTable);
 
-        assertUpdate("CREATE TABLE tmp_array4 AS SELECT ARRAY[TRUE, NULL] AS col", 1);
-        assertQuery("SELECT col[1] FROM tmp_array4", "SELECT TRUE");
-        assertQuery("SELECT col[2] FROM tmp_array4", "SELECT NULL");
+        String arrayBooleanTable = "test_array_boolean" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + arrayBooleanTable + " AS SELECT ARRAY[TRUE, NULL] AS col", 1);
+        assertQuery("SELECT col[1] FROM " + arrayBooleanTable, "SELECT TRUE");
+        assertQuery("SELECT col[2] FROM " + arrayBooleanTable, "SELECT NULL");
+        assertUpdate("DROP TABLE " + arrayBooleanTable);
 
-        assertUpdate("CREATE TABLE tmp_array5 AS SELECT ARRAY[ARRAY[1, 2], NULL, ARRAY[3, 4]] AS col", 1);
-        assertQuery("SELECT col[1][2] FROM tmp_array5", "SELECT 2");
+        String nestedArrayIntegerTable = "test_nested_array_integer" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + nestedArrayIntegerTable + " AS SELECT ARRAY[ARRAY[1, 2], NULL, ARRAY[3, 4]] AS col", 1);
+        assertQuery("SELECT col[1][2] FROM " + nestedArrayIntegerTable, "SELECT 2");
+        assertUpdate("DROP TABLE " + nestedArrayIntegerTable);
 
-        assertUpdate("CREATE TABLE tmp_array6 AS SELECT ARRAY[ARRAY['\"hi\"'], NULL, ARRAY['puppies']] AS col", 1);
-        assertQuery("SELECT col[1][1] FROM tmp_array6", "SELECT '\"hi\"'");
-        assertQuery("SELECT col[3][1] FROM tmp_array6", "SELECT 'puppies'");
+        String nestedArrayVarcharTable = "test_nested_array_varchar" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + nestedArrayVarcharTable + " AS SELECT ARRAY[ARRAY['\"hi\"'], NULL, ARRAY['puppies']] AS col", 1);
+        assertQuery("SELECT col[1][1] FROM " + nestedArrayVarcharTable, "SELECT '\"hi\"'");
+        assertQuery("SELECT col[3][1] FROM " + nestedArrayVarcharTable, "SELECT 'puppies'");
+        assertUpdate("DROP TABLE " + nestedArrayVarcharTable);
     }
 
     @Test
     public void testTemporalArrays()
     {
-        assertUpdate("CREATE TABLE tmp_array7 AS SELECT ARRAY[DATE '2014-09-30'] AS col", 1);
-        assertOneNotNullResult("SELECT col[1] FROM tmp_array7");
-        assertUpdate("CREATE TABLE tmp_array8 AS SELECT ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'] AS col", 1);
-        assertOneNotNullResult("SELECT col[1] FROM tmp_array8");
+        String dateArrayTable = "test_array_date" + randomNameSuffix();
+        String timestampArrayTable = "test_array_timestamp" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + dateArrayTable + " AS SELECT ARRAY[DATE '2014-09-30'] AS col", 1);
+        assertOneNotNullResult("SELECT col[1] FROM " + dateArrayTable);
+        assertUpdate("DROP TABLE " + dateArrayTable);
+
+        assertUpdate("CREATE TABLE " + timestampArrayTable + " AS SELECT ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'] AS col", 1);
+        assertOneNotNullResult("SELECT col[1] FROM " + timestampArrayTable);
+        assertUpdate("DROP TABLE " + timestampArrayTable);
     }
 
     @Test
     public void testSkipUnknownTypes()
     {
+        String unknownFieldTable = "test_unknown_field" + randomNameSuffix();
         Document document1 = new Document("col", Document.parse("{\"key1\": \"value1\", \"key2\": null}"));
-        client.getDatabase("test").getCollection("tmp_guess_schema1").insertOne(document1);
-        assertQuery("SHOW COLUMNS FROM test.tmp_guess_schema1", "SELECT 'col', 'row(key1 varchar)', '', ''");
-        assertQuery("SELECT col.key1 FROM test.tmp_guess_schema1", "SELECT 'value1'");
+        client.getDatabase("test").getCollection(unknownFieldTable).insertOne(document1);
+        assertQuery("SHOW COLUMNS FROM test." + unknownFieldTable, "SELECT 'col', 'row(key1 varchar)', '', ''");
+        assertQuery("SELECT col.key1 FROM test." + unknownFieldTable, "SELECT 'value1'");
+        assertUpdate("DROP TABLE test." + unknownFieldTable);
 
+        String allUnknownFieldTable = "test_all_unknown_field" + randomNameSuffix();
         Document document2 = new Document("col", new Document("key1", null));
-        client.getDatabase("test").getCollection("tmp_guess_schema2").insertOne(document2);
-        assertQueryReturnsEmptyResult("SHOW COLUMNS FROM test.tmp_guess_schema2");
+        client.getDatabase("test").getCollection(allUnknownFieldTable).insertOne(document2);
+        assertQueryReturnsEmptyResult("SHOW COLUMNS FROM test." + allUnknownFieldTable);
+        assertUpdate("DROP TABLE test." + allUnknownFieldTable);
     }
 
     @Test(dataProvider = "dbRefProvider")
@@ -406,16 +448,18 @@ public class TestMongoConnectorTest
         DBRef dbRef = new DBRef("test", "creators", objectId);
         document.append("creator", dbRef);
 
-        assertUpdate("DROP TABLE IF EXISTS test.test_dbref");
-        client.getDatabase("test").getCollection("test_dbref").insertOne(document);
+        String tableName = "test_dbref_" + randomNameSuffix();
 
-        assertThat(query("SELECT creator.databaseName, creator.collectionName, creator.id FROM test.test_dbref"))
+        assertUpdate("DROP TABLE IF EXISTS test." + tableName);
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertThat(query("SELECT creator.databaseName, creator.collectionName, creator.id FROM test." + tableName))
                 .matches("SELECT varchar 'test', varchar 'creators', " + expectedValue);
         assertQuery(
-                "SELECT typeof(creator) FROM test.test_dbref",
+                "SELECT typeof(creator) FROM test." + tableName,
                 "SELECT 'row(databaseName varchar, collectionName varchar, id " + expectedType + ")'");
 
-        assertUpdate("DROP TABLE test.test_dbref");
+        assertUpdate("DROP TABLE test." + tableName);
     }
 
     @DataProvider
@@ -434,62 +478,162 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    public void testDbRefFieldOrder()
+    {
+        // DBRef's field order is databaseName, collectionName and id
+        // Create a table with different order and verify the result
+        String tableName = "test_dbref_field_order" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(x row(id int, \"collectionName\" varchar, \"databaseName\" varchar))");
+
+        Document document = new Document()
+                .append("x", new DBRef("test_db", "test_collection", 1));
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertThat(query("SELECT * FROM test." + tableName))
+                .matches("SELECT CAST(row(1, 'test_collection', 'test_db') AS row(id int, \"collectionName\" varchar, \"databaseName\" varchar))");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testDbRefMissingField()
+    {
+        // DBRef has 3 fields (databaseName, collectionName and id)
+        // Create a table without id field and verify the result
+        String tableName = "test_dbref_missing_field" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(x row(\"databaseName\" varchar, \"collectionName\" varchar))");
+
+        Document document = new Document()
+                .append("x", new DBRef("test_db", "test_collection", 1));
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        // TODO Fix MongoPageSource to throw TrinoException
+        assertThatThrownBy(() -> query("SELECT * FROM test." + tableName))
+                .hasMessageContaining("DBRef should have 3 fields : row(databaseName varchar, collectionName varchar)");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testDbRefWrongFieldName()
+    {
+        // DBRef has 3 fields databaseName, collectionName and id
+        // Create a table with different field names and verify the failure
+        String tableName = "test_dbref_wrong_field_name" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(x row(a varchar, b varchar, c int))");
+
+        Document document = new Document()
+                .append("x", new DBRef("test_db", "test_collection", 1));
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertQueryFails("SELECT * FROM test." + tableName, "Unexpected field name for DBRef: a");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testDbRefWrongFieldType()
+    {
+        // DBRef has 3 fields (varchar databaseName, varchar collectionName and arbitrary type id)
+        // Create a table with different types and verify the result
+        String tableName = "test_dbref_wrong_field_type" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(x row(\"databaseName\" int, \"collectionName\" int, id int))");
+
+        Document document = new Document()
+                .append("x", new DBRef("test_db", "test_collection", "test_id"));
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        // The connector returns NULL when the actual field value is different from the column type
+        // See TODO comment in MongoPageSource
+        assertThat(query("SELECT * FROM test." + tableName))
+                .matches("SELECT CAST(row(NULL, NULL, NULL) AS row(\"databaseName\" int, \"collectionName\" int, id int))");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
     public void testMaps()
     {
-        assertUpdate("CREATE TABLE tmp_map1 AS SELECT MAP(ARRAY[0,1], ARRAY[2,NULL]) AS col", 1);
-        assertQuery("SELECT col[0] FROM tmp_map1", "SELECT 2");
-        assertQuery("SELECT col[1] FROM tmp_map1", "SELECT NULL");
+        String mapIntegerTable = "test_map_integer" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + mapIntegerTable + " AS SELECT MAP(ARRAY[0,1], ARRAY[2,NULL]) AS col", 1);
+        assertQuery("SELECT col[0] FROM " + mapIntegerTable, "SELECT 2");
+        assertQuery("SELECT col[1] FROM " + mapIntegerTable, "SELECT NULL");
+        assertUpdate("DROP TABLE " + mapIntegerTable);
 
-        assertUpdate("CREATE TABLE tmp_map2 AS SELECT MAP(ARRAY[1.0E0], ARRAY[2.5E0]) AS col", 1);
-        assertQuery("SELECT col[1.0] FROM tmp_map2", "SELECT 2.5");
+        String mapDoubleTable = "test_map_double" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + mapDoubleTable + " AS SELECT MAP(ARRAY[1.0E0], ARRAY[2.5E0]) AS col", 1);
+        assertQuery("SELECT col[1.0] FROM " + mapDoubleTable, "SELECT 2.5");
+        assertUpdate("DROP TABLE " + mapDoubleTable);
 
-        assertUpdate("CREATE TABLE tmp_map3 AS SELECT MAP(ARRAY['puppies'], ARRAY['kittens']) AS col", 1);
-        assertQuery("SELECT col['puppies'] FROM tmp_map3", "SELECT 'kittens'");
+        String mapVarcharTable = "test_map_varchar" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + mapVarcharTable + " AS SELECT MAP(ARRAY['puppies'], ARRAY['kittens']) AS col", 1);
+        assertQuery("SELECT col['puppies'] FROM " + mapVarcharTable, "SELECT 'kittens'");
+        assertUpdate("DROP TABLE " + mapVarcharTable);
 
-        assertUpdate("CREATE TABLE tmp_map4 AS SELECT MAP(ARRAY[TRUE], ARRAY[FALSE]) AS col", "SELECT 1");
-        assertQuery("SELECT col[TRUE] FROM tmp_map4", "SELECT FALSE");
+        String mapBooleanTable = "test_map_boolean" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + mapBooleanTable + " AS SELECT MAP(ARRAY[TRUE], ARRAY[FALSE]) AS col", "SELECT 1");
+        assertQuery("SELECT col[TRUE] FROM " + mapBooleanTable, "SELECT FALSE");
+        assertUpdate("DROP TABLE " + mapBooleanTable);
 
-        assertUpdate("CREATE TABLE tmp_map5 AS SELECT MAP(ARRAY[1.0E0], ARRAY[ARRAY[1, 2]]) AS col", 1);
-        assertQuery("SELECT col[1.0][2] FROM tmp_map5", "SELECT 2");
+        String mapDoubleNestedTable = "test_map_double_nested" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + mapDoubleNestedTable + " AS SELECT MAP(ARRAY[1.0E0], ARRAY[ARRAY[1, 2]]) AS col", 1);
+        assertQuery("SELECT col[1.0][2] FROM " + mapDoubleNestedTable, "SELECT 2");
+        assertUpdate("DROP TABLE " + mapDoubleNestedTable);
 
-        assertUpdate("CREATE TABLE tmp_map6 AS SELECT MAP(ARRAY[DATE '2014-09-30'], ARRAY[DATE '2014-09-29']) AS col", 1);
-        assertOneNotNullResult("SELECT col[DATE '2014-09-30'] FROM tmp_map6");
-        assertUpdate("CREATE TABLE tmp_map7 AS SELECT MAP(ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'], ARRAY[TIMESTAMP '2001-08-22 03:04:05.321']) AS col", 1);
-        assertOneNotNullResult("SELECT col[TIMESTAMP '2001-08-22 03:04:05.321'] FROM tmp_map7");
+        String mapDateTable = "test_map_date" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + mapDateTable + " AS SELECT MAP(ARRAY[DATE '2014-09-30'], ARRAY[DATE '2014-09-29']) AS col", 1);
+        assertOneNotNullResult("SELECT col[DATE '2014-09-30'] FROM " + mapDateTable);
+        assertUpdate("DROP TABLE " + mapDateTable);
 
-        assertUpdate("CREATE TABLE test.tmp_map8 (col MAP<VARCHAR, VARCHAR>)");
-        client.getDatabase("test").getCollection("tmp_map8").insertOne(new Document(
+        String mapTimestampTable = "test_map_timestamp" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + mapTimestampTable + " AS SELECT MAP(ARRAY[TIMESTAMP '2001-08-22 03:04:05.321'], ARRAY[TIMESTAMP '2001-08-22 03:04:05.321']) AS col", 1);
+        assertOneNotNullResult("SELECT col[TIMESTAMP '2001-08-22 03:04:05.321'] FROM " + mapTimestampTable);
+        assertUpdate("DROP TABLE " + mapTimestampTable);
+
+        String mapTable = "test_map" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + mapTable + " (col MAP<VARCHAR, VARCHAR>)");
+        client.getDatabase("test").getCollection(mapTable).insertOne(new Document(
                 ImmutableMap.of("col", new Document(ImmutableMap.of("key1", "value1", "key2", "value2")))));
-        assertQuery("SELECT col['key1'] FROM test.tmp_map8", "SELECT 'value1'");
+        assertQuery("SELECT col['key1'] FROM test." + mapTable, "SELECT 'value1'");
+        assertUpdate("DROP TABLE test." + mapTable);
 
-        assertUpdate("CREATE TABLE test.tmp_map9 (col VARCHAR)");
-        client.getDatabase("test").getCollection("tmp_map9").insertOne(new Document(
+        String simpleMapToVarcharTable = "test_simple_map_to_varchar" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + simpleMapToVarcharTable + " (col VARCHAR)");
+        client.getDatabase("test").getCollection(simpleMapToVarcharTable).insertOne(new Document(
                 ImmutableMap.of("col", new Document(ImmutableMap.of("key1", "value1", "key2", "value2")))));
-        assertQuery("SELECT col FROM test.tmp_map9", "SELECT '{\"key1\": \"value1\", \"key2\": \"value2\"}'");
+        assertQuery("SELECT col FROM test." + simpleMapToVarcharTable, "SELECT '{\"key1\": \"value1\", \"key2\": \"value2\"}'");
+        assertUpdate("DROP TABLE test." + simpleMapToVarcharTable);
 
-        assertUpdate("CREATE TABLE test.tmp_map10 (col VARCHAR)");
-        client.getDatabase("test").getCollection("tmp_map10").insertOne(new Document(
+        String listMapToVarcharTable = "test_list_map_to_varchar" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + listMapToVarcharTable + " (col VARCHAR)");
+        client.getDatabase("test").getCollection(listMapToVarcharTable).insertOne(new Document(
                 ImmutableMap.of("col", ImmutableList.of(new Document(ImmutableMap.of("key1", "value1", "key2", "value2")),
                         new Document(ImmutableMap.of("key3", "value3", "key4", "value4"))))));
-        assertQuery("SELECT col FROM test.tmp_map10", "SELECT '[{\"key1\": \"value1\", \"key2\": \"value2\"}, {\"key3\": \"value3\", \"key4\": \"value4\"}]'");
+        assertQuery("SELECT col FROM test." + listMapToVarcharTable, "SELECT '[{\"key1\": \"value1\", \"key2\": \"value2\"}, {\"key3\": \"value3\", \"key4\": \"value4\"}]'");
+        assertUpdate("DROP TABLE test." + listMapToVarcharTable);
 
-        assertUpdate("CREATE TABLE test.tmp_map11 (col VARCHAR)");
-        client.getDatabase("test").getCollection("tmp_map11").insertOne(new Document(
+        String integerToVarcharTable = "test_integer_to_varchar" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + integerToVarcharTable + " (col VARCHAR)");
+        client.getDatabase("test").getCollection(integerToVarcharTable).insertOne(new Document(
                 ImmutableMap.of("col", 10)));
-        assertQuery("SELECT col FROM test.tmp_map11", "SELECT '10'");
+        assertQuery("SELECT col FROM test." + integerToVarcharTable, "SELECT '10'");
+        assertUpdate("DROP TABLE test." + integerToVarcharTable);
 
-        assertUpdate("CREATE TABLE test.tmp_map12 (col VARCHAR)");
-        client.getDatabase("test").getCollection("tmp_map12").insertOne(new Document(
+        String arrayToVarcharTable = "test_array_to_varchar" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + arrayToVarcharTable + " (col VARCHAR)");
+        client.getDatabase("test").getCollection(arrayToVarcharTable).insertOne(new Document(
                 ImmutableMap.of("col", Arrays.asList(10, null, 11))));
-        assertQuery("SELECT col FROM test.tmp_map12", "SELECT '[10, null, 11]'");
+        assertQuery("SELECT col FROM test." + arrayToVarcharTable, "SELECT '[10, null, 11]'");
+        assertUpdate("DROP TABLE test." + arrayToVarcharTable);
     }
 
     @Test
     public void testCollectionNameContainsDots()
     {
-        assertUpdate("CREATE TABLE \"tmp.dot1\" AS SELECT 'foo' _varchar", 1);
-        assertQuery("SELECT _varchar FROM \"tmp.dot1\"", "SELECT 'foo'");
-        assertUpdate("DROP TABLE \"tmp.dot1\"");
+        String tableName = "test.dot1_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE \"" + tableName + "\" AS SELECT 'foo' _varchar", 1);
+        assertQuery("SELECT _varchar FROM \"" + tableName + "\"", "SELECT 'foo'");
+        assertUpdate("DROP TABLE \"" + tableName + "\"");
     }
 
     @Test
@@ -504,12 +648,13 @@ public class TestMongoConnectorTest
                 " (15, NULL, ObjectId('ffffffffffffffffffffffff'))";
         String inlineTable = format("(%s) AS t(i, one, two)", values);
 
-        assertUpdate("DROP TABLE IF EXISTS tmp_objectid");
-        assertUpdate("CREATE TABLE tmp_objectid AS SELECT * FROM " + inlineTable, 6);
+        String tableName = "test_objectid_" + randomNameSuffix();
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM " + inlineTable, 6);
 
         // IS NULL
         assertQuery("SELECT i FROM " + inlineTable + " WHERE one IS NULL", "VALUES 10, 15");
-        assertQuery("SELECT i FROM tmp_objectid WHERE one IS NULL", "SELECT 0 WHERE false"); // NULL gets replaced with new unique ObjectId in MongoPageSink, this affects other test cases
+        assertQuery("SELECT i FROM " + tableName + " WHERE one IS NULL", "SELECT 0 WHERE false"); // NULL gets replaced with new unique ObjectId in MongoPageSink, this affects other test cases
 
         // CAST AS varchar
         assertQuery(
@@ -517,15 +662,15 @@ public class TestMongoConnectorTest
                 "VALUES (10, NULL), (11, 'ffffffffffffffffffffffff'), (12, 'ffffffffffffffffffffffff'), (13, '000000000000000000000000')");
 
         // EQUAL
-        assertQuery("SELECT i FROM tmp_objectid WHERE one = two", "VALUES 11, 13");
-        assertQuery("SELECT i FROM tmp_objectid WHERE one = ObjectId('ffffffffffffffffffffffff')", "VALUES 11, 12, 14");
+        assertQuery("SELECT i FROM " + tableName + " WHERE one = two", "VALUES 11, 13");
+        assertQuery("SELECT i FROM " + tableName + " WHERE one = ObjectId('ffffffffffffffffffffffff')", "VALUES 11, 12, 14");
 
         // IS DISTINCT FROM
         assertQuery("SELECT i FROM " + inlineTable + " WHERE one IS DISTINCT FROM two", "VALUES 12, 14, 15");
         assertQuery("SELECT i FROM " + inlineTable + " WHERE one IS NOT DISTINCT FROM two", "VALUES 10, 11, 13");
 
-        assertQuery("SELECT i FROM tmp_objectid WHERE one IS DISTINCT FROM two", "VALUES 10, 12, 14, 15");
-        assertQuery("SELECT i FROM tmp_objectid WHERE one IS NOT DISTINCT FROM two", "VALUES 11, 13");
+        assertQuery("SELECT i FROM " + tableName + " WHERE one IS DISTINCT FROM two", "VALUES 10, 12, 14, 15");
+        assertQuery("SELECT i FROM " + tableName + " WHERE one IS NOT DISTINCT FROM two", "VALUES 11, 13");
 
         // Join on ObjectId
         assertQuery(
@@ -533,7 +678,7 @@ public class TestMongoConnectorTest
                 "VALUES (11, 11), (14, 11), (11, 15), (12, 15), (12, 11), (14, 15), (13, 13)");
 
         // Group by ObjectId (IS DISTINCT FROM)
-        assertQuery("SELECT array_agg(i ORDER BY i) FROM " + inlineTable + " GROUP BY one", "VALUES ((10, 15)), ((11, 12, 14)), ((13))");
+        assertQuery("SELECT array_agg(i ORDER BY i) FROM " + inlineTable + " GROUP BY one", "VALUES (ARRAY[10, 15]), (ARRAY[11, 12, 14]), (ARRAY[13])");
         assertQuery("SELECT i FROM " + inlineTable + " GROUP BY one, i", "VALUES 10, 11, 12, 13, 14, 15");
 
         // Group by Row(ObjectId) (ID DISTINCT FROM in @OperatorDependency)
@@ -544,47 +689,51 @@ public class TestMongoConnectorTest
                 "SELECT r.x, CAST(r.one AS varchar), count(*) FROM (SELECT CAST(row(one, i / 3 * 3) AS row(one ObjectId, x bigint)) r FROM " + inlineTable + ") GROUP BY r",
                 "VALUES (9, NULL, 1), (9, 'ffffffffffffffffffffffff', 1), (12, 'ffffffffffffffffffffffff', 2), (12, '000000000000000000000000', 1), (15, NULL, 1)");
 
-        assertUpdate("DROP TABLE tmp_objectid");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
     public void testSelectView()
     {
-        assertUpdate("CREATE TABLE test.view_base AS SELECT 'foo' _varchar", 1);
-        client.getDatabase("test").createView("test_view", "view_base", ImmutableList.of());
-        assertQuery("SELECT * FROM test.view_base", "SELECT 'foo'");
-        assertUpdate("DROP TABLE test.test_view");
-        assertUpdate("DROP TABLE test.view_base");
+        String tableName = "test_view_base_" + randomNameSuffix();
+        String viewName = "test_view_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + " AS SELECT 'foo' _varchar", 1);
+        client.getDatabase("test").createView(viewName, tableName, ImmutableList.of());
+        assertQuery("SELECT * FROM test." + viewName, "SELECT 'foo'");
+        assertUpdate("DROP TABLE test." + viewName);
+        assertUpdate("DROP TABLE test." + tableName);
     }
 
     @Test
     public void testBooleanPredicates()
     {
-        assertUpdate("CREATE TABLE boolean_predicates(id integer, value boolean)");
-        assertUpdate("INSERT INTO boolean_predicates VALUES(1, true)", 1);
-        assertUpdate("INSERT INTO boolean_predicates VALUES(2, false)", 1);
+        String tableName = "test_boolean_predicates_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id integer, value boolean)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, true)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES(2, false)", 1);
 
-        assertQuery("SELECT id FROM boolean_predicates WHERE value = true", "VALUES 1");
-        assertQuery("SELECT id FROM boolean_predicates WHERE value = false", "VALUES 2");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value = true", "VALUES 1");
+        assertQuery("SELECT id FROM " + tableName + " WHERE value = false", "VALUES 2");
 
-        assertUpdate("DROP TABLE boolean_predicates");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
     public void testNullPredicates()
     {
-        assertUpdate("CREATE TABLE test.null_predicates(name varchar, value integer)");
+        String tableName = "test_null_predicates_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(name varchar, value integer)");
 
-        MongoCollection<Document> collection = client.getDatabase("test").getCollection("null_predicates");
+        MongoCollection<Document> collection = client.getDatabase("test").getCollection(tableName);
         collection.insertOne(new Document(ImmutableMap.of("name", "abc", "value", 1)));
         collection.insertOne(new Document(ImmutableMap.of("name", "abcd")));
         collection.insertOne(new Document(Document.parse("{\"name\": \"abcde\", \"value\": null}")));
 
-        assertQuery("SELECT count(*) FROM test.null_predicates WHERE value IS NULL OR rand() = 42", "SELECT 2");
-        assertQuery("SELECT count(*) FROM test.null_predicates WHERE value IS NULL", "SELECT 2");
-        assertQuery("SELECT count(*) FROM test.null_predicates WHERE value IS NOT NULL", "SELECT 1");
+        assertQuery("SELECT count(*) FROM test." + tableName + " WHERE value IS NULL OR rand() = 42", "SELECT 2");
+        assertQuery("SELECT count(*) FROM test." + tableName + " WHERE value IS NULL", "SELECT 2");
+        assertQuery("SELECT count(*) FROM test." + tableName + " WHERE value IS NOT NULL", "SELECT 1");
 
-        assertUpdate("DROP TABLE test.null_predicates");
+        assertUpdate("DROP TABLE test." + tableName);
     }
 
     @Test
@@ -610,7 +759,7 @@ public class TestMongoConnectorTest
                 .insertMany(ImmutableList.of(new Document("text", "e"), new Document("text", "é")));
 
         assertQuery("SELECT * FROM test." + tableName + " WHERE text = 'e'", "VALUES 'e'");
-        client.getDatabase("test").getCollection(tableName).drop();
+        assertUpdate("DROP TABLE test." + tableName);
     }
 
     @Test
@@ -623,7 +772,7 @@ public class TestMongoConnectorTest
                 .insertMany(ImmutableList.of(new Document("text", "abc"), new Document("text", "ABC")));
 
         assertQuery("SELECT * FROM test." + tableName + " WHERE text > 'ABC'", "VALUES 'abc'");
-        client.getDatabase("test").getCollection(tableName).drop();
+        assertUpdate("DROP TABLE test." + tableName);
     }
 
     @Test
@@ -636,7 +785,7 @@ public class TestMongoConnectorTest
                 .insertMany(ImmutableList.of(new Document("number", "-10"), new Document("number", "-2.1"), new Document("number", "1")));
 
         assertQuery("SELECT * FROM test." + tableName + " WHERE number > '-2.1'", "VALUES '1'");
-        client.getDatabase("test").getCollection(tableName).drop();
+        assertUpdate("DROP TABLE test." + tableName);
     }
 
     @Override
@@ -667,6 +816,7 @@ public class TestMongoConnectorTest
 
         assertThat(query("SELECT array_field FROM TABLE(mongodb.system.query(database => 'tpch', collection => '" + tableName + "', filter => '{ \"array_field.1\": \"one\" }'))"))
                 .matches("VALUES CAST(ARRAY['zero', 'one', 'two'] AS array(varchar))");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -680,6 +830,21 @@ public class TestMongoConnectorTest
         assertQuery(
                 "SELECT row_field.first.second FROM TABLE(mongodb.system.query(database => 'tpch', collection => '" + tableName + "', filter => '{ \"row_field.first.second\": 1 }'))",
                 "VALUES 1");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNativeQueryHelperFunction()
+    {
+        String tableName = "test_query_helper_function" + randomNameSuffix();
+        MongoCollection<Document> collection = client.getDatabase("tpch").getCollection(tableName);
+        collection.insertOne(new Document(ImmutableMap.of("id", 1, "timestamp", LocalDateTime.of(2023, 3, 20, 1, 2, 3))));
+        collection.insertOne(new Document(ImmutableMap.of("id", 2, "timestamp", LocalDateTime.of(2024, 3, 20, 1, 2, 3))));
+
+        assertQuery(
+                "SELECT id FROM TABLE(mongodb.system.query(database => 'tpch', collection => '" + tableName + "', filter => '{ timestamp: ISODate(\"2023-03-20T01:02:03.000Z\") }'))",
+                "VALUES 1");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -730,6 +895,7 @@ public class TestMongoConnectorTest
         assertQuery(
                 "SELECT * FROM TABLE(mongodb.system.query(database => 'test', collection => '" + tableName + "', filter => '{\"TestColumn\": 1}'))",
                 "VALUES 1");
+        assertUpdate("DROP TABLE test." + tableName);
     }
 
     @Test
@@ -786,6 +952,15 @@ public class TestMongoConnectorTest
         assertThat(getQueryRunner().execute("SHOW TABLES FROM mongodb.huge_schema").getRowCount()).isEqualTo(10_000);
     }
 
+    @Test
+    public void testSystemSchemas()
+    {
+        // Ensures that system schemas are inaccessible
+        assertQueryReturnsEmptyResult("SHOW SCHEMAS IN mongodb LIKE 'admin'");
+        assertQueryReturnsEmptyResult("SHOW SCHEMAS IN mongodb LIKE 'config'");
+        assertQueryReturnsEmptyResult("SHOW SCHEMAS IN mongodb LIKE 'local'");
+    }
+
     @Override
     protected OptionalInt maxSchemaNameLength()
     {
@@ -808,6 +983,29 @@ public class TestMongoConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching(".*fully qualified namespace .* is too long.*|Qualified identifier name must be shorter than or equal to '120'.*");
+    }
+
+    @Override
+    protected void verifySetColumnTypeFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Cannot change type");
+    }
+
+    @Override
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "bigint -> integer":
+            case "decimal(5,3) -> decimal(5,2)":
+            case "time(3) -> time(6)":
+            case "time(6) -> time(3)":
+            case "timestamp(3) -> timestamp(6)":
+            case "timestamp(6) -> timestamp(3)":
+            case "timestamp(3) with time zone -> timestamp(6) with time zone":
+            case "timestamp(6) with time zone -> timestamp(3) with time zone":
+                return Optional.of(setup.asUnsupported());
+        }
+        return Optional.of(setup);
     }
 
     private void assertOneNotNullResult(String query)

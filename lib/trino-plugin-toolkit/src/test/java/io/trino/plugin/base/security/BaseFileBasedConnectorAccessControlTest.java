@@ -27,7 +27,6 @@ import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
@@ -48,6 +47,8 @@ import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.function.FunctionKind.WINDOW;
+import static io.trino.spi.security.PrincipalType.ROLE;
+import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.Privilege.UPDATE;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -76,7 +77,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanCreateSchema(UNKNOWN, "unknown", ImmutableMap.of());
         accessControl.checkCanDropSchema(UNKNOWN, "unknown");
         accessControl.checkCanRenameSchema(UNKNOWN, "unknown", "new_unknown");
-        accessControl.checkCanSetSchemaAuthorization(UNKNOWN, "unknown", new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(UNKNOWN, "unknown", new TrinoPrincipal(ROLE, "some_role")));
         accessControl.checkCanShowCreateSchema(UNKNOWN, "unknown");
 
         accessControl.checkCanSelectFromColumns(UNKNOWN, new SchemaTableName("unknown", "unknown"), ImmutableSet.of());
@@ -101,7 +102,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertEquals(accessControl.filterTables(UNKNOWN, tables), tables);
 
         // permissions management APIs are hard coded to deny
-        TrinoPrincipal someUser = new TrinoPrincipal(PrincipalType.USER, "some_user");
+        TrinoPrincipal someUser = new TrinoPrincipal(USER, "some_user");
         assertDenied(() -> accessControl.checkCanGrantTablePrivilege(ADMIN, Privilege.SELECT, new SchemaTableName("any", "any"), someUser, false));
         assertDenied(() -> accessControl.checkCanDenyTablePrivilege(ADMIN, Privilege.SELECT, new SchemaTableName("any", "any"), someUser));
         assertDenied(() -> accessControl.checkCanRevokeTablePrivilege(ADMIN, Privilege.SELECT, new SchemaTableName("any", "any"), someUser, false));
@@ -199,12 +200,12 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanRenameSchema(CHARLIE, "authenticated", "authenticated");
         assertDenied(() -> accessControl.checkCanRenameSchema(CHARLIE, "test", "new_schema"));
 
-        accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new TrinoPrincipal(PrincipalType.USER, "some_user"));
-        accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new TrinoPrincipal(PrincipalType.USER, "some_user"));
-        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new TrinoPrincipal(PrincipalType.ROLE, "some_role")));
-        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new TrinoPrincipal(PrincipalType.USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new TrinoPrincipal(USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new TrinoPrincipal(USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new TrinoPrincipal(USER, "some_user")));
 
         accessControl.checkCanShowCreateSchema(ADMIN, "bob");
         accessControl.checkCanShowCreateSchema(ADMIN, "staff");
@@ -226,7 +227,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     public void testGrantSchemaPrivilege(Privilege privilege, boolean grantOption)
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
-        TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.USER, "alice");
+        TrinoPrincipal grantee = new TrinoPrincipal(USER, "alice");
 
         accessControl.checkCanGrantSchemaPrivilege(ADMIN, privilege, "bob", grantee, grantOption);
         accessControl.checkCanGrantSchemaPrivilege(ADMIN, privilege, "staff", grantee, grantOption);
@@ -248,7 +249,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     public void testDenySchemaPrivilege()
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
-        TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.USER, "alice");
+        TrinoPrincipal grantee = new TrinoPrincipal(USER, "alice");
 
         accessControl.checkCanDenySchemaPrivilege(ADMIN, UPDATE, "bob", grantee);
         accessControl.checkCanDenySchemaPrivilege(ADMIN, UPDATE, "staff", grantee);
@@ -270,7 +271,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     public void testRevokeSchemaPrivilege(Privilege privilege, boolean grantOption)
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
-        TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.USER, "alice");
+        TrinoPrincipal grantee = new TrinoPrincipal(USER, "alice");
 
         accessControl.checkCanRevokeSchemaPrivilege(ADMIN, privilege, "bob", grantee, grantOption);
         accessControl.checkCanRevokeSchemaPrivilege(ADMIN, privilege, "staff", grantee, grantOption);
@@ -375,19 +376,19 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanSetMaterializedViewProperties(ALICE, new SchemaTableName("bobschema", "bobmaterializedview"), ImmutableMap.of()));
         assertDenied(() -> accessControl.checkCanSetMaterializedViewProperties(BOB, new SchemaTableName("bobschema", "bobmaterializedview"), ImmutableMap.of()));
 
-        accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
-        accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
-        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role")));
-        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new TrinoPrincipal(PrincipalType.USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new TrinoPrincipal(USER, "some_user")));
 
-        accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
-        accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
-        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role")));
-        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new TrinoPrincipal(PrincipalType.USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new TrinoPrincipal(USER, "some_user")));
     }
 
     @Test
@@ -419,7 +420,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanSelectFromColumns(userGroup2, myTable, ImmutableSet.of());
         assertViewExpressionEquals(
                 accessControl.getColumnMask(userGroup2, myTable, "col_a", VARCHAR).orElseThrow(),
-                new ViewExpression(userGroup2.getIdentity().getUser(), Optional.of("test_catalog"), Optional.of("my_schema"), "'mask_a'"));
+                new ViewExpression(Optional.empty(), Optional.of("test_catalog"), Optional.of("my_schema"), "'mask_a'"));
         assertEquals(
                 accessControl.getRowFilters(userGroup2, myTable),
                 ImmutableList.of());
@@ -443,18 +444,18 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanSelectFromColumns(userGroup3, myTable, ImmutableSet.of());
         assertViewExpressionEquals(
                 accessControl.getColumnMask(userGroup3, myTable, "col_a", VARCHAR).orElseThrow(),
-                new ViewExpression(userGroup3.getIdentity().getUser(), Optional.of("test_catalog"), Optional.of("my_schema"), "'mask_a'"));
+                new ViewExpression(Optional.empty(), Optional.of("test_catalog"), Optional.of("my_schema"), "'mask_a'"));
 
         List<ViewExpression> rowFilters = accessControl.getRowFilters(userGroup3, myTable);
         assertEquals(rowFilters.size(), 1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
-                new ViewExpression(userGroup3.getIdentity().getUser(), Optional.of("test_catalog"), Optional.of("my_schema"), "country='US'"));
+                new ViewExpression(Optional.empty(), Optional.of("test_catalog"), Optional.of("my_schema"), "country='US'"));
     }
 
     private static void assertViewExpressionEquals(ViewExpression actual, ViewExpression expected)
     {
-        assertEquals(actual.getIdentity(), expected.getIdentity(), "Identity");
+        assertEquals(actual.getSecurityIdentity(), expected.getSecurityIdentity(), "Identity");
         assertEquals(actual.getCatalog(), expected.getCatalog(), "Catalog");
         assertEquals(actual.getSchema(), expected.getSchema(), "Schema");
         assertEquals(actual.getExpression(), expected.getExpression(), "Expression");
@@ -519,10 +520,10 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanExecuteFunction(ALICE, SCALAR, new SchemaRoutineName("schema", "some_function")));
         assertDenied(() -> accessControl.checkCanExecuteFunction(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function")));
         assertDenied(() -> accessControl.checkCanExecuteFunction(ALICE, WINDOW, new SchemaRoutineName("schema", "some_function")));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, AGGREGATE, new SchemaRoutineName("schema", "some_function"), new TrinoPrincipal(PrincipalType.USER, "some_user"), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new SchemaRoutineName("schema", "some_function"), new TrinoPrincipal(PrincipalType.USER, "some_user"), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(PrincipalType.USER, "some_user"), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, WINDOW, new SchemaRoutineName("schema", "some_function"), new TrinoPrincipal(PrincipalType.USER, "some_user"), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, AGGREGATE, new SchemaRoutineName("schema", "some_function"), new TrinoPrincipal(USER, "some_user"), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new SchemaRoutineName("schema", "some_function"), new TrinoPrincipal(USER, "some_user"), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(USER, "some_user"), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, WINDOW, new SchemaRoutineName("schema", "some_function"), new TrinoPrincipal(USER, "some_user"), true));
     }
 
     @Test
@@ -608,35 +609,35 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     public void testFunctionRulesForCheckCanGrantExecute()
     {
         ConnectorAccessControl accessControl = createAccessControl("visibility.json");
-        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(PrincipalType.USER, ADMIN.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(PrincipalType.USER, ALICE.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(PrincipalType.USER, BOB.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(PrincipalType.USER, CHARLIE.getIdentity().getUser()), true);
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_function"), new TrinoPrincipal(PrincipalType.USER, ADMIN.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, AGGREGATE, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, ALICE.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, ALICE.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, WINDOW, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, ALICE.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, AGGREGATE, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, BOB.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, BOB.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, WINDOW, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, BOB.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, AGGREGATE, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, CHARLIE.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, CHARLIE.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, WINDOW, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, CHARLIE.getIdentity().getUser()), true));
+        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true);
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, TABLE, new SchemaRoutineName("ptf_schema", "some_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, AGGREGATE, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, WINDOW, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, AGGREGATE, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, WINDOW, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, AGGREGATE, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, SCALAR, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(ALICE, WINDOW, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true));
 
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(PrincipalType.USER, ADMIN.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(PrincipalType.USER, ALICE.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(PrincipalType.USER, BOB.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(PrincipalType.USER, CHARLIE.getIdentity().getUser()), true));
-        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new SchemaRoutineName("ptf_schema", "some_function"), new TrinoPrincipal(PrincipalType.USER, ADMIN.getIdentity().getUser()), true));
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, AGGREGATE, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, ALICE.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, SCALAR, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, ALICE.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, WINDOW, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, ALICE.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, AGGREGATE, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, BOB.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, SCALAR, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, BOB.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, WINDOW, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, BOB.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, AGGREGATE, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, CHARLIE.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, SCALAR, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, CHARLIE.getIdentity().getUser()), true);
-        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, WINDOW, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(PrincipalType.USER, CHARLIE.getIdentity().getUser()), true);
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new SchemaRoutineName("ptf_schema", "some_table_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true));
+        assertDenied(() -> accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, TABLE, new SchemaRoutineName("ptf_schema", "some_function"), new TrinoPrincipal(USER, ADMIN.getIdentity().getUser()), true));
+        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, AGGREGATE, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, SCALAR, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, WINDOW, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, AGGREGATE, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, SCALAR, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, WINDOW, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, AGGREGATE, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, SCALAR, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true);
+        accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, WINDOW, new SchemaRoutineName("any", "some_function"), new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true);
     }
 
     @Test
@@ -653,6 +654,78 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         ConnectorAccessControl accessControl = createAccessControl(configFile,
                 ImmutableMap.of("security.json-pointer", "/data"));
         assertFilterSchemas(accessControl);
+    }
+
+    @Test
+    public void testSchemaAuthorization()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("authorization-no-roles.json");
+
+        String schema = "test";
+        String ownedByUser = "owned_by_user";
+        String ownedByGroup = "owned_by_group";
+
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("user", "group"), schema, new TrinoPrincipal(ROLE, "new_role")));
+
+        // access to schema granted to user
+        accessControl.checkCanSetSchemaAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("owner_DENY_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("owner", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")));
+
+        // access to schema granted to group
+        accessControl.checkCanSetSchemaAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("DENY_authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("user", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")));
+    }
+
+    @Test
+    public void testTableAuthorization()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("authorization-no-roles.json");
+
+        SchemaTableName table = new SchemaTableName("test", "table");
+        SchemaTableName ownedByUser = new SchemaTableName("test", "owned_by_user");
+        SchemaTableName ownedByGroup = new SchemaTableName("test", "owned_by_group");
+
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("user", "group"), table, new TrinoPrincipal(ROLE, "new_role")));
+
+        // access to table granted to user
+        accessControl.checkCanSetTableAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("owner", "group"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("owner_DENY_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user")));
+
+        // access to table granted to group
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("user", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+        accessControl.checkCanSetTableAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("DENY_authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+    }
+
+    @Test
+    public void testViewAuthorization()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("authorization-no-roles.json");
+
+        SchemaTableName table = new SchemaTableName("test", "table");
+        SchemaTableName ownedByUser = new SchemaTableName("test", "owned_by_user");
+        SchemaTableName ownedByGroup = new SchemaTableName("test", "owned_by_group");
+
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("user", "group"), table, new TrinoPrincipal(ROLE, "new_role")));
+
+        // access to schema granted to user
+        accessControl.checkCanSetViewAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("owner_DENY_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("owner", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")));
+
+        // access to schema granted to group
+        accessControl.checkCanSetViewAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("DENY_authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("user", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")));
     }
 
     @Test
@@ -709,6 +782,11 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     private String getResourcePath(String resourceName)
     {
         return requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).getPath();
+    }
+
+    private static ConnectorSecurityContext user(String user, String group)
+    {
+        return user(user, ImmutableSet.of(group));
     }
 
     private static ConnectorSecurityContext user(String name, Set<String> groups)

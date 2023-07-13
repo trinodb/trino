@@ -79,14 +79,14 @@ public class CatalogTableAccessControlRule
         return tableAccessControlRule.canSelectColumns(columnNames);
     }
 
-    public Optional<ViewExpression> getColumnMask(String user, String catalog, String schema, String column)
+    public Optional<ViewExpression> getColumnMask(String catalog, String schema, String column)
     {
-        return tableAccessControlRule.getColumnMask(user, catalog, schema, column);
+        return tableAccessControlRule.getColumnMask(catalog, schema, column);
     }
 
-    public Optional<ViewExpression> getFilter(String user, String catalog, String schema)
+    public Optional<ViewExpression> getFilter(String catalog, String schema)
     {
-        return tableAccessControlRule.getFilter(user, catalog, schema);
+        return tableAccessControlRule.getFilter(catalog, schema);
     }
 
     Optional<AnyCatalogPermissionsRule> toAnyCatalogPermissionsRule()

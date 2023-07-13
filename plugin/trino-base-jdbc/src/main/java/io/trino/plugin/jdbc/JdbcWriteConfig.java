@@ -21,7 +21,7 @@ import javax.validation.constraints.Min;
 
 public class JdbcWriteConfig
 {
-    static final int MAX_ALLOWED_WRITE_BATCH_SIZE = 1_000_000;
+    public static final int MAX_ALLOWED_WRITE_BATCH_SIZE = 10_000_000;
 
     private int writeBatchSize = 1000;
 

@@ -73,6 +73,18 @@ public class TestJoin
     }
 
     @Test
+    public void testSingleRowNonDeterministicSource()
+    {
+        assertThat(assertions.query("""
+                WITH data(id) AS (SELECT uuid())
+                SELECT COUNT(DISTINCT id)
+                FROM (VALUES 1, 2, 3, 4, 5, 6, 7, 8)
+                CROSS JOIN data
+                """))
+                .matches("VALUES BIGINT '1'");
+    }
+
+    @Test
     public void testJoinOnNan()
     {
         assertThat(assertions.query("""

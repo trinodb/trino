@@ -29,7 +29,7 @@ public interface NodeAllocator
      *
      * It is obligatory for the calling party to release all the leases they obtained via {@link NodeLease#release()}.
      */
-    NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement);
+    NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, boolean speculative);
 
     @Override
     void close();
@@ -39,6 +39,8 @@ public interface NodeAllocator
         ListenableFuture<InternalNode> getNode();
 
         default void attachTaskId(TaskId taskId) {}
+
+        void setSpeculative(boolean speculative);
 
         void release();
     }

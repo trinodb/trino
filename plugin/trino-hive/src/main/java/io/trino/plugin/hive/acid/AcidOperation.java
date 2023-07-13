@@ -14,8 +14,8 @@
 package io.trino.plugin.hive.acid;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.orc.OrcWriter.OrcOperation;
-import org.apache.hadoop.hive.metastore.api.DataOperationType;
 
 import java.util.Map;
 import java.util.Optional;

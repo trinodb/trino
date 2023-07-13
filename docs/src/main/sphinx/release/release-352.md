@@ -2,7 +2,7 @@
 
 ## General
 
-* Add support for [`WINDOW` clause](window_clause). ({issue}`651`)
+* Add support for [`WINDOW` clause](window-clause). ({issue}`651`)
 * Add support for {doc}`/sql/update`. ({issue}`5861`)
 * Add {func}`version` function. ({issue}`4627`)
 * Allow prepared statement parameters for `SHOW STATS`. ({issue}`6582`)

@@ -22,7 +22,7 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.File;
+import java.nio.file.Path;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -34,7 +34,7 @@ public class TestDeltaLakeRenameToWithGlueMetastore
     protected static final String SCHEMA = "test_delta_lake_rename_to_with_glue_" + randomNameSuffix();
     protected static final String CATALOG_NAME = "test_delta_lake_rename_to_with_glue";
 
-    private File schemaLocation;
+    private Path schemaLocation;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -49,9 +49,9 @@ public class TestDeltaLakeRenameToWithGlueMetastore
                 .setCatalogName(CATALOG_NAME)
                 .setDeltaProperties(ImmutableMap.of("hive.metastore", "glue"))
                 .build();
-        schemaLocation = new File(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data").toString());
-        schemaLocation.deleteOnExit();
-        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + schemaLocation.getPath() + "')");
+        schemaLocation = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
+        schemaLocation.toFile().deleteOnExit();
+        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + schemaLocation.toUri() + "')");
         return queryRunner;
     }
 
@@ -60,7 +60,7 @@ public class TestDeltaLakeRenameToWithGlueMetastore
     {
         String oldTable = "test_table_external_to_be_renamed_" + randomNameSuffix();
         String newTable = "test_table_external_renamed_" + randomNameSuffix();
-        String location = schemaLocation.getPath() + "/tableLocation/";
+        String location = schemaLocation.toUri() + "/tableLocation/";
         try {
             assertUpdate(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS val ", oldTable, location), 1);
             String oldLocation = (String) computeScalar("SELECT \"$path\" FROM " + oldTable);

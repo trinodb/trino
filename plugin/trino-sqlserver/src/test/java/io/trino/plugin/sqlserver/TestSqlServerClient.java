@@ -22,6 +22,7 @@ import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
+import io.trino.plugin.jdbc.mapping.DatabaseMetaDataRemoteIdentifierSupplier;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -38,8 +39,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestSqlServerClient
@@ -65,7 +66,7 @@ public class TestSqlServerClient
                 throw new UnsupportedOperationException();
             },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
-            new DefaultIdentifierMapping(),
+            new DefaultIdentifierMapping(new DatabaseMetaDataRemoteIdentifierSupplier()),
             RemoteQueryModifier.NONE);
 
     @Test
@@ -136,7 +137,13 @@ public class TestSqlServerClient
         testImplementAggregation(
                 new AggregateFunction("sum", BIGINT, List.of(bigintVariable), List.of(), true, Optional.empty()),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
-                Optional.empty());  // distinct not supported
+                Optional.of("sum(DISTINCT \"c_bigint\")"));
+
+        // sum(DISTINCT double)
+        testImplementAggregation(
+                new AggregateFunction("sum", DOUBLE, List.of(doubleVariable), List.of(), true, Optional.empty()),
+                Map.of(doubleVariable.getName(), DOUBLE_COLUMN),
+                Optional.of("sum(DISTINCT \"c_double\")"));
 
         // sum(bigint) FILTER (WHERE ...)
         testImplementAggregation(

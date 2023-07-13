@@ -19,6 +19,8 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcProcedureHandle;
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -27,6 +29,7 @@ import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -45,6 +48,7 @@ import io.trino.spi.type.Type;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -111,6 +115,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureQuery procedureQuery)
+    {
+        return stats.getGetProcedureHandle().wrap(() -> delegate().getProcedureHandle(session, procedureQuery));
+    }
+
+    @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return stats.getGetColumns().wrap(() -> delegate().getColumns(session, tableHandle));
@@ -147,7 +157,7 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return stats.getConvertPredicate().wrap(() -> delegate().convertPredicate(session, expression, assignments));
     }
@@ -159,10 +169,23 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcProcedureHandle procedureHandle)
+    {
+        return stats.getGetSplitsForProcedure().wrap(() -> delegate().getSplits(session, procedureHandle));
+    }
+
+    @Override
     public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
         return stats.getGetConnectionWithSplit().wrap(() -> delegate().getConnection(session, split, tableHandle));
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcProcedureHandle procedureHandle)
+            throws SQLException
+    {
+        return stats.getGetConnectionWithProcedure().wrap(() -> delegate().getConnection(session, split, procedureHandle));
     }
 
     @Override
@@ -178,7 +201,7 @@ public final class StatisticsAwareJdbcClient
             JdbcTableHandle table,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions)
+            Map<String, ParameterizedExpression> columnExpressions)
     {
         return stats.getPrepareQuery().wrap(() -> delegate().prepareQuery(session, table, groupingSets, columns, columnExpressions));
     }
@@ -188,6 +211,13 @@ public final class StatisticsAwareJdbcClient
             throws SQLException
     {
         return stats.getBuildSql().wrap(() -> delegate().buildSql(session, connection, split, tableHandle, columnHandles));
+    }
+
+    @Override
+    public CallableStatement buildProcedure(ConnectorSession session, Connection connection, JdbcSplit split, JdbcProcedureHandle procedureHandle)
+            throws SQLException
+    {
+        return stats.getBuildProcedure().wrap(() -> delegate().buildProcedure(session, connection, split, procedureHandle));
     }
 
     @Override
@@ -320,10 +350,10 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql, Optional<Integer> columnCount)
             throws SQLException
     {
-        return stats.getGetPreparedStatement().wrap(() -> delegate().getPreparedStatement(connection, sql));
+        return stats.getGetPreparedStatement().wrap(() -> delegate().getPreparedStatement(connection, sql, columnCount));
     }
 
     @Override

@@ -34,14 +34,14 @@ appropriate for your setup:
 .. code-block:: properties
 
     connector.name=sqlserver
-    connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=false
+    connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=false
     connection-user=root
     connection-password=secret
 
 The ``connection-url`` defines the connection information and parameters to pass
 to the SQL Server JDBC driver. The supported parameters for the URL are
 available in the `SQL Server JDBC driver documentation
-<https://docs.microsoft.com/en-us/sql/connect/jdbc/building-the-connection-url>`_.
+<https://docs.microsoft.com/sql/connect/jdbc/building-the-connection-url>`_.
 
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
@@ -62,12 +62,12 @@ encryption in the connection string with the ``encrypt`` property:
 
 .. code-block:: properties
 
-  connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=false
+  connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=false
 
 Further parameters like ``trustServerCertificate``, ``hostNameInCertificate``,
 ``trustStore``, and ``trustStorePassword`` are details in the `TLS section of
 SQL Server JDBC driver documentation
-<https://docs.microsoft.com/en-us/sql/connect/jdbc/using-ssl-encryption>`_.
+<https://docs.microsoft.com/sql/connect/jdbc/using-ssl-encryption>`_.
 
 .. include:: jdbc-authentication.fragment
 
@@ -281,7 +281,7 @@ The connector maps Trino types to the corresponding SQL Server types following t
     - ``0 <= n <= 7``
 
 Complete list of `SQL Server data types
-<https://msdn.microsoft.com/en-us/library/ms187752.aspx>`_.
+<https://msdn.microsoft.com/library/ms187752.aspx>`_.
 
 .. _sqlserver-numeric-mapping:
 
@@ -331,6 +331,14 @@ supports the following features:
 
 .. include:: alter-table-limitation.fragment
 
+.. _sqlserver-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -348,9 +356,10 @@ processed in SQL Server. This can be useful for accessing native features which
 are not implemented in Trino or for improving query performance in situations
 where running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
-For example, select the top 10 percent of nations by population::
+For example, query the ``example`` catalog and select the top 10 percent of
+nations by population::
 
     SELECT
       *
@@ -366,6 +375,52 @@ For example, select the top 10 percent of nations by population::
         )
       );
 
+.. _sqlserver-procedure-function:
+
+``procedure(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``procedure`` function allows you to run stored procedures on the underlying
+database directly. It requires syntax native to SQL Server, because the full query
+is pushed down and processed in SQL Server. In order to use this table function set
+``sqlserver.experimental.stored-procedure-table-function-enabled`` to ``true``.
+
+.. note::
+
+    The ``procedure`` function does not support running StoredProcedures that return multiple statements,
+    use a non-select statement, use output parameters, or use conditional statements.
+
+.. warning::
+
+    This feature is experimental only. The function has security implication and syntax might change and
+    be backward incompatible.
+
+
+The follow example runs the stored procedure ``employee_sp`` in the ``example`` catalog and the
+``example_schema`` schema in the underlying SQL Server database::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        example.system.procedure(
+          query => 'EXECUTE example_schema.employee_sp'
+        )
+      );
+
+If the stored procedure ``employee_sp`` requires any input
+append the parameter value to the procedure statement::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        example.system.procedure(
+          query => 'EXECUTE example_schema.employee_sp 0'
+        )
+      );
+
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------
@@ -435,7 +490,22 @@ The connector supports pushdown for a number of operations:
 
 .. include:: join-pushdown-enabled-true.fragment
 
-.. include:: no-pushdown-text-type.fragment
+Predicate pushdown support
+""""""""""""""""""""""""""
+
+The connector supports pushdown of predicates on ``VARCHAR`` and ``NVARCHAR``
+columns if the underlying columns in SQL Server use a case-sensitive `collation
+<https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support?view=sql-server-ver16>`_.
+
+The following operators are pushed down:
+
+- ``=``
+- ``<>``
+- ``IN``
+- ``NOT IN``
+
+To ensure correct results, operators are not pushed down for columns using a
+case-insensitive collation.
 
 .. _sqlserver-bulk-insert:
 
@@ -443,12 +513,12 @@ Bulk insert
 ^^^^^^^^^^^
 
 You can optionally use the `bulk copy API
-<https://docs.microsoft.com/en-us/sql/connect/jdbc/use-bulk-copy-api-batch-insert-operation>`_
+<https://docs.microsoft.com/sql/connect/jdbc/use-bulk-copy-api-batch-insert-operation>`_
 to drastically speed up write operations.
 
 Enable bulk copying and a lock on the destination table to meet `minimal
 logging requirements
-<https://docs.microsoft.com/en-us/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import>`_.
+<https://docs.microsoft.com/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import>`_.
 
 The following table shows the relevant catalog configuration properties and
 their default values:
@@ -480,7 +550,7 @@ Data compression
 ----------------
 
 You can specify the `data compression policy for SQL Server tables
-<https://docs.microsoft.com/en-us/sql/relational-databases/data-compression/data-compression>`_
+<https://docs.microsoft.com/sql/relational-databases/data-compression/data-compression>`_
 with the ``data_compression`` table property. Valid policies are ``NONE``, ``ROW`` or ``PAGE``.
 
 Example::

@@ -67,6 +67,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
@@ -145,7 +146,7 @@ public class CheckpointEntryIterator
             boolean checkpointRowStatisticsWritingEnabled,
             int domainCompactionThreshold)
     {
-        this.checkpointPath = checkpoint.location();
+        this.checkpointPath = checkpoint.location().toString();
         this.session = requireNonNull(session, "session is null");
         this.stringList = (ArrayType) typeManager.getType(TypeSignature.arrayType(VarcharType.VARCHAR.getTypeSignature()));
         this.stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VarcharType.VARCHAR.getTypeSignature(), VarcharType.VARCHAR.getTypeSignature()));
@@ -213,7 +214,7 @@ public class CheckpointEntryIterator
                 type = schemaManager.getMetadataEntryType();
                 break;
             case PROTOCOL:
-                type = schemaManager.getProtocolEntryType();
+                type = schemaManager.getProtocolEntryType(true, true);
                 break;
             case COMMIT:
                 type = schemaManager.getCommitInfoEntryType();
@@ -221,7 +222,7 @@ public class CheckpointEntryIterator
             default:
                 throw new IllegalArgumentException("Unsupported Delta Lake checkpoint entry type: " + entryType);
         }
-        return new DeltaLakeColumnHandle(entryType.getColumnName(), type, OptionalInt.empty(), entryType.getColumnName(), type, REGULAR);
+        return new DeltaLakeColumnHandle(entryType.getColumnName(), type, OptionalInt.empty(), entryType.getColumnName(), type, REGULAR, Optional.empty());
     }
 
     private DeltaLakeTransactionLogEntry buildCommitInfoEntry(ConnectorSession session, Block block, int pagePosition)
@@ -267,7 +268,7 @@ public class CheckpointEntryIterator
                 getString(commitInfoEntryBlock, 8),
                 getLong(commitInfoEntryBlock, 9),
                 getString(commitInfoEntryBlock, 10),
-                getByte(commitInfoEntryBlock, 11) != 0);
+                Optional.of(getByte(commitInfoEntryBlock, 11) != 0));
         log.debug("Result: %s", result);
         return DeltaLakeTransactionLogEntry.commitInfoEntry(result);
     }
@@ -278,16 +279,21 @@ public class CheckpointEntryIterator
         if (block.isNull(pagePosition)) {
             return null;
         }
-        int protocolFields = 2;
+        int minProtocolFields = 2;
+        int maxProtocolFields = 4;
         Block protocolEntryBlock = block.getObject(pagePosition, Block.class);
         log.debug("Block %s has %s fields", block, protocolEntryBlock.getPositionCount());
-        if (protocolEntryBlock.getPositionCount() != protocolFields) {
+        if (protocolEntryBlock.getPositionCount() < minProtocolFields || protocolEntryBlock.getPositionCount() > maxProtocolFields) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
-                    format("Expected block %s to have %d children, but found %s", block, protocolFields, protocolEntryBlock.getPositionCount()));
+                    format("Expected block %s to have between %d and %d children, but found %s", block, minProtocolFields, maxProtocolFields, protocolEntryBlock.getPositionCount()));
         }
+        // The last entry should be writer feature when protocol entry size is 3 https://github.com/delta-io/delta/blob/master/PROTOCOL.md#disabled-features
+        int position = 0;
         ProtocolEntry result = new ProtocolEntry(
-                getInt(protocolEntryBlock, 0),
-                getInt(protocolEntryBlock, 1));
+                getInt(protocolEntryBlock, position++),
+                getInt(protocolEntryBlock, position++),
+                protocolEntryBlock.getPositionCount() == 4 && protocolEntryBlock.isNull(position) ? Optional.empty() : Optional.of(getList(protocolEntryBlock, position++).stream().collect(toImmutableSet())),
+                protocolEntryBlock.isNull(position) ? Optional.empty() : Optional.of(getList(protocolEntryBlock, position++).stream().collect(toImmutableSet())));
         log.debug("Result: %s", result);
         return DeltaLakeTransactionLogEntry.protocolEntry(result);
     }

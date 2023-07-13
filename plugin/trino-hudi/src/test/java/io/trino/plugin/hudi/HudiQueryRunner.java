@@ -30,8 +30,8 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class HudiQueryRunner
@@ -72,7 +72,7 @@ public final class HudiQueryRunner
         queryRunner.createCatalog("hudi", "hudi", connectorProperties);
 
         String dataDir = coordinatorBaseDir.resolve("data").toString();
-        dataLoader.initializeTables(queryRunner, metastore, SCHEMA_NAME, dataDir, newEmptyConfiguration());
+        dataLoader.initializeTables(queryRunner, metastore, SCHEMA_NAME, dataDir, HDFS_ENVIRONMENT);
         return queryRunner;
     }
 

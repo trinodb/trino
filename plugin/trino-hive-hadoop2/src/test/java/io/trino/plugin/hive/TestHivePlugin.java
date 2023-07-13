@@ -61,7 +61,7 @@ public class TestHivePlugin
         deleteRecursively(tempDirectory, ALLOW_INSECURE);
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     @BeforeMethod
     public void deinitializeRubix()
     {
@@ -79,16 +79,16 @@ public class TestHivePlugin
     }
 
     @Test
-    public void testCreateConnectorLegacyName()
+    public void testTestingFileMetastore()
     {
-        Plugin plugin = new HivePlugin();
-        ConnectorFactory factory = stream(plugin.getConnectorFactories())
-                .filter(x -> x.getName().equals("hive-hadoop2"))
-                .collect(toOptional())
-                .orElseThrow();
-
-        // simplest possible configuration
-        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext()).shutdown();
+        ConnectorFactory factory = getHiveConnectorFactory();
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore", "file",
+                                "hive.metastore.catalog.dir", "/tmp"),
+                        new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test

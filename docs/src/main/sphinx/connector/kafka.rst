@@ -26,6 +26,8 @@ needs.
 
 See the :doc:`kafka-tutorial`.
 
+.. _kafka-requirements:
+
 Requirements
 ------------
 
@@ -34,6 +36,22 @@ To connect to Kafka, you need:
 * Kafka broker version 0.10.0 or higher.
 * Network access from the Trino coordinator and workers to the Kafka nodes.
   Port 9092 is the default port.
+
+When using Protobuf decoder with the :ref:`Confluent table description
+supplier<confluent-table-description-supplier>`, the following additional steps
+must be taken:
+
+- Copy the ``kafka-protobuf-provider`` and ``kafka-protobuf-types`` JAR files
+  from `Confluent <https://packages.confluent.io/maven/io/confluent/>`_ for
+  Confluent version 7.3.1 to the Kafka connector plugin directory (``<install
+  directory>/plugin/kafka``) on all nodes in the cluster.
+  The plugin directory depends on the :doc:`/installation` method.
+- By copying those JARs and using them, you agree to the terms of the `Confluent
+  Community License Agreement <https://github.com/confluentinc/schema-registry/blob/master/LICENSE-ConfluentCommunity>`_
+  under which Confluent makes them available.
+
+These steps are not required if you are not using Protobuf and Confluent table
+description supplier.
 
 Configuration
 -------------
@@ -404,6 +422,8 @@ Field           Required  Type      Description
 
 There is no limit on field descriptions for either key or message.
 
+.. _confluent-table-description-supplier:
+
 Confluent table description supplier
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -418,6 +438,10 @@ table description supplier are:
 * New tables can be defined without a cluster restart.
 * Schema updates are detected automatically.
 * There is no need to define tables manually.
+* Some Protobuf specific types like ``oneof`` are supported and mapped to JSON.
+
+When using Protobuf decoder with the Confluent table description supplier, some
+additional steps are necessary. For details, refer to :ref:`kafka-requirements`.
 
 Set ``kafka.table-description-supplier`` to ``CONFLUENT`` to use the
 schema registry. You must also configure the additional properties in the following table:
@@ -478,6 +502,45 @@ optional. If neither is specified, then the default ``TopicNameStrategy`` is
 used to resolve the subject name via the topic name. Note that a case
 insensitive match must be done, as identifiers cannot contain upper case
 characters.
+
+Protobuf-specific type handling in Confluent table description supplier
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+When using the Confluent table description supplier, the following Protobuf
+specific types are supported in addition to the :ref:`normally supported types
+<kafka-protobuf-decoding>`:
+
+oneof
++++++
+
+Protobuf schemas containing ``oneof`` fields are mapped to a ``JSON`` field in
+Trino.
+
+For example, given the following Protobuf schema:
+
+.. code-block:: text
+
+    syntax = "proto3";
+
+    message schema {
+        oneof test_oneof_column {
+            string string_column = 1;
+            uint32 integer_column = 2;
+            uint64 long_column = 3;
+            double double_column = 4;
+            float float_column = 5;
+            bool boolean_column = 6;
+        }
+    }
+
+The corresponding Trino row is a ``JSON`` field ``test_oneof_column``
+containing a JSON object with a single key. The value of the key matches
+the name of the ``oneof`` type that is present.
+
+In the above example, if the Protobuf message has the
+``test_oneof_column`` containing ``string_column`` set to a value ``Trino``
+then the corresponding Trino row includes a column named
+``test_oneof_column`` with the value ``JSON '{"string_column": "Trino"}'``.
 
 .. _kafka-sql-inserts:
 
@@ -1349,6 +1412,8 @@ The schema evolution behavior is as follows:
 * Changing type of column in the new schema:
   If the type coercion is supported by Avro, then the conversion happens. An
   error is thrown for incompatible types.
+
+.. _kafka-protobuf-decoding:
 
 Protobuf decoder
 """"""""""""""""

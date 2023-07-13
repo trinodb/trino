@@ -131,7 +131,7 @@ public class TestOrcBloomFilters
 
         // Read through method
         InputStream inputStream = bloomFilterBytes.getInput();
-        OrcMetadataReader metadataReader = new OrcMetadataReader();
+        OrcMetadataReader metadataReader = new OrcMetadataReader(new OrcReaderOptions());
         List<BloomFilter> bloomFilters = metadataReader.readBloomFilterIndexes(inputStream);
 
         assertEquals(bloomFilters.size(), 1);

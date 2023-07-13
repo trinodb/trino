@@ -67,7 +67,7 @@ parameter to secure the connection with TLS. By default the parameter is set to
 also set this parameter to ``REQUIRED`` which causes the connection to fail if
 TLS is not established.
 
-You can set the ``sslMode`` paremeter in the catalog configuration file by
+You can set the ``sslMode`` parameter in the catalog configuration file by
 appending it to the ``connection-url`` configuration property:
 
 .. code-block:: properties
@@ -132,14 +132,26 @@ this table:
   * - ``TINYINT``
     - ``TINYINT``
     -
+  * - ``TINYINT UNSIGNED``
+    - ``SMALLINT``
+    -
   * - ``SMALLINT``
     - ``SMALLINT``
+    -
+  * - ``SMALLINT UNSIGNED``
+    - ``INTEGER``
     -
   * - ``INTEGER``
     - ``INTEGER``
     -
+  * - ``INTEGER UNSIGNED``
+    - ``BIGINT``
+    -
   * - ``BIGINT``
     - ``BIGINT``
+    -
+  * - ``BIGINT UNSIGNED``
+    - ``DECIMAL(20, 0)``
     -
   * - ``DOUBLE PRECISION``
     - ``DOUBLE``
@@ -306,6 +318,14 @@ the following statements:
 
 .. include:: sql-delete-limitation.fragment
 
+.. _mysql-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -323,9 +343,10 @@ processed in MySQL. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
-For example, group and concatenate all employee IDs by manager ID::
+For example, query the ``example`` catalog and group and concatenate all
+employee IDs by manager ID::
 
     SELECT
       *
@@ -340,6 +361,8 @@ For example, group and concatenate all employee IDs by manager ID::
             manager_id'
         )
       );
+
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------

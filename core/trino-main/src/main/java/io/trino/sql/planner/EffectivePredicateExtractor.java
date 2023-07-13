@@ -386,6 +386,9 @@ public class EffectivePredicateExtractor
                             }
                             else {
                                 Type type = types.get(node.getOutputSymbols().get(i));
+                                if (!type.isComparable() && !type.isOrderable()) {
+                                    return TRUE_LITERAL;
+                                }
                                 if (hasNestedNulls(type, item)) {
                                     // Workaround solution to deal with array and row comparisons don't support null elements currently.
                                     // TODO: remove when comparisons are fixed
@@ -415,6 +418,9 @@ public class EffectivePredicateExtractor
                             hasNull[i] = true;
                         }
                         else {
+                            if (!type.isComparable() && !type.isOrderable()) {
+                                return TRUE_LITERAL;
+                            }
                             if (hasNestedNulls(type, item)) {
                                 // Workaround solution to deal with array and row comparisons don't support null elements currently.
                                 // TODO: remove when comparisons are fixed
@@ -466,9 +472,8 @@ public class EffectivePredicateExtractor
 
         private boolean hasNestedNulls(Type type, Object value)
         {
-            if (type instanceof RowType) {
+            if (type instanceof RowType rowType) {
                 Block container = (Block) value;
-                RowType rowType = (RowType) type;
                 for (int i = 0; i < rowType.getFields().size(); i++) {
                     Type elementType = rowType.getFields().get(i).getType();
 
@@ -477,9 +482,8 @@ public class EffectivePredicateExtractor
                     }
                 }
             }
-            else if (type instanceof ArrayType) {
+            else if (type instanceof ArrayType arrayType) {
                 Block container = (Block) value;
-                ArrayType arrayType = (ArrayType) type;
                 Type elementType = arrayType.getElementType();
 
                 for (int i = 0; i < container.getPositionCount(); i++) {
@@ -572,7 +576,7 @@ public class EffectivePredicateExtractor
 
         private Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)
         {
-            EqualityInference equalityInference = EqualityInference.newInstance(metadata, expression);
+            EqualityInference equalityInference = new EqualityInference(metadata, expression);
 
             ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
             Set<Symbol> scope = ImmutableSet.copyOf(symbols);

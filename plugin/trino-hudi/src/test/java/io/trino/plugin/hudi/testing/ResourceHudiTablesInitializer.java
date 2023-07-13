@@ -16,7 +16,7 @@ package io.trino.plugin.hudi.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.HiveStorageFormat;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.metastore.Column;
@@ -27,9 +27,9 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.QueryRunner;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hudi.common.model.HoodieTableType;
+import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 
 import java.io.File;
 import java.io.IOException;
@@ -51,8 +51,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
-import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
-import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
+import static io.trino.plugin.hive.util.HiveUtil.HUDI_PARQUET_INPUT_FORMAT;
 
 public class ResourceHudiTablesInitializer
         implements HudiTablesInitializer
@@ -65,7 +64,7 @@ public class ResourceHudiTablesInitializer
             HiveMetastore metastore,
             String schemaName,
             String dataDir,
-            Configuration conf)
+            HdfsEnvironment environment)
             throws Exception
     {
         Path basePath = Path.of(dataDir);
@@ -94,7 +93,10 @@ public class ResourceHudiTablesInitializer
             List<Column> partitionColumns,
             Map<String, String> partitions)
     {
-        StorageFormat storageFormat = StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET);
+        StorageFormat storageFormat = StorageFormat.create(
+                ParquetHiveSerDe.class.getName(),
+                HUDI_PARQUET_INPUT_FORMAT,
+                MapredParquetOutputFormat.class.getName());
 
         Table table = Table.builder()
                 .setDatabaseName(schemaName)
@@ -152,10 +154,10 @@ public class ResourceHudiTablesInitializer
 
     public enum TestingTable
     {
-        HUDI_NON_PART_COW(COPY_ON_WRITE, nonPartitionRegularColumns()),
-        HUDI_COW_PT_TBL(COPY_ON_WRITE, multiPartitionRegularColumns(), multiPartitionColumns(), multiPartitions()),
-        STOCK_TICKS_COW(COPY_ON_WRITE, stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
-        STOCK_TICKS_MOR(MERGE_ON_READ, stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
+        HUDI_NON_PART_COW(nonPartitionRegularColumns()),
+        HUDI_COW_PT_TBL(multiPartitionRegularColumns(), multiPartitionColumns(), multiPartitions()),
+        STOCK_TICKS_COW(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
+        STOCK_TICKS_MOR(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
         /**/;
 
         private static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
@@ -165,36 +167,28 @@ public class ResourceHudiTablesInitializer
                 new Column("_hoodie_partition_path", HIVE_STRING, Optional.empty()),
                 new Column("_hoodie_file_name", HIVE_STRING, Optional.empty()));
 
-        private final HoodieTableType tableType;
         private final List<Column> regularColumns;
         private final List<Column> partitionColumns;
         private final Map<String, String> partitions;
 
         TestingTable(
-                HoodieTableType tableType,
                 List<Column> regularColumns,
                 List<Column> partitionColumns,
                 Map<String, String> partitions)
         {
-            this.tableType = tableType;
             this.regularColumns = regularColumns;
             this.partitionColumns = partitionColumns;
             this.partitions = partitions;
         }
 
-        TestingTable(HoodieTableType tableType, List<Column> regularColumns)
+        TestingTable(List<Column> regularColumns)
         {
-            this(tableType, regularColumns, ImmutableList.of(), ImmutableMap.of());
+            this(regularColumns, ImmutableList.of(), ImmutableMap.of());
         }
 
         public String getTableName()
         {
             return name().toLowerCase(Locale.ROOT);
-        }
-
-        public HoodieTableType getTableType()
-        {
-            return tableType;
         }
 
         public List<Column> getDataColumns()

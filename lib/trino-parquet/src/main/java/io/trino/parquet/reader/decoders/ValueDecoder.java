@@ -14,8 +14,9 @@
 package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.ParquetEncoding;
-import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
+
+import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
 
 public interface ValueDecoder<T>
 {
@@ -25,8 +26,34 @@ public interface ValueDecoder<T>
 
     void skip(int n);
 
+    class EmptyValueDecoder<T>
+            implements ValueDecoder<T>
+    {
+        @Override
+        public void init(SimpleSliceInputStream input) {}
+
+        @Override
+        public void read(T values, int offset, int length) {}
+
+        @Override
+        public void skip(int n) {}
+    }
+
     interface ValueDecodersProvider<T>
     {
-        ValueDecoder<T> create(ParquetEncoding encoding, PrimitiveField field);
+        ValueDecoder<T> create(ParquetEncoding encoding);
+    }
+
+    interface LevelsDecoderProvider
+    {
+        ValueDecoder<int[]> create(int maxLevel);
+    }
+
+    static ValueDecoder<int[]> createLevelsDecoder(int maxLevel)
+    {
+        if (maxLevel == 0) {
+            return new ValueDecoder.EmptyValueDecoder<>();
+        }
+        return new RleBitPackingHybridDecoder(getWidthFromMaxInt(maxLevel));
     }
 }

@@ -15,7 +15,6 @@ package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -23,6 +22,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
@@ -30,12 +30,11 @@ import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
-import static java.lang.Math.toIntExact;
 
 public class Int128ArrayBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Int128ArrayBlock.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(Int128ArrayBlock.class);
     public static final int INT128_BYTES = Long.BYTES + Long.BYTES;
     public static final int SIZE_IN_BYTES_PER_POSITION = INT128_BYTES + Byte.BYTES;
 

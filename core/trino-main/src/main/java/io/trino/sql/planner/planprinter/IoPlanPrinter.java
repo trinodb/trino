@@ -21,7 +21,6 @@ import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableMetadata;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -667,8 +666,7 @@ public class IoPlanPrinter
         public Void visitFilter(FilterNode node, IoPlanBuilder context)
         {
             PlanNode source = node.getSource();
-            if (source instanceof TableScanNode) {
-                TableScanNode tableScanNode = (TableScanNode) source;
+            if (source instanceof TableScanNode tableScanNode) {
                 DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
                         plannerContext,
                         session,
@@ -694,15 +692,13 @@ public class IoPlanPrinter
         public Void visitTableFinish(TableFinishNode node, IoPlanBuilder context)
         {
             WriterTarget writerTarget = node.getTarget();
-            if (writerTarget instanceof CreateTarget) {
-                CreateTarget target = (CreateTarget) writerTarget;
+            if (writerTarget instanceof CreateTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getHandle().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof InsertTarget) {
-                InsertTarget target = (InsertTarget) writerTarget;
+            else if (writerTarget instanceof InsertTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getHandle().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
@@ -714,8 +710,7 @@ public class IoPlanPrinter
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget) {
-                TableWriterNode.RefreshMaterializedViewTarget target = (TableWriterNode.RefreshMaterializedViewTarget) writerTarget;
+            else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getInsertHandle().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
@@ -733,15 +728,15 @@ public class IoPlanPrinter
         private void addInputTableConstraints(TupleDomain<ColumnHandle> filterDomain, TableScanNode tableScan, IoPlanBuilder context)
         {
             TableHandle table = tableScan.getTable();
-            TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(session, table);
+            CatalogSchemaTableName tableName = plannerContext.getMetadata().getTableName(session, table);
             TupleDomain<ColumnHandle> predicateDomain = plannerContext.getMetadata().getTableProperties(session, table).getPredicate();
             EstimatedStatsAndCost estimatedStatsAndCost = getEstimatedStatsAndCost(tableScan);
             context.addInputTableColumnInfo(
                     new IoPlan.TableColumnInfo(
                             new CatalogSchemaTableName(
-                                    tableMetadata.getCatalogName(),
-                                    tableMetadata.getTable().getSchemaName(),
-                                    tableMetadata.getTable().getTableName()),
+                                    tableName.getCatalogName(),
+                                    tableName.getSchemaTableName().getSchemaName(),
+                                    tableName.getSchemaTableName().getTableName()),
                             parseConstraint(table, predicateDomain.intersect(filterDomain)),
                             estimatedStatsAndCost));
         }

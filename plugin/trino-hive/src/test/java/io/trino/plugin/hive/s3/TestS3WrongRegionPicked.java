@@ -38,7 +38,7 @@ public class TestS3WrongRegionPicked
                 String tableName = "s3_region_test_" + randomNameSuffix();
                 queryRunner.execute("CREATE TABLE default." + tableName + " (a int) WITH (external_location = 's3://" + bucketName + "/" + tableName + "')");
                 assertThatThrownBy(() -> queryRunner.execute("SELECT * FROM default." + tableName))
-                        .getRootCause()
+                        .rootCause()
                         .hasMessageContaining("Status Code: 400")
                         .hasMessageContaining("Error Code: AuthorizationHeaderMalformed"); // That is how Minio reacts to bad region
             }

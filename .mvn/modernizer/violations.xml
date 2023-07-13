@@ -31,6 +31,12 @@
     </violation>
 
     <violation>
+        <name>java/lang/String.toString:()Ljava/lang/String;</name>
+        <version>1.1</version>
+        <comment>Call to toString() is redundant</comment>
+    </violation>
+
+    <violation>
         <!-- File.getPath() is the canonical way to convert File to its String representation suitable for passing to new File() -->
         <name>java/io/File.toString:()Ljava/lang/String;</name>
         <version>1.1</version>
@@ -119,13 +125,13 @@
     <violation>
         <name>org/testng/Assert.assertEquals:(Ljava/lang/Iterable;Ljava/lang/Iterable;)V</name>
         <version>1.8</version>
-        <comment>Use io.trino.testing.assertions.Assert.assertEquals due to TestNG #543</comment>
+        <comment>Use AssertJ or QueryAssertions due to TestNG #543</comment>
     </violation>
 
     <violation>
         <name>org/testng/Assert.assertEquals:(Ljava/lang/Iterable;Ljava/lang/Iterable;Ljava/lang/String;)V</name>
         <version>1.8</version>
-        <comment>Use io.trino.testing.assertions.Assert.assertEquals due to TestNG #543</comment>
+        <comment>Use AssertJ or QueryAssertions due to TestNG #543</comment>
     </violation>
 
     <violation>
@@ -138,6 +144,30 @@
         <name>org/testng/Assert.assertThrows:(Ljava/lang/Class;Lorg/testng/Assert$ThrowingRunnable;)V</name>
         <version>1.8</version>
         <comment>Use AssertJ's assertThatThrownBy, see https://github.com/trinodb/trino/issues/5320 for rationale</comment>
+    </violation>
+
+    <violation>
+        <name>com/amazonaws/services/glue/model/Table.getTableType:()Ljava/lang/String;</name>
+        <version>1.1</version>
+        <comment>Table type is nullable in Glue model, which is too easy to forget about. Prefer GlueToTrinoConverter.getTableType</comment>
+    </violation>
+
+    <violation>
+        <name>com/amazonaws/services/glue/model/Table.getParameters:()Ljava/util/Map;</name>
+        <version>1.1</version>
+        <comment>Table parameters map is nullable in Glue model, which is too easy to forget about. Prefer GlueToTrinoConverter.getTableParameters</comment>
+    </violation>
+
+    <violation>
+        <name>com/amazonaws/services/glue/model/Partition.getParameters:()Ljava/util/Map;</name>
+        <version>1.1</version>
+        <comment>Partition parameters map is nullable in Glue model, which is too easy to forget about. Prefer GlueToTrinoConverter.getPartitionParameters</comment>
+    </violation>
+
+    <violation>
+        <name>com/amazonaws/services/glue/model/SerDeInfo.getParameters:()Ljava/util/Map;</name>
+        <version>1.1</version>
+        <comment>SerDeInfo parameters map is nullable in Glue model, which is too easy to forget about. Prefer GlueToTrinoConverter.getSerDeInfoParameters</comment>
     </violation>
 
     <violation>
@@ -264,5 +294,35 @@
         <name>io/jsonwebtoken/Jwts.parserBuilder:()Lio/jsonwebtoken/JwtParserBuilder;</name>
         <version>1.8</version>
         <comment>Use io.trino.server.security.jwt.JwtsUtil or equivalent</comment>
+    </violation>
+
+    <violation>
+        <name>org/openjdk/jol/info/ClassLayout.instanceSize:()J</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.slice.SizeOf.instanceSize</comment>
+    </violation>
+
+    <violation>
+        <name>org/testng/annotations/BeforeTest</name>
+        <version>1.8</version>
+        <comment>Prefer org.testng.annotations.BeforeClass</comment>
+    </violation>
+
+    <violation>
+        <name>org/testng/annotations/AfterTest</name>
+        <version>1.8</version>
+        <comment>Prefer org.testng.annotations.AfterClass</comment>
+    </violation>
+
+    <violation>
+        <name>com/fasterxml/jackson/core/JsonFactory."&lt;init&gt;":()V</name>
+        <version>1.8</version>
+        <comment>Use io.trino.plugin.base.util.JsonUtils.jsonFactory()</comment>
+    </violation>
+
+    <violation>
+        <name>com/fasterxml/jackson/core/JsonFactoryBuilder."&lt;init&gt;":()V</name>
+        <version>1.8</version>
+        <comment>Use io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder() instead</comment>
     </violation>
 </modernizer>

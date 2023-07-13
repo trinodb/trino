@@ -44,6 +44,7 @@ import static io.trino.cli.FormatUtils.pluralize;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static io.trino.cli.TerminalUtils.terminalWidth;
 import static java.lang.Character.toUpperCase;
+import static java.lang.Math.ceil;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -324,10 +325,10 @@ Spilled: 20GB
             int progressWidth = (min(terminalWidth, 100) - 75) + 17; // progress bar is 17-42 characters wide
 
             if (stats.isScheduled()) {
-                String progressBar = formatProgressBar(progressWidth,
-                        stats.getCompletedSplits(),
-                        max(0, stats.getRunningSplits()),
-                        stats.getTotalSplits());
+                String progressBar = formatProgressBar(
+                        progressWidth,
+                        progressPercentage,
+                        (int) ceil(stats.getRunningPercentage().orElse(0.0)));
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [=====>>                                   ] 10%
                 String progressLine = format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",

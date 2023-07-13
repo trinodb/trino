@@ -20,13 +20,13 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.operator.output.PositionsAppenderUtil.MAX_ARRAY_SIZE;
@@ -40,7 +40,7 @@ public class SlicePositionsAppender
         implements PositionsAppender
 {
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SlicePositionsAppender.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SlicePositionsAppender.class);
     private static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, Optional.of(new boolean[] {true}));
 
     private boolean initialized;
@@ -81,8 +81,7 @@ public class SlicePositionsAppender
             return;
         }
         ensurePositionCapacity(positionCount + positions.size());
-        if (block instanceof VariableWidthBlock) {
-            VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+        if (block instanceof VariableWidthBlock variableWidthBlock) {
             int newByteCount = 0;
             int[] lengths = new int[positions.size()];
             int[] sourceOffsets = new int[positions.size()];
@@ -138,6 +137,35 @@ public class SlicePositionsAppender
         else {
             hasNonNullValue = true;
             duplicateBytes(block.getSlice(0, 0, block.getSliceLength(0)), rlePositionCount);
+        }
+    }
+
+    @Override
+    public void append(int position, Block source)
+    {
+        ensurePositionCapacity(positionCount + 1);
+        if (source.isNull(position)) {
+            valueIsNull[positionCount] = true;
+            offsets[positionCount + 1] = getCurrentOffset();
+            positionCount++;
+
+            hasNullValue = true;
+            updateSize(1, 0);
+        }
+        else {
+            hasNonNullValue = true;
+            int currentOffset = getCurrentOffset();
+            int sliceLength = source.getSliceLength(position);
+            Slice slice = source.getSlice(position, 0, sliceLength);
+
+            ensureExtraBytesCapacity(sliceLength);
+
+            slice.getBytes(0, bytes, currentOffset, sliceLength);
+
+            offsets[positionCount + 1] = currentOffset + sliceLength;
+
+            positionCount++;
+            updateSize(1, sliceLength);
         }
     }
 

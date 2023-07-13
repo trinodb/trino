@@ -13,13 +13,13 @@
  */
 package io.trino.metadata;
 
+import com.google.inject.Inject;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.function.SchemaFunctionName;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.Optional;
 

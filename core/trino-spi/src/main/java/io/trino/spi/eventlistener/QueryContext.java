@@ -101,7 +101,7 @@ public class QueryContext
         this.serverVersion = requireNonNull(serverVersion, "serverVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
-        this.retryPolicy = requireNonNull(retryPolicy, "retryMode is null");
+        this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
     }
 
     @JsonProperty

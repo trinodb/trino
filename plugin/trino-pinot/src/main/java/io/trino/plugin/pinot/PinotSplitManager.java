@@ -14,6 +14,7 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.Iterables;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.spi.ErrorCode;
@@ -31,8 +32,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import org.apache.pinot.spi.config.table.TableType;
 
-import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -46,7 +45,6 @@ import static io.trino.plugin.pinot.PinotSplit.createBrokerSplit;
 import static io.trino.plugin.pinot.PinotSplit.createSegmentSplit;
 import static io.trino.spi.ErrorType.USER_ERROR;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class PinotSplitManager
@@ -66,7 +64,7 @@ public class PinotSplitManager
 
     protected ConnectorSplitSource generateSplitForBrokerBasedScan(PinotTableHandle pinotTableHandle)
     {
-        return new FixedSplitSource(singletonList(createBrokerSplit()));
+        return new FixedSplitSource(createBrokerSplit());
     }
 
     protected ConnectorSplitSource generateSplitsForSegmentBasedScan(

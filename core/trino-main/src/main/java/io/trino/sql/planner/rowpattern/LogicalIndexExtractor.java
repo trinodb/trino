@@ -244,7 +244,7 @@ public class LogicalIndexExtractor
             Optional<ProcessingMode> processingMode = node.getProcessingMode();
             OptionalInt offset = OptionalInt.empty();
             if (node.getArguments().size() > 1) {
-                offset = OptionalInt.of(toIntExact(((LongLiteral) node.getArguments().get(1)).getValue()));
+                offset = OptionalInt.of(toIntExact(((LongLiteral) node.getArguments().get(1)).getParsedValue()));
             }
             return switch (functionName) {
                 case "PREV" -> treeRewriter.rewrite(argument, context.withPhysicalOffset(-offset.orElse(1)));
@@ -394,8 +394,7 @@ public class LogicalIndexExtractor
             ImmutableList.Builder<Symbol> inputSymbols = ImmutableList.builder();
 
             for (ValuePointer valuePointer : valuePointers) {
-                if (valuePointer instanceof ScalarValuePointer) {
-                    ScalarValuePointer pointer = (ScalarValuePointer) valuePointer;
+                if (valuePointer instanceof ScalarValuePointer pointer) {
                     Symbol symbol = pointer.getInputSymbol();
                     if (!classifierSymbols.contains(symbol) && !matchNumberSymbols.contains(symbol)) {
                         inputSymbols.add(symbol);

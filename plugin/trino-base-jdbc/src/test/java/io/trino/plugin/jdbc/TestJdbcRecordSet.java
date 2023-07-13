@@ -35,9 +35,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJdbcRecordSet
 {
@@ -78,21 +76,21 @@ public class TestJdbcRecordSet
                 new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("text_short", JDBC_VARCHAR, createVarcharType(32)),
                 new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(VARCHAR, createVarcharType(32), BIGINT));
+        assertThat(recordSet.getColumnTypes()).containsExactly(VARCHAR, createVarcharType(32), BIGINT);
 
         recordSet = createRecordSet(ImmutableList.of(
                 new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, VARCHAR));
+        assertThat(recordSet.getColumnTypes()).containsExactly(BIGINT, VARCHAR);
 
         recordSet = createRecordSet(ImmutableList.of(
                 new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, VARCHAR));
+        assertThat(recordSet.getColumnTypes()).containsExactly(BIGINT, BIGINT, VARCHAR);
 
         recordSet = createRecordSet(ImmutableList.of());
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
+        assertThat(recordSet.getColumnTypes()).isEmpty();
     }
 
     @Test
@@ -104,20 +102,20 @@ public class TestJdbcRecordSet
                 columnHandles.get("value")));
 
         try (RecordCursor cursor = recordSet.cursor()) {
-            assertEquals(cursor.getType(0), VARCHAR);
-            assertEquals(cursor.getType(1), createVarcharType(32));
-            assertEquals(cursor.getType(2), BIGINT);
+            assertThat(cursor.getType(0)).isEqualTo(VARCHAR);
+            assertThat(cursor.getType(1)).isEqualTo(createVarcharType(32));
+            assertThat(cursor.getType(2)).isEqualTo(BIGINT);
 
             Map<String, Long> data = new LinkedHashMap<>();
             while (cursor.advanceNextPosition()) {
                 data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(2));
-                assertEquals(cursor.getSlice(0), cursor.getSlice(1));
-                assertFalse(cursor.isNull(0));
-                assertFalse(cursor.isNull(1));
-                assertFalse(cursor.isNull(2));
+                assertThat(cursor.getSlice(0)).isEqualTo(cursor.getSlice(1));
+                assertThat(cursor.isNull(0)).isFalse();
+                assertThat(cursor.isNull(1)).isFalse();
+                assertThat(cursor.isNull(2)).isFalse();
             }
 
-            assertEquals(data, ImmutableMap.<String, Long>builder()
+            assertThat(data).isEqualTo(ImmutableMap.<String, Long>builder()
                     .put("one", 1L)
                     .put("two", 2L)
                     .put("three", 3L)
@@ -126,7 +124,7 @@ public class TestJdbcRecordSet
                     .put("twelve", 12L)
                     .buildOrThrow());
 
-            assertThat(cursor.getReadTimeNanos()).isGreaterThan(0);
+            assertThat(cursor.getReadTimeNanos()).isPositive();
         }
     }
 
@@ -139,17 +137,17 @@ public class TestJdbcRecordSet
                 columnHandles.get("text")));
 
         try (RecordCursor cursor = recordSet.cursor()) {
-            assertEquals(cursor.getType(0), BIGINT);
-            assertEquals(cursor.getType(1), BIGINT);
-            assertEquals(cursor.getType(2), VARCHAR);
+            assertThat(cursor.getType(0)).isEqualTo(BIGINT);
+            assertThat(cursor.getType(1)).isEqualTo(BIGINT);
+            assertThat(cursor.getType(2)).isEqualTo(VARCHAR);
 
             Map<String, Long> data = new LinkedHashMap<>();
             while (cursor.advanceNextPosition()) {
-                assertEquals(cursor.getLong(0), cursor.getLong(1));
+                assertThat(cursor.getLong(0)).isEqualTo(cursor.getLong(1));
                 data.put(cursor.getSlice(2).toStringUtf8(), cursor.getLong(0));
             }
 
-            assertEquals(data, ImmutableMap.<String, Long>builder()
+            assertThat(data).isEqualTo(ImmutableMap.<String, Long>builder()
                     .put("one", 1L)
                     .put("two", 2L)
                     .put("three", 3L)
@@ -158,7 +156,7 @@ public class TestJdbcRecordSet
                     .put("twelve", 12L)
                     .buildOrThrow());
 
-            assertThat(cursor.getReadTimeNanos()).isGreaterThan(0);
+            assertThat(cursor.getReadTimeNanos()).isPositive();
         }
     }
 

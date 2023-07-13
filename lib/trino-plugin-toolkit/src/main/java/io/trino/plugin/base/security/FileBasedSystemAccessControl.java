@@ -46,6 +46,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
+import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.OWNER;
 import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.READ_ONLY;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
@@ -60,6 +61,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -69,6 +71,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSele
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDropCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropRole;
@@ -126,6 +129,7 @@ public class FileBasedSystemAccessControl
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
     private final Optional<List<SystemInformationRule>> systemInformationRules;
+    private final List<AuthorizationRule> authorizationRules;
     private final List<CatalogSchemaAccessControlRule> schemaRules;
     private final List<CatalogTableAccessControlRule> tableRules;
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
@@ -140,6 +144,7 @@ public class FileBasedSystemAccessControl
             Optional<List<ImpersonationRule>> impersonationRules,
             Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             Optional<List<SystemInformationRule>> systemInformationRules,
+            List<AuthorizationRule> authorizationRules,
             List<CatalogSchemaAccessControlRule> schemaRules,
             List<CatalogTableAccessControlRule> tableRules,
             List<SessionPropertyAccessControlRule> sessionPropertyRules,
@@ -151,6 +156,7 @@ public class FileBasedSystemAccessControl
         this.impersonationRules = impersonationRules;
         this.principalUserMatchRules = principalUserMatchRules;
         this.systemInformationRules = systemInformationRules;
+        this.authorizationRules = authorizationRules;
         this.schemaRules = schemaRules;
         this.tableRules = tableRules;
         this.sessionPropertyRules = sessionPropertyRules;
@@ -374,6 +380,22 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateCatalog(SystemSecurityContext context, String catalogName)
+    {
+        if (!canAccessCatalog(context, catalogName, OWNER)) {
+            denyCreateCatalog(catalogName);
+        }
+    }
+
+    @Override
+    public void checkCanDropCatalog(SystemSecurityContext context, String catalogName)
+    {
+        if (!canAccessCatalog(context, catalogName, OWNER)) {
+            denyDropCatalog(catalogName);
+        }
+    }
+
+    @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
         ImmutableSet.Builder<String> filteredCatalogs = ImmutableSet.builder();
@@ -413,6 +435,9 @@ public class FileBasedSystemAccessControl
     public void checkCanSetSchemaAuthorization(SystemSecurityContext context, CatalogSchemaName schema, TrinoPrincipal principal)
     {
         if (!isSchemaOwner(context, schema)) {
+            denySetSchemaAuthorization(schema.toString(), principal);
+        }
+        if (!checkCanSetAuthorization(context, principal)) {
             denySetSchemaAuthorization(schema.toString(), principal);
         }
     }
@@ -609,6 +634,9 @@ public class FileBasedSystemAccessControl
         if (!checkTablePermission(context, table, OWNERSHIP)) {
             denySetTableAuthorization(table.toString(), principal);
         }
+        if (!checkCanSetAuthorization(context, principal)) {
+            denySetTableAuthorization(table.toString(), principal);
+        }
     }
 
     @Override
@@ -679,6 +707,9 @@ public class FileBasedSystemAccessControl
     public void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
     {
         if (!checkTablePermission(context, view, OWNERSHIP)) {
+            denySetViewAuthorization(view.toString(), principal);
+        }
+        if (!checkCanSetAuthorization(context, principal)) {
             denySetViewAuthorization(view.toString(), principal);
         }
     }
@@ -946,7 +977,7 @@ public class FileBasedSystemAccessControl
         Identity identity = context.getIdentity();
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
-                .map(rule -> rule.getFilter(identity.getUser(), table.getCatalogName(), tableName.getSchemaName()))
+                .map(rule -> rule.getFilter(table.getCatalogName(), tableName.getSchemaName()))
                 // we return the first one we find
                 .findFirst()
                 .stream()
@@ -965,7 +996,7 @@ public class FileBasedSystemAccessControl
         Identity identity = context.getIdentity();
         List<ViewExpression> masks = tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
-                .map(rule -> rule.getColumnMask(identity.getUser(), table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
+                .map(rule -> rule.getColumnMask(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
                 // we return the first one we find
                 .findFirst()
                 .stream()
@@ -987,6 +1018,10 @@ public class FileBasedSystemAccessControl
 
     private boolean checkAnyCatalogAccess(SystemSecurityContext context, String catalogName)
     {
+        if (canAccessCatalog(context, catalogName, OWNER)) {
+            return true;
+        }
+
         Identity identity = context.getIdentity();
         return canAccessCatalog(context, catalogName, READ_ONLY) &&
                 anyCatalogPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), catalogName));
@@ -1086,6 +1121,15 @@ public class FileBasedSystemAccessControl
                         .isPresent();
     }
 
+    private boolean checkCanSetAuthorization(SystemSecurityContext context, TrinoPrincipal principal)
+    {
+        Identity identity = context.getIdentity();
+        return authorizationRules.stream()
+                .flatMap(rule -> rule.match(identity.getUser(), identity.getGroups(), identity.getEnabledRoles(), principal).stream())
+                .findFirst()
+                .orElse(false);
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -1098,6 +1142,7 @@ public class FileBasedSystemAccessControl
         private Optional<List<ImpersonationRule>> impersonationRules = Optional.empty();
         private Optional<List<PrincipalUserMatchRule>> principalUserMatchRules = Optional.empty();
         private Optional<List<SystemInformationRule>> systemInformationRules = Optional.empty();
+        private List<AuthorizationRule> authorizationRules = ImmutableList.of();
         private List<CatalogSchemaAccessControlRule> schemaRules = ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL);
         private List<CatalogTableAccessControlRule> tableRules = ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL);
         private List<SessionPropertyAccessControlRule> sessionPropertyRules = ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL);
@@ -1112,6 +1157,7 @@ public class FileBasedSystemAccessControl
             impersonationRules = Optional.of(ImmutableList.of());
             principalUserMatchRules = Optional.of(ImmutableList.of());
             systemInformationRules = Optional.of(ImmutableList.of());
+            authorizationRules = ImmutableList.of();
             schemaRules = ImmutableList.of();
             tableRules = ImmutableList.of();
             sessionPropertyRules = ImmutableList.of();
@@ -1147,6 +1193,12 @@ public class FileBasedSystemAccessControl
         public Builder setSystemInformationRules(Optional<List<SystemInformationRule>> systemInformationRules)
         {
             this.systemInformationRules = systemInformationRules;
+            return this;
+        }
+
+        public Builder setAuthorizationRules(List<AuthorizationRule> authorizationRules)
+        {
+            this.authorizationRules = authorizationRules;
             return this;
         }
 
@@ -1188,6 +1240,7 @@ public class FileBasedSystemAccessControl
                     impersonationRules,
                     principalUserMatchRules,
                     systemInformationRules,
+                    authorizationRules,
                     schemaRules,
                     tableRules,
                     sessionPropertyRules,

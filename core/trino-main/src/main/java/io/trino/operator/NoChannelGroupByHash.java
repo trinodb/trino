@@ -16,19 +16,16 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
-import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class NoChannelGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(NoChannelGroupByHash.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(NoChannelGroupByHash.class);
 
     private int groupCount;
 
@@ -65,10 +62,10 @@ public class NoChannelGroupByHash
     }
 
     @Override
-    public Work<GroupByIdBlock> getGroupIds(Page page)
+    public Work<int[]> getGroupIds(Page page)
     {
         updateGroupCount(page);
-        return new CompletedWork<>(new GroupByIdBlock(page.getPositionCount() > 0 ? 1 : 0, RunLengthEncodedBlock.create(BIGINT, 0L, page.getPositionCount())));
+        return new CompletedWork<>(new int[page.getPositionCount()]);
     }
 
     @Override

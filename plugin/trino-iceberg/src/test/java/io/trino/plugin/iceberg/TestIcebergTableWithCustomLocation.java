@@ -13,15 +13,16 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -32,10 +33,10 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
-import static io.trino.plugin.hive.HiveTestUtils.SESSION;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -48,6 +49,7 @@ public class TestIcebergTableWithCustomLocation
 {
     private FileHiveMetastore metastore;
     private File metastoreDir;
+    private TrinoFileSystem fileSystem;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
@@ -60,6 +62,12 @@ public class TestIcebergTableWithCustomLocation
                 .setIcebergProperties(Map.of("iceberg.unique-table-location", "true"))
                 .setMetastoreDirectory(metastoreDir)
                 .build();
+    }
+
+    @BeforeClass
+    public void initFileSystem()
+    {
+        fileSystem = getFileSystemFactory(getDistributedQueryRunner()).create(SESSION);
     }
 
     @AfterClass(alwaysRun = true)
@@ -89,17 +97,19 @@ public class TestIcebergTableWithCustomLocation
         Table table = metastore.getTable("tpch", tableName).orElseThrow();
         assertThat(table.getTableType()).isEqualTo(TableType.EXTERNAL_TABLE.name());
 
-        Path tableLocation = new Path(table.getStorage().getLocation());
-        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
-        assertTrue(fileSystem.newInputFile(tableLocation.toString()).exists(), "The directory corresponding to the table storage location should exist");
+        Location tableLocation = Location.of(table.getStorage().getLocation());
+        assertTrue(fileSystem.newInputFile(tableLocation).exists(), "The directory corresponding to the table storage location should exist");
+
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_create_and_drop$files\"");
         assertEquals(materializedResult.getRowCount(), 1);
         DataFileRecord dataFile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
-        assertTrue(fileSystem.newInputFile(new Path(dataFile.getFilePath()).toString()).exists(), "The data file should exist");
+        Location dataFileLocation = Location.of(dataFile.getFilePath());
+        assertTrue(fileSystem.newInputFile(dataFileLocation).exists(), "The data file should exist");
+
         assertQuerySucceeds(format("DROP TABLE %s", tableName));
         assertFalse(metastore.getTable("tpch", tableName).isPresent(), "Table should be dropped");
-        assertFalse(fileSystem.newInputFile(new Path(dataFile.getFilePath()).toString()).exists(), "The data file should have been removed");
-        assertFalse(fileSystem.newInputFile(tableLocation.toString()).exists(), "The directory corresponding to the dropped Iceberg table should not be removed because it may be shared with other tables");
+        assertFalse(fileSystem.newInputFile(dataFileLocation).exists(), "The data file should have been removed");
+        assertFalse(fileSystem.newInputFile(tableLocation).exists(), "The directory corresponding to the dropped Iceberg table should not be removed because it may be shared with other tables");
     }
 
     @Test

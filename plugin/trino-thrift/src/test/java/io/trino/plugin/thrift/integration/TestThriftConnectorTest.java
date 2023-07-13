@@ -32,6 +32,12 @@ public class TestThriftConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_INSERT:
+            case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+                return false;
+
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
@@ -40,6 +46,10 @@ public class TestThriftConnectorTest
 
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_RENAME_TABLE:
+                return false;
+
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
@@ -51,8 +61,10 @@ public class TestThriftConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
-            case SUPPORTS_INSERT:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
+            case SUPPORTS_ROW_TYPE:
                 return false;
 
             default:

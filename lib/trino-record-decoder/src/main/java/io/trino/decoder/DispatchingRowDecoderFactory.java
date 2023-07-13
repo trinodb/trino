@@ -14,8 +14,7 @@
 package io.trino.decoder;
 
 import com.google.common.collect.ImmutableMap;
-
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import java.util.Map;
 import java.util.Set;

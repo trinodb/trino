@@ -84,6 +84,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
+import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -116,7 +117,8 @@ import static java.util.stream.Collectors.toSet;
 public class MongoSession
 {
     private static final Logger log = Logger.get(MongoSession.class);
-    private static final List<String> SYSTEM_TABLES = Arrays.asList("system.indexes", "system.users", "system.version");
+    private static final Set<String> SYSTEM_DATABASES = Set.of("admin", "local", "config");
+    private static final List<String> SYSTEM_TABLES = Arrays.asList("system.indexes", "system.users", "system.version", "system.views");
 
     private static final String TABLE_NAME_KEY = "table";
     private static final String COMMENT_KEY = "comment";
@@ -136,9 +138,9 @@ public class MongoSession
     private static final String LTE_OP = "$lte";
     private static final String IN_OP = "$in";
 
-    private static final String DATABASE_NAME = "databaseName";
-    private static final String COLLECTION_NAME = "collectionName";
-    private static final String ID = "id";
+    public static final String DATABASE_NAME = "databaseName";
+    public static final String COLLECTION_NAME = "collectionName";
+    public static final String ID = "id";
 
     // The 'simple' locale is the default collection in MongoDB. The locale doesn't allow specifying other fields (e.g. numericOrdering)
     // https://www.mongodb.com/docs/manual/reference/collation/
@@ -187,7 +189,10 @@ public class MongoSession
 
     public List<String> getAllSchemas()
     {
-        return ImmutableList.copyOf(listDatabaseNames().map(name -> name.toLowerCase(ENGLISH)));
+        return Streams.stream(listDatabaseNames())
+                .filter(schema -> !SYSTEM_DATABASES.contains(schema))
+                .map(schema -> schema.toLowerCase(ENGLISH))
+                .collect(toImmutableList());
     }
 
     public void createSchema(String schemaName)
@@ -330,6 +335,34 @@ public class MongoSession
         tableCache.invalidate(table.getSchemaTableName());
     }
 
+    public void renameColumn(MongoTableHandle table, String source, String target)
+    {
+        String remoteSchemaName = table.getRemoteTableName().getDatabaseName();
+        String remoteTableName = table.getRemoteTableName().getCollectionName();
+
+        Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
+
+        List<Document> columns = getColumnMetadata(metadata).stream()
+                .map(document -> {
+                    if (document.getString(FIELDS_NAME_KEY).equals(source)) {
+                        document.put(FIELDS_NAME_KEY, target);
+                    }
+                    return document;
+                })
+                .collect(toImmutableList());
+
+        metadata.append(FIELDS_KEY, columns);
+
+        MongoDatabase database = client.getDatabase(remoteSchemaName);
+        MongoCollection<Document> schema = database.getCollection(schemaCollection);
+        schema.findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
+
+        database.getCollection(remoteTableName)
+                .updateMany(Filters.empty(), Updates.rename(source, target));
+
+        tableCache.invalidate(table.getSchemaTableName());
+    }
+
     public void dropColumn(MongoTableHandle table, String columnName)
     {
         String remoteSchemaName = table.getRemoteTableName().getDatabaseName();
@@ -349,6 +382,31 @@ public class MongoSession
 
         database.getCollection(remoteTableName)
                 .updateMany(Filters.empty(), Updates.unset(columnName));
+
+        tableCache.invalidate(table.getSchemaTableName());
+    }
+
+    public void setColumnType(MongoTableHandle table, String columnName, Type type)
+    {
+        String remoteSchemaName = table.getRemoteTableName().getDatabaseName();
+        String remoteTableName = table.getRemoteTableName().getCollectionName();
+
+        Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
+
+        List<Document> columns = getColumnMetadata(metadata).stream()
+                .map(document -> {
+                    if (document.getString(FIELDS_NAME_KEY).equals(columnName)) {
+                        document.put(FIELDS_TYPE_KEY, type.getTypeSignature().toString());
+                        return document;
+                    }
+                    return document;
+                })
+                .collect(toImmutableList());
+
+        metadata.replace(FIELDS_KEY, columns);
+
+        client.getDatabase(remoteSchemaName).getCollection(schemaCollection)
+                .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
 
         tableCache.invalidate(table.getSchemaTableName());
     }
@@ -445,7 +503,7 @@ public class MongoSession
     {
         // Use $and operator because Document.putAll method overwrites existing entries where the key already exists
         ImmutableList.Builder<Document> filter = ImmutableList.builder();
-        table.getFilter().ifPresent(filter::add);
+        table.getFilter().ifPresent(json -> filter.add(parseFilter(json)));
         filter.add(buildQuery(table.getConstraint()));
         return andPredicate(filter.build());
     }
@@ -838,6 +896,9 @@ public class MongoSession
     {
         verify(schemaName.equals(schemaName.toLowerCase(ENGLISH)), "schemaName not in lower-case: %s", schemaName);
         if (!caseInsensitiveNameMatching) {
+            return schemaName;
+        }
+        if (SYSTEM_DATABASES.contains(schemaName)) {
             return schemaName;
         }
         for (String remoteSchemaName : listDatabaseNames()) {

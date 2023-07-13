@@ -15,14 +15,15 @@ package io.trino.plugin.deltalake.transactionlog.writer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.CdcEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -80,6 +81,11 @@ public class TransactionLogWriter
         entries.add(DeltaLakeTransactionLogEntry.removeFileEntry(removeFileEntry));
     }
 
+    public void appendCdcEntry(CdcEntry cdcEntry)
+    {
+        entries.add(DeltaLakeTransactionLogEntry.cdcEntry(cdcEntry));
+    }
+
     public boolean isUnsafe()
     {
         return logSynchronizer.isUnsafe();
@@ -90,9 +96,9 @@ public class TransactionLogWriter
     {
         checkState(commitInfoEntry.isPresent(), "commitInfo not set");
 
-        Path transactionLogLocation = getTransactionLogDir(new Path(tableLocation));
+        String transactionLogLocation = getTransactionLogDir(tableLocation);
         CommitInfoEntry commitInfo = requireNonNull(commitInfoEntry.get().getCommitInfo(), "commitInfoEntry.get().getCommitInfo() is null");
-        Path logEntry = getTransactionLogJsonEntryPath(transactionLogLocation, commitInfo.getVersion());
+        Location logEntry = getTransactionLogJsonEntryPath(transactionLogLocation, commitInfo.getVersion());
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         writeEntry(bos, commitInfoEntry.get());

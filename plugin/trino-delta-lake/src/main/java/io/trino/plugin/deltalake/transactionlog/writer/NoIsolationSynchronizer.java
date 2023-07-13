@@ -13,19 +13,17 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
+import com.google.inject.Inject;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 
 public class NoIsolationSynchronizer
@@ -40,13 +38,13 @@ public class NoIsolationSynchronizer
     }
 
     @Override
-    public void write(ConnectorSession session, String clusterId, Path newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, String clusterId, Location newLogEntryPath, byte[] entryContents)
             throws UncheckedIOException
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            TrinoOutputFile outputFile = fileSystem.newOutputFile(newLogEntryPath.toString());
-            try (OutputStream outputStream = outputFile.create(newSimpleAggregatedMemoryContext())) {
+            TrinoOutputFile outputFile = fileSystem.newOutputFile(newLogEntryPath);
+            try (OutputStream outputStream = outputFile.create()) {
                 outputStream.write(entryContents);
             }
         }

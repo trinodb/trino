@@ -13,8 +13,8 @@
  */
 package io.trino.tests.product;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requires;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
@@ -22,11 +22,11 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.ALTER_TABLE;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Requires(ImmutableNationTable.class)
 public class TestAlterTable
@@ -35,8 +35,8 @@ public class TestAlterTable
     private static final String TABLE_NAME = "table_name";
     private static final String RENAMED_TABLE_NAME = "renamed_table_name";
 
-    @BeforeTestWithContext
-    @AfterTestWithContext
+    @BeforeMethodWithContext
+    @AfterMethodWithContext
     public void dropTestTables()
     {
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));

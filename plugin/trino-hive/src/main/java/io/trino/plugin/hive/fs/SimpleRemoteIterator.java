@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.hive.fs;
 
-import org.apache.hadoop.fs.RemoteIterator;
-
 import java.io.IOException;
 import java.util.Iterator;
 

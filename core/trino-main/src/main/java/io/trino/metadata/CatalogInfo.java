@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import io.trino.connector.ConnectorName;
 import io.trino.spi.connector.CatalogHandle;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -22,9 +23,9 @@ public class CatalogInfo
 {
     private final String catalogName;
     private final CatalogHandle catalogHandle;
-    private final String connectorName;
+    private final ConnectorName connectorName;
 
-    public CatalogInfo(String catalogName, CatalogHandle catalogHandle, String connectorName)
+    public CatalogInfo(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
@@ -41,7 +42,7 @@ public class CatalogInfo
         return catalogHandle;
     }
 
-    public String getConnectorName()
+    public ConnectorName getConnectorName()
     {
         return connectorName;
     }

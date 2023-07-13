@@ -17,10 +17,12 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import io.airlift.slice.Slice;
 import io.trino.block.BlockAssertions;
 import io.trino.geospatial.serde.GeometrySerde;
-import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.spi.Page;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.testing.LocalQueryRunner;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 import java.util.Arrays;
@@ -29,17 +31,30 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public abstract class AbstractTestGeoAggregationFunctions
-        extends AbstractTestFunctions
 {
+    private LocalQueryRunner runner;
+    private TestingFunctionResolution functionResolution;
+
     @BeforeClass
-    public void registerFunctions()
+    public final void initTestFunctions()
     {
-        functionAssertions.installPlugin(new GeoPlugin());
+        runner = LocalQueryRunner.builder(TEST_SESSION).build();
+        runner.installPlugin(new GeoPlugin());
+        functionResolution = new TestingFunctionResolution(runner);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroyTestFunctions()
+    {
+        closeAllRuntimeException(runner);
+        runner = null;
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)
@@ -66,7 +81,7 @@ public abstract class AbstractTestGeoAggregationFunctions
         };
         // Test in forward and reverse order to verify that ordering doesn't affect the output
         assertAggregation(
-                functionAssertions.getFunctionResolution(),
+                functionResolution,
                 QualifiedName.of(getFunctionName()),
                 fromTypes(GEOMETRY),
                 equalityFunction,
@@ -75,7 +90,7 @@ public abstract class AbstractTestGeoAggregationFunctions
                 expectedWkt);
         Collections.reverse(geometrySlices);
         assertAggregation(
-                functionAssertions.getFunctionResolution(),
+                functionResolution,
                 QualifiedName.of(getFunctionName()),
                 fromTypes(GEOMETRY),
                 equalityFunction,

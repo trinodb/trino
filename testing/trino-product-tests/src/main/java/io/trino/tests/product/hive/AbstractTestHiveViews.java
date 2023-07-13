@@ -40,17 +40,17 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_ICEBERG_REDIRECTIONS;
 import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_READING_FROM_HIVE_ISSUE;
-import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_READING_FROM_HIVE_MATCH;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -63,6 +63,7 @@ public abstract class AbstractTestHiveViews
         extends HiveProductTest
 {
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testSelectOnView()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_test_view");
@@ -78,6 +79,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testArrayIndexingInView()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_hive_view_array_index_table");
@@ -100,6 +102,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testCommonTableExpression()
     {
         onHive().executeQuery(
@@ -113,6 +116,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNestedCommonTableExpression()
     {
         onHive().executeQuery(
@@ -127,6 +131,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testArrayConstructionInView()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS test_array_construction_view");
@@ -139,6 +144,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testMapConstructionInView()
     {
         onHive().executeQuery(
@@ -158,6 +164,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testSelectOnViewFromDifferentSchema()
     {
         onHive().executeQuery("DROP SCHEMA IF EXISTS test_schema CASCADE");
@@ -171,6 +178,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testViewReferencingTableInDifferentSchema()
     {
         String schemaX = "test_view_table_in_different_schema_x" + randomNameSuffix();
@@ -191,6 +199,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testViewReferencingTableInTheSameSchemaWithoutQualifier()
     {
         String schemaX = "test_view_table_same_schema_without_qualifier_schema" + randomNameSuffix();
@@ -209,6 +218,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     // TODO (https://github.com/trinodb/trino/issues/5911) the test does not test view coercion
     public void testViewWithUnsupportedCoercion()
     {
@@ -220,6 +230,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testOuterParentheses()
     {
         if (getHiveVersionMajor() <= 1) {
@@ -235,6 +246,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testDateFunction()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS hive_table_date_function");
@@ -250,6 +262,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testPmodFunction()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS hive_table_pmod_function");
@@ -265,6 +278,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     // TODO (https://github.com/trinodb/trino/issues/5911) the test does not test view coercion
     public void testWithUnsupportedFunction()
     {
@@ -276,6 +290,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testExistingView()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_duplicate_view");
@@ -286,6 +301,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testShowCreateView()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_show_view");
@@ -293,13 +309,9 @@ public abstract class AbstractTestHiveViews
 
         String showCreateViewSql = "SHOW CREATE VIEW %s.default.hive_show_view";
         String expectedResult = "CREATE VIEW %s.default.hive_show_view SECURITY DEFINER AS\n" +
-                "SELECT\n" +
-                "  \"n_nationkey\"\n" +
-                ", \"n_name\"\n" +
-                ", \"n_regionkey\"\n" +
-                ", \"n_comment\"\n" +
+                "SELECT *\n" +
                 "FROM\n" +
-                "  \"default\".\"nation\"";
+                "  \"default\".\"nation\" \"nation\"";
 
         QueryResult actualResult = onTrino().executeQuery(format(showCreateViewSql, "hive"));
         assertThat(actualResult).hasRowsCount(1);
@@ -315,7 +327,7 @@ public abstract class AbstractTestHiveViews
      * Test view containing IF, IN, LIKE, BETWEEN, CASE, COALESCE, operators, delimited and non-delimited columns, an inline comment
      */
     @Test(groups = HIVE_VIEWS)
-    @Flaky(issue = ERROR_READING_FROM_HIVE_ISSUE, match = ERROR_READING_FROM_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRichSqlSyntax()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_rich_syntax");
@@ -353,6 +365,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testIdentifierThatStartWithDigit()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS \"7_table_with_number\"");
@@ -367,6 +380,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHiveViewInInformationSchema()
     {
         onHive().executeQuery("DROP SCHEMA IF EXISTS test_schema CASCADE");
@@ -386,13 +400,14 @@ public abstract class AbstractTestHiveViews
                 row("hive", "test_schema", "trino_test_view", "VIEW"));
 
         assertThat(onTrino().executeQuery("SELECT view_definition FROM information_schema.views WHERE table_schema = 'test_schema' and table_name = 'hive_test_view'")).containsOnly(
-                row("SELECT \"n_nationkey\", \"n_name\", \"n_regionkey\", \"n_comment\"\nFROM \"default\".\"nation\""));
+                row("SELECT *\nFROM \"default\".\"nation\" AS \"nation\""));
 
         assertThat(onTrino().executeQuery("DESCRIBE test_schema.hive_test_view"))
                 .contains(row("n_nationkey", "bigint", "", ""));
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHiveViewWithParametrizedTypes()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_view_parametrized");
@@ -413,6 +428,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHiveViewWithTextualTypes()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_view_textual");
@@ -440,6 +456,7 @@ public abstract class AbstractTestHiveViews
     protected abstract List<QueryAssert.Row> getExpectedHiveViewTextualColumnsTypes();
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNestedHiveViews()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS nested_base_view");
@@ -456,6 +473,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testSelectFromHiveViewWithoutDefaultCatalogAndSchema()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS no_catalog_schema_view");
@@ -469,6 +487,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testTimestampHiveView()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS timestamp_hive_table");
@@ -482,33 +501,26 @@ public abstract class AbstractTestHiveViews
         unsetSessionProperty("hive_timestamp_nanos.timestamp_precision");
 
         assertThat(onTrino().executeQuery("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
-        assertThatThrownBy(
-                // TODO(https://github.com/trinodb/trino/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
-                () -> assertThat(onTrino().executeQuery("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
-        ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
+        assertThat(onTrino().executeQuery("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view"))
+                .containsOnly(row("1990-01-02 12:13:14.123456789"));
 
         setSessionProperty("hive.timestamp_precision", "'MILLISECONDS'");
         setSessionProperty("hive_timestamp_nanos.timestamp_precision", "'MILLISECONDS'");
 
         assertThat(onTrino().executeQuery("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
-        assertThatThrownBy(
-                // TODO(https://github.com/trinodb/trino/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
-                () -> assertThat(onTrino().executeQuery("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"))
-        ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
+        assertThat(onTrino().executeQuery("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view"))
+                .containsOnly(row("1990-01-02 12:13:14.123456789"));
 
         setSessionProperty("hive.timestamp_precision", "'NANOSECONDS'");
         setSessionProperty("hive_timestamp_nanos.timestamp_precision", "'NANOSECONDS'");
 
-        // TODO(https://github.com/trinodb/trino/issues/6295) timestamp_precision has no effect on Hive views
-        // should be: assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
         assertThat(onTrino().executeQuery("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
-        assertThatThrownBy(
-                // TODO(https://github.com/trinodb/trino/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
-                () -> assertThat(onTrino().executeQuery("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
-        ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
+        assertThat(onTrino().executeQuery("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view"))
+                .containsOnly(row("1990-01-02 12:13:14.123456789"));
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testCurrentUser()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS current_user_hive_view");
@@ -520,6 +532,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNestedGroupBy()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS test_nested_group_by_view");
@@ -536,7 +549,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
-    @Flaky(issue = ERROR_READING_FROM_HIVE_ISSUE, match = ERROR_READING_FROM_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnionAllViews()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS union_helper");
@@ -572,7 +585,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
-    @Flaky(issue = ERROR_READING_FROM_HIVE_ISSUE, match = ERROR_READING_FROM_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnionDistinctViews()
     {
         if (getHiveVersionMajor() < 1 || (getHiveVersionMajor() == 1 && getHiveVersionMinor() < 2)) {
@@ -608,6 +621,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHivePartitionViews()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS test_view_partitioned_column");
@@ -627,6 +641,7 @@ public abstract class AbstractTestHiveViews
      * any potential view translation to follow redirections.
      */
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testViewReferencingHiveAndIcebergTables()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS iceberg.default.view_iceberg_table_actual_data");
@@ -710,6 +725,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testViewWithColumnAliasesDifferingInCase()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_hive_namesake_column_name_a");
@@ -736,6 +752,7 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testRunAsInvoker()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS run_as_invoker");

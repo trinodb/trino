@@ -20,8 +20,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ExecutorServiceAdapter;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
-
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PreDestroy;
 
 import java.io.File;
 import java.util.UUID;

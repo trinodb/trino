@@ -13,10 +13,11 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.inject.Inject;
+import io.trino.plugin.base.security.UserNameProvider;
+import io.trino.plugin.hive.ForHiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.thrift.TException;
-
-import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -28,14 +29,17 @@ public class UgiBasedMetastoreClientFactory
         implements IdentityAwareMetastoreClientFactory
 {
     private final TokenAwareMetastoreClientFactory clientProvider;
+    private final UserNameProvider userNameProvider;
     private final boolean impersonationEnabled;
 
     @Inject
     public UgiBasedMetastoreClientFactory(
             TokenAwareMetastoreClientFactory clientProvider,
+            @ForHiveMetastore UserNameProvider userNameProvider,
             ThriftMetastoreConfig thriftConfig)
     {
         this.clientProvider = requireNonNull(clientProvider, "clientProvider is null");
+        this.userNameProvider = requireNonNull(userNameProvider, "userNameProvider is null");
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
     }
 
@@ -46,7 +50,7 @@ public class UgiBasedMetastoreClientFactory
         ThriftMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty());
 
         if (impersonationEnabled) {
-            String username = identity.map(ConnectorIdentity::getUser)
+            String username = identity.map(userNameProvider::get)
                     .orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
             setMetastoreUserOrClose(client, username);
         }

@@ -92,8 +92,8 @@ abstract class AbstractTrinoResultSet
 {
     private static final Pattern DATETIME_PATTERN = Pattern.compile("" +
             "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
-            "(?: (?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
-            "\\s*(?<timezone>.+)?");
+            "( (?:(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
+            "(?:\\s*(?<timezone>.+))?)?");
 
     private static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
     private static final Pattern TIME_WITH_TIME_ZONE_PATTERN = Pattern.compile("" +
@@ -260,7 +260,13 @@ abstract class AbstractTrinoResultSet
             throws SQLException
     {
         Object value = column(columnIndex);
-        return (value != null) ? (Boolean) value : false;
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        throw new SQLException("Value is not a boolean: " + value);
     }
 
     @Override

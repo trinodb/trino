@@ -19,6 +19,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.trino.operator.RetryPolicy;
 
@@ -31,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -42,18 +44,27 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "experimental.max-queued-big-queries",
         "query-manager.initialization-required-workers",
         "query-manager.initialization-timeout",
-        "query.remote-task.max-consecutive-error-count"})
+        "fault-tolerant-execution-target-task-split-count",
+        "fault-tolerant-execution-target-task-input-size",
+        "query.remote-task.max-consecutive-error-count",
+        "query.remote-task.min-error-duration",
+})
 public class QueryManagerConfig
 {
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
     public static final int MAX_TASK_RETRY_ATTEMPTS = 126;
+    public static final int FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT = 1000;
 
     private int scheduleSplitBatchSize = 1000;
     private int minScheduleSplitBatchSize = 100;
     private int maxConcurrentQueries = 1000;
     private int maxQueuedQueries = 5000;
 
-    private int hashPartitionCount = 100;
+    private boolean determinePartitionCountForWriteEnabled;
+    private int maxHashPartitionCount = 100;
+    private int minHashPartitionCount = 4;
+    private int minHashPartitionCountForWrite = 50;
+    private int maxWriterTasksCount = 100;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -64,6 +75,7 @@ public class QueryManagerConfig
 
     private int queryManagerExecutorPoolSize = 5;
     private int queryExecutorPoolSize = 1000;
+    private int maxStateMachineCallbackThreads = 5;
 
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
@@ -77,6 +89,7 @@ public class QueryManagerConfig
     private Duration queryMaxPlanningTime = new Duration(10, TimeUnit.MINUTES);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
     private Optional<DataSize> queryMaxScanPhysicalBytes = Optional.empty();
+    private int queryReportedRuleStatsLimit = 10;
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
@@ -84,7 +97,6 @@ public class QueryManagerConfig
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
     private int queryRetryAttempts = 4;
     private int taskRetryAttemptsPerTask = 4;
-    private int taskRetryAttemptsOverall = Integer.MAX_VALUE;
     private Duration retryInitialDelay = new Duration(10, SECONDS);
     private Duration retryMaxDelay = new Duration(1, MINUTES);
     private double retryDelayScaleFactor = 2.0;
@@ -92,14 +104,31 @@ public class QueryManagerConfig
     private int maxTasksWaitingForExecutionPerQuery = 10;
     private int maxTasksWaitingForNodePerStage = 5;
 
-    private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(4, GIGABYTE);
+    private boolean enabledAdaptiveTaskRequestSize = true;
+    private DataSize maxRemoteTaskRequestSize = DataSize.of(8, MEGABYTE);
+    private DataSize remoteTaskRequestSizeHeadroom = DataSize.of(2, MEGABYTE);
+    private int remoteTaskGuaranteedSplitPerTask = 3;
 
-    private int faultTolerantExecutionMinTaskSplitCount = 16;
-    private int faultTolerantExecutionTargetTaskSplitCount = 64;
+    private int faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod = 64;
+    private double faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor = 1.2;
+    private DataSize faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin = DataSize.of(512, MEGABYTE);
+    private DataSize faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax = DataSize.of(50, GIGABYTE);
+
+    private int faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod = 64;
+    private double faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor = 1.2;
+    private DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin = DataSize.of(4, GIGABYTE);
+    private DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax = DataSize.of(50, GIGABYTE);
+
+    private DataSize faultTolerantExecutionHashDistributionComputeTaskTargetSize = DataSize.of(512, MEGABYTE);
+    private DataSize faultTolerantExecutionHashDistributionWriteTaskTargetSize = DataSize.of(4, GIGABYTE);
+    private int faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount = 2000;
+
+    private DataSize faultTolerantExecutionStandardSplitSize = DataSize.of(64, MEGABYTE);
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
-    private int faultTolerantExecutionPartitionCount = 50;
-    private boolean faultTolerantExecutionEventDrivenSchedulerEnabled = true;
+    private int faultTolerantExecutionMaxPartitionCount = 50;
+    private int faultTolerantExecutionMinPartitionCount = 4;
+    private int faultTolerantExecutionMinPartitionCountForWrite = 50;
     private boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled = true;
 
     @Min(1)
@@ -158,18 +187,73 @@ public class QueryManagerConfig
         return this;
     }
 
-    @Min(1)
-    public int getHashPartitionCount()
+    public boolean isDeterminePartitionCountForWriteEnabled()
     {
-        return hashPartitionCount;
+        return determinePartitionCountForWriteEnabled;
     }
 
-    @Config("query.hash-partition-count")
-    @LegacyConfig("query.initial-hash-partitions")
-    @ConfigDescription("Number of partitions for distributed joins and aggregations")
-    public QueryManagerConfig setHashPartitionCount(int hashPartitionCount)
+    @Config("query.determine-partition-count-for-write-enabled")
+    @ConfigDescription("Determine the number of partitions based on amount of data read and processed by the query for write queries")
+    public QueryManagerConfig setDeterminePartitionCountForWriteEnabled(boolean determinePartitionCountForWriteEnabled)
     {
-        this.hashPartitionCount = hashPartitionCount;
+        this.determinePartitionCountForWriteEnabled = determinePartitionCountForWriteEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxHashPartitionCount()
+    {
+        return maxHashPartitionCount;
+    }
+
+    @Config("query.max-hash-partition-count")
+    @LegacyConfig({"query.initial-hash-partitions", "query.hash-partition-count"})
+    @ConfigDescription("Maximum number of partitions for distributed joins and aggregations")
+    public QueryManagerConfig setMaxHashPartitionCount(int maxHashPartitionCount)
+    {
+        this.maxHashPartitionCount = maxHashPartitionCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getMinHashPartitionCount()
+    {
+        return minHashPartitionCount;
+    }
+
+    @Config("query.min-hash-partition-count")
+    @ConfigDescription("Minimum number of partitions for distributed joins and aggregations")
+    public QueryManagerConfig setMinHashPartitionCount(int minHashPartitionCount)
+    {
+        this.minHashPartitionCount = minHashPartitionCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getMinHashPartitionCountForWrite()
+    {
+        return minHashPartitionCountForWrite;
+    }
+
+    @Config("query.min-hash-partition-count-for-write")
+    @ConfigDescription("Minimum number of partitions for distributed joins and aggregations in write queries")
+    public QueryManagerConfig setMinHashPartitionCountForWrite(int minHashPartitionCountForWrite)
+    {
+        this.minHashPartitionCountForWrite = minHashPartitionCountForWrite;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxWriterTasksCount()
+    {
+        return maxWriterTasksCount;
+    }
+
+    @Config("query.max-writer-task-count")
+    @ConfigDescription("Maximum number of tasks that will participate in writing data")
+    public QueryManagerConfig setMaxWriterTasksCount(int maxWritersNodesCount)
+    {
+        this.maxWriterTasksCount = maxWritersNodesCount;
         return this;
     }
 
@@ -281,16 +365,17 @@ public class QueryManagerConfig
         return this;
     }
 
-    @Deprecated
-    public Duration getRemoteTaskMinErrorDuration()
+    @Min(1)
+    public int getMaxStateMachineCallbackThreads()
     {
-        return remoteTaskMaxErrorDuration;
+        return maxStateMachineCallbackThreads;
     }
 
-    @Deprecated
-    @Config("query.remote-task.min-error-duration")
-    public QueryManagerConfig setRemoteTaskMinErrorDuration(Duration remoteTaskMinErrorDuration)
+    @Config("query.max-state-machine-callback-threads")
+    @ConfigDescription("The maximum number of threads allowed to run query and stage state machine listener callbacks concurrently for each query")
+    public QueryManagerConfig setMaxStateMachineCallbackThreads(int maxStateMachineCallbackThreads)
     {
+        this.maxStateMachineCallbackThreads = maxStateMachineCallbackThreads;
         return this;
     }
 
@@ -375,6 +460,19 @@ public class QueryManagerConfig
     }
 
     @Min(1)
+    public int getQueryReportedRuleStatsLimit()
+    {
+        return queryReportedRuleStatsLimit;
+    }
+
+    @Config("query.reported-rule-stats-limit")
+    public QueryManagerConfig setQueryReportedRuleStatsLimit(int queryReportedRuleStatsLimit)
+    {
+        this.queryReportedRuleStatsLimit = queryReportedRuleStatsLimit;
+        return this;
+    }
+
+    @Min(1)
     public int getRemoteTaskMaxCallbackThreads()
     {
         return remoteTaskMaxCallbackThreads;
@@ -452,19 +550,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryRetryAttempts(int queryRetryAttempts)
     {
         this.queryRetryAttempts = queryRetryAttempts;
-        return this;
-    }
-
-    @Min(0)
-    public int getTaskRetryAttemptsOverall()
-    {
-        return taskRetryAttemptsOverall;
-    }
-
-    @Config("task-retry-attempts-overall")
-    public QueryManagerConfig setTaskRetryAttemptsOverall(int taskRetryAttemptsOverall)
-    {
-        this.taskRetryAttemptsOverall = taskRetryAttemptsOverall;
         return this;
     }
 
@@ -553,45 +638,220 @@ public class QueryManagerConfig
         return this;
     }
 
+    public boolean isEnabledAdaptiveTaskRequestSize()
+    {
+        return enabledAdaptiveTaskRequestSize;
+    }
+
+    @Config("query.remote-task.enable-adaptive-request-size")
+    public QueryManagerConfig setEnabledAdaptiveTaskRequestSize(boolean enabledAdaptiveTaskRequestSize)
+    {
+        this.enabledAdaptiveTaskRequestSize = enabledAdaptiveTaskRequestSize;
+        return this;
+    }
+
     @NotNull
-    public DataSize getFaultTolerantExecutionTargetTaskInputSize()
+    public DataSize getMaxRemoteTaskRequestSize()
     {
-        return faultTolerantExecutionTargetTaskInputSize;
+        return maxRemoteTaskRequestSize;
     }
 
-    @Config("fault-tolerant-execution-target-task-input-size")
-    @ConfigDescription("Target size in bytes of all task inputs for a single fault tolerant task")
-    public QueryManagerConfig setFaultTolerantExecutionTargetTaskInputSize(DataSize faultTolerantExecutionTargetTaskInputSize)
+    @Config("query.remote-task.max-request-size")
+    public QueryManagerConfig setMaxRemoteTaskRequestSize(DataSize maxRemoteTaskRequestSize)
     {
-        this.faultTolerantExecutionTargetTaskInputSize = faultTolerantExecutionTargetTaskInputSize;
+        this.maxRemoteTaskRequestSize = maxRemoteTaskRequestSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getRemoteTaskRequestSizeHeadroom()
+    {
+        return remoteTaskRequestSizeHeadroom;
+    }
+
+    @Config("query.remote-task.request-size-headroom")
+    public QueryManagerConfig setRemoteTaskRequestSizeHeadroom(DataSize remoteTaskRequestSizeHeadroom)
+    {
+        this.remoteTaskRequestSizeHeadroom = remoteTaskRequestSizeHeadroom;
         return this;
     }
 
     @Min(1)
-    public int getFaultTolerantExecutionMinTaskSplitCount()
+    public int getRemoteTaskGuaranteedSplitPerTask()
     {
-        return faultTolerantExecutionMinTaskSplitCount;
+        return remoteTaskGuaranteedSplitPerTask;
     }
 
-    @Config("fault-tolerant-execution-min-task-split-count")
-    @ConfigDescription("Minimal number of splits for a single fault tolerant task (count based)")
-    public QueryManagerConfig setFaultTolerantExecutionMinTaskSplitCount(int faultTolerantExecutionMinTaskSplitCount)
+    @Config("query.remote-task.guaranteed-splits-per-task")
+    public QueryManagerConfig setRemoteTaskGuaranteedSplitPerTask(int remoteTaskGuaranteedSplitPerTask)
     {
-        this.faultTolerantExecutionMinTaskSplitCount = faultTolerantExecutionMinTaskSplitCount;
+        this.remoteTaskGuaranteedSplitPerTask = remoteTaskGuaranteedSplitPerTask;
+        return this;
+    }
+
+    public int getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod()
+    {
+        return faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-growth-period")
+    @ConfigDescription("The number of tasks created for any given non-writer stage of arbitrary distribution before task size is increased")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod(int faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod)
+    {
+        this.faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod = faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod;
         return this;
     }
 
     @Min(1)
-    public int getFaultTolerantExecutionTargetTaskSplitCount()
+    public double getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor()
     {
-        return faultTolerantExecutionTargetTaskSplitCount;
+        return faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor;
     }
 
-    @Config("fault-tolerant-execution-target-task-split-count")
-    @ConfigDescription("Target number of splits for a single fault tolerant task (split weight aware)")
-    public QueryManagerConfig setFaultTolerantExecutionTargetTaskSplitCount(int faultTolerantExecutionTargetTaskSplitCount)
+    @Config("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-growth-factor")
+    @ConfigDescription("Growth factor for adaptive sizing of non-writer tasks of arbitrary distribution for fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor(double faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor)
     {
-        this.faultTolerantExecutionTargetTaskSplitCount = faultTolerantExecutionTargetTaskSplitCount;
+        this.faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor = faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin()
+    {
+        return faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-min")
+    @ConfigDescription("Initial/min target input size for non-writer tasks of arbitrary distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin(DataSize faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin)
+    {
+        this.faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin = faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax()
+    {
+        return faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-max")
+    @ConfigDescription("Max target input size for non-writer task of arbitrary distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax(DataSize faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax)
+    {
+        this.faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax = faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax;
+        return this;
+    }
+
+    public int getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod()
+    {
+        return faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-growth-period")
+    @ConfigDescription("The number of tasks created for any given writer stage of arbitrary distribution before task size is increased")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod(int faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod)
+    {
+        this.faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod = faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod;
+        return this;
+    }
+
+    @Min(1)
+    public double getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor()
+    {
+        return faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-growth-factor")
+    @ConfigDescription("Growth factor for adaptive sizing of writer tasks of arbitrary distribution for fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor(double faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor)
+    {
+        this.faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor = faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin()
+    {
+        return faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-min")
+    @ConfigDescription("Initial/min target input size for writer tasks of arbitrary distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin(DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin)
+    {
+        this.faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin = faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax()
+    {
+        return faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-max")
+    @ConfigDescription("Max target input size for writer tasks of arbitrary distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax(DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax)
+    {
+        this.faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax = faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionHashDistributionComputeTaskTargetSize()
+    {
+        return faultTolerantExecutionHashDistributionComputeTaskTargetSize;
+    }
+
+    @Config("fault-tolerant-execution-hash-distribution-compute-task-target-size")
+    @ConfigDescription("Target input size for non-writer tasks of hash distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionHashDistributionComputeTaskTargetSize(DataSize faultTolerantExecutionHashDistributionComputeTaskTargetSize)
+    {
+        this.faultTolerantExecutionHashDistributionComputeTaskTargetSize = faultTolerantExecutionHashDistributionComputeTaskTargetSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionHashDistributionWriteTaskTargetSize()
+    {
+        return faultTolerantExecutionHashDistributionWriteTaskTargetSize;
+    }
+
+    @Config("fault-tolerant-execution-hash-distribution-write-task-target-size")
+    @ConfigDescription("Target input size of writer tasks of hash distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionHashDistributionWriteTaskTargetSize(DataSize faultTolerantExecutionHashDistributionWriteTaskTargetSize)
+    {
+        this.faultTolerantExecutionHashDistributionWriteTaskTargetSize = faultTolerantExecutionHashDistributionWriteTaskTargetSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount()
+    {
+        return faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount;
+    }
+
+    @Config("fault-tolerant-execution-hash-distribution-write-task-target-max-count")
+    @ConfigDescription("Soft upper bound on number of writer tasks in a stage of hash distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(int faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount)
+    {
+        this.faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount = faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount;
+        return this;
+    }
+
+    @MinDataSize("1MB")
+    public DataSize getFaultTolerantExecutionStandardSplitSize()
+    {
+        return faultTolerantExecutionStandardSplitSize;
+    }
+
+    @Config("fault-tolerant-execution-standard-split-size")
+    @ConfigDescription("Standard split size for a single fault tolerant task (split weight aware)")
+    public QueryManagerConfig setFaultTolerantExecutionStandardSplitSize(DataSize faultTolerantExecutionStandardSplitSize)
+    {
+        this.faultTolerantExecutionStandardSplitSize = faultTolerantExecutionStandardSplitSize;
         return this;
     }
 
@@ -624,28 +884,48 @@ public class QueryManagerConfig
     }
 
     @Min(1)
-    public int getFaultTolerantExecutionPartitionCount()
+    @Max(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT)
+    public int getFaultTolerantExecutionMaxPartitionCount()
     {
-        return faultTolerantExecutionPartitionCount;
+        return faultTolerantExecutionMaxPartitionCount;
     }
 
-    @Config("fault-tolerant-execution-partition-count")
-    @ConfigDescription("Number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled")
-    public QueryManagerConfig setFaultTolerantExecutionPartitionCount(int faultTolerantExecutionPartitionCount)
+    @Config("fault-tolerant-execution-max-partition-count")
+    @LegacyConfig("fault-tolerant-execution-partition-count")
+    @ConfigDescription("Maximum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled")
+    public QueryManagerConfig setFaultTolerantExecutionMaxPartitionCount(int faultTolerantExecutionMaxPartitionCount)
     {
-        this.faultTolerantExecutionPartitionCount = faultTolerantExecutionPartitionCount;
+        this.faultTolerantExecutionMaxPartitionCount = faultTolerantExecutionMaxPartitionCount;
         return this;
     }
 
-    public boolean isFaultTolerantExecutionEventDrivenSchedulerEnabled()
+    @Min(1)
+    @Max(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT)
+    public int getFaultTolerantExecutionMinPartitionCount()
     {
-        return faultTolerantExecutionEventDrivenSchedulerEnabled;
+        return faultTolerantExecutionMinPartitionCount;
     }
 
-    @Config("experimental.fault-tolerant-execution-event-driven-scheduler-enabled")
-    public QueryManagerConfig setFaultTolerantExecutionEventDrivenSchedulerEnabled(boolean faultTolerantExecutionEventDrivenSchedulerEnabled)
+    @Config("fault-tolerant-execution-min-partition-count")
+    @ConfigDescription("Minimum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled")
+    public QueryManagerConfig setFaultTolerantExecutionMinPartitionCount(int faultTolerantExecutionMinPartitionCount)
     {
-        this.faultTolerantExecutionEventDrivenSchedulerEnabled = faultTolerantExecutionEventDrivenSchedulerEnabled;
+        this.faultTolerantExecutionMinPartitionCount = faultTolerantExecutionMinPartitionCount;
+        return this;
+    }
+
+    @Min(1)
+    @Max(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT)
+    public int getFaultTolerantExecutionMinPartitionCountForWrite()
+    {
+        return faultTolerantExecutionMinPartitionCountForWrite;
+    }
+
+    @Config("fault-tolerant-execution-min-partition-count-for-write")
+    @ConfigDescription("Minimum number of partitions for distributed joins and aggregations in write queries executed with fault tolerant execution enabled")
+    public QueryManagerConfig setFaultTolerantExecutionMinPartitionCountForWrite(int faultTolerantExecutionMinPartitionCountForWrite)
+    {
+        this.faultTolerantExecutionMinPartitionCountForWrite = faultTolerantExecutionMinPartitionCountForWrite;
         return this;
     }
 

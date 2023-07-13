@@ -39,9 +39,9 @@ import java.util.Optional;
 import static io.trino.memory.LowMemoryKillerTestingUtils.taskId;
 import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
 import static io.trino.memory.LowMemoryKillerTestingUtils.toRunningQueryInfoList;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertEquals;
 
 public class TestLeastWastedEffortTaskLowMemoryKiller
 {
@@ -150,16 +150,16 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
         else {
             taskInfos = ImmutableMap.of(
                     "q_1", ImmutableMap.of(
-                            1, buildTaskInfo(taskId("q_1", 1), TaskState.RUNNING, scheduledTime, blockedTime)),
+                            1, buildTaskInfo(taskId("q_1", 1), TaskState.RUNNING, scheduledTime, blockedTime, false)),
                     "q_2", ImmutableMap.of(
-                            1, buildTaskInfo(taskId("q_2", 1), TaskState.RUNNING, scheduledTime, blockedTime),
-                            2, buildTaskInfo(taskId("q_2", 2), TaskState.RUNNING, scheduledTime, blockedTime),
-                            3, buildTaskInfo(taskId("q_2", 3), TaskState.RUNNING, scheduledTime, blockedTime),
-                            4, buildTaskInfo(taskId("q_2", 4), TaskState.RUNNING, scheduledTime, blockedTime),
-                            5, buildTaskInfo(taskId("q_2", 5), TaskState.RUNNING, scheduledTime, blockedTime),
-                            6, buildTaskInfo(taskId("q_2", 6), TaskState.RUNNING, scheduledTime, blockedTime),
-                            7, buildTaskInfo(taskId("q_2", 7), TaskState.RUNNING, scheduledTime, blockedTime),
-                            8, buildTaskInfo(taskId("q_2", 8), TaskState.RUNNING, scheduledTime, blockedTime)));
+                            1, buildTaskInfo(taskId("q_2", 1), TaskState.RUNNING, scheduledTime, blockedTime, false),
+                            2, buildTaskInfo(taskId("q_2", 2), TaskState.RUNNING, scheduledTime, blockedTime, false),
+                            3, buildTaskInfo(taskId("q_2", 3), TaskState.RUNNING, scheduledTime, blockedTime, false),
+                            4, buildTaskInfo(taskId("q_2", 4), TaskState.RUNNING, scheduledTime, blockedTime, false),
+                            5, buildTaskInfo(taskId("q_2", 5), TaskState.RUNNING, scheduledTime, blockedTime, false),
+                            6, buildTaskInfo(taskId("q_2", 6), TaskState.RUNNING, scheduledTime, blockedTime, false),
+                            7, buildTaskInfo(taskId("q_2", 7), TaskState.RUNNING, scheduledTime, blockedTime, false),
+                            8, buildTaskInfo(taskId("q_2", 8), TaskState.RUNNING, scheduledTime, blockedTime, false)));
         }
 
         assertEquals(
@@ -194,12 +194,12 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
 
         Map<String, Map<Integer, TaskInfo>> taskInfos = ImmutableMap.of(
                 "q_1", ImmutableMap.of(
-                        1, buildTaskInfo(taskId("q_1", 1), TaskState.RUNNING, new Duration(30, SECONDS), new Duration(30, SECONDS)),
-                        2, buildTaskInfo(taskId("q_1", 2), TaskState.RUNNING, new Duration(400, SECONDS), new Duration(200, SECONDS))),
+                        1, buildTaskInfo(taskId("q_1", 1), TaskState.RUNNING, new Duration(30, SECONDS), new Duration(30, SECONDS), false),
+                        2, buildTaskInfo(taskId("q_1", 2), TaskState.RUNNING, new Duration(400, SECONDS), new Duration(200, SECONDS), false)),
                 "q_2", ImmutableMap.of(
-                        1, buildTaskInfo(taskId("q_2", 1), TaskState.RUNNING, new Duration(30, SECONDS), new Duration(30, SECONDS)),
-                        2, buildTaskInfo(taskId("q_2", 2), TaskState.RUNNING, new Duration(100, SECONDS), new Duration(100, SECONDS)),
-                        3, buildTaskInfo(taskId("q_2", 3), TaskState.RUNNING, new Duration(30, SECONDS), new Duration(30, SECONDS))));
+                        1, buildTaskInfo(taskId("q_2", 1), TaskState.RUNNING, new Duration(30, SECONDS), new Duration(30, SECONDS), false),
+                        2, buildTaskInfo(taskId("q_2", 2), TaskState.RUNNING, new Duration(100, SECONDS), new Duration(100, SECONDS), false),
+                        3, buildTaskInfo(taskId("q_2", 3), TaskState.RUNNING, new Duration(30, SECONDS), new Duration(30, SECONDS), false)));
 
         // q1_1; n1; walltime 60s;  memory 3; ratio 0.05 (pick for n1)
         // q1_2; n2; walltime 600s; memory 8; ratio 0.0133
@@ -217,7 +217,46 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                                 taskId("q_2", 3)))));
     }
 
-    private static TaskInfo buildTaskInfo(TaskId taskId, TaskState state, Duration scheduledTime, Duration blockedTime)
+    @Test
+    public void testPrefersKillingSpeculativeTasks()
+    {
+        int memoryPool = 8;
+        Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
+                .put("q_1", ImmutableMap.of("n1", 3L, "n2", 8L))
+                .put("q_2", ImmutableMap.of("n1", 7L, "n2", 2L))
+                .buildOrThrow();
+
+        Map<String, Map<String, Map<Integer, Long>>> tasks = ImmutableMap.<String, Map<String, Map<Integer, Long>>>builder()
+                .put("q_1", ImmutableMap.of(
+                        "n1", ImmutableMap.of(1, 3L),
+                        "n2", ImmutableMap.of(2, 8L)))
+                .put("q_2", ImmutableMap.of(
+                        "n1", ImmutableMap.of(
+                                1, 1L,
+                                2, 6L),
+                        "n2", ImmutableMap.of(3, 2L)))
+                .buildOrThrow();
+
+        Map<String, Map<Integer, TaskInfo>> taskInfos = ImmutableMap.of(
+                "q_1", ImmutableMap.of(
+                        1, buildTaskInfo(taskId("q_1", 1), TaskState.RUNNING, new Duration(30, SECONDS), new Duration(30, SECONDS), false),
+                        2, buildTaskInfo(taskId("q_1", 2), TaskState.RUNNING, new Duration(400, SECONDS), new Duration(200, SECONDS), false)),
+                "q_2", ImmutableMap.of(
+                        1, buildTaskInfo(taskId("q_2", 1), TaskState.RUNNING, new Duration(30, SECONDS), new Duration(30, SECONDS), true),
+                        2, buildTaskInfo(taskId("q_2", 2), TaskState.RUNNING, new Duration(100, SECONDS), new Duration(100, SECONDS), false),
+                        3, buildTaskInfo(taskId("q_2", 3), TaskState.RUNNING, new Duration(30, SECONDS), new Duration(30, SECONDS), false)));
+
+        assertEquals(
+                lowMemoryKiller.chooseTargetToKill(
+                        toRunningQueryInfoList(queries, ImmutableSet.of("q_1", "q_2"), taskInfos),
+                        toNodeMemoryInfoList(memoryPool, queries, tasks)),
+                Optional.of(KillTarget.selectedTasks(
+                        ImmutableSet.of(
+                                taskId("q_2", 1), // if q_2_1 was not speculative then "q_1_1 would be picked
+                                taskId("q_2", 3)))));
+    }
+
+    private static TaskInfo buildTaskInfo(TaskId taskId, TaskState state, Duration scheduledTime, Duration blockedTime, boolean speculative)
     {
         return new TaskInfo(
                 new TaskStatus(
@@ -227,6 +266,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         state,
                         URI.create("fake://task/" + taskId + "/node/some_node"),
                         "some_node",
+                        speculative,
                         ImmutableList.of(),
                         0,
                         0,
@@ -257,6 +297,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         Optional.empty()),
                 ImmutableSet.of(),
                 new TaskStats(DateTime.now(),
+                        null,
                         null,
                         null,
                         null,

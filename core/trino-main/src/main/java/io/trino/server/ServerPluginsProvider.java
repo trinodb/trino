@@ -13,9 +13,8 @@
  */
 package io.trino.server;
 
+import com.google.inject.Inject;
 import io.trino.server.PluginManager.PluginsProvider;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

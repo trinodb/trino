@@ -162,6 +162,7 @@ import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.type.LikeFunctions.isLikePattern;
+import static io.trino.type.LikeFunctions.isMatchAllPattern;
 import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
@@ -580,10 +581,9 @@ public class ExpressionInterpreter
                         }
                     }
                 }
-                else if (value instanceof Expression) {
+                else if (value instanceof Expression expression) {
                     verify(!(value instanceof NullLiteral), "Null value is expected to be represented as null, not NullLiteral");
                     // Skip duplicates unless they are non-deterministic.
-                    Expression expression = (Expression) value;
                     if (!isDeterministic(expression, metadata) || uniqueNewOperands.add(expression)) {
                         newOperands.add(expression);
                     }
@@ -603,13 +603,12 @@ public class ExpressionInterpreter
             Object value = processWithExceptionHandling(node.getValue(), context);
 
             Expression valueListExpression = node.getValueList();
-            if (!(valueListExpression instanceof InListExpression)) {
+            if (!(valueListExpression instanceof InListExpression valueList)) {
                 if (!optimize) {
                     throw new UnsupportedOperationException("IN predicate value list type not yet implemented: " + valueListExpression.getClass().getName());
                 }
                 return node;
             }
-            InListExpression valueList = (InListExpression) valueListExpression;
             // `NULL IN ()` would be false, but InListExpression cannot be empty by construction
             if (value == null) {
                 return null;
@@ -1045,7 +1044,7 @@ public class ExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!metadata.getFunctionMetadata(session, resolvedFunction).isDeterministic() ||
+            if (optimize && (!resolvedFunction.isDeterministic() ||
                     hasUnresolvedValue(argumentValues) ||
                     isDynamicFilter(node) ||
                     resolvedFunction.getSignature().getName().equals("fail"))) {
@@ -1155,34 +1154,43 @@ public class ExpressionInterpreter
                 return evaluateLikePredicate(node, (Slice) value, matcher);
             }
 
-            // if pattern is a constant without % or _ replace with a comparison
-            if (pattern instanceof Slice && (escape == null || escape instanceof Slice) && !isLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape))) {
+            if (pattern instanceof Slice && (escape == null || escape instanceof Slice)) {
                 Type valueType = type(node.getValue());
-                Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape));
-                VarcharType patternType = createVarcharType(countCodePoints(unescapedPattern));
+                // if pattern is a constant without % or _ replace with a comparison
+                if (!isLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape))) {
+                    Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape));
+                    VarcharType patternType = createVarcharType(countCodePoints(unescapedPattern));
 
-                Expression valueExpression;
-                Expression patternExpression;
-                if (valueType instanceof CharType) {
-                    if (((CharType) valueType).getLength() != patternType.getBoundedLength()) {
-                        return false;
+                    Expression valueExpression;
+                    Expression patternExpression;
+                    if (valueType instanceof CharType) {
+                        if (((CharType) valueType).getLength() != patternType.getBoundedLength()) {
+                            return false;
+                        }
+                        valueExpression = toExpression(value, valueType);
+                        patternExpression = toExpression(trimTrailingSpaces(unescapedPattern), valueType);
                     }
-                    valueExpression = toExpression(value, valueType);
-                    patternExpression = toExpression(trimTrailingSpaces(unescapedPattern), valueType);
-                }
-                else if (valueType instanceof VarcharType) {
-                    Type superType = typeCoercion.getCommonSuperType(valueType, patternType)
-                            .orElseThrow(() -> new IllegalArgumentException("Missing super type when optimizing " + node));
-                    valueExpression = toExpression(value, valueType);
-                    if (!valueType.equals(superType)) {
-                        valueExpression = new Cast(valueExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
+                    else if (valueType instanceof VarcharType) {
+                        Type superType = typeCoercion.getCommonSuperType(valueType, patternType)
+                                .orElseThrow(() -> new IllegalArgumentException("Missing super type when optimizing " + node));
+                        valueExpression = toExpression(value, valueType);
+                        if (!valueType.equals(superType)) {
+                            valueExpression = new Cast(valueExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
+                        }
+                        patternExpression = toExpression(unescapedPattern, superType);
                     }
-                    patternExpression = toExpression(unescapedPattern, superType);
+                    else {
+                        throw new IllegalStateException("Unsupported valueType for LIKE: " + valueType);
+                    }
+                    return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, valueExpression, patternExpression);
                 }
-                else {
-                    throw new IllegalStateException("Unsupported valueType for LIKE: " + valueType);
+                else if (isMatchAllPattern((Slice) pattern)) {
+                    if (!(valueType instanceof CharType) && !(valueType instanceof VarcharType)) {
+                        throw new IllegalStateException("Unsupported valueType for LIKE: " + valueType);
+                    }
+                    // if pattern matches all
+                    return new IsNotNullPredicate(toExpression(value, valueType));
                 }
-                return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, valueExpression, patternExpression);
             }
 
             Optional<Expression> optimizedEscape = Optional.empty();
@@ -1508,8 +1516,7 @@ public class ExpressionInterpreter
             }
 
             // Subscript on Row hasn't got a dedicated operator. It is interpreted by hand.
-            if (base instanceof SingleRowBlock) {
-                SingleRowBlock row = (SingleRowBlock) base;
+            if (base instanceof SingleRowBlock row) {
                 int position = toIntExact((long) index - 1);
                 if (position < 0 || position >= row.getPositionCount()) {
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (position + 1));

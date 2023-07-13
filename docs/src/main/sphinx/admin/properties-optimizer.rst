@@ -44,6 +44,26 @@ partition keys for partitions that have no rows. In particular, the Hive connect
 can return empty partitions, if they were created by other systems. Trino cannot
 create them.
 
+``optimizer.mark-distinct-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-string`
+* **Allowed values:** ``AUTOMATIC``, ``ALWAYS``, ``NONE``
+* **Default value:** ``AUTOMATIC``
+
+The mark distinct strategy to use for distinct aggregations. ``NONE`` does not use
+``MarkDistinct`` operator.  ``ALWAYS`` uses ``MarkDistinct`` for multiple distinct
+aggregations or for mix of distinct and non-distinct aggregations.
+``AUTOMATIC`` limits the use of ``MarkDistinct`` only for cases with limited
+concurrency (global or small cardinality aggregations), where direct distinct
+aggregation implementation cannot utilize CPU efficiently.
+``optimizer.mark-distinct-strategy`` overrides, if set, the deprecated
+``optimizer.use-mark-distinct``. If ``optimizer.mark-distinct-strategy`` is not
+set, but ``optimizer.use-mark-distinct`` is then ``optimizer.use-mark-distinct``
+is mapped to ``optimizer.mark-distinct-strategy`` with value ``true`` mapped to
+``AUTOMATIC`` and value ``false`` mapped to ``NONE``.The strategy can be specified
+on a per-query basis using the ``mark_distinct_strategy`` session property.
+
 ``optimizer.push-aggregation-through-outer-join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -158,6 +178,18 @@ to use table scan node partitioning. When the table bucket count is small
 compared to the number of workers, then the table scan is distributed across
 all workers for improved parallelism.
 
+``optimizer.colocated-joins-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``true``
+* **Session property:** ``colocated_join``
+
+Use co-located joins when both sides of a join have the same table partitioning on the join keys
+and the conditions for ``optimizer.use-table-scan-node-partitioning`` are met.
+For example, a join on bucketed Hive tables with matching bucketing schemes can
+avoid exchanging data between workers using a co-located join to improve query performance.
+
 ``optimizer.filter-conjunction-independence-factor``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -210,3 +242,43 @@ The minimum number of join build side rows required to use partitioned join look
 If the build side of a join is estimated to be smaller than the configured threshold,
 single threaded join lookup is used to improve join performance.
 A value of ``0`` disables this optimization.
+
+``optimizer.min-input-size-per-task``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-data-size`
+* **Default value:** ``5GB``
+* **Min allowed value:** ``0MB``
+* **Session property:** ``min_input_size_per_task``
+
+The minimum input size required per task. This will help optimizer to determine hash
+partition count for joins and aggregations. Limiting hash partition count for small queries
+increases concurrency on large clusters where multiple small queries are running concurrently.
+The estimated value will always be between ``min_hash_partition_count`` and
+``max_hash_partition_count`` session property.
+A value of ``0MB`` disables this optimization.
+
+``optimizer.min-input-rows-per-task``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``10000000``
+* **Min allowed value:** ``0``
+* **Session property:** ``min_input_rows_per_task``
+
+The minimum number of input rows required per task. This will help optimizer to determine hash
+partition count for joins and aggregations. Limiting hash partition count for small queries
+increases concurrency on large clusters where multiple small queries are running concurrently.
+The estimated value will always be between ``min_hash_partition_count`` and
+``max_hash_partition_count`` session property.
+A value of ``0`` disables this optimization.
+
+``optimizer.use-cost-based-partitioning``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``true``
+* **Session property:** ``use_cost_based_partitioning``
+
+When enabled the cost based optimizer is used to determine if repartitioning the output of an
+already partitioned stage is necessary.

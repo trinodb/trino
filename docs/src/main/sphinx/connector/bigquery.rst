@@ -26,14 +26,14 @@ that should generally lead to better read performance:
 
 **Column Filtering**
     The new API allows column filtering to only read the data you are interested in.
-    `Backed by a columnar datastore <https://cloud.google.com/blog/big-data/2016/04/inside-capacitor-bigquerys-next-generation-columnar-storage-format>`_,
+    `Backed by a columnar datastore <https://cloud.google.com/blog/products/bigquery/inside-capacitor-bigquerys-next-generation-columnar-storage-format>`_,
     it can efficiently stream data without reading all columns.
 
 **Dynamic Sharding**
     The API rebalances records between readers until they all complete. This means
     that all Map phases will finish nearly concurrently. See this blog article on
     `how dynamic sharding is similarly used in Google Cloud Dataflow
-    <https://cloud.google.com/blog/big-data/2016/05/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow>`_.
+    <https://cloud.google.com/blog/products/gcp/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow>`_.
 
 Requirements
 ------------
@@ -105,7 +105,7 @@ a few caveats:
   it, set the ``bigquery.experimental.arrow-serialization.enabled``
   configuration property to ``true`` and add
   ``--add-opens=java.base/java.nio=ALL-UNNAMED`` to the Trino
-  :ref:`jvm_config`.
+  :ref:`jvm-config`.
 
 Reading from views
 ^^^^^^^^^^^^^^^^^^
@@ -157,6 +157,19 @@ Property                                              Description               
                                                       from BigQuery.
                                                       Please read this `section <#arrow-serialization-support>`_
                                                       before enabling this feature.
+``bigquery.rpc-proxy.enabled``                        Use a proxy for communication with BigQuery.                   ``false``
+``bigquery.rpc-proxy.uri``                            Proxy URI to use if connecting through a proxy.
+``bigquery.rpc-proxy.username``                       Proxy user name to use if connecting through a proxy.
+``bigquery.rpc-proxy.password``                       Proxy password to use if connecting through a proxy.
+``bigquery.rpc-proxy.keystore-path``                  Keystore containing client certificates to present to proxy if
+                                                      connecting through a proxy. Only required if proxy uses
+                                                      mutual TLS.
+``bigquery.rpc-proxy.keystore-password``              Password of the keystore specified by
+                                                      ``bigquery.rpc-proxy.keystore-path``.
+``bigquery.rpc-proxy.truststore-path``                Truststore containing certificates of the proxy server if
+                                                      connecting through a proxy.
+``bigquery.rpc-proxy.truststore-password``            Password of the truststore specified by
+                                                      ``bigquery.rpc-proxy.truststore-path``.
 ===================================================== ============================================================== ======================================================
 
 .. _bigquery-type-mapping:
@@ -220,7 +233,7 @@ to the following table:
     - Time zone is UTC
   * - ``GEOGRAPHY``
     - ``VARCHAR``
-    - In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
+    - In `Well-known text (WKT) <https://wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
   * - ``ARRAY``
     - ``ARRAY``
     -
@@ -259,6 +272,9 @@ to the following table:
     - ``INT64``
     - ``INT``, ``SMALLINT``, ``INTEGER``, ``BIGINT``, ``TINYINT``, and
       ``BYTEINT`` are aliases for ``INT64`` in BigQuery.
+  * - ``DECIMAL(P,S)``
+    - ``NUMERIC``
+    - The default precision and scale of ``NUMERIC`` is ``(38, 9)``.
   * - ``VARCHAR``
     - ``STRING``
     -
@@ -276,7 +292,7 @@ which exposes BigQuery view definition. Given a BigQuery view ``example_view``
 you can send query ``SELECT * example_view$view_definition`` to see the SQL
 which defines view in BigQuery.
 
-.. _bigquery_special_columns:
+.. _bigquery-special-columns:
 
 Special columns
 ---------------
@@ -325,6 +341,14 @@ the following features:
 * :doc:`/sql/drop-schema`
 * :doc:`/sql/comment`
 
+.. _bigquery-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -342,9 +366,10 @@ processed by BigQuery. This can be useful for accessing native features which ar
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
-For example, group and concatenate all employee IDs by manager ID::
+For example, query the ``example`` catalog and group and concatenate all
+employee IDs by manager ID::
 
     SELECT
       *
@@ -359,6 +384,8 @@ For example, group and concatenate all employee IDs by manager ID::
             manager_id'
         )
       );
+
+.. include:: query-table-function-ordering.fragment
 
 FAQ
 ---

@@ -15,11 +15,12 @@ package io.trino.tests.product;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutor;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -29,6 +30,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
 import static io.trino.tests.product.TestGroups.HDFS_NO_IMPERSONATION;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -52,13 +55,13 @@ public class TestImpersonation
     @Named("databases.presto.configured_hdfs_user")
     private String configuredHdfsUser;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         aliceExecutor = connectToTrino("alice@presto");
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void cleanup()
     {
         // should not be closed, this would close a shared, global QueryExecutor
@@ -66,6 +69,7 @@ public class TestImpersonation
     }
 
     @Test(groups = {HDFS_NO_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHdfsImpersonationDisabled()
     {
         String tableName = "check_hdfs_impersonation_disabled";
@@ -73,6 +77,7 @@ public class TestImpersonation
     }
 
     @Test(groups = {HDFS_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHdfsImpersonationEnabled()
     {
         String tableName = "check_hdfs_impersonation_enabled";

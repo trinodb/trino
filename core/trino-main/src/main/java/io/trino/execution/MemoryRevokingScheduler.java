@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
 import io.trino.memory.LocalMemoryManager;
@@ -25,11 +26,10 @@ import io.trino.memory.VoidTraversingQueryContextVisitor;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 import javax.annotation.Nullable;
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;

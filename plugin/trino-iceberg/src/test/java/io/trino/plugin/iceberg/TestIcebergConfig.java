@@ -50,6 +50,7 @@ public class TestIcebergConfig
                 .setDynamicFilteringWaitTimeout(new Duration(0, MINUTES))
                 .setTableStatisticsEnabled(true)
                 .setExtendedStatisticsEnabled(true)
+                .setCollectExtendedStatisticsOnWrite(true)
                 .setProjectionPushdownEnabled(true)
                 .setHiveCatalogName(null)
                 .setFormatVersion(2)
@@ -61,7 +62,8 @@ public class TestIcebergConfig
                 .setMaterializedViewsStorageSchema(null)
                 .setRegisterTableProcedureEnabled(false)
                 .setCatalogWarehouse(null)
-                .setCatalogCacheSize(10));
+                .setCatalogCacheSize(10)
+                .setSortedWritingEnabled(true));
     }
 
     @Test
@@ -77,6 +79,7 @@ public class TestIcebergConfig
                 .put("iceberg.dynamic-filtering.wait-timeout", "1h")
                 .put("iceberg.table-statistics-enabled", "false")
                 .put("iceberg.extended-statistics.enabled", "false")
+                .put("iceberg.extended-statistics.collect-on-write", "false")
                 .put("iceberg.projection-pushdown-enabled", "false")
                 .put("iceberg.hive-catalog-name", "hive")
                 .put("iceberg.format-version", "1")
@@ -89,6 +92,7 @@ public class TestIcebergConfig
                 .put("iceberg.register-table-procedure.enabled", "true")
                 .put("iceberg.catalog.warehouse", "s3://bucket/root")
                 .put("iceberg.catalog.cache-size", "3")
+                .put("iceberg.sorted-writing-enabled", "false")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -101,6 +105,7 @@ public class TestIcebergConfig
                 .setDynamicFilteringWaitTimeout(Duration.valueOf("1h"))
                 .setTableStatisticsEnabled(false)
                 .setExtendedStatisticsEnabled(false)
+                .setCollectExtendedStatisticsOnWrite(false)
                 .setProjectionPushdownEnabled(false)
                 .setHiveCatalogName("hive")
                 .setFormatVersion(1)
@@ -112,7 +117,9 @@ public class TestIcebergConfig
                 .setMaterializedViewsStorageSchema("mv_storage_schema")
                 .setRegisterTableProcedureEnabled(true)
                 .setCatalogWarehouse("s3://bucket/root")
-                .setCatalogCacheSize(3);
+                .setCatalogCacheSize(3)
+                .setSortedWritingEnabled(false);
+
         assertFullMapping(properties, expected);
     }
 }

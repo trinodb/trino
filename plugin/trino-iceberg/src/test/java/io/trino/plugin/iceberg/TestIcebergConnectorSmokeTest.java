@@ -14,17 +14,22 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
+import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -51,7 +56,9 @@ public class TestIcebergConnectorSmokeTest
         return IcebergQueryRunner.builder()
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .setMetastoreDirectory(metastoreDir)
-                .setIcebergProperties(ImmutableMap.of("iceberg.register-table-procedure.enabled", "true"))
+                .setIcebergProperties(ImmutableMap.of(
+                        "iceberg.register-table-procedure.enabled", "true",
+                        "iceberg.writer-sort-buffer-size", "1MB"))
                 .build();
     }
 
@@ -75,5 +82,34 @@ public class TestIcebergConnectorSmokeTest
         return metastore
                 .getTable(getSession().getSchema().orElseThrow(), tableName).orElseThrow()
                 .getParameters().get("metadata_location");
+    }
+
+    @Override
+    protected String schemaPath()
+    {
+        return format("%s/%s", metastoreDir, getSession().getSchema().orElseThrow());
+    }
+
+    @Override
+    protected boolean locationExists(String location)
+    {
+        return Files.exists(Path.of(location));
+    }
+
+    @Override
+    protected void deleteDirectory(String location)
+    {
+        try {
+            deleteRecursively(Path.of(location), ALLOW_INSECURE);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Override
+    protected boolean isFileSorted(Location path, String sortColumnName)
+    {
+        return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
 }

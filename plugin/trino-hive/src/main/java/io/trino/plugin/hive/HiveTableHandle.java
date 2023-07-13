@@ -86,7 +86,6 @@ public class HiveTableHandle
                 bucketFilter,
                 analyzePartitionValues,
                 ImmutableSet.of(),
-                ImmutableSet.of(),
                 transaction,
                 false,
                 Optional.empty());
@@ -114,10 +113,47 @@ public class HiveTableHandle
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableSet.of(),
-                ImmutableSet.of(),
                 NO_ACID_TRANSACTION,
                 false,
                 Optional.empty());
+    }
+
+    private HiveTableHandle(
+            String schemaName,
+            String tableName,
+            Optional<Map<String, String>> tableParameters,
+            List<HiveColumnHandle> partitionColumns,
+            List<HiveColumnHandle> dataColumns,
+            Optional<List<String>> partitionNames,
+            Optional<List<HivePartition>> partitions,
+            TupleDomain<HiveColumnHandle> compactEffectivePredicate,
+            TupleDomain<ColumnHandle> enforcedConstraint,
+            Optional<HiveBucketHandle> bucketHandle,
+            Optional<HiveBucketFilter> bucketFilter,
+            Optional<List<List<String>>> analyzePartitionValues,
+            Set<ColumnHandle> constraintColumns,
+            AcidTransaction transaction,
+            boolean recordScannedFiles,
+            Optional<Long> maxSplitFileSize)
+    {
+        this(
+                schemaName,
+                tableName,
+                tableParameters,
+                partitionColumns,
+                dataColumns,
+                partitionNames,
+                partitions,
+                compactEffectivePredicate,
+                enforcedConstraint,
+                bucketHandle,
+                bucketFilter,
+                analyzePartitionValues,
+                constraintColumns,
+                ImmutableSet.<ColumnHandle>builder().addAll(partitionColumns).addAll(dataColumns).build(),
+                transaction,
+                recordScannedFiles,
+                maxSplitFileSize);
     }
 
     public HiveTableHandle(

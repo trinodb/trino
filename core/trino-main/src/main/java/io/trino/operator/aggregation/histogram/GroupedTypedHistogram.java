@@ -21,10 +21,10 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.operator.aggregation.histogram.HashUtil.calculateMaxFill;
 import static io.trino.operator.aggregation.histogram.HashUtil.nextBucketId;
 import static io.trino.operator.aggregation.histogram.HashUtil.nextProbeLinear;
@@ -32,7 +32,6 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -58,7 +57,7 @@ public class GroupedTypedHistogram
 {
     private static final float MAX_FILL_RATIO = 0.5f;
 
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedTypedHistogram.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(GroupedTypedHistogram.class);
     private static final int EMPTY_BUCKET = -1;
     private static final int NULL = -1;
     private final int bucketId;

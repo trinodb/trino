@@ -53,7 +53,6 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.function.Function.identity;
@@ -61,6 +60,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -73,6 +73,9 @@ public abstract class BaseRaptorConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_TRUNCATE:
+                return false;
+
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
@@ -91,16 +94,11 @@ public abstract class BaseRaptorConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
-            case SUPPORTS_CREATE_VIEW:
-                return true;
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
+                return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
-
-            case SUPPORTS_DELETE:
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_MERGE:
-                return true;
 
             case SUPPORTS_ROW_TYPE:
                 return false;
@@ -926,7 +924,7 @@ public abstract class BaseRaptorConnectorTest
     {
         assertThat(e)
                 .hasMessageContaining("Failed to perform metadata operation")
-                .getCause()
+                .cause()
                 .hasMessageMatching(
                         "(?s).*SQLIntegrityConstraintViolationException.*" +
                                 "|.*Unique index or primary key violation.*" +

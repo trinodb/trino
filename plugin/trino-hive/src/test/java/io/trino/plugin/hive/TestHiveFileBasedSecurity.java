@@ -40,6 +40,7 @@ public class TestHiveFileBasedSecurity
     {
         String path = new File(Resources.getResource(getClass(), "security.json").toURI()).getPath();
         queryRunner = HiveQueryRunner.builder()
+                .amendSession(session -> session.setIdentity(Identity.ofUser("hive")))
                 .setHiveProperties(ImmutableMap.of(
                         "hive.security", "file",
                         "security.config-file", path))

@@ -37,13 +37,11 @@ public class ThrottledAsyncQueue<T>
         extends AsyncQueue<T>
 {
     private final int maxBatchSizePerSec;
-    private final Executor executor;
     private final RateLimiter rateLimiter;
 
     public ThrottledAsyncQueue(int maxBatchSizePerSec, int targetQueueSize, Executor executor)
     {
         super(targetQueueSize, executor);
-        this.executor = executor;
         this.maxBatchSizePerSec = maxBatchSizePerSec;
         this.rateLimiter = RateLimiter.create(maxBatchSizePerSec);
     }

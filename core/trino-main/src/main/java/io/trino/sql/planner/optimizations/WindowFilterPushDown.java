@@ -16,6 +16,7 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.TableStatsProvider;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.predicate.Domain;
@@ -68,7 +69,15 @@ public class WindowFilterPushDown
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(
+            PlanNode plan,
+            Session session,
+            TypeProvider types,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            TableStatsProvider tableStatsProvider)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -148,8 +157,7 @@ public class WindowFilterPushDown
                 }
                 source = rowNumberNode;
             }
-            else if (source instanceof WindowNode && isOptimizeTopNRanking(session)) {
-                WindowNode windowNode = (WindowNode) source;
+            else if (source instanceof WindowNode windowNode && isOptimizeTopNRanking(session)) {
                 Optional<RankingType> rankingType = toTopNRankingType(windowNode);
                 if (rankingType.isPresent()) {
                     TopNRankingNode topNRankingNode = convertToTopNRanking(windowNode, rankingType.get(), limit);
@@ -181,8 +189,7 @@ public class WindowFilterPushDown
                     return rewriteFilterSource(node, source, rowNumberSymbol, ((RowNumberNode) source).getMaxRowCountPerPartition().get());
                 }
             }
-            else if (source instanceof WindowNode && isOptimizeTopNRanking(session)) {
-                WindowNode windowNode = (WindowNode) source;
+            else if (source instanceof WindowNode windowNode && isOptimizeTopNRanking(session)) {
                 Optional<RankingType> rankingType = toTopNRankingType(windowNode);
                 if (rankingType.isPresent()) {
                     Symbol rankingSymbol = getOnlyElement(windowNode.getWindowFunctions().entrySet()).getKey();

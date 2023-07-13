@@ -46,8 +46,7 @@ public class TestKuduIntegrationDecimalColumns
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        kuduServer = new TestingKuduServer();
-        return createKuduQueryRunner(kuduServer, "decimal");
+        return createKuduQueryRunner(closeAfterClass(new TestingKuduServer()), "decimal");
     }
 
     @AfterClass(alwaysRun = true)

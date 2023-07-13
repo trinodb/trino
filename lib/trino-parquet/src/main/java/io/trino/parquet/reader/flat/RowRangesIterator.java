@@ -22,6 +22,8 @@ public interface RowRangesIterator
 {
     RowRangesIterator ALL_ROW_RANGES_ITERATOR = new AllRowRangesIterator();
 
+    int getRowsLeftInCurrentRange();
+
     int advanceRange(int chunkSize);
 
     int seekForward(int chunkSize);
@@ -35,6 +37,12 @@ public interface RowRangesIterator
     class AllRowRangesIterator
             implements RowRangesIterator
     {
+        @Override
+        public int getRowsLeftInCurrentRange()
+        {
+            return Integer.MAX_VALUE;
+        }
+
         @Override
         public int advanceRange(int chunkSize)
         {

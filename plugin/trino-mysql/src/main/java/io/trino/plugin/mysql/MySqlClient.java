@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import com.mysql.cj.jdbc.JdbcStatement;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -51,6 +52,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -79,8 +81,6 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 
-import javax.inject.Inject;
-
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -89,6 +89,7 @@ import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
 import java.util.List;
@@ -193,8 +194,8 @@ public class MySqlClient
 
     private final Type jsonType;
     private final boolean statisticsEnabled;
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     @Inject
     public MySqlClient(
@@ -217,7 +218,7 @@ public class MySqlClient
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax(false))
@@ -293,7 +294,7 @@ public class MySqlClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql, Optional<Integer> columnCount)
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
@@ -491,12 +492,14 @@ public class MySqlClient
     {
         return new LongReadFunction()
         {
+            private final LongReadFunction delegate = timestampReadFunction(timestampType);
+
             @Override
             public boolean isNull(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
                 // super calls ResultSet#getObject(), which for TIMESTAMP type returns java.sql.Timestamp, for which the conversion can fail if the value isn't a valid instant in server's time zone.
-                resultSet.getObject(columnIndex, String.class);
+                resultSet.getObject(columnIndex, LocalDateTime.class);
                 return resultSet.wasNull();
             }
 
@@ -504,7 +507,7 @@ public class MySqlClient
             public long readLong(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
-                return timestampReadFunction(timestampType).readLong(resultSet, columnIndex);
+                return delegate.readLong(resultSet, columnIndex);
             }
         };
     }
@@ -513,6 +516,8 @@ public class MySqlClient
     {
         return new LongReadFunction()
         {
+            private final LongReadFunction delegate = timeReadFunction(timeType);
+
             @Override
             public boolean isNull(ResultSet resultSet, int columnIndex)
                     throws SQLException
@@ -526,7 +531,7 @@ public class MySqlClient
             public long readLong(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
-                return timeReadFunction(timeType).readLong(resultSet, columnIndex);
+                return delegate.readLong(resultSet, columnIndex);
             }
         };
     }

@@ -17,43 +17,56 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.MapType;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.StandardTypes;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
-import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromIso;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.util.StructuralTestUtil.mapType;
-import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestStringFunctions
-        extends AbstractTestFunctions
 {
-    @BeforeClass
-    public void setUp()
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
     {
-        registerScalar(getClass());
+        assertions = new QueryAssertions();
+        assertions.addFunctions(InternalFunctionBundle.builder()
+                .scalars(getClass()) // To use utf8 function
+                .build());
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @Description("Varchar length")
@@ -80,640 +93,1687 @@ public class TestStringFunctions
     @Test
     public void testChr()
     {
-        assertFunction("CHR(65)", createVarcharType(1), "A");
-        assertFunction("CHR(9731)", createVarcharType(1), "\u2603");
-        assertFunction("CHR(131210)", createVarcharType(1), new String(Character.toChars(131210)));
-        assertFunction("CHR(0)", createVarcharType(1), "\0");
-        assertInvalidFunction("CHR(-1)", "Not a valid Unicode code point: -1");
-        assertInvalidFunction("CHR(1234567)", "Not a valid Unicode code point: 1234567");
-        assertInvalidFunction("CHR(8589934592)", "Not a valid Unicode code point: 8589934592");
+        assertThat(assertions.function("chr", "65"))
+                .hasType(createVarcharType(1))
+                .isEqualTo("A");
+
+        assertThat(assertions.function("chr", "9731"))
+                .hasType(createVarcharType(1))
+                .isEqualTo("\u2603");
+
+        assertThat(assertions.function("chr", "131210"))
+                .hasType(createVarcharType(1))
+                .isEqualTo(new String(Character.toChars(131210)));
+
+        assertThat(assertions.function("chr", "0"))
+                .hasType(createVarcharType(1))
+                .isEqualTo("\0");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("chr", "-1").evaluate())
+                .hasMessage("Not a valid Unicode code point: -1");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("chr", "1234567").evaluate())
+                .hasMessage("Not a valid Unicode code point: 1234567");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("chr", "8589934592").evaluate())
+                .hasMessage("Not a valid Unicode code point: 8589934592");
     }
 
     @Test
     public void testCodepoint()
     {
-        assertFunction("CODEPOINT('x')", INTEGER, 0x78);
-        assertFunction("CODEPOINT('\u840C')", INTEGER, 0x840C);
+        assertThat(assertions.function("codepoint", "'x'"))
+                .hasType(INTEGER)
+                .isEqualTo(0x78);
 
-        assertFunction("CODEPOINT(CHR(128077))", INTEGER, 128077);
-        assertFunction("CODEPOINT(CHR(33804))", INTEGER, 33804);
+        assertThat(assertions.function("codepoint", "'\u840C'"))
+                .hasType(INTEGER)
+                .isEqualTo(0x840C);
 
-        assertInvalidFunction("CODEPOINT('hello')", FUNCTION_NOT_FOUND);
-        assertInvalidFunction("CODEPOINT('\u666E\u5217\u65AF\u6258')", FUNCTION_NOT_FOUND);
+        assertThat(assertions.function("codepoint", "CHR(128077)"))
+                .hasType(INTEGER)
+                .isEqualTo(128077);
 
-        assertInvalidFunction("CODEPOINT('')", INVALID_FUNCTION_ARGUMENT);
+        assertThat(assertions.function("codepoint", "CHR(33804)"))
+                .hasType(INTEGER)
+                .isEqualTo(33804);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("codepoint", "'hello'").evaluate())
+                .hasErrorCode(FUNCTION_NOT_FOUND);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("codepoint", "'\u666E\u5217\u65AF\u6258'").evaluate())
+                .hasErrorCode(FUNCTION_NOT_FOUND);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("codepoint", "''").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
     public void testConcat()
     {
-        assertInvalidFunction("CONCAT('')", "There must be two or more concatenation arguments");
-        assertFunction("CONCAT('hello', ' world')", VARCHAR, "hello world");
-        assertFunction("CONCAT('', '')", VARCHAR, "");
-        assertFunction("CONCAT('what', '')", VARCHAR, "what");
-        assertFunction("CONCAT('', 'what')", VARCHAR, "what");
-        assertFunction("CONCAT(CONCAT('this', ' is'), ' cool')", VARCHAR, "this is cool");
-        assertFunction("CONCAT('this', CONCAT(' is', ' cool'))", VARCHAR, "this is cool");
+        assertTrinoExceptionThrownBy(() -> assertions.function("concat", "''").evaluate())
+                .hasMessage("There must be two or more concatenation arguments");
+
+        assertThat(assertions.function("concat", "'hello'", "' world'"))
+                .hasType(VARCHAR)
+                .isEqualTo("hello world");
+
+        assertThat(assertions.function("concat", "''", "''"))
+                .hasType(VARCHAR)
+                .isEqualTo("");
+
+        assertThat(assertions.function("concat", "'what'", "''"))
+                .hasType(VARCHAR)
+                .isEqualTo("what");
+
+        assertThat(assertions.function("concat", "''", "'what'"))
+                .hasType(VARCHAR)
+                .isEqualTo("what");
+
+        assertThat(assertions.function("concat", "'this'", "' is'", "' cool'"))
+                .hasType(VARCHAR)
+                .isEqualTo("this is cool");
+
+        assertThat(assertions.function("concat", "'this'", "' is'", "' cool'"))
+                .hasType(VARCHAR)
+                .isEqualTo("this is cool");
 
         // Test concat for non-ASCII
-        assertFunction("CONCAT('hello na\u00EFve', ' world')", VARCHAR, "hello na\u00EFve world");
-        assertFunction("CONCAT('\uD801\uDC2D', 'end')", VARCHAR, "\uD801\uDC2Dend");
-        assertFunction("CONCAT('\uD801\uDC2D', 'end', '\uD801\uDC2D')", VARCHAR, "\uD801\uDC2Dend\uD801\uDC2D");
-        assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
+        assertThat(assertions.function("concat", "'hello na\u00EFve'", "' world'"))
+                .hasType(VARCHAR)
+                .isEqualTo("hello na\u00EFve world");
+
+        assertThat(assertions.function("concat", "'\uD801\uDC2D'", "'end'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\uD801\uDC2Dend");
+
+        assertThat(assertions.function("concat", "'\uD801\uDC2D'", "'end'", "'\uD801\uDC2D'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\uD801\uDC2Dend\uD801\uDC2D");
+
+        assertThat(assertions.function("concat", "'\u4FE1\u5FF5'", "',\u7231'", "',\u5E0C\u671B'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
 
         // Test argument count limit
-        assertFunction("CONCAT(" + Joiner.on(", ").join(nCopies(127, "'x'")) + ")", VARCHAR, Joiner.on("").join(nCopies(127, "x")));
-        assertInvalidFunction(
-                "CONCAT(" + Joiner.on(", ").join(nCopies(128, "'x'")) + ")",
-                TOO_MANY_ARGUMENTS,
-                "line 1:1: Too many arguments for function call concat()");
+        assertThat(assertions.expression("CONCAT(" + Joiner.on(", ").join(nCopies(127, "'x'")) + ")"))
+                .hasType(VARCHAR)
+                .isEqualTo(Joiner.on("").join(nCopies(127, "x")));
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("CONCAT(" + Joiner.on(", ").join(nCopies(128, "'x'")) + ")").evaluate())
+                .hasErrorCode(TOO_MANY_ARGUMENTS)
+                .hasMessage("line 1:12: Too many arguments for function call concat()");
     }
 
     @Test
     public void testLength()
     {
-        assertFunction("LENGTH('')", BIGINT, 0L);
-        assertFunction("LENGTH('hello')", BIGINT, 5L);
-        assertFunction("LENGTH('Quadratically')", BIGINT, 13L);
-        //
+        assertThat(assertions.function("length", "''"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("length", "'hello'"))
+                .isEqualTo(5L);
+
+        assertThat(assertions.function("length", "'Quadratically'"))
+                .isEqualTo(13L);
+
         // Test length for non-ASCII
-        assertFunction("LENGTH('hello na\u00EFve world')", BIGINT, 17L);
-        assertFunction("LENGTH('\uD801\uDC2Dend')", BIGINT, 4L);
-        assertFunction("LENGTH('\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", BIGINT, 7L);
+        assertThat(assertions.function("length", "'hello na\u00EFve world'"))
+                .isEqualTo(17L);
+
+        assertThat(assertions.function("length", "'\uD801\uDC2Dend'"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("length", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'"))
+                .isEqualTo(7L);
     }
 
     @Test
     public void testCharLength()
     {
-        assertFunction("LENGTH(CAST('hello' AS CHAR(5)))", BIGINT, 5L);
-        assertFunction("LENGTH(CAST('Quadratically' AS CHAR(13)))", BIGINT, 13L);
-        assertFunction("LENGTH(CAST('' AS CHAR(20)))", BIGINT, 20L);
-        assertFunction("LENGTH(CAST('hello' AS CHAR(20)))", BIGINT, 20L);
-        assertFunction("LENGTH(CAST('Quadratically' AS CHAR(20)))", BIGINT, 20L);
+        assertThat(assertions.function("length", "CAST('hello' AS CHAR(5))"))
+                .isEqualTo(5L);
+
+        assertThat(assertions.function("length", "CAST('Quadratically' AS CHAR(13))"))
+                .isEqualTo(13L);
+
+        assertThat(assertions.function("length", "CAST('' AS CHAR(20))"))
+                .isEqualTo(20L);
+
+        assertThat(assertions.function("length", "CAST('hello' AS CHAR(20))"))
+                .isEqualTo(20L);
+
+        assertThat(assertions.function("length", "CAST('Quadratically' AS CHAR(20))"))
+                .isEqualTo(20L);
 
         // Test length for non-ASCII
-        assertFunction("LENGTH(CAST('hello na\u00EFve world' AS CHAR(17)))", BIGINT, 17L);
-        assertFunction("LENGTH(CAST('\uD801\uDC2Dend' AS CHAR(4)))", BIGINT, 4L);
-        assertFunction("LENGTH(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)))", BIGINT, 7L);
-        assertFunction("LENGTH(CAST('hello na\u00EFve world' AS CHAR(20)))", BIGINT, 20L);
-        assertFunction("LENGTH(CAST('\uD801\uDC2Dend' AS CHAR(20)))", BIGINT, 20L);
-        assertFunction("LENGTH(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(20)))", BIGINT, 20L);
+        assertThat(assertions.function("length", "CAST('hello na\u00EFve world' AS CHAR(17))"))
+                .isEqualTo(17L);
+
+        assertThat(assertions.function("length", "CAST('\uD801\uDC2Dend' AS CHAR(4))"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("length", "CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7))"))
+                .isEqualTo(7L);
+
+        assertThat(assertions.function("length", "CAST('hello na\u00EFve world' AS CHAR(20))"))
+                .isEqualTo(20L);
+
+        assertThat(assertions.function("length", "CAST('\uD801\uDC2Dend' AS CHAR(20))"))
+                .isEqualTo(20L);
+
+        assertThat(assertions.function("length", "CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(20))"))
+                .isEqualTo(20L);
     }
 
     @Test
     public void testLevenshteinDistance()
     {
-        assertFunction("LEVENSHTEIN_DISTANCE('', '')", BIGINT, 0L);
-        assertFunction("LEVENSHTEIN_DISTANCE('', 'hello')", BIGINT, 5L);
-        assertFunction("LEVENSHTEIN_DISTANCE('hello', '')", BIGINT, 5L);
-        assertFunction("LEVENSHTEIN_DISTANCE('hello', 'hello')", BIGINT, 0L);
-        assertFunction("LEVENSHTEIN_DISTANCE('hello', 'hello world')", BIGINT, 6L);
-        assertFunction("LEVENSHTEIN_DISTANCE('hello world', 'hel wold')", BIGINT, 3L);
-        assertFunction("LEVENSHTEIN_DISTANCE('hello world', 'hellq wodld')", BIGINT, 2L);
-        assertFunction("LEVENSHTEIN_DISTANCE('helo word', 'hello world')", BIGINT, 2L);
-        assertFunction("LEVENSHTEIN_DISTANCE('hello word', 'dello world')", BIGINT, 2L);
+        assertThat(assertions.function("levenshtein_distance", "''", "''"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("levenshtein_distance", "''", "'hello'"))
+                .isEqualTo(5L);
+
+        assertThat(assertions.function("levenshtein_distance", "'hello'", "''"))
+                .isEqualTo(5L);
+
+        assertThat(assertions.function("levenshtein_distance", "'hello'", "'hello'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("levenshtein_distance", "'hello'", "'hello world'"))
+                .isEqualTo(6L);
+
+        assertThat(assertions.function("levenshtein_distance", "'hello world'", "'hel wold'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("levenshtein_distance", "'hello world'", "'hellq wodld'"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("levenshtein_distance", "'helo word'", "'hello world'"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("levenshtein_distance", "'hello word'", "'dello world'"))
+                .isEqualTo(2L);
 
         // Test for non-ASCII
-        assertFunction("LEVENSHTEIN_DISTANCE('hello na\u00EFve world', 'hello naive world')", BIGINT, 1L);
-        assertFunction("LEVENSHTEIN_DISTANCE('hello na\u00EFve world', 'hello na:ive world')", BIGINT, 2L);
-        assertFunction("LEVENSHTEIN_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u4EF0,\u7231,\u5E0C\u671B')", BIGINT, 1L);
-        assertFunction("LEVENSHTEIN_DISTANCE('\u4F11\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", BIGINT, 1L);
-        assertFunction("LEVENSHTEIN_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5\u5E0C\u671B')", BIGINT, 3L);
-        assertFunction("LEVENSHTEIN_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,love,\u5E0C\u671B')", BIGINT, 4L);
+        assertThat(assertions.function("levenshtein_distance", "'hello na\u00EFve world'", "'hello naive world'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("levenshtein_distance", "'hello na\u00EFve world'", "'hello na:ive world'"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("levenshtein_distance", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u4FE1\u4EF0,\u7231,\u5E0C\u671B'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("levenshtein_distance", "'\u4F11\u5FF5,\u7231,\u5E0C\u671B'", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("levenshtein_distance", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u4FE1\u5FF5\u5E0C\u671B'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("levenshtein_distance", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u4FE1\u5FF5,love,\u5E0C\u671B'"))
+                .isEqualTo(4L);
 
         // Test for invalid utf-8 characters
-        assertInvalidFunction("LEVENSHTEIN_DISTANCE('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
-        assertInvalidFunction("LEVENSHTEIN_DISTANCE('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+        assertTrinoExceptionThrownBy(() -> assertions.function("levenshtein_distance", "'hello world'", "utf8(from_hex('81'))").evaluate())
+                .hasMessage("Invalid UTF-8 encoding in characters: �");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("levenshtein_distance", "'hello wolrd'", "utf8(from_hex('3281'))").evaluate())
+                .hasMessage("Invalid UTF-8 encoding in characters: 2�");
 
         // Test for maximum length
-        assertFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", "e".repeat(100_000)), BIGINT, 99999L);
-        assertFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", "l".repeat(100_000)), BIGINT, 99998L);
-        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', '%s')", "x".repeat(1001), "x".repeat(1001)), "The combined inputs for Levenshtein distance are too large");
-        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", "x".repeat(500_000)), "The combined inputs for Levenshtein distance are too large");
-        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", "x".repeat(500_000)), "The combined inputs for Levenshtein distance are too large");
+        assertThat(assertions.function("levenshtein_distance", "'hello'", "'%s'".formatted("e".repeat(100_000))))
+                .isEqualTo(99999L);
+
+        assertThat(assertions.function("levenshtein_distance", "'%s'".formatted("l".repeat(100_000)), "'hello'"))
+                .isEqualTo(99998L);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("levenshtein_distance", "'%s'".formatted("x".repeat(1001)), "'%s'".formatted("x".repeat(1001))).evaluate())
+                .hasMessage("The combined inputs for Levenshtein distance are too large");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("levenshtein_distance", "'hello'", "'%s'".formatted("x".repeat(500_000))).evaluate())
+                .hasMessage("The combined inputs for Levenshtein distance are too large");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("levenshtein_distance", "'%s'".formatted("x".repeat(500_000)), "'hello'").evaluate())
+                .hasMessage("The combined inputs for Levenshtein distance are too large");
     }
 
     @Test
     public void testHammingDistance()
     {
-        assertFunction("HAMMING_DISTANCE('', '')", BIGINT, 0L);
-        assertFunction("HAMMING_DISTANCE('hello', 'hello')", BIGINT, 0L);
-        assertFunction("HAMMING_DISTANCE('hello', 'jello')", BIGINT, 1L);
-        assertFunction("HAMMING_DISTANCE('like', 'hate')", BIGINT, 3L);
-        assertFunction("HAMMING_DISTANCE('hello', 'world')", BIGINT, 4L);
-        assertFunction("HAMMING_DISTANCE(NULL, NULL)", BIGINT, null);
-        assertFunction("HAMMING_DISTANCE('hello', NULL)", BIGINT, null);
-        assertFunction("HAMMING_DISTANCE(NULL, 'world')", BIGINT, null);
+        assertThat(assertions.function("hamming_distance", "''", "''"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("hamming_distance", "'hello'", "'hello'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("hamming_distance", "'hello'", "'jello'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("hamming_distance", "'like'", "'hate'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("hamming_distance", "'hello'", "'world'"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("hamming_distance", "NULL", "NULL"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("hamming_distance", "'hello'", "NULL"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("hamming_distance", "NULL", "'world'"))
+                .isNull(BIGINT);
 
         // Test for unicode
-        assertFunction("HAMMING_DISTANCE('hello na\u00EFve world', 'hello naive world')", BIGINT, 1L);
-        assertFunction("HAMMING_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u4EF0,\u7231,\u5E0C\u671B')", BIGINT, 1L);
-        assertFunction("HAMMING_DISTANCE('\u4F11\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", BIGINT, 1L);
+        assertThat(assertions.function("hamming_distance", "'hello na\u00EFve world'", "'hello naive world'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("hamming_distance", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u4FE1\u4EF0,\u7231,\u5E0C\u671B'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("hamming_distance", "'\u4F11\u5FF5,\u7231,\u5E0C\u671B'", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'"))
+                .isEqualTo(1L);
 
         // Test for invalid arguments
-        assertInvalidFunction("HAMMING_DISTANCE('hello', '')", "The input strings to hamming_distance function must have the same length");
-        assertInvalidFunction("HAMMING_DISTANCE('', 'hello')", "The input strings to hamming_distance function must have the same length");
-        assertInvalidFunction("HAMMING_DISTANCE('hello', 'o')", "The input strings to hamming_distance function must have the same length");
-        assertInvalidFunction("HAMMING_DISTANCE('h', 'hello')", "The input strings to hamming_distance function must have the same length");
-        assertInvalidFunction("HAMMING_DISTANCE('hello na\u00EFve world', 'hello na:ive world')", "The input strings to hamming_distance function must have the same length");
-        assertInvalidFunction("HAMMING_DISTANCE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5\u5E0C\u671B')", "The input strings to hamming_distance function must have the same length");
+        assertTrinoExceptionThrownBy(() -> assertions.function("hamming_distance", "'hello'", "''").evaluate())
+                .hasMessage("The input strings to hamming_distance function must have the same length");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("hamming_distance", "''", "'hello'").evaluate())
+                .hasMessage("The input strings to hamming_distance function must have the same length");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("hamming_distance", "'hello'", "'o'").evaluate())
+                .hasMessage("The input strings to hamming_distance function must have the same length");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("hamming_distance", "'h'", "'hello'").evaluate())
+                .hasMessage("The input strings to hamming_distance function must have the same length");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("hamming_distance", "'hello na\u00EFve world'", "'hello na:ive world'").evaluate())
+                .hasMessage("The input strings to hamming_distance function must have the same length");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("hamming_distance", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u4FE1\u5FF5\u5E0C\u671B'").evaluate())
+                .hasMessage("The input strings to hamming_distance function must have the same length");
     }
 
     @Test
     public void testReplace()
     {
-        assertFunction("REPLACE('aaa', 'a', 'aa')", createVarcharType(11), "aaaaaa");
-        assertFunction("REPLACE('abcdefabcdef', 'cd', 'XX')", createVarcharType(38), "abXXefabXXef");
-        assertFunction("REPLACE('abcdefabcdef', 'cd')", createVarcharType(12), "abefabef");
-        assertFunction("REPLACE('123123tech', '123')", createVarcharType(10), "tech");
-        assertFunction("REPLACE('123tech123', '123')", createVarcharType(10), "tech");
-        assertFunction("REPLACE('222tech', '2', '3')", createVarcharType(15), "333tech");
-        assertFunction("REPLACE('0000123', '0')", createVarcharType(7), "123");
-        assertFunction("REPLACE('0000123', '0', ' ')", createVarcharType(15), "    123");
-        assertFunction("REPLACE('foo', '')", createVarcharType(3), "foo");
-        assertFunction("REPLACE('foo', '', '')", createVarcharType(3), "foo");
-        assertFunction("REPLACE('foo', 'foo', '')", createVarcharType(3), "");
-        assertFunction("REPLACE('abc', '', 'xx')", createVarcharType(11), "xxaxxbxxcxx");
-        assertFunction("REPLACE('', '', 'xx')", createVarcharType(2), "xx");
-        assertFunction("REPLACE('', '')", createVarcharType(0), "");
-        assertFunction("REPLACE('', '', '')", createVarcharType(0), "");
-        assertFunction("REPLACE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', '\u2014')", createVarcharType(15), "\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B");
-        assertFunction("REPLACE('::\uD801\uDC2D::', ':', '')", createVarcharType(5), "\uD801\uDC2D"); //\uD801\uDC2D is one character
-        assertFunction("REPLACE('\u00D6sterreich', '\u00D6', 'Oe')", createVarcharType(32), "Oesterreich");
+        assertThat(assertions.function("replace", "'aaa'", "'a'", "'aa'"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("aaaaaa");
 
-        assertFunction("CAST(REPLACE(utf8(from_hex('CE')), '', 'X') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("X\u00CEX"));
-        assertFunction("CAST(REPLACE('abc' || utf8(from_hex('CE')), '', 'X') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("XaXbXcX\u00CEX"));
-        assertFunction("CAST(REPLACE(utf8(from_hex('CE')) || 'xyz', '', 'X') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("X\u00CEXxXyXzX"));
-        assertFunction("CAST(REPLACE('abc' || utf8(from_hex('CE')) || 'xyz', '', 'X') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("XaXbXcX\u00CEXxXyXzX"));
+        assertThat(assertions.function("replace", "'abcdefabcdef'", "'cd'", "'XX'"))
+                .hasType(createVarcharType(38))
+                .isEqualTo("abXXefabXXef");
+
+        assertThat(assertions.function("replace", "'abcdefabcdef'", "'cd'"))
+                .hasType(createVarcharType(12))
+                .isEqualTo("abefabef");
+
+        assertThat(assertions.function("replace", "'123123tech'", "'123'"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("tech");
+
+        assertThat(assertions.function("replace", "'123tech123'", "'123'"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("tech");
+
+        assertThat(assertions.function("replace", "'222tech'", "'2'", "'3'"))
+                .hasType(createVarcharType(15))
+                .isEqualTo("333tech");
+
+        assertThat(assertions.function("replace", "'0000123'", "'0'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("123");
+
+        assertThat(assertions.function("replace", "'0000123'", "'0'", "' '"))
+                .hasType(createVarcharType(15))
+                .isEqualTo("    123");
+
+        assertThat(assertions.function("replace", "'foo'", "''"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("foo");
+
+        assertThat(assertions.function("replace", "'foo'", "''", "''"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("foo");
+
+        assertThat(assertions.function("replace", "'foo'", "'foo'", "''"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("");
+
+        assertThat(assertions.function("replace", "'abc'", "''", "'xx'"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("xxaxxbxxcxx");
+
+        assertThat(assertions.function("replace", "''", "''", "'xx'"))
+                .hasType(createVarcharType(2))
+                .isEqualTo("xx");
+
+        assertThat(assertions.function("replace", "''", "''"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
+
+        assertThat(assertions.function("replace", "''", "''", "''"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
+
+        assertThat(assertions.function("replace", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "','", "'\u2014'"))
+                .hasType(createVarcharType(15))
+                .isEqualTo("\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B");
+
+        //\uD801\uDC2D is one character
+        assertThat(assertions.function("replace", "'::\uD801\uDC2D::'", "':'", "''"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("\uD801\uDC2D");
+
+        assertThat(assertions.function("replace", "'\u00D6sterreich'", "'\u00D6'", "'Oe'"))
+                .hasType(createVarcharType(32))
+                .isEqualTo("Oesterreich");
     }
 
     @Test
     public void testReverse()
     {
-        assertFunction("REVERSE('')", createVarcharType(0), "");
-        assertFunction("REVERSE('hello')", createVarcharType(5), "olleh");
-        assertFunction("REVERSE('Quadratically')", createVarcharType(13), "yllacitardauQ");
-        assertFunction("REVERSE('racecar')", createVarcharType(7), "racecar");
-        // Test REVERSE for non-ASCII
-        assertFunction("REVERSE('\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", createVarcharType(7), "\u671B\u5E0C,\u7231,\u5FF5\u4FE1");
-        assertFunction("REVERSE('\u00D6sterreich')", createVarcharType(10), "hcierrets\u00D6");
-        assertFunction("REVERSE('na\u00EFve')", createVarcharType(5), "ev\u00EFan");
-        assertFunction("REVERSE('\uD801\uDC2Dend')", createVarcharType(4), "dne\uD801\uDC2D");
+        assertThat(assertions.function("reverse", "''"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
 
-        assertFunction("CAST(REVERSE(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, sqlVarbinary(0xCE));
-        assertFunction("CAST(REVERSE('hello' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("\u00CEolleh"));
+        assertThat(assertions.function("reverse", "'hello'"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("olleh");
+
+        assertThat(assertions.function("reverse", "'Quadratically'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("yllacitardauQ");
+
+        assertThat(assertions.function("reverse", "'racecar'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("racecar");
+
+        // Test REVERSE for non-ASCII
+        assertThat(assertions.function("reverse", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("\u671B\u5E0C,\u7231,\u5FF5\u4FE1");
+
+        assertThat(assertions.function("reverse", "'\u00D6sterreich'"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("hcierrets\u00D6");
+
+        assertThat(assertions.function("reverse", "'na\u00EFve'"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("ev\u00EFan");
+
+        assertThat(assertions.function("reverse", "'\uD801\uDC2Dend'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("dne\uD801\uDC2D");
     }
 
     @Test
     public void testStringPosition()
     {
-        testStrPosAndPosition("high", "ig", 2L);
-        testStrPosAndPosition("high", "igx", 0L);
-        testStrPosAndPosition("Quadratically", "a", 3L);
-        testStrPosAndPosition("foobar", "foobar", 1L);
-        testStrPosAndPosition("foobar", "obar", 3L);
-        testStrPosAndPosition("zoo!", "!", 4L);
-        testStrPosAndPosition("x", "", 1L);
-        testStrPosAndPosition("", "", 1L);
+        assertThat(assertions.function("strpos", "'high'", "'ig'"))
+                .isEqualTo(2L);
 
-        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u7231", 4L);
-        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "\u5E0C\u671B", 6L);
-        testStrPosAndPosition("\u4FE1\u5FF5,\u7231,\u5E0C\u671B", "nice", 0L);
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "'ig'")
+                .binding("b", "'high'"))
+                .isEqualTo(2L);
 
-        testStrPosAndPosition(null, "", null);
-        testStrPosAndPosition("", null, null);
-        testStrPosAndPosition(null, null, null);
+        assertThat(assertions.function("strpos", "'high'", "'igx'"))
+                .isEqualTo(0L);
 
-        assertFunction("STARTS_WITH('foo', 'foo')", BOOLEAN, true);
-        assertFunction("STARTS_WITH('foo', 'bar')", BOOLEAN, false);
-        assertFunction("STARTS_WITH('foo', '')", BOOLEAN, true);
-        assertFunction("STARTS_WITH('', 'foo')", BOOLEAN, false);
-        assertFunction("STARTS_WITH('', '')", BOOLEAN, true);
-        assertFunction("STARTS_WITH('foo_bar_baz', 'foo')", BOOLEAN, true);
-        assertFunction("STARTS_WITH('foo_bar_baz', 'bar')", BOOLEAN, false);
-        assertFunction("STARTS_WITH('foo', 'foo_bar_baz')", BOOLEAN, false);
-        assertFunction("STARTS_WITH('信念 爱 希望', '信念')", BOOLEAN, true);
-        assertFunction("STARTS_WITH('信念 爱 希望', '爱')", BOOLEAN, false);
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "'igx'")
+                .binding("b", "'high'"))
+                .isEqualTo(0L);
 
-        assertFunction("STRPOS(NULL, '')", BIGINT, null);
-        assertFunction("STRPOS('', NULL)", BIGINT, null);
-        assertFunction("STRPOS(NULL, NULL)", BIGINT, null);
-        assertInvalidFunction("STRPOS('abc/xyz/foo/bar', '/', 0)", "'instance' must be a positive or negative number.");
-        assertInvalidFunction("STRPOS('', '', 0)", "'instance' must be a positive or negative number.");
+        assertThat(assertions.function("strpos", "'Quadratically'", "'a'"))
+                .isEqualTo(3L);
 
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/')", BIGINT, 4L);
-        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231')", BIGINT, 4L);
-        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B')", BIGINT, 6L);
-        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 'nice')", BIGINT, 0L);
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "'a'")
+                .binding("b", "'Quadratically'"))
+                .isEqualTo(3L);
 
-        assertFunction("STRPOS('high', 'ig')", BIGINT, 2L);
-        assertFunction("STRPOS('high', 'igx')", BIGINT, 0L);
-        assertFunction("STRPOS('Quadratically', 'a')", BIGINT, 3L);
-        assertFunction("STRPOS('foobar', 'foobar')", BIGINT, 1L);
-        assertFunction("STRPOS('foobar', 'obar')", BIGINT, 3L);
-        assertFunction("STRPOS('zoo!', '!')", BIGINT, 4L);
-        assertFunction("STRPOS('x', '')", BIGINT, 1L);
-        assertFunction("STRPOS('', '')", BIGINT, 1L);
+        assertThat(assertions.function("strpos", "'foobar'", "'foobar'"))
+                .isEqualTo(1L);
 
-        assertFunction("STRPOS('abc abc abc', 'abc', 1)", BIGINT, 1L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 1)", BIGINT, 4L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 2)", BIGINT, 8L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 3)", BIGINT, 12L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', 4)", BIGINT, 0L);
-        assertFunction("STRPOS('highhigh', 'ig', 1)", BIGINT, 2L);
-        assertFunction("STRPOS('foobarfoo', 'fb', 1)", BIGINT, 0L);
-        assertFunction("STRPOS('foobarfoo', 'oo', 1)", BIGINT, 2L);
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "'foobar'")
+                .binding("b", "'foobar'"))
+                .isEqualTo(1L);
 
-        assertFunction("STRPOS('abc abc abc', 'abc', -1)", BIGINT, 9L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -1)", BIGINT, 12L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -2)", BIGINT, 8L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -3)", BIGINT, 4L);
-        assertFunction("STRPOS('abc/xyz/foo/bar', '/', -4)", BIGINT, 0L);
-        assertFunction("STRPOS('highhigh', 'ig', -1)", BIGINT, 6L);
-        assertFunction("STRPOS('highhigh', 'ig', -2)", BIGINT, 2L);
-        assertFunction("STRPOS('foobarfoo', 'fb', -1)", BIGINT, 0L);
-        assertFunction("STRPOS('foobarfoo', 'oo', -1)", BIGINT, 8L);
+        assertThat(assertions.function("strpos", "'foobar'", "'obar'"))
+                .isEqualTo(3L);
 
-        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231', -1)", BIGINT, 4L);
-        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u7231\u671B', '\u7231', -1)", BIGINT, 7L);
-        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u7231\u671B', '\u7231', -2)", BIGINT, 4L);
-        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B', -1)", BIGINT, 6L);
-        assertFunction("STRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 'nice', -1)", BIGINT, 0L);
-    }
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "'obar'")
+                .binding("b", "'foobar'"))
+                .isEqualTo(3L);
 
-    private void testStrPosAndPosition(String string, String substring, Long expected)
-    {
-        string = (string == null) ? "NULL" : ("'" + string + "'");
-        substring = (substring == null) ? "NULL" : ("'" + substring + "'");
+        assertThat(assertions.function("strpos", "'zoo!'", "'!'"))
+                .isEqualTo(4L);
 
-        assertFunction(format("STRPOS(%s, %s)", string, substring), BIGINT, expected);
-        assertFunction(format("POSITION(%s in %s)", substring, string), BIGINT, expected);
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "'!'")
+                .binding("b", "'zoo!'"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("strpos", "'x'", "''"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "''")
+                .binding("b", "'x'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("strpos", "''", "''"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "''")
+                .binding("b", "''"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("strpos", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u7231'"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "'\u7231'")
+                .binding("b", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("strpos", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u5E0C\u671B'"))
+                .isEqualTo(6L);
+
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "'\u5E0C\u671B'")
+                .binding("b", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'"))
+                .isEqualTo(6L);
+
+        assertThat(assertions.function("strpos", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'nice'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "'nice'")
+                .binding("b", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("strpos", "NULL", "''"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "''")
+                .binding("b", "NULL"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("strpos", "''", "NULL"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "NULL")
+                .binding("b", "''"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("strpos", "NULL", "NULL"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.expression("POSITION(a IN b)")
+                .binding("a", "NULL")
+                .binding("b", "NULL"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("starts_with", "'foo'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("starts_with", "'foo'", "'bar'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("starts_with", "'foo'", "''"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("starts_with", "''", "'foo'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("starts_with", "''", "''"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("starts_with", "'foo_bar_baz'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("starts_with", "'foo_bar_baz'", "'bar'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("starts_with", "'foo'", "'foo_bar_baz'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("starts_with", "'信念 爱 希望'", "'信念'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("starts_with", "'信念 爱 希望'", "'爱'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("strpos", "NULL", "''"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("strpos", "''", "NULL"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("strpos", "NULL", "NULL"))
+                .isNull(BIGINT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "0").evaluate())
+                .hasMessage("'instance' must be a positive or negative number.");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("strpos", "''", "''", "0").evaluate())
+                .hasMessage("'instance' must be a positive or negative number.");
+
+        assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("strpos", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u7231'"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("strpos", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u5E0C\u671B'"))
+                .isEqualTo(6L);
+
+        assertThat(assertions.function("strpos", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'nice'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("strpos", "'high'", "'ig'"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("strpos", "'high'", "'igx'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("strpos", "'Quadratically'", "'a'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("strpos", "'foobar'", "'foobar'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("strpos", "'foobar'", "'obar'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("strpos", "'zoo!'", "'!'"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("strpos", "'x'", "''"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("strpos", "''", "''"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("strpos", "'abc abc abc'", "'abc'", "1"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "1"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "2"))
+                .isEqualTo(8L);
+
+        assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "3"))
+                .isEqualTo(12L);
+
+        assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "4"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("strpos", "'highhigh'", "'ig'", "1"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("strpos", "'foobarfoo'", "'fb'", "1"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("strpos", "'foobarfoo'", "'oo'", "1"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("strpos", "'abc abc abc'", "'abc'", "-1"))
+                .isEqualTo(9L);
+
+        assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "-1"))
+                .isEqualTo(12L);
+
+        assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "-2"))
+                .isEqualTo(8L);
+
+        assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "-3"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("strpos", "'abc/xyz/foo/bar'", "'/'", "-4"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("strpos", "'highhigh'", "'ig'", "-1"))
+                .isEqualTo(6L);
+
+        assertThat(assertions.function("strpos", "'highhigh'", "'ig'", "-2"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("strpos", "'foobarfoo'", "'fb'", "-1"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("strpos", "'foobarfoo'", "'oo'", "-1"))
+                .isEqualTo(8L);
+
+        assertThat(assertions.function("strpos", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u7231'", "-1"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("strpos", "'\u4FE1\u5FF5,\u7231,\u5E0C\u7231\u671B'", "'\u7231'", "-1"))
+                .isEqualTo(7L);
+
+        assertThat(assertions.function("strpos", "'\u4FE1\u5FF5,\u7231,\u5E0C\u7231\u671B'", "'\u7231'", "-2"))
+                .isEqualTo(4L);
+
+        assertThat(assertions.function("strpos", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'\u5E0C\u671B'", "-1"))
+                .isEqualTo(6L);
+
+        assertThat(assertions.function("strpos", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "'nice'", "-1"))
+                .isEqualTo(0L);
     }
 
     @Test
     public void testSubstring()
     {
-        assertFunction("SUBSTR('Quadratically', 5)", createVarcharType(13), "ratically");
-        assertFunction("SUBSTR('Quadratically', 50)", createVarcharType(13), "");
-        assertFunction("SUBSTR('Quadratically', -5)", createVarcharType(13), "cally");
-        assertFunction("SUBSTR('Quadratically', -50)", createVarcharType(13), "");
-        assertFunction("SUBSTR('Quadratically', 0)", createVarcharType(13), "");
+        assertThat(assertions.function("substr", "'Quadratically'", "5"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratically");
 
-        assertFunction("SUBSTR('Quadratically', 5, 6)", createVarcharType(13), "ratica");
-        assertFunction("SUBSTR('Quadratically', 5, 10)", createVarcharType(13), "ratically");
-        assertFunction("SUBSTR('Quadratically', 5, 50)", createVarcharType(13), "ratically");
-        assertFunction("SUBSTR('Quadratically', 50, 10)", createVarcharType(13), "");
-        assertFunction("SUBSTR('Quadratically', -5, 4)", createVarcharType(13), "call");
-        assertFunction("SUBSTR('Quadratically', -5, 40)", createVarcharType(13), "cally");
-        assertFunction("SUBSTR('Quadratically', -50, 4)", createVarcharType(13), "");
-        assertFunction("SUBSTR('Quadratically', 0, 4)", createVarcharType(13), "");
-        assertFunction("SUBSTR('Quadratically', 5, 0)", createVarcharType(13), "");
+        assertThat(assertions.function("substr", "'Quadratically'", "50"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
 
-        assertFunction("SUBSTRING('Quadratically' FROM 5)", createVarcharType(13), "ratically");
-        assertFunction("SUBSTRING('Quadratically' FROM 50)", createVarcharType(13), "");
-        assertFunction("SUBSTRING('Quadratically' FROM -5)", createVarcharType(13), "cally");
-        assertFunction("SUBSTRING('Quadratically' FROM -50)", createVarcharType(13), "");
-        assertFunction("SUBSTRING('Quadratically' FROM 0)", createVarcharType(13), "");
+        assertThat(assertions.function("substr", "'Quadratically'", "-5"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("cally");
 
-        assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 6)", createVarcharType(13), "ratica");
-        assertFunction("SUBSTRING('Quadratically' FROM 5 FOR 50)", createVarcharType(13), "ratically");
-        //
+        assertThat(assertions.function("substr", "'Quadratically'", "-50"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("substr", "'Quadratically'", "0"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("substr", "'Quadratically'", "5", "6"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratica");
+
+        assertThat(assertions.function("substr", "'Quadratically'", "5", "10"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratically");
+
+        assertThat(assertions.function("substr", "'Quadratically'", "5", "50"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratically");
+
+        assertThat(assertions.function("substr", "'Quadratically'", "50", "10"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("substr", "'Quadratically'", "-5", "4"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("call");
+
+        assertThat(assertions.function("substr", "'Quadratically'", "-5", "40"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("cally");
+
+        assertThat(assertions.function("substr", "'Quadratically'", "-50", "4"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("substr", "'Quadratically'", "0", "4"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("substr", "'Quadratically'", "5", "0"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "'Quadratically'")
+                .binding("start", "5"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratically");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "'Quadratically'")
+                .binding("start", "50"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "'Quadratically'")
+                .binding("start", "-5"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("cally");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "'Quadratically'")
+                .binding("start", "-50"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "'Quadratically'")
+                .binding("start", "0"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "'Quadratically'")
+                .binding("start", "5")
+                .binding("length", "6"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratica");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "'Quadratically'")
+                .binding("start", "5")
+                .binding("length", "50"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratically");
+
         // Test SUBSTRING for non-ASCII
-        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 1 FOR 1)", createVarcharType(7), "\u4FE1");
-        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 3 FOR 5)", createVarcharType(7), ",\u7231,\u5E0C\u671B");
-        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM 4)", createVarcharType(7), "\u7231,\u5E0C\u671B");
-        assertFunction("SUBSTRING('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' FROM -2)", createVarcharType(7), "\u5E0C\u671B");
-        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 1 FOR 1)", createVarcharType(4), "\uD801\uDC2D");
-        assertFunction("SUBSTRING('\uD801\uDC2Dend' FROM 2 FOR 3)", createVarcharType(4), "end");
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'")
+                .binding("start", "1")
+                .binding("length", "1"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("\u4FE1");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'")
+                .binding("start", "3")
+                .binding("length", "5"))
+                .hasType(createVarcharType(7))
+                .isEqualTo(",\u7231,\u5E0C\u671B");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'")
+                .binding("start", "4"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("\u7231,\u5E0C\u671B");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'")
+                .binding("start", "-2"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("\u5E0C\u671B");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "'\uD801\uDC2Dend'")
+                .binding("start", "1")
+                .binding("length", "1"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("\uD801\uDC2D");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "'\uD801\uDC2Dend'")
+                .binding("start", "2")
+                .binding("length", "3"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("end");
     }
 
     @Test
     public void testCharSubstring()
     {
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5)", createVarcharType(13), "ratically");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50)", createVarcharType(13), "");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5)", createVarcharType(13), "cally");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50)", createVarcharType(13), "");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0)", createVarcharType(13), "");
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "5"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratically");
 
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 6)", createVarcharType(13), "ratica");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 10)", createVarcharType(13), "ratically");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 50)", createVarcharType(13), "ratically");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 50, 10)", createVarcharType(13), "");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5, 4)", createVarcharType(13), "call");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -5, 40)", createVarcharType(13), "cally");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), -50, 4)", createVarcharType(13), "");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 0, 4)", createVarcharType(13), "");
-        assertFunction("SUBSTR(CAST('Quadratically' AS CHAR(13)), 5, 0)", createVarcharType(13), "");
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "50"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
 
-        assertFunction("SUBSTR(CAST('abc def' AS CHAR(7)), 1, 4)", createVarcharType(7), "abc ");
-        assertFunction("SUBSTR(CAST('keep trailing' AS CHAR(14)), 1)", createVarcharType(14), "keep trailing ");
-        assertFunction("SUBSTR(CAST('keep trailing' AS CHAR(14)), 1, 14)", createVarcharType(14), "keep trailing ");
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "-5"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("cally");
 
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)), 5)", createVarcharType(13), "ratically");
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5)", createVarcharType(13), "ratically");
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 50)", createVarcharType(13), "");
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -5)", createVarcharType(13), "cally");
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM -50)", createVarcharType(13), "");
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 0)", createVarcharType(13), "");
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "-50"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
 
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)), 5, 6)", createVarcharType(13), "ratica");
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 6)", createVarcharType(13), "ratica");
-        assertFunction("SUBSTRING(CAST('Quadratically' AS CHAR(13)) FROM 5 FOR 50)", createVarcharType(13), "ratically");
-        //
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "0"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "5", "6"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratica");
+
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "5", "10"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratically");
+
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "5", "50"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratically");
+
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "50", "10"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "-5", "4"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("call");
+
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "-5", "40"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("cally");
+
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "-50", "4"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "0", "4"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "5", "0"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("substr", "CAST('abc def' AS CHAR(7))", "1", "4"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("abc ");
+
+        assertThat(assertions.function("substr", "CAST('keep trailing' AS CHAR(14))", "1"))
+                .hasType(createVarcharType(14))
+                .isEqualTo("keep trailing ");
+
+        assertThat(assertions.function("substr", "CAST('keep trailing' AS CHAR(14))", "1", "14"))
+                .hasType(createVarcharType(14))
+                .isEqualTo("keep trailing ");
+
+        assertThat(assertions.function("substring", "CAST('Quadratically' AS CHAR(13))", "5"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratically");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "CAST('Quadratically' AS CHAR(13))")
+                .binding("start", "5"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratically");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "CAST('Quadratically' AS CHAR(13))")
+                .binding("start", "50"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "CAST('Quadratically' AS CHAR(13))")
+                .binding("start", "-5"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("cally");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "CAST('Quadratically' AS CHAR(13))")
+                .binding("start", "-50"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "CAST('Quadratically' AS CHAR(13))")
+                .binding("start", "0"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("substring", "CAST('Quadratically' AS CHAR(13))", "5", "6"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratica");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "CAST('Quadratically' AS CHAR(13))")
+                .binding("start", "5")
+                .binding("length", "6"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratica");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "CAST('Quadratically' AS CHAR(13))")
+                .binding("start", "5")
+                .binding("length", "50"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("ratically");
+
         // Test SUBSTRING for non-ASCII
-        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 1 FOR 1)", createVarcharType(7), "\u4FE1");
-        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 3 FOR 5)", createVarcharType(7), ",\u7231,\u5E0C\u671B");
-        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM 4)", createVarcharType(7), "\u7231,\u5E0C\u671B");
-        assertFunction("SUBSTRING(CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7)) FROM -2)", createVarcharType(7), "\u5E0C\u671B");
-        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 1 FOR 1)", createVarcharType(4), "\uD801\uDC2D");
-        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(4)) FROM 2 FOR 3)", createVarcharType(4), "end");
-        assertFunction("SUBSTRING(CAST('\uD801\uDC2Dend' AS CHAR(40)) FROM 2 FOR 3)", createVarcharType(40), "end");
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7))")
+                .binding("start", "1")
+                .binding("length", "1"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("\u4FE1");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7))")
+                .binding("start", "3")
+                .binding("length", "5"))
+                .hasType(createVarcharType(7))
+                .isEqualTo(",\u7231,\u5E0C\u671B");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7))")
+                .binding("start", "4"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("\u7231,\u5E0C\u671B");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start)")
+                .binding("value", "CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7))")
+                .binding("start", "-2"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("\u5E0C\u671B");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "CAST('\uD801\uDC2Dend' AS CHAR(4))")
+                .binding("start", "1")
+                .binding("length", "1"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("\uD801\uDC2D");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "CAST('\uD801\uDC2Dend' AS CHAR(4))")
+                .binding("start", "2")
+                .binding("length", "3"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("end");
+
+        assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
+                .binding("value", "CAST('\uD801\uDC2Dend' AS CHAR(40))")
+                .binding("start", "2")
+                .binding("length", "3"))
+                .hasType(createVarcharType(40))
+                .isEqualTo("end");
     }
 
     @Test
     public void testSplit()
     {
-        assertFunction("SPLIT('a.b.c', '.')", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "c"));
+        assertThat(assertions.function("split", "'a.b.c'", "'.'"))
+                .hasType(new ArrayType(createVarcharType(5)))
+                .isEqualTo(ImmutableList.of("a", "b", "c"));
 
-        assertFunction("SPLIT('ab', '.', 1)", new ArrayType(createVarcharType(2)), ImmutableList.of("ab"));
-        assertFunction("SPLIT('a.b', '.', 1)", new ArrayType(createVarcharType(3)), ImmutableList.of("a.b"));
-        assertFunction("SPLIT('a.b.c', '.')", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "c"));
-        assertFunction("SPLIT('a..b..c', '..')", new ArrayType(createVarcharType(7)), ImmutableList.of("a", "b", "c"));
-        assertFunction("SPLIT('a.b.c', '.', 2)", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b.c"));
-        assertFunction("SPLIT('a.b.c', '.', 3)", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "c"));
-        assertFunction("SPLIT('a.b.c', '.', 4)", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "c"));
-        assertFunction("SPLIT('a.b.c.', '.', 4)", new ArrayType(createVarcharType(6)), ImmutableList.of("a", "b", "c", ""));
-        assertFunction("SPLIT('a.b.c.', '.', 3)", new ArrayType(createVarcharType(6)), ImmutableList.of("a", "b", "c."));
-        assertFunction("SPLIT('...', '.')", new ArrayType(createVarcharType(3)), ImmutableList.of("", "", "", ""));
-        assertFunction("SPLIT('..a...a..', '.')", new ArrayType(createVarcharType(9)), ImmutableList.of("", "", "a", "", "", "a", "", ""));
+        assertThat(assertions.function("split", "'ab'", "'.'", "1"))
+                .hasType(new ArrayType(createVarcharType(2)))
+                .isEqualTo(ImmutableList.of("ab"));
+
+        assertThat(assertions.function("split", "'a.b'", "'.'", "1"))
+                .hasType(new ArrayType(createVarcharType(3)))
+                .isEqualTo(ImmutableList.of("a.b"));
+
+        assertThat(assertions.function("split", "'a.b.c'", "'.'"))
+                .hasType(new ArrayType(createVarcharType(5)))
+                .isEqualTo(ImmutableList.of("a", "b", "c"));
+
+        assertThat(assertions.function("split", "'a..b..c'", "'..'"))
+                .hasType(new ArrayType(createVarcharType(7)))
+                .isEqualTo(ImmutableList.of("a", "b", "c"));
+
+        assertThat(assertions.function("split", "'a.b.c'", "'.'", "2"))
+                .hasType(new ArrayType(createVarcharType(5)))
+                .isEqualTo(ImmutableList.of("a", "b.c"));
+
+        assertThat(assertions.function("split", "'a.b.c'", "'.'", "3"))
+                .hasType(new ArrayType(createVarcharType(5)))
+                .isEqualTo(ImmutableList.of("a", "b", "c"));
+
+        assertThat(assertions.function("split", "'a.b.c'", "'.'", "4"))
+                .hasType(new ArrayType(createVarcharType(5)))
+                .isEqualTo(ImmutableList.of("a", "b", "c"));
+
+        assertThat(assertions.function("split", "'a.b.c.'", "'.'", "4"))
+                .hasType(new ArrayType(createVarcharType(6)))
+                .isEqualTo(ImmutableList.of("a", "b", "c", ""));
+
+        assertThat(assertions.function("split", "'a.b.c.'", "'.'", "3"))
+                .hasType(new ArrayType(createVarcharType(6)))
+                .isEqualTo(ImmutableList.of("a", "b", "c."));
+
+        assertThat(assertions.function("split", "'...'", "'.'"))
+                .hasType(new ArrayType(createVarcharType(3)))
+                .isEqualTo(ImmutableList.of("", "", "", ""));
+
+        assertThat(assertions.function("split", "'..a...a..'", "'.'"))
+                .hasType(new ArrayType(createVarcharType(9)))
+                .isEqualTo(ImmutableList.of("", "", "a", "", "", "a", "", ""));
 
         // Test SPLIT for non-ASCII
-        assertFunction("SPLIT('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", new ArrayType(createVarcharType(7)), ImmutableList.of("\u4FE1\u5FF5", "\u7231", "\u5E0C\u671B"));
-        assertFunction("SPLIT('\u8B49\u8BC1\u8A3C', '\u8BC1', 2)", new ArrayType(createVarcharType(3)), ImmutableList.of("\u8B49", "\u8A3C"));
+        assertThat(assertions.function("split", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "','", "3"))
+                .hasType(new ArrayType(createVarcharType(7)))
+                .isEqualTo(ImmutableList.of("\u4FE1\u5FF5", "\u7231", "\u5E0C\u671B"));
 
-        assertFunction("SPLIT('.a.b.c', '.', 4)", new ArrayType(createVarcharType(6)), ImmutableList.of("", "a", "b", "c"));
-        assertFunction("SPLIT('.a.b.c', '.', 3)", new ArrayType(createVarcharType(6)), ImmutableList.of("", "a", "b.c"));
-        assertFunction("SPLIT('.a.b.c', '.', 2)", new ArrayType(createVarcharType(6)), ImmutableList.of("", "a.b.c"));
-        assertFunction("SPLIT('a..b..c', '.', 3)", new ArrayType(createVarcharType(7)), ImmutableList.of("a", "", "b..c"));
-        assertFunction("SPLIT('a.b..', '.', 3)", new ArrayType(createVarcharType(5)), ImmutableList.of("a", "b", "."));
+        assertThat(assertions.function("split", "'\u8B49\u8BC1\u8A3C'", "'\u8BC1'", "2"))
+                .hasType(new ArrayType(createVarcharType(3)))
+                .isEqualTo(ImmutableList.of("\u8B49", "\u8A3C"));
 
-        assertInvalidFunction("SPLIT('a.b.c', '', 1)", "The delimiter may not be the empty string");
-        assertInvalidFunction("SPLIT('a.b.c', '.', 0)", "Limit must be positive");
-        assertInvalidFunction("SPLIT('a.b.c', '.', -1)", "Limit must be positive");
-        assertInvalidFunction("SPLIT('a.b.c', '.', 2147483648)", "Limit is too large");
+        assertThat(assertions.function("split", "'.a.b.c'", "'.'", "4"))
+                .hasType(new ArrayType(createVarcharType(6)))
+                .isEqualTo(ImmutableList.of("", "a", "b", "c"));
+
+        assertThat(assertions.function("split", "'.a.b.c'", "'.'", "3"))
+                .hasType(new ArrayType(createVarcharType(6)))
+                .isEqualTo(ImmutableList.of("", "a", "b.c"));
+
+        assertThat(assertions.function("split", "'.a.b.c'", "'.'", "2"))
+                .hasType(new ArrayType(createVarcharType(6)))
+                .isEqualTo(ImmutableList.of("", "a.b.c"));
+
+        assertThat(assertions.function("split", "'a..b..c'", "'.'", "3"))
+                .hasType(new ArrayType(createVarcharType(7)))
+                .isEqualTo(ImmutableList.of("a", "", "b..c"));
+
+        assertThat(assertions.function("split", "'a.b..'", "'.'", "3"))
+                .hasType(new ArrayType(createVarcharType(5)))
+                .isEqualTo(ImmutableList.of("a", "b", "."));
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("split", "'a.b.c'", "''", "1").evaluate())
+                .hasMessage("The delimiter may not be the empty string");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("split", "'a.b.c'", "'.'", "0").evaluate())
+                .hasMessage("Limit must be positive");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("split", "'a.b.c'", "'.'", "-1").evaluate())
+                .hasMessage("Limit must be positive");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("split", "'a.b.c'", "'.'", "2147483648").evaluate())
+                .hasMessage("Limit is too large");
     }
 
     @Test
     public void testSplitToMap()
     {
-        MapType expectedType = mapType(VARCHAR, VARCHAR);
+        assertThat(assertions.function("split_to_map", "''", "','", "'='"))
+                .hasType(mapType(VARCHAR, VARCHAR))
+                .isEqualTo(ImmutableMap.of());
 
-        assertFunction("SPLIT_TO_MAP('', ',', '=')", expectedType, ImmutableMap.of());
-        assertFunction("SPLIT_TO_MAP('a=123,b=.4,c=,=d', ',', '=')", expectedType, ImmutableMap.of("a", "123", "b", ".4", "c", "", "", "d"));
-        assertFunction("SPLIT_TO_MAP('=', ',', '=')", expectedType, ImmutableMap.of("", ""));
-        assertFunction("SPLIT_TO_MAP('key=>value', ',', '=>')", expectedType, ImmutableMap.of("key", "value"));
-        assertFunction("SPLIT_TO_MAP('key => value', ',', '=>')", expectedType, ImmutableMap.of("key ", " value"));
+        assertThat(assertions.function("split_to_map", "'a=123,b=.4,c=,=d'", "','", "'='"))
+                .hasType(mapType(VARCHAR, VARCHAR))
+                .isEqualTo(ImmutableMap.of("a", "123", "b", ".4", "c", "", "", "d"));
+
+        assertThat(assertions.function("split_to_map", "'='", "','", "'='"))
+                .hasType(mapType(VARCHAR, VARCHAR))
+                .isEqualTo(ImmutableMap.of("", ""));
+
+        assertThat(assertions.function("split_to_map", "'key=>value'", "','", "'=>'"))
+                .hasType(mapType(VARCHAR, VARCHAR))
+                .isEqualTo(ImmutableMap.of("key", "value"));
+
+        assertThat(assertions.function("split_to_map", "'key => value'", "','", "'=>'"))
+                .hasType(mapType(VARCHAR, VARCHAR))
+                .isEqualTo(ImmutableMap.of("key ", " value"));
 
         // Test SPLIT_TO_MAP for non-ASCII
-        assertFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("\u4EA0", "\u4EA1"));
+        assertThat(assertions.function("split_to_map", "'\u4EA0\u4EFF\u4EA1'", "'\u4E00'", "'\u4EFF'"))
+                .hasType(mapType(VARCHAR, VARCHAR))
+                .isEqualTo(ImmutableMap.of("\u4EA0", "\u4EA1"));
+
         // If corresponding value is not found, then ""(empty string) is its value
-        assertFunction("SPLIT_TO_MAP('\u4EC0\u4EFF', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("\u4EC0", ""));
+        assertThat(assertions.function("split_to_map", "'\u4EC0\u4EFF'", "'\u4E00'", "'\u4EFF'"))
+                .hasType(mapType(VARCHAR, VARCHAR))
+                .isEqualTo(ImmutableMap.of("\u4EC0", ""));
+
         // If corresponding key is not found, then ""(empty string) is its key
-        assertFunction("SPLIT_TO_MAP('\u4EFF\u4EC1', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("", "\u4EC1"));
+        assertThat(assertions.function("split_to_map", "'\u4EFF\u4EC1'", "'\u4E00'", "'\u4EFF'"))
+                .hasType(mapType(VARCHAR, VARCHAR))
+                .isEqualTo(ImmutableMap.of("", "\u4EC1"));
 
         // Entry delimiter and key-value delimiter must not be the same.
-        assertInvalidFunction("SPLIT_TO_MAP('', '\u4EFF', '\u4EFF')", "entryDelimiter and keyValueDelimiter must not be the same");
-        assertInvalidFunction("SPLIT_TO_MAP('a=123,b=.4,c=', '=', '=')", "entryDelimiter and keyValueDelimiter must not be the same");
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "''", "'\u4EFF'", "'\u4EFF'").evaluate())
+                .hasMessage("entryDelimiter and keyValueDelimiter must not be the same");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "'a=123,b=.4,c='", "'='", "'='").evaluate())
+                .hasMessage("entryDelimiter and keyValueDelimiter must not be the same");
 
         // Duplicate keys are not allowed to exist.
-        assertInvalidFunction("SPLIT_TO_MAP('a=123,a=.4', ',', '=')", "Duplicate keys (a) are not allowed");
-        assertInvalidFunction("SPLIT_TO_MAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1', '\u4E00', '\u4EFF')", "Duplicate keys (\u4EA0) are not allowed");
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "'a=123,a=.4'", "','", "'='").evaluate())
+                .hasMessage("Duplicate keys (a) are not allowed");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "'\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1'", "'\u4E00'", "'\u4EFF'").evaluate())
+                .hasMessage("Duplicate keys (\u4EA0) are not allowed");
 
         // Key-value delimiter must appear exactly once in each entry.
-        assertInvalidFunction("SPLIT_TO_MAP('key', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key'");
-        assertInvalidFunction("SPLIT_TO_MAP('key==value', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key==value'");
-        assertInvalidFunction("SPLIT_TO_MAP('key=va=lue', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: 'key=va=lue'");
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "'key'", "','", "'='").evaluate())
+                .hasMessage("Key-value delimiter must appear exactly once in each entry. Bad input: 'key'");
 
-        assertCachedInstanceHasBoundedRetainedSize("SPLIT_TO_MAP('a=123,b=.4,c=,=d', ',', '=')");
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "'key==value'", "','", "'='").evaluate())
+                .hasMessage("Key-value delimiter must appear exactly once in each entry. Bad input: 'key==value'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_map", "'key=va=lue'", "','", "'='").evaluate())
+                .hasMessage("Key-value delimiter must appear exactly once in each entry. Bad input: 'key=va=lue'");
     }
 
     @Test
     public void testSplitToMultimap()
     {
-        MapType expectedType = mapType(VARCHAR, new ArrayType(VARCHAR));
+        assertThat(assertions.function("split_to_multimap", "''", "','", "'='"))
+                .hasType(mapType(VARCHAR, new ArrayType(VARCHAR)))
+                .isEqualTo(ImmutableMap.of());
 
-        assertFunction("SPLIT_TO_MULTIMAP('', ',', '=')", expectedType, ImmutableMap.of());
-        assertFunction(
-                "SPLIT_TO_MULTIMAP('a=123,b=.4,c=,=d', ',', '=')",
-                expectedType,
-                ImmutableMap.of(
+        assertThat(assertions.function("split_to_multimap", "'a=123,b=.4,c=,=d'", "','", "'='"))
+                .hasType(mapType(VARCHAR, new ArrayType(VARCHAR)))
+                .isEqualTo(ImmutableMap.of(
                         "a", ImmutableList.of("123"),
                         "b", ImmutableList.of(".4"),
                         "c", ImmutableList.of(""),
                         "", ImmutableList.of("d")));
-        assertFunction("SPLIT_TO_MULTIMAP('=', ',', '=')", expectedType, ImmutableMap.of("", ImmutableList.of("")));
+
+        assertThat(assertions.function("split_to_multimap", "'='", "','", "'='"))
+                .hasType(mapType(VARCHAR, new ArrayType(VARCHAR)))
+                .isEqualTo(ImmutableMap.of("", ImmutableList.of("")));
 
         // Test multiple values of the same key preserve the order as they appear in input
-        assertFunction("SPLIT_TO_MULTIMAP('a=123,a=.4,a=5.67', ',', '=')", expectedType, ImmutableMap.of("a", ImmutableList.of("123", ".4", "5.67")));
+        assertThat(assertions.function("split_to_multimap", "'a=123,a=.4,a=5.67'", "','", "'='"))
+                .hasType(mapType(VARCHAR, new ArrayType(VARCHAR)))
+                .isEqualTo(ImmutableMap.of("a", ImmutableList.of("123", ".4", "5.67")));
 
         // Test multi-character delimiters
-        assertFunction("SPLIT_TO_MULTIMAP('key=>value,key=>value', ',', '=>')", expectedType, ImmutableMap.of("key", ImmutableList.of("value", "value")));
-        assertFunction(
-                "SPLIT_TO_MULTIMAP('key => value, key => value', ',', '=>')",
-                expectedType,
-                ImmutableMap.of(
+        assertThat(assertions.function("split_to_multimap", "'key=>value,key=>value'", "','", "'=>'"))
+                .hasType(mapType(VARCHAR, new ArrayType(VARCHAR)))
+                .isEqualTo(ImmutableMap.of("key", ImmutableList.of("value", "value")));
+
+        assertThat(assertions.function("split_to_multimap", "'key => value, key => value'", "','", "'=>'"))
+                .hasType(mapType(VARCHAR, new ArrayType(VARCHAR)))
+                .isEqualTo(ImmutableMap.of(
                         "key ", ImmutableList.of(" value"),
                         " key ", ImmutableList.of(" value")));
-        assertFunction(
-                "SPLIT_TO_MULTIMAP('key => value, key => value', ', ', '=>')",
-                expectedType,
-                ImmutableMap.of(
+
+        assertThat(assertions.function("split_to_multimap", "'key => value, key => value'", "', '", "'=>'"))
+                .hasType(mapType(VARCHAR, new ArrayType(VARCHAR)))
+                .isEqualTo(ImmutableMap.of(
                         "key ", ImmutableList.of(" value", " value")));
 
         // Test non-ASCII
-        assertFunction("SPLIT_TO_MULTIMAP('\u4EA0\u4EFF\u4EA1', '\u4E00', '\u4EFF')", expectedType, ImmutableMap.of("\u4EA0", ImmutableList.of("\u4EA1")));
-        assertFunction(
-                "SPLIT_TO_MULTIMAP('\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1', '\u4E00', '\u4EFF')",
-                expectedType,
-                ImmutableMap.of("\u4EA0", ImmutableList.of("\u4EA1", "\u4EB1")));
+        assertThat(assertions.function("split_to_multimap", "'\u4EA0\u4EFF\u4EA1'", "'\u4E00'", "'\u4EFF'"))
+                .hasType(mapType(VARCHAR, new ArrayType(VARCHAR)))
+                .isEqualTo(ImmutableMap.of("\u4EA0", ImmutableList.of("\u4EA1")));
+
+        assertThat(assertions.function("split_to_multimap", "'\u4EA0\u4EFF\u4EA1\u4E00\u4EA0\u4EFF\u4EB1'", "'\u4E00'", "'\u4EFF'"))
+                .hasType(mapType(VARCHAR, new ArrayType(VARCHAR)))
+                .isEqualTo(ImmutableMap.of("\u4EA0", ImmutableList.of("\u4EA1", "\u4EB1")));
 
         // Entry delimiter and key-value delimiter must not be the same.
-        assertInvalidFunction("SPLIT_TO_MULTIMAP('', '\u4EFF', '\u4EFF')", "entryDelimiter and keyValueDelimiter must not be the same");
-        assertInvalidFunction("SPLIT_TO_MULTIMAP('a=123,b=.4,c=', '=', '=')", "entryDelimiter and keyValueDelimiter must not be the same");
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_multimap", "''", "'\u4EFF'", "'\u4EFF'").evaluate())
+                .hasMessage("entryDelimiter and keyValueDelimiter must not be the same");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_multimap", "'a=123,b=.4,c='", "'='", "'='").evaluate())
+                .hasMessage("entryDelimiter and keyValueDelimiter must not be the same");
 
         // Key-value delimiter must appear exactly once in each entry.
-        assertInvalidFunction("SPLIT_TO_MULTIMAP('key', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: key");
-        assertInvalidFunction("SPLIT_TO_MULTIMAP('key==value', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: key==value");
-        assertInvalidFunction("SPLIT_TO_MULTIMAP('key=va=lue', ',', '=')", "Key-value delimiter must appear exactly once in each entry. Bad input: key=va=lue");
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_multimap", "'key'", "','", "'='").evaluate())
+                .hasMessage("Key-value delimiter must appear exactly once in each entry. Bad input: key");
 
-        assertCachedInstanceHasBoundedRetainedSize("SPLIT_TO_MULTIMAP('a=123,b=.4,c=,=d', ',', '=')");
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_multimap", "'key==value'", "','", "'='").evaluate())
+                .hasMessage("Key-value delimiter must appear exactly once in each entry. Bad input: key==value");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_to_multimap", "'key=va=lue'", "','", "'='").evaluate())
+                .hasMessage("Key-value delimiter must appear exactly once in each entry. Bad input: key=va=lue");
     }
 
     @Test
     public void testSplitPart()
     {
-        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 1)", createVarcharType(15), "abc");
-        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 2)", createVarcharType(15), "def");
-        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 3)", createVarcharType(15), "ghi");
-        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 4)", createVarcharType(15), null);
-        assertFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 99)", createVarcharType(15), null);
-        assertFunction("SPLIT_PART('abc', 'abc', 1)", createVarcharType(3), "");
-        assertFunction("SPLIT_PART('abc', 'abc', 2)", createVarcharType(3), "");
-        assertFunction("SPLIT_PART('abc', 'abc', 3)", createVarcharType(3), null);
-        assertFunction("SPLIT_PART('abc', '-@-', 1)", createVarcharType(3), "abc");
-        assertFunction("SPLIT_PART('abc', '-@-', 2)", createVarcharType(3), null);
-        assertFunction("SPLIT_PART('', 'abc', 1)", createVarcharType(0), "");
-        assertFunction("SPLIT_PART('', '', 1)", createVarcharType(0), null);
-        assertFunction("SPLIT_PART('abc', '', 1)", createVarcharType(3), "a");
-        assertFunction("SPLIT_PART('abc', '', 2)", createVarcharType(3), "b");
-        assertFunction("SPLIT_PART('abc', '', 3)", createVarcharType(3), "c");
-        assertFunction("SPLIT_PART('abc', '', 4)", createVarcharType(3), null);
-        assertFunction("SPLIT_PART('abc', '', 99)", createVarcharType(3), null);
-        assertFunction("SPLIT_PART('abc', 'abcd', 1)", createVarcharType(3), "abc");
-        assertFunction("SPLIT_PART('abc', 'abcd', 2)", createVarcharType(3), null);
-        assertFunction("SPLIT_PART('abc--@--def', '-@-', 1)", createVarcharType(11), "abc-");
-        assertFunction("SPLIT_PART('abc--@--def', '-@-', 2)", createVarcharType(11), "-def");
-        assertFunction("SPLIT_PART('abc-@-@-@-def', '-@-', 1)", createVarcharType(13), "abc");
-        assertFunction("SPLIT_PART('abc-@-@-@-def', '-@-', 2)", createVarcharType(13), "@");
-        assertFunction("SPLIT_PART('abc-@-@-@-def', '-@-', 3)", createVarcharType(13), "def");
-        assertFunction("SPLIT_PART(' ', ' ', 1)", createVarcharType(1), "");
-        assertFunction("SPLIT_PART('abcdddddef', 'dd', 1)", createVarcharType(10), "abc");
-        assertFunction("SPLIT_PART('abcdddddef', 'dd', 2)", createVarcharType(10), "");
-        assertFunction("SPLIT_PART('abcdddddef', 'dd', 3)", createVarcharType(10), "def");
-        assertFunction("SPLIT_PART('a/b/c', '/', 4)", createVarcharType(5), null);
-        assertFunction("SPLIT_PART('a/b/c/', '/', 4)", createVarcharType(6), "");
-        //
+        assertThat(assertions.function("split_part", "'abc-@-def-@-ghi'", "'-@-'", "1"))
+                .hasType(createVarcharType(15))
+                .isEqualTo("abc");
+
+        assertThat(assertions.function("split_part", "'abc-@-def-@-ghi'", "'-@-'", "2"))
+                .hasType(createVarcharType(15))
+                .isEqualTo("def");
+
+        assertThat(assertions.function("split_part", "'abc-@-def-@-ghi'", "'-@-'", "3"))
+                .hasType(createVarcharType(15))
+                .isEqualTo("ghi");
+
+        assertThat(assertions.function("split_part", "'abc-@-def-@-ghi'", "'-@-'", "4"))
+                .isNull(createVarcharType(15));
+
+        assertThat(assertions.function("split_part", "'abc-@-def-@-ghi'", "'-@-'", "99"))
+                .isNull(createVarcharType(15));
+
+        assertThat(assertions.function("split_part", "'abc'", "'abc'", "1"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("");
+
+        assertThat(assertions.function("split_part", "'abc'", "'abc'", "2"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("");
+
+        assertThat(assertions.function("split_part", "'abc'", "'abc'", "3"))
+                .isNull(createVarcharType(3));
+
+        assertThat(assertions.function("split_part", "'abc'", "'-@-'", "1"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("abc");
+
+        assertThat(assertions.function("split_part", "'abc'", "'-@-'", "2"))
+                .isNull(createVarcharType(3));
+
+        assertThat(assertions.function("split_part", "''", "'abc'", "1"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
+
+        assertThat(assertions.function("split_part", "''", "''", "1"))
+                .isNull(createVarcharType(0));
+
+        assertThat(assertions.function("split_part", "'abc'", "''", "1"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("a");
+
+        assertThat(assertions.function("split_part", "'abc'", "''", "2"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("b");
+
+        assertThat(assertions.function("split_part", "'abc'", "''", "3"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("c");
+
+        assertThat(assertions.function("split_part", "'abc'", "''", "4"))
+                .isNull(createVarcharType(3));
+
+        assertThat(assertions.function("split_part", "'abc'", "''", "99"))
+                .isNull(createVarcharType(3));
+
+        assertThat(assertions.function("split_part", "'abc'", "'abcd'", "1"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("abc");
+
+        assertThat(assertions.function("split_part", "'abc'", "'abcd'", "2"))
+                .isNull(createVarcharType(3));
+
+        assertThat(assertions.function("split_part", "'abc--@--def'", "'-@-'", "1"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("abc-");
+
+        assertThat(assertions.function("split_part", "'abc--@--def'", "'-@-'", "2"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("-def");
+
+        assertThat(assertions.function("split_part", "'abc-@-@-@-def'", "'-@-'", "1"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("abc");
+
+        assertThat(assertions.function("split_part", "'abc-@-@-@-def'", "'-@-'", "2"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("@");
+
+        assertThat(assertions.function("split_part", "'abc-@-@-@-def'", "'-@-'", "3"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("def");
+
+        assertThat(assertions.function("split_part", "' '", "' '", "1"))
+                .hasType(createVarcharType(1))
+                .isEqualTo("");
+
+        assertThat(assertions.function("split_part", "'abcdddddef'", "'dd'", "1"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("abc");
+
+        assertThat(assertions.function("split_part", "'abcdddddef'", "'dd'", "2"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("");
+
+        assertThat(assertions.function("split_part", "'abcdddddef'", "'dd'", "3"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("def");
+
+        assertThat(assertions.function("split_part", "'a/b/c'", "'/'", "4"))
+                .isNull(createVarcharType(5));
+
+        assertThat(assertions.function("split_part", "'a/b/c/'", "'/'", "4"))
+                .hasType(createVarcharType(6))
+                .isEqualTo("");
+
         // Test SPLIT_PART for non-ASCII
-        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 1)", createVarcharType(7), "\u4FE1\u5FF5");
-        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 2)", createVarcharType(7), "\u7231");
-        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 3)", createVarcharType(7), "\u5E0C\u671B");
-        assertFunction("SPLIT_PART('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', ',', 4)", createVarcharType(7), null);
-        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 1)", createVarcharType(3), "\u8B49");
-        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 2)", createVarcharType(3), "\u8A3C");
-        assertFunction("SPLIT_PART('\u8B49\u8BC1\u8A3C', '\u8BC1', 3)", createVarcharType(3), null);
+        assertThat(assertions.function("split_part", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "','", "1"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("\u4FE1\u5FF5");
 
-        assertInvalidFunction("SPLIT_PART('abc', '', 0)", "Index must be greater than zero");
-        assertInvalidFunction("SPLIT_PART('abc', '', -1)", "Index must be greater than zero");
+        assertThat(assertions.function("split_part", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "','", "2"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("\u7231");
 
-        assertInvalidFunction("SPLIT_PART(utf8(from_hex('CE')), '', 1)", "Invalid UTF-8 encoding");
+        assertThat(assertions.function("split_part", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "','", "3"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("\u5E0C\u671B");
+
+        assertThat(assertions.function("split_part", "'\u4FE1\u5FF5,\u7231,\u5E0C\u671B'", "','", "4"))
+                .isNull(createVarcharType(7));
+
+        assertThat(assertions.function("split_part", "'\u8B49\u8BC1\u8A3C'", "'\u8BC1'", "1"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("\u8B49");
+
+        assertThat(assertions.function("split_part", "'\u8B49\u8BC1\u8A3C'", "'\u8BC1'", "2"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("\u8A3C");
+
+        assertThat(assertions.function("split_part", "'\u8B49\u8BC1\u8A3C'", "'\u8BC1'", "3"))
+                .isNull(createVarcharType(3));
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_part", "'abc'", "''", "0").evaluate())
+                .hasMessage("Index must be greater than zero");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_part", "'abc'", "''", "-1").evaluate())
+                .hasMessage("Index must be greater than zero");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_part", "utf8(from_hex('CE'))", "''", "1").evaluate())
+                .hasMessage("Invalid UTF-8 encoding");
     }
 
     @Test
     public void testSplitPartInvalid()
     {
-        assertInvalidFunction("SPLIT_PART('abc-@-def-@-ghi', '-@-', 0)", "Index must be greater than zero");
+        assertTrinoExceptionThrownBy(() -> assertions.function("split_part", "'abc-@-def-@-ghi'", "'-@-'", "0").evaluate())
+                .hasMessage("Index must be greater than zero");
     }
 
     @Test
     public void testLeftTrim()
     {
-        assertFunction("LTRIM('')", createVarcharType(0), "");
-        assertFunction("LTRIM('   ')", createVarcharType(3), "");
-        assertFunction("LTRIM('  hello  ')", createVarcharType(9), "hello  ");
-        assertFunction("LTRIM('  hello')", createVarcharType(7), "hello");
-        assertFunction("LTRIM('hello  ')", createVarcharType(7), "hello  ");
-        assertFunction("LTRIM(' hello world ')", createVarcharType(13), "hello world ");
+        assertThat(assertions.function("ltrim", "''"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
 
-        assertFunction("LTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
-        assertFunction("LTRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B ");
-        assertFunction("LTRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("LTRIM(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertThat(assertions.function("ltrim", "'   '"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("");
+
+        assertThat(assertions.function("ltrim", "'  hello  '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("hello  ");
+
+        assertThat(assertions.function("ltrim", "'  hello'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello");
+
+        assertThat(assertions.function("ltrim", "'hello  '"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello  ");
+
+        assertThat(assertions.function("ltrim", "' hello world '"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("hello world ");
+
+        assertThat(assertions.function("ltrim", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B  '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+
+        assertThat(assertions.function("ltrim", "' \u4FE1\u5FF5 \u7231 \u5E0C\u671B '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B ");
+
+        assertThat(assertions.function("ltrim", "'  \u4FE1\u5FF5 \u7231 \u5E0C\u671B'"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+
+        assertThat(assertions.function("ltrim", "' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B'"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
     public void testCharLeftTrim()
     {
-        assertFunction("LTRIM(CAST('' AS CHAR(20)))", createVarcharType(20), "");
-        assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)))", createVarcharType(9), "hello");
-        assertFunction("LTRIM(CAST('  hello' AS CHAR(7)))", createVarcharType(7), "hello");
-        assertFunction("LTRIM(CAST('hello  ' AS CHAR(7)))", createVarcharType(7), "hello");
-        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)))", createVarcharType(13), "hello world");
+        assertThat(assertions.function("ltrim", "CAST('' AS CHAR(20))"))
+                .hasType(createVarcharType(20))
+                .isEqualTo("");
 
-        assertFunction("LTRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ' AS CHAR(9)))", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("LTRIM(CAST(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ' AS CHAR(9)))", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("LTRIM(CAST('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(9)))", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("LTRIM(CAST(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(10)))", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertThat(assertions.function("ltrim", "CAST('  hello  ' AS CHAR(9))"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("hello");
+
+        assertThat(assertions.function("ltrim", "CAST('  hello' AS CHAR(7))"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello");
+
+        assertThat(assertions.function("ltrim", "CAST('hello  ' AS CHAR(7))"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello");
+
+        assertThat(assertions.function("ltrim", "CAST(' hello world ' AS CHAR(13))"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("hello world");
+
+        assertThat(assertions.function("ltrim", "CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ' AS CHAR(9))"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+
+        assertThat(assertions.function("ltrim", "CAST(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ' AS CHAR(9))"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+
+        assertThat(assertions.function("ltrim", "CAST('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(9))"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+
+        assertThat(assertions.function("ltrim", "CAST(' \u2028 \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(10))"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
     public void testRightTrim()
     {
-        assertFunction("RTRIM('')", createVarcharType(0), "");
-        assertFunction("RTRIM('   ')", createVarcharType(3), "");
-        assertFunction("RTRIM('  hello  ')", createVarcharType(9), "  hello");
-        assertFunction("RTRIM('  hello')", createVarcharType(7), "  hello");
-        assertFunction("RTRIM('hello  ')", createVarcharType(7), "hello");
-        assertFunction("RTRIM(' hello world ')", createVarcharType(13), " hello world");
+        assertThat(assertions.function("rtrim", "''"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
 
-        assertFunction("RTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ')", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("RTRIM('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ')", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("RTRIM(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ')", createVarcharType(9), " \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("RTRIM('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B')", createVarcharType(9), "  \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertThat(assertions.function("rtrim", "'   '"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("");
+
+        assertThat(assertions.function("rtrim", "'  hello  '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("  hello");
+
+        assertThat(assertions.function("rtrim", "'  hello'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("  hello");
+
+        assertThat(assertions.function("rtrim", "'hello  '"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello");
+
+        assertThat(assertions.function("rtrim", "' hello world '"))
+                .hasType(createVarcharType(13))
+                .isEqualTo(" hello world");
+
+        assertThat(assertions.function("rtrim", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 '"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+
+        assertThat(assertions.function("rtrim", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B  '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+
+        assertThat(assertions.function("rtrim", "' \u4FE1\u5FF5 \u7231 \u5E0C\u671B '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo(" \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+
+        assertThat(assertions.function("rtrim", "'  \u4FE1\u5FF5 \u7231 \u5E0C\u671B'"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("  \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
     public void testCharRightTrim()
     {
-        assertFunction("RTRIM(CAST('' AS CHAR(20)))", createVarcharType(20), "");
-        assertFunction("RTRIM(CAST('  hello  ' AS CHAR(9)))", createVarcharType(9), "  hello");
-        assertFunction("RTRIM(CAST('  hello' AS CHAR(7)))", createVarcharType(7), "  hello");
-        assertFunction("RTRIM(CAST('hello  ' AS CHAR(7)))", createVarcharType(7), "hello");
-        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)))", createVarcharType(13), " hello world");
+        assertThat(assertions.function("rtrim", "CAST('' AS CHAR(20))"))
+                .hasType(createVarcharType(20))
+                .isEqualTo("");
 
-        assertFunction("RTRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ' AS CHAR(10)))", createVarcharType(10), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("RTRIM(CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ' AS CHAR(9)))", createVarcharType(9), "\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("RTRIM(CAST(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ' AS CHAR(9)))", createVarcharType(9), " \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
-        assertFunction("RTRIM(CAST('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(9)))", createVarcharType(9), "  \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+        assertThat(assertions.function("rtrim", "CAST('  hello  ' AS CHAR(9))"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("  hello");
+
+        assertThat(assertions.function("rtrim", "CAST('  hello' AS CHAR(7))"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("  hello");
+
+        assertThat(assertions.function("rtrim", "CAST('hello  ' AS CHAR(7))"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello");
+
+        assertThat(assertions.function("rtrim", "CAST(' hello world ' AS CHAR(13))"))
+                .hasType(createVarcharType(13))
+                .isEqualTo(" hello world");
+
+        assertThat(assertions.function("rtrim", "CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B \u2028 ' AS CHAR(10))"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+
+        assertThat(assertions.function("rtrim", "CAST('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ' AS CHAR(9))"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+
+        assertThat(assertions.function("rtrim", "CAST(' \u4FE1\u5FF5 \u7231 \u5E0C\u671B ' AS CHAR(9))"))
+                .hasType(createVarcharType(9))
+                .isEqualTo(" \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
+
+        assertThat(assertions.function("rtrim", "CAST('  \u4FE1\u5FF5 \u7231 \u5E0C\u671B' AS CHAR(9))"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("  \u4FE1\u5FF5 \u7231 \u5E0C\u671B");
     }
 
     @Test
     public void testLeftTrimParametrized()
     {
-        assertFunction("LTRIM('', '')", createVarcharType(0), "");
-        assertFunction("LTRIM('   ', '')", createVarcharType(3), "   ");
-        assertFunction("LTRIM('  hello  ', '')", createVarcharType(9), "  hello  ");
-        assertFunction("LTRIM('  hello  ', ' ')", createVarcharType(9), "hello  ");
-        assertFunction("LTRIM('  hello  ', CHAR ' ')", createVarcharType(9), "hello  ");
-        assertFunction("LTRIM('  hello  ', 'he ')", createVarcharType(9), "llo  ");
-        assertFunction("LTRIM('  hello', ' ')", createVarcharType(7), "hello");
-        assertFunction("LTRIM('  hello', 'e h')", createVarcharType(7), "llo");
-        assertFunction("LTRIM('hello  ', 'l')", createVarcharType(7), "hello  ");
-        assertFunction("LTRIM(' hello world ', ' ')", createVarcharType(13), "hello world ");
-        assertFunction("LTRIM(' hello world ', ' eh')", createVarcharType(13), "llo world ");
-        assertFunction("LTRIM(' hello world ', ' ehlowrd')", createVarcharType(13), "");
-        assertFunction("LTRIM(' hello world ', ' x')", createVarcharType(13), "hello world ");
+        assertThat(assertions.function("ltrim", "''", "''"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
+
+        assertThat(assertions.function("ltrim", "'   '", "''"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("   ");
+
+        assertThat(assertions.function("ltrim", "'  hello  '", "''"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("  hello  ");
+
+        assertThat(assertions.function("ltrim", "'  hello  '", "' '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("hello  ");
+
+        assertThat(assertions.function("ltrim", "'  hello  '", "CHAR ' '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("hello  ");
+
+        assertThat(assertions.function("ltrim", "'  hello  '", "'he '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("llo  ");
+
+        assertThat(assertions.function("ltrim", "'  hello'", "' '"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello");
+
+        assertThat(assertions.function("ltrim", "'  hello'", "'e h'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("llo");
+
+        assertThat(assertions.function("ltrim", "'hello  '", "'l'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello  ");
+
+        assertThat(assertions.function("ltrim", "' hello world '", "' '"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("hello world ");
+
+        assertThat(assertions.function("ltrim", "' hello world '", "' eh'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("llo world ");
+
+        assertThat(assertions.function("ltrim", "' hello world '", "' ehlowrd'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("ltrim", "' hello world '", "' x'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("hello world ");
 
         // non latin characters
-        assertFunction("LTRIM('\u017a\u00f3\u0142\u0107', '\u00f3\u017a')", createVarcharType(4), "\u0142\u0107");
+        assertThat(assertions.function("ltrim", "'\u017a\u00f3\u0142\u0107'", "'\u00f3\u017a'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("\u0142\u0107");
 
         // invalid utf-8 characters
-        assertFunction("CAST(LTRIM(utf8(from_hex('81')), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
-        assertFunction("CAST(LTRIM(CONCAT(utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81, ' '));
-        assertFunction("CAST(LTRIM(CONCAT(' ', utf8(from_hex('81'))), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
-        assertFunction("CAST(LTRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81, ' '));
-        assertInvalidFunction("LTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
-        assertInvalidFunction("LTRIM('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+        assertThat(assertions.expression("CAST(LTRIM(utf8(from_hex('81')), ' ') AS VARBINARY)"))
+                .isEqualTo(varbinary(0x81));
+
+        assertThat(assertions.expression("CAST(LTRIM(CONCAT(utf8(from_hex('81')), ' '), ' ') AS VARBINARY)"))
+                .isEqualTo(varbinary(0x81, ' '));
+
+        assertThat(assertions.expression("CAST(LTRIM(CONCAT(' ', utf8(from_hex('81'))), ' ') AS VARBINARY)"))
+                .isEqualTo(varbinary(0x81));
+
+        assertThat(assertions.expression("CAST(LTRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)"))
+                .isEqualTo(varbinary(0x81, ' '));
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("ltrim", "'hello world'", "utf8(from_hex('81'))").evaluate())
+                .hasMessage("Invalid UTF-8 encoding in characters: �");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("ltrim", "'hello wolrd'", "utf8(from_hex('3281'))").evaluate())
+                .hasMessage("Invalid UTF-8 encoding in characters: 2�");
     }
 
     @Test
     public void testCharLeftTrimParametrized()
     {
-        assertFunction("LTRIM(CAST('' AS CHAR(1)), '')", createVarcharType(1), "");
-        assertFunction("LTRIM(CAST('   ' AS CHAR(3)), '')", createVarcharType(3), "");
-        assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)), '')", createVarcharType(9), "  hello");
-        assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)), ' ')", createVarcharType(9), "hello");
-        assertFunction("LTRIM(CAST('  hello  ' AS CHAR(9)), 'he ')", createVarcharType(9), "llo");
-        assertFunction("LTRIM(CAST('  hello' AS CHAR(7)), ' ')", createVarcharType(7), "hello");
-        assertFunction("LTRIM(CAST('  hello' AS CHAR(7)), 'e h')", createVarcharType(7), "llo");
-        assertFunction("LTRIM(CAST('hello  ' AS CHAR(7)), 'l')", createVarcharType(7), "hello");
-        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)), ' ')", createVarcharType(13), "hello world");
-        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", createVarcharType(13), "llo world");
-        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", createVarcharType(13), "");
-        assertFunction("LTRIM(CAST(' hello world ' AS CHAR(13)), ' x')", createVarcharType(13), "hello world");
+        assertThat(assertions.function("ltrim", "CAST('' AS CHAR(1))", "''"))
+                .hasType(createVarcharType(1))
+                .isEqualTo("");
+
+        assertThat(assertions.function("ltrim", "CAST('   ' AS CHAR(3))", "''"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("");
+
+        assertThat(assertions.function("ltrim", "CAST('  hello  ' AS CHAR(9))", "''"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("  hello");
+
+        assertThat(assertions.function("ltrim", "CAST('  hello  ' AS CHAR(9))", "' '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("hello");
+
+        assertThat(assertions.function("ltrim", "CAST('  hello  ' AS CHAR(9))", "'he '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("llo");
+
+        assertThat(assertions.function("ltrim", "CAST('  hello' AS CHAR(7))", "' '"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello");
+
+        assertThat(assertions.function("ltrim", "CAST('  hello' AS CHAR(7))", "'e h'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("llo");
+
+        assertThat(assertions.function("ltrim", "CAST('hello  ' AS CHAR(7))", "'l'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello");
+
+        assertThat(assertions.function("ltrim", "CAST(' hello world ' AS CHAR(13))", "' '"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("hello world");
+
+        assertThat(assertions.function("ltrim", "CAST(' hello world ' AS CHAR(13))", "' eh'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("llo world");
+
+        assertThat(assertions.function("ltrim", "CAST(' hello world ' AS CHAR(13))", "' ehlowrd'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("ltrim", "CAST(' hello world ' AS CHAR(13))", "' x'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("hello world");
 
         // non latin characters
-        assertFunction("LTRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u00f3\u017a')", createVarcharType(4), "\u0142\u0107");
+        assertThat(assertions.function("ltrim", "CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4))", "'\u00f3\u017a'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("\u0142\u0107");
     }
 
     private static SqlVarbinary varbinary(int... bytesAsInts)
@@ -728,188 +1788,431 @@ public class TestStringFunctions
     @Test
     public void testRightTrimParametrized()
     {
-        assertFunction("RTRIM('', '')", createVarcharType(0), "");
-        assertFunction("RTRIM('   ', '')", createVarcharType(3), "   ");
-        assertFunction("RTRIM('  hello  ', '')", createVarcharType(9), "  hello  ");
-        assertFunction("RTRIM('  hello  ', ' ')", createVarcharType(9), "  hello");
-        assertFunction("RTRIM('  hello  ', 'lo ')", createVarcharType(9), "  he");
-        assertFunction("RTRIM('hello  ', ' ')", createVarcharType(7), "hello");
-        assertFunction("RTRIM('hello  ', 'l o')", createVarcharType(7), "he");
-        assertFunction("RTRIM('hello  ', 'l')", createVarcharType(7), "hello  ");
-        assertFunction("RTRIM(' hello world ', ' ')", createVarcharType(13), " hello world");
-        assertFunction("RTRIM(' hello world ', ' ld')", createVarcharType(13), " hello wor");
-        assertFunction("RTRIM(' hello world ', ' ehlowrd')", createVarcharType(13), "");
-        assertFunction("RTRIM(' hello world ', ' x')", createVarcharType(13), " hello world");
-        assertFunction("RTRIM(CAST('abc def' AS CHAR(7)), 'def')", createVarcharType(7), "abc");
+        assertThat(assertions.function("rtrim", "''", "''"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
+
+        assertThat(assertions.function("rtrim", "'   '", "''"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("   ");
+
+        assertThat(assertions.function("rtrim", "'  hello  '", "''"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("  hello  ");
+
+        assertThat(assertions.function("rtrim", "'  hello  '", "' '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("  hello");
+
+        assertThat(assertions.function("rtrim", "'  hello  '", "'lo '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("  he");
+
+        assertThat(assertions.function("rtrim", "'hello  '", "' '"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello");
+
+        assertThat(assertions.function("rtrim", "'hello  '", "'l o'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("he");
+
+        assertThat(assertions.function("rtrim", "'hello  '", "'l'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello  ");
+
+        assertThat(assertions.function("rtrim", "' hello world '", "' '"))
+                .hasType(createVarcharType(13))
+                .isEqualTo(" hello world");
+
+        assertThat(assertions.function("rtrim", "' hello world '", "' ld'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo(" hello wor");
+
+        assertThat(assertions.function("rtrim", "' hello world '", "' ehlowrd'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("rtrim", "' hello world '", "' x'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo(" hello world");
+
+        assertThat(assertions.function("rtrim", "CAST('abc def' AS CHAR(7))", "'def'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("abc");
 
         // non latin characters
-        assertFunction("RTRIM('\u017a\u00f3\u0142\u0107', '\u0107\u0142')", createVarcharType(4), "\u017a\u00f3");
+        assertThat(assertions.function("rtrim", "'\u017a\u00f3\u0142\u0107'", "'\u0107\u0142'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("\u017a\u00f3");
 
         // invalid utf-8 characters
-        assertFunction("CAST(RTRIM(utf8(from_hex('81')), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
-        assertFunction("CAST(RTRIM(CONCAT(utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(0x81));
-        assertFunction("CAST(RTRIM(CONCAT(' ', utf8(from_hex('81'))), ' ') AS VARBINARY)", VARBINARY, varbinary(' ', 0x81));
-        assertFunction("CAST(RTRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)", VARBINARY, varbinary(' ', 0x81));
-        assertInvalidFunction("RTRIM('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
-        assertInvalidFunction("RTRIM('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+        assertThat(assertions.expression("CAST(RTRIM(utf8(from_hex('81')), ' ') AS VARBINARY)"))
+                .isEqualTo(varbinary(0x81));
+
+        assertThat(assertions.expression("CAST(RTRIM(CONCAT(utf8(from_hex('81')), ' '), ' ') AS VARBINARY)"))
+                .isEqualTo(varbinary(0x81));
+
+        assertThat(assertions.expression("CAST(RTRIM(CONCAT(' ', utf8(from_hex('81'))), ' ') AS VARBINARY)"))
+                .isEqualTo(varbinary(' ', 0x81));
+
+        assertThat(assertions.expression("CAST(RTRIM(CONCAT(' ', utf8(from_hex('81')), ' '), ' ') AS VARBINARY)"))
+                .isEqualTo(varbinary(' ', 0x81));
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("rtrim", "'hello world'", "utf8(from_hex('81'))").evaluate())
+                .hasMessage("Invalid UTF-8 encoding in characters: �");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("rtrim", "'hello world'", "utf8(from_hex('3281'))").evaluate())
+                .hasMessage("Invalid UTF-8 encoding in characters: 2�");
     }
 
     @Test
     public void testCharRightTrimParametrized()
     {
-        assertFunction("RTRIM(CAST('' AS CHAR(1)), '')", createVarcharType(1), "");
-        assertFunction("RTRIM(CAST('   ' AS CHAR(3)), '')", createVarcharType(3), "");
-        assertFunction("RTRIM(CAST('  hello  ' AS CHAR(9)), '')", createVarcharType(9), "  hello");
-        assertFunction("RTRIM(CAST('  hello  ' AS CHAR(9)), ' ')", createVarcharType(9), "  hello");
-        assertFunction("RTRIM(CAST('  hello  ' AS CHAR(9)), 'he ')", createVarcharType(9), "  hello");
-        assertFunction("RTRIM(CAST('  hello' AS CHAR(7)), ' ')", createVarcharType(7), "  hello");
-        assertFunction("RTRIM(CAST('  hello' AS CHAR(7)), 'e h')", createVarcharType(7), "  hello");
-        assertFunction("RTRIM(CAST('hello  ' AS CHAR(7)), 'l')", createVarcharType(7), "hello");
-        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)), ' ')", createVarcharType(13), " hello world");
-        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)), ' eh')", createVarcharType(13), " hello world");
-        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)), ' ehlowrd')", createVarcharType(13), "");
-        assertFunction("RTRIM(CAST(' hello world ' AS CHAR(13)), ' x')", createVarcharType(13), " hello world");
+        assertThat(assertions.function("rtrim", "CAST('' AS CHAR(1))", "''"))
+                .hasType(createVarcharType(1))
+                .isEqualTo("");
+
+        assertThat(assertions.function("rtrim", "CAST('   ' AS CHAR(3))", "''"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("");
+
+        assertThat(assertions.function("rtrim", "CAST('  hello  ' AS CHAR(9))", "''"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("  hello");
+
+        assertThat(assertions.function("rtrim", "CAST('  hello  ' AS CHAR(9))", "' '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("  hello");
+
+        assertThat(assertions.function("rtrim", "CAST('  hello  ' AS CHAR(9))", "'he '"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("  hello");
+
+        assertThat(assertions.function("rtrim", "CAST('  hello' AS CHAR(7))", "' '"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("  hello");
+
+        assertThat(assertions.function("rtrim", "CAST('  hello' AS CHAR(7))", "'e h'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("  hello");
+
+        assertThat(assertions.function("rtrim", "CAST('hello  ' AS CHAR(7))", "'l'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("hello");
+
+        assertThat(assertions.function("rtrim", "CAST(' hello world ' AS CHAR(13))", "' '"))
+                .hasType(createVarcharType(13))
+                .isEqualTo(" hello world");
+
+        assertThat(assertions.function("rtrim", "CAST(' hello world ' AS CHAR(13))", "' eh'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo(" hello world");
+
+        assertThat(assertions.function("rtrim", "CAST(' hello world ' AS CHAR(13))", "' ehlowrd'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo("");
+
+        assertThat(assertions.function("rtrim", "CAST(' hello world ' AS CHAR(13))", "' x'"))
+                .hasType(createVarcharType(13))
+                .isEqualTo(" hello world");
 
         // non latin characters
-        assertFunction("RTRIM(CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4)), '\u0107\u0142')", createVarcharType(4), "\u017a\u00f3");
+        assertThat(assertions.function("rtrim", "CAST('\u017a\u00f3\u0142\u0107' AS CHAR(4))", "'\u0107\u0142'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("\u017a\u00f3");
     }
 
     @Test
     public void testVarcharToVarcharX()
     {
-        assertFunction("LOWER(VARCHAR 'HELLO')", createUnboundedVarcharType(), "hello");
+        assertThat(assertions.function("lower", "VARCHAR 'HELLO'"))
+                .hasType(createUnboundedVarcharType())
+                .isEqualTo("hello");
     }
 
     @Test
     public void testLower()
     {
-        assertFunction("LOWER('')", createVarcharType(0), "");
-        assertFunction("LOWER('Hello World')", createVarcharType(11), "hello world");
-        assertFunction("LOWER('WHAT!!')", createVarcharType(6), "what!!");
-        assertFunction("LOWER('\u00D6STERREICH')", createVarcharType(10), lowerByCodePoint("\u00D6sterreich"));
-        assertFunction("LOWER('From\uD801\uDC2DTo')", createVarcharType(7), lowerByCodePoint("from\uD801\uDC2Dto"));
+        assertThat(assertions.function("lower", "''"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
 
-        assertFunction("CAST(LOWER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, sqlVarbinary(0xCE));
-        assertFunction("CAST(LOWER('HELLO' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("hello\u00CE"));
-        assertFunction("CAST(LOWER(utf8(from_hex('CE')) || 'HELLO') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("\u00CEhello"));
-        assertFunction("CAST(LOWER(utf8(from_hex('C8BAFF'))) AS VARBINARY)", VARBINARY, sqlVarbinary(0xE2, 0xB1, 0xA5, 0xFF));
+        assertThat(assertions.function("lower", "'Hello World'"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("hello world");
+
+        assertThat(assertions.function("lower", "'WHAT!!'"))
+                .hasType(createVarcharType(6))
+                .isEqualTo("what!!");
+
+        assertThat(assertions.function("lower", "'\u00D6STERREICH'"))
+                .hasType(createVarcharType(10))
+                .isEqualTo(lowerByCodePoint("\u00D6sterreich"));
+
+        assertThat(assertions.function("lower", "'From\uD801\uDC2DTo'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo(lowerByCodePoint("from\uD801\uDC2Dto"));
     }
 
     @Test
     public void testCharLower()
     {
-        assertFunction("LOWER(CAST('' AS CHAR(10)))", createCharType(10), padRight("", 10));
-        assertFunction("LOWER(CAST('Hello World' AS CHAR(11)))", createCharType(11), padRight("hello world", 11));
-        assertFunction("LOWER(CAST('WHAT!!' AS CHAR(6)))", createCharType(6), padRight("what!!", 6));
-        assertFunction("LOWER(CAST('\u00D6STERREICH' AS CHAR(10)))", createCharType(10), padRight(lowerByCodePoint("\u00D6sterreich"), 10));
-        assertFunction("LOWER(CAST('From\uD801\uDC2DTo' AS CHAR(7)))", createCharType(7), padRight(lowerByCodePoint("from\uD801\uDC2Dto"), 7));
+        assertThat(assertions.function("lower", "CAST('' AS CHAR(10))"))
+                .hasType(createCharType(10))
+                .isEqualTo(padRight("", 10));
+
+        assertThat(assertions.function("lower", "CAST('Hello World' AS CHAR(11))"))
+                .hasType(createCharType(11))
+                .isEqualTo(padRight("hello world", 11));
+
+        assertThat(assertions.function("lower", "CAST('WHAT!!' AS CHAR(6))"))
+                .hasType(createCharType(6))
+                .isEqualTo(padRight("what!!", 6));
+
+        assertThat(assertions.function("lower", "CAST('\u00D6STERREICH' AS CHAR(10))"))
+                .hasType(createCharType(10))
+                .isEqualTo(padRight(lowerByCodePoint("\u00D6sterreich"), 10));
+
+        assertThat(assertions.function("lower", "CAST('From\uD801\uDC2DTo' AS CHAR(7))"))
+                .hasType(createCharType(7))
+                .isEqualTo(padRight(lowerByCodePoint("from\uD801\uDC2Dto"), 7));
     }
 
     @Test
     public void testUpper()
     {
-        assertFunction("UPPER('')", createVarcharType(0), "");
-        assertFunction("UPPER('Hello World')", createVarcharType(11), "HELLO WORLD");
-        assertFunction("UPPER('what!!')", createVarcharType(6), "WHAT!!");
-        assertFunction("UPPER('\u00D6sterreich')", createVarcharType(10), upperByCodePoint("\u00D6") + "STERREICH");
-        assertFunction("UPPER('From\uD801\uDC2DTo')", createVarcharType(7), "FROM" + upperByCodePoint("\uD801\uDC2D") + "TO");
+        assertThat(assertions.function("upper", "''"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
 
-        assertFunction("CAST(UPPER(utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, sqlVarbinary(0xCE));
-        assertFunction("CAST(UPPER('hello' || utf8(from_hex('CE'))) AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("HELLO\u00CE"));
-        assertFunction("CAST(UPPER(utf8(from_hex('CE')) || 'hello') AS VARBINARY)", VARBINARY, sqlVarbinaryFromIso("\u00CEHELLO"));
+        assertThat(assertions.function("upper", "'Hello World'"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("HELLO WORLD");
+
+        assertThat(assertions.function("upper", "'what!!'"))
+                .hasType(createVarcharType(6))
+                .isEqualTo("WHAT!!");
+
+        assertThat(assertions.function("upper", "'\u00D6sterreich'"))
+                .hasType(createVarcharType(10))
+                .isEqualTo(upperByCodePoint("\u00D6") + "STERREICH");
+
+        assertThat(assertions.function("upper", "'From\uD801\uDC2DTo'"))
+                .hasType(createVarcharType(7))
+                .isEqualTo("FROM" + upperByCodePoint("\uD801\uDC2D") + "TO");
     }
 
     @Test
     public void testCharUpper()
     {
-        assertFunction("UPPER(CAST('' AS CHAR(10)))", createCharType(10), padRight("", 10));
-        assertFunction("UPPER(CAST('Hello World' AS CHAR(11)))", createCharType(11), padRight("HELLO WORLD", 11));
-        assertFunction("UPPER(CAST('what!!' AS CHAR(6)))", createCharType(6), padRight("WHAT!!", 6));
-        assertFunction("UPPER(CAST('\u00D6sterreich' AS CHAR(10)))", createCharType(10), padRight(upperByCodePoint("\u00D6") + "STERREICH", 10));
-        assertFunction("UPPER(CAST('From\uD801\uDC2DTo' AS CHAR(7)))", createCharType(7), padRight("FROM" + upperByCodePoint("\uD801\uDC2D") + "TO", 7));
+        assertThat(assertions.function("upper", "CAST('' AS CHAR(10))"))
+                .hasType(createCharType(10))
+                .isEqualTo(padRight("", 10));
+
+        assertThat(assertions.function("upper", "CAST('Hello World' AS CHAR(11))"))
+                .hasType(createCharType(11))
+                .isEqualTo(padRight("HELLO WORLD", 11));
+
+        assertThat(assertions.function("upper", "CAST('what!!' AS CHAR(6))"))
+                .hasType(createCharType(6))
+                .isEqualTo(padRight("WHAT!!", 6));
+
+        assertThat(assertions.function("upper", "CAST('\u00D6sterreich' AS CHAR(10))"))
+                .hasType(createCharType(10))
+                .isEqualTo(padRight(upperByCodePoint("\u00D6") + "STERREICH", 10));
+
+        assertThat(assertions.function("upper", "CAST('From\uD801\uDC2DTo' AS CHAR(7))"))
+                .hasType(createCharType(7))
+                .isEqualTo(padRight("FROM" + upperByCodePoint("\uD801\uDC2D") + "TO", 7));
     }
 
     @Test
     public void testLeftPad()
     {
-        assertFunction("LPAD('text', 5, 'x')", VARCHAR, "xtext");
-        assertFunction("LPAD('text', 4, 'x')", VARCHAR, "text");
+        assertThat(assertions.function("lpad", "'text'", "5", "'x'"))
+                .hasType(VARCHAR)
+                .isEqualTo("xtext");
 
-        assertFunction("LPAD('text', 6, 'xy')", VARCHAR, "xytext");
-        assertFunction("LPAD('text', 7, 'xy')", VARCHAR, "xyxtext");
-        assertFunction("LPAD('text', 9, 'xyz')", VARCHAR, "xyzxytext");
+        assertThat(assertions.function("lpad", "'text'", "4", "'x'"))
+                .hasType(VARCHAR)
+                .isEqualTo("text");
 
-        assertFunction("LPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 10, '\u671B')", VARCHAR, "\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
-        assertFunction("LPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 11, '\u671B')", VARCHAR, "\u671B\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
-        assertFunction("LPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 12, '\u5E0C\u671B')", VARCHAR, "\u5E0C\u671B\u5E0C\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
-        assertFunction("LPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 13, '\u5E0C\u671B')", VARCHAR, "\u5E0C\u671B\u5E0C\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+        assertThat(assertions.function("lpad", "'text'", "6", "'xy'"))
+                .hasType(VARCHAR)
+                .isEqualTo("xytext");
 
-        assertFunction("LPAD('', 3, 'a')", VARCHAR, "aaa");
-        assertFunction("LPAD('abc', 0, 'e')", VARCHAR, "");
+        assertThat(assertions.function("lpad", "'text'", "7", "'xy'"))
+                .hasType(VARCHAR)
+                .isEqualTo("xyxtext");
+
+        assertThat(assertions.function("lpad", "'text'", "9", "'xyz'"))
+                .hasType(VARCHAR)
+                .isEqualTo("xyzxytext");
+
+        assertThat(assertions.function("lpad", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B  '", "10", "'\u671B'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+
+        assertThat(assertions.function("lpad", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B  '", "11", "'\u671B'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\u671B\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+
+        assertThat(assertions.function("lpad", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B  '", "12", "'\u5E0C\u671B'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\u5E0C\u671B\u5E0C\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+
+        assertThat(assertions.function("lpad", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B  '", "13", "'\u5E0C\u671B'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\u5E0C\u671B\u5E0C\u671B\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ");
+
+        assertThat(assertions.function("lpad", "''", "3", "'a'"))
+                .hasType(VARCHAR)
+                .isEqualTo("aaa");
+
+        assertThat(assertions.function("lpad", "'abc'", "0", "'e'"))
+                .hasType(VARCHAR)
+                .isEqualTo("");
 
         // truncation
-        assertFunction("LPAD('text', 3, 'xy')", VARCHAR, "tex");
-        assertFunction("LPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 5, '\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 ");
+        assertThat(assertions.function("lpad", "'text'", "3", "'xy'"))
+                .hasType(VARCHAR)
+                .isEqualTo("tex");
+
+        assertThat(assertions.function("lpad", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B  '", "5", "'\u671B'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\u4FE1\u5FF5 \u7231 ");
 
         // failure modes
-        assertInvalidFunction("LPAD('abc', 3, '')", "Padding string must not be empty");
+        assertTrinoExceptionThrownBy(() -> assertions.function("lpad", "'abc'", "3", "''").evaluate())
+                .hasMessage("Padding string must not be empty");
 
         // invalid target lengths
         long maxSize = Integer.MAX_VALUE;
-        assertInvalidFunction("LPAD('abc', -1, 'foo')", "Target length must be in the range [0.." + maxSize + "]");
-        assertInvalidFunction("LPAD('abc', " + (maxSize + 1) + ", '')", "Target length must be in the range [0.." + maxSize + "]");
+        assertTrinoExceptionThrownBy(() -> assertions.function("lpad", "'abc'", "-1", "'foo'").evaluate())
+                .hasMessage("Target length must be in the range [0.." + maxSize + "]");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("lpad", "'abc'", Long.toString(maxSize + 1), "''").evaluate())
+                .hasMessage("Target length must be in the range [0.." + maxSize + "]");
     }
 
     @Test
     public void testRightPad()
     {
-        assertFunction("RPAD('text', 5, 'x')", VARCHAR, "textx");
-        assertFunction("RPAD('text', 4, 'x')", VARCHAR, "text");
+        assertThat(assertions.function("rpad", "'text'", "5", "'x'"))
+                .hasType(VARCHAR)
+                .isEqualTo("textx");
 
-        assertFunction("RPAD('text', 6, 'xy')", VARCHAR, "textxy");
-        assertFunction("RPAD('text', 7, 'xy')", VARCHAR, "textxyx");
-        assertFunction("RPAD('text', 9, 'xyz')", VARCHAR, "textxyzxy");
+        assertThat(assertions.function("rpad", "'text'", "4", "'x'"))
+                .hasType(VARCHAR)
+                .isEqualTo("text");
 
-        assertFunction("RPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 10, '\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u671B");
-        assertFunction("RPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 11, '\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u671B\u671B");
-        assertFunction("RPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 12, '\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u5E0C\u671B\u5E0C");
-        assertFunction("RPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 13, '\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u5E0C\u671B\u5E0C\u671B");
+        assertThat(assertions.function("rpad", "'text'", "6", "'xy'"))
+                .hasType(VARCHAR)
+                .isEqualTo("textxy");
 
-        assertFunction("RPAD('', 3, 'a')", VARCHAR, "aaa");
-        assertFunction("RPAD('abc', 0, 'e')", VARCHAR, "");
+        assertThat(assertions.function("rpad", "'text'", "7", "'xy'"))
+                .hasType(VARCHAR)
+                .isEqualTo("textxyx");
+
+        assertThat(assertions.function("rpad", "'text'", "9", "'xyz'"))
+                .hasType(VARCHAR)
+                .isEqualTo("textxyzxy");
+
+        assertThat(assertions.function("rpad", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B  '", "10", "'\u671B'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u671B");
+
+        assertThat(assertions.function("rpad", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B  '", "11", "'\u671B'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u671B\u671B");
+
+        assertThat(assertions.function("rpad", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B  '", "12", "'\u5E0C\u671B'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u5E0C\u671B\u5E0C");
+
+        assertThat(assertions.function("rpad", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B  '", "13", "'\u5E0C\u671B'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\u4FE1\u5FF5 \u7231 \u5E0C\u671B  \u5E0C\u671B\u5E0C\u671B");
+
+        assertThat(assertions.function("rpad", "''", "3", "'a'"))
+                .hasType(VARCHAR)
+                .isEqualTo("aaa");
+
+        assertThat(assertions.function("rpad", "'abc'", "0", "'e'"))
+                .hasType(VARCHAR)
+                .isEqualTo("");
 
         // truncation
-        assertFunction("RPAD('text', 3, 'xy')", VARCHAR, "tex");
-        assertFunction("RPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 5, '\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 ");
+        assertThat(assertions.function("rpad", "'text'", "3", "'xy'"))
+                .hasType(VARCHAR)
+                .isEqualTo("tex");
+
+        assertThat(assertions.function("rpad", "'\u4FE1\u5FF5 \u7231 \u5E0C\u671B  '", "5", "'\u671B'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\u4FE1\u5FF5 \u7231 ");
 
         // failure modes
-        assertInvalidFunction("RPAD('abc', 3, '')", "Padding string must not be empty");
+        assertTrinoExceptionThrownBy(() -> assertions.function("rpad", "'abc'", "3", "''").evaluate())
+                .hasMessage("Padding string must not be empty");
 
         // invalid target lengths
         long maxSize = Integer.MAX_VALUE;
-        assertInvalidFunction("RPAD('abc', -1, 'foo')", "Target length must be in the range [0.." + maxSize + "]");
-        assertInvalidFunction("RPAD('abc', " + (maxSize + 1) + ", '')", "Target length must be in the range [0.." + maxSize + "]");
+        assertTrinoExceptionThrownBy(() -> assertions.function("rpad", "'abc'", "-1", "'foo'").evaluate())
+                .hasMessage("Target length must be in the range [0.." + maxSize + "]");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("rpad", "'abc'", Long.toString(maxSize + 1), "''").evaluate())
+                .hasMessage("Target length must be in the range [0.." + maxSize + "]");
     }
 
     @Test
     public void testNormalize()
     {
-        assertFunction("normalize('sch\u00f6n', NFD)", VARCHAR, "scho\u0308n");
-        assertFunction("normalize('sch\u00f6n')", VARCHAR, "sch\u00f6n");
-        assertFunction("normalize('sch\u00f6n', NFC)", VARCHAR, "sch\u00f6n");
-        assertFunction("normalize('sch\u00f6n', NFKD)", VARCHAR, "scho\u0308n");
+        assertThat(assertions.expression("normalize(value, NFD)")
+                .binding("value", "'sch\u00f6n'"))
+                .hasType(VARCHAR)
+                .isEqualTo("scho\u0308n");
 
-        assertFunction("normalize('sch\u00f6n', NFKC)", VARCHAR, "sch\u00f6n");
-        assertFunction("normalize('\u3231\u3327\u3326\u2162', NFKC)", VARCHAR, "(\u682a)\u30c8\u30f3\u30c9\u30ebIII");
-        assertFunction("normalize('\uff8a\uff9d\uff76\uff78\uff76\uff85', NFKC)", VARCHAR, "\u30cf\u30f3\u30ab\u30af\u30ab\u30ca");
+        assertThat(assertions.expression("normalize('sch\u00f6n')"))
+                .hasType(VARCHAR)
+                .isEqualTo("sch\u00f6n");
+
+        assertThat(assertions.expression("normalize(value, NFC)")
+                .binding("value", "'sch\u00f6n'"))
+                .hasType(VARCHAR)
+                .isEqualTo("sch\u00f6n");
+
+        assertThat(assertions.expression("normalize(value, NFKD)")
+                .binding("value", "'sch\u00f6n'"))
+                .hasType(VARCHAR)
+                .isEqualTo("scho\u0308n");
+
+        assertThat(assertions.expression("normalize(value, NFKC)")
+                .binding("value", "'sch\u00f6n'"))
+                .hasType(VARCHAR)
+                .isEqualTo("sch\u00f6n");
+
+        assertThat(assertions.expression("normalize(value, NFKC)")
+                .binding("value", "'\u3231\u3327\u3326\u2162'"))
+                .hasType(VARCHAR)
+                .isEqualTo("(\u682a)\u30c8\u30f3\u30c9\u30ebIII");
+
+        assertThat(assertions.expression("normalize(value, NFKC)")
+                .binding("value", "'\uff8a\uff9d\uff76\uff78\uff76\uff85'"))
+                .hasType(VARCHAR)
+                .isEqualTo("\u30cf\u30f3\u30ab\u30af\u30ab\u30ca");
     }
 
     @Test
     public void testFromLiteralParameter()
     {
-        assertFunction("vl(cast('aaa' as varchar(3)))", BIGINT, 3L);
-        assertFunction("vl(cast('aaa' as varchar(7)))", BIGINT, 7L);
-        assertFunction("vl('aaaa')", BIGINT, 4L);
+        assertThat(assertions.function("vl", "cast('aaa' as varchar(3))"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("vl", "cast('aaa' as varchar(7))"))
+                .isEqualTo(7L);
+
+        assertThat(assertions.function("vl", "'aaaa'"))
+                .isEqualTo(4L);
     }
 
     // We do not use String toLowerCase or toUpperCase here because they can do multi character transforms
@@ -930,82 +2233,203 @@ public class TestStringFunctions
     @Test
     public void testFromUtf8()
     {
-        assertFunction("from_utf8(to_utf8('hello'))", VARCHAR, "hello");
-        assertFunction("from_utf8(from_hex('58BF'))", VARCHAR, "X\uFFFD");
-        assertFunction("from_utf8(from_hex('58DF'))", VARCHAR, "X\uFFFD");
-        assertFunction("from_utf8(from_hex('58F7'))", VARCHAR, "X\uFFFD");
+        assertThat(assertions.function("from_utf8", "to_utf8('hello')"))
+                .hasType(VARCHAR)
+                .isEqualTo("hello");
 
-        assertFunction("from_utf8(from_hex('58BF'), '#')", VARCHAR, "X#");
-        assertFunction("from_utf8(from_hex('58DF'), 35)", VARCHAR, "X#");
-        assertFunction("from_utf8(from_hex('58BF'), '')", VARCHAR, "X");
+        assertThat(assertions.function("from_utf8", "from_hex('58BF')"))
+                .hasType(VARCHAR)
+                .isEqualTo("X\uFFFD");
 
-        assertInvalidFunction("from_utf8(to_utf8('hello'), 'foo')", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("from_utf8(to_utf8('hello'), 1114112)", INVALID_FUNCTION_ARGUMENT);
+        assertThat(assertions.function("from_utf8", "from_hex('58DF')"))
+                .hasType(VARCHAR)
+                .isEqualTo("X\uFFFD");
+
+        assertThat(assertions.function("from_utf8", "from_hex('58F7')"))
+                .hasType(VARCHAR)
+                .isEqualTo("X\uFFFD");
+
+        assertThat(assertions.function("from_utf8", "from_hex('58BF')", "'#'"))
+                .hasType(VARCHAR)
+                .isEqualTo("X#");
+
+        assertThat(assertions.function("from_utf8", "from_hex('58DF')", "35"))
+                .hasType(VARCHAR)
+                .isEqualTo("X#");
+
+        assertThat(assertions.function("from_utf8", "from_hex('58BF')", "''"))
+                .hasType(VARCHAR)
+                .isEqualTo("X");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("from_utf8", "to_utf8('hello')", "'foo'").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("from_utf8", "to_utf8('hello')", "1114112").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
     public void testCharConcat()
     {
-        assertFunction("concat('ab ', cast(' ' as char(1)))", createCharType(4), "ab  ");
-        assertFunction("concat('ab ', cast(' ' as char(1))) = 'ab'", BOOLEAN, true);
+        assertThat(assertions.function("concat", "'ab '", "cast(' ' as char(1))"))
+                .hasType(createCharType(4))
+                .isEqualTo("ab  ");
 
-        assertFunction("concat('ab ', cast('a' as char(2)))", createCharType(5), "ab a ");
-        assertFunction("concat('ab ', cast('a' as char(2))) = 'ab a'", BOOLEAN, true);
+        assertThat(assertions.function("concat", "'ab '", "cast(' ' as char(1))"))
+                .hasType(createCharType(4))
+                .isEqualTo("ab  ");
 
-        assertFunction("concat('ab ', cast('' as char(0)))", createCharType(3), "ab ");
-        assertFunction("concat('ab ', cast('' as char(0))) = 'ab'", BOOLEAN, true);
+        assertThat(assertions.function("concat", "'ab '", "cast('a' as char(2))"))
+                .hasType(createCharType(5))
+                .isEqualTo("ab a ");
 
-        assertFunction("concat('hello na\u00EFve', cast(' world' as char(6)))", createCharType(17), "hello na\u00EFve world");
+        assertThat(assertions.function("concat", "'ab '", "cast('a' as char(2))"))
+                .hasType(createCharType(5))
+                .isEqualTo("ab a ");
 
-        assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", TYPE_NOT_FOUND, "line 1:1: Unknown type: char(80000)");
+        assertThat(assertions.function("concat", "'ab '", "cast('' as char(0))"))
+                .hasType(createCharType(3))
+                .isEqualTo("ab ");
 
-        assertFunction("concat(cast(null as char(1)), cast(' ' as char(1)))", createCharType(2), null);
+        assertThat(assertions.function("concat", "'ab '", "cast('' as char(0))"))
+                .hasType(createCharType(3))
+                .isEqualTo("ab ");
+
+        assertThat(assertions.function("concat", "'hello na\u00EFve'", "cast(' world' as char(6))"))
+                .hasType(createCharType(17))
+                .isEqualTo("hello na\u00EFve world");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("concat", "cast('ab ' as char(40000))", "cast('' as char(40000))").evaluate())
+                .hasErrorCode(TYPE_NOT_FOUND)
+                .hasMessage("line 1:8: Unknown type: char(80000)");
+
+        assertThat(assertions.function("concat", "cast(null as char(1))", "cast(' ' as char(1))"))
+                .isNull(createCharType(2));
     }
 
     @Test
     public void testTranslate()
     {
-        assertFunction("translate('abcd', '', '')", VARCHAR, "abcd");
-        assertFunction("translate('abcd', 'a', 'z')", VARCHAR, "zbcd");
-        assertFunction("translate('abcda', 'a', 'z')", VARCHAR, "zbcdz");
+        assertThat(assertions.function("translate", "'abcd'", "''", "''"))
+                .hasType(VARCHAR)
+                .isEqualTo("abcd");
 
-        assertFunction("translate('áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU");
+        assertThat(assertions.function("translate", "'abcd'", "'a'", "'z'"))
+                .hasType(VARCHAR)
+                .isEqualTo("zbcd");
 
-        assertFunction("translate('Goiânia', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "Goiania");
-        assertFunction("translate('São Paulo', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "Sao Paulo");
-        assertFunction("translate('Palhoça', 'ç','c')", VARCHAR, "Palhoca");
-        assertFunction("translate('Várzea Paulista', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "Varzea Paulista");
+        assertThat(assertions.function("translate", "'abcda'", "'a'", "'z'"))
+                .hasType(VARCHAR)
+                .isEqualTo("zbcdz");
+
+        assertThat(assertions.function("translate", "'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ'", "'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ'", "'aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU'"))
+                .hasType(VARCHAR)
+                .isEqualTo("aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU");
+
+        assertThat(assertions.function("translate", "'Goiânia'", "'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ'", "'aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU'"))
+                .hasType(VARCHAR)
+                .isEqualTo("Goiania");
+
+        assertThat(assertions.function("translate", "'São Paulo'", "'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ'", "'aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU'"))
+                .hasType(VARCHAR)
+                .isEqualTo("Sao Paulo");
+
+        assertThat(assertions.function("translate", "'Palhoça'", "'ç'", "'c'"))
+                .hasType(VARCHAR)
+                .isEqualTo("Palhoca");
+
+        assertThat(assertions.function("translate", "'Várzea Paulista'", "'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ'", "'aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU'"))
+                .hasType(VARCHAR)
+                .isEqualTo("Varzea Paulista");
 
         // Test chars that don't fit in 16 bits - - U+20000 is written as "\uD840\uDC00"
 
-        assertFunction("translate('\uD840\uDC00bcd', '\uD840\uDC00', 'z')", VARCHAR, "zbcd");
-        assertFunction("translate('\uD840\uDC00bcd\uD840\uDC00', '\uD840\uDC00', 'z')", VARCHAR, "zbcdz");
-        assertFunction("translate('abcd', 'b', '\uD840\uDC00')", VARCHAR, "a\uD840\uDC00cd");
+        assertThat(assertions.function("translate", "'\uD840\uDC00bcd'", "'\uD840\uDC00'", "'z'"))
+                .hasType(VARCHAR)
+                .isEqualTo("zbcd");
+
+        assertThat(assertions.function("translate", "'\uD840\uDC00bcd\uD840\uDC00'", "'\uD840\uDC00'", "'z'"))
+                .hasType(VARCHAR)
+                .isEqualTo("zbcdz");
+
+        assertThat(assertions.function("translate", "'abcd'", "'b'", "'\uD840\uDC00'"))
+                .hasType(VARCHAR)
+                .isEqualTo("a\uD840\uDC00cd");
 
         // Test that the to string can be shorter than the from string, and that we choose the first duplicate in the from string
 
-        assertFunction("translate('abcd', 'a', '')", VARCHAR, "bcd");
-        assertFunction("translate('abcd', 'a', 'zy')", VARCHAR, "zbcd");
-        assertFunction("translate('abcd', 'ac', 'z')", VARCHAR, "zbd");
-        assertFunction("translate('abcd', 'aac', 'zq')", VARCHAR, "zbd");
+        assertThat(assertions.function("translate", "'abcd'", "'a'", "''"))
+                .hasType(VARCHAR)
+                .isEqualTo("bcd");
+
+        assertThat(assertions.function("translate", "'abcd'", "'a'", "'zy'"))
+                .hasType(VARCHAR)
+                .isEqualTo("zbcd");
+
+        assertThat(assertions.function("translate", "'abcd'", "'ac'", "'z'"))
+                .hasType(VARCHAR)
+                .isEqualTo("zbd");
+
+        assertThat(assertions.function("translate", "'abcd'", "'aac'", "'zq'"))
+                .hasType(VARCHAR)
+                .isEqualTo("zbd");
     }
 
     @Test
     public void testSoundex()
     {
-        assertFunction("soundex('jim')", createVarcharType(4), "J500");
-        assertFunction("soundex('jIM')", createVarcharType(4), "J500");
-        assertFunction("soundex('JIM')", createVarcharType(4), "J500");
-        assertFunction("soundex('Jim')", createVarcharType(4), "J500");
-        assertFunction("soundex('John')", createVarcharType(4), "J500");
-        assertFunction("soundex('johannes')", createVarcharType(4), "J520");
-        assertFunction("soundex('Sarah')", createVarcharType(4), "S600");
-        assertFunction("soundex(null)", createVarcharType(4), null);
-        assertFunction("soundex('')", createVarcharType(4), "");
-        assertFunction("soundex('123')", createVarcharType(4), "");
-        assertFunction("soundex('\uD83D\uDE80')", createVarcharType(4), "");
-        assertFunction("soundex('j~im')", createVarcharType(4), "J500");
-        assertInvalidFunction("soundex('jąmes')", "The character is not mapped: Ą (index=195)");
-        assertFunction("soundex('x123')", createVarcharType(4), "X000");
+        assertThat(assertions.function("soundex", "'jim'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("J500");
+
+        assertThat(assertions.function("soundex", "'jIM'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("J500");
+
+        assertThat(assertions.function("soundex", "'JIM'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("J500");
+
+        assertThat(assertions.function("soundex", "'Jim'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("J500");
+
+        assertThat(assertions.function("soundex", "'John'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("J500");
+
+        assertThat(assertions.function("soundex", "'johannes'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("J520");
+
+        assertThat(assertions.function("soundex", "'Sarah'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("S600");
+
+        assertThat(assertions.function("soundex", "null"))
+                .isNull(createVarcharType(4));
+
+        assertThat(assertions.function("soundex", "''"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("");
+
+        assertThat(assertions.function("soundex", "'123'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("");
+
+        assertThat(assertions.function("soundex", "'\uD83D\uDE80'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("");
+
+        assertThat(assertions.function("soundex", "'j~im'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("J500");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("soundex", "'jąmes'").evaluate())
+                .hasMessage("The character is not mapped: Ą (index=195)");
+
+        assertThat(assertions.function("soundex", "'x123'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("X000");
     }
 }

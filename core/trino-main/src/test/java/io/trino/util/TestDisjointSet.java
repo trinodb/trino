@@ -122,8 +122,7 @@ public class TestDisjointSet
         }
         Collection<Set<Integer>> equivalentClasses = disjoint.getEquivalentClasses();
         assertEquals(equivalentClasses.size(), 4);
-        equivalentClasses.stream()
-                .forEach(equivalentClass -> assertEquals(equivalentClass.size(), 25));
+        equivalentClasses.forEach(equivalentClass -> assertEquals(equivalentClass.size(), 25));
     }
 
     @Test

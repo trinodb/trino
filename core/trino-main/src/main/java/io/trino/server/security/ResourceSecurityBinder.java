@@ -15,10 +15,9 @@ package io.trino.server.security;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.multibindings.MapBinder;
 import io.trino.server.security.ResourceSecurity.AccessType;
-
-import javax.inject.Inject;
 
 import java.lang.reflect.AnnotatedElement;
 import java.util.Map;

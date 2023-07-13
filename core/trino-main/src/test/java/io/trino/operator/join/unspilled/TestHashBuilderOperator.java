@@ -45,10 +45,10 @@ import static io.trino.operator.join.unspilled.HashBuilderOperator.State.CLOSED;
 import static io.trino.operator.join.unspilled.HashBuilderOperator.State.CONSUMING_INPUT;
 import static io.trino.operator.join.unspilled.HashBuilderOperator.State.LOOKUP_SOURCE_BUILT;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

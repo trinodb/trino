@@ -14,10 +14,9 @@
 package io.trino.orc.metadata.statistics;
 
 import io.trino.orc.metadata.statistics.StatisticsHasher.Hashable;
-import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class BinaryStatistics
         implements Hashable
@@ -25,7 +24,7 @@ public class BinaryStatistics
     // 1 byte to denote if null + 4 bytes to denote offset
     public static final long BINARY_VALUE_BYTES_OVERHEAD = Byte.BYTES + Integer.BYTES;
 
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BinaryStatistics.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(BinaryStatistics.class);
 
     private final long sum;
 

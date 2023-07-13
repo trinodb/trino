@@ -81,7 +81,7 @@ public class FlakyTestRetryAnalyzer
         }
         String stackTrace = getStackTraceAsString(result.getThrowable());
         if (!Pattern.compile(annotation.match()).matcher(stackTrace).find()) {
-            log.warn("not retrying; stacktrace '%s' does not match pattern '%s'", stackTrace, annotation.match());
+            log.warn("not retrying; stacktrace does not match pattern '%s': [%s]", annotation.match(), stackTrace);
             return false;
         }
 

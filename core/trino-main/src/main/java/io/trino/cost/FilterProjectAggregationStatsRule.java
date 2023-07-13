@@ -63,8 +63,7 @@ public class FilterProjectAggregationStatsRule
         AggregationNode aggregationNode;
         // TODO match the required source nodes through separate patterns when
         //  ComposableStatsCalculator allows patterns other than TypeOfPattern
-        if (nodeSource instanceof ProjectNode) {
-            ProjectNode projectNode = (ProjectNode) nodeSource;
+        if (nodeSource instanceof ProjectNode projectNode) {
             if (!projectNode.isIdentity()) {
                 return Optional.empty();
             }

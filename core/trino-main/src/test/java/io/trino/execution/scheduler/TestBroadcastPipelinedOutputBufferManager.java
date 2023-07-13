@@ -54,7 +54,7 @@ public class TestBroadcastPipelinedOutputBufferManager
 
         // try to set no more buffers again, which should not result in an error
         // and output buffers should not change
-        hashOutputBufferManager.addOutputBuffer(new OutputBufferId(6));
+        hashOutputBufferManager.noMoreBuffers();
         assertEquals(hashOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
     }
 }

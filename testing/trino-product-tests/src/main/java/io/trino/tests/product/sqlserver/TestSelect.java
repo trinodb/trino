@@ -14,8 +14,8 @@
 package io.trino.tests.product.sqlserver;
 
 import io.airlift.log.Logger;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
@@ -28,7 +28,6 @@ import java.sql.Timestamp;
 
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.SQL_SERVER;
@@ -50,6 +49,7 @@ import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.VARCHAR;
 import static java.util.Collections.nCopies;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSelect
         extends ProductTest
@@ -70,8 +70,8 @@ public class TestSelect
     private static final String CREATE_TABLE_AS_SELECT = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CTAS_TABLE_NAME);
     private static final String ALL_TYPES_TABLE_NAME = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, SQLSERVER_ALL_TYPES.getName());
 
-    @BeforeTestWithContext
-    @AfterTestWithContext
+    @BeforeMethodWithContext
+    @AfterMethodWithContext
     public void dropTestTables()
     {
         try {

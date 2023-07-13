@@ -33,8 +33,8 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -77,14 +77,14 @@ public class TestSessionPropertyDefaults
                 .setIdentity(Identity.ofUser("testUser"))
                 .setSystemProperty(QUERY_MAX_MEMORY, "1GB") // Override this default system property
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
-                .setSystemProperty(HASH_PARTITION_COUNT, "43")
+                .setSystemProperty(MAX_HASH_PARTITION_COUNT, "43")
                 .setCatalogSessionProperty(TEST_CATALOG_NAME, "explicit_set", "explicit_set") // Override this default catalog property
                 .build();
 
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
-                .put(HASH_PARTITION_COUNT, "43")
+                .put(MAX_HASH_PARTITION_COUNT, "43")
                 .buildOrThrow());
         assertEquals(
                 session.getCatalogProperties(),
@@ -97,7 +97,7 @@ public class TestSessionPropertyDefaults
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB") // User provided value overrides default value
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned") // User provided value is used
-                .put(HASH_PARTITION_COUNT, "43") // User provided value is used
+                .put(MAX_HASH_PARTITION_COUNT, "43") // User provided value is used
                 .put(QUERY_MAX_TOTAL_MEMORY, "2GB") // Default value is used
                 .buildOrThrow());
         assertEquals(

@@ -20,19 +20,18 @@ import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(JdbcSplit.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(JdbcSplit.class);
 
     private final Optional<String> additionalPredicate;
     private final TupleDomain<JdbcColumnHandle> dynamicFilter;

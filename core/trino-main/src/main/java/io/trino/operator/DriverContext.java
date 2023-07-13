@@ -181,13 +181,14 @@ public class DriverContext
 
     public void failed(Throwable cause)
     {
-        pipelineContext.failed(cause);
-        finished.set(true);
+        if (finished.compareAndSet(false, true)) {
+            pipelineContext.driverFailed(cause);
+        }
     }
 
-    public boolean isDone()
+    public boolean isTerminatingOrDone()
     {
-        return finished.get() || pipelineContext.isDone();
+        return finished.get() || pipelineContext.isTerminatingOrDone();
     }
 
     public ListenableFuture<Void> reserveSpill(long bytes)

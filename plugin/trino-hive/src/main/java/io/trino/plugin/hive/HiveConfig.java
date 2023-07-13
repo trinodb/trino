@@ -31,7 +31,6 @@ import javax.annotation.Nullable;
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -41,6 +40,7 @@ import java.util.Set;
 import java.util.TimeZone;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
@@ -82,7 +82,6 @@ public class HiveConfig
     private Integer maxSplitsPerSecond;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
-    private DataSize writerSortBufferSize = DataSize.of(64, MEGABYTE);
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
     private boolean ignoreAbsentPartitions;
@@ -105,7 +104,6 @@ public class HiveConfig
     // to avoid deleting those files if Trino is unable to check.
     private boolean deleteSchemaLocationsFallback;
     private int maxPartitionsPerWriter = 100;
-    private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
     private boolean validateBucketing = true;
     private boolean parallelPartitionedBucketedWrites = true;
@@ -144,9 +142,9 @@ public class HiveConfig
     private boolean delegateTransactionalManagedTableLocationToMetastore;
 
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
-    private long fileStatusCacheMaxSize = 1000 * 1000;
+    private DataSize fileStatusCacheMaxRetainedSize = DataSize.of(1, GIGABYTE);
     private List<String> fileStatusCacheTables = ImmutableList.of();
-    private long perTransactionFileStatusCacheMaximumSize = 1000 * 1000;
+    private DataSize perTransactionFileStatusCacheMaxRetainedSize = DataSize.of(100, MEGABYTE);
 
     private boolean translateHiveViews;
     private boolean legacyHiveViewTranslation;
@@ -271,20 +269,6 @@ public class HiveConfig
     public HiveConfig setTargetMaxFileSize(DataSize targetMaxFileSize)
     {
         this.targetMaxFileSize = targetMaxFileSize;
-        return this;
-    }
-
-    @MinDataSize("1MB")
-    @MaxDataSize("1GB")
-    public DataSize getWriterSortBufferSize()
-    {
-        return writerSortBufferSize;
-    }
-
-    @Config("hive.writer-sort-buffer-size")
-    public HiveConfig setWriterSortBufferSize(DataSize writerSortBufferSize)
-    {
-        this.writerSortBufferSize = writerSortBufferSize;
         return this;
     }
 
@@ -416,12 +400,6 @@ public class HiveConfig
     {
         this.maxPartitionsForEagerLoad = maxPartitionsForEagerLoad;
         return this;
-    }
-
-    @AssertTrue(message = "The value of hive.max-partitions-for-eager-load is expected to be less than or equal to hive.max-partitions-per-scan")
-    public boolean isMaxPartitionsForEagerLoadValid()
-    {
-        return maxPartitionsForEagerLoad <= maxPartitionsPerScan;
     }
 
     @Min(1)
@@ -615,21 +593,6 @@ public class HiveConfig
         return this;
     }
 
-    @Min(2)
-    @Max(1000)
-    public int getMaxOpenSortFiles()
-    {
-        return maxOpenSortFiles;
-    }
-
-    @Config("hive.max-open-sort-files")
-    @ConfigDescription("Maximum number of writer temporary files to read in one pass")
-    public HiveConfig setMaxOpenSortFiles(int maxOpenSortFiles)
-    {
-        this.maxOpenSortFiles = maxOpenSortFiles;
-        return this;
-    }
-
     public int getWriteValidationThreads()
     {
         return writeValidationThreads;
@@ -793,17 +756,28 @@ public class HiveConfig
         return this;
     }
 
-    @Min(1)
-    public long getPerTransactionFileStatusCacheMaximumSize()
+    @MinDataSize("0MB")
+    @NotNull
+    public DataSize getPerTransactionFileStatusCacheMaxRetainedSize()
     {
-        return perTransactionFileStatusCacheMaximumSize;
+        return perTransactionFileStatusCacheMaxRetainedSize;
     }
 
-    @Config("hive.per-transaction-file-status-cache-maximum-size")
+    @Config("hive.per-transaction-file-status-cache.max-retained-size")
+    @ConfigDescription("Maximum retained size of file statuses cached by transactional file status cache")
+    public HiveConfig setPerTransactionFileStatusCacheMaxRetainedSize(DataSize perTransactionFileStatusCacheMaxRetainedSize)
+    {
+        this.perTransactionFileStatusCacheMaxRetainedSize = perTransactionFileStatusCacheMaxRetainedSize;
+        return this;
+    }
+
+    @Deprecated
+    @LegacyConfig(value = "hive.per-transaction-file-status-cache-maximum-size", replacedBy = "hive.per-transaction-file-status-cache.max-retained-size")
     @ConfigDescription("Maximum number of file statuses cached by transactional file status cache")
     public HiveConfig setPerTransactionFileStatusCacheMaximumSize(long perTransactionFileStatusCacheMaximumSize)
     {
-        this.perTransactionFileStatusCacheMaximumSize = perTransactionFileStatusCacheMaximumSize;
+        // assume some fixed size per entry in order to keep the deprecated property for backward compatibility
+        this.perTransactionFileStatusCacheMaxRetainedSize = DataSize.of(perTransactionFileStatusCacheMaximumSize, KILOBYTE);
         return this;
     }
 
@@ -848,15 +822,26 @@ public class HiveConfig
         return this;
     }
 
-    public long getFileStatusCacheMaxSize()
+    @MinDataSize("0MB")
+    @NotNull
+    public DataSize getFileStatusCacheMaxRetainedSize()
     {
-        return fileStatusCacheMaxSize;
+        return fileStatusCacheMaxRetainedSize;
     }
 
-    @Config("hive.file-status-cache-size")
+    @Config("hive.file-status-cache.max-retained-size")
+    public HiveConfig setFileStatusCacheMaxRetainedSize(DataSize fileStatusCacheMaxRetainedSize)
+    {
+        this.fileStatusCacheMaxRetainedSize = fileStatusCacheMaxRetainedSize;
+        return this;
+    }
+
+    @Deprecated
+    @LegacyConfig(value = "hive.file-status-cache-size", replacedBy = "hive.file-status-cache.max-retained-size")
     public HiveConfig setFileStatusCacheMaxSize(long fileStatusCacheMaxSize)
     {
-        this.fileStatusCacheMaxSize = fileStatusCacheMaxSize;
+        // assume some fixed size per entry in order to keep the deprecated property for backward compatibility
+        this.fileStatusCacheMaxRetainedSize = DataSize.of(fileStatusCacheMaxSize, KILOBYTE);
         return this;
     }
 

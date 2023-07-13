@@ -21,7 +21,6 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 
 import static io.trino.plugin.hive.HiveCompressionCodec.SNAPPY;
-import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.HIVE_RCBINARY;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.TRINO_OPTIMIZED_PARQUET;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.TRINO_ORC;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.TRINO_RCBINARY;
@@ -37,14 +36,11 @@ public class TestHiveFileFormatBenchmark
     {
         executeBenchmark(LINEITEM, SNAPPY, TRINO_RCBINARY);
         executeBenchmark(LINEITEM, SNAPPY, TRINO_ORC);
-        executeBenchmark(LINEITEM, SNAPPY, HIVE_RCBINARY);
         executeBenchmark(LINEITEM, SNAPPY, TRINO_OPTIMIZED_PARQUET);
         executeBenchmark(MAP_VARCHAR_DOUBLE, SNAPPY, TRINO_RCBINARY);
         executeBenchmark(MAP_VARCHAR_DOUBLE, SNAPPY, TRINO_ORC);
-        executeBenchmark(MAP_VARCHAR_DOUBLE, SNAPPY, HIVE_RCBINARY);
         executeBenchmark(LARGE_MAP_VARCHAR_DOUBLE, SNAPPY, TRINO_RCBINARY);
         executeBenchmark(LARGE_MAP_VARCHAR_DOUBLE, SNAPPY, TRINO_ORC);
-        executeBenchmark(LARGE_MAP_VARCHAR_DOUBLE, SNAPPY, HIVE_RCBINARY);
     }
 
     @Test

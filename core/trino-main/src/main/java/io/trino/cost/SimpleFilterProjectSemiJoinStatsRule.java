@@ -70,8 +70,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
     {
         PlanNode nodeSource = lookup.resolve(node.getSource());
         SemiJoinNode semiJoinNode;
-        if (nodeSource instanceof ProjectNode) {
-            ProjectNode projectNode = (ProjectNode) nodeSource;
+        if (nodeSource instanceof ProjectNode projectNode) {
             if (!projectNode.isIdentity()) {
                 return Optional.empty();
             }

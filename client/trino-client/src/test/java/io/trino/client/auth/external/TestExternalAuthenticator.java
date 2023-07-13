@@ -139,8 +139,7 @@ public class TestExternalAuthenticator
 
         Request authenticated = authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\""));
 
-        assertThat(authenticated.headers())
-                .extracting(headers -> headers.get(AUTHORIZATION))
+        assertThat(authenticated.headers().get(AUTHORIZATION))
                 .isEqualTo("Bearer valid-token");
     }
 
@@ -344,12 +343,12 @@ public class TestExternalAuthenticator
             }
         }
 
-        ThrowableAssert firstException()
+        ThrowableAssert<Throwable> firstException()
         {
             return exceptions.stream()
                     .findFirst()
                     .map(ThrowableAssert::new)
-                    .orElseGet(() -> new ThrowableAssert(() -> null));
+                    .orElseGet(() -> new ThrowableAssert<Throwable>(() -> null));
         }
 
         void assertThatNoExceptionsHasBeenThrown()

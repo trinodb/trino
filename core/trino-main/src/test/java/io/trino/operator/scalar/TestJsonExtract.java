@@ -18,8 +18,9 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.util.List;
@@ -29,22 +30,18 @@ import static io.trino.operator.scalar.JsonExtract.JsonValueJsonExtractor;
 import static io.trino.operator.scalar.JsonExtract.ObjectFieldJsonExtractor;
 import static io.trino.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import static io.trino.operator.scalar.JsonExtract.generateExtractor;
+import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestJsonExtract
-        extends AbstractTestFunctions
 {
-    @BeforeClass
-    public void setUp()
-    {
-        // for "utf8" function
-        registerScalar(TestStringFunctions.class);
-    }
-
     @Test
     public void testJsonTokenizer()
     {
@@ -335,14 +332,17 @@ public class TestJsonExtract
     @Test
     public void testNoAutomaticEncodingDetection()
     {
-        // Automatic encoding detection treats the following input as UTF-32
-        assertFunction("JSON_EXTRACT_SCALAR(UTF8(X'00 00 00 00 7b 22 72 22'), '$.x')", VARCHAR, null);
+        try (QueryAssertions assertions = new QueryAssertions()) {
+            // Automatic encoding detection treats the following input as UTF-32
+            assertThat(assertions.function("JSON_EXTRACT_SCALAR", "from_utf8(X'00 00 00 00 7b 22 72 22')", "'$.x'"))
+                    .isNull(VARCHAR);
+        }
     }
 
     private static String doExtract(JsonExtractor<Slice> jsonExtractor, String json)
             throws IOException
     {
-        JsonFactory jsonFactory = new JsonFactory();
+        JsonFactory jsonFactory = jsonFactory();
         JsonParser jsonParser = jsonFactory.createParser(json);
         jsonParser.nextToken(); // Advance to the first token
         Slice extract = jsonExtractor.extract(jsonParser);

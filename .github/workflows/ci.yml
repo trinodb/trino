@@ -18,24 +18,25 @@ env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
   # allow overriding Maven command
-  MAVEN: ./mvnw
+  MAVEN: ./mvnw --offline
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
-  MAVEN_COMPILE_COMMITS: "-B --strict-checksums --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl '!:trino-server-rpm'"
+  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
+  MAVEN_COMPILE_COMMITS: "-B --strict-checksums --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl '!:trino-server-rpm'"
   MAVEN_GIB: "-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
   MAVEN_TEST: "-B --strict-checksums -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
-  RETRY: .github/bin/retry
   # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
   # that if an image doesn't download all it's layers within ~2m then any other concurrent pull will be killed because
   # the Docker daemon only downloads 3 layers concurrently which prevents the other pull from making any progress.
   # This value should be greater than the time taken for the longest image pull.
   TESTCONTAINERS_PULL_PAUSE_TIMEOUT: 600
+  TESTCONTAINERS_SKIP_ARCHITECTURE_CHECK: true
   TEST_REPORT_RETENTION_DAYS: 5
   HEAP_DUMP_RETENTION_DAYS: 14
   # used by actions/cache to retry the download after this time: https://github.com/actions/cache/blob/main/workarounds.md#cache-segment-restore-timeout
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
+  CI_SKIP_SECRETS_PRESENCE_CHECKS: ${{ secrets.CI_SKIP_SECRETS_PRESENCE_CHECKS }}
 
 # Cancel previous PR builds.
 concurrency:
@@ -57,6 +58,7 @@ jobs:
       matrix:
         java-version:
           - 17
+          - 19
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v3
@@ -69,30 +71,58 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           java-version: ${{ matrix.java-version }}
-      - name: Download all Trino dependencies to make sure cache is complete
+      - name: Check SPI backward compatibility
         run: |
-          $RETRY $MAVEN dependency:go-offline
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl :trino-spi -am
+          ${MAVEN//--offline/} clean verify -B --strict-checksums -DskipTests -pl :trino-spi
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+          $MAVEN clean verify -B --strict-checksums -V -T 1C -DskipTests -P ci -pl '!:trino-server-rpm'
+      - name: Remove Trino from local Maven repo to avoid caching it
+        # Avoid caching artifacts built in this job, cache should only include dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository/io/trino/trino-*
+
+  artifact-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
+          ref: |
+            ${{ github.event_name == 'repository_dispatch' &&
+                github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
+                format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
+      - uses: ./.github/actions/setup
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm
+      - name: Test JDBC shading
+        # Run only integration tests to verify JDBC driver shading
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $MAVEN failsafe:integration-test failsafe:verify -B --strict-checksums -P ci -pl :trino-jdbc
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
       - uses: docker/setup-qemu-action@v2
         with:
           platforms: arm64,ppc64le
-      - name: Test Docker Image
+      - name: Build and Test Docker Image
         run: core/docker/build.sh
       - name: Remove Trino from local Maven repo to avoid caching it
         # Avoid caching artifacts built in this job, cache should only include dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: rm -rf ~/.m2/repository/io/trino/trino-*
 
-  check-commits:
+  check-commits-dispatcher:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     outputs:
@@ -101,23 +131,20 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base
-      - name: Check Commits
+      - name: Block illegal commits
         uses: trinodb/github-actions/block-commits@c2991972560c5219d9ae5fb68c0c9d687ffcdd10
         with:
           action-merge: fail
           action-fixup: none
-      - name: Set matrix
+      - name: Set matrix (dispatch commit checks)
         id: set-matrix
         run: |
-          # The output from rev-list ends with a newline, so we have to filter out index -1 in jq since it's an empty string
-          JQ_PIPELINE='split("\n") | .[0:-1] | map({base_ref: "${{ github.event.pull_request.base.ref }}", commit: .}) | select(length > 0) | {include: .}'
-
           # Make sure the PR branch contains the compile-commit composite job
           if git merge-base --is-ancestor $( git rev-list HEAD -- .github/actions/compile-commit/action.yml | tail -n 1 ) ${{ github.event.pull_request.head.sha }}
           then
             # The HEAD commit of the PR can be safely ignored since it's already compiled in other jobs
             # This is achieved by adding a tilde (~) after the HEAD sha
-            git rev-list refs/remotes/origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}~ | jq --raw-input --slurp "$JQ_PIPELINE" > commit-matrix.json
+            git log --reverse --pretty=format:'%H,%T,"%s"' refs/remotes/origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}~ | ./.github/bin/prepare-check-commits-matrix.py > commit-matrix.json
           else
             echo -n '' > commit-matrix.json
           fi
@@ -125,15 +152,16 @@ jobs:
           echo "Commit matrix: $(jq '.' commit-matrix.json)"
           echo "matrix=$(jq -c '.' commit-matrix.json)" >> $GITHUB_OUTPUT
 
-  check-commits-dispatcher:
+  check-commit:
     runs-on: ubuntu-latest
-    needs: check-commits
-    if: github.event_name == 'pull_request' && needs.check-commits.outputs.matrix != ''
+    needs: check-commits-dispatcher
+    if: github.event_name == 'pull_request' && needs.check-commits-dispatcher.outputs.matrix != ''
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.check-commits.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.check-commits-dispatcher.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v3
+        if: matrix.commit != ''
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base
           ref: ${{ matrix.commit }}
@@ -142,8 +170,9 @@ jobs:
       # PR HEAD since that is the commit the workflow is started for. This could lead to problems if those parameters were changed
       # in the middle of a PR branch.
       - uses: ./.github/actions/compile-commit
+        if: matrix.commit != ''
         with:
-          base_ref: ${{ matrix.base_ref }}
+          base_ref: ${{ github.event.pull_request.base.ref }}
 
   error-prone-checks:
     runs-on: ubuntu-latest
@@ -160,14 +189,14 @@ jobs:
       - name: Maven Package
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN clean package ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $MAVEN clean package ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
-          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean verify -DskipTests -P gib,errorprone-compiler -am -pl ':trino-spi'
+          $MAVEN ${MAVEN_TEST} -T 1C clean verify -DskipTests -P gib,errorprone-compiler -am -pl ':trino-spi'
           # The main Error Prone run
-          $MAVEN ${MAVEN_TEST} -T C1 clean verify -DskipTests -P gib,errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T 1C clean verify -DskipTests -P gib,errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
@@ -205,7 +234,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Test old JDBC vs current server
         run: |
           if [ ! -f gib-impacted.log ] || grep -q testing/trino-test-jdbc-compatibility-old-driver gib-impacted.log; then
@@ -274,7 +303,7 @@ jobs:
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -am -pl :trino-hive-hadoop2
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -am -pl :trino-hive-hadoop2
       - name: Run Hive Tests
         run: |
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
@@ -283,8 +312,8 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          S3_BUCKET: "trino-ci-test"
-          S3_BUCKET_ENDPOINT: "https://s3.us-east-2.amazonaws.com"
+          S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
+          S3_BUCKET_ENDPOINT: "https://s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
             source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
@@ -298,9 +327,9 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-2
-          S3_BUCKET: "trino-ci-test"
-          S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
+          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
+          S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
+          S3_BUCKET_ENDPOINT: "s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
             $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P aws-tests
@@ -419,7 +448,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Maven Tests
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
@@ -435,6 +464,7 @@ jobs:
             !:trino-hive,
             !:trino-hudi,
             !:trino-iceberg,
+            !:trino-ignite,
             !:trino-jdbc,!:trino-base-jdbc,!:trino-thrift,!:trino-memory,
             !:trino-kafka,
             !:trino-kudu,
@@ -448,10 +478,15 @@ jobs:
             !:trino-postgresql,
             !:trino-raptor-legacy,
             !:trino-redis,
+            !:trino-redshift,
             !:trino-singlestore,
             !:trino-sqlserver,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests'
+      - name: trino-hdfs isolated JVM tests
+        # Isolate HDFS file system cache concurrency test to avoid flakiness
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-hdfs -P test-isolated-jvm-suites
       - name: Upload test results
         uses: actions/upload-artifact@v3
         # Upload all test reports only on failure, because the artifacts are large
@@ -499,12 +534,20 @@ jobs:
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
       - uses: ./.github/actions/setup
+      - name: Update PR check
+        uses: ./.github/actions/update-check
+        if: >-
+          always() &&
+          github.event_name == 'repository_dispatch' &&
+          github.event.client_payload.slash_command.args.named.sha != '' &&
+          github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha
         with:
-          cache: false
+          pull_request_number: ${{ github.event.client_payload.pull_request.number }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Maven validate
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -P disable-check-spi-dependencies -pl '!:trino-docs'
+          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -P disable-check-spi-dependencies -pl '!:trino-docs'
       - name: Set matrix
         id: set-matrix
         run: |
@@ -515,6 +558,7 @@ jobs:
             - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
             - { modules: core/trino-main }
             - { modules: core/trino-main, jdk: 19 }
+            - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow }
@@ -522,14 +566,18 @@ jobs:
             - { modules: plugin/trino-clickhouse }
             - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
-            - { modules: plugin/trino-delta-lake, profile: gcs-tests }
+            - { modules: plugin/trino-delta-lake, profile: fte-tests }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-hive }
+            - { modules: plugin/trino-hive, profile: fte-tests }
             - { modules: plugin/trino-hive, profile: test-parquet }
             - { modules: plugin/trino-hudi }
             - { modules: plugin/trino-iceberg }
             - { modules: plugin/trino-iceberg, profile: cloud-tests }
+            - { modules: plugin/trino-iceberg, profile: fte-tests }
+            - { modules: plugin/trino-iceberg, profile: minio-and-avro }
+            - { modules: plugin/trino-ignite }
             - { modules: plugin/trino-kafka }
             - { modules: plugin/trino-kudu }
             - { modules: plugin/trino-mariadb }
@@ -541,24 +589,24 @@ jobs:
             - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-raptor-legacy }
             - { modules: plugin/trino-redis }
+            - { modules: plugin/trino-redshift }
+            - { modules: plugin/trino-redshift, profile: cloud-tests }
+            - { modules: plugin/trino-redshift, profile: fte-tests }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-sqlserver }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
-            - { modules: plugin/trino-delta-lake, profile: fte-tests }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
-            - { modules: plugin/trino-hive, profile: fte-tests }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
-            - { modules: plugin/trino-iceberg, profile: fte-tests }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
-            - { modules: plugin/trino-postgresql, profile: fte-tests }
-            - { modules: plugin/trino-mongodb, profile: fte-tests }
-            - { modules: plugin/trino-mysql, profile: fte-tests }
-            - { modules: plugin/trino-sqlserver, profile: fte-tests }
             - { modules: testing/trino-tests }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
           echo "matrix=$(jq -c '.' matrix.json)" >> $GITHUB_OUTPUT
+      - name: Clean local Maven repo
+        # Avoid creating a cache entry because this job doesn't download all dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository
 
   test:
     runs-on: ubuntu-latest
@@ -588,93 +636,144 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
         if: >-
-          matrix.modules != 'plugin/trino-singlestore' &&
-          !((contains(matrix.modules, 'trino-delta-lake') && (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'gcs-tests'))) || (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests')) || (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-arrow')))
+          matrix.modules != 'plugin/trino-singlestore'
+          && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-arrow'))
+          && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
+          && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
+      - name: S3 FileSystem Cloud Tests
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
+          S3_BUCKET: ${{ vars.TRINO_S3_S3FS_TESTS_BUCKET }}
+        if: >-
+          contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests') &&
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: Cloud Delta Lake Tests
       # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
         env:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
           ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
           ABFS_ACCESSKEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
-          AWS_REGION: us-east-2
+          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
+          S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
+          GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
+          GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
         # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
         if: >-
           contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests') &&
-          (env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '' || env.ABFS_ACCESSKEY != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '' || env.ABFS_ACCESSKEY != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} ${{ format('-P {0}', matrix.profile) }} -pl :trino-delta-lake \
             -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
             -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
-            -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESSKEY}"
-      - name: GCS Delta Lake Tests
-      # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
-        env:
-          GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
-        # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
-        if: >-
-          contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'gcs-tests') && env.GCP_CREDENTIALS_KEY != ''
-        run: |
-          $MAVEN test ${MAVEN_TEST} -P gcs-tests -pl :trino-delta-lake \
-            -Dtesting.gcp-storage-bucket="trino-ci-test" \
+            -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESSKEY}" \
+            -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
       - name: Memsql Tests
         env:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
-        if: matrix.modules == 'plugin/trino-singlestore' && env.MEMSQL_LICENSE != ''
+        if: matrix.modules == 'plugin/trino-singlestore' && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.MEMSQL_LICENSE != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-singlestore -Dmemsql.license=${MEMSQL_LICENSE}
       - name: Cloud BigQuery Tests
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
-        if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-arrow') && env.BIGQUERY_CREDENTIALS_KEY != ''
+          GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
+        if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-arrow') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests \
             -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
-            -Dtesting.gcp-storage-bucket="trino-ci-test" \
+            -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.alternate-bq-project-id=bigquery-cicd-alternate
       - name: Cloud BigQuery Arrow Serialization Tests
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
-        if: matrix.modules == 'plugin/trino-bigquery' && contains(matrix.profile, 'cloud-tests-arrow') && env.BIGQUERY_CREDENTIALS_KEY != ''
+          GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
+        if: matrix.modules == 'plugin/trino-bigquery' && contains(matrix.profile, 'cloud-tests-arrow') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-arrow \
             -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
-            -Dtesting.gcp-storage-bucket="trino-ci-test"
+            -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}"
       - name: Cloud BigQuery Case Insensitive Mapping Tests
         env:
           BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
-        if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-arrow') && env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != ''
+        if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-arrow') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
       - name: Iceberg Cloud Tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-2
-          S3_BUCKET: trino-ci-test
+          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
+          S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
+          GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
+          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
         if: >-
           contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
-          (env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-iceberg ${{ format('-P {0}', matrix.profile) }} \
-            -Ds3.bucket=${S3_BUCKET} \
-            -Dtesting.gcp-storage-bucket="trino-ci-test-us-east" \
-            -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
+            -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
+            -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}" \
+            -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
+            -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
+            -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESS_KEY}"
+      - name: Cloud Redshift Tests ${{ matrix.profile }}
+        env:
+          AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.REDSHIFT_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REDSHIFT_AWS_SECRET_ACCESS_KEY }}
+          REDSHIFT_SUBNET_GROUP_NAME: ${{ vars.REDSHIFT_SUBNET_GROUP_NAME }}
+          REDSHIFT_IAM_ROLES: ${{ vars.REDSHIFT_IAM_ROLES }}
+          REDSHIFT_VPC_SECURITY_GROUP_IDS: ${{ vars.REDSHIFT_VPC_SECURITY_GROUP_IDS }}
+          REDSHIFT_S3_TPCH_TABLES_ROOT: ${{ vars.REDSHIFT_S3_TPCH_TABLES_ROOT }}
+        if: >-
+          contains(matrix.modules, 'trino-redshift') &&
+          (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'fte-tests')) &&
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.REDSHIFT_SUBNET_GROUP_NAME != '')
+        run: |
+          source .github/bin/redshift/setup-aws-redshift.sh
+
+          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }} \
+            -Dtest.redshift.jdbc.user="${REDSHIFT_USER}" \
+            -Dtest.redshift.jdbc.password="${REDSHIFT_PASSWORD}" \
+            -Dtest.redshift.jdbc.endpoint="${REDSHIFT_ENDPOINT}:${REDSHIFT_PORT}/" \
+            -Dtest.redshift.s3.tpch.tables.root="${REDSHIFT_S3_TPCH_TABLES_ROOT}" \
+            -Dtest.redshift.iam.role="${REDSHIFT_IAM_ROLES}" \
+            -Dtest.redshift.aws.region="${AWS_REGION}" \
+            -Dtest.redshift.aws.access-key="${AWS_ACCESS_KEY_ID}" \
+            -Dtest.redshift.aws.secret-key="${AWS_SECRET_ACCESS_KEY}"
+      - name: Cleanup ephemeral Redshift Cluster
+        env:
+          AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.REDSHIFT_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REDSHIFT_AWS_SECRET_ACCESS_KEY }}
+        # Cancelled workflows may have left the ephemeral cluster running
+        if: always()
+        run: .github/bin/redshift/delete-aws-redshift.sh
       - name: Sanitize artifact name
         if: always()
         run: |
           # Generate a valid artifact name and make it available to next steps as
           # an environment variable ARTIFACT_NAME
           # ", :, <, >, |, *, ?, \, / are not allowed in artifact names, replace it with an underscore
-          name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
+          name=$(echo -n "${{ matrix.modules }}, ${{ matrix.profile }}, ${{ matrix.jdk }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
           echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
       - name: Upload test results
         uses: actions/upload-artifact@v3
@@ -751,7 +850,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
       - name: Map impacted plugins to features
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -790,6 +889,7 @@ jobs:
             - suite-delta-lake-databricks91
             - suite-delta-lake-databricks104
             - suite-delta-lake-databricks113
+            - suite-delta-lake-databricks122
             - suite-gcs
             - suite-clients
             - suite-functions
@@ -808,36 +908,42 @@ jobs:
               config: default
             - suite: suite-azure
               ignore exclusion if: >-
-                ${{ secrets.AZURE_ABFS_CONTAINER != '' &&
-                    secrets.AZURE_ABFS_ACCOUNT != '' &&
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' ||
+                    secrets.AZURE_ABFS_CONTAINER != '' ||
+                    secrets.AZURE_ABFS_ACCOUNT != '' ||
                     secrets.AZURE_ABFS_ACCESSKEY != '' }}
 
             - suite: suite-gcs
               config: default
             - suite: suite-gcs
               ignore exclusion if: >-
-                ${{ secrets.GCP_CREDENTIALS_KEY != '' }}
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.GCP_CREDENTIALS_KEY != '' }}
 
             - suite: suite-delta-lake-databricks73
               config: hdp3
             - suite: suite-delta-lake-databricks73
               ignore exclusion if: >-
-                ${{ secrets.DATABRICKS_TOKEN != '' }}
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks91
               config: hdp3
             - suite: suite-delta-lake-databricks91
               ignore exclusion if: >-
-                ${{ secrets.DATABRICKS_TOKEN != '' }}
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks104
               config: hdp3
             - suite: suite-delta-lake-databricks104
               ignore exclusion if: >-
-                ${{ secrets.DATABRICKS_TOKEN != '' }}
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks113
               config: hdp3
             - suite: suite-delta-lake-databricks113
               ignore exclusion if: >-
-                ${{ secrets.DATABRICKS_TOKEN != '' }}
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
+            - suite: suite-delta-lake-databricks122
+              config: hdp3
+            - suite: suite-delta-lake-databricks122
+              ignore exclusion if: >-
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
 
           ignore exclusion if:
             # Do not use this property outside of the matrix configuration.
@@ -880,7 +986,7 @@ jobs:
               suite: suite-hms-only
             # this suite is not meant to be run with different configs
             - config: default
-              suite: suite-all
+              suite: suite-all-connectors-smoke
             # this suite is not meant to be run with different configs
             - config: default
               suite: suite-delta-lake-oss
@@ -902,6 +1008,9 @@ jobs:
             # this suite is not meant to be run with different configs
             - config: default
               suite: suite-hudi
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-ignite
           EOF
       - name: Build PT matrix (all)
         if: |
@@ -931,10 +1040,12 @@ jobs:
           DATABRICKS_91_JDBC_URL:
           DATABRICKS_104_JDBC_URL:
           DATABRICKS_113_JDBC_URL:
+          DATABRICKS_122_JDBC_URL:
           DATABRICKS_LOGIN:
           DATABRICKS_TOKEN:
           GCP_CREDENTIALS_KEY:
           GCP_STORAGE_BUCKET:
+          TESTCONTAINERS_NEVER_PULL: true
         run: |
           # converts filtered YAML file into JSON
           ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -i impacted-features.log -o matrix.json
@@ -969,6 +1080,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cache: false
+          download_dependencies: false
       - name: Product tests artifact
         uses: actions/download-artifact@v3
         with:
@@ -991,18 +1103,19 @@ jobs:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
           ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
-          S3_BUCKET: trino-ci-test
-          AWS_REGION: us-east-2
+          S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
+          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           TRINO_AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           TRINO_AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           DATABRICKS_73_JDBC_URL: ${{ secrets.DATABRICKS_73_JDBC_URL }}
           DATABRICKS_91_JDBC_URL: ${{ secrets.DATABRICKS_91_JDBC_URL }}
           DATABRICKS_104_JDBC_URL: ${{ secrets.DATABRICKS_104_JDBC_URL }}
           DATABRICKS_113_JDBC_URL: ${{ secrets.DATABRICKS_113_JDBC_URL }}
+          DATABRICKS_122_JDBC_URL: ${{ secrets.DATABRICKS_122_JDBC_URL }}
           DATABRICKS_LOGIN: token
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
-          GCP_STORAGE_BUCKET: trino-ci-test-us-east
+          GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
         run: |
           exec testing/trino-product-tests-launcher/target/trino-product-tests-launcher-*-executable.jar suite run \
             --suite ${{ matrix.suite }} \

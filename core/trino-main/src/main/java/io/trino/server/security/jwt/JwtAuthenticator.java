@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.jwt;
 
+import com.google.inject.Inject;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.JwtParserBuilder;
@@ -23,9 +24,7 @@ import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.util.Collection;
 import java.util.Optional;

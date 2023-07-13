@@ -25,8 +25,8 @@ import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createReso
 import static io.trino.tests.product.TestGroups.HIVE_PARTITIONING;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.TestGroups.TRINO_JDBC;
-import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
 public class TestHdfsSyncPartitionMetadata
@@ -47,7 +47,7 @@ public class TestHdfsSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE, TRINO_JDBC})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testAddPartition()
     {
@@ -55,7 +55,7 @@ public class TestHdfsSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE, TRINO_JDBC})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testAddPartitionContainingCharactersThatNeedUrlEncoding()
     {
@@ -63,7 +63,7 @@ public class TestHdfsSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testDropPartition()
     {
@@ -71,7 +71,7 @@ public class TestHdfsSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE, TRINO_JDBC})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testDropPartitionContainingCharactersThatNeedUrlEncoding()
     {
@@ -79,7 +79,7 @@ public class TestHdfsSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testFullSyncPartition()
     {
@@ -87,7 +87,7 @@ public class TestHdfsSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE, TRINO_JDBC})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testInvalidSyncMode()
     {
@@ -95,7 +95,7 @@ public class TestHdfsSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testMixedCasePartitionNames()
     {
@@ -103,7 +103,7 @@ public class TestHdfsSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testConflictingMixedCasePartitionNames()
     {

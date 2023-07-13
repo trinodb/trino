@@ -14,6 +14,7 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -32,9 +33,9 @@ import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -71,9 +72,7 @@ public class ParquetSchemaConverter
     public static final boolean HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING = true;
     public static final boolean HIVE_PARQUET_USE_INT96_TIMESTAMP_ENCODING = true;
 
-    private Map<List<String>, Type> primitiveTypes = new HashMap<>();
-    private final boolean useLegacyDecimalEncoding;
-    private final boolean useInt96TimestampEncoding;
+    private final Map<List<String>, Type> primitiveTypes;
     private final MessageType messageType;
 
     public ParquetSchemaConverter(List<Type> types, List<String> columnNames, boolean useLegacyDecimalEncoding, boolean useInt96TimestampEncoding)
@@ -81,46 +80,74 @@ public class ParquetSchemaConverter
         requireNonNull(types, "types is null");
         requireNonNull(columnNames, "columnNames is null");
         checkArgument(types.size() == columnNames.size(), "types size not equals to columnNames size");
-        this.useLegacyDecimalEncoding = useLegacyDecimalEncoding;
-        this.useInt96TimestampEncoding = useInt96TimestampEncoding;
-        this.messageType = convert(types, columnNames);
+        ImmutableMap.Builder<List<String>, Type> primitiveTypesBuilder = ImmutableMap.builder();
+        messageType = convert(types, columnNames, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesBuilder::put);
+        primitiveTypes = primitiveTypesBuilder.buildOrThrow();
     }
 
-    private MessageType convert(List<Type> types, List<String> columnNames)
+    public Map<List<String>, Type> getPrimitiveTypes()
+    {
+        return primitiveTypes;
+    }
+
+    public MessageType getMessageType()
+    {
+        return messageType;
+    }
+
+    private static MessageType convert(
+            List<Type> types,
+            List<String> columnNames,
+            boolean useLegacyDecimalEncoding,
+            boolean useInt96TimestampEncoding,
+            BiConsumer<List<String>, Type> primitiveTypesConsumer)
     {
         Types.MessageTypeBuilder builder = Types.buildMessage();
         for (int i = 0; i < types.size(); i++) {
-            builder.addField(convert(types.get(i), columnNames.get(i), ImmutableList.of(), OPTIONAL));
+            builder.addField(convert(types.get(i), columnNames.get(i), ImmutableList.of(), OPTIONAL, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer));
         }
         return builder.named("trino_schema");
     }
 
-    private org.apache.parquet.schema.Type convert(Type type, String name, List<String> parent, Repetition repetition)
+    private static org.apache.parquet.schema.Type convert(
+            Type type,
+            String name,
+            List<String> parent,
+            Repetition repetition,
+            boolean useLegacyDecimalEncoding,
+            boolean useInt96TimestampEncoding,
+            BiConsumer<List<String>, Type> primitiveTypesConsumer)
     {
         if (ROW.equals(type.getTypeSignature().getBase())) {
-            return getRowType((RowType) type, name, parent, repetition);
+            return getRowType((RowType) type, name, parent, repetition, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer);
         }
         if (MAP.equals(type.getTypeSignature().getBase())) {
-            return getMapType((MapType) type, name, parent, repetition);
+            return getMapType((MapType) type, name, parent, repetition, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer);
         }
         if (ARRAY.equals(type.getTypeSignature().getBase())) {
-            return getArrayType((ArrayType) type, name, parent, repetition);
+            return getArrayType((ArrayType) type, name, parent, repetition, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer);
         }
-        return getPrimitiveType(type, name, parent, repetition);
+        return getPrimitiveType(type, name, parent, repetition, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer);
     }
 
-    private org.apache.parquet.schema.Type getPrimitiveType(Type type, String name, List<String> parent, Repetition repetition)
+    private static org.apache.parquet.schema.Type getPrimitiveType(
+            Type type,
+            String name,
+            List<String> parent,
+            Repetition repetition,
+            boolean useLegacyDecimalEncoding,
+            boolean useInt96TimestampEncoding,
+            BiConsumer<List<String>, Type> primitiveTypesConsumer)
     {
         List<String> fullName = ImmutableList.<String>builder().addAll(parent).add(name).build();
-        primitiveTypes.put(fullName, type);
+        primitiveTypesConsumer.accept(fullName, type);
         if (BOOLEAN.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.BOOLEAN, repetition).named(name);
         }
         if (INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.INT32, repetition).named(name);
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             // Apache Hive version 3 or lower does not support reading decimals encoded as INT32/INT64
             if (!useLegacyDecimalEncoding) {
                 if (decimalType.getPrecision() <= 9) {
@@ -146,8 +173,7 @@ public class ParquetSchemaConverter
             return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).named(name);
         }
 
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             // Apache Hive version 3.x or lower does not support reading timestamps encoded as INT64
             if (useInt96TimestampEncoding) {
                 return Types.primitive(PrimitiveType.PrimitiveTypeName.INT96, repetition).named(name);
@@ -180,43 +206,54 @@ public class ParquetSchemaConverter
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported primitive type: %s", type));
     }
 
-    private org.apache.parquet.schema.Type getArrayType(ArrayType type, String name, List<String> parent, Repetition repetition)
+    private static org.apache.parquet.schema.Type getArrayType(
+            ArrayType type,
+            String name,
+            List<String> parent,
+            Repetition repetition,
+            boolean useLegacyDecimalEncoding,
+            boolean useInt96TimestampEncoding,
+            BiConsumer<List<String>, Type> primitiveTypesConsumer)
     {
         Type elementType = type.getElementType();
         return Types.list(repetition)
-                .element(convert(elementType, "element", ImmutableList.<String>builder().addAll(parent).add(name).add("list").build(), OPTIONAL))
+                .element(convert(elementType, "element", ImmutableList.<String>builder().addAll(parent).add(name).add("list").build(), OPTIONAL, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer))
                 .named(name);
     }
 
-    private org.apache.parquet.schema.Type getMapType(MapType type, String name, List<String> parent, Repetition repetition)
+    private static org.apache.parquet.schema.Type getMapType(
+            MapType type,
+            String name,
+            List<String> parent,
+            Repetition repetition,
+            boolean useLegacyDecimalEncoding,
+            boolean useInt96TimestampEncoding,
+            BiConsumer<List<String>, Type> primitiveTypesConsumer)
     {
         parent = ImmutableList.<String>builder().addAll(parent).add(name).add("key_value").build();
         Type keyType = type.getKeyType();
         Type valueType = type.getValueType();
         return Types.map(repetition)
-                .key(convert(keyType, "key", parent, REQUIRED))
-                .value(convert(valueType, "value", parent, OPTIONAL))
+                .key(convert(keyType, "key", parent, REQUIRED, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer))
+                .value(convert(valueType, "value", parent, OPTIONAL, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer))
                 .named(name);
     }
 
-    private org.apache.parquet.schema.Type getRowType(RowType type, String name, List<String> parent, Repetition repetition)
+    private static org.apache.parquet.schema.Type getRowType(
+            RowType type,
+            String name,
+            List<String> parent,
+            Repetition repetition,
+            boolean useLegacyDecimalEncoding,
+            boolean useInt96TimestampEncoding,
+            BiConsumer<List<String>, Type> primitiveTypesConsumer)
     {
         parent = ImmutableList.<String>builder().addAll(parent).add(name).build();
         Types.GroupBuilder<GroupType> builder = Types.buildGroup(repetition);
         for (RowType.Field field : type.getFields()) {
             checkArgument(field.getName().isPresent(), "field in struct type doesn't have name");
-            builder.addField(convert(field.getType(), field.getName().get(), parent, OPTIONAL));
+            builder.addField(convert(field.getType(), field.getName().get(), parent, OPTIONAL, useLegacyDecimalEncoding, useInt96TimestampEncoding, primitiveTypesConsumer));
         }
         return builder.named(name);
-    }
-
-    public Map<List<String>, Type> getPrimitiveTypes()
-    {
-        return primitiveTypes;
-    }
-
-    public MessageType getMessageType()
-    {
-        return messageType;
     }
 }

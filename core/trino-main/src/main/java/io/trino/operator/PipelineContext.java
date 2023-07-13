@@ -242,14 +242,14 @@ public class PipelineContext
         taskContext.start();
     }
 
-    public void failed(Throwable cause)
+    public void driverFailed(Throwable cause)
     {
         taskContext.failed(cause);
     }
 
-    public boolean isDone()
+    public boolean isTerminatingOrDone()
     {
-        return taskContext.isDone();
+        return taskContext.isTerminatingOrDone();
     }
 
     public synchronized ListenableFuture<Void> reserveSpill(long bytes)

@@ -20,7 +20,6 @@ import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.TestingConnectorSession;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
@@ -116,11 +115,11 @@ public class TestS3SelectPushdown
     @Test
     public void testIsCompressionCodecSupported()
     {
-        assertTrue(isCompressionCodecSupported(inputFormat, new Path("s3://fakeBucket/fakeObject.gz")));
-        assertTrue(isCompressionCodecSupported(inputFormat, new Path("s3://fakeBucket/fakeObject")));
-        assertFalse(isCompressionCodecSupported(inputFormat, new Path("s3://fakeBucket/fakeObject.lz4")));
-        assertFalse(isCompressionCodecSupported(inputFormat, new Path("s3://fakeBucket/fakeObject.snappy")));
-        assertTrue(isCompressionCodecSupported(inputFormat, new Path("s3://fakeBucket/fakeObject.bz2")));
+        assertTrue(isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject.gz"));
+        assertTrue(isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject"));
+        assertFalse(isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject.lz4"));
+        assertFalse(isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject.snappy"));
+        assertTrue(isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject.bz2"));
     }
 
     @Test
@@ -273,20 +272,20 @@ public class TestS3SelectPushdown
     public void testShouldEnableSplits()
     {
         // Uncompressed CSV
-        assertTrue(isSplittable(true, schema, inputFormat, new Path("s3://fakeBucket/fakeObject.csv")));
+        assertTrue(isSplittable(true, schema, inputFormat, "s3://fakeBucket/fakeObject.csv"));
         // Pushdown disabled
-        assertTrue(isSplittable(false, schema, inputFormat, new Path("s3://fakeBucket/fakeObject.csv")));
+        assertTrue(isSplittable(false, schema, inputFormat, "s3://fakeBucket/fakeObject.csv"));
         // JSON
         Properties jsonSchema = new Properties();
         jsonSchema.setProperty(SERIALIZATION_LIB, JsonSerDe.class.getName());
-        assertTrue(isSplittable(true, jsonSchema, inputFormat, new Path("s3://fakeBucket/fakeObject.json")));
+        assertTrue(isSplittable(true, jsonSchema, inputFormat, "s3://fakeBucket/fakeObject.json"));
     }
 
     @Test
     public void testShouldNotEnableSplits()
     {
         // Compressed file
-        assertFalse(isSplittable(true, schema, inputFormat, new Path("s3://fakeBucket/fakeObject.gz")));
+        assertFalse(isSplittable(true, schema, inputFormat, "s3://fakeBucket/fakeObject.gz"));
     }
 
     @AfterClass(alwaysRun = true)

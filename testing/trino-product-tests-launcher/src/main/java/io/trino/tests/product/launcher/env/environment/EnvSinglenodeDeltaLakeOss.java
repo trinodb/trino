@@ -14,6 +14,7 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
@@ -25,8 +26,6 @@ import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -61,7 +60,7 @@ public class EnvSinglenodeDeltaLakeOss
 
     private static final String SPARK_CONTAINER_NAME = "spark";
 
-    private static final String DEFAULT_S3_BUCKET_NAME = "trino-ci-test";
+    private static final String S3_BUCKET_NAME = "test-bucket";
 
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
@@ -87,8 +86,6 @@ public class EnvSinglenodeDeltaLakeOss
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        String s3Bucket = getS3Bucket();
-
         // Using hdp3.1 so we are using Hive metastore with version close to versions of  hive-*.jars Spark uses
         builder.configureContainer(HADOOP, container -> {
             container.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion);
@@ -96,12 +93,12 @@ public class EnvSinglenodeDeltaLakeOss
 
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector(
-                "delta-lake",
+                "delta_lake",
                 forHostPath(configDir.getPath("delta.properties")),
                 CONTAINER_TRINO_ETC + "/catalog/delta.properties");
 
         builder.configureContainer(TESTS, dockerContainer -> {
-            dockerContainer.withEnv("S3_BUCKET", s3Bucket)
+            dockerContainer.withEnv("S3_BUCKET", S3_BUCKET_NAME)
                     .withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
                             CONTAINER_TEMPTO_PROFILE_CONFIG);
@@ -115,14 +112,14 @@ public class EnvSinglenodeDeltaLakeOss
         FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
         Path minioBucketDirectory;
         try {
-            minioBucketDirectory = Files.createTempDirectory("trino-ci-test", posixFilePermissions);
+            minioBucketDirectory = Files.createTempDirectory("test-bucket-contents", posixFilePermissions);
             minioBucketDirectory.toFile().deleteOnExit();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
         builder.configureContainer(MINIO_CONTAINER_NAME, container ->
-                container.withCopyFileToContainer(forHostPath(minioBucketDirectory), "/data/" + s3Bucket));
+                container.withCopyFileToContainer(forHostPath(minioBucketDirectory), "/data/" + S3_BUCKET_NAME));
 
         configureTempto(builder, configDir);
     }
@@ -132,20 +129,12 @@ public class EnvSinglenodeDeltaLakeOss
     {
         DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3-delta:" + hadoopImagesVersion, SPARK_CONTAINER_NAME)
                 .withCopyFileToContainer(forHostPath(configDir.getPath("spark-defaults.conf")), "/spark/conf/spark-defaults.conf")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/spark/log4j2.properties")), "/spark/conf/log4j2.properties")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));
 
         portBinder.exposePort(container, SPARK_THRIFT_PORT);
 
         return container;
-    }
-
-    private String getS3Bucket()
-    {
-        String s3Bucket = System.getenv("S3_BUCKET");
-        if (s3Bucket == null) {
-            s3Bucket = DEFAULT_S3_BUCKET_NAME;
-        }
-        return s3Bucket;
     }
 }

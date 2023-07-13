@@ -1,0 +1,4 @@
+The native query passed to the underlying data source is required to return a
+table as a result set. Only the data source performs validation or security
+checks for these queries using its own configuration. Trino does not perform
+these tasks. Only use passthrough queries to read data.

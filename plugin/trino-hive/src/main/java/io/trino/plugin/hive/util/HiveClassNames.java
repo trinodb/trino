@@ -24,6 +24,7 @@ public final class HiveClassNames
     public static final String HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat";
     public static final String HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat";
     public static final String JSON_SERDE_CLASS = "org.apache.hive.hcatalog.data.JsonSerDe";
+    public static final String OPENX_JSON_SERDE_CLASS = "org.openx.data.jsonserde.JsonSerDe";
     public static final String LAZY_BINARY_COLUMNAR_SERDE_CLASS = "org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe";
     public static final String LAZY_SIMPLE_SERDE_CLASS = "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe";
     public static final String MAPRED_PARQUET_INPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat";
@@ -35,7 +36,9 @@ public final class HiveClassNames
     public static final String PARQUET_HIVE_SERDE_CLASS = "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe";
     public static final String RCFILE_INPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.RCFileInputFormat";
     public static final String RCFILE_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.RCFileOutputFormat";
+    public static final String REGEX_HIVE_SERDE_CLASS = "org.apache.hadoop.hive.serde2.RegexSerDe";
     public static final String SEQUENCEFILE_INPUT_FORMAT_CLASS = "org.apache.hadoop.mapred.SequenceFileInputFormat";
+    public static final String SYMLINK_TEXT_INPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat";
     public static final String TEXT_INPUT_FORMAT_CLASS = "org.apache.hadoop.mapred.TextInputFormat";
 
     private HiveClassNames() {}

@@ -29,10 +29,10 @@ import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.iterators.FirstEntryInRowIterator;
 import org.apache.accumulo.core.iterators.user.WholeRowIterator;
-import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.io.Text;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
@@ -288,6 +288,6 @@ public class AccumuloRecordCursor
             }
         }
 
-        throw new IllegalArgumentException(format("Expected field %s to be a type of %s but is %s", field, StringUtils.join(expected, ","), actual));
+        throw new IllegalArgumentException(format("Expected field %s to be a type of %s but is %s", field, Arrays.toString(expected), actual));
     }
 }

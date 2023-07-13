@@ -13,11 +13,12 @@
  */
 package io.trino.likematcher;
 
+import com.google.common.base.Strings;
+
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 
 sealed interface Pattern
-        permits Pattern.Any, Pattern.Literal
+        permits Pattern.Any, Pattern.Literal, Pattern.ZeroOrMore
 {
     record Literal(String value)
             implements Pattern
@@ -29,18 +30,28 @@ sealed interface Pattern
         }
     }
 
-    record Any(int min, boolean unbounded)
+    record ZeroOrMore()
+            implements Pattern
+    {
+        @Override
+        public String toString()
+        {
+            return "%";
+        }
+    }
+
+    record Any(int length)
             implements Pattern
     {
         public Any
         {
-            checkArgument(min > 0 || unbounded, "Any must be unbounded or require at least 1 character");
+            checkArgument(length > 0, "Length must be > 0");
         }
 
         @Override
         public String toString()
         {
-            return format("{%s%s}", min, unbounded ? "+" : "");
+            return Strings.repeat("_", length);
         }
     }
 }

@@ -57,6 +57,7 @@ import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -274,6 +275,10 @@ public abstract class AbstractTestType
                     .hasMessageContaining("is not comparable");
 
             assertThatThrownBy(() -> typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION)))
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessageContaining("is not comparable");
+
+            assertThatThrownBy(() -> typeOperators.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)))
                     .isInstanceOf(UnsupportedOperationException.class)
                     .hasMessageContaining("is not comparable");
 
@@ -524,14 +529,12 @@ public abstract class AbstractTestType
         if (type.getJavaType() == LongTimestampWithTimeZone.class) {
             return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(1, 0, UTC_KEY);
         }
-        if (type instanceof ArrayType) {
-            ArrayType arrayType = (ArrayType) type;
+        if (type instanceof ArrayType arrayType) {
             Type elementType = arrayType.getElementType();
             Object elementNonNullValue = getNonNullValueForType(elementType);
             return arrayBlockOf(elementType, elementNonNullValue);
         }
-        if (type instanceof MapType) {
-            MapType mapType = (MapType) type;
+        if (type instanceof MapType mapType) {
             Type keyType = mapType.getKeyType();
             Type valueType = mapType.getValueType();
             Object keyNonNullValue = getNonNullValueForType(keyType);
@@ -539,8 +542,7 @@ public abstract class AbstractTestType
             Map<?, ?> map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
             return mapBlockOf(keyType, valueType, map);
         }
-        if (type instanceof RowType) {
-            RowType rowType = (RowType) type;
+        if (type instanceof RowType rowType) {
             List<Type> elementTypes = rowType.getTypeParameters();
             Object[] elementNonNullValues = elementTypes.stream().map(AbstractTestType::getNonNullValueForType).toArray(Object[]::new);
             return toRow(elementTypes, elementNonNullValues);

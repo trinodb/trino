@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 
@@ -26,8 +27,7 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeInsertTableHandle
         implements ConnectorInsertTableHandle
 {
-    private final String schemaName;
-    private final String tableName;
+    private final SchemaTableName tableName;
     private final String location;
     private final MetadataEntry metadataEntry;
     private final List<DeltaLakeColumnHandle> inputColumns;
@@ -36,15 +36,13 @@ public class DeltaLakeInsertTableHandle
 
     @JsonCreator
     public DeltaLakeInsertTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
+            @JsonProperty("tableName") SchemaTableName tableName,
             @JsonProperty("location") String location,
             @JsonProperty("metadataEntry") MetadataEntry metadataEntry,
             @JsonProperty("inputColumns") List<DeltaLakeColumnHandle> inputColumns,
             @JsonProperty("readVersion") long readVersion,
             @JsonProperty("retriesEnabled") boolean retriesEnabled)
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
         this.inputColumns = ImmutableList.copyOf(inputColumns);
@@ -54,13 +52,7 @@ public class DeltaLakeInsertTableHandle
     }
 
     @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
+    public SchemaTableName getTableName()
     {
         return tableName;
     }
@@ -93,5 +85,11 @@ public class DeltaLakeInsertTableHandle
     public boolean isRetriesEnabled()
     {
         return retriesEnabled;
+    }
+
+    @Override
+    public String toString()
+    {
+        return tableName + "[" + location + "]";
     }
 }

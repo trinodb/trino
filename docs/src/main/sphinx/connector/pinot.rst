@@ -14,7 +14,7 @@ Requirements
 
 To connect to Pinot, you need:
 
-* Pinot 0.10.0 or higher.
+* Pinot 0.11.0 or higher.
 * Network access from the Trino coordinator and workers to the Pinot controller
   nodes. Port 8098 is the default port.
 
@@ -47,8 +47,6 @@ Property name                                             Required   Description
                                                                      Pinot returns hostnames and not IP addresses.
 ``pinot.connection-timeout``                              No         Pinot connection timeout, default is ``15s``.
 ``pinot.metadata-expiry``                                 No         Pinot metadata expiration time, default is ``2m``.
-``pinot.request-timeout``                                 No         The timeout for Pinot requests. Increasing this can reduce timeouts if DNS
-                                                                     resolution is slow.
 ``pinot.controller.authentication.type``                  No         Pinot authentication method for controller requests. Allowed values are
                                                                      ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no authentication.
 ``pinot.controller.authentication.user``                  No         Controller username for basic authentication method.

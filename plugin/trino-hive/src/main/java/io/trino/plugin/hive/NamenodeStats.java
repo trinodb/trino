@@ -13,71 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.TimeStat;
-import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
-
-import java.io.IOException;
-import java.util.concurrent.TimeUnit;
-
-public class NamenodeStats
-{
-    private final CallStats listLocatedStatus = new CallStats();
-    private final CallStats remoteIteratorNext = new CallStats();
-
-    @Managed
-    @Nested
-    public CallStats getListLocatedStatus()
-    {
-        return listLocatedStatus;
-    }
-
-    @Managed
-    @Nested
-    public CallStats getRemoteIteratorNext()
-    {
-        return remoteIteratorNext;
-    }
-
-    public static class CallStats
-    {
-        private final TimeStat time = new TimeStat(TimeUnit.MILLISECONDS);
-        private final CounterStat totalFailures = new CounterStat();
-        private final CounterStat ioExceptions = new CounterStat();
-
-        public TimeStat.BlockTimer time()
-        {
-            return time.time();
-        }
-
-        public void recordException(Exception exception)
-        {
-            if (exception instanceof IOException) {
-                ioExceptions.update(1);
-            }
-            totalFailures.update(1);
-        }
-
-        @Managed
-        @Nested
-        public CounterStat getTotalFailures()
-        {
-            return totalFailures;
-        }
-
-        @Managed
-        @Nested
-        public CounterStat getIoExceptions()
-        {
-            return ioExceptions;
-        }
-
-        @Managed
-        @Nested
-        public TimeStat getTime()
-        {
-            return time;
-        }
-    }
-}
+/**
+ * Dummy class needed to preserve the legacy JMX object name.
+ */
+public final class NamenodeStats {}

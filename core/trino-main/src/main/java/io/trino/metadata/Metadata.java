@@ -67,6 +67,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
@@ -120,6 +121,8 @@ public interface Metadata
     Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
 
     Optional<Object> getInfo(Session session, TableHandle handle);
+
+    CatalogSchemaTableName getTableName(Session session, TableHandle tableHandle);
 
     /**
      * Return table schema definition for the specified table handle.
@@ -232,12 +235,12 @@ public interface Metadata
     /**
      * Rename the specified column.
      */
-    void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
+    void renameColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle source, String target);
 
     /**
      * Add the specified column to the table.
      */
-    void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
+    void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column);
 
     /**
      * Set the specified type to the column.
@@ -252,7 +255,12 @@ public interface Metadata
     /**
      * Drop the specified column.
      */
-    void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);
+    void dropColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle column);
+
+    /**
+     * Drop the specified field from the column.
+     */
+    void dropField(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath);
 
     /**
      * Drops the specified table
@@ -716,4 +724,10 @@ public interface Metadata
      * Returns a table handle for the specified table name with a specified version
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+
+    /**
+     * Returns maximum number of tasks that can be created while writing data to specific connector.
+     * Note: It is ignored when retry policy is set to TASK
+     */
+    OptionalInt getMaxWriterTasks(Session session, String catalogName);
 }

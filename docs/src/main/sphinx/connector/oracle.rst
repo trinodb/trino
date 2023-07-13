@@ -411,6 +411,14 @@ supports the following statements:
 
 .. include:: alter-table-limitation.fragment
 
+.. _oracle-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -428,9 +436,9 @@ processed in Oracle. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
-As a simple example, to select an entire table::
+As a simple example, query the ``example`` catalog and select an entire table::
 
     SELECT
       *
@@ -475,6 +483,8 @@ As a practical example, you can use the
             country'
         )
       );
+
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------

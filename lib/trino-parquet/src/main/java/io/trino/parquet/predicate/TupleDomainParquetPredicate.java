@@ -365,8 +365,7 @@ public class TupleDomainParquetPredicate
             return Domain.create(rangesBuilder.build(), hasNullValue);
         }
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             if (decimalType.isShort()) {
                 for (int i = 0; i < minimums.size(); i++) {
@@ -457,12 +456,11 @@ public class TupleDomainParquetPredicate
             }
             if (column.getPrimitiveType().getPrimitiveTypeName().equals(INT64)) {
                 LogicalTypeAnnotation logicalTypeAnnotation = column.getPrimitiveType().getLogicalTypeAnnotation();
-                if (!(logicalTypeAnnotation instanceof TimestampLogicalTypeAnnotation)) {
+                if (!(logicalTypeAnnotation instanceof TimestampLogicalTypeAnnotation timestampTypeAnnotation)) {
                     // Invalid statistics. Unit and UTC adjustment are not known
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
 
-                TimestampLogicalTypeAnnotation timestampTypeAnnotation = (TimestampLogicalTypeAnnotation) logicalTypeAnnotation;
                 // Bail out if the precision is not known
                 if (timestampTypeAnnotation.getUnit() == null) {
                     return Domain.create(ValueSet.all(type), hasNullValue);

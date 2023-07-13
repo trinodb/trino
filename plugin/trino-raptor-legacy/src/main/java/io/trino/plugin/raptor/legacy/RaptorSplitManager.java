@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.raptor.legacy.backup.BackupService;
 import io.trino.plugin.raptor.legacy.metadata.BucketShards;
@@ -32,11 +33,10 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
+import jakarta.annotation.PreDestroy;
 import org.jdbi.v3.core.result.ResultIterator;
 
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

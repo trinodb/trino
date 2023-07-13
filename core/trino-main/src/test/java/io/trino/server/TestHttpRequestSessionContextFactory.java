@@ -22,16 +22,15 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MultivaluedHashMap;
+import jakarta.ws.rs.core.MultivaluedMap;
 import org.testng.annotations.Test;
-
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MultivaluedHashMap;
-import javax.ws.rs.core.MultivaluedMap;
 
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
@@ -66,7 +65,7 @@ public class TestHttpRequestSessionContextFactory
                 .put(protocolHeaders.requestTimeZone(), "Asia/Taipei")
                 .put(protocolHeaders.requestClientInfo(), "client-info")
                 .put(protocolHeaders.requestSession(), QUERY_MAX_MEMORY + "=1GB")
-                .put(protocolHeaders.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
+                .put(protocolHeaders.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + MAX_HASH_PARTITION_COUNT + " = 43")
                 .put(protocolHeaders.requestSession(), "some_session_property=some value with %2C comma")
                 .put(protocolHeaders.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
                 .put(protocolHeaders.requestRole(), "system=ROLE{system-role}")
@@ -100,7 +99,7 @@ public class TestHttpRequestSessionContextFactory
         assertEquals(context.getSystemProperties(), ImmutableMap.of(
                 QUERY_MAX_MEMORY, "1GB",
                 JOIN_DISTRIBUTION_TYPE, "partitioned",
-                HASH_PARTITION_COUNT, "43",
+                MAX_HASH_PARTITION_COUNT, "43",
                 "some_session_property", "some value with , comma"));
         assertEquals(context.getPreparedStatements(), ImmutableMap.of("query1", "select * from foo", "query2", "select * from bar"));
         assertEquals(context.getSelectedRole(), new SelectedRole(SelectedRole.Type.ROLE, Optional.of("system-role")));

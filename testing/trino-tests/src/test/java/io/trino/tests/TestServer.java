@@ -64,20 +64,20 @@ import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerat
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Closeables.closeAll;
-import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ClientCapabilities.PATH;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
+import static jakarta.ws.rs.core.Response.Status.OK;
+import static jakarta.ws.rs.core.Response.Status.SEE_OTHER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
-import static javax.ws.rs.core.Response.Status.OK;
-import static javax.ws.rs.core.Response.Status.SEE_OTHER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -188,7 +188,7 @@ public class TestServer
                 .setHeader(TRINO_HEADERS.requestPath(), "path")
                 .setHeader(TRINO_HEADERS.requestClientInfo(), "{\"clientVersion\":\"testVersion\"}")
                 .addHeader(TRINO_HEADERS.requestSession(), QUERY_MAX_MEMORY + "=1GB")
-                .addHeader(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
+                .addHeader(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + MAX_HASH_PARTITION_COUNT + " = 43")
                 .addHeader(TRINO_HEADERS.requestPreparedStatement(), "foo=select * from bar"))
                 .map(JsonResponse::getValue)
                 .peek(result -> assertNull(result.getError()))
@@ -206,7 +206,7 @@ public class TestServer
         assertEquals(queryInfo.getSession().getSystemProperties(), ImmutableMap.builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
-                .put(HASH_PARTITION_COUNT, "43")
+                .put(MAX_HASH_PARTITION_COUNT, "43")
                 .buildOrThrow());
 
         // verify client info in session

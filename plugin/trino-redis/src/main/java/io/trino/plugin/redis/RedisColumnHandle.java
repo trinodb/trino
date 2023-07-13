@@ -18,20 +18,19 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class RedisColumnHandle
         implements DecoderColumnHandle, Comparable<RedisColumnHandle>
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RedisColumnHandle.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(RedisColumnHandle.class);
 
     private final int ordinalPosition;
     private final String name;

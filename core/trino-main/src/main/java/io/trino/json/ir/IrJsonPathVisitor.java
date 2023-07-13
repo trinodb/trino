@@ -32,11 +32,6 @@ public abstract class IrJsonPathVisitor<R, C>
         return null;
     }
 
-    protected R visitIrAccessor(IrAccessor node, C context)
-    {
-        return visitIrPathNode(node, context);
-    }
-
     protected R visitIrComparisonPredicate(IrComparisonPredicate node, C context)
     {
         return visitIrPredicate(node, context);
@@ -57,14 +52,9 @@ public abstract class IrJsonPathVisitor<R, C>
         return visitIrPredicate(node, context);
     }
 
-    protected R visitIrMethod(IrMethod node, C context)
-    {
-        return visitIrAccessor(node, context);
-    }
-
     protected R visitIrAbsMethod(IrAbsMethod node, C context)
     {
-        return visitIrMethod(node, context);
+        return visitIrPathNode(node, context);
     }
 
     protected R visitIrArithmeticBinary(IrArithmeticBinary node, C context)
@@ -79,12 +69,12 @@ public abstract class IrJsonPathVisitor<R, C>
 
     protected R visitIrArrayAccessor(IrArrayAccessor node, C context)
     {
-        return visitIrAccessor(node, context);
+        return visitIrPathNode(node, context);
     }
 
     protected R visitIrCeilingMethod(IrCeilingMethod node, C context)
     {
-        return visitIrMethod(node, context);
+        return visitIrPathNode(node, context);
     }
 
     protected R visitIrConstantJsonSequence(IrConstantJsonSequence node, C context)
@@ -99,22 +89,27 @@ public abstract class IrJsonPathVisitor<R, C>
 
     protected R visitIrDatetimeMethod(IrDatetimeMethod node, C context)
     {
-        return visitIrMethod(node, context);
+        return visitIrPathNode(node, context);
+    }
+
+    protected R visitIrDescendantMemberAccessor(IrDescendantMemberAccessor node, C context)
+    {
+        return visitIrPathNode(node, context);
     }
 
     protected R visitIrDoubleMethod(IrDoubleMethod node, C context)
     {
-        return visitIrMethod(node, context);
+        return visitIrPathNode(node, context);
     }
 
     protected R visitIrFilter(IrFilter node, C context)
     {
-        return visitIrAccessor(node, context);
+        return visitIrPathNode(node, context);
     }
 
     protected R visitIrFloorMethod(IrFloorMethod node, C context)
     {
-        return visitIrMethod(node, context);
+        return visitIrPathNode(node, context);
     }
 
     protected R visitIrIsUnknownPredicate(IrIsUnknownPredicate node, C context)
@@ -129,7 +124,7 @@ public abstract class IrJsonPathVisitor<R, C>
 
     protected R visitIrKeyValueMethod(IrKeyValueMethod node, C context)
     {
-        return visitIrMethod(node, context);
+        return visitIrPathNode(node, context);
     }
 
     protected R visitIrLastIndexVariable(IrLastIndexVariable node, C context)
@@ -144,7 +139,7 @@ public abstract class IrJsonPathVisitor<R, C>
 
     protected R visitIrMemberAccessor(IrMemberAccessor node, C context)
     {
-        return visitIrAccessor(node, context);
+        return visitIrPathNode(node, context);
     }
 
     protected R visitIrNamedJsonVariable(IrNamedJsonVariable node, C context)
@@ -174,7 +169,7 @@ public abstract class IrJsonPathVisitor<R, C>
 
     protected R visitIrSizeMethod(IrSizeMethod node, C context)
     {
-        return visitIrMethod(node, context);
+        return visitIrPathNode(node, context);
     }
 
     protected R visitIrStartsWithPredicate(IrStartsWithPredicate node, C context)
@@ -184,6 +179,6 @@ public abstract class IrJsonPathVisitor<R, C>
 
     protected R visitIrTypeMethod(IrTypeMethod node, C context)
     {
-        return visitIrMethod(node, context);
+        return visitIrPathNode(node, context);
     }
 }

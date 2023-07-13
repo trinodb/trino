@@ -24,13 +24,15 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.mapping.RemoteIdentifierSupplier;
 import io.trino.plugin.jdbc.ptf.Query;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import org.apache.calcite.avatica.remote.Driver;
 
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 
 public class DruidJdbcClientModule
         implements Module
@@ -38,6 +40,11 @@ public class DruidJdbcClientModule
     @Override
     public void configure(Binder binder)
     {
+        // Druid driver always return true for storesUpperCaseIdentifiers for any remote objects irrespective of casing, thus returning incorrect results
+        // when case-insensitive-name-matching is set to false (using default implementation DatabaseMetaDataRemoteIdentifierSupplier).
+        // Until the driver is fixed, use the identifier as-is instead of relying on storesUpperCaseIdentifiers.
+        newOptionalBinder(binder, RemoteIdentifierSupplier.class).setBinding().toProvider(() -> (connection, identifier) -> identifier).in(Scopes.SINGLETON);
+
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DruidJdbcClient.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }

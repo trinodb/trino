@@ -96,57 +96,14 @@ public final class Transport
     }
 
     private static class TTransportWrapper
-            extends TTransport
+            extends TFilterTransport
     {
-        private final TTransport transport;
         private final HostAndPort address;
 
-        TTransportWrapper(TTransport transport, HostAndPort address)
+        public TTransportWrapper(TTransport transport, HostAndPort address)
         {
-            this.transport = requireNonNull(transport, "transport is null");
+            super(transport);
             this.address = requireNonNull(address, "address is null");
-        }
-
-        @Override
-        public boolean isOpen()
-        {
-            return transport.isOpen();
-        }
-
-        @Override
-        public boolean peek()
-        {
-            return transport.peek();
-        }
-
-        @Override
-        public byte[] getBuffer()
-        {
-            return transport.getBuffer();
-        }
-
-        @Override
-        public int getBufferPosition()
-        {
-            return transport.getBufferPosition();
-        }
-
-        @Override
-        public int getBytesRemainingInBuffer()
-        {
-            return transport.getBytesRemainingInBuffer();
-        }
-
-        @Override
-        public void consumeBuffer(int len)
-        {
-            transport.consumeBuffer(len);
-        }
-
-        @Override
-        public void close()
-        {
-            transport.close();
         }
 
         @Override

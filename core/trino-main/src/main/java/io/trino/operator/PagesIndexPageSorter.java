@@ -13,12 +13,11 @@
  */
 package io.trino.operator;
 
+import com.google.inject.Inject;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

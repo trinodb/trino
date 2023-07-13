@@ -136,6 +136,9 @@ public class ClientOptions
     @Option(names = "--debug", paramLabel = "<debug>", description = "Enable debug information")
     public boolean debug;
 
+    @Option(names = "--history-file", paramLabel = "<historyFile>", defaultValue = "${env:TRINO_HISTORY_FILE:-${sys:user.home}/.trino_history}", description = "Path to the history file " + DEFAULT_VALUE)
+    public String historyFile;
+
     @Option(names = "--network-logging", paramLabel = "<level>", defaultValue = "NONE", description = "Network logging level [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public HttpLoggingInterceptor.Level networkLogging;
 
@@ -147,6 +150,12 @@ public class ClientOptions
 
     @Option(names = "--output-format", paramLabel = "<format>", defaultValue = "CSV", description = "Output format for batch mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public OutputFormat outputFormat;
+
+    @Option(names = "--output-format-interactive", paramLabel = "<format>", defaultValue = "ALIGNED", description = "Output format for interactive mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
+    public OutputFormat outputFormatInteractive;
+
+    @Option(names = "--pager", paramLabel = "<pager>", defaultValue = "${env:TRINO_PAGER}", description = "Path to the pager program used to display the query results")
+    public Optional<String> pager;
 
     @Option(names = "--resource-estimate", paramLabel = "<estimate>", description = "Resource estimate (property can be used multiple times; format is key=value)")
     public final List<ClientResourceEstimate> resourceEstimates = new ArrayList<>();
@@ -186,6 +195,7 @@ public class ClientOptions
 
     public enum OutputFormat
     {
+        AUTO,
         ALIGNED,
         VERTICAL,
         TSV,

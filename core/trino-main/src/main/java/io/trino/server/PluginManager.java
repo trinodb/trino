@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.connector.CatalogFactory;
 import io.trino.eventlistener.EventListenerManager;
@@ -48,7 +49,6 @@ import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.net.URL;
 import java.util.List;
@@ -65,12 +65,15 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class PluginManager
+        implements PluginInstaller
 {
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("io.trino.spi.")
             .add("com.fasterxml.jackson.annotation.")
             .add("io.airlift.slice.")
             .add("org.openjdk.jol.")
+            .add("io.opentelemetry.api.")
+            .add("io.opentelemetry.context.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
@@ -127,6 +130,7 @@ public class PluginManager
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
     }
 
+    @Override
     public void loadPlugins()
     {
         if (!pluginsLoading.compareAndSet(false, true)) {
@@ -169,6 +173,7 @@ public class PluginManager
         }
     }
 
+    @Override
     public void installPlugin(Plugin plugin, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
     {
         installPluginInternal(plugin, duplicatePluginClassLoaderFactory);

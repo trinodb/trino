@@ -193,7 +193,7 @@ public class ReorderJoins
             this.resultComparator = costComparator.forSession(session).onResultOf(result -> result.cost);
             this.idAllocator = requireNonNull(context.getIdAllocator(), "idAllocator is null");
             this.allFilter = requireNonNull(filter, "filter is null");
-            this.allFilterInference = EqualityInference.newInstance(metadata, filter);
+            this.allFilterInference = new EqualityInference(metadata, filter);
             this.lookup = requireNonNull(context.getLookup(), "lookup is null");
         }
 
@@ -364,7 +364,7 @@ public class ReorderJoins
             // create equality inference on available symbols
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
             List<Expression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(Sets.union(leftSymbols, rightSymbols)).getScopeEqualities();
-            EqualityInference joinInference = EqualityInference.newInstance(metadata, joinEqualities);
+            EqualityInference joinInference = new EqualityInference(metadata, joinEqualities);
             joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(leftSymbols).getScopeStraddlingEqualities());
 
             return joinPredicatesBuilder.build();
@@ -640,12 +640,11 @@ public class ReorderJoins
                 }
 
                 // (limit - 2) because you need to account for adding left and right side
-                if (!(resolved instanceof JoinNode) || (sources.size() > (limit - 2))) {
+                if (!(resolved instanceof JoinNode joinNode) || (sources.size() > (limit - 2))) {
                     sources.add(node);
                     return;
                 }
 
-                JoinNode joinNode = (JoinNode) resolved;
                 if (joinNode.getType() != INNER || !isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL), plannerContext.getMetadata()) || joinNode.getDistributionType().isPresent()) {
                     sources.add(node);
                     return;

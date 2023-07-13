@@ -53,12 +53,12 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionId;
 import io.trino.util.Ciphers;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.List;
@@ -124,8 +124,7 @@ class Query
     @GuardedBy("this")
     private long lastToken = -1;
 
-    @GuardedBy("this")
-    private boolean resultsConsumed;
+    private volatile boolean resultsConsumed;
 
     @GuardedBy("this")
     private List<Column> columns;
@@ -348,10 +347,15 @@ class Query
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
-    public synchronized void markResultsConsumedIfReady()
+    public void markResultsConsumedIfReady()
     {
-        if (!resultsConsumed && exchangeDataSource.isFinished()) {
-            queryManager.resultsConsumed(queryId);
+        if (resultsConsumed) {
+            return;
+        }
+        synchronized (this) {
+            if (!resultsConsumed && exchangeDataSource.isFinished()) {
+                queryManager.resultsConsumed(queryId);
+            }
         }
     }
 
@@ -459,10 +463,16 @@ class Query
         QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         queryManager.recordHeartbeat(queryId);
 
-        closeExchangeIfNecessary(queryInfo);
-
-        // fetch result data from exchange
-        QueryResultRows resultRows = removePagesFromExchange(queryInfo, targetResultSize.toBytes());
+        boolean isStarted = queryInfo.getState().ordinal() > QueryState.STARTING.ordinal();
+        QueryResultRows resultRows;
+        if (isStarted) {
+            closeExchangeIfNecessary(queryInfo);
+            // fetch result data from exchange
+            resultRows = removePagesFromExchange(queryInfo, targetResultSize.toBytes());
+        }
+        else {
+            resultRows = queryResultRowsBuilder(session).build();
+        }
 
         if ((queryInfo.getUpdateType() != null) && (updateCount == null)) {
             // grab the update count for non-queries
@@ -470,7 +480,7 @@ class Query
             updateCount = updatedRowsCount.orElse(null);
         }
 
-        if (queryInfo.getOutputStage().isEmpty() || exchangeDataSource.isFinished()) {
+        if (isStarted && (queryInfo.getOutputStage().isEmpty() || exchangeDataSource.isFinished())) {
             queryManager.resultsConsumed(queryId);
             resultsConsumed = true;
             // update query since the query might have been transitioned to the FINISHED state
@@ -586,13 +596,18 @@ class Query
         return resultBuilder.build();
     }
 
-    private synchronized void closeExchangeIfNecessary(QueryInfo queryInfo)
+    private void closeExchangeIfNecessary(QueryInfo queryInfo)
     {
+        if (queryInfo.getState() != FAILED && queryInfo.getOutputStage().isPresent()) {
+            return;
+        }
         // Close the exchange client if the query has failed, or if the query
         // does not have an output stage. The latter happens
         // for data definition executions, as those do not have output.
-        if (queryInfo.getState() == FAILED || (!exchangeDataSource.isFinished() && queryInfo.getOutputStage().isEmpty())) {
-            exchangeDataSource.close();
+        synchronized (this) {
+            if (queryInfo.getState() == FAILED || (!exchangeDataSource.isFinished() && queryInfo.getOutputStage().isEmpty())) {
+                exchangeDataSource.close();
+            }
         }
     }
 

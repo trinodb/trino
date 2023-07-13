@@ -16,9 +16,8 @@ package io.trino.operator.aggregation.state;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.trino.array.ObjectBigArray;
 import io.trino.spi.function.AccumulatorStateFactory;
-import org.openjdk.jol.info.ClassLayout;
 
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class HyperLogLogStateFactory
@@ -40,7 +39,7 @@ public class HyperLogLogStateFactory
             extends AbstractGroupedAccumulatorState
             implements HyperLogLogState
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedHyperLogLogState.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(GroupedHyperLogLogState.class);
         private final ObjectBigArray<HyperLogLog> hlls = new ObjectBigArray<>();
         private long size;
 
@@ -79,7 +78,7 @@ public class HyperLogLogStateFactory
     public static class SingleHyperLogLogState
             implements HyperLogLogState
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleHyperLogLogState.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(SingleHyperLogLogState.class);
         private HyperLogLog hll;
 
         @Override

@@ -52,8 +52,8 @@ Dynamic filtering is enabled by default. It can be disabled by setting either th
 Support for push down of dynamic filters is specific to each connector,
 and the relevant underlying database or storage system. The documentation for
 specific connectors with support for dynamic filtering includes further details,
-for example the :ref:`Hive connector <hive_dynamic_filtering>`
-or the :ref:`Memory connector <memory_dynamic_filtering>`.
+for example the :ref:`Hive connector <hive-dynamic-filtering>`
+or the :ref:`Memory connector <memory-dynamic-filtering>`.
 
 Analysis and confirmation
 -------------------------
@@ -211,18 +211,29 @@ using the ``enable-large-dynamic-filters`` configuration property or the
 ``enable_large_dynamic_filters`` session property.
 
 When large dynamic filters are enabled, limits on the size of dynamic filters can
-be configured for each join distribution type using the configuration properties
-``dynamic-filtering.large-broadcast.max-distinct-values-per-driver``,
-``dynamic-filtering.large-broadcast.max-size-per-driver`` and
-``dynamic-filtering.large-broadcast.range-row-limit-per-driver`` and their
-equivalents for partitioned join distribution type.
+be configured using the configuration properties
+``dynamic-filtering.large.max-distinct-values-per-driver``,
+``dynamic-filtering.large.max-size-per-driver`` ,
+``dynamic-filtering.large.range-row-limit-per-driver``,
+``dynamic-filtering.large-partitioned.max-distinct-values-per-driver``,
+``dynamic-filtering.large-partitioned.max-size-per-driver`` and
+``dynamic-filtering.large-partitioned.range-row-limit-per-driver``.
 
 Similarly, limits for dynamic filters when ``enable-large-dynamic-filters``
 is not enabled can be configured using configuration properties like
-``dynamic-filtering.large-partitioned.max-distinct-values-per-driver``,
-``dynamic-filtering.large-partitioned.max-size-per-driver`` and
-``dynamic-filtering.large-partitioned.range-row-limit-per-driver`` and their
-equivalent for broadcast join distribution type.
+``dynamic-filtering.small.max-distinct-values-per-driver``,
+``dynamic-filtering.small.max-size-per-driver`` ,
+``dynamic-filtering.small.range-row-limit-per-driver``,
+``dynamic-filtering.small-partitioned.max-distinct-values-per-driver``,
+``dynamic-filtering.small-partitioned.max-size-per-driver`` and
+``dynamic-filtering.small-partitioned.range-row-limit-per-driver``.
+
+The ``dynamic-filtering.large.*`` and ``dynamic-filtering.small.*`` limits are applied
+when dynamic filters are collected before build side is partitioned on join
+keys (when broadcast join is chosen or when fault tolerant execution is enabled). The
+``dynamic-filtering.large-partitioned.*`` and ``dynamic-filtering.small-partitioned.*``
+limits are applied when dynamic filters are collected after build side is partitioned
+on join keys (when partitioned join is chosen and fault tolerant execution is disabled).
 
 The properties based on ``max-distinct-values-per-driver`` and ``max-size-per-driver``
 define thresholds for the size up to which dynamic filters are collected in a

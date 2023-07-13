@@ -17,17 +17,27 @@ import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
+import io.trino.plugin.hive.type.ListTypeInfo;
+import io.trino.plugin.hive.type.MapTypeInfo;
+import io.trino.plugin.hive.type.PrimitiveCategory;
+import io.trino.plugin.hive.type.PrimitiveTypeInfo;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Float.floatToIntBits;
@@ -35,7 +45,6 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
 final class HiveBucketingV2
 {
@@ -79,48 +88,42 @@ final class HiveBucketingV2
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
                 Type trinoType = requireNonNull(HiveTypeTranslator.fromPrimitiveType(typeInfo));
-                switch (primitiveCategory) {
-                    case BOOLEAN:
-                        return trinoType.getBoolean(block, position) ? 1 : 0;
-                    case BYTE:
-                        return SignedBytes.checkedCast(trinoType.getLong(block, position));
-                    case SHORT:
-                        return murmur3(bytes(Shorts.checkedCast(trinoType.getLong(block, position))));
-                    case INT:
-                        return murmur3(bytes(toIntExact(trinoType.getLong(block, position))));
-                    case LONG:
-                        return murmur3(bytes(trinoType.getLong(block, position)));
-                    case FLOAT:
-                        // convert to canonical NaN if necessary
-                        // Sic! we're `floatToIntBits -> cast to float -> floatToRawIntBits` just as it is (implicitly) done in
-                        // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L830
-                        return murmur3(bytes(floatToRawIntBits(floatToIntBits(intBitsToFloat(toIntExact(trinoType.getLong(block, position)))))));
-                    case DOUBLE:
-                        // Sic! we're `doubleToLongBits -> cast to double -> doubleToRawLongBits` just as it is (implicitly) done in
-                        // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L836
-                        return murmur3(bytes(doubleToRawLongBits(doubleToLongBits(trinoType.getDouble(block, position)))));
-                    case STRING:
-                        return murmur3(trinoType.getSlice(block, position).getBytes());
-                    case VARCHAR:
-                        return murmur3(trinoType.getSlice(block, position).getBytes());
-                    case DATE:
-                        // day offset from 1970-01-01
-                        return murmur3(bytes(toIntExact(trinoType.getLong(block, position))));
-                    case TIMESTAMP:
-                        // We do not support bucketing on timestamp
-                        break;
-                    case DECIMAL:
-                    case CHAR:
-                    case BINARY:
-                    case TIMESTAMPLOCALTZ:
-                    case INTERVAL_YEAR_MONTH:
-                    case INTERVAL_DAY_TIME:
-                        // TODO
-                        break;
-                    case VOID:
-                    case UNKNOWN:
-                        break;
+                if (trinoType.equals(BOOLEAN)) {
+                    return BOOLEAN.getBoolean(block, position) ? 1 : 0;
                 }
+                if (trinoType.equals(TINYINT)) {
+                    return TINYINT.getByte(block, position);
+                }
+                if (trinoType.equals(SMALLINT)) {
+                    return murmur3(bytes(SMALLINT.getShort(block, position)));
+                }
+                if (trinoType.equals(INTEGER)) {
+                    return murmur3(bytes(INTEGER.getInt(block, position)));
+                }
+                if (trinoType.equals(BIGINT)) {
+                    return murmur3(bytes(BIGINT.getLong(block, position)));
+                }
+                if (trinoType.equals(REAL)) {
+                    // convert to canonical NaN if necessary
+                    // Sic! we're `floatToIntBits -> cast to float -> floatToRawIntBits` just as it is (implicitly) done in
+                    // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L830
+                    return murmur3(bytes(floatToRawIntBits(floatToIntBits(REAL.getFloat(block, position)))));
+                }
+                if (trinoType.equals(DOUBLE)) {
+                    // Sic! we're `doubleToLongBits -> cast to double -> doubleToRawLongBits` just as it is (implicitly) done in
+                    // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L836
+                    return murmur3(bytes(doubleToRawLongBits(doubleToLongBits(DOUBLE.getDouble(block, position)))));
+                }
+                if (trinoType instanceof VarcharType varcharType) {
+                    return murmur3(varcharType.getSlice(block, position).getBytes());
+                }
+                if (trinoType.equals(DATE)) {
+                    // day offset from 1970-01-01
+                    return murmur3(bytes(DATE.getInt(block, position)));
+                }
+
+                // We do not support bucketing on the following:
+                // TIMESTAMP DECIMAL CHAR BINARY TIMESTAMPLOCALTZ INTERVAL_YEAR_MONTH INTERVAL_DAY_TIME VOID UNKNOWN
                 throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
             case LIST:
                 return hashOfList((ListTypeInfo) type, block.getObject(position, Block.class));

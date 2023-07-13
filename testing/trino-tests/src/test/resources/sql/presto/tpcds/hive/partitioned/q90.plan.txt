@@ -6,7 +6,8 @@ cross join:
                     join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
-                                scan web_sales
+                                dynamic filter (["ws_ship_hdemo_sk", "ws_sold_time_sk", "ws_web_page_sk"])
+                                    scan web_sales
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         scan web_page
@@ -23,7 +24,8 @@ cross join:
                     join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
-                                scan web_sales
+                                dynamic filter (["ws_ship_hdemo_sk_18", "ws_sold_time_sk_9", "ws_web_page_sk_20"])
+                                    scan web_sales
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         scan web_page

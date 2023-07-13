@@ -15,11 +15,10 @@ package io.trino.type;
 
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import com.google.inject.Inject;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.util.function.Function;
 

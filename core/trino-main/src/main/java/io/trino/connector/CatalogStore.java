@@ -13,16 +13,40 @@
  */
 package io.trino.connector;
 
-import com.google.common.collect.ImmutableList;
+import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Collection;
+import java.util.Map;
 
+@NotThreadSafe
 public interface CatalogStore
 {
-    CatalogStore NO_STORED_CATALOGS = ImmutableList::of;
-
     /**
      * Get all catalogs
      */
-    Collection<CatalogProperties> getCatalogs();
+    Collection<StoredCatalog> getCatalogs();
+
+    /**
+     * Create a catalog properties from the raw properties.  This allows the
+     * store to assign the initial handle for a catalog before the catalog is
+     * created. This does not add the catalog to the store.
+     */
+    CatalogProperties createCatalogProperties(String catalogName, ConnectorName connectorName, Map<String, String> properties);
+
+    /**
+     * Add or replace catalog properties.
+     */
+    void addOrReplaceCatalog(CatalogProperties catalogProperties);
+
+    /**
+     * Remove a catalog if present.
+     */
+    void removeCatalog(String catalogName);
+
+    interface StoredCatalog
+    {
+        String getName();
+
+        CatalogProperties loadProperties();
+    }
 }

@@ -73,7 +73,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -223,8 +222,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.of(literalEncoder.toExpression(session, ((Constant) expression).getValue(), expression.getType()));
             }
 
-            if (expression instanceof FieldDereference) {
-                FieldDereference dereference = (FieldDereference) expression;
+            if (expression instanceof FieldDereference dereference) {
                 return translate(dereference.getTarget())
                         .map(base -> new SubscriptExpression(base, new LongLiteral(Long.toString(dereference.getField() + 1))));
             }
@@ -251,8 +249,7 @@ public final class ConnectorExpressionTranslator
             if (NOT_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
                 ConnectorExpression expression = getOnlyElement(call.getArguments());
 
-                if (expression instanceof Call) {
-                    Call innerCall = (Call) expression;
+                if (expression instanceof Call innerCall) {
                     if (innerCall.getFunctionName().equals(IS_NULL_FUNCTION_NAME) && innerCall.getArguments().size() == 1) {
                         return translateIsNotNull(innerCall.getArguments().get(0));
                     }
@@ -503,11 +500,10 @@ public final class ConnectorExpressionTranslator
 
         protected Optional<List<Expression>> extractExpressionsFromArrayCall(ConnectorExpression expression)
         {
-            if (!(expression instanceof Call)) {
+            if (!(expression instanceof Call call)) {
                 return Optional.empty();
             }
 
-            Call call = (Call) expression;
             if (!call.getFunctionName().equals(ARRAY_CONSTRUCTOR_FUNCTION_NAME)) {
                 return Optional.empty();
             }
@@ -840,7 +836,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), toIntExact(((LongLiteral) node.getIndex()).getValue() - 1)));
+            return Optional.of(new FieldDereference(typeOf(node), translatedBase.get(), toIntExact(((LongLiteral) node.getIndex()).getParsedValue() - 1)));
         }
 
         @Override
@@ -882,20 +878,6 @@ public final class ConnectorExpressionTranslator
         private Type typeOf(Expression node)
         {
             return types.get(NodeRef.of(node));
-        }
-
-        private Object evaluateConstant(Expression node)
-        {
-            Type type = typeOf(node);
-            Object value = evaluateConstantExpression(
-                    node,
-                    type,
-                    plannerContext,
-                    session,
-                    new AllowAllAccessControl(),
-                    ImmutableMap.of());
-            verify(!(value instanceof Expression), "Expression %s did not evaluate to constant: %s", node, value);
-            return value;
         }
     }
 }

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.pinot;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.net.MediaType;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
@@ -25,13 +24,13 @@ import io.trino.plugin.pinot.auth.PinotControllerAuthenticationProvider;
 import io.trino.plugin.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import io.trino.plugin.pinot.client.IdentityPinotHostMapper;
 import io.trino.plugin.pinot.client.PinotClient;
-import io.trino.testing.assertions.Assert;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPinotClient
 {
@@ -91,7 +90,11 @@ public class TestPinotClient
                 MetadataUtil.BROKER_RESPONSE_NATIVE_JSON_CODEC,
                 PinotControllerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()),
                 PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()));
-        ImmutableSet<String> brokers = ImmutableSet.copyOf(pinotClient.getAllBrokersForTable("dummy"));
-        Assert.assertEquals(ImmutableSet.of("dummy-broker-host1-datacenter1:6513", "dummy-broker-host2-datacenter1:6513", "dummy-broker-host3-datacenter1:6513", "dummy-broker-host4-datacenter1:6513"), brokers);
+        assertThat(pinotClient.getAllBrokersForTable("dummy"))
+                .containsExactlyInAnyOrder(
+                        "dummy-broker-host1-datacenter1:6513",
+                        "dummy-broker-host2-datacenter1:6513",
+                        "dummy-broker-host3-datacenter1:6513",
+                        "dummy-broker-host4-datacenter1:6513");
     }
 }

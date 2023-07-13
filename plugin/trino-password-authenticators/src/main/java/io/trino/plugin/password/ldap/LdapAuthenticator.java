@@ -18,6 +18,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.collect.cache.NonKeyEvictableLoadingCache;
 import io.trino.plugin.password.Credential;
@@ -26,7 +27,6 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.PasswordAuthenticator;
 
-import javax.inject.Inject;
 import javax.naming.NamingException;
 
 import java.security.Principal;

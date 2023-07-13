@@ -18,10 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import com.google.common.reflect.ClassPath;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.testing.minio.MinioClient;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.Network;
 
 import java.io.IOException;
@@ -50,6 +50,7 @@ public class Minio
     // defaults
     public static final String MINIO_ACCESS_KEY = "accesskey";
     public static final String MINIO_SECRET_KEY = "secretkey";
+    public static final String MINIO_REGION = "us-east-1";
 
     public static Builder builder()
     {
@@ -114,10 +115,11 @@ public class Minio
         try (MinioClient minioClient = createMinioClient()) {
             // use retry loop for minioClient.makeBucket as minio container tends to return "Server not initialized, please try again" error
             // for some time after starting up
-            RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
+            RetryPolicy<Object> retryPolicy = RetryPolicy.builder()
                     .withMaxDuration(Duration.of(2, MINUTES))
                     .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
-                    .withDelay(Duration.of(10, SECONDS));
+                    .withDelay(Duration.of(10, SECONDS))
+                    .build();
             Failsafe.with(retryPolicy).run(() -> minioClient.makeBucket(bucketName));
         }
     }

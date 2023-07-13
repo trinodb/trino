@@ -13,14 +13,11 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.mongodb.DBRef;
 import com.mongodb.client.MongoCursor;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -41,10 +38,7 @@ import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 import org.joda.time.chrono.ISOChronology;
 
-import java.io.IOException;
-import java.io.OutputStream;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -56,6 +50,9 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
+import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
+import static io.trino.plugin.mongodb.MongoSession.ID;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.TypeUtils.isArrayType;
 import static io.trino.plugin.mongodb.TypeUtils.isJsonType;
@@ -68,7 +65,6 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
-import static io.trino.spi.type.Decimals.isLongDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -213,8 +209,8 @@ public class MongoPageSource
                 type.writeDouble(output, ((Number) value).doubleValue());
             }
             else if (javaType == Int128.class) {
-                verify(isLongDecimal(type), "The type should be long decimal");
                 DecimalType decimalType = (DecimalType) type;
+                verify(!decimalType.isShort(), "The type should be long decimal");
                 BigDecimal decimal = ((Decimal128) value).bigDecimalValue();
                 type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
             }
@@ -276,12 +272,6 @@ public class MongoPageSource
         }
     }
 
-    public static JsonGenerator createJsonGenerator(JsonFactory factory, SliceOutput output)
-            throws IOException
-    {
-        return factory.createGenerator((OutputStream) output);
-    }
-
     private void writeBlock(BlockBuilder output, Type type, Object value)
     {
         if (isArrayType(type)) {
@@ -299,11 +289,10 @@ public class MongoPageSource
             if (value instanceof List<?>) {
                 BlockBuilder builder = output.beginBlockEntry();
                 for (Object element : (List<?>) value) {
-                    if (!(element instanceof Map<?, ?>)) {
+                    if (!(element instanceof Map<?, ?> document)) {
                         continue;
                     }
 
-                    Map<?, ?> document = (Map<?, ?>) element;
                     if (document.containsKey("key") && document.containsKey("value")) {
                         appendTo(type.getTypeParameters().get(0), document.get("key"), builder);
                         appendTo(type.getTypeParameters().get(1), document.get("value"), builder);
@@ -313,9 +302,8 @@ public class MongoPageSource
                 output.closeEntry();
                 return;
             }
-            if (value instanceof Map) {
+            if (value instanceof Map<?, ?> document) {
                 BlockBuilder builder = output.beginBlockEntry();
-                Map<?, ?> document = (Map<?, ?>) value;
                 for (Map.Entry<?, ?> entry : document.entrySet()) {
                     appendTo(type.getTypeParameters().get(0), entry.getKey(), builder);
                     appendTo(type.getTypeParameters().get(1), entry.getValue(), builder);
@@ -325,36 +313,37 @@ public class MongoPageSource
             }
         }
         else if (isRowType(type)) {
-            if (value instanceof Map) {
-                Map<?, ?> mapValue = (Map<?, ?>) value;
+            if (value instanceof Map<?, ?> mapValue) {
                 BlockBuilder builder = output.beginBlockEntry();
 
-                List<String> fieldNames = new ArrayList<>();
                 for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
                     TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
-                    fieldNames.add(parameter.getNamedTypeSignature().getName().orElse("field" + i));
-                }
-                checkState(fieldNames.size() == type.getTypeParameters().size(), "fieldName doesn't match with type size : %s", type);
-                for (int index = 0; index < type.getTypeParameters().size(); index++) {
-                    appendTo(type.getTypeParameters().get(index), mapValue.get(fieldNames.get(index)), builder);
+                    String fieldName = parameter.getNamedTypeSignature().getName().orElse("field" + i);
+                    appendTo(type.getTypeParameters().get(i), mapValue.get(fieldName), builder);
                 }
                 output.closeEntry();
                 return;
             }
-            if (value instanceof DBRef) {
-                DBRef dbRefValue = (DBRef) value;
+            if (value instanceof DBRef dbRefValue) {
                 BlockBuilder builder = output.beginBlockEntry();
 
                 checkState(type.getTypeParameters().size() == 3, "DBRef should have 3 fields : %s", type);
-                appendTo(type.getTypeParameters().get(0), dbRefValue.getDatabaseName(), builder);
-                appendTo(type.getTypeParameters().get(1), dbRefValue.getCollectionName(), builder);
-                appendTo(type.getTypeParameters().get(2), dbRefValue.getId(), builder);
+                for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
+                    TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
+                    Type fieldType = type.getTypeParameters().get(i);
+                    String fieldName = parameter.getNamedTypeSignature().getName().orElseThrow();
+                    switch (fieldName) {
+                        case DATABASE_NAME -> appendTo(fieldType, dbRefValue.getDatabaseName(), builder);
+                        case COLLECTION_NAME -> appendTo(fieldType, dbRefValue.getCollectionName(), builder);
+                        case ID -> appendTo(fieldType, dbRefValue.getId(), builder);
+                        default -> throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected field name for DBRef: " + fieldName);
+                    }
+                }
 
                 output.closeEntry();
                 return;
             }
-            if (value instanceof List<?>) {
-                List<?> listValue = (List<?>) value;
+            if (value instanceof List<?> listValue) {
                 BlockBuilder builder = output.beginBlockEntry();
                 for (int index = 0; index < type.getTypeParameters().size(); index++) {
                     if (index < listValue.size()) {

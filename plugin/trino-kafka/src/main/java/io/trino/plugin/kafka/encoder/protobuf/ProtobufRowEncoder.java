@@ -252,11 +252,10 @@ public class ProtobufRowEncoder
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Protobuf doesn't support serializing null values");
         }
         if (type instanceof VarbinaryType) {
-            if (value instanceof SqlVarbinary) {
-                return ByteString.copyFrom(((SqlVarbinary) value).getBytes());
+            if (value instanceof SqlVarbinary sqlVarbinary) {
+                return ByteString.copyFrom(sqlVarbinary.getBytes());
             }
-            if (value instanceof ByteBuffer) {
-                ByteBuffer byteBuffer = (ByteBuffer) value;
+            if (value instanceof ByteBuffer byteBuffer) {
                 return ByteString.copyFrom(byteBuffer, byteBuffer.limit());
             }
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("cannot decode object of '%s' as '%s'", value.getClass(), type));

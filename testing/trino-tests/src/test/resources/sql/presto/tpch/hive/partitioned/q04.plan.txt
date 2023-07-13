@@ -6,7 +6,8 @@ remote exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["orderpriority"])
                         partial aggregation over (orderpriority)
                             join (INNER, REPLICATED):
-                                scan orders
+                                dynamic filter (["orderkey"])
+                                    scan orders
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         final aggregation over (orderkey_0)

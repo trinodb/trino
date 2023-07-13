@@ -9,7 +9,7 @@ using tools like `kind <https://kind.sigs.k8s.io>`_, to running on a managed
 Kubernetes service on cloud services like
 `Amazon Elastic Kubernetes Service <https://aws.amazon.com/eks>`_,
 `Google Kubernetes Engine <https://cloud.google.com/kubernetes-engine>`_,
-`Azure Kubernetes Service <https://azure.microsoft.com/en-us/services/kubernetes-service>`_,
+`Azure Kubernetes Service <https://azure.microsoft.com/services/kubernetes-service>`_,
 and others.
 
 The fastest way to run Trino on Kubernetes is to use the
@@ -30,9 +30,9 @@ Requirements
     :ref:`run one locally using kind <running-a-local-kubernetes-cluster-with-kind>`.
 
 * `kubectl <https://kubernetes.io/docs/tasks/tools/#kubectl>`_ with a version
-   that adheres to the
-   `Kubernetes version skew policy <https://kubernetes.io/releases/version-skew-policy/>`_
-   installed on the machine managing the Kubernetes deployment.
+  that adheres to the 
+  `Kubernetes version skew policy <https://kubernetes.io/releases/version-skew-policy/>`_
+  installed on the machine managing the Kubernetes deployment.
 
 * `helm <https://helm.sh>`_ with a version that adheres to the
   `Helm version skew policy <https://helm.sh/docs/topics/version_skew/>`_
@@ -258,10 +258,10 @@ deployed in this cluster and the size of the cluster nodes.
    workers, in this case, a coordinator and three worker nodes are deployed.
 #. ``.coordinator.jvm.maxHeapSize`` is set to ``8GB``.
    This sets the maximum heap size in the JVM of the coordinator. See
-   :ref:`jvm_config`.
+   :ref:`jvm-config`.
 #. ``.worker.jvm.maxHeapSize`` is set to ``8GB``.
    This sets the maximum heap size in the JVM of the worker. See
-   :ref:`jvm_config`.
+   :ref:`jvm-config`.
 
 .. warning::
 
@@ -294,10 +294,10 @@ the ``additionalCatalogs`` property in the ``example.yaml`` file.
 .. code-block:: yaml
 
     additionalCatalogs:
-      lakehouse.properties: |-
+      lakehouse: |-
         connector.name=iceberg
         hive.metastore.uri=thrift://example.net:9083
-      rdbms.properties: |-
+      rdbms: |-
         connector.name=postgresql
         connection-url=jdbc:postgresql://example.net:5432/database
         connection-user=root

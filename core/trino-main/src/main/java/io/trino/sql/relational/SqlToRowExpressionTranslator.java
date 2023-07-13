@@ -206,10 +206,10 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitLongLiteral(LongLiteral node, Void context)
         {
-            if (node.getValue() >= Integer.MIN_VALUE && node.getValue() <= Integer.MAX_VALUE) {
-                return constant(node.getValue(), INTEGER);
+            if (node.getParsedValue() >= Integer.MIN_VALUE && node.getParsedValue() <= Integer.MAX_VALUE) {
+                return constant(node.getParsedValue(), INTEGER);
             }
-            return constant(node.getValue(), BIGINT);
+            return constant(node.getParsedValue(), BIGINT);
         }
 
         @Override

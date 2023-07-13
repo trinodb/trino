@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ColumnPropertyManager;
@@ -30,8 +31,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Expression;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -91,7 +90,8 @@ public class AddColumnTask
         TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
 
-        accessControl.checkCanAddColumns(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
+        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName);
+        accessControl.checkCanAddColumns(session.toSecurityContext(), qualifiedTableName);
 
         Map<String, ColumnHandle> columnHandles = plannerContext.getMetadata().getColumnHandles(session, tableHandle);
 
@@ -133,7 +133,7 @@ public class AddColumnTask
                 .setProperties(columnProperties)
                 .build();
 
-        plannerContext.getMetadata().addColumn(session, tableHandle, column);
+        plannerContext.getMetadata().addColumn(session, tableHandle, qualifiedTableName.asCatalogSchemaTableName(), column);
 
         return immediateVoidFuture();
     }

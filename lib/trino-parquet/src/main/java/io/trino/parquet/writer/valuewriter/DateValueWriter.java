@@ -36,7 +36,7 @@ public class DateValueWriter
     {
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                int value = (int) DATE.getLong(block, position);
+                int value = DATE.getInt(block, position);
                 valuesWriter.writeInteger(value);
                 getStatistics().updateStats(value);
             }

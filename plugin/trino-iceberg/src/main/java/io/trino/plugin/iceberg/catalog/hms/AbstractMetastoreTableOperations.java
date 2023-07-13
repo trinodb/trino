@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
@@ -21,6 +22,7 @@ import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.io.FileIO;
@@ -113,7 +115,15 @@ public abstract class AbstractMetastoreTableOperations
         Table table = builder.build();
 
         PrincipalPrivileges privileges = owner.map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
-        metastore.createTable(table, privileges);
+        try {
+            metastore.createTable(table, privileges);
+        }
+        catch (SchemaNotFoundException
+               | TableAlreadyExistsException e) {
+            // clean up metadata files corresponding to the current transaction
+            fileIo.deleteFile(newMetadataLocation);
+            throw e;
+        }
     }
 
     protected Table getTable()

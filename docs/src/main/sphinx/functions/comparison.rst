@@ -2,7 +2,7 @@
 Comparison functions and operators
 ==================================
 
-.. _comparison_operators:
+.. _comparison-operators:
 
 Comparison operators
 --------------------
@@ -19,7 +19,7 @@ Operator Description
 ``!=``   Not equal (non-standard but popular syntax)
 ======== ===========
 
-.. _range_operator:
+.. _range-operator:
 
 Range operator: BETWEEN
 -----------------------
@@ -50,7 +50,7 @@ expression above::
 
     SELECT 2 BETWEEN NULL AND 6; -- null
 
-    SELECT 2 BETWEEN 1 AND NULL; -- false
+    SELECT 2 BETWEEN 3 AND NULL; -- false
 
     SELECT 8 BETWEEN NULL AND 6; -- false
 
@@ -63,7 +63,7 @@ Note that the value, min, and max parameters to ``BETWEEN`` and ``NOT
 BETWEEN`` must be the same type.  For example, Trino will produce an
 error if you ask it if John is between 2.3 and 35.2.
 
-.. _is_null_operator:
+.. _is-null-operator:
 
 IS NULL and IS NOT NULL
 -----------------------
@@ -78,7 +78,7 @@ But any other constant does not::
 
     SELECT 3.0 IS NULL; -- false
 
-.. _is_distinct_operator:
+.. _is-distinct-operator:
 
 IS DISTINCT FROM and IS NOT DISTINCT FROM
 -----------------------------------------
@@ -134,7 +134,7 @@ The following types are supported:
 
     Returns the smallest of the provided values.
 
-.. _quantified_comparison_predicates:
+.. _quantified-comparison-predicates:
 
 Quantified comparison predicates: ALL, ANY and SOME
 ---------------------------------------------------
@@ -169,7 +169,7 @@ Expression              Meaning
 
 ``ANY`` and ``SOME`` have the same meaning and can be used interchangeably.
 
-.. _like_operator:
+.. _like-operator:
 
 Pattern comparison: LIKE
 ------------------------

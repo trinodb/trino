@@ -54,6 +54,8 @@ values to set corresponding OAuth2 authentication configuration properties:
 This functionality is enabled by default but can be turned off with:
 ``http-server.authentication.oauth2.oidc.discovery=false``.
 
+.. _trino-server-configuration-oauth2:
+
 Trino server configuration
 --------------------------
 
@@ -74,8 +76,8 @@ to the coordinator's ``config.properties`` file:
     http-server.authentication.oauth2.client-id=CLIENT_ID
     http-server.authentication.oauth2.client-secret=CLIENT_SECRET
 
-In order to enable OAuth 2.0 authentication for the Web UI, the following
-properties need to be added:
+To enable OAuth 2.0 authentication for the Web UI, the following
+property must be be added:
 
 .. code-block:: properties
 
@@ -132,7 +134,8 @@ The following configuration properties are available:
      - Scopes requested by the server during the authorization challenge. See:
        https://tools.ietf.org/html/rfc6749#section-3.3
    * - ``http-server.authentication.oauth2.challenge-timeout``
-     - Maximum duration of the authorization challenge. Default is ``15m``.
+     - Maximum :ref:`duration <prop-type-duration>` of the authorization challenge.
+       Default is ``15m``.
    * - ``http-server.authentication.oauth2.state-key``
      - A secret key used by the SHA-256
        `HMAC <https://tools.ietf.org/html/rfc2104>`_
@@ -148,8 +151,6 @@ The following configuration properties are available:
        for more information.
    * - ``http-server.authentication.oauth2.principal-field``
      - The field of the access token used for the Trino user principal. Defaults to ``sub``. Other commonly used fields include ``sAMAccountName``, ``name``, ``upn``, and ``email``.
-   * - ``http-server.authentication.oauth2.groups-field``
-     - Array-based field in the access token used to list group information for a user.
    * - ``http-server.authentication.oauth2.oidc.discovery``
      - Enable reading the `OIDC provider metadata <https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata>`_.
        Default is ``true``.
@@ -162,10 +163,39 @@ The following configuration properties are available:
        This flag allows ignoring the value provided in the metadata document.
        Default is ``true``.
 
+.. _trino-oauth2-refresh-tokens:
+
 Refresh tokens
 ^^^^^^^^^^^^^^
 
-In order to start using refresh tokens flows, the following property must be
+*Refresh tokens* allow you to securely control the length of user sessions
+within applications. The refresh token has a longer lifespan (TTL) and is used
+to refresh the *access token* that has a shorter lifespan. When refresh tokens
+are used in conjunction with access tokens, users can remain logged in for an
+extended duration without interruption by another login request.
+
+In a refresh token flow, there are three tokens with different expiration times:
+
+* access token
+* refresh token
+* Trino-encrypted token that is a combination of the access and refresh tokens.
+  The encrypted token manages the session lifetime with the timeout value that
+  is set with the
+  ``http-server.authentication.oauth2.refresh-tokens.issued-token.timeout``
+  property.
+
+In the following scenario, the lifespan of the tokens issued by an IdP are:
+
+* access token 5m
+* refresh token 24h
+
+Because the access token lifespan is only five minutes, Trino uses the longer
+lifespan refresh token to request another access token every five minutes on
+behalf of a user. In this case, the maximum
+``http-server.authentication.oauth2.refresh-tokens.issued-token.timeout`` is
+twenty-four hours.
+
+To use refresh token flows, the following property must be
 enabled in the coordinator configuration.
 
 .. code-block:: properties
@@ -188,9 +218,13 @@ The following configuration properties are available:
    * - Property
      - Description
    * - ``http-server.authentication.oauth2.refresh-tokens.issued-token.timeout``
-     - Expiration time for issued token. Value must be less than or equal to
-       the duration of the refresh token expiration issued by the IdP.
-       Defaults to ``1h``.
+     - Expiration time for an issued token, which is the Trino-encrypted token
+       that contains an access token and a refresh token. The timeout value must
+       be less than or equal to the :ref:`duration <prop-type-duration>` of the
+       refresh token expiration issued by the IdP. Defaults to ``1h``. The
+       timeout value is the maximum session time for an OAuth2-authenticated
+       client with refresh tokens enabled. For more details, see
+       :ref:`trino-oauth2-troubleshooting`.
    * - ``http-server.authentication.oauth2.refresh-tokens.issued-token.issuer``
      - Issuer representing the coordinator instance, that is referenced in the
        issued token, defaults to ``Trino_coordinator``. The current
@@ -203,13 +237,36 @@ The following configuration properties are available:
      - Base64-encoded secret key used to encrypt the generated token.
        By default it's generated during startup.
 
+.. _trino-oauth2-troubleshooting:
 
 Troubleshooting
 ---------------
 
-If you need to debug issues with Trino OAuth 2.0 configuration you can change
-the :ref:`log level <log-levels>` for the OAuth 2.0 authenticator:
+To debug issues, change the :ref:`log level <log-levels>` for the OAuth 2.0
+authenticator:
 
 .. code-block:: none
 
     io.trino.server.security.oauth2=DEBUG
+
+To debug issues with OAuth 2.0 authentication use with the web UI, set the
+following configuration property:
+
+.. code-block:: none
+
+    io.trino.server.ui.OAuth2WebUiAuthenticationFilter=DEBUG
+
+This assumes the OAuth 2.0 authentication for the Web UI is enabled as described
+in :ref:`trino-server-configuration-oauth2`.
+
+The logged debug error for a lapsed refresh token is ``Tokens refresh challenge
+has failed``.
+
+.. warning::
+
+    If a refresh token lapses, the user session is interrupted and the user must
+    reauthenticate by logging in again. Ensure you set the
+    ``http-server.authentication.oauth2.refresh-tokens.issued-token.timeout``
+    value to less than or equal to the duration of the refresh token expiration
+    issued by your IdP. Optimally, the timeout should be slightly less than the
+    refresh token lifespan of your IdP to ensure that sessions end gracefully.

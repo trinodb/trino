@@ -28,21 +28,19 @@ public final class ColumnarRow
     {
         requireNonNull(block, "block is null");
 
-        if (block instanceof LazyBlock) {
-            block = ((LazyBlock) block).getBlock();
+        if (block instanceof LazyBlock lazyBlock) {
+            block = lazyBlock.getBlock();
         }
-        if (block instanceof DictionaryBlock) {
-            return toColumnarRow((DictionaryBlock) block);
+        if (block instanceof DictionaryBlock dictionaryBlock) {
+            return toColumnarRow(dictionaryBlock);
         }
-        if (block instanceof RunLengthEncodedBlock) {
-            return toColumnarRow((RunLengthEncodedBlock) block);
+        if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
+            return toColumnarRow(runLengthEncodedBlock);
         }
 
-        if (!(block instanceof AbstractRowBlock)) {
+        if (!(block instanceof AbstractRowBlock rowBlock)) {
             throw new IllegalArgumentException("Invalid row block: " + block.getClass().getName());
         }
-
-        AbstractRowBlock rowBlock = (AbstractRowBlock) block;
 
         // get fields for visible region
         int firstRowPosition = rowBlock.getFieldBlockOffset(0);

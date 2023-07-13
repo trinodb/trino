@@ -53,32 +53,6 @@ public class JoinHashSupplier
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
 
-    public static long getEstimatedRetainedSizeInBytes(
-            int positionCount,
-            LongArrayList addresses,
-            List<ObjectArrayList<Block>> channels,
-            long blocksSizeInBytes,
-            Optional<Integer> sortChannel,
-            OptionalInt singleBigintJoinChannel,
-            HashArraySizeSupplier hashArraySizeSupplier)
-    {
-        long result = 0;
-        if (sortChannel.isPresent()) {
-            result += SortedPositionLinks.getEstimatedRetainedSizeInBytes(positionCount);
-        }
-        else {
-            result += ArrayPositionLinks.getEstimatedRetainedSizeInBytes(positionCount);
-        }
-        result += getPageInstancesRetainedSizeInBytes(channels);
-        if (singleBigintJoinChannel.isPresent() && addresses.size() <= JOIN_POSITIONS_ARRAY_CUTOFF) {
-            result += BigintPagesHash.getEstimatedRetainedSizeInBytes(positionCount, hashArraySizeSupplier, addresses, channels, blocksSizeInBytes);
-        }
-        else {
-            result += DefaultPagesHash.getEstimatedRetainedSizeInBytes(positionCount, hashArraySizeSupplier, addresses, channels, blocksSizeInBytes);
-        }
-        return result;
-    }
-
     public JoinHashSupplier(
             Session session,
             PagesHashStrategy pagesHashStrategy,
@@ -144,6 +118,32 @@ public class JoinHashSupplier
                     return links.create(searchFunctions);
                 }),
                 pageInstancesRetainedSizeInBytes);
+    }
+
+    public static long getEstimatedRetainedSizeInBytes(
+            int positionCount,
+            LongArrayList addresses,
+            List<ObjectArrayList<Block>> channels,
+            long blocksSizeInBytes,
+            Optional<Integer> sortChannel,
+            OptionalInt singleBigintJoinChannel,
+            HashArraySizeSupplier hashArraySizeSupplier)
+    {
+        long result = 0;
+        if (sortChannel.isPresent()) {
+            result += SortedPositionLinks.getEstimatedRetainedSizeInBytes(positionCount);
+        }
+        else {
+            result += ArrayPositionLinks.getEstimatedRetainedSizeInBytes(positionCount);
+        }
+        result += getPageInstancesRetainedSizeInBytes(channels);
+        if (singleBigintJoinChannel.isPresent() && addresses.size() <= JOIN_POSITIONS_ARRAY_CUTOFF) {
+            result += BigintPagesHash.getEstimatedRetainedSizeInBytes(positionCount, hashArraySizeSupplier, addresses, channels, blocksSizeInBytes);
+        }
+        else {
+            result += DefaultPagesHash.getEstimatedRetainedSizeInBytes(positionCount, hashArraySizeSupplier, addresses, channels, blocksSizeInBytes);
+        }
+        return result;
     }
 
     private static long getPageInstancesRetainedSizeInBytes(List<ObjectArrayList<Block>> channels)

@@ -13,7 +13,9 @@
  */
 package io.trino.metadata;
 
+import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServices;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -23,13 +25,15 @@ import io.trino.transaction.TransactionId;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.StandardErrorCode.CATALOG_UNAVAILABLE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class Catalog
 {
     private final String catalogName;
     private final CatalogHandle catalogHandle;
-    private final String connectorName;
+    private final ConnectorName connectorName;
     private final ConnectorServices catalogConnector;
     private final ConnectorServices informationSchemaConnector;
     private final ConnectorServices systemConnector;
@@ -37,7 +41,7 @@ public class Catalog
     public Catalog(
             String catalogName,
             CatalogHandle catalogHandle,
-            String connectorName,
+            ConnectorName connectorName,
             ConnectorServices catalogConnector,
             ConnectorServices informationSchemaConnector,
             ConnectorServices systemConnector)
@@ -51,6 +55,21 @@ public class Catalog
         this.systemConnector = requireNonNull(systemConnector, "systemConnector is null");
     }
 
+    public static Catalog failedCatalog(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
+    {
+        return new Catalog(catalogName, catalogHandle, connectorName);
+    }
+
+    private Catalog(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
+    {
+        this.catalogName = catalogName;
+        this.catalogHandle = catalogHandle;
+        this.connectorName = connectorName;
+        this.catalogConnector = null;
+        this.informationSchemaConnector = null;
+        this.systemConnector = null;
+    }
+
     public String getCatalogName()
     {
         return catalogName;
@@ -61,9 +80,21 @@ public class Catalog
         return catalogHandle;
     }
 
-    public String getConnectorName()
+    public ConnectorName getConnectorName()
     {
         return connectorName;
+    }
+
+    public boolean isFailed()
+    {
+        return catalogConnector == null;
+    }
+
+    public void verify()
+    {
+        if (catalogConnector == null) {
+            throw new TrinoException(CATALOG_UNAVAILABLE, format("Catalog '%s' failed to initialize and is disabled", catalogName));
+        }
     }
 
     public CatalogMetadata beginTransaction(
@@ -72,6 +103,8 @@ public class Catalog
             boolean readOnly,
             boolean autoCommitContext)
     {
+        verify();
+
         CatalogTransaction catalogTransaction = beginTransaction(catalogConnector, transactionId, isolationLevel, readOnly, autoCommitContext);
         CatalogTransaction informationSchemaTransaction = beginTransaction(informationSchemaConnector, transactionId, isolationLevel, readOnly, autoCommitContext);
         CatalogTransaction systemTransaction = beginTransaction(systemConnector, transactionId, isolationLevel, readOnly, autoCommitContext);
@@ -101,7 +134,11 @@ public class Catalog
             transactionHandle = connector.beginTransaction(isolationLevel, readOnly, autoCommitContext);
         }
 
-        return new CatalogTransaction(connectorServices.getCatalogHandle(), connector, transactionHandle);
+        return new CatalogTransaction(
+                connectorServices.getTracer(),
+                connectorServices.getCatalogHandle(),
+                connector,
+                transactionHandle);
     }
 
     @Override

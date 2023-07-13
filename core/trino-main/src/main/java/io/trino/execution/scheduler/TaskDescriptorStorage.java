@@ -16,6 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.Multimap;
 import com.google.common.math.Stats;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.execution.QueryManagerConfig;
@@ -28,7 +29,6 @@ import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.Comparator;

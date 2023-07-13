@@ -20,7 +20,9 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
+import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.ColumnPropertyManager;
@@ -90,8 +92,6 @@ import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TableElement;
 import io.trino.sql.tree.Values;
-
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -198,7 +198,7 @@ public final class ShowQueriesRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         Visitor visitor = new Visitor(
                 metadata,
@@ -557,8 +557,7 @@ public final class ShowQueriesRewrite
                 return new DoubleLiteral(value.toString());
             }
 
-            if (value instanceof List) {
-                List<?> list = (List<?>) value;
+            if (value instanceof List<?> list) {
                 return new Array(list.stream()
                         .map(Visitor::toExpression)
                         .collect(toList()));

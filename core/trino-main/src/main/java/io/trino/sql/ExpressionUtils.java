@@ -94,8 +94,7 @@ public final class ExpressionUtils
 
     private static void extractPredicates(LogicalExpression.Operator operator, Expression expression, ImmutableList.Builder<Expression> resultBuilder)
     {
-        if (expression instanceof LogicalExpression && ((LogicalExpression) expression).getOperator() == operator) {
-            LogicalExpression logicalExpression = (LogicalExpression) expression;
+        if (expression instanceof LogicalExpression logicalExpression && logicalExpression.getOperator() == operator) {
             for (Expression term : logicalExpression.getTerms()) {
                 extractPredicates(operator, term, resultBuilder);
             }

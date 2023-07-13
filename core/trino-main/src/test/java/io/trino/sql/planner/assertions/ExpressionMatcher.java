@@ -25,6 +25,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.SymbolReference;
+import org.intellij.lang.annotations.Language;
 
 import java.util.List;
 import java.util.Map;
@@ -40,13 +41,13 @@ public class ExpressionMatcher
     private final String sql;
     private final Expression expression;
 
-    public ExpressionMatcher(String expression)
+    ExpressionMatcher(@Language("SQL") String expression)
     {
         this.sql = requireNonNull(expression, "expression is null");
         this.expression = expression(expression);
     }
 
-    public ExpressionMatcher(Expression expression)
+    ExpressionMatcher(Expression expression)
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.sql = expression.toString();
@@ -90,12 +91,10 @@ public class ExpressionMatcher
 
     private static Map<Symbol, Expression> getAssignments(PlanNode node)
     {
-        if (node instanceof ProjectNode) {
-            ProjectNode projectNode = (ProjectNode) node;
+        if (node instanceof ProjectNode projectNode) {
             return projectNode.getAssignments().getMap();
         }
-        if (node instanceof ApplyNode) {
-            ApplyNode applyNode = (ApplyNode) node;
+        if (node instanceof ApplyNode applyNode) {
             return applyNode.getSubqueryAssignments().getMap();
         }
         return null;

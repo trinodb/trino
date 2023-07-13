@@ -13,17 +13,20 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, PARTITIONED):
                                                     remote exchange (REPARTITION, HASH, ["orderkey"])
                                                         join (INNER, REPLICATED):
-                                                            scan lineitem
+                                                            dynamic filter (["orderkey", "orderkey", "suppkey_0"])
+                                                                scan lineitem
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     join (INNER, REPLICATED):
-                                                                        scan supplier
+                                                                        dynamic filter (["nationkey"])
+                                                                            scan supplier
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                                 scan nation
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["orderkey_5"])
-                                                            scan orders
+                                                            dynamic filter (["orderkey_5"])
+                                                                scan orders
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["orderkey_17"])
                                                         scan lineitem

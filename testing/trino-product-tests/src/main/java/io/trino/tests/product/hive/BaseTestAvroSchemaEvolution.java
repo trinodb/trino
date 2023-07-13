@@ -15,8 +15,8 @@ package io.trino.tests.product.hive;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import org.testng.annotations.Test;
@@ -33,11 +33,11 @@ import java.util.stream.Collectors;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseTestAvroSchemaEvolution
         extends ProductTest
@@ -65,7 +65,7 @@ public abstract class BaseTestAvroSchemaEvolution
         this.varcharPartitionColumns = ImmutableList.copyOf(varcharPartitionColumns);
     }
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void createAndLoadTable()
             throws IOException
     {
@@ -97,7 +97,7 @@ public abstract class BaseTestAvroSchemaEvolution
         insertData(tableWithSchemaLiteral, 0, "'stringA0'", "0");
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void dropTestTable()
     {
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableWithSchemaUrl));
@@ -155,9 +155,9 @@ public abstract class BaseTestAvroSchemaEvolution
         alterTableSchemaLiteral(readSchemaLiteralFromUrl(INCOMPATIBLE_TYPE_SCHEMA));
 
         assertQueryFailure(() -> onTrino().executeQuery(format(selectStarStatement, tableWithSchemaUrl)))
-                .hasMessageContaining("Found int, expecting string");
+                .hasStackTraceContaining("Found int, expecting string");
         assertQueryFailure(() -> onTrino().executeQuery(format(selectStarStatement, tableWithSchemaLiteral)))
-                .hasMessageContaining("Found int, expecting string");
+                .hasStackTraceContaining("Found int, expecting string");
     }
 
     @Test(groups = AVRO)

@@ -28,6 +28,15 @@ public interface PositionsAppender
     void appendRle(Block value, int rlePositionCount);
 
     /**
+     * Appends single position. The implementation must be conceptually equal to
+     * {@code append(IntArrayList.wrap(new int[] {position}), source)} but may be optimized.
+     * Caller should avoid using this method if {@link #append(IntArrayList, Block)} can be used
+     * as appending positions one by one can be significantly slower and may not support features
+     * like pushing RLE through the appender.
+     */
+    void append(int position, Block source);
+
+    /**
      * Creates the block from the appender data.
      * After this, appender is reset to the initial state, and it is ready to build a new block.
      */

@@ -58,7 +58,7 @@ public final class PropertyMetadata<T>
         requireNonNull(decoder, "decoder is null");
         requireNonNull(encoder, "encoder is null");
 
-        if (name.isEmpty() || !name.trim().toLowerCase(ENGLISH).equals(name)) {
+        if (name.isEmpty() || !name.trim().toLowerCase(ENGLISH).equals(name) || name.contains(".")) {
             throw new IllegalArgumentException(format("Invalid property name '%s'", name));
         }
         if (description.isEmpty() || !description.trim().equals(description)) {

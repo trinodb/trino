@@ -13,12 +13,28 @@
  */
 package io.trino.testing;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+
+import java.util.List;
 import java.util.function.Predicate;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public enum TestingConnectorBehavior
 {
+    SUPPORTS_INSERT,
+    SUPPORTS_DELETE,
+    SUPPORTS_ROW_LEVEL_DELETE(SUPPORTS_DELETE),
+    SUPPORTS_UPDATE,
+    SUPPORTS_MERGE,
+
+    SUPPORTS_TRUNCATE(SUPPORTS_DELETE),
+
+    SUPPORTS_ARRAY,
+    SUPPORTS_ROW_TYPE,
+
     SUPPORTS_PREDICATE_PUSHDOWN,
     SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY(SUPPORTS_PREDICATE_PUSHDOWN),
     SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY(SUPPORTS_PREDICATE_PUSHDOWN),
@@ -31,16 +47,15 @@ public enum TestingConnectorBehavior
     SUPPORTS_LIMIT_PUSHDOWN,
 
     SUPPORTS_TOPN_PUSHDOWN,
-    SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR(fallback -> fallback.test(SUPPORTS_TOPN_PUSHDOWN) && fallback.test(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)),
+    SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR(and(SUPPORTS_TOPN_PUSHDOWN, SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)),
 
     SUPPORTS_AGGREGATION_PUSHDOWN,
-    // Most connectors don't support aggregation pushdown for statistical functions
-    SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV(false),
-    SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE(false),
-    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE(false),
-    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION(false),
-    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION(false),
-    SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT(false),
+    SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV(SUPPORTS_AGGREGATION_PUSHDOWN),
+    SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE(SUPPORTS_AGGREGATION_PUSHDOWN),
+    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE(SUPPORTS_AGGREGATION_PUSHDOWN),
+    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION(SUPPORTS_AGGREGATION_PUSHDOWN),
+    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION(SUPPORTS_AGGREGATION_PUSHDOWN),
+    SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT(SUPPORTS_AGGREGATION_PUSHDOWN),
 
     SUPPORTS_JOIN_PUSHDOWN(
             // Currently no connector supports Join pushdown by default. JDBC connectors may support Join pushdown and BaseJdbcConnectorTest
@@ -48,8 +63,10 @@ public enum TestingConnectorBehavior
             false),
     SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN(SUPPORTS_JOIN_PUSHDOWN),
     SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM(SUPPORTS_JOIN_PUSHDOWN),
-    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY(fallback -> fallback.test(SUPPORTS_JOIN_PUSHDOWN) && fallback.test(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)),
-    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY(fallback -> fallback.test(SUPPORTS_JOIN_PUSHDOWN) && fallback.test(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)),
+    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY(and(SUPPORTS_JOIN_PUSHDOWN, SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)),
+    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY(and(SUPPORTS_JOIN_PUSHDOWN, SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)),
+
+    SUPPORTS_DEREFERENCE_PUSHDOWN(SUPPORTS_ROW_TYPE),
 
     SUPPORTS_CREATE_SCHEMA,
     // Expect rename to be supported when create schema is supported, to help make connector implementations coherent.
@@ -65,40 +82,34 @@ public enum TestingConnectorBehavior
     SUPPORTS_ADD_COLUMN,
     SUPPORTS_ADD_COLUMN_WITH_COMMENT(SUPPORTS_ADD_COLUMN),
     SUPPORTS_DROP_COLUMN(SUPPORTS_ADD_COLUMN),
+    SUPPORTS_DROP_FIELD(and(SUPPORTS_DROP_COLUMN, SUPPORTS_ROW_TYPE)),
     SUPPORTS_RENAME_COLUMN,
     SUPPORTS_SET_COLUMN_TYPE,
 
     SUPPORTS_COMMENT_ON_TABLE,
-    SUPPORTS_COMMENT_ON_VIEW(false),
-    SUPPORTS_COMMENT_ON_COLUMN,
-    SUPPORTS_COMMENT_ON_VIEW_COLUMN(false),
+    SUPPORTS_COMMENT_ON_COLUMN(SUPPORTS_COMMENT_ON_TABLE),
 
-    SUPPORTS_CREATE_VIEW(false),
+    SUPPORTS_CREATE_VIEW,
+    SUPPORTS_COMMENT_ON_VIEW(and(SUPPORTS_CREATE_VIEW, SUPPORTS_COMMENT_ON_TABLE)),
+    SUPPORTS_COMMENT_ON_VIEW_COLUMN(SUPPORTS_COMMENT_ON_VIEW),
 
-    SUPPORTS_CREATE_MATERIALIZED_VIEW(false),
+    SUPPORTS_CREATE_MATERIALIZED_VIEW,
+    SUPPORTS_CREATE_MATERIALIZED_VIEW_GRACE_PERIOD(SUPPORTS_CREATE_MATERIALIZED_VIEW),
     SUPPORTS_CREATE_FEDERATED_MATERIALIZED_VIEW(SUPPORTS_CREATE_MATERIALIZED_VIEW), // i.e. an MV that spans catalogs
+    SUPPORTS_MATERIALIZED_VIEW_FRESHNESS_FROM_BASE_TABLES(SUPPORTS_CREATE_MATERIALIZED_VIEW),
     SUPPORTS_RENAME_MATERIALIZED_VIEW(SUPPORTS_CREATE_MATERIALIZED_VIEW),
     SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS(SUPPORTS_RENAME_MATERIALIZED_VIEW),
 
-    SUPPORTS_INSERT,
     SUPPORTS_NOT_NULL_CONSTRAINT(SUPPORTS_CREATE_TABLE),
+    SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT(and(SUPPORTS_NOT_NULL_CONSTRAINT, SUPPORTS_ADD_COLUMN)),
 
-    SUPPORTS_DELETE(false),
-    SUPPORTS_ROW_LEVEL_DELETE(SUPPORTS_DELETE),
-
-    SUPPORTS_UPDATE(false),
-
-    SUPPORTS_MERGE(false),
-
-    SUPPORTS_TRUNCATE(false),
-
-    SUPPORTS_ARRAY,
-    SUPPORTS_ROW_TYPE,
     SUPPORTS_NEGATIVE_DATE,
 
     SUPPORTS_CANCELLATION(false),
 
     SUPPORTS_MULTI_STATEMENT_WRITES(false),
+
+    SUPPORTS_NATIVE_QUERY(true), // system.query or equivalent PTF for query passthrough
 
     /**/;
 
@@ -112,6 +123,15 @@ public enum TestingConnectorBehavior
     TestingConnectorBehavior(boolean hasBehaviorByDefault)
     {
         this(fallback -> hasBehaviorByDefault);
+        checkArgument(
+                !hasBehaviorByDefault ==
+                        // TODO make these marked as expected by default
+                        (name().equals("SUPPORTS_CANCELLATION") ||
+                                name().equals("SUPPORTS_DYNAMIC_FILTER_PUSHDOWN") ||
+                                name().equals("SUPPORTS_JOIN_PUSHDOWN") ||
+                                name().equals("SUPPORTS_MULTI_STATEMENT_WRITES")),
+                "Every behavior should be expected to be true by default. Having mixed defaults makes reasoning about tests harder. False default provided for %s",
+                name());
     }
 
     TestingConnectorBehavior(TestingConnectorBehavior defaultBehaviorSource)
@@ -134,5 +154,11 @@ public enum TestingConnectorBehavior
     boolean hasBehaviorByDefault(Predicate<TestingConnectorBehavior> fallback)
     {
         return hasBehaviorByDefault.test(fallback);
+    }
+
+    private static Predicate<Predicate<TestingConnectorBehavior>> and(TestingConnectorBehavior first, TestingConnectorBehavior... rest)
+    {
+        List<TestingConnectorBehavior> conjuncts = ImmutableList.copyOf(Lists.asList(first, rest));
+        return fallback -> conjuncts.stream().allMatch(fallback);
     }
 }

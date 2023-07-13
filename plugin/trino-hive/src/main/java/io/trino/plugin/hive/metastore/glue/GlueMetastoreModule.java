@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.handlers.RequestHandler2;
+import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
@@ -59,13 +60,15 @@ public class GlueMetastoreModule
                 .setDefault().toProvider(DefaultGlueMetastoreTableFilterProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(HiveMetastoreFactory.class)
-                .annotatedWith(RawHiveMetastoreFactory.class)
+        newOptionalBinder(binder, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class))
+                .setDefault()
                 .to(GlueHiveMetastoreFactory.class)
                 .in(Scopes.SINGLETON);
 
         // export under the old name, for backwards compatibility
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
+        binder.bind(Key.get(GlueMetastoreStats.class, ForGlueHiveMetastore.class)).toInstance(new GlueMetastoreStats());
+        binder.bind(AWSGlueAsync.class).toProvider(HiveGlueClientProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueHiveMetastoreFactory.class).as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
 
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(false);

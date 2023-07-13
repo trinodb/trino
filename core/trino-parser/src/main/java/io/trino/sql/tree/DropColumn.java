@@ -26,25 +26,25 @@ public class DropColumn
         extends Statement
 {
     private final QualifiedName table;
-    private final Identifier column;
+    private final QualifiedName field;
     private final boolean tableExists;
     private final boolean columnExists;
 
-    public DropColumn(QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
+    public DropColumn(QualifiedName table, QualifiedName field, boolean tableExists, boolean columnExists)
     {
-        this(Optional.empty(), table, column, tableExists, columnExists);
+        this(Optional.empty(), table, field, tableExists, columnExists);
     }
 
-    public DropColumn(NodeLocation location, QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
+    public DropColumn(NodeLocation location, QualifiedName table, QualifiedName field, boolean tableExists, boolean columnExists)
     {
-        this(Optional.of(location), table, column, tableExists, columnExists);
+        this(Optional.of(location), table, field, tableExists, columnExists);
     }
 
-    private DropColumn(Optional<NodeLocation> location, QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
+    private DropColumn(Optional<NodeLocation> location, QualifiedName table, QualifiedName field, boolean tableExists, boolean columnExists)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");
-        this.column = requireNonNull(column, "column is null");
+        this.field = requireNonNull(field, "field is null");
         this.tableExists = tableExists;
         this.columnExists = columnExists;
     }
@@ -54,9 +54,9 @@ public class DropColumn
         return table;
     }
 
-    public Identifier getColumn()
+    public QualifiedName getField()
     {
-        return column;
+        return field;
     }
 
     public boolean isTableExists()
@@ -92,13 +92,13 @@ public class DropColumn
         }
         DropColumn that = (DropColumn) o;
         return Objects.equals(table, that.table) &&
-                Objects.equals(column, that.column);
+                Objects.equals(field, that.field);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, column);
+        return Objects.hash(table, field);
     }
 
     @Override
@@ -106,7 +106,7 @@ public class DropColumn
     {
         return toStringHelper(this)
                 .add("table", table)
-                .add("column", column)
+                .add("field", field)
                 .toString();
     }
 }

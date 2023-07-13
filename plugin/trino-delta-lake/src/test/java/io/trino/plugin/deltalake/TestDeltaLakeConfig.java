@@ -59,6 +59,7 @@ public class TestDeltaLakeConfig
                 .setDynamicFilteringWaitTimeout(new Duration(0, SECONDS))
                 .setTableStatisticsEnabled(true)
                 .setExtendedStatisticsEnabled(true)
+                .setCollectExtendedStatisticsOnWrite(true)
                 .setCompressionCodec(HiveCompressionCodec.SNAPPY)
                 .setDeleteSchemaLocationsFallback(false)
                 .setParquetTimeZone(TimeZone.getDefault().getID())
@@ -66,7 +67,8 @@ public class TestDeltaLakeConfig
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setUniqueTableLocation(true)
                 .setLegacyCreateTableWithExistingLocationEnabled(false)
-                .setRegisterTableProcedureEnabled(false));
+                .setRegisterTableProcedureEnabled(false)
+                .setProjectionPushdownEnabled(true));
     }
 
     @Test
@@ -93,6 +95,7 @@ public class TestDeltaLakeConfig
                 .put("delta.dynamic-filtering.wait-timeout", "30m")
                 .put("delta.table-statistics-enabled", "false")
                 .put("delta.extended-statistics.enabled", "false")
+                .put("delta.extended-statistics.collect-on-write", "false")
                 .put("delta.compression-codec", "GZIP")
                 .put("delta.per-transaction-metastore-cache-maximum-size", "500")
                 .put("delta.delete-schema-locations-fallback", "true")
@@ -101,6 +104,7 @@ public class TestDeltaLakeConfig
                 .put("delta.unique-table-location", "false")
                 .put("delta.legacy-create-table-with-existing-location.enabled", "true")
                 .put("delta.register-table-procedure.enabled", "true")
+                .put("delta.projection-pushdown-enabled", "false")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -124,6 +128,7 @@ public class TestDeltaLakeConfig
                 .setDynamicFilteringWaitTimeout(new Duration(30, MINUTES))
                 .setTableStatisticsEnabled(false)
                 .setExtendedStatisticsEnabled(false)
+                .setCollectExtendedStatisticsOnWrite(false)
                 .setCompressionCodec(HiveCompressionCodec.GZIP)
                 .setDeleteSchemaLocationsFallback(true)
                 .setParquetTimeZone(nonDefaultTimeZone().getID())
@@ -131,7 +136,8 @@ public class TestDeltaLakeConfig
                 .setTargetMaxFileSize(DataSize.of(2, GIGABYTE))
                 .setUniqueTableLocation(false)
                 .setLegacyCreateTableWithExistingLocationEnabled(true)
-                .setRegisterTableProcedureEnabled(true);
+                .setRegisterTableProcedureEnabled(true)
+                .setProjectionPushdownEnabled(false);
 
         assertFullMapping(properties, expected);
     }

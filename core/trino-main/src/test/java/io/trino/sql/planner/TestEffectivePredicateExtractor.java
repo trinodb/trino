@@ -113,6 +113,7 @@ import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.tests.BogusType.BOGUS;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertEquals;
@@ -168,7 +169,6 @@ public class TestEffectivePredicateExtractor
                     TestingConnectorTransactionHandle.INSTANCE,
                     new ConnectorTableProperties(
                             ((PredicatedTableHandle) handle.getConnectorHandle()).getPredicate(),
-                            Optional.empty(),
                             Optional.empty(),
                             Optional.empty(),
                             ImmutableList.of()));
@@ -568,6 +568,7 @@ public class TestEffectivePredicateExtractor
                 .put(A, BIGINT)
                 .put(B, BIGINT)
                 .put(D, DOUBLE)
+                .put(G, BOGUS)
                 .put(R, RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))
                 .buildOrThrow());
 
@@ -745,6 +746,20 @@ public class TestEffectivePredicateExtractor
                                 ImmutableList.of(
                                         new Row(ImmutableList.of(bigintLiteral(1))),
                                         new Row(ImmutableList.of(BE)))),
+                        types,
+                        typeAnalyzer),
+                TRUE_LITERAL);
+
+        // non-comparable and non-orderable
+        assertEquals(
+                effectivePredicateExtractor.extract(
+                        SESSION,
+                        new ValuesNode(
+                                newId(),
+                                ImmutableList.of(G),
+                                ImmutableList.of(
+                                        new Row(ImmutableList.of(bigintLiteral(1))),
+                                        new Row(ImmutableList.of(bigintLiteral(2))))),
                         types,
                         typeAnalyzer),
                 TRUE_LITERAL);
@@ -1221,7 +1236,7 @@ public class TestEffectivePredicateExtractor
         predicate = expressionNormalizer.normalize(predicate);
 
         // Equality inference rewrites and equality generation will always be stable across multiple runs in the same JVM
-        EqualityInference inference = EqualityInference.newInstance(metadata, predicate);
+        EqualityInference inference = new EqualityInference(metadata, predicate);
 
         Set<Symbol> scope = SymbolsExtractor.extractUnique(predicate);
         Set<Expression> rewrittenSet = EqualityInference.nonInferrableConjuncts(metadata, predicate)

@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.net.HostAndPort;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.JsonResponseHandler;
@@ -55,8 +56,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.ResultTable;
 import org.apache.pinot.spi.data.Schema;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -155,7 +154,6 @@ public class PinotClient
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)).jsonCodec(Schema.class);
         this.brokerResponseCodec = requireNonNull(brokerResponseCodec, "brokerResponseCodec is null");
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
-        requireNonNull(config, "config is null");
         this.scheme = config.isTlsEnabled() ? "https" : "http";
         this.proxyEnabled = config.getProxyEnabled();
 
@@ -436,8 +434,9 @@ public class PinotClient
                 @JsonProperty String timeValue)
         {
             if (timeColumn != null && timeValue != null) {
-                offlineTimePredicate = Optional.of(format("%s < %s", timeColumn, timeValue));
-                onlineTimePredicate = Optional.of(format("%s >= %s", timeColumn, timeValue));
+                // See org.apache.pinot.broker.requesthandler.BaseBrokerRequestHandler::attachTimeBoundary
+                offlineTimePredicate = Optional.of(format("%s <= %s", timeColumn, timeValue));
+                onlineTimePredicate = Optional.of(format("%s > %s", timeColumn, timeValue));
             }
             else {
                 onlineTimePredicate = Optional.empty();

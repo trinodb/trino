@@ -13,9 +13,11 @@
  */
 package io.trino.parquet.reader.flat;
 
+import com.google.common.primitives.Bytes;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -61,5 +63,11 @@ public class ByteColumnAdapter
     public long getSizeInBytes(byte[] values)
     {
         return sizeOf(values);
+    }
+
+    @Override
+    public byte[] merge(List<byte[]> buffers)
+    {
+        return Bytes.concat(buffers.toArray(byte[][]::new));
     }
 }

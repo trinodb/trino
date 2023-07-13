@@ -17,10 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.iceberg.delete.DeleteFile;
@@ -47,28 +47,31 @@ import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.types.Type;
-import org.apache.iceberg.util.TableScanUtil;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static com.google.common.math.LongMath.saturatedAdd;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
@@ -84,6 +87,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -111,13 +115,18 @@ public class IcebergSplitSource
     private final TupleDomain<IcebergColumnHandle> dataColumnPredicate;
     private final Domain pathDomain;
     private final Domain fileModifiedTimeDomain;
+    private final OptionalLong limit;
 
-    private CloseableIterable<FileScanTask> fileScanTaskIterable;
-    private CloseableIterator<FileScanTask> fileScanTaskIterator;
     private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
+    private CloseableIterable<FileScanTask> fileScanIterable;
+    private long targetSplitSize;
+    private CloseableIterator<FileScanTask> fileScanIterator;
+    private Iterator<FileScanTask> fileTasksIterator = emptyIterator();
+    private boolean fileHasAnyDeletions;
 
     private final boolean recordScannedFiles;
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
+    private long outputRowsLowerBound;
 
     public IcebergSplitSource(
             TrinoFileSystemFactory fileSystemFactory,
@@ -147,6 +156,12 @@ public class IcebergSplitSource
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
         this.dataColumnPredicate = tableHandle.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
         this.pathDomain = getPathDomain(tableHandle.getEnforcedPredicate());
+        checkArgument(
+                tableHandle.getUnenforcedPredicate().isAll() || tableHandle.getLimit().isEmpty(),
+                "Cannot enforce LIMIT %s with unenforced predicate %s present",
+                tableHandle.getLimit(),
+                tableHandle.getUnenforcedPredicate());
+        this.limit = tableHandle.getLimit();
         this.fileModifiedTimeDomain = getFileModifiedTimePathDomain(tableHandle.getEnforcedPredicate());
     }
 
@@ -160,7 +175,7 @@ public class IcebergSplitSource
                     .completeOnTimeout(EMPTY_BATCH, timeLeft, MILLISECONDS);
         }
 
-        if (fileScanTaskIterable == null) {
+        if (fileScanIterable == null) {
             // Used to avoid duplicating work if the Dynamic Filter was already pushed down to the Iceberg API
             boolean dynamicFilterIsComplete = dynamicFilter.isComplete();
             this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast);
@@ -189,12 +204,10 @@ public class IcebergSplitSource
             if (requiresColumnStats) {
                 scan = scan.includeColumnStats();
             }
-            this.fileScanTaskIterable = TableScanUtil.splitFiles(scan.planFiles(), tableScan.targetSplitSize());
-            closer.register(fileScanTaskIterable);
-            this.fileScanTaskIterator = fileScanTaskIterable.iterator();
-            closer.register(fileScanTaskIterator);
-            // TODO: Remove when NPE check has been released: https://github.com/trinodb/trino/issues/15372
-            isFinished();
+            this.fileScanIterable = closer.register(scan.planFiles());
+            this.targetSplitSize = tableScan.targetSplitSize();
+            this.fileScanIterator = closer.register(fileScanIterable.iterator());
+            this.fileTasksIterator = emptyIterator();
         }
 
         TupleDomain<IcebergColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
@@ -204,10 +217,17 @@ public class IcebergSplitSource
             return completedFuture(NO_MORE_SPLITS_BATCH);
         }
 
-        Iterator<FileScanTask> fileScanTasks = Iterators.limit(fileScanTaskIterator, maxSize);
-        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        while (fileScanTasks.hasNext()) {
-            FileScanTask scanTask = fileScanTasks.next();
+        List<ConnectorSplit> splits = new ArrayList<>(maxSize);
+        while (splits.size() < maxSize && (fileTasksIterator.hasNext() || fileScanIterator.hasNext())) {
+            if (!fileTasksIterator.hasNext()) {
+                FileScanTask wholeFileTask = fileScanIterator.next();
+                fileTasksIterator = wholeFileTask.split(targetSplitSize).iterator();
+                fileHasAnyDeletions = false;
+                // In theory, .split() could produce empty iterator, so let's evaluate the outer loop condition again.
+                continue;
+            }
+            FileScanTask scanTask = fileTasksIterator.next();
+            fileHasAnyDeletions = fileHasAnyDeletions || !scanTask.deletes().isEmpty();
             if (scanTask.deletes().isEmpty() &&
                     maxScannedFileSizeInBytes.isPresent() &&
                     scanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
@@ -270,16 +290,26 @@ public class IcebergSplitSource
                 List<org.apache.iceberg.DeleteFile> fullyAppliedDeletes = tableHandle.getEnforcedPredicate().isAll() ? scanTask.deletes() : ImmutableList.of();
                 scannedFiles.add(new DataFileWithDeleteFiles(scanTask.file(), fullyAppliedDeletes));
             }
+            if (!fileTasksIterator.hasNext()) {
+                // This is the last task for this file
+                if (!fileHasAnyDeletions) {
+                    // There were no deletions, so we produced splits covering the whole file
+                    outputRowsLowerBound = saturatedAdd(outputRowsLowerBound, scanTask.file().recordCount());
+                    if (limit.isPresent() && limit.getAsLong() <= outputRowsLowerBound) {
+                        finish();
+                    }
+                }
+            }
             splits.add(icebergSplit);
         }
-        return completedFuture(new ConnectorSplitBatch(splits.build(), isFinished()));
+        return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
     }
 
     private long getModificationTime(String path)
     {
         try {
-            TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(path);
-            return inputFile.modificationTime();
+            TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(Location.of(path));
+            return inputFile.lastModified().toEpochMilli();
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to get file modification time: " + path, e);
@@ -289,14 +319,15 @@ public class IcebergSplitSource
     private void finish()
     {
         close();
-        this.fileScanTaskIterable = CloseableIterable.empty();
-        this.fileScanTaskIterator = CloseableIterator.empty();
+        this.fileScanIterable = CloseableIterable.empty();
+        this.fileScanIterator = CloseableIterator.empty();
+        this.fileTasksIterator = emptyIterator();
     }
 
     @Override
     public boolean isFinished()
     {
-        return fileScanTaskIterator != null && !fileScanTaskIterator.hasNext();
+        return fileScanIterator != null && !fileScanIterator.hasNext() && !fileTasksIterator.hasNext();
     }
 
     @Override
@@ -348,7 +379,7 @@ public class IcebergSplitSource
             }
             Type type = primitiveTypeForFieldId.get(fieldId);
             Domain statisticsDomain = domainForStatistics(
-                    column.getType(),
+                    column,
                     lowerBounds == null ? null : fromByteBuffer(type, lowerBounds.get(fieldId)),
                     upperBounds == null ? null : fromByteBuffer(type, upperBounds.get(fieldId)),
                     mayContainNulls);
@@ -360,12 +391,13 @@ public class IcebergSplitSource
     }
 
     private static Domain domainForStatistics(
-            io.trino.spi.type.Type type,
+            IcebergColumnHandle columnHandle,
             @Nullable Object lowerBound,
             @Nullable Object upperBound,
             boolean mayContainNulls)
     {
-        Type icebergType = toIcebergType(type);
+        io.trino.spi.type.Type type = columnHandle.getType();
+        Type icebergType = toIcebergType(type, columnHandle.getColumnIdentity());
         if (lowerBound == null && upperBound == null) {
             return Domain.create(ValueSet.all(type), mayContainNulls);
         }

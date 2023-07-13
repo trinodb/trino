@@ -19,6 +19,7 @@ import io.trino.matching.Pattern;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 
@@ -42,7 +43,7 @@ import static java.lang.String.format;
  * can result in rounding of the output to a bigint.
  */
 public abstract class BaseImplementAvgBigint
-        implements AggregateFunctionRule<JdbcExpression, String>
+        implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
 {
     private final Capture<Variable> argument;
 
@@ -63,13 +64,15 @@ public abstract class BaseImplementAvgBigint
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         Variable argument = captures.get(this.argument);
         verify(aggregateFunction.getOutputType() == DOUBLE);
 
+        ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format(getRewriteFormatExpression(), context.rewriteExpression(argument).orElseThrow()),
+                format(getRewriteFormatExpression(), rewrittenArgument.expression()),
+                rewrittenArgument.parameters(),
                 new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())));
     }
 

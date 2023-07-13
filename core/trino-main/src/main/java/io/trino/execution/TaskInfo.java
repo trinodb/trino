@@ -130,10 +130,10 @@ public class TaskInfo
                 .toString();
     }
 
-    public static TaskInfo createInitialTask(TaskId taskId, URI location, String nodeId, Optional<List<PipelinedBufferInfo>> pipelinedBufferStates, TaskStats taskStats)
+    public static TaskInfo createInitialTask(TaskId taskId, URI location, String nodeId, boolean speculative, Optional<List<PipelinedBufferInfo>> pipelinedBufferStates, TaskStats taskStats)
     {
         return new TaskInfo(
-                initialTaskStatus(taskId, location, nodeId),
+                initialTaskStatus(taskId, location, nodeId, speculative),
                 DateTime.now(),
                 new OutputBufferInfo(
                         "UNINITIALIZED",

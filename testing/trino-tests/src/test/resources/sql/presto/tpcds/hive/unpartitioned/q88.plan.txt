@@ -12,7 +12,8 @@ cross join:
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        scan store_sales
+                                                        dynamic filter (["ss_hdemo_sk", "ss_sold_time_sk", "ss_store_sk"])
+                                                            scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan time_dim
@@ -29,7 +30,8 @@ cross join:
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        scan store_sales
+                                                        dynamic filter (["ss_hdemo_sk_14", "ss_sold_time_sk_10", "ss_store_sk_16"])
+                                                            scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan time_dim
@@ -46,7 +48,8 @@ cross join:
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    scan store_sales
+                                                    dynamic filter (["ss_hdemo_sk_94", "ss_sold_time_sk_90", "ss_store_sk_96"])
+                                                        scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan time_dim
@@ -63,7 +66,8 @@ cross join:
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                scan store_sales
+                                                dynamic filter (["ss_hdemo_sk_174", "ss_sold_time_sk_170", "ss_store_sk_176"])
+                                                    scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan time_dim
@@ -80,7 +84,8 @@ cross join:
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            scan store_sales
+                                            dynamic filter (["ss_hdemo_sk_254", "ss_sold_time_sk_250", "ss_store_sk_256"])
+                                                scan store_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan time_dim
@@ -97,7 +102,8 @@ cross join:
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        scan store_sales
+                                        dynamic filter (["ss_hdemo_sk_334", "ss_sold_time_sk_330", "ss_store_sk_336"])
+                                            scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan time_dim
@@ -114,7 +120,8 @@ cross join:
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    scan store_sales
+                                    dynamic filter (["ss_hdemo_sk_414", "ss_sold_time_sk_410", "ss_store_sk_416"])
+                                        scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan time_dim
@@ -131,7 +138,8 @@ cross join:
                     join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
-                                scan store_sales
+                                dynamic filter (["ss_hdemo_sk_494", "ss_sold_time_sk_490", "ss_store_sk_496"])
+                                    scan store_sales
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         scan time_dim

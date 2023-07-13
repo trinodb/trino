@@ -19,6 +19,7 @@ import io.trino.matching.Pattern;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.DecimalType;
@@ -36,7 +37,7 @@ import static io.trino.plugin.redshift.RedshiftClient.REDSHIFT_MAX_DECIMAL_PRECI
 import static java.lang.String.format;
 
 public class ImplementRedshiftAvgDecimal
-        implements AggregateFunctionRule<JdbcExpression, String>
+        implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
 {
     private static final Capture<Variable> INPUT = newCapture();
 
@@ -52,24 +53,28 @@ public class ImplementRedshiftAvgDecimal
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         Variable input = captures.get(INPUT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
         DecimalType type = (DecimalType) columnHandle.getColumnType();
         verify(aggregateFunction.getOutputType().equals(type));
 
+        ParameterizedExpression rewrittenArgument = context.rewriteExpression(input).orElseThrow();
+
         // When decimal type has maximum precision we can get result that is not matching Presto avg semantics.
         if (type.getPrecision() == REDSHIFT_MAX_DECIMAL_PRECISION) {
             return Optional.of(new JdbcExpression(
-                    format("avg(CAST(%s AS decimal(%s, %s)))", context.rewriteExpression(input).orElseThrow(), type.getPrecision(), type.getScale()),
+                    format("avg(CAST(%s AS decimal(%s, %s)))", rewrittenArgument.expression(), type.getPrecision(), type.getScale()),
+                    rewrittenArgument.parameters(),
                     columnHandle.getJdbcTypeHandle()));
         }
 
         // Redshift avg function rounds down resulting decimal.
         // To match Presto avg semantics, we extend scale by 1 and round result to target scale.
         return Optional.of(new JdbcExpression(
-                format("round(avg(CAST(%s AS decimal(%s, %s))), %s)", context.rewriteExpression(input).orElseThrow(), type.getPrecision() + 1, type.getScale() + 1, type.getScale()),
+                format("round(avg(CAST(%s AS decimal(%s, %s))), %s)", rewrittenArgument.expression(), type.getPrecision() + 1, type.getScale() + 1, type.getScale()),
+                rewrittenArgument.parameters(),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

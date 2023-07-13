@@ -30,3 +30,5 @@ product-test-reports
 /impacted-features.log
 .github/test-matrix.yaml
 .github/test-pt-matrix.yaml
+.github/bin/redshift/.cluster-identifier
+**/dependency-reduced-pom.xml

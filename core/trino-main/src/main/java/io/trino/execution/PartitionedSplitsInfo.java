@@ -47,10 +47,9 @@ public final class PartitionedSplitsInfo
     @Override
     public boolean equals(Object other)
     {
-        if (!(other instanceof PartitionedSplitsInfo)) {
+        if (!(other instanceof PartitionedSplitsInfo otherInfo)) {
             return false;
         }
-        PartitionedSplitsInfo otherInfo = (PartitionedSplitsInfo) other;
         return this == otherInfo || (this.count == otherInfo.count && this.weightSum == otherInfo.weightSum);
     }
 

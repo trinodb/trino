@@ -13,12 +13,11 @@
  */
 package io.trino.plugin.session.db;
 
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import com.mysql.cj.jdbc.MysqlDataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.util.Optional;
 

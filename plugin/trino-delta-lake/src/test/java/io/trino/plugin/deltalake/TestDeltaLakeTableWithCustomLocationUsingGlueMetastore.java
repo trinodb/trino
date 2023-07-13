@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.hdfs.HdfsContext;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
@@ -55,13 +54,12 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "glue")
                         .put("hive.metastore.glue.region", "us-east-2")
-                        .put("hive.metastore.glue.default-warehouse-dir", metastoreDir.getPath())
+                        .put("hive.metastore.glue.default-warehouse-dir", metastoreDir.toURI().toString())
                         .buildOrThrow());
 
-        metastore = createTestingGlueHiveMetastore(metastoreDir.getPath());
-        hdfsContext = new HdfsContext(queryRunner.getDefaultSession().toConnectorSession());
+        metastore = createTestingGlueHiveMetastore(metastoreDir.toPath());
 
-        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + metastoreDir.getPath() + "')");
+        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + metastoreDir.toURI() + "')");
         return queryRunner;
     }
 

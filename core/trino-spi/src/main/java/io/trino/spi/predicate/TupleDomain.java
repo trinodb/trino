@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,8 +39,8 @@ import java.util.function.ToLongFunction;
 import java.util.stream.Collector;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
@@ -55,7 +54,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
  */
 public final class TupleDomain<T>
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TupleDomain.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(TupleDomain.class);
 
     private static final TupleDomain<?> NONE = new TupleDomain<>(Optional.empty());
     private static final TupleDomain<?> ALL = new TupleDomain<>(Optional.of(emptyMap()));

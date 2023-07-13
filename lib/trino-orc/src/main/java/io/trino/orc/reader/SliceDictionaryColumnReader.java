@@ -28,7 +28,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -39,6 +38,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -56,7 +56,7 @@ import static java.util.Objects.requireNonNull;
 public class SliceDictionaryColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SliceDictionaryColumnReader.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SliceDictionaryColumnReader.class);
 
     private static final byte[] EMPTY_DICTIONARY_DATA = new byte[0];
     // add one extra entry for null after strip/rowGroup dictionary

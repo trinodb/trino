@@ -15,6 +15,7 @@ package io.trino.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.inject.Inject;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryState;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -24,12 +25,10 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.NodeState;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.security.ResourceSecurity;
-
-import javax.inject.Inject;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static java.util.Objects.requireNonNull;

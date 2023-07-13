@@ -26,6 +26,7 @@ import org.jline.widget.AutosuggestionWidgets;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Optional;
 
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static org.jline.reader.LineReader.BLINK_MATCHING_PAREN;
@@ -42,10 +43,10 @@ public class InputReader
 {
     private final LineReader reader;
 
-    public InputReader(ClientOptions.EditingMode editingMode, Path historyFile, boolean disableAutoSuggestion, Completer... completers)
+    public InputReader(ClientOptions.EditingMode editingMode, Optional<Path> historyFile, boolean disableAutoSuggestion, Completer... completers)
             throws IOException
     {
-        reader = LineReaderBuilder.builder()
+        LineReaderBuilder builder = LineReaderBuilder.builder()
                 .terminal(TerminalUtils.getTerminal())
                 .variable(HISTORY_FILE, historyFile)
                 .variable(SECONDARY_PROMPT_PATTERN, isRealTerminal() ? colored("%P -> ") : "") // workaround for https://github.com/jline/jline3/issues/751
@@ -53,8 +54,9 @@ public class InputReader
                 .option(HISTORY_IGNORE_SPACE, false) // store history even if the query starts with spaces
                 .parser(new InputParser())
                 .highlighter(new InputHighlighter())
-                .completer(new AggregateCompleter(completers))
-                .build();
+                .completer(new AggregateCompleter(completers));
+        historyFile.ifPresent(path -> builder.variable(HISTORY_FILE, path));
+        reader = builder.build();
 
         reader.getKeyMaps().put(MAIN, reader.getKeyMaps().get(editingMode.getKeyMap()));
         reader.unsetOpt(HISTORY_TIMESTAMPED);

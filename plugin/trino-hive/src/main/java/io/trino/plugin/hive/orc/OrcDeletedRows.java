@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -21,6 +22,7 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.plugin.hive.AcidInfo;
+import io.trino.plugin.hive.util.AcidBucketCodec;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -28,10 +30,6 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.AcidUtils;
-import org.apache.hadoop.hive.ql.io.BucketCodec;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -47,13 +45,14 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static io.trino.plugin.hive.util.AcidTables.bucketFileName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -118,10 +117,9 @@ public class OrcDeletedRows
 
         static MaskDeletedRowsFunction noMaskForPage(Page page)
         {
+            int positionCount = page.getPositionCount();
             return new MaskDeletedRowsFunction()
             {
-                int positionCount = page.getPositionCount();
-
                 @Override
                 public int getPositionCount()
                 {
@@ -205,6 +203,7 @@ public class OrcDeletedRows
 
         private RowId getRowId(int position)
         {
+            verify(sourcePage != null, "sourcePage is null");
             long originalTransaction;
             long row;
             int bucket;
@@ -222,8 +221,8 @@ public class OrcDeletedRows
             }
             else {
                 originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
-                int encodedBucketValue = toIntExact(INTEGER.getLong(sourcePage.getBlock(BUCKET_ID_INDEX), position));
-                BucketCodec bucketCodec = BucketCodec.determineVersion(encodedBucketValue);
+                int encodedBucketValue = INTEGER.getInt(sourcePage.getBlock(BUCKET_ID_INDEX), position);
+                AcidBucketCodec bucketCodec = AcidBucketCodec.forBucket(encodedBucketValue);
                 bucket = bucketCodec.decodeWriterId(encodedBucketValue);
                 statementId = bucketCodec.decodeStatementId(encodedBucketValue);
                 row = BIGINT.getLong(sourcePage.getBlock(ROW_ID_INDEX), position);
@@ -271,10 +270,7 @@ public class OrcDeletedRows
             }
         }
 
-        if (state == State.LOADED) {
-            return true;
-        }
-        return false;
+        return state == State.LOADED;
     }
 
     public void close()
@@ -292,14 +288,14 @@ public class OrcDeletedRows
 
     private class Loader
     {
-        private ImmutableSet.Builder<RowId> deletedRowsBuilder = ImmutableSet.builder();
+        private final ImmutableSet.Builder<RowId> deletedRowsBuilder = ImmutableSet.builder();
         private int deletedRowsBuilderSize;
         @Nullable
-        private Iterator<AcidInfo.DeleteDeltaInfo> deleteDeltas;
+        private Iterator<String> deleteDeltaDirectories;
         @Nullable
         private ConnectorPageSource currentPageSource;
         @Nullable
-        private Path currentPath;
+        private Location currentPath;
         @Nullable
         private Page currentPage;
         private int currentPagePosition;
@@ -308,18 +304,18 @@ public class OrcDeletedRows
         {
             long initialMemorySize = retainedMemorySize(deletedRowsBuilderSize, currentPage);
 
-            if (deleteDeltas == null) {
-                deleteDeltas = acidInfo.getDeleteDeltas().iterator();
+            if (deleteDeltaDirectories == null) {
+                deleteDeltaDirectories = acidInfo.getDeleteDeltaDirectories().iterator();
             }
 
-            while (deleteDeltas.hasNext() || currentPageSource != null) {
+            while (deleteDeltaDirectories.hasNext() || currentPageSource != null) {
                 try {
                     if (currentPageSource == null) {
-                        AcidInfo.DeleteDeltaInfo deleteDeltaInfo = deleteDeltas.next();
-                        currentPath = createPath(acidInfo, deleteDeltaInfo, sourceFileName);
-                        TrinoInputFile inputFile = fileSystem.newInputFile(currentPath.toString());
+                        String deleteDeltaDirectory = deleteDeltaDirectories.next();
+                        currentPath = createPath(acidInfo, deleteDeltaDirectory, sourceFileName);
+                        TrinoInputFile inputFile = fileSystem.newInputFile(currentPath);
                         if (inputFile.exists()) {
-                            currentPageSource = pageSourceFactory.createPageSource(inputFile).orElseGet(() -> new EmptyPageSource());
+                            currentPageSource = pageSourceFactory.createPageSource(inputFile).orElseGet(EmptyPageSource::new);
                         }
                     }
 
@@ -336,8 +332,8 @@ public class OrcDeletedRows
 
                             while (currentPagePosition < currentPage.getPositionCount()) {
                                 long originalTransaction = BIGINT.getLong(currentPage.getBlock(ORIGINAL_TRANSACTION_INDEX), currentPagePosition);
-                                int encodedBucketValue = toIntExact(INTEGER.getLong(currentPage.getBlock(BUCKET_ID_INDEX), currentPagePosition));
-                                BucketCodec bucketCodec = BucketCodec.determineVersion(encodedBucketValue);
+                                int encodedBucketValue = INTEGER.getInt(currentPage.getBlock(BUCKET_ID_INDEX), currentPagePosition);
+                                AcidBucketCodec bucketCodec = AcidBucketCodec.forBucket(encodedBucketValue);
                                 int bucket = bucketCodec.decodeWriterId(encodedBucketValue);
                                 int statement = bucketCodec.decodeStatementId(encodedBucketValue);
                                 long row = BIGINT.getLong(currentPage.getBlock(ROW_ID_INDEX), currentPagePosition);
@@ -386,31 +382,32 @@ public class OrcDeletedRows
         }
     }
 
-    private long retainedMemorySize(int rowCount, @Nullable Page currentPage)
+    private static long retainedMemorySize(int rowCount, @Nullable Page currentPage)
     {
-        return sizeOfObjectArray(rowCount) + (long) rowCount * RowId.INSTANCE_SIZE + (currentPage != null ? currentPage.getRetainedSizeInBytes() : 0);
+        long pageSize = (currentPage != null) ? currentPage.getRetainedSizeInBytes() : 0;
+        return sizeOfObjectArray(rowCount) + ((long) rowCount * RowId.INSTANCE_SIZE) + pageSize;
     }
 
-    private static Path createPath(AcidInfo acidInfo, AcidInfo.DeleteDeltaInfo deleteDeltaInfo, String fileName)
+    private static Location createPath(AcidInfo acidInfo, String deleteDeltaDirectory, String fileName)
     {
-        Path directory = new Path(acidInfo.getPartitionLocation(), deleteDeltaInfo.getDirectoryName());
+        Location directory = Location.of(acidInfo.getPartitionLocation()).appendPath(deleteDeltaDirectory);
 
         // When direct insert is enabled base and delta directories contain bucket_[id]_[attemptId] files
         // but delete delta directories contain bucket files without attemptId so we have to remove it from filename.
         if (hasAttemptId(fileName)) {
-            return new Path(directory, fileName.substring(0, fileName.lastIndexOf("_")));
+            return directory.appendPath(fileName.substring(0, fileName.lastIndexOf('_')));
         }
 
-        if (acidInfo.getOriginalFiles().size() > 0) {
+        if (!acidInfo.getOriginalFiles().isEmpty()) {
             // Original file format is different from delete delta, construct delete delta file path from bucket ID of original file.
-            return AcidUtils.createBucketFile(directory, acidInfo.getBucketId());
+            return bucketFileName(directory, acidInfo.getBucketId());
         }
-        return new Path(directory, fileName);
+        return directory.appendPath(fileName);
     }
 
     private static class RowId
     {
-        public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RowId.class).instanceSize());
+        public static final int INSTANCE_SIZE = instanceSize(RowId.class);
 
         private final long originalTransaction;
         private final int bucket;

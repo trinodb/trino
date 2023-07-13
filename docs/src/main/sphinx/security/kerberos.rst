@@ -17,13 +17,13 @@ Environment configuration
 
 .. |subject_node| replace:: Trino coordinator
 
-.. _server_kerberos_services:
+.. _server-kerberos-services:
 .. include:: kerberos-services.fragment
 
-.. _server_kerberos_configuration:
+.. _server-kerberos-configuration:
 .. include:: kerberos-configuration.fragment
 
-.. _server_kerberos_principals:
+.. _server-kerberos-principals:
 
 Kerberos principals and keytab files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -69,9 +69,9 @@ following environment changes, you can make the changes to the Trino
 configuration files.
 
 * :doc:`/security/tls`
-* :ref:`server_kerberos_services`
-* :ref:`server_kerberos_configuration`
-* :ref:`server_kerberos_principals`
+* :ref:`server-kerberos-services`
+* :ref:`server-kerberos-configuration`
+* :ref:`server-kerberos-principals`
 * :doc:`System Access Control Plugin </develop/system-access-control>`
 
 config.properties
@@ -133,8 +133,8 @@ Property                                                  Description
 See :ref:`Standards supported <tls-version-and-ciphers>` for a discussion of the
 supported TLS versions and cipher suites.
 
-access-controls.properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+access-control.properties
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 At a minimum, an :file:`access-control.properties` file must contain an
 ``access-control.name`` property.  All other configuration is specific for the
@@ -189,7 +189,7 @@ Java keystore file verification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Verify the password for a keystore file and view its contents using
-:ref:`troubleshooting_keystore`.
+:ref:`troubleshooting-keystore`.
 
 .. _kerberos-debug:
 
@@ -222,7 +222,7 @@ flag, and `Troubleshooting
 <https://docs.oracle.com/en/java/javase/11/security/troubleshooting.html>`_ for
 more details about the Java GSS-API and Kerberos issues.
 
-.. _server_additional_resources:
+.. _server-additional-resources:
 
 Additional resources
 ^^^^^^^^^^^^^^^^^^^^

@@ -28,9 +28,9 @@ import io.trino.operator.SpillContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.crypto.SecretKey;
 
 import java.io.IOException;

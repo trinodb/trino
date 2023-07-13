@@ -18,8 +18,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeManagerFactory;
-
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PreDestroy;
 
 import java.io.File;
 import java.io.IOException;

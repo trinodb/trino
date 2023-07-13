@@ -82,6 +82,11 @@ public abstract class JsonPathTreeVisitor<R, C>
         return visitMethod(node, context);
     }
 
+    protected R visitDescendantMemberAccessor(DescendantMemberAccessor node, C context)
+    {
+        return visitAccessor(node, context);
+    }
+
     protected R visitDisjunctionPredicate(DisjunctionPredicate node, C context)
     {
         return visitPredicate(node, context);

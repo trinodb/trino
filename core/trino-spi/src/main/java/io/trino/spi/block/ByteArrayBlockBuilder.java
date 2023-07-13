@@ -15,7 +15,6 @@ package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -23,17 +22,17 @@ import java.util.Arrays;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.Math.max;
-import static java.lang.Math.toIntExact;
 
 public class ByteArrayBlockBuilder
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ByteArrayBlockBuilder.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ByteArrayBlockBuilder.class);
     private static final Block NULL_VALUE_BLOCK = new ByteArrayBlock(0, 1, new boolean[] {true}, new byte[1]);
 
     @Nullable

@@ -73,11 +73,13 @@ public class QueryEntity
     private final long waitingTimeMillis;
     private final long analysisTimeMillis;
     private final long planningTimeMillis;
+    private final long planningCpuTimeMillis;
     private final long executionTimeMillis;
     private final long inputBlockedTimeMillis;
     private final long failedInputBlockedTimeMillis;
     private final long outputBlockedTimeMillis;
     private final long failedOutputBlockedTimeMillis;
+    private final long physicalInputReadTimeMillis;
 
     private final long peakMemoryBytes;
     private final long peakTaskMemoryBytes;
@@ -98,6 +100,7 @@ public class QueryEntity
     private final int completedSplits;
 
     private final String retryPolicy;
+    private final Optional<String> operatorSummariesJson;
 
     public QueryEntity(
             String queryId,
@@ -143,11 +146,13 @@ public class QueryEntity
             long waitingTimeMillis,
             long analysisTimeMillis,
             long planningTimeMillis,
+            long planningCpuTimeMillis,
             long executionTimeMillis,
             long inputBlockedTimeMillis,
             long failedInputBlockedTimeMillis,
             long outputBlockedTimeMillis,
             long failedOutputBlockedTimeMillis,
+            long physicalInputReadTimeMillis,
             long peakMemoryBytes,
             long peakTaskMemoryBytes,
             long physicalInputBytes,
@@ -163,7 +168,8 @@ public class QueryEntity
             double cumulativeMemory,
             double failedCumulativeMemory,
             int completedSplits,
-            String retryPolicy)
+            String retryPolicy,
+            Optional<String> operatorSummariesJson)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -208,11 +214,13 @@ public class QueryEntity
         this.waitingTimeMillis = waitingTimeMillis;
         this.analysisTimeMillis = analysisTimeMillis;
         this.planningTimeMillis = planningTimeMillis;
+        this.planningCpuTimeMillis = planningCpuTimeMillis;
         this.executionTimeMillis = executionTimeMillis;
         this.inputBlockedTimeMillis = inputBlockedTimeMillis;
         this.failedInputBlockedTimeMillis = failedInputBlockedTimeMillis;
         this.outputBlockedTimeMillis = outputBlockedTimeMillis;
         this.failedOutputBlockedTimeMillis = failedOutputBlockedTimeMillis;
+        this.physicalInputReadTimeMillis = physicalInputReadTimeMillis;
         this.peakMemoryBytes = peakMemoryBytes;
         this.peakTaskMemoryBytes = peakTaskMemoryBytes;
         this.physicalInputBytes = physicalInputBytes;
@@ -229,6 +237,7 @@ public class QueryEntity
         this.failedCumulativeMemory = failedCumulativeMemory;
         this.completedSplits = completedSplits;
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+        this.operatorSummariesJson = requireNonNull(operatorSummariesJson, "operatorSummariesJson is null");
     }
 
     public String getQueryId()
@@ -446,6 +455,11 @@ public class QueryEntity
         return planningTimeMillis;
     }
 
+    public long getPlanningCpuTimeMillis()
+    {
+        return planningCpuTimeMillis;
+    }
+
     public long getExecutionTimeMillis()
     {
         return executionTimeMillis;
@@ -469,6 +483,11 @@ public class QueryEntity
     public long getFailedOutputBlockedTimeMillis()
     {
         return failedOutputBlockedTimeMillis;
+    }
+
+    public long getPhysicalInputReadTimeMillis()
+    {
+        return physicalInputReadTimeMillis;
     }
 
     public long getPeakMemoryBytes()
@@ -549,5 +568,10 @@ public class QueryEntity
     public String getRetryPolicy()
     {
         return retryPolicy;
+    }
+
+    public Optional<String> getOperatorSummariesJson()
+    {
+        return operatorSummariesJson;
     }
 }

@@ -30,7 +30,6 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.index.strtree.STRtree;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Map;
@@ -38,13 +37,13 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.join.JoinUtils.channelsToPages;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class PagesRTreeIndex
@@ -64,7 +63,7 @@ public class PagesRTreeIndex
 
     public static final class GeometryWithPosition
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GeometryWithPosition.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(GeometryWithPosition.class);
 
         private final OGCGeometry ogcGeometry;
         private final int partition;
@@ -144,7 +143,7 @@ public class PagesRTreeIndex
             return EMPTY_ADDRESSES;
         }
 
-        int probePartition = probePartitionChannel.map(channel -> toIntExact(INTEGER.getLong(probe.getBlock(channel), probePosition))).orElse(-1);
+        int probePartition = probePartitionChannel.map(channel -> INTEGER.getInt(probe.getBlock(channel), probePosition)).orElse(-1);
 
         Slice slice = probeGeometryBlock.getSlice(probePosition, 0, probeGeometryBlock.getSliceLength(probePosition));
         OGCGeometry probeGeometry = deserialize(slice);

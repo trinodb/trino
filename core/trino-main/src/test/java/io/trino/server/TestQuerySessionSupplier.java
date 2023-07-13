@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
@@ -32,16 +33,15 @@ import io.trino.sql.SqlPath;
 import io.trino.sql.SqlPathElement;
 import io.trino.sql.tree.Identifier;
 import io.trino.transaction.TransactionManager;
+import jakarta.ws.rs.core.MultivaluedMap;
 import org.testng.annotations.Test;
-
-import javax.ws.rs.core.MultivaluedMap;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
@@ -65,7 +65,7 @@ public class TestQuerySessionSupplier
             .put(TRINO_HEADERS.requestClientInfo(), "client-info")
             .put(TRINO_HEADERS.requestClientTags(), "tag1,tag2 ,tag3, tag2")
             .put(TRINO_HEADERS.requestSession(), QUERY_MAX_MEMORY + "=1GB")
-            .put(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
+            .put(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + MAX_HASH_PARTITION_COUNT + " = 43")
             .put(TRINO_HEADERS.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
             .build());
     private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(
@@ -79,7 +79,7 @@ public class TestQuerySessionSupplier
     {
         SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(TEST_HEADERS, Optional.empty(), Optional.of("testRemote"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
-        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context);
+        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), Span.getInvalid(), context);
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
         assertEquals(session.getUser(), "testUser");
@@ -95,7 +95,7 @@ public class TestQuerySessionSupplier
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
-                .put(HASH_PARTITION_COUNT, "43")
+                .put(MAX_HASH_PARTITION_COUNT, "43")
                 .buildOrThrow());
         assertEquals(session.getPreparedStatements(), ImmutableMap.<String, String>builder()
                 .put("query1", "select * from foo")
@@ -142,7 +142,7 @@ public class TestQuerySessionSupplier
                 .build());
         SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headers, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
-        assertThatThrownBy(() -> sessionSupplier.createSession(new QueryId("test_query_id"), context))
+        assertThatThrownBy(() -> sessionSupplier.createSession(new QueryId("test_query_id"), Span.getInvalid(), context))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Time zone not supported: unknown_timezone");
     }
@@ -237,7 +237,7 @@ public class TestQuerySessionSupplier
         MultivaluedMap<String, String> headerMap = new GuavaMultivaluedMap<>(headers);
         SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headerMap, Optional.empty(), Optional.of("testRemote"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(config);
-        return sessionSupplier.createSession(new QueryId("test_query_id"), context);
+        return sessionSupplier.createSession(new QueryId("test_query_id"), Span.getInvalid(), context);
     }
 
     private static QuerySessionSupplier createSessionSupplier(SqlEnvironmentConfig config)

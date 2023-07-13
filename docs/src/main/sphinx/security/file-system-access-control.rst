@@ -463,7 +463,7 @@ function from any catalog:
       ]
     }
 
-.. _verify_rules:
+.. _verify-rules:
 
 Verify configuration
 ^^^^^^^^^^^^^^^^^^^^
@@ -526,7 +526,7 @@ The example below defines the following table access policy:
 .. literalinclude:: session-property-access.json
     :language: json
 
-.. _query_rules:
+.. _query-rules:
 
 Query rules
 -----------
@@ -586,10 +586,10 @@ Each impersonation rule is composed of the following fields:
   impersonation. Defaults to ``.*``.
 * ``original_role`` (optional): regex to match against role names of the
   requesting impersonation. Defaults to ``.*``.
-* ``new_user`` (required): regex to match against the user that will be
-  impersonated. May contain references to subsequences captured during the match
-  against *original_user*, and each reference will be replaced by the result of
-  evaluating the corresponding group respectively.
+* ``new_user`` (required): regex to match against the user to impersonate. Can
+  contain references to subsequences captured during the match against
+  *original_user*, and each reference is replaced by the result of evaluating
+  the corresponding group respectively.
 * ``allow`` (optional): boolean indicating if the authentication should be
   allowed. Defaults to ``true``.
 
@@ -678,28 +678,42 @@ as ``group@example.net``, you can use the following rules.
       ]
     }
 
-.. _system-file-auth-system_information:
+.. _system-file-auth-system-information:
 
 System information rules
 ------------------------
 
 These rules specify which users can access the system information management
-interface. The user is granted or denied access, based on the first matching
+interface. System information access includes the following aspects:
+
+* Read access to details such as Trino version, uptime of the node, and others
+  from the ``/v1/info`` and ``/v1/status`` REST endpoints.
+* Read access with the :doc:`system information functions </functions/system>`.
+* Read access with the :doc:`/connector/system`.
+* Write access to trigger :doc:`/admin/graceful-shutdown`.
+
+The user is granted or denied access based on the first matching
 rule read from top to bottom. If no rules are specified, all access to system
 information is denied. If no rule matches, system access is denied. Each rule is
 composed of the following fields:
 
+* ``role`` (optional): regex to match against role. If matched, it
+  grants or denies the authorization based on the value of ``allow``.
 * ``user`` (optional): regex to match against user name. If matched, it
   grants or denies the authorization based on the value of ``allow``.
 * ``allow`` (required): set of access permissions granted to user. Values:
   ``read``, ``write``
 
-For example, if you want to allow only the role ``admin`` to read and write
-system information, allow ``alice`` to read system information, and deny all
-other access, you can use the following rules:
+The following configuration provides and example:
 
 .. literalinclude:: system-information-access.json
     :language: json
+
+* All users with the ``admin`` role have read and write access to system
+  information. This includes the ability to trigger
+  :doc:`/admin/graceful-shutdown`.
+* The user ``alice`` can read system information.
+* All other users and roles are denied access to system information.
 
 A fixed user can be set for management interfaces using the ``management.user``
 configuration property.  When this is configured, system information rules must
@@ -707,6 +721,50 @@ still be set to authorize this user to read or write to management information.
 The fixed management user only applies to HTTP by default. To enable the fixed
 user over HTTPS, set the ``management.user.https-enabled`` configuration
 property.
+
+.. _system-file-auth-authorization:
+
+Authorization rules
+-------------------
+
+These rules control the ability of how owner of schema, table or view can
+be altered. These rules are applicable to commands like:
+
+    ALTER SCHEMA name SET AUTHORIZATION ( user | USER user | ROLE role )
+    ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
+    ALTER VIEW name SET AUTHORIZATION ( user | USER user | ROLE role )
+
+When these rules are present, the authorization is based on the first matching
+rule, processed from top to bottom. If no rules match, the authorization is
+denied.
+
+Notice that in order to execute ``ALTER`` command on schema, table or view user requires ``OWNERSHIP``
+privilege.
+
+Each authorization rule is composed of the following fields:
+
+* ``original_user`` (optional): regex to match against the user requesting the
+  authorization. Defaults to ``.*``.
+* ``original_group`` (optional): regex to match against group names of the
+  requesting authorization. Defaults to ``.*``.
+* ``original_role`` (optional): regex to match against role names of the
+  requesting authorization. Defaults to ``.*``.
+* ``new_user`` (optional): regex to match against the new owner user of the schema, table or view.
+  By default it does not match.
+* ``new_role`` (optional): regex to match against the new owner role of the schema, table or view.
+  By default it does not match.
+* ``allow`` (optional): boolean indicating if the authentication should be
+  allowed. Defaults to ``true``.
+
+Notice that ``new_user`` and ``new_role`` are optional, however it is required to provide at least one of them.
+
+The following example allows the ``admin`` role, to change owner of any schema, table or view
+to any user, except to``bob``.
+
+.. literalinclude:: authorization.json
+    :language: json
+
+.. _system-file-auth-system_information:
 
 .. _catalog-file-based-access-control:
 
@@ -868,7 +926,7 @@ Example
           "table": "employee",
           "privileges": ["SELECT"],
           "filter": "user = current_user"
-        }
+        },
         {
           "schema": "default",
           "table": ".*",

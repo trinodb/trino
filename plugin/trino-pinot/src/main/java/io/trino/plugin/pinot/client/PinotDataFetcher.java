@@ -16,7 +16,7 @@ package io.trino.plugin.pinot.client;
 import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotSplit;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.pinot.common.utils.DataTable;
+import org.apache.pinot.common.datatable.DataTable;
 
 import java.util.List;
 import java.util.Map;
@@ -27,7 +27,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.pinot.common.utils.DataTable.EXCEPTION_METADATA_KEY;
+import static org.apache.pinot.common.datatable.DataTable.EXCEPTION_METADATA_KEY;
 
 public interface PinotDataFetcher
 {

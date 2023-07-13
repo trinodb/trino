@@ -14,7 +14,10 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
+import io.trino.spi.security.Identity;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
 import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
@@ -23,6 +26,8 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
@@ -35,6 +40,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
@@ -244,6 +250,23 @@ public abstract class BaseConnectorSmokeTest
     }
 
     @Test
+    public void testTruncateTable()
+    {
+        if (!hasBehavior(SUPPORTS_TRUNCATE)) {
+            assertQueryFails("TRUNCATE TABLE nation", "This connector does not support truncating tables");
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_truncate", "AS SELECT * FROM region")) {
+            assertUpdate("TRUNCATE TABLE " + table.getName());
+            assertThat(query("TABLE " + table.getName()))
+                    .returnsEmptyResult();
+        }
+    }
+
+    @Test
     public void testUpdate()
     {
         if (!hasBehavior(SUPPORTS_UPDATE)) {
@@ -313,6 +336,22 @@ public abstract class BaseConnectorSmokeTest
                 .skippingTypesCheck()
                 .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
         assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
+    @Test
+    public void testCreateSchemaWithNonLowercaseOwnerName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA));
+
+        Session newSession = Session.builder(getSession())
+                .setIdentity(Identity.ofUser("ADMIN"))
+                .build();
+        String schemaName = "test_schema_create_uppercase_owner_name_" + randomNameSuffix();
+        assertUpdate(newSession, createSchemaSql(schemaName));
+        assertThat(query(newSession, "SHOW SCHEMAS"))
+                .skippingTypesCheck()
+                .containsAll(format("VALUES '%s'", schemaName));
+        assertUpdate(newSession, "DROP SCHEMA " + schemaName);
     }
 
     @Test
@@ -437,6 +476,19 @@ public abstract class BaseConnectorSmokeTest
         assertUpdate("DROP SCHEMA " + schemaName);
     }
 
+    /**
+     * This seemingly duplicate test of {@link BaseConnectorTest#testShowInformationSchemaTables()}
+     * is used in the context of this class in order to be able to test
+     * against a wider range of connector configurations.
+     */
+    @Test
+    public void testShowInformationSchemaTables()
+    {
+        assertThat(query("SHOW TABLES FROM information_schema"))
+                .skippingTypesCheck()
+                .containsAll("VALUES 'applicable_roles', 'columns', 'enabled_roles', 'roles', 'schemata', 'table_privileges', 'tables', 'views'");
+    }
+
     @Test
     public void testSelectInformationSchemaTables()
     {
@@ -523,6 +575,102 @@ public abstract class BaseConnectorSmokeTest
                         "FROM\n" +
                         "  nation");
 
+        // information_schema.tables (no filtering on table_name so that ConnectorMetadata.listViews is exercised)
+        assertThat(query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '" + schemaName + "'"))
+                .containsAll("VALUES (VARCHAR '" + viewName + "', VARCHAR 'BASE TABLE')");
+
+        // information_schema.views
+        assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'").getOnlyColumnAsSet())
+                .doesNotContain(viewName);
+        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "' AND table_name = '" + viewName + "'"))
+                .returnsEmptyResult();
+
+        // materialized view-specific listings
+        assertThat(query("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "'"))
+                .containsAll("VALUES VARCHAR '" + viewName + "'");
+
         assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+    }
+
+    @Test
+    public void testCommentView()
+    {
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_VIEW)) {
+            if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
+                try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
+                    assertQueryFails("COMMENT ON VIEW " + view.getName() + " IS 'new comment'", "This connector does not support setting view comments");
+                }
+                return;
+            }
+            throw new SkipException("Skipping as connector does not support CREATE VIEW");
+        }
+
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
+            // comment set
+            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'new comment'");
+            assertThat((String) computeScalar("SHOW CREATE VIEW " + view.getName())).contains("COMMENT 'new comment'");
+            assertThat(getTableComment(view.getName())).isEqualTo("new comment");
+
+            // comment updated
+            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'updated comment'");
+            assertThat(getTableComment(view.getName())).isEqualTo("updated comment");
+
+            // comment set to empty
+            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS ''");
+            assertThat(getTableComment(view.getName())).isEmpty();
+
+            // comment deleted
+            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'a comment'");
+            assertThat(getTableComment(view.getName())).isEqualTo("a comment");
+            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS NULL");
+            assertThat(getTableComment(view.getName())).isNull();
+        }
+    }
+
+    @Test
+    public void testCommentViewColumn()
+    {
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_VIEW_COLUMN)) {
+            if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
+                try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view_column", "SELECT * FROM region")) {
+                    assertQueryFails("COMMENT ON COLUMN " + view.getName() + ".regionkey IS 'new region key comment'", "This connector does not support setting view column comments");
+                }
+                return;
+            }
+            throw new SkipException("Skipping as connector does not support CREATE VIEW");
+        }
+
+        String viewColumnName = "regionkey";
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view_column", "SELECT * FROM region")) {
+            // comment set
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'new region key comment'");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("new region key comment");
+
+            // comment updated
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'updated region key comment'");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("updated region key comment");
+
+            // comment set to empty
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS ''");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("");
+
+            // comment deleted
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS NULL");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo(null);
+        }
+    }
+
+    protected String getTableComment(String tableName)
+    {
+        return (String) computeScalar(format("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName));
+    }
+
+    protected String getColumnComment(String tableName, String columnName)
+    {
+        return (String) computeScalar(format(
+                "SELECT comment FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
+                getSession().getSchema().orElseThrow(),
+                tableName,
+                columnName));
     }
 }

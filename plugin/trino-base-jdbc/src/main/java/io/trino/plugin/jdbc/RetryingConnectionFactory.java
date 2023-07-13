@@ -14,11 +14,11 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.base.Throwables;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeException;
+import dev.failsafe.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.FailsafeException;
-import net.jodah.failsafe.RetryPolicy;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -31,12 +31,13 @@ import static java.util.Objects.requireNonNull;
 public class RetryingConnectionFactory
         implements ConnectionFactory
 {
-    private static final RetryPolicy<Object> RETRY_POLICY = new RetryPolicy<>()
+    private static final RetryPolicy<Object> RETRY_POLICY = RetryPolicy.builder()
             .withMaxDuration(java.time.Duration.of(30, SECONDS))
             .withMaxAttempts(5)
             .withBackoff(50, 5_000, MILLIS, 4)
             .handleIf(RetryingConnectionFactory::isSqlRecoverableException)
-            .abortOn(TrinoException.class);
+            .abortOn(TrinoException.class)
+            .build();
 
     private final ConnectionFactory delegate;
 

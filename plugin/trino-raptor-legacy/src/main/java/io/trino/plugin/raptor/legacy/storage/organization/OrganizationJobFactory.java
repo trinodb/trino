@@ -13,12 +13,11 @@
  */
 package io.trino.plugin.raptor.legacy.storage.organization;
 
+import com.google.inject.Inject;
 import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
 import io.trino.plugin.raptor.legacy.metadata.MetadataDao;
 import io.trino.plugin.raptor.legacy.metadata.ShardManager;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.inject.Inject;
 
 import static io.trino.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
 import static java.util.Objects.requireNonNull;

@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.iceberg.catalog.hms;
 
+import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 
@@ -49,7 +49,7 @@ public class HiveMetastoreTableOperationsProvider
             Optional<String> location)
     {
         return new HiveMetastoreTableOperations(
-                fileSystemFactory.create(session).toFileIo(),
+                new ForwardingFileIo(fileSystemFactory.create(session)),
                 ((TrinoHiveCatalog) catalog).getMetastore(),
                 thriftMetastoreFactory.createMetastore(Optional.of(session.getIdentity())),
                 session,

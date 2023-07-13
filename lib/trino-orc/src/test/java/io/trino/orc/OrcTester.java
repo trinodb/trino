@@ -22,9 +22,8 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.hive.orc.OrcConf;
-import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcType;
@@ -95,9 +94,7 @@ import org.apache.hadoop.util.Progressable;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
@@ -633,7 +630,7 @@ public class OrcTester
                 .collect(toImmutableList());
 
         OrcWriter writer = new OrcWriter(
-                OutputStreamOrcDataSink.create(new LocalTrinoOutputFile(outputFile)),
+                OutputStreamOrcDataSink.create(new LocalOutputFile(outputFile)),
                 columnNames,
                 types,
                 OrcType.createRootOrcType(columnNames, types),
@@ -673,7 +670,7 @@ public class OrcTester
         }));
 
         OrcWriter writer = new OrcWriter(
-                OutputStreamOrcDataSink.create(new LocalTrinoOutputFile(outputFile)),
+                OutputStreamOrcDataSink.create(new LocalOutputFile(outputFile)),
                 ImmutableList.of("test"),
                 types,
                 orcType,
@@ -876,9 +873,8 @@ public class OrcTester
         else if (actualValue instanceof ShortWritable) {
             actualValue = ((ShortWritable) actualValue).get();
         }
-        else if (actualValue instanceof HiveDecimalWritable) {
+        else if (actualValue instanceof HiveDecimalWritable writable) {
             DecimalType decimalType = (DecimalType) type;
-            HiveDecimalWritable writable = (HiveDecimalWritable) actualValue;
             // writable messes with the scale so rescale the values to the Trino type
             BigInteger rescaledValue = rescale(writable.getHiveDecimal().unscaledValue(), writable.getScale(), decimalType.getScale());
             actualValue = new SqlDecimal(rescaledValue, decimalType.getPrecision(), decimalType.getScale());
@@ -917,9 +913,8 @@ public class OrcTester
                 throw new IllegalArgumentException("Unsupported timestamp type: " + type);
             }
         }
-        else if (actualValue instanceof OrcStruct) {
+        else if (actualValue instanceof OrcStruct structObject) {
             List<Object> fields = new ArrayList<>();
-            OrcStruct structObject = (OrcStruct) actualValue;
             for (int fieldId = 0; fieldId < structObject.getNumFields(); fieldId++) {
                 fields.add(OrcUtil.getFieldValue(structObject, fieldId));
             }
@@ -986,7 +981,7 @@ public class OrcTester
                 objectInspector,
                 ImmutableList.of(type),
                 StreamSupport.stream(
-                        Spliterators.spliteratorUnknownSize(values, Spliterator.ORDERED), false)
+                                Spliterators.spliteratorUnknownSize(values, Spliterator.ORDERED), false)
                         .map(value -> (Function<Integer, Object>) (fieldIndex) -> value)
                         .iterator());
     }
@@ -1067,9 +1062,8 @@ public class OrcTester
         if (type instanceof VarcharType) {
             return javaStringObjectInspector;
         }
-        if (type instanceof CharType) {
-            int charLength = ((CharType) type).getLength();
-            return new JavaHiveCharObjectInspector(getCharTypeInfo(charLength));
+        if (type instanceof CharType charType) {
+            return new JavaHiveCharObjectInspector(getCharTypeInfo(charType.getLength()));
         }
         if (type instanceof VarbinaryType) {
             return javaByteArrayObjectInspector;
@@ -1086,8 +1080,7 @@ public class OrcTester
         if (type.equals(TIMESTAMP_TZ_MILLIS) || type.equals(TIMESTAMP_TZ_MICROS) || type.equals(TIMESTAMP_TZ_NANOS)) {
             return javaTimestampTZObjectInspector;
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
         if (type instanceof ArrayType) {
@@ -1348,9 +1341,9 @@ public class OrcTester
     {
         ImmutableList.Builder<TypeSignatureParameter> typeSignatureParameters = ImmutableList.builder();
         for (int i = 0; i < fieldTypes.length; i++) {
-            String filedName = "field_" + i;
+            String fieldName = "field_" + i;
             Type fieldType = fieldTypes[i];
-            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(filedName)), fieldType.getTypeSignature())));
+            typeSignatureParameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(fieldName)), fieldType.getTypeSignature())));
         }
         return TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.ROW, typeSignatureParameters.build());
     }
@@ -1391,36 +1384,5 @@ public class OrcTester
                     .anyMatch(OrcTester::isUuid);
         }
         return false;
-    }
-
-    public static class LocalTrinoOutputFile
-            implements TrinoOutputFile
-    {
-        private final File file;
-
-        public LocalTrinoOutputFile(File file)
-        {
-            this.file = file;
-        }
-
-        @Override
-        public OutputStream create(AggregatedMemoryContext memoryContext)
-                throws IOException
-        {
-            return new FileOutputStream(file);
-        }
-
-        @Override
-        public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
-                throws IOException
-        {
-            return new FileOutputStream(file);
-        }
-
-        @Override
-        public String location()
-        {
-            return file.getAbsolutePath();
-        }
     }
 }

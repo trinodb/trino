@@ -13,525 +13,65 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
-import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.Futures;
-import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
-import io.airlift.slice.Slice;
-import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.parquet.writer.ParquetSchemaConverter;
-import io.trino.parquet.writer.ParquetWriterOptions;
-import io.trino.plugin.hive.FileWriter;
-import io.trino.plugin.hive.HivePartitionKey;
-import io.trino.plugin.hive.RecordFileWriter;
-import io.trino.plugin.hive.parquet.ParquetFileWriter;
-import io.trino.plugin.hive.util.HiveUtil;
-import io.trino.plugin.hive.util.HiveWriteUtils;
-import io.trino.spi.Page;
-import io.trino.spi.PageIndexer;
 import io.trino.spi.PageIndexerFactory;
-import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
-import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
-import org.joda.time.DateTimeZone;
+import io.trino.spi.type.TypeOperators;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
 
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.trino.hdfs.ConfigurationUtils.toJobConf;
-import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
-import static io.trino.plugin.deltalake.DeltaLakeSchemaProperties.buildHiveSchema;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetOptimizedWriterEnabled;
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.canonicalizeColumnName;
-import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
-import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
-import static java.util.stream.Collectors.toList;
+import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
 
 public class DeltaLakePageSink
-        implements ConnectorPageSink
+        extends AbstractDeltaLakePageSink
 {
-    private static final Logger LOG = Logger.get(DeltaLakePageSink.class);
-
-    private static final int MAX_PAGE_POSITIONS = 4096;
-
-    private final List<DeltaLakeColumnHandle> dataColumnHandles;
-    private final int[] dataColumnInputIndex;
-    private final List<String> dataColumnNames;
-    private final List<Type> dataColumnTypes;
-
-    private final int[] partitionColumnsInputIndex;
-    private final List<String> originalPartitionColumnNames;
-    private final List<Type> partitionColumnTypes;
-
-    private final PageIndexer pageIndexer;
-    private final TrinoFileSystem fileSystem;
-
-    private final int maxOpenWriters;
-
-    private final JsonCodec<DataFileInfo> dataFileInfoCodec;
-
-    private final List<DeltaLakeWriter> writers = new ArrayList<>();
-
-    private final String outputPath;
-    private final ConnectorSession session;
-    private final DeltaLakeWriterStats stats;
-    private final JobConf conf;
-    private final TypeManager typeManager;
-    private final String trinoVersion;
-    private final long targetMaxFileSize;
-
-    private long writtenBytes;
-    private long memoryUsage;
-
-    private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
-    private final ImmutableList.Builder<Slice> dataFileInfos = ImmutableList.builder();
-
     public DeltaLakePageSink(
+            TypeOperators typeOperators,
             List<DeltaLakeColumnHandle> inputColumns,
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
-            HdfsEnvironment hdfsEnvironment,
             TrinoFileSystemFactory fileSystemFactory,
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
-            String outputPath,
+            Location tableLocation,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
-            TypeManager typeManager,
-            String trinoVersion)
+            String trinoVersion,
+            DeltaLakeParquetSchemaMapping parquetSchemaMapping)
     {
-        requireNonNull(inputColumns, "inputColumns is null");
-
-        requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
-
-        this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(session);
-        this.maxOpenWriters = maxOpenWriters;
-        this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
-
-        // determine the input index of the partition columns and data columns
-        int[] partitionColumnInputIndex = new int[originalPartitionColumns.size()];
-        ImmutableList.Builder<Integer> dataColumnsInputIndex = ImmutableList.builder();
-
-        Type[] partitionColumnTypes = new Type[originalPartitionColumns.size()];
-        String[] originalPartitionColumnNames = new String[originalPartitionColumns.size()];
-
-        ImmutableList.Builder<DeltaLakeColumnHandle> dataColumnHandles = ImmutableList.builder();
-        ImmutableList.Builder<Type> dataColumnTypes = ImmutableList.builder();
-        ImmutableList.Builder<String> dataColumnNames = ImmutableList.builder();
-
-        Map<String, String> canonicalToOriginalPartitionColumns = new HashMap<>();
-        Map<String, Integer> canonicalToOriginalPartitionPositions = new HashMap<>();
-        int partitionColumnPosition = 0;
-        for (String partitionColumnName : originalPartitionColumns) {
-            String canonicalizeColumnName = canonicalizeColumnName(partitionColumnName);
-            canonicalToOriginalPartitionColumns.put(canonicalizeColumnName, partitionColumnName);
-            canonicalToOriginalPartitionPositions.put(canonicalizeColumnName, partitionColumnPosition++);
-        }
-        for (int inputIndex = 0; inputIndex < inputColumns.size(); inputIndex++) {
-            DeltaLakeColumnHandle column = inputColumns.get(inputIndex);
-            switch (column.getColumnType()) {
-                case PARTITION_KEY:
-                    int partitionPosition = canonicalToOriginalPartitionPositions.get(column.getName());
-                    partitionColumnInputIndex[partitionPosition] = inputIndex;
-                    originalPartitionColumnNames[partitionPosition] = canonicalToOriginalPartitionColumns.get(column.getName());
-                    partitionColumnTypes[partitionPosition] = column.getType();
-                    break;
-                case REGULAR:
-                    dataColumnHandles.add(column);
-                    dataColumnsInputIndex.add(inputIndex);
-                    dataColumnNames.add(column.getName());
-                    dataColumnTypes.add(column.getType());
-                    break;
-                case SYNTHESIZED:
-                default:
-                    throw new IllegalStateException("Unexpected column type: " + column.getColumnType());
-            }
-        }
-        this.partitionColumnsInputIndex = partitionColumnInputIndex;
-        this.dataColumnInputIndex = Ints.toArray(dataColumnsInputIndex.build());
-        this.originalPartitionColumnNames = ImmutableList.copyOf(originalPartitionColumnNames);
-        this.dataColumnHandles = dataColumnHandles.build();
-        this.partitionColumnTypes = ImmutableList.copyOf(partitionColumnTypes);
-        this.dataColumnNames = dataColumnNames.build();
-        this.dataColumnTypes = dataColumnTypes.build();
-
-        this.pageIndexer = pageIndexerFactory.createPageIndexer(this.partitionColumnTypes);
-
-        this.outputPath = outputPath;
-        this.session = requireNonNull(session, "session is null");
-        this.stats = stats;
-
-        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(outputPath));
-        configureCompression(conf, getCompressionCodec(session));
-        this.conf = toJobConf(conf);
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
-        this.targetMaxFileSize = DeltaLakeSessionProperties.getTargetMaxFileSize(session);
+        super(
+                typeOperators,
+                inputColumns,
+                originalPartitionColumns,
+                pageIndexerFactory,
+                fileSystemFactory,
+                maxOpenWriters,
+                dataFileInfoCodec,
+                tableLocation,
+                tableLocation,
+                session,
+                stats,
+                trinoVersion,
+                parquetSchemaMapping);
     }
 
     @Override
-    public long getCompletedBytes()
+    protected void processSynthesizedColumn(DeltaLakeColumnHandle column)
     {
-        return writtenBytes;
+        throw new IllegalStateException("Unexpected column type: " + column.getColumnType());
     }
 
     @Override
-    public long getMemoryUsage()
+    protected String getPathPrefix()
     {
-        return memoryUsage;
+        return "";
     }
 
     @Override
-    public long getValidationCpuNanos()
+    protected DataFileInfo.DataFileType getDataFileType()
     {
-        return 0;
-    }
-
-    @Override
-    public CompletableFuture<Collection<Slice>> finish()
-    {
-        for (int writerIndex = 0; writerIndex < writers.size(); writerIndex++) {
-            closeWriter(writerIndex);
-        }
-        writers.clear();
-
-        List<Slice> result = dataFileInfos.build();
-
-        return MoreFutures.toCompletableFuture(Futures.immediateFuture(result));
-    }
-
-    @Override
-    public void abort()
-    {
-        List<Closeable> rollbackActions = Streams.concat(
-                        writers.stream()
-                                // writers can contain nulls if an exception is thrown when doAppend expands the writer list
-                                .filter(Objects::nonNull)
-                                .map(writer -> writer::rollback),
-                        closedWriterRollbackActions.stream())
-                .collect(toImmutableList());
-        RuntimeException rollbackException = null;
-        for (Closeable rollbackAction : rollbackActions) {
-            try {
-                rollbackAction.close();
-            }
-            catch (Throwable t) {
-                if (rollbackException == null) {
-                    rollbackException = new TrinoException(DELTA_LAKE_BAD_WRITE, "Error rolling back write to Delta Lake");
-                }
-                rollbackException.addSuppressed(t);
-            }
-        }
-        if (rollbackException != null) {
-            throw rollbackException;
-        }
-    }
-
-    @Override
-    public CompletableFuture<?> appendPage(Page page)
-    {
-        if (page.getPositionCount() == 0) {
-            return NOT_BLOCKED;
-        }
-
-        while (page.getPositionCount() > MAX_PAGE_POSITIONS) {
-            Page chunk = page.getRegion(0, MAX_PAGE_POSITIONS);
-            page = page.getRegion(MAX_PAGE_POSITIONS, page.getPositionCount() - MAX_PAGE_POSITIONS);
-            writePage(chunk);
-        }
-
-        writePage(page);
-        return NOT_BLOCKED;
-    }
-
-    private void writePage(Page page)
-    {
-        int[] writerIndexes = getWriterIndexes(page);
-
-        // position count for each writer
-        int[] sizes = new int[writers.size()];
-        for (int index : writerIndexes) {
-            sizes[index]++;
-        }
-
-        // record which positions are used by which writer
-        int[][] writerPositions = new int[writers.size()][];
-        int[] counts = new int[writers.size()];
-
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            int index = writerIndexes[position];
-
-            int count = counts[index];
-            if (count == 0) {
-                writerPositions[index] = new int[sizes[index]];
-            }
-            writerPositions[index][count] = position;
-            counts[index] = count + 1;
-        }
-
-        // invoke the writers
-        Page dataPage = getDataPage(page);
-        for (int index = 0; index < writerPositions.length; index++) {
-            int[] positions = writerPositions[index];
-            if (positions == null) {
-                continue;
-            }
-
-            // If write is partitioned across multiple writers, filter page using dictionary blocks
-            Page pageForWriter = dataPage;
-            if (positions.length != dataPage.getPositionCount()) {
-                verify(positions.length == counts[index]);
-                pageForWriter = pageForWriter.getPositions(positions, 0, positions.length);
-            }
-
-            DeltaLakeWriter writer = writers.get(index);
-
-            long currentWritten = writer.getWrittenBytes();
-            long currentMemory = writer.getMemoryUsage();
-
-            writer.appendRows(pageForWriter);
-
-            writtenBytes += (writer.getWrittenBytes() - currentWritten);
-            memoryUsage += (writer.getMemoryUsage() - currentMemory);
-        }
-    }
-
-    private int[] getWriterIndexes(Page page)
-    {
-        Page partitionColumns = extractColumns(page, partitionColumnsInputIndex);
-        int[] writerIndexes = pageIndexer.indexPage(partitionColumns);
-        if (pageIndexer.getMaxIndex() >= maxOpenWriters) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Exceeded limit of %s open writers for partitions", maxOpenWriters));
-        }
-
-        // expand writers list to new size
-        while (writers.size() <= pageIndexer.getMaxIndex()) {
-            writers.add(null);
-        }
-        boolean isOptimizedParquetWriter = isParquetOptimizedWriterEnabled(session);
-        // create missing writers
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            int writerIndex = writerIndexes[position];
-            DeltaLakeWriter deltaLakeWriter = writers.get(writerIndex);
-            if (deltaLakeWriter != null) {
-                if (isOptimizedParquetWriter) {
-                    if (deltaLakeWriter.getWrittenBytes() <= targetMaxFileSize) {
-                        continue;
-                    }
-                    closeWriter(writerIndex);
-                }
-                else {
-                    continue;
-                }
-            }
-
-            Path filePath = new Path(outputPath);
-
-            List<String> partitionValues = createPartitionValues(partitionColumnTypes, partitionColumns, position);
-            Optional<String> partitionName = Optional.empty();
-            if (!originalPartitionColumnNames.isEmpty()) {
-                String partName = makePartName(originalPartitionColumnNames, partitionValues);
-                filePath = new Path(outputPath, partName);
-                partitionName = Optional.of(partName);
-            }
-
-            String fileName = session.getQueryId() + "-" + randomUUID();
-            filePath = new Path(filePath, fileName);
-
-            FileWriter fileWriter;
-            if (isOptimizedParquetWriter) {
-                fileWriter = createParquetFileWriter(filePath.toString());
-            }
-            else {
-                fileWriter = createRecordFileWriter(filePath);
-            }
-
-            Path rootTableLocation = new Path(outputPath);
-            DeltaLakeWriter writer = new DeltaLakeWriter(
-                    fileSystem,
-                    fileWriter,
-                    rootTableLocation,
-                    partitionName.map(partition -> new Path(partition, fileName).toString()).orElse(fileName),
-                    partitionValues,
-                    stats,
-                    dataColumnHandles);
-
-            writers.set(writerIndex, writer);
-            memoryUsage += writer.getMemoryUsage();
-        }
-        verify(writers.size() == pageIndexer.getMaxIndex() + 1);
-        verify(!writers.contains(null));
-
-        return writerIndexes;
-    }
-
-    private void closeWriter(int writerIndex)
-    {
-        DeltaLakeWriter writer = writers.get(writerIndex);
-
-        long currentWritten = writer.getWrittenBytes();
-        long currentMemory = writer.getMemoryUsage();
-
-        closedWriterRollbackActions.add(writer.commit());
-
-        writtenBytes += writer.getWrittenBytes() - currentWritten;
-        memoryUsage -= currentMemory;
-
-        writers.set(writerIndex, null);
-
-        try {
-            DataFileInfo dataFileInfo = writer.getDataFileInfo();
-            dataFileInfos.add(wrappedBuffer(dataFileInfoCodec.toJsonBytes(dataFileInfo)));
-        }
-        catch (IOException e) {
-            LOG.warn("exception '%s' while finishing write on %s", e, writer);
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Error committing Parquet file to Delta Lake", e);
-        }
-    }
-
-    /**
-     * Copy of {@link HiveUtil#makePartName} modified to preserve case of partition columns.
-     */
-    private static String makePartName(List<String> partitionColumns, List<String> partitionValues)
-    {
-        StringBuilder name = new StringBuilder();
-
-        for (int i = 0; i < partitionColumns.size(); ++i) {
-            if (i > 0) {
-                name.append("/");
-            }
-
-            name.append(escapePathName(partitionColumns.get(i)));
-            name.append('=');
-            name.append(escapePathName(partitionValues.get(i)));
-        }
-
-        return name.toString();
-    }
-
-    public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)
-    {
-        return HiveWriteUtils.createPartitionValues(partitionColumnTypes, partitionColumns, position).stream()
-                .map(value -> value.equals(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION) ? null : value)
-                .collect(toList());
-    }
-
-    private FileWriter createParquetFileWriter(String path)
-    {
-        ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
-                .setMaxBlockSize(getParquetWriterBlockSize(session))
-                .setMaxPageSize(getParquetWriterPageSize(session))
-                .build();
-        CompressionCodecName compressionCodecName = getCompressionCodec(session).getParquetCompressionCodec();
-
-        try {
-            Closeable rollbackAction = () -> fileSystem.deleteFile(path);
-
-            List<Type> parquetTypes = dataColumnTypes.stream()
-                    .map(type -> {
-                        if (type instanceof TimestampWithTimeZoneType) {
-                            verify(((TimestampWithTimeZoneType) type).getPrecision() == 3, "Unsupported type: %s", type);
-                            return TIMESTAMP_MILLIS;
-                        }
-                        return type;
-                    })
-                    .collect(toImmutableList());
-
-            // we use identity column mapping; input page already contains only data columns per
-            // DataLagePageSink.getDataPage()
-            int[] identityMapping = new int[dataColumnTypes.size()];
-            for (int i = 0; i < identityMapping.length; ++i) {
-                identityMapping[i] = i;
-            }
-
-            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(parquetTypes, dataColumnNames, false, false);
-            return new ParquetFileWriter(
-                    fileSystem.newOutputFile(path),
-                    rollbackAction,
-                    parquetTypes,
-                    dataColumnNames,
-                    schemaConverter.getMessageType(),
-                    schemaConverter.getPrimitiveTypes(),
-                    parquetWriterOptions,
-                    identityMapping,
-                    compressionCodecName,
-                    trinoVersion,
-                    false,
-                    Optional.empty(),
-                    Optional.empty());
-        }
-        catch (IOException e) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Error creating Parquet file", e);
-        }
-    }
-
-    private FileWriter createRecordFileWriter(Path path)
-    {
-        Properties schema = buildHiveSchema(dataColumnNames, dataColumnTypes);
-        return new RecordFileWriter(
-                path,
-                dataColumnNames,
-                fromHiveStorageFormat(PARQUET),
-                schema,
-                PARQUET.getEstimatedWriterMemoryUsage(),
-                conf,
-                typeManager,
-                DateTimeZone.UTC,
-                session);
-    }
-
-    private Page getDataPage(Page page)
-    {
-        Block[] blocks = new Block[dataColumnInputIndex.length];
-        for (int i = 0; i < dataColumnInputIndex.length; i++) {
-            int dataColumn = dataColumnInputIndex[i];
-            blocks[i] = page.getBlock(dataColumn);
-        }
-        return new Page(page.getPositionCount(), blocks);
-    }
-
-    private static Page extractColumns(Page page, int[] columns)
-    {
-        Block[] blocks = new Block[columns.length];
-        for (int i = 0; i < columns.length; i++) {
-            int dataColumn = columns[i];
-            blocks[i] = page.getBlock(dataColumn);
-        }
-        return new Page(page.getPositionCount(), blocks);
+        return DATA;
     }
 }

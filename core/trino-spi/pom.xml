@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>406</version>
+        <version>420</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,6 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <released-artifacts.dir>${project.build.directory}/released-artifacts</released-artifacts.dir>
+        <trino.check.skip-revapi>${air.check.skip-basic}</trino.check.skip-revapi>
     </properties>
 
     <!-- the SPI should have only minimal dependencies -->
@@ -36,8 +37,20 @@
         </dependency>
 
         <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- for testing -->
@@ -160,12 +173,12 @@
             <plugin>
                 <groupId>org.revapi</groupId>
                 <artifactId>revapi-maven-plugin</artifactId>
-                <version>0.14.7</version>
+                <version>0.15.0</version>
                 <dependencies>
                     <dependency>
                         <groupId>org.revapi</groupId>
                         <artifactId>revapi-java</artifactId>
-                        <version>0.27.0</version>
+                        <version>0.28.1</version>
                     </dependency>
                 </dependencies>
                 <executions>
@@ -176,6 +189,7 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <skip>${trino.check.skip-revapi}</skip>
                     <ignoreSuggestionsFormat>xml</ignoreSuggestionsFormat>
                     <analysisConfiguration>
                         <revapi.filter>
@@ -221,59 +235,24 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean io.trino.spi.connector.MaterializedViewFreshness::isMaterializedViewFresh()</old>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.visibilityReduced</code>
-                                    <old>method java.lang.invoke.MethodHandle io.trino.spi.predicate.Range::getComparisonOperator(io.trino.spi.type.Type)</old>
-                                    <new>method java.lang.invoke.MethodHandle io.trino.spi.predicate.Range::getComparisonOperator(io.trino.spi.type.Type)</new>
-                                    <oldVisibility>protected</oldVisibility>
-                                    <newVisibility>package</newVisibility>
-                                    <justification>It was not accessible outside of SPI anyway</justification>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.Set&lt;io.trino.spi.ptf.ConnectorTableFunction&gt; io.trino.spi.connector.Connector::getTableFunctions()</old>
+                                    <new>method java.util.Set&lt;io.trino.spi.function.table.ConnectorTableFunction&gt; io.trino.spi.connector.Connector::getTableFunctions()</new>
+                                    <justification>Relocate table function infrastructure</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.parameterTypeChanged</code>
-                                    <old>parameter void io.trino.spi.eventlistener.ColumnInfo::&lt;init&gt;(java.lang.String, ===java.util.List&lt;java.lang.String&gt;===)</old>
-                                    <new>parameter void io.trino.spi.eventlistener.ColumnInfo::&lt;init&gt;(java.lang.String, ===java.util.Optional&lt;java.lang.String&gt;===)</new>
+                                    <old>parameter java.util.Optional&lt;io.trino.spi.connector.TableFunctionApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyTableFunction(io.trino.spi.connector.ConnectorSession, ===io.trino.spi.ptf.ConnectorTableFunctionHandle===)</old>
+                                    <new>parameter java.util.Optional&lt;io.trino.spi.connector.TableFunctionApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyTableFunction(io.trino.spi.connector.ConnectorSession, ===io.trino.spi.function.table.ConnectorTableFunctionHandle===)</new>
                                     <parameterIndex>1</parameterIndex>
-                                    <justification>Removing support for multiple masks on a given column, as they are error prone</justification>
+                                    <justification>Relocate table function infrastructure</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.List&lt;java.lang.String&gt; io.trino.spi.eventlistener.ColumnInfo::getMasks()</old>
-                                    <justification>Removing support for multiple masks on a given column, as they are error prone</justification>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::beginDelete(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.RetryMode)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::beginUpdate(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.connector.RetryMode)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.connector.ConnectorMetadata::finishDelete(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.connector.ConnectorMetadata::finishUpdate(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.connector.ColumnHandle io.trino.spi.connector.ConnectorMetadata::getDeleteRowIdColumnHandle(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.connector.ColumnHandle io.trino.spi.connector.ConnectorMetadata::getUpdateRowIdColumnHandle(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
-                                </item>
-                                <item>
                                     <code>java.class.removed</code>
-                                    <old>interface io.trino.spi.connector.UpdatablePageSource</old>
+                                    <old>interface io.trino.spi.ptf.TableFunctionDataProcessor</old>
+                                    <justification>Relocate table function infrastructure</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

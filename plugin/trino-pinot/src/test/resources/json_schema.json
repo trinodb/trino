@@ -1,5 +1,5 @@
 {
-    "schemaName": "json_table",
+    "schemaName": "json_type_table",
     "dimensionFieldSpecs": [
         {
             "name": "string_col",

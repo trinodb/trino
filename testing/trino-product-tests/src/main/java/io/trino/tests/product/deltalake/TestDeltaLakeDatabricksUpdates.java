@@ -23,16 +23,17 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeDatabricksUpdates
         extends BaseTestDeltaLakeS3Storage
@@ -77,25 +78,25 @@ public class TestDeltaLakeDatabricksUpdates
         try {
             QueryResult databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
             QueryResult prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
-            assertThat(databricksResult).containsExactly(toRows(prestoResult));
+            assertThat(databricksResult).containsExactlyInOrder(toRows(prestoResult));
 
             onDelta().executeQuery(format("UPDATE default.%s SET value = 'France' WHERE id = 2", tableName));
             databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
             prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
-            assertThat(databricksResult).containsExactly(toRows(prestoResult));
+            assertThat(databricksResult).containsExactlyInOrder(toRows(prestoResult));
 
             onDelta().executeQuery(format("UPDATE default.%s SET value = 'Spain' WHERE id = 2", tableName));
             databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
             prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
-            assertThat(databricksResult).containsExactly(toRows(prestoResult));
+            assertThat(databricksResult).containsExactlyInOrder(toRows(prestoResult));
 
             onDelta().executeQuery(format("UPDATE default.%s SET value = 'Portugal' WHERE id = 2", tableName));
             databricksResult = onDelta().executeQuery(format("SELECT * FROM default.%s ORDER BY id", tableName));
             prestoResult = onTrino().executeQuery(format("SELECT * FROM delta.default.\"%s\" ORDER BY id", tableName));
-            assertThat(databricksResult).containsExactly(toRows(prestoResult));
+            assertThat(databricksResult).containsExactlyInOrder(toRows(prestoResult));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 

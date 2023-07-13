@@ -13,6 +13,7 @@
  */
 package io.trino.likematcher;
 
+import com.google.common.base.Strings;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -74,13 +75,36 @@ public class TestLikeMatcher
         // optimization of consecutive _ and %
         assertTrue(match("_%_%_%_%", "abcdefghij"));
 
+        assertTrue(match("%a%a%a%a%a%a%", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assertTrue(match("%a%a%a%a%a%a%", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab"));
+        assertTrue(match("%a%b%a%b%a%b%", "aabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabb"));
+        assertTrue(match("%aaaa%bbbb%aaaa%bbbb%aaaa%bbbb%", "aaaabbbbaaaabbbbaaaabbbb"));
+        assertTrue(match("%aaaaaaaaaaaaaaaaaaaaaaaaaa%", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+
+        assertTrue(match("%aab%bba%aab%bba%", "aaaabbbbaaaabbbbaaaa"));
+        assertFalse(match("%aab%bba%aab%bba%", "aaaabbbbaaaabbbbcccc"));
+        assertTrue(match("%abaca%", "abababababacabababa"));
+        assertFalse(match("%bcccccccca%", "bbbbbbbbxax"));
+        assertFalse(match("%bbxxxxxa%", "bbbxxxxaz"));
+        assertFalse(match("%aaaaaaxaaaaaa%", Strings.repeat("a", 20) +
+                                          Strings.repeat("b", 20) +
+                                          Strings.repeat("a", 20) +
+                                          Strings.repeat("b", 20) +
+                                          "the quick brown fox jumps over the lazy dog"));
+
+        assertFalse(match("%abaaa%", "ababaa"));
+
         // utf-8
-        LikeMatcher single = LikeMatcher.compile("_");
-        LikeMatcher multiple = LikeMatcher.compile("_a%b_"); // prefix and suffix with _a and b_ to avoid optimizations
+        LikeMatcher singleOptimized = LikeMatcher.compile("_", Optional.empty(), true);
+        LikeMatcher multipleOptimized = LikeMatcher.compile("_a%b_", Optional.empty(), true); // prefix and suffix with _a and b_ to avoid optimizations
+        LikeMatcher single = LikeMatcher.compile("_", Optional.empty(), false);
+        LikeMatcher multiple = LikeMatcher.compile("_a%b_", Optional.empty(), false); // prefix and suffix with _a and b_ to avoid optimizations
         for (int i = 0; i < Character.MAX_CODE_POINT; i++) {
+            assertTrue(singleOptimized.match(Character.toString(i).getBytes(StandardCharsets.UTF_8)));
             assertTrue(single.match(Character.toString(i).getBytes(StandardCharsets.UTF_8)));
 
             String value = "aa" + (char) i + "bb";
+            assertTrue(multipleOptimized.match(value.getBytes(StandardCharsets.UTF_8)));
             assertTrue(multiple.match(value.getBytes(StandardCharsets.UTF_8)));
         }
     }
@@ -91,6 +115,8 @@ public class TestLikeMatcher
         assertTrue(match("-%", "%", '-'));
         assertTrue(match("-_", "_", '-'));
         assertTrue(match("--", "-", '-'));
+
+        assertTrue(match("%$_%", "xxxxx_xxxxx", '$'));
     }
 
     private static boolean match(String pattern, String value)
@@ -109,10 +135,17 @@ public class TestLikeMatcher
         String padded = padding + value + padding;
         byte[] bytes = padded.getBytes(StandardCharsets.UTF_8);
 
-        boolean withoutPadding = LikeMatcher.compile(pattern, escape).match(value.getBytes(StandardCharsets.UTF_8));
-        boolean withPadding = LikeMatcher.compile(pattern, escape).match(bytes, padding.length(), bytes.length - padding.length() * 2);  // exclude padding
+        boolean optimizedWithoutPadding = LikeMatcher.compile(pattern, escape, true).match(value.getBytes(StandardCharsets.UTF_8));
 
-        assertEquals(withoutPadding, withPadding);
+        boolean optimizedWithPadding = LikeMatcher.compile(pattern, escape, true).match(bytes, padding.length(), bytes.length - padding.length() * 2);  // exclude padding
+        assertEquals(optimizedWithoutPadding, optimizedWithPadding);
+
+        boolean withoutPadding = LikeMatcher.compile(pattern, escape, false).match(value.getBytes(StandardCharsets.UTF_8));
+        assertEquals(optimizedWithoutPadding, withoutPadding);
+
+        boolean withPadding = LikeMatcher.compile(pattern, escape, false).match(bytes, padding.length(), bytes.length - padding.length() * 2);  // exclude padding
+        assertEquals(optimizedWithoutPadding, withPadding);
+
         return withPadding;
     }
 }

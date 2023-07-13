@@ -202,10 +202,9 @@ public final class GeoFunctions
             }
 
             OGCGeometry geometry = deserialize(slice);
-            if (!(geometry instanceof OGCPoint)) {
+            if (!(geometry instanceof OGCPoint point)) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("ST_LineString takes only an array of valid points, %s was passed", geometry.geometryType()));
             }
-            OGCPoint point = (OGCPoint) geometry;
 
             if (point.isEmpty()) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_LineString: empty point at index %s", i + 1));
@@ -250,10 +249,9 @@ public final class GeoFunctions
 
             Slice slice = GEOMETRY.getSlice(input, i);
             OGCGeometry geometry = deserialize(slice);
-            if (!(geometry instanceof OGCPoint)) {
+            if (!(geometry instanceof OGCPoint point)) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: geometry is not a point: %s at index %s", geometry.geometryType(), i + 1));
             }
-            OGCPoint point = (OGCPoint) geometry;
             if (point.isEmpty()) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: empty point at index %s", i + 1));
             }
@@ -559,11 +557,10 @@ public final class GeoFunctions
             if (!OperatorSimplifyOGC.local().isSimpleOGC(geometry, null, true, result, null)) {
                 String reasonText = NON_SIMPLE_REASONS.getOrDefault(result.m_reason, result.m_reason.name());
 
-                if (!(geometry instanceof MultiVertexGeometry)) {
+                if (!(geometry instanceof MultiVertexGeometry multiVertexGeometry)) {
                     return utf8Slice(reasonText);
                 }
 
-                MultiVertexGeometry multiVertexGeometry = (MultiVertexGeometry) geometry;
                 if (result.m_vertexIndex1 >= 0 && result.m_vertexIndex2 >= 0) {
                     Point point1 = multiVertexGeometry.getPoint(result.m_vertexIndex1);
                     Point point2 = multiVertexGeometry.getPoint(result.m_vertexIndex2);

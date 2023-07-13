@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -78,7 +79,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
                 Table table = glueClient.getTable(new GetTableRequest().withDatabaseName(schema).withName(tableName)).getTable();
                 Instant createTime = table.getCreateTime().toInstant();
                 if (createTime.isBefore(SCHEMA_CLEANUP_THRESHOLD)) {
-                    if (table.getTableType() != null && table.getTableType().contains("VIEW")) {
+                    if (getTableType(table).contains("VIEW")) {
                         onTrino().executeQuery(format("DROP VIEW IF EXISTS %s.%s", schema, tableName));
                         log.info("Dropped view %s.%s", schema, tableName);
                     }

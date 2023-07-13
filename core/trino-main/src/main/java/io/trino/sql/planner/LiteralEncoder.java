@@ -104,8 +104,8 @@ public final class LiteralEncoder
     {
         requireNonNull(type, "type is null");
 
-        if (object instanceof Expression) {
-            return (Expression) object;
+        if (object instanceof Expression expression) {
+            return expression;
         }
 
         if (object == null) {
@@ -131,7 +131,7 @@ public final class LiteralEncoder
 
         if (type.equals(BIGINT)) {
             LongLiteral expression = new LongLiteral(object.toString());
-            if (expression.getValue() >= Integer.MIN_VALUE && expression.getValue() <= Integer.MAX_VALUE) {
+            if (expression.getParsedValue() >= Integer.MIN_VALUE && expression.getParsedValue() <= Integer.MAX_VALUE) {
                 return new GenericLiteral("BIGINT", object.toString());
             }
             return new LongLiteral(object.toString());
@@ -194,8 +194,7 @@ public final class LiteralEncoder
             return new Cast(new DecimalLiteral(string), toSqlType(type));
         }
 
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
+        if (type instanceof VarcharType varcharType) {
             Slice value = (Slice) object;
             if (varcharType.isUnbounded()) {
                 return new GenericLiteral("VARCHAR", value.toStringUtf8());
@@ -225,8 +224,7 @@ public final class LiteralEncoder
             return new GenericLiteral("DATE", new SqlDate(toIntExact((Long) object)).toString());
         }
 
-        if (type instanceof TimestampType) {
-            TimestampType timestampType = (TimestampType) type;
+        if (type instanceof TimestampType timestampType) {
             String representation;
             if (timestampType.isShort()) {
                 representation = TimestampToVarcharCast.cast(timestampType.getPrecision(), (Long) object).toStringUtf8();
@@ -237,8 +235,7 @@ public final class LiteralEncoder
             return new TimestampLiteral(representation);
         }
 
-        if (type instanceof TimestampWithTimeZoneType) {
-            TimestampWithTimeZoneType timestampWithTimeZoneType = (TimestampWithTimeZoneType) type;
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
             String representation;
             if (timestampWithTimeZoneType.isShort()) {
                 representation = TimestampWithTimeZoneToVarcharCast.cast(timestampWithTimeZoneType.getPrecision(), (long) object).toStringUtf8();
@@ -265,20 +262,20 @@ public final class LiteralEncoder
             object = nativeValueToBlock(type, object);
         }
 
-        if (object instanceof Block) {
-            SliceOutput output = new DynamicSliceOutput(toIntExact(((Block) object).getSizeInBytes()));
-            BlockSerdeUtil.writeBlock(plannerContext.getBlockEncodingSerde(), output, (Block) object);
+        if (object instanceof Block block) {
+            SliceOutput output = new DynamicSliceOutput(toIntExact(block.getSizeInBytes()));
+            BlockSerdeUtil.writeBlock(plannerContext.getBlockEncodingSerde(), output, block);
             object = output.slice();
             // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)
         }
 
         Type argumentType = typeForMagicLiteral(type);
         Expression argument;
-        if (object instanceof Slice) {
+        if (object instanceof Slice slice) {
             // HACK: we need to serialize VARBINARY in a format that can be embedded in an expression to be
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
-            Slice encoded = VarbinaryFunctions.toBase64((Slice) object);
+            Slice encoded = VarbinaryFunctions.toBase64(slice);
             argument = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                     .setName(QualifiedName.of("from_base64"))
                     .addArgument(VARCHAR, new StringLiteral(encoded.toStringUtf8()))

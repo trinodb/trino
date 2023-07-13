@@ -15,13 +15,13 @@ package io.trino.operator.join;
 
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public final class JoinHash
         implements LookupSource
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(JoinHash.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(JoinHash.class);
     private final PagesHash pagesHash;
 
     // we unwrap Optional<JoinFilterFunction> to actual verifier or null in constructor for performance reasons

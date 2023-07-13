@@ -14,6 +14,7 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
@@ -24,8 +25,6 @@ import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
-
-import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
@@ -43,7 +42,7 @@ public class EnvSinglenodeSparkIcebergRest
     private static final int REST_SERVER_PORT = 8181;
     private static final String SPARK_CONTAINER_NAME = "spark";
     private static final String REST_CONTAINER_NAME = "iceberg-with-rest";
-    private static final String REST_SERVER_IMAGE = "tabulario/iceberg-rest:0.2.0";
+    private static final String REST_SERVER_IMAGE = "tabulario/iceberg-rest:0.4.0";
     private static final String CATALOG_WAREHOUSE = "hdfs://hadoop-master:9000/user/hive/warehouse";
 
     private final DockerFiles dockerFiles;
@@ -91,6 +90,10 @@ public class EnvSinglenodeSparkIcebergRest
                         forHostPath(dockerFiles.getDockerFilesHostPath(
                                 "conf/environment/singlenode-spark-iceberg-rest/spark-defaults.conf")),
                         "/spark/conf/spark-defaults.conf")
+                .withCopyFileToContainer(
+                        forHostPath(dockerFiles.getDockerFilesHostPath(
+                                "common/spark/log4j2.properties")),
+                        "/spark/conf/log4j2.properties")
                 .withCommand(
                         "spark-submit",
                         "--master", "local[*]",

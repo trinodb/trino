@@ -16,6 +16,7 @@ package io.trino.sql.parser;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.PathSpecification;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.Statement;
@@ -37,6 +38,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
@@ -65,7 +67,6 @@ public class SqlParser
             .specialRule(SqlBaseParser.RULE_query, "<query>")
             .specialRule(SqlBaseParser.RULE_type, "<type>")
             .specialToken(SqlBaseLexer.INTEGER_VALUE, "<integer>")
-            .ignoredRule(SqlBaseParser.RULE_nonReserved)
             .build();
 
     private final BiConsumer<SqlBaseLexer, SqlBaseParser> initializer;
@@ -83,6 +84,11 @@ public class SqlParser
     public Statement createStatement(String sql, ParsingOptions parsingOptions)
     {
         return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement, parsingOptions);
+    }
+
+    public Statement createStatement(String sql, NodeLocation location, ParsingOptions parsingOptions)
+    {
+        return (Statement) invokeParser("statement", sql, Optional.ofNullable(location), SqlBaseParser::singleStatement, parsingOptions);
     }
 
     public Expression createExpression(String expression, ParsingOptions parsingOptions)
@@ -106,6 +112,11 @@ public class SqlParser
     }
 
     private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
+    {
+        return invokeParser(name, sql, Optional.empty(), parseFunction, parsingOptions);
+    }
+
+    private Node invokeParser(String name, String sql, Optional<NodeLocation> location, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
     {
         try {
             SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
@@ -150,8 +161,20 @@ public class SqlParser
                 parser.getInterpreter().setPredictionMode(PredictionMode.LL);
                 tree = parseFunction.apply(parser);
             }
+            catch (ParsingException e) {
+                location.ifPresent(statementLocation -> {
+                    int line = statementLocation.getLineNumber();
+                    int column = statementLocation.getColumnNumber();
+                    throw new ParsingException(
+                            e.getErrorMessage(),
+                            (RecognitionException) e.getCause(),
+                            e.getLineNumber() + line - 1,
+                            e.getColumnNumber() + (line == 1 ? column : 0));
+                });
+                throw e;
+            }
 
-            return new AstBuilder(parsingOptions).visit(tree);
+            return new AstBuilder(location, parsingOptions).visit(tree);
         }
         catch (StackOverflowError e) {
             throw new ParsingException(name + " is too large (stack overflow while parsing)");

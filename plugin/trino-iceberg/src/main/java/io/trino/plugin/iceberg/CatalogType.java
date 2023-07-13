@@ -21,5 +21,6 @@ public enum CatalogType
     REST,
     JDBC,
     HADOOP,
+    NESSIE,
     /**/;
 }

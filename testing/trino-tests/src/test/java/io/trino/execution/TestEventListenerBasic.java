@@ -729,6 +729,7 @@ public class TestEventListenerBasic
         assertEquals(statistics.getOutputRows(), queryStats.getOutputPositions());
         assertEquals(statistics.getWrittenBytes(), queryStats.getLogicalWrittenDataSize().toBytes());
         assertEquals(statistics.getWrittenRows(), queryStats.getWrittenPositions());
+        assertEquals(statistics.getSpilledBytes(), queryStats.getSpilledDataSize().toBytes());
         assertEquals(statistics.getCumulativeMemory(), queryStats.getCumulativeUserMemory());
         assertEquals(statistics.getStageGcStatistics(), queryStats.getStageGcStatistics());
         assertEquals(statistics.getCompletedSplits(), queryStats.getCompletedDrivers());

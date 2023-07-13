@@ -33,7 +33,7 @@ public final class TemporalFunction
     public static int getDay(Type type, Block block, int position)
     {
         if (type.equals(DATE)) {
-            return toIntExact(DATE.getLong(block, position));
+            return DATE.getInt(block, position);
         }
 
         if (type.equals(TIMESTAMP_MILLIS)) {

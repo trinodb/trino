@@ -14,11 +14,13 @@
 package io.trino.tests.product.deltalake;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.testng.services.Flaky;
+import io.trino.tests.product.deltalake.util.DatabricksVersion;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.SoftAssertions;
 import org.testng.annotations.DataProvider;
@@ -30,13 +32,15 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_122_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -44,6 +48,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeWriteDatabricksCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -54,7 +59,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
 
     private AmazonS3 s3;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         super.setUp();
@@ -89,7 +94,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -119,7 +124,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -149,7 +154,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -176,7 +181,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -265,7 +270,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
                     .containsOnly(row(1, 2));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -320,7 +325,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
                     .containsOnly(row(1, 2));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -366,10 +371,19 @@ public class TestDeltaLakeWriteDatabricksCompatibility
             // https://docs.delta.io/2.1.0/delta-change-data-feed.html#change-data-storage
             vacuumExecutor.accept(tableName);
 
-            Assertions.assertThat(s3.listObjectsV2(bucketName, changeDataPrefix).getObjectSummaries()).hasSize(0);
+            List<S3ObjectSummary> summaries = s3.listObjectsV2(bucketName, changeDataPrefix).getObjectSummaries();
+            Assertions.assertThat(summaries).hasSizeBetween(0, 1);
+            if (!summaries.isEmpty()) {
+                // Databricks version >= 12.2 keep an empty _change_data directory
+                DatabricksVersion databricksRuntimeVersion = getDatabricksRuntimeVersion().orElseThrow();
+                Assertions.assertThat(databricksRuntimeVersion.isAtLeast(DATABRICKS_122_RUNTIME_VERSION)).isTrue();
+                S3ObjectSummary summary = summaries.get(0);
+                Assertions.assertThat(summary.getKey()).endsWith(changeDataPrefix + "/");
+                Assertions.assertThat(summary.getSize()).isEqualTo(0);
+            }
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -474,7 +488,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
         @Override
         public void close()
         {
-            onDelta().executeQuery("DROP TABLE default." + name);
+            dropDeltaTableWithRetry("default." + name);
         }
     }
 

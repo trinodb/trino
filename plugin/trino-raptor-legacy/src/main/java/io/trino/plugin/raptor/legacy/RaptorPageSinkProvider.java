@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.raptor.legacy;
 
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.plugin.raptor.legacy.storage.StorageManager;
 import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
@@ -26,8 +27,6 @@ import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

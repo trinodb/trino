@@ -49,11 +49,9 @@ The following configuration properties are available:
 ========================================== ==============================================================
 Property name                              Description
 ========================================== ==============================================================
-``mongodb.seeds``                          List of all MongoDB servers
 ``mongodb.connection-url``                 The connection url that the driver uses to connect to a MongoDB deployment
 ``mongodb.schema-collection``              A collection which contains schema information
 ``mongodb.case-insensitive-name-matching`` Match database and collection names case insensitively
-``mongodb.credentials``                    List of credentials
 ``mongodb.min-connections-per-host``       The minimum size of the connection pool per host
 ``mongodb.connections-per-host``           The maximum size of the connection pool per host
 ``mongodb.max-wait-time``                  The maximum wait time
@@ -61,8 +59,8 @@ Property name                              Description
 ``mongodb.connection-timeout``             The socket connect timeout
 ``mongodb.socket-timeout``                 The socket timeout
 ``mongodb.tls.enabled``                    Use TLS/SSL for connections to mongod/mongos
-``mongodb.tls.keystore-path``              Path to the PEM or JKS key store
-``mongodb.tls.truststore-path``            Path to the PEM or JKS trust store
+``mongodb.tls.keystore-path``              Path to the  or JKS key store
+``mongodb.tls.truststore-path``            Path to the  or JKS trust store
 ``mongodb.tls.keystore-password``          Password for the key store
 ``mongodb.tls.truststore-password``        Password for the trust store
 ``mongodb.read-preference``                The read preference
@@ -70,13 +68,6 @@ Property name                              Description
 ``mongodb.required-replica-set``           The required replica set name
 ``mongodb.cursor-batch-size``              The number of elements to return in a batch
 ========================================== ==============================================================
-
-``mongodb.seeds``
-^^^^^^^^^^^^^^^^^
-
-Comma-separated list of ``hostname[:port]`` all MongoDB servers in the same replica set, or a list of MongoDB servers in the same sharded cluster. If a port is not specified, port 27017 will be used.
-
-This property is deprecated and will be removed in a future release. Use ``mongodb.connection-url`` property instead.
 
 ``mongodb.connection-url``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -92,7 +83,8 @@ used. The user/pass credentials must be for a user with write access to the
 
 See the `MongoDB Connection URI <https://docs.mongodb.com/drivers/java/sync/current/fundamentals/connection/#connection-uri>`_ for more information.
 
-This property is required; there is no default. A connection url or seeds must be provided to connect to a MongoDB deployment.
+This property is required; there is no default. A connection URL must be
+provided to connect to a MongoDB deployment.
 
 ``mongodb.schema-collection``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -113,13 +105,6 @@ This property is optional; the default is ``_schema``.
 Match database and collection names case insensitively.
 
 This property is optional; the default is ``false``.
-
-``mongodb.credentials``
-^^^^^^^^^^^^^^^^^^^^^^^
-
-A comma separated list of ``username:password@database`` credentials.
-
-This property is optional; no default value. The ``database`` should be the authentication database for the user (e.g. ``admin``).
 
 ``mongodb.min-connections-per-host``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -175,14 +160,16 @@ This property is optional; the default is ``false``.
 ``mongodb.tls.keystore-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The path to the PEM or JKS key store. This file must be readable by the operating system user running Trino.
+The path to the :doc:`PEM </security/inspect-pem>` or
+:doc:`JKS </security/inspect-jks>` key store.
 
 This property is optional.
 
 ``mongodb.tls.truststore-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The path to PEM or JKS trust store. This file must be readable by the operating system user running Trino.
+The path to :doc:`PEM </security/inspect-pem>` or
+:doc:`JKS </security/inspect-jks>` trust store.
 
 This property is optional.
 
@@ -223,7 +210,7 @@ The required replica set name. With this option set, the MongoClient instance pe
 
 #. Connect in replica set mode, and discover all members of the set based on the given servers
 #. Make sure that the set name reported by all members matches the required set name.
-#. Refuse to service any requests, if any member of the seed list is not part of a replica set with the required name.
+#. Refuse to service any requests, if authenticated user is not part of a replica set with the required name.
 
 This property is optional; no default value.
 
@@ -419,6 +406,9 @@ this table:
   * - ``Double``
     - ``DOUBLE``
     -
+  * - ``Decimal128``
+    - ``DECIMAL(p, s)``
+    -
   * - ``Date``
     - ``TIMESTAMP(3)``
     -
@@ -461,6 +451,8 @@ this table:
     - ``Int64``
   * - ``DOUBLE``
     - ``Double``
+  * - ``DECIMAL(p, s)``
+    - ``Decimal128``
   * - ``TIMESTAMP(3)``
     - ``Date``
   * - ``VARCHAR``
@@ -502,6 +494,14 @@ ALTER TABLE
 The connector supports ``ALTER TABLE RENAME TO``, ``ALTER TABLE ADD COLUMN``
 and ``ALTER TABLE DROP COLUMN`` operations.
 Other uses of ``ALTER TABLE`` are not supported.
+
+.. _mongodb-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
 
 Table functions
 ---------------

@@ -13,13 +13,12 @@
  */
 package io.trino.tests.product;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.Requires;
-import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.fulfillment.table.ImmutableTableRequirement;
 import org.testng.annotations.Test;
@@ -45,13 +44,13 @@ public class TestSimpleQuery
         }
     }
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void beforeTest()
     {
         assertThat(testContextIfSet().isPresent()).isTrue();
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void afterTest()
     {
         assertThat(testContextIfSet().isPresent()).isTrue();
@@ -61,14 +60,14 @@ public class TestSimpleQuery
     @Requires(SimpleTestRequirements.class)
     public void selectAllFromNation()
     {
-        QueryAssert.assertThat(onTrino().executeQuery("select * from nation")).hasRowsCount(25);
+        assertThat(onTrino().executeQuery("select * from nation")).hasRowsCount(25);
     }
 
     @Test(groups = {SIMPLE, SMOKE})
     @Requires(SimpleTestRequirements.class)
     public void selectCountFromNation()
     {
-        QueryAssert.assertThat(onTrino().executeQuery("select count(*) from nation"))
+        assertThat(onTrino().executeQuery("select count(*) from nation"))
                 .hasRowsCount(1)
                 .contains(row(25));
     }

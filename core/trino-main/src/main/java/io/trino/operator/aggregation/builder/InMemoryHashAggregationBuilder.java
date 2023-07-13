@@ -140,8 +140,9 @@ public class InMemoryHashAggregationBuilder
         return new TransformWork<>(
                 groupByHash.getGroupIds(page),
                 groupByIdBlock -> {
+                    int groupCount = groupByHash.getGroupCount();
                     for (GroupedAggregator groupedAggregator : groupedAggregators) {
-                        groupedAggregator.processPage(groupByIdBlock, page);
+                        groupedAggregator.processPage(groupCount, groupByIdBlock, page);
                     }
                     // we do not need any output from TransformWork for this case
                     return null;

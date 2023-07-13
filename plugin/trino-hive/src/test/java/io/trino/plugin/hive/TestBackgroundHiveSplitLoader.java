@@ -23,10 +23,12 @@ import com.google.common.collect.ListMultimap;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
@@ -36,6 +38,7 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
+import io.trino.plugin.hive.util.ValidWriteIdList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -55,8 +58,6 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
-import org.apache.hadoop.hive.common.ValidReaderWriteIdList;
-import org.apache.hadoop.hive.common.ValidWriteIdList;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat;
@@ -102,6 +103,7 @@ import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.getBucketNumber;
@@ -114,6 +116,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
@@ -435,7 +438,7 @@ public class TestBackgroundHiveSplitLoader
     public void testCachedDirectoryLister()
             throws Exception
     {
-        CachingDirectoryLister cachingDirectoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of("test_dbname.test_table"));
+        CachingDirectoryLister cachingDirectoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(100, KILOBYTE), ImmutableList.of("test_dbname.test_table"));
         assertEquals(cachingDirectoryLister.getRequestCount(), 0);
 
         int totalCount = 100;
@@ -517,6 +520,7 @@ public class TestBackgroundHiveSplitLoader
     {
         AtomicBoolean iteratorUsedAfterException = new AtomicBoolean();
 
+        HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(TEST_FILES);
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
                 new Iterator<>()
@@ -547,8 +551,9 @@ public class TestBackgroundHiveSplitLoader
                 TESTING_TYPE_MANAGER,
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 SESSION,
-                new TestingHdfsEnvironment(TEST_FILES),
-                new NamenodeStats(),
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                hdfsEnvironment,
+                new HdfsNamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
                 executor,
                 threads,
@@ -640,7 +645,7 @@ public class TestBackgroundHiveSplitLoader
                 Optional.empty(),
                 table,
                 Optional.empty(),
-                Optional.of(new ValidReaderWriteIdList(validWriteIdsList)));
+                Optional.of(new ValidWriteIdList(validWriteIdsList)));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -676,7 +681,7 @@ public class TestBackgroundHiveSplitLoader
 
         // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
         // This writeId list has high watermark transaction=3
-        ValidReaderWriteIdList validWriteIdsList = new ValidReaderWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+        ValidWriteIdList validWriteIdsList = new ValidWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 HDFS_ENVIRONMENT,
@@ -716,7 +721,7 @@ public class TestBackgroundHiveSplitLoader
 
         // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
         // This writeId list has high watermark transaction=3
-        ValidReaderWriteIdList validWriteIdsList = new ValidReaderWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+        ValidWriteIdList validWriteIdsList = new ValidWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 HDFS_ENVIRONMENT,
@@ -762,7 +767,7 @@ public class TestBackgroundHiveSplitLoader
 
         // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
         // This writeId list has high watermark transaction=3
-        ValidReaderWriteIdList validWriteIdsList = new ValidReaderWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+        ValidWriteIdList validWriteIdsList = new ValidWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 HDFS_ENVIRONMENT,
@@ -807,7 +812,7 @@ public class TestBackgroundHiveSplitLoader
 
         // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
         // This writeId list has high watermark transaction=3
-        ValidReaderWriteIdList validWriteIdsList = new ValidReaderWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
+        ValidWriteIdList validWriteIdsList = new ValidWriteIdList(format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName()));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 HDFS_ENVIRONMENT,
@@ -863,7 +868,7 @@ public class TestBackgroundHiveSplitLoader
     public void testBuildManifestFileIterator()
             throws Exception
     {
-        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), 0, ImmutableList.of());
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), DataSize.ofBytes(0), ImmutableList.of());
         Properties schema = new Properties();
         schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
         schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
@@ -901,17 +906,17 @@ public class TestBackgroundHiveSplitLoader
     public void testBuildManifestFileIteratorNestedDirectory()
             throws Exception
     {
-        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of());
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(100, KILOBYTE), ImmutableList.of());
         Properties schema = new Properties();
         schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
         schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
 
         Path filePath = new Path("hdfs://VOL1:9000/db_name/table_name/file1");
-        Path directoryPath = new Path("hdfs://VOL1:9000/db_name/table_name/dir");
+        Path directoryPath = new Path("hdfs://VOL1:9000/db_name/table_name/dir/file2");
         List<Path> paths = ImmutableList.of(filePath, directoryPath);
         List<LocatedFileStatus> files = ImmutableList.of(
                 locatedFileStatus(filePath),
-                locatedDirectoryStatus(directoryPath));
+                locatedFileStatus(directoryPath));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 files,
@@ -935,7 +940,7 @@ public class TestBackgroundHiveSplitLoader
     public void testMaxPartitions()
             throws Exception
     {
-        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), 0, ImmutableList.of());
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), DataSize.ofBytes(0), ImmutableList.of());
         // zero partitions
         {
             BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
@@ -1168,8 +1173,9 @@ public class TestBackgroundHiveSplitLoader
                 TESTING_TYPE_MANAGER,
                 createBucketSplitInfo(bucketHandle, hiveBucketFilter),
                 SESSION,
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 hdfsEnvironment,
-                new NamenodeStats(),
+                new HdfsNamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
                 executor,
                 2,
@@ -1202,6 +1208,7 @@ public class TestBackgroundHiveSplitLoader
         ConnectorSession connectorSession = getHiveSession(new HiveConfig()
                 .setMaxSplitSize(DataSize.of(1, GIGABYTE)));
 
+        HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(files);
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
                 partitions.iterator(),
@@ -1211,8 +1218,9 @@ public class TestBackgroundHiveSplitLoader
                 TESTING_TYPE_MANAGER,
                 Optional.empty(),
                 connectorSession,
-                new TestingHdfsEnvironment(files),
-                new NamenodeStats(),
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                hdfsEnvironment,
+                new HdfsNamenodeStats(),
                 directoryLister,
                 executor,
                 2,
@@ -1229,6 +1237,7 @@ public class TestBackgroundHiveSplitLoader
         ConnectorSession connectorSession = getHiveSession(new HiveConfig()
                 .setMaxSplitSize(DataSize.of(1, GIGABYTE)));
 
+        HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(TEST_FILES);
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
                 createPartitionMetadataWithOfflinePartitions(),
@@ -1238,8 +1247,9 @@ public class TestBackgroundHiveSplitLoader
                 TESTING_TYPE_MANAGER,
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
-                new TestingHdfsEnvironment(TEST_FILES),
-                new NamenodeStats(),
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                hdfsEnvironment,
+                new HdfsNamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
                 executor,
                 2,
@@ -1356,7 +1366,7 @@ public class TestBackgroundHiveSplitLoader
                 .setDatabaseName("test_dbname")
                 .setOwner(Optional.of("testOwner"))
                 .setTableName("test_table")
-                .setTableType(TableType.MANAGED_TABLE.toString())
+                .setTableType(TableType.MANAGED_TABLE.name())
                 .setDataColumns(ImmutableList.of(new Column("col1", HIVE_STRING, Optional.empty())))
                 .setParameters(tableParameters)
                 .setPartitionColumns(partitionColumns)
@@ -1390,23 +1400,6 @@ public class TestBackgroundHiveSplitLoader
         return new LocatedFileStatus(
                 0L,
                 false,
-                0,
-                0L,
-                0L,
-                0L,
-                null,
-                null,
-                null,
-                null,
-                path,
-                new BlockLocation[] {});
-    }
-
-    private static LocatedFileStatus locatedDirectoryStatus(Path path)
-    {
-        return new LocatedFileStatus(
-                0L,
-                true,
                 0,
                 0L,
                 0L,
@@ -1473,7 +1466,18 @@ public class TestBackgroundHiveSplitLoader
         @Override
         public FileStatus[] listStatus(Path f)
         {
-            throw new UnsupportedOperationException();
+            FileStatus[] fileStatuses = new FileStatus[files.size()];
+            for (int i = 0; i < files.size(); i++) {
+                LocatedFileStatus locatedFileStatus = files.get(i);
+                fileStatuses[i] = new FileStatus(
+                        locatedFileStatus.getLen(),
+                        locatedFileStatus.isDirectory(),
+                        locatedFileStatus.getReplication(),
+                        locatedFileStatus.getBlockSize(),
+                        locatedFileStatus.getModificationTime(),
+                        locatedFileStatus.getPath());
+            }
+            return fileStatuses;
         }
 
         @Override
@@ -1537,13 +1541,13 @@ public class TestBackgroundHiveSplitLoader
         @Override
         public Path getWorkingDirectory()
         {
-            throw new UnsupportedOperationException();
+            return new Path(getUri());
         }
 
         @Override
         public URI getUri()
         {
-            throw new UnsupportedOperationException();
+            return URI.create("hdfs://VOL1:9000/");
         }
     }
 }

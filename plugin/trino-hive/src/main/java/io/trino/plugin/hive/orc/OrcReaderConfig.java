@@ -152,4 +152,17 @@ public class OrcReaderConfig
         options = options.withNestedLazy(nestedLazy);
         return this;
     }
+
+    public boolean isReadLegacyShortZoneId()
+    {
+        return options.isReadLegacyShortZoneId();
+    }
+
+    @Config("hive.orc.read-legacy-short-zone-id")
+    @ConfigDescription("Allow reads on ORC files with short zone ID in the stripe footer")
+    public OrcReaderConfig setReadLegacyShortZoneId(boolean readLegacyShortZoneId)
+    {
+        options = options.withReadLegacyShortZoneId(readLegacyShortZoneId);
+        return this;
+    }
 }

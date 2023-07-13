@@ -18,7 +18,6 @@ import io.trino.orc.checkpoint.BooleanStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.Stream;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -28,12 +27,13 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static java.lang.Math.toIntExact;
 
 public class PresentOutputStream
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PresentOutputStream.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(PresentOutputStream.class);
     private final OrcOutputBuffer buffer;
 
     // boolean stream will only exist if null values being recorded

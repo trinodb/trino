@@ -14,6 +14,7 @@
 package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.PrimitiveField;
 import io.trino.spi.type.BooleanType;
 import org.apache.parquet.column.values.ValuesWriter;
 
@@ -22,9 +23,10 @@ import java.util.OptionalInt;
 import java.util.Random;
 
 import static io.trino.parquet.ParquetEncoding.PLAIN;
+import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.reader.TestData.generateMixedData;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BooleanApacheParquetValueDecoder;
-import static io.trino.parquet.reader.flat.BooleanColumnAdapter.BOOLEAN_ADAPTER;
+import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,14 +36,16 @@ public final class TestBooleanValueDecoders
     @Override
     protected Object[][] tests()
     {
+        PrimitiveField field = createField(BOOLEAN, OptionalInt.empty(), BooleanType.BOOLEAN);
+        ValueDecoders valueDecoders = new ValueDecoders(field);
         return testArgs(
                 new TestType<>(
-                        createField(BOOLEAN, OptionalInt.empty(), BooleanType.BOOLEAN),
-                        ValueDecoders::getBooleanDecoder,
+                        field,
+                        valueDecoders::getBooleanDecoder,
                         BooleanApacheParquetValueDecoder::new,
-                        BOOLEAN_ADAPTER,
+                        BYTE_ADAPTER,
                         (actual, expected) -> assertThat(actual).isEqualTo(expected)),
-                ImmutableList.of(PLAIN),
+                ImmutableList.of(PLAIN, RLE),
                 BooleanInputProvider.values());
     }
 

@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -57,6 +58,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
@@ -508,6 +510,40 @@ public class TestCassandraTypeMapping
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTime(ZoneId sessionZone)
+    {
+        LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
+        checkIsGap(jvmZone, timeGapInJvmZone.atDate(LocalDate.ofEpochDay(0)));
+
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        timeTypeTest("time(9)", trinoTimeInputLiteralFactory())
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_time"));
+
+        timeTypeTest("time", cassandraTimeInputLiteralFactory())
+                .execute(getQueryRunner(), session, cassandraCreateAndInsert("tpch.test_time"));
+    }
+
+    private static SqlDataTypeTest timeTypeTest(String inputType, Function<String, String> inputLiteralFactory)
+    {
+        return SqlDataTypeTest.create()
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'09:12:34'"), createTimeType(9), "TIME '09:12:34.000000000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'10:12:34.000000000'"), createTimeType(9), "TIME '10:12:34.000000000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'15:12:34.567000000'"), createTimeType(9), "TIME '15:12:34.567000000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.000000000'"), createTimeType(9), "TIME '23:59:59.000000000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.999000000'"), createTimeType(9), "TIME '23:59:59.999000000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.999900000'"), createTimeType(9), "TIME '23:59:59.999900000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.999990000'"), createTimeType(9), "TIME '23:59:59.999990000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.999999999'"), createTimeType(9), "TIME '23:59:59.999999999'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("NULL"), createTimeType(9), "CAST(NULL AS TIME(9))");
+    }
+
+    @Test(dataProvider = "sessionZonesDataProvider")
     public void testCassandraTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
@@ -661,6 +697,16 @@ public class TestCassandraTypeMapping
     private void assertCassandraQueryFails(@Language("SQL") String sql, String expectedMessage)
     {
         assertThatThrownBy(() -> session.execute(sql)).hasMessageContaining(expectedMessage);
+    }
+
+    private static Function<String, String> trinoTimeInputLiteralFactory()
+    {
+        return "CAST(%s AS TIME(9))"::formatted;
+    }
+
+    private static Function<String, String> cassandraTimeInputLiteralFactory()
+    {
+        return literal -> literal;
     }
 
     private static BiFunction<LocalDateTime, ZoneId, String> cassandraTimestampInputLiteralFactory()

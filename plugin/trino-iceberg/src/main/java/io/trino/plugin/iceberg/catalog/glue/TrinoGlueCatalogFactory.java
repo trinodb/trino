@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.services.glue.AWSGlueAsync;
+import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.NodeVersion;
@@ -27,8 +28,6 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 

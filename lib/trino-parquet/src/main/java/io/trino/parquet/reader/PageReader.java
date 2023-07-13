@@ -23,8 +23,8 @@ import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import javax.annotation.Nullable;
@@ -40,8 +40,7 @@ import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 
 public final class PageReader
 {
-    private final CompressionCodecName codec;
-    private final boolean hasDictionaryPage;
+    private final CompressionCodec codec;
     private final boolean hasOnlyDictionaryEncodedPages;
     private final boolean hasNoNulls;
     private final PeekingIterator<Page> compressedPages;
@@ -64,23 +63,22 @@ public final class PageReader
         boolean hasOnlyDictionaryEncodedPages = isOnlyDictionaryEncodingPages(metadata);
         ParquetColumnChunkIterator compressedPages = new ParquetColumnChunkIterator(
                 fileCreatedBy,
-                new ColumnChunkDescriptor(columnDescriptor, metadata),
+                columnDescriptor,
+                metadata,
                 columnChunk,
                 offsetIndex);
-        return new PageReader(metadata.getCodec(), compressedPages, compressedPages.hasDictionaryPage(), hasOnlyDictionaryEncodedPages, hasNoNulls);
+        return new PageReader(metadata.getCodec().getParquetCompressionCodec(), compressedPages, hasOnlyDictionaryEncodedPages, hasNoNulls);
     }
 
     @VisibleForTesting
     public PageReader(
-            CompressionCodecName codec,
+            CompressionCodec codec,
             Iterator<? extends Page> compressedPages,
-            boolean hasDictionaryPage,
             boolean hasOnlyDictionaryEncodedPages,
             boolean hasNoNulls)
     {
         this.codec = codec;
         this.compressedPages = Iterators.peekingIterator(compressedPages);
-        this.hasDictionaryPage = hasDictionaryPage;
         this.hasOnlyDictionaryEncodedPages = hasOnlyDictionaryEncodedPages;
         this.hasNoNulls = hasNoNulls;
     }
@@ -97,17 +95,17 @@ public final class PageReader
 
     public DataPage readPage()
     {
-        if (hasDictionaryPage) {
-            checkState(dictionaryAlreadyRead, "Dictionary has to be read first");
-        }
         if (!compressedPages.hasNext()) {
             return null;
         }
         Page compressedPage = compressedPages.next();
+        checkState(compressedPage instanceof DataPage, "Found page %s instead of a DataPage", compressedPage);
         dataPageReadCount++;
         try {
-            if (compressedPage instanceof DataPageV1) {
-                DataPageV1 dataPageV1 = (DataPageV1) compressedPage;
+            if (compressedPage instanceof DataPageV1 dataPageV1) {
+                if (!arePagesCompressed()) {
+                    return dataPageV1;
+                }
                 return new DataPageV1(
                         decompress(codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize()),
                         dataPageV1.getValueCount(),
@@ -144,16 +142,14 @@ public final class PageReader
 
     public DictionaryPage readDictionaryPage()
     {
-        if (!hasDictionaryPage) {
+        checkState(!dictionaryAlreadyRead, "Dictionary was already read");
+        checkState(dataPageReadCount == 0, "Dictionary has to be read first but " + dataPageReadCount + " was read already");
+        dictionaryAlreadyRead = true;
+        if (!(compressedPages.peek() instanceof DictionaryPage)) {
             return null;
         }
         try {
-            checkState(!dictionaryAlreadyRead, "Dictionary was already read");
-            checkState(dataPageReadCount == 0, "Dictionary has to be read first but " + dataPageReadCount + " was read already");
-            dictionaryAlreadyRead = true;
-            Page firstPage = compressedPages.next();
-            checkArgument(firstPage instanceof DictionaryPage, "DictionaryPage has to be the first page in the column chunk but got %s", firstPage);
-            DictionaryPage compressedDictionaryPage = (DictionaryPage) firstPage;
+            DictionaryPage compressedDictionaryPage = (DictionaryPage) compressedPages.next();
             return new DictionaryPage(
                     decompress(codec, compressedDictionaryPage.getSlice(), compressedDictionaryPage.getUncompressedSize()),
                     compressedDictionaryPage.getDictionarySize(),
@@ -184,13 +180,11 @@ public final class PageReader
 
     public boolean arePagesCompressed()
     {
-        return codec != CompressionCodecName.UNCOMPRESSED;
+        return codec != CompressionCodec.UNCOMPRESSED;
     }
 
     private void verifyDictionaryPageRead()
     {
-        if (hasDictionaryPage) {
-            checkArgument(dictionaryAlreadyRead, "Dictionary has to be read first");
-        }
+        checkArgument(dictionaryAlreadyRead, "Dictionary has to be read first");
     }
 }

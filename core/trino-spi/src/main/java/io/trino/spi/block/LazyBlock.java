@@ -14,7 +14,6 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -25,9 +24,9 @@ import java.util.OptionalInt;
 import java.util.function.Consumer;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
@@ -36,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class LazyBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LazyBlock.class).instanceSize() + ClassLayout.parseClass(LazyData.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(LazyBlock.class) + instanceSize(LazyData.class);
 
     private final int positionCount;
     private final LazyData lazyData;

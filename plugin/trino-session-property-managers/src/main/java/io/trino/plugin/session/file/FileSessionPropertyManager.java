@@ -16,13 +16,12 @@ package io.trino.plugin.session.file;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.session.AbstractSessionPropertyManager;
 import io.trino.plugin.session.SessionMatchSpec;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -54,8 +53,7 @@ public class FileSessionPropertyManager
         }
         catch (IllegalArgumentException e) {
             Throwable cause = e.getCause();
-            if (cause instanceof UnrecognizedPropertyException) {
-                UnrecognizedPropertyException ex = (UnrecognizedPropertyException) cause;
+            if (cause instanceof UnrecognizedPropertyException ex) {
                 String message = format("Unknown property at line %s:%s: %s",
                         ex.getLocation().getLineNr(),
                         ex.getLocation().getColumnNr(),

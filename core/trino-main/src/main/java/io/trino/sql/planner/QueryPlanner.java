@@ -117,6 +117,7 @@ import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -880,7 +881,7 @@ class QueryPlanner
                     columnNamesBuilder.add(columnSchema.getName());
                 });
         MergeParadigmAndTypes mergeParadigmAndTypes = new MergeParadigmAndTypes(Optional.of(paradigm), typesBuilder.build(), columnNamesBuilder.build(), rowIdType);
-        MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), metadata.getTableMetadata(session, handle).getTable(), mergeParadigmAndTypes);
+        MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), metadata.getTableName(session, handle).getSchemaTableName(), mergeParadigmAndTypes);
 
         ImmutableList.Builder<Symbol> columnSymbolsBuilder = ImmutableList.builder();
         for (ColumnHandle columnHandle : mergeAnalysis.getDataColumnHandles()) {
@@ -1033,7 +1034,7 @@ class QueryPlanner
 
         subPlan = subqueryPlanner.handleSubqueries(subPlan, predicate, analysis.getSubqueries(node));
 
-        return subPlan.withNewRoot(new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), subPlan.rewrite(predicate)));
+        return subPlan.withNewRoot(new FilterNode(idAllocator.getNextId(), subPlan.getRoot(), coerceIfNecessary(analysis, predicate, subPlan.rewrite(predicate))));
     }
 
     private PlanBuilder aggregate(PlanBuilder subPlan, QuerySpecification node)
@@ -1274,13 +1275,21 @@ class QueryPlanner
     {
         List<List<Set<FieldId>>> partialSets = new ArrayList<>();
 
-        for (Set<FieldId> cube : groupingSetAnalysis.getCubes()) {
-            partialSets.add(ImmutableList.copyOf(Sets.powerSet(cube)));
+        for (List<Set<FieldId>> cube : groupingSetAnalysis.getCubes()) {
+            List<Set<FieldId>> sets = Sets.powerSet(ImmutableSet.copyOf(cube)).stream()
+                    .map(set -> set.stream()
+                            .flatMap(Collection::stream)
+                            .collect(toImmutableSet()))
+                    .collect(toImmutableList());
+
+            partialSets.add(sets);
         }
 
-        for (List<FieldId> rollup : groupingSetAnalysis.getRollups()) {
+        for (List<Set<FieldId>> rollup : groupingSetAnalysis.getRollups()) {
             List<Set<FieldId>> sets = IntStream.rangeClosed(0, rollup.size())
-                    .mapToObj(i -> ImmutableSet.copyOf(rollup.subList(0, i)))
+                    .mapToObj(prefixLength -> rollup.subList(0, prefixLength).stream()
+                            .flatMap(Collection::stream)
+                            .collect(Collectors.toSet()))
                     .collect(toImmutableList());
 
             partialSets.add(sets);

@@ -134,10 +134,11 @@ processed in Druid. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
-As an example, use ``STRING_TO_MV`` and ``MV_LENGTH`` from
-`Druid SQL's multi-value string functions <https://druid.apache.org/docs/latest/querying/sql-multivalue-string-functions.html>`_
+As an example, query the ``example`` catalog and use ``STRING_TO_MV`` and
+``MV_LENGTH`` from `Druid SQL's multi-value string functions
+<https://druid.apache.org/docs/latest/querying/sql-multivalue-string-functions.html>`_
 to split and then count the number of comma-separated values in a column::
 
     SELECT
@@ -153,3 +154,4 @@ to split and then count the number of comma-separated values in a column::
         )
       );
 
+.. include:: query-table-function-ordering.fragment

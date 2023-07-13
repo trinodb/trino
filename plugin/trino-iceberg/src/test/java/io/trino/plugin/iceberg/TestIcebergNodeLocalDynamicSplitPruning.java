@@ -16,10 +16,12 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.filesystem.TrinoFileSystem;
+import io.airlift.testing.TempFile;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.local.LocalInputFile;
+import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.metadata.TableHandle;
 import io.trino.orc.OrcWriteValidation;
 import io.trino.orc.OrcWriter;
@@ -39,7 +41,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.connector.RetryMode;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -53,17 +54,16 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.SESSION;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
@@ -104,11 +104,11 @@ public class TestIcebergNodeLocalDynamicSplitPruning
     {
         IcebergConfig icebergConfig = new IcebergConfig();
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
-        String path = "/tmp/" + UUID.randomUUID() + ".tmp";
-        try {
-            TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION);
-            TrinoOutputFile outputFile = fileSystem.newOutputFile(path);
-            TrinoInputFile inputFile = fileSystem.newInputFile(path);
+        try (TempFile file = new TempFile()) {
+            Files.delete(file.path());
+
+            TrinoOutputFile outputFile = new LocalOutputFile(file.file());
+            TrinoInputFile inputFile = new LocalInputFile(file.file());
             writeOrcContent(outputFile);
 
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, inputFile, getDynamicFilter(getTupleDomainForSplitPruning()))) {
@@ -123,9 +123,6 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 assertEquals(page.getBlock(1).getPositionCount(), 1);
                 assertEquals(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8(), DATA_COLUMN_VALUE);
             }
-        }
-        finally {
-            Files.deleteIfExists(Path.of(path));
         }
     }
 
@@ -158,7 +155,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             throws IOException
     {
         IcebergSplit split = new IcebergSplit(
-                "file:///" + inputFile.location(),
+                inputFile.toString(),
                 0,
                 inputFile.length(),
                 inputFile.length(),
@@ -170,8 +167,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 ImmutableList.of(),
                 SplitWeight.standard());
 
-        String filePath = inputFile.location();
-        String tablePath = filePath.substring(0, filePath.lastIndexOf("/"));
+        String tablePath = inputFile.location().fileName();
         TableHandle tableHandle = new TableHandle(
                 TEST_CATALOG_HANDLE,
                 new IcebergTableHandle(
@@ -184,19 +180,18 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         2,
                         TupleDomain.withColumnDomains(ImmutableMap.of(KEY_ICEBERG_COLUMN_HANDLE, Domain.singleValue(INTEGER, (long) KEY_COLUMN_VALUE))),
                         TupleDomain.all(),
+                        OptionalLong.empty(),
                         ImmutableSet.of(KEY_ICEBERG_COLUMN_HANDLE),
                         Optional.empty(),
                         tablePath,
                         ImmutableMap.of(),
-                        RetryMode.NO_RETRIES,
-                        ImmutableList.of(),
                         false,
                         Optional.empty()),
                 transaction);
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         IcebergPageSourceProvider provider = new IcebergPageSourceProvider(
-                new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
+                new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
                 stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,

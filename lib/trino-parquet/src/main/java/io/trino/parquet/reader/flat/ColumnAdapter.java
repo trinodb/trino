@@ -15,6 +15,8 @@ package io.trino.parquet.reader.flat;
 
 import io.trino.spi.block.Block;
 
+import java.util.List;
+
 import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
 
 public interface ColumnAdapter<BufferType>
@@ -56,4 +58,6 @@ public interface ColumnAdapter<BufferType>
     void decodeDictionaryIds(BufferType values, int offset, int length, int[] ids, BufferType dictionary);
 
     long getSizeInBytes(BufferType values);
+
+    BufferType merge(List<BufferType> buffers);
 }

@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
@@ -47,7 +47,7 @@ public class TestImplementLimitWithTies
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", new ExpressionMatcher("a"), "b", new ExpressionMatcher("b")),
+                                ImmutableMap.of("a", expression("a"), "b", expression("b")),
                                 filter(
                                         "rank_num <= BIGINT '2'",
                                         window(

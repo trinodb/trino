@@ -16,8 +16,8 @@ package io.trino.plugin.hive.s3select;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.type.TypeInfo;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
