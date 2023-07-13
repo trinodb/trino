@@ -13,12 +13,16 @@
  */
 package io.trino.hive.formats.line.text;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.CountingInputStream;
+import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineReader;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.OptionalLong;
+import java.util.function.LongSupplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -32,9 +36,11 @@ public final class TextLineReader
 {
     private static final int INSTANCE_SIZE = instanceSize(TextLineReader.class);
 
-    private final CountingInputStream in;
+    private final InputStream in;
     private final byte[] buffer;
-    private final long inputEnd;
+    private final OptionalLong inputEnd;
+    private final LongSupplier rawInputPositionSupplier;
+    private final long initialRawInputPosition;
 
     private boolean firstRecord = true;
     private int bufferStart;
@@ -43,27 +49,48 @@ public final class TextLineReader
     private boolean closed;
     private long readTimeNanos;
 
-    public TextLineReader(InputStream in, int bufferSize)
+    public static TextLineReader createCompressedReader(InputStream in, int bufferSize, Codec codec)
             throws IOException
     {
-        this(in, bufferSize, 0, Long.MAX_VALUE);
+        CountingInputStream countingInputStream = new CountingInputStream(in);
+        LongSupplier rawInputPositionSupplier = countingInputStream::getCount;
+        in = codec.createStreamDecompressor(countingInputStream);
+        return new TextLineReader(in, bufferSize, 0, OptionalLong.empty(), rawInputPositionSupplier);
     }
 
-    public TextLineReader(InputStream in, int bufferSize, long start, long length)
+    public static TextLineReader createUncompressedReader(InputStream in, int bufferSize)
+            throws IOException
+    {
+        return createUncompressedReader(in, bufferSize, 0, Long.MAX_VALUE);
+    }
+
+    public static TextLineReader createUncompressedReader(InputStream in, int bufferSize, long splitStart, long splitLength)
+            throws IOException
+    {
+        CountingInputStream countingInputStream = new CountingInputStream(in);
+        LongSupplier rawInputPositionSupplier = countingInputStream::getCount;
+        return new TextLineReader(countingInputStream, bufferSize, splitStart, OptionalLong.of(splitLength), rawInputPositionSupplier);
+    }
+
+    private TextLineReader(InputStream in, int bufferSize, long splitStart, OptionalLong splitLength, LongSupplier rawInputPositionSupplier)
             throws IOException
     {
         requireNonNull(in, "in is null");
         checkArgument(bufferSize >= 16, "bufferSize must be at least 16 bytes");
         checkArgument(bufferSize <= 1024 * 1024 * 1024, "bufferSize is greater than 1GB");
-        checkArgument(start >= 0, "start is negative");
-        checkArgument(length > 0, "length must be at least one byte");
+        checkArgument(splitStart >= 0, "splitStart is negative");
+        checkArgument(splitLength.orElse(1) > 0, "splitLength must be at least one byte");
+        requireNonNull(rawInputPositionSupplier, "rawInputPositionSupplier is null");
 
-        this.in = new CountingInputStream(in);
+        this.in = in;
         this.buffer = new byte[bufferSize];
-        this.inputEnd = addExact(start, length);
+        this.inputEnd = splitLength.stream().map(length -> addExact(splitStart, length)).findAny();
+        this.rawInputPositionSupplier = rawInputPositionSupplier;
+        // the initial skip is not included in the physical read size
+        this.initialRawInputPosition = splitStart;
 
-        // If reading start of file, skipping UTF-8 BOM, otherwise seek to start position, and skip the remaining line
-        if (start == 0) {
+        // If reading splitStart of file, skipping UTF-8 BOM, otherwise seek to splitStart position, and skip the remaining line
+        if (splitStart == 0) {
             fillBuffer();
             if (bufferEnd >= 3 && buffer[0] == (byte) 0xEF && (buffer[1] == (byte) 0xBB) && (buffer[2] == (byte) 0xBF)) {
                 bufferStart = 3;
@@ -71,7 +98,7 @@ public final class TextLineReader
             }
         }
         else {
-            this.in.skipNBytes(start);
+            this.in.skipNBytes(splitStart);
             if (closed) {
                 return;
             }
@@ -100,16 +127,20 @@ public final class TextLineReader
         return INSTANCE_SIZE + sizeOf(buffer);
     }
 
+    @VisibleForTesting
     public long getCurrentPosition()
     {
+        if (!(in instanceof CountingInputStream countingInputStream)) {
+            throw new IllegalStateException("Current position only supported for uncompressed files");
+        }
         int currentBufferSize = bufferEnd - bufferPosition;
-        return in.getCount() - currentBufferSize;
+        return countingInputStream.getCount() - currentBufferSize;
     }
 
     @Override
     public long getBytesRead()
     {
-        return in.getCount();
+        return rawInputPositionSupplier.getAsLong() - initialRawInputPosition;
     }
 
     @Override
@@ -124,7 +155,7 @@ public final class TextLineReader
     {
         lineBuffer.reset();
 
-        if (getCurrentPosition() > inputEnd) {
+        if (isAfterEnd()) {
             close();
             return false;
         }
@@ -157,7 +188,7 @@ public final class TextLineReader
             lineBuffer.write(buffer, bufferStart, bufferPosition - bufferStart);
             fillBuffer();
         }
-        // if file does not end in a line terminator, the last line is still valid
+        // if the file does not end in a line terminator, the last line is still valid
         firstRecord = false;
         return !lineBuffer.isEmpty();
     }
@@ -167,7 +198,7 @@ public final class TextLineReader
     {
         checkArgument(lineCount >= 0, "lineCount is negative");
         while (!closed && lineCount > 0) {
-            if (getCurrentPosition() > inputEnd) {
+            if (isAfterEnd()) {
                 close();
                 return;
             }
@@ -187,6 +218,15 @@ public final class TextLineReader
                 lineCount--;
             }
         }
+    }
+
+    private boolean isAfterEnd()
+    {
+        if (inputEnd.isPresent()) {
+            long currentPosition = getCurrentPosition();
+            return currentPosition > inputEnd.getAsLong();
+        }
+        return false;
     }
 
     private boolean seekToStartOfLineTerminator()
