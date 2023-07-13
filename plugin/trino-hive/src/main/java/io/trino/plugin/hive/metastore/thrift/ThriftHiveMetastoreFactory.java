@@ -43,6 +43,7 @@ public class ThriftHiveMetastoreFactory
     private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
     private final boolean useSparkTableStatisticsFallback;
+    private final boolean batchMetadataFetchEnabled;
     private final ExecutorService writeStatisticsExecutor;
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
 
@@ -70,6 +71,7 @@ public class ThriftHiveMetastoreFactory
 
         this.assumeCanonicalPartitionKeys = thriftConfig.isAssumeCanonicalPartitionKeys();
         this.useSparkTableStatisticsFallback = thriftConfig.isUseSparkTableStatisticsFallback();
+        this.batchMetadataFetchEnabled = thriftConfig.isBatchMetadataFetchEnabled();
         this.writeStatisticsExecutor = requireNonNull(writeStatisticsExecutor, "writeStatisticsExecutor is null");
     }
 
@@ -103,6 +105,7 @@ public class ThriftHiveMetastoreFactory
                 translateHiveViews,
                 assumeCanonicalPartitionKeys,
                 useSparkTableStatisticsFallback,
+                batchMetadataFetchEnabled,
                 stats,
                 writeStatisticsExecutor);
     }
