@@ -18,6 +18,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;
@@ -37,7 +38,7 @@ public class HadoopIcebergTableOperationsProvider
     public IcebergTableOperations createTableOperations(TrinoCatalog catalog, ConnectorSession session, String database, String table, Optional<String> owner, Optional<String> location)
     {
         return new HadoopIcebergTableOperations(
-                fileSystemFactory.create(session).toFileIo(),
+                new ForwardingFileIo(fileSystemFactory.create(session)),
                 session,
                 database,
                 table,

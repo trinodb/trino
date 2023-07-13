@@ -45,11 +45,11 @@ public class ValidateStreamingAggregations
 {
     @Override
     public void validate(PlanNode planNode,
-            Session session,
-            PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
-            TypeProvider types,
-            WarningCollector warningCollector)
+                         Session session,
+                         PlannerContext plannerContext,
+                         TypeAnalyzer typeAnalyzer,
+                         TypeProvider types,
+                         WarningCollector warningCollector)
     {
         planNode.accept(new Visitor(session, plannerContext, typeAnalyzer, types), null);
     }
@@ -63,9 +63,9 @@ public class ValidateStreamingAggregations
         private final TypeProvider types;
 
         private Visitor(Session session,
-                PlannerContext plannerContext,
-                TypeAnalyzer typeAnalyzer,
-                TypeProvider types)
+                        PlannerContext plannerContext,
+                        TypeAnalyzer typeAnalyzer,
+                        TypeProvider types)
         {
             this.session = session;
             this.plannerContext = plannerContext;
