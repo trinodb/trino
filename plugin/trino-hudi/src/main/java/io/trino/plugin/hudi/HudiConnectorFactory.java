@@ -44,8 +44,8 @@ public class HudiConnectorFactory
         ClassLoader classLoader = context.duplicatePluginClassLoader();
         try {
             return (Connector) classLoader.loadClass(InternalHudiConnectorFactory.class.getName())
-                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class)
-                    .invoke(null, catalogName, config, context, Optional.empty());
+                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class, Optional.class)
+                    .invoke(null, catalogName, config, context, Optional.empty(), Optional.empty());
         }
         catch (InvocationTargetException e) {
             Throwable targetException = e.getTargetException();
