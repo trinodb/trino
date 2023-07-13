@@ -265,6 +265,8 @@ this table:
     - ``VARBINARY``
   * - ``DATE``
     - ``DATE``
+  * - ``TIMESTAMPNTZ`` (``TIMESTAMP_NTZ``)
+    - ``TIMESTAMP(6)``
   * - ``TIMESTAMP``
     - ``TIMESTAMP(3) WITH TIME ZONE``
   * - ``ARRAY``

@@ -23,9 +23,11 @@ import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.CanonicalColumnName;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -33,19 +35,25 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.math.LongMath.divide;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.toCanonicalNameKeyedMap;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.JSON_STATISTICS_TIMESTAMP_FORMATTER;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_DAY;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_MICROS;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializeColumnValue;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static java.lang.Math.floorDiv;
+import static java.math.RoundingMode.UNNECESSARY;
+import static java.time.ZoneOffset.UTC;
 
 public class DeltaLakeJsonFileStatistics
         implements DeltaLakeFileStatistics
@@ -133,12 +141,18 @@ public class DeltaLakeJsonFileStatistics
         if (!columnHandle.isBaseColumn()) {
             return Optional.empty();
         }
-        Object columnValue = deserializeColumnValue(columnHandle, statValue, DeltaLakeJsonFileStatistics::readStatisticsTimestampWithZone);
+        Object columnValue = deserializeColumnValue(columnHandle, statValue, DeltaLakeJsonFileStatistics::readStatisticsTimestamp, DeltaLakeJsonFileStatistics::readStatisticsTimestampWithZone);
 
         Type columnType = columnHandle.getBaseType();
         if (columnType.equals(DATE)) {
             long epochDate = (long) columnValue;
             if (epochDate < START_OF_MODERN_ERA_EPOCH_DAY) {
+                return Optional.empty();
+            }
+        }
+        if (columnType instanceof TimestampType) {
+            long epochMicros = (long) columnValue;
+            if (epochMicros < START_OF_MODERN_ERA_EPOCH_MICROS) {
                 return Optional.empty();
             }
         }
@@ -151,6 +165,12 @@ public class DeltaLakeJsonFileStatistics
         }
 
         return Optional.of(columnValue);
+    }
+
+    private static Long readStatisticsTimestamp(String timestamp)
+    {
+        LocalDateTime localDateTime = LocalDateTime.parse(timestamp, JSON_STATISTICS_TIMESTAMP_FORMATTER);
+        return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND + divide(localDateTime.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
     }
 
     private static Long readStatisticsTimestampWithZone(String timestamp)
