@@ -15,10 +15,7 @@ package io.trino.plugin.mariadb;
 
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import jakarta.validation.constraints.AssertTrue;
-import org.mariadb.jdbc.Configuration;
 import org.mariadb.jdbc.Driver;
-
-import java.sql.SQLException;
 
 public class MariaDbJdbcConfig
         extends BaseJdbcConfig
@@ -28,20 +25,5 @@ public class MariaDbJdbcConfig
     {
         Driver driver = new Driver();
         return driver.acceptsURL(getConnectionUrl());
-    }
-
-    @AssertTrue(message = "Database (catalog) must not be specified in JDBC URL for MariaDB connector")
-    public boolean isUrlWithoutDatabase()
-    {
-        try {
-            Configuration conf = Configuration.parse(getConnectionUrl());
-            if (conf == null) {
-                return false;
-            }
-            return conf.database() == null;
-        }
-        catch (SQLException e) {
-            return false;
-        }
     }
 }

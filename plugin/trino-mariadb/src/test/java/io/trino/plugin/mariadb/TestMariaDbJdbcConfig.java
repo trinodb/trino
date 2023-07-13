@@ -35,19 +35,4 @@ public class TestMariaDbJdbcConfig
         config.setConnectionUrl(url);
         return config.isUrlValid();
     }
-
-    @Test
-    public void testIsUrlWithoutDatabase()
-    {
-        assertTrue(isUrlWithoutDatabase("jdbc:mariadb://example.net:3306"));
-        assertTrue(isUrlWithoutDatabase("jdbc:mariadb://example.net:3306/"));
-        assertFalse(isUrlWithoutDatabase("jdbc:mariadb://example.net:3306/somedatabase"));
-    }
-
-    private static boolean isUrlWithoutDatabase(String url)
-    {
-        MariaDbJdbcConfig config = new MariaDbJdbcConfig();
-        config.setConnectionUrl(url);
-        return config.isUrlWithoutDatabase();
-    }
 }
