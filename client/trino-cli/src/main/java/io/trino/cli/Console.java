@@ -210,7 +210,7 @@ public class Console
 
     private String getPassword()
     {
-        checkState(clientOptions.user.isPresent(), "Username must be specified along with password");
+        checkState(clientOptions.user.isPresent(), "Both username and password must be specified");
         String defaultPassword = System.getenv("TRINO_PASSWORD");
         if (defaultPassword != null) {
             return defaultPassword;
