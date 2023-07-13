@@ -66,6 +66,7 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.cano
 import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
@@ -158,9 +159,9 @@ public abstract class AbstractDeltaLakePageSink
             DeltaLakeColumnHandle column = inputColumns.get(inputIndex);
             switch (column.getColumnType()) {
                 case PARTITION_KEY:
-                    int partitionPosition = canonicalToOriginalPartitionPositions.get(column.getColumnName());
+                    int partitionPosition = canonicalToOriginalPartitionPositions.get(column.getColumnName().toLowerCase(ENGLISH));
                     partitionColumnInputIndex[partitionPosition] = inputIndex;
-                    originalPartitionColumnNames[partitionPosition] = canonicalToOriginalPartitionColumns.get(column.getColumnName());
+                    originalPartitionColumnNames[partitionPosition] = canonicalToOriginalPartitionColumns.get(column.getColumnName().toLowerCase(ENGLISH));
                     partitionColumnTypes[partitionPosition] = column.getBaseType();
                     break;
                 case REGULAR:

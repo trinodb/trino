@@ -69,6 +69,7 @@ import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.UnaryOperator.identity;
@@ -187,7 +188,7 @@ public class DeltaLakeWriter
     {
         TrinoInputFile inputFile = fileSystem.newInputFile(rootTableLocation.appendPath(relativeFilePath));
         Map<String, Type> dataColumnTypes = columnHandles.stream()
-                .collect(toImmutableMap(DeltaLakeColumnHandle::getBasePhysicalColumnName, DeltaLakeColumnHandle::getBasePhysicalType));
+                .collect(toImmutableMap(column -> column.getBasePhysicalColumnName().toLowerCase(ENGLISH), DeltaLakeColumnHandle::getBasePhysicalType));
         return new DataFileInfo(
                 relativeFilePath,
                 getWrittenBytes(),

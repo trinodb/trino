@@ -50,6 +50,7 @@ import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class FileBasedTableStatisticsProvider
@@ -79,7 +80,7 @@ public class FileBasedTableStatisticsProvider
         List<DeltaLakeColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, typeManager);
         List<DeltaLakeColumnHandle> columns = columnMetadata.stream()
                 .map(columnMeta -> new DeltaLakeColumnHandle(
-                        columnMeta.getName(),
+                        columnMeta.getOriginalName(),
                         columnMeta.getType(),
                         columnMeta.getFieldId(),
                         columnMeta.getPhysicalName(),
@@ -136,7 +137,7 @@ public class FileBasedTableStatisticsProvider
             numRecords += stats.getNumRecords().get();
             for (DeltaLakeColumnHandle column : columns) {
                 if (column.getColumnType() == PARTITION_KEY) {
-                    Optional<String> partitionValue = addEntry.getCanonicalPartitionValues().get(column.getBasePhysicalColumnName());
+                    Optional<String> partitionValue = addEntry.getCanonicalPartitionValues().get(column.getBasePhysicalColumnName().toLowerCase(ENGLISH));
                     if (partitionValue.isEmpty()) {
                         nullCounts.merge(column, (double) stats.getNumRecords().get(), Double::sum);
                     }

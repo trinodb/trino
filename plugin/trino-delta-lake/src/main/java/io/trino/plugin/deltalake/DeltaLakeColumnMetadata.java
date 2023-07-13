@@ -20,21 +20,22 @@ import java.util.Objects;
 import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeColumnMetadata
 {
     private final ColumnMetadata columnMetadata;
+    private final String originalName;
     private final OptionalInt fieldId;
     private final String physicalName;
     private final Type physicalColumnType;
 
-    public DeltaLakeColumnMetadata(ColumnMetadata columnMetadata, OptionalInt fieldId, String physicalName, Type physicalColumnType)
+    public DeltaLakeColumnMetadata(ColumnMetadata columnMetadata, String originalName, OptionalInt fieldId, String physicalName, Type physicalColumnType)
     {
         this.columnMetadata = requireNonNull(columnMetadata, "columnMetadata is null");
+        this.originalName = requireNonNull(originalName, "originalName is null");
         this.fieldId = requireNonNull(fieldId, "fieldId is null");
-        this.physicalName = physicalName.toLowerCase(ENGLISH);
+        this.physicalName = requireNonNull(physicalName, "physicalName is null");
         this.physicalColumnType = requireNonNull(physicalColumnType, "physicalColumnType is null");
     }
 
@@ -51,6 +52,14 @@ public class DeltaLakeColumnMetadata
     public String getName()
     {
         return columnMetadata.getName();
+    }
+
+    /**
+     * @return the case-sensitive field name
+     */
+    public String getOriginalName()
+    {
+        return originalName;
     }
 
     public Type getType()
@@ -73,6 +82,7 @@ public class DeltaLakeColumnMetadata
     {
         return toStringHelper(this)
                 .add("columnMetadata", columnMetadata)
+                .add("fieldName", originalName)
                 .add("fieldId", fieldId)
                 .add("physicalName", physicalName)
                 .add("physicalColumnType", physicalColumnType)
@@ -90,6 +100,7 @@ public class DeltaLakeColumnMetadata
         }
         DeltaLakeColumnMetadata that = (DeltaLakeColumnMetadata) o;
         return Objects.equals(columnMetadata, that.columnMetadata) &&
+                Objects.equals(originalName, that.originalName) &&
                 Objects.equals(fieldId, that.fieldId) &&
                 Objects.equals(physicalName, that.physicalName) &&
                 Objects.equals(physicalColumnType, that.physicalColumnType);
@@ -98,6 +109,6 @@ public class DeltaLakeColumnMetadata
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnMetadata, fieldId, physicalName, physicalColumnType);
+        return Objects.hash(columnMetadata, originalName, fieldId, physicalName, physicalColumnType);
     }
 }

@@ -216,10 +216,10 @@ public class DeltaLakeSplitManager
                         Map<String, Optional<String>> partitionValues = addAction.getCanonicalPartitionValues();
                         Map<ColumnHandle, NullableValue> deserializedValues = constraint.getPredicateColumns().orElseThrow().stream()
                                 .map(DeltaLakeColumnHandle.class::cast)
-                                .filter(column -> column.isBaseColumn() && partitionValues.containsKey(column.getBaseColumnName()))
+                                .filter(column -> column.isBaseColumn() && partitionValues.containsKey(column.getBaseColumnName().toLowerCase(ENGLISH)))
                                 .collect(toImmutableMap(identity(), column -> new NullableValue(
                                         column.getBaseType(),
-                                        deserializePartitionValue(column, partitionValues.get(column.getBaseColumnName())))));
+                                        deserializePartitionValue(column, partitionValues.get(column.getBaseColumnName().toLowerCase(ENGLISH))))));
                         if (!constraint.predicate().get().test(deserializedValues)) {
                             return Stream.empty();
                         }
@@ -252,7 +252,7 @@ public class DeltaLakeSplitManager
         for (Map.Entry<DeltaLakeColumnHandle, Domain> enforcedDomainsEntry : domains.entrySet()) {
             DeltaLakeColumnHandle partitionColumn = enforcedDomainsEntry.getKey();
             Domain partitionDomain = enforcedDomainsEntry.getValue();
-            if (!partitionDomain.includesNullableValue(deserializePartitionValue(partitionColumn, partitionKeys.get(partitionColumn.getBasePhysicalColumnName())))) {
+            if (!partitionDomain.includesNullableValue(deserializePartitionValue(partitionColumn, partitionKeys.get(partitionColumn.getBasePhysicalColumnName().toLowerCase(ENGLISH))))) {
                 return false;
             }
         }

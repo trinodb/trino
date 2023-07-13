@@ -49,6 +49,7 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.dese
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakePageSource
@@ -91,9 +92,9 @@ public class DeltaLakePageSource
         Block partitionsBlock = null;
 
         for (DeltaLakeColumnHandle column : columns) {
-            if (column.isBaseColumn() && partitionKeys.containsKey(column.getBasePhysicalColumnName())) {
+            if (column.isBaseColumn() && partitionKeys.containsKey(column.getBasePhysicalColumnName().toLowerCase(ENGLISH))) {
                 Type type = column.getBaseType();
-                Object prefilledValue = deserializePartitionValue(column, partitionKeys.get(column.getBasePhysicalColumnName()));
+                Object prefilledValue = deserializePartitionValue(column, partitionKeys.get(column.getBasePhysicalColumnName().toLowerCase(ENGLISH)));
                 prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(type, prefilledValue);
                 delegateIndexes[outputIndex] = -1;
             }
