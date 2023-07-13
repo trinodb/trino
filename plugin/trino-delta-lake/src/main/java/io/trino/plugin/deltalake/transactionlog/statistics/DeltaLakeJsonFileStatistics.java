@@ -133,7 +133,7 @@ public class DeltaLakeJsonFileStatistics
         if (!columnHandle.isBaseColumn()) {
             return Optional.empty();
         }
-        Object columnValue = deserializeColumnValue(columnHandle, statValue, DeltaLakeJsonFileStatistics::readStatisticsTimestamp);
+        Object columnValue = deserializeColumnValue(columnHandle, statValue, DeltaLakeJsonFileStatistics::readStatisticsTimestampWithZone);
 
         Type columnType = columnHandle.getBaseType();
         if (columnType.equals(DATE)) {
@@ -153,7 +153,7 @@ public class DeltaLakeJsonFileStatistics
         return Optional.of(columnValue);
     }
 
-    private static Long readStatisticsTimestamp(String timestamp)
+    private static Long readStatisticsTimestampWithZone(String timestamp)
     {
         ZonedDateTime zonedDateTime = ZonedDateTime.parse(timestamp, JSON_STATISTICS_TIMESTAMP_FORMATTER);
         return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
