@@ -76,7 +76,7 @@ public class TestDeltaLakeBasic
 
     private static final List<String> PERSON_TABLES = ImmutableList.of(
             "person", "person_without_last_checkpoint", "person_without_old_jsons", "person_without_checkpoints");
-    private static final List<String> OTHER_TABLES = ImmutableList.of("no_column_stats");
+    private static final List<String> OTHER_TABLES = ImmutableList.of("no_column_stats", "timestamp_ntz", "timestamp_ntz_partition");
 
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -422,6 +422,83 @@ public class TestDeltaLakeBasic
                 {"id"},
                 {"name"},
         };
+    }
+
+    /**
+     * @see databricks.timestamp_ntz
+     */
+    @Test
+    public void testTimestampNtz()
+    {
+        // TODO Move this test to product test once new Databricks LTS or OSS Delta Lake supports timestamp_ntz type
+        assertQuery(
+                "DESCRIBE timestamp_ntz",
+                "VALUES ('x', 'timestamp(6)', '', '')");
+
+        assertThat(query("SELECT * FROM timestamp_ntz"))
+                .matches("""
+                            VALUES
+                            NULL,
+                            TIMESTAMP '-9999-12-31 23:59:59.999999',
+                            TIMESTAMP '-0001-01-01 00:00:00',
+                            TIMESTAMP '0000-01-01 00:00:00',
+                            TIMESTAMP '1582-10-05 00:00:00',
+                            TIMESTAMP '1582-10-14 23:59:59.999999',
+                            TIMESTAMP '2020-12-31 01:02:03.123456',
+                            TIMESTAMP '9999-12-31 23:59:59.999999'
+                            """);
+        assertQuery(
+                "SHOW STATS FOR timestamp_ntz",
+                """
+                            VALUES
+                            ('x', null, null, 0.125, null, null, null),
+                            (null, null, null, null, 8.0, null, null)
+                            """);
+
+        // TODO https://github.com/trinodb/trino/issues/15873 Support writing timestamp_ntz type when upgrading the max writer version to 7
+        assertQueryFails("INSERT INTO timestamp_ntz VALUES NULL", "Table .* requires Delta Lake writer version 7 which is not supported");
+    }
+
+    /**
+     * @see databricks.timestamp_ntz_partition
+     */
+    @Test
+    public void testTimestampNtzPartitioned()
+    {
+        // TODO Move this test to product test once new Databricks LTS or OSS Delta Lake supports timestamp_ntz type
+        assertQuery(
+                "DESCRIBE timestamp_ntz_partition",
+                "VALUES ('id', 'integer', '', ''), ('part', 'timestamp(6)', '', '')");
+        assertThat((String) computeScalar("SHOW CREATE TABLE timestamp_ntz_partition"))
+                .contains("partitioned_by = ARRAY['part']");
+
+        assertThat(query("SELECT * FROM timestamp_ntz_partition"))
+                .matches("""
+                            VALUES
+                            (1, NULL),
+                            (2, TIMESTAMP '-9999-12-31 23:59:59.999999'),
+                            (3, TIMESTAMP '-0001-01-01 00:00:00'),
+                            (4, TIMESTAMP '0000-01-01 00:00:00'),
+                            (5, TIMESTAMP '1582-10-05 00:00:00'),
+                            (6, TIMESTAMP '1582-10-14 23:59:59.999999'),
+                            (7, TIMESTAMP '2020-12-31 01:02:03.123456'),
+                            (8, TIMESTAMP '9999-12-31 23:59:59.999999')
+                            """);
+        assertQuery("SELECT id FROM timestamp_ntz_partition WHERE part = TIMESTAMP '2020-12-31 01:02:03.123456'", "VALUES 7");
+
+        assertQuery(
+                "SHOW STATS FOR timestamp_ntz_partition",
+                """
+                            VALUES
+                            ('id', null, null, 0.0, null, 1, 8),
+                            ('part', null, 7.0, 0.125, null, null, null),
+                            (null, null, null, null, 8.0, null, null)
+                            """);
+
+        // TODO https://github.com/trinodb/trino/issues/15873 Support writing timestamp_ntz type when upgrading the max writer version to 7
+        assertQueryFails(
+                "INSERT INTO timestamp_ntz_partition VALUES (NULL, NULL)",
+                "Table .* requires Delta Lake writer version 7 which is not supported");
     }
 
     @Test
