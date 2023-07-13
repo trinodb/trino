@@ -1,4 +1,4 @@
-# Release 422 (12 Jul 2023)
+# Release 422 (13 Jul 2023)
 
 ## General
 
@@ -35,15 +35,26 @@
   `avro_native_writer_enabled` session property. ({issue}`18064`)
 * Fix query failure when the `hive.recursive-directories` configuration property
   is set to true and partition names contain non-alphanumeric characters. ({issue}`18167`)
+* Fix incorrect results when reading text and `RCTEXT` files with a value that
+  contains the character that separates fields. ({issue}`18215`)
+* Fix incorrect results when reading concatenated `GZIP` compressed text files. ({issue}`18223`)
+* Fix incorrect results when reading large text and sequence files with a single
+  header row. ({issue}`18255`)
+* Fix incorrect reporting of bytes read for compressed text files. ({issue}`1828`)
 
 ## Iceberg connector
 
 * Add support for adding nested fields with an `ADD COLUMN` statement. ({issue}`16248`)
+* Add support for the `register_table` procedure to register Hadoop tables. ({issue}`16363`)
 * Change the default file format to Parquet. The `iceberg.file-format`
   catalog configuration property can be used to specify a different default file
   format. ({issue}`18170`)
 * Improve performance of reading `row` types from Parquet files. ({issue}`17387`)
 * Fix failure when writing to tables sorted on `UUID` or `TIME` types. ({issue}`18136`)
+
+## Kudu connector
+
+* Add support for table comments when creating tables. ({issue}`17945`)
 
 ## Redshift connector
 
