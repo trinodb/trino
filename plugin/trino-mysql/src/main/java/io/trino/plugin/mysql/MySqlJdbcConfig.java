@@ -13,16 +13,11 @@
  */
 package io.trino.plugin.mysql;
 
-import com.mysql.cj.conf.ConnectionUrlParser;
-import com.mysql.cj.exceptions.CJException;
 import com.mysql.cj.jdbc.Driver;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import jakarta.validation.constraints.AssertTrue;
 
 import java.sql.SQLException;
-
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.mysql.cj.conf.ConnectionUrlParser.parseConnectionString;
 
 public class MySqlJdbcConfig
         extends BaseJdbcConfig
@@ -35,18 +30,6 @@ public class MySqlJdbcConfig
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    @AssertTrue(message = "Database (catalog) must not be specified in JDBC URL for MySQL connector")
-    public boolean isUrlWithoutDatabase()
-    {
-        try {
-            ConnectionUrlParser parser = parseConnectionString(getConnectionUrl());
-            return isNullOrEmpty(parser.getPath());
-        }
-        catch (CJException ignore) {
-            return false;
         }
     }
 }

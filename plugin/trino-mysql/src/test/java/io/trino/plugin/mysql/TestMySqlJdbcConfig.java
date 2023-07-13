@@ -21,17 +21,18 @@ import static org.testng.Assert.assertTrue;
 public class TestMySqlJdbcConfig
 {
     @Test
-    public void testIsUrlWithoutDatabase()
+    public void testIsUrlValid()
     {
-        assertTrue(isUrlWithoutDatabase("jdbc:mysql://example.net:3306"));
-        assertTrue(isUrlWithoutDatabase("jdbc:mysql://example.net:3306/"));
-        assertFalse(isUrlWithoutDatabase("jdbc:mysql://example.net:3306/somedatabase"));
+        assertTrue(isUrlValid("jdbc:mysql://example.net:3306"));
+        assertTrue(isUrlValid("jdbc:mysql://example.net:3306/"));
+        assertFalse(isUrlValid("jdbc:notmysql://example.net:3306"));
+        assertFalse(isUrlValid("jdbc:notmysql://example.net:3306/"));
     }
 
-    private static boolean isUrlWithoutDatabase(String url)
+    private static boolean isUrlValid(String url)
     {
         MySqlJdbcConfig config = new MySqlJdbcConfig();
         config.setConnectionUrl(url);
-        return config.isUrlWithoutDatabase();
+        return config.isUrlValid();
     }
 }
