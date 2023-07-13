@@ -51,6 +51,7 @@ public class ThriftMetastoreConfig
     private String trustStorePassword;
     private boolean assumeCanonicalPartitionKeys;
     private int writeStatisticsThreads = 20;
+    private boolean batchMetadataFetchEnabled = true;
 
     @NotNull
     public Duration getMetastoreTimeout()
@@ -323,6 +324,19 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
     {
         this.writeStatisticsThreads = writeStatisticsThreads;
+        return this;
+    }
+
+    public boolean isBatchMetadataFetchEnabled()
+    {
+        return batchMetadataFetchEnabled;
+    }
+
+    @Config("hive.metastore.thrift.batch-fetch.enabled")
+    @ConfigDescription("Enables fetching tables and views from all schemas in a single request")
+    public ThriftMetastoreConfig setBatchMetadataFetchEnabled(boolean batchMetadataFetchEnabled)
+    {
+        this.batchMetadataFetchEnabled = batchMetadataFetchEnabled;
         return this;
     }
 }
