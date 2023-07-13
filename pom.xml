@@ -178,7 +178,7 @@
         <dep.jna.version>5.13.0</dep.jna.version>
         <dep.okio.version>3.3.0</dep.okio.version>
 
-        <dep.docker.images.version>80</dep.docker.images.version>
+        <dep.docker.images.version>82</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
