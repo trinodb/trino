@@ -16,10 +16,17 @@ package io.trino.hive.formats.line.text;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.memory.MemoryInputFile;
+import io.trino.hive.formats.line.LineBuffer;
+import io.trino.hive.formats.line.LineReader;
 import org.testng.annotations.Test;
 
-import static io.airlift.slice.Slices.wrappedBuffer;
+import java.nio.charset.StandardCharsets;
+
+import static io.airlift.slice.Slices.utf8Slice;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestTextLineReaderFactory
 {
@@ -28,7 +35,7 @@ public class TestTextLineReaderFactory
             throws Exception
     {
         TextLineReaderFactory readerFactory = new TextLineReaderFactory(1024, 1024, 8096);
-        TrinoInputFile file = new MemoryInputFile(Location.of("memory:///test"), wrappedBuffer(new byte[10]));
+        TrinoInputFile file = new MemoryInputFile(Location.of("memory:///test"), utf8Slice("header\ndata"));
 
         assertThatThrownBy(() -> readerFactory.createLineReader(file, 1, 7, 2, 0))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -39,7 +46,12 @@ public class TestTextLineReaderFactory
                 .hasMessageMatching("file cannot be split.* footer.*");
 
         // single header allowed in split file
-        readerFactory.createLineReader(file, 0, 7, 1, 0);
-        readerFactory.createLineReader(file, 2, 7, 1, 0);
+        LineBuffer lineBuffer = new LineBuffer(1, 20);
+        LineReader lineReader = readerFactory.createLineReader(file, 0, 2, 1, 0);
+        assertFalse(lineReader.readLine(lineBuffer));
+
+        lineReader = readerFactory.createLineReader(file, 2, file.length() - 2, 1, 0);
+        assertTrue(lineReader.readLine(lineBuffer));
+        assertThat(new String(lineBuffer.getBuffer(), 0, lineBuffer.getLength(), StandardCharsets.UTF_8)).isEqualTo("data");
     }
 }

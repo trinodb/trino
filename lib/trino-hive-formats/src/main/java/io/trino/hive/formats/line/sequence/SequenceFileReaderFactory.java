@@ -60,7 +60,10 @@ public class SequenceFileReaderFactory
 
         if (headerCount > 0) {
             checkArgument(start == 0 || headerCount == 1, "file cannot be split when there is more than one header row");
-            skipHeader(lineReader, headerCount);
+            // header is only skipped at the beginning of the file
+            if (start == 0) {
+                skipHeader(lineReader, headerCount);
+            }
         }
 
         if (footerCount > 0) {
