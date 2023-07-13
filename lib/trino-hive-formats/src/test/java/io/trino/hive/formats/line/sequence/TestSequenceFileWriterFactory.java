@@ -17,12 +17,17 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.memory.MemoryInputFile;
+import io.trino.hive.formats.line.LineBuffer;
+import io.trino.hive.formats.line.LineReader;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSequenceFileWriterFactory
@@ -32,12 +37,16 @@ public class TestSequenceFileWriterFactory
             throws Exception
     {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        new SequenceFileWriter(
+        try (SequenceFileWriter writer = new SequenceFileWriter(
                 out,
                 Optional.empty(),
                 false,
-                ImmutableMap.of())
-                .close();
+                ImmutableMap.of())) {
+            writer.write(utf8Slice("header"));
+            for (int i = 0; i < 1000; i++) {
+                writer.write(utf8Slice("data " + i));
+            }
+        }
         TrinoInputFile file = new MemoryInputFile(Location.of("memory:///test"), wrappedBuffer(out.toByteArray()));
 
         SequenceFileReaderFactory readerFactory = new SequenceFileReaderFactory(1024, 8096);
@@ -50,7 +59,22 @@ public class TestSequenceFileWriterFactory
                 .hasMessageMatching("file cannot be split.* footer.*");
 
         // single header allowed in split file
-        readerFactory.createLineReader(file, 0, 7, 1, 0);
-        readerFactory.createLineReader(file, 2, 7, 1, 0);
+        LineBuffer lineBuffer = new LineBuffer(1, 20);
+        LineReader lineReader = readerFactory.createLineReader(file, 0, 2, 1, 0);
+        int count = 0;
+        while (lineReader.readLine(lineBuffer)) {
+            assertThat(new String(lineBuffer.getBuffer(), 0, lineBuffer.getLength(), StandardCharsets.UTF_8)).isEqualTo("data " + count);
+            count++;
+        }
+        // The value here was obtained experimentally, but should be stable because the sequence file code is deterministic.
+        // The exact number of lines is not important, but it should be more than 1.
+        assertThat(count).isEqualTo(487);
+
+        lineReader = readerFactory.createLineReader(file, 2, file.length() - 2, 1, 0);
+        while (lineReader.readLine(lineBuffer)) {
+            assertThat(new String(lineBuffer.getBuffer(), 0, lineBuffer.getLength(), StandardCharsets.UTF_8)).isEqualTo("data " + count);
+            count++;
+        }
+        assertThat(count).isEqualTo(1000);
     }
 }
