@@ -162,6 +162,7 @@ public class ThriftHiveMetastore
     private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
     private final boolean useSparkTableStatisticsFallback;
+    private final boolean batchMetadataFetchEnabled;
     private final ThriftMetastoreStats stats;
     private final ExecutorService writeStatisticsExecutor;
 
@@ -179,6 +180,7 @@ public class ThriftHiveMetastore
             boolean translateHiveViews,
             boolean assumeCanonicalPartitionKeys,
             boolean useSparkTableStatisticsFallback,
+            boolean batchMetadataFetchEnabled,
             ThriftMetastoreStats stats,
             ExecutorService writeStatisticsExecutor)
     {
@@ -195,6 +197,7 @@ public class ThriftHiveMetastore
         this.translateHiveViews = translateHiveViews;
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         this.useSparkTableStatisticsFallback = useSparkTableStatisticsFallback;
+        this.batchMetadataFetchEnabled = batchMetadataFetchEnabled;
         this.stats = requireNonNull(stats, "stats is null");
         this.writeStatisticsExecutor = requireNonNull(writeStatisticsExecutor, "writeStatisticsExecutor is null");
     }
@@ -886,6 +889,10 @@ public class ThriftHiveMetastore
     @Override
     public Optional<List<SchemaTableName>> getAllTables()
     {
+        if (!batchMetadataFetchEnabled) {
+            return Optional.empty();
+        }
+
         try {
             return retry()
                     .stopOn(UnknownDBException.class)
@@ -910,6 +917,10 @@ public class ThriftHiveMetastore
         // Without translateHiveViews, Hive views are represented as tables in Trino,
         // and they should not be returned from ThriftHiveMetastore.getAllViews() call
         if (!translateHiveViews) {
+            return Optional.empty();
+        }
+
+        if (!batchMetadataFetchEnabled) {
             return Optional.empty();
         }
 
