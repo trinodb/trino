@@ -14,6 +14,7 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.Session;
@@ -752,8 +753,19 @@ public final class PlanMatchPattern
             String groupIdSymbol,
             PlanMatchPattern source)
     {
+        return groupId(groupingSets, ImmutableMap.of(), aggregationArguments, groupIdSymbol, source);
+    }
+
+    public static PlanMatchPattern groupId(
+            List<List<String>> groupingSets,
+            Map<String, String> groupingColumns,
+            List<String> aggregationArguments,
+            String groupIdSymbol,
+            PlanMatchPattern source)
+    {
         return node(GroupIdNode.class, source).with(new GroupIdMatcher(
                 groupingSets,
+                groupingColumns,
                 aggregationArguments,
                 groupIdSymbol));
     }
