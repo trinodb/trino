@@ -35,7 +35,7 @@ abstract class AbstractConnectionProperty<V, T>
     private final String key;
     private final Optional<T> defaultValue;
     private final Predicate<Properties> isRequired;
-    private final Predicate<Properties> isAllowed;
+    private final Validator<Properties> validator;
     private final Converter<V, T> converter;
     private final String[] choices;
 
@@ -43,14 +43,14 @@ abstract class AbstractConnectionProperty<V, T>
             PropertyName propertyName,
             Optional<T> defaultValue,
             Predicate<Properties> isRequired,
-            Predicate<Properties> isAllowed,
+            Validator<Properties> validator,
             Converter<V, T> converter)
     {
         this.propertyName = requireNonNull(propertyName, "key is null");
         this.key = propertyName.toString();
         this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
         this.isRequired = requireNonNull(isRequired, "isRequired is null");
-        this.isAllowed = requireNonNull(isAllowed, "isAllowed is null");
+        this.validator = requireNonNull(validator, "validator is null");
         this.converter = requireNonNull(converter, "converter is null");
 
         Class<? super T> type = new TypeToken<T>(getClass()) {}.getRawType();
@@ -70,7 +70,7 @@ abstract class AbstractConnectionProperty<V, T>
     protected AbstractConnectionProperty(
             PropertyName key,
             Predicate<Properties> required,
-            Predicate<Properties> allowed,
+            Validator<Properties> allowed,
             Converter<V, T> converter)
     {
         this(key, Optional.empty(), required, allowed, converter);
@@ -99,9 +99,9 @@ abstract class AbstractConnectionProperty<V, T>
     }
 
     @Override
-    public boolean isAllowed(Properties properties)
+    public boolean isValid(Properties properties)
     {
-        return isAllowed.test(properties);
+        return !validator.validate(properties).isPresent();
     }
 
     @Override
@@ -118,7 +118,7 @@ abstract class AbstractConnectionProperty<V, T>
         V value = (V) properties.get(key);
         if (value == null) {
             if (isRequired(properties) && !defaultValue.isPresent()) {
-                throw new SQLException(format("Connection property '%s' is required", key));
+                throw new SQLException(format("Connection property %s is required", key));
             }
             return defaultValue;
         }
@@ -128,9 +128,9 @@ abstract class AbstractConnectionProperty<V, T>
         }
         catch (RuntimeException e) {
             if (isEmpty(value)) {
-                throw new SQLException(format("Connection property '%s' value is empty", key), e);
+                throw new SQLException(format("Connection property %s value is empty", key), e);
             }
-            throw new SQLException(format("Connection property '%s' value is invalid: %s", key, value), e);
+            throw new SQLException(format("Connection property %s value is invalid: %s", key, value), e);
         }
     }
 
@@ -146,8 +146,11 @@ abstract class AbstractConnectionProperty<V, T>
     public void validate(Properties properties)
             throws SQLException
     {
-        if (properties.containsKey(key) && !isAllowed(properties)) {
-            throw new SQLException(format("Connection property '%s' is not allowed", key));
+        if (properties.containsKey(key)) {
+            Optional<String> message = validator.validate(properties);
+            if (message.isPresent()) {
+                throw new SQLException(message.get());
+            }
         }
 
         getValue(properties);
@@ -155,7 +158,7 @@ abstract class AbstractConnectionProperty<V, T>
 
     protected static final Predicate<Properties> NOT_REQUIRED = properties -> false;
 
-    protected static final Predicate<Properties> ALLOWED = properties -> true;
+    protected static final Validator<Properties> ALLOWED = properties -> Optional.empty();
 
     interface Converter<V, T>
     {
@@ -181,6 +184,40 @@ abstract class AbstractConnectionProperty<V, T>
         throw new IllegalArgumentException("value must be 'true' or 'false'");
     };
 
+    protected interface Validator<T>
+    {
+        /**
+         * @param value Value to validate
+         * @return An error message if the value is invalid or empty otherwise
+         */
+        Optional<String> validate(T value);
+
+        default Validator<T> and(Validator<? super T> other)
+        {
+            requireNonNull(other, "other is null");
+            // return the first non-empty optional
+            return (t) -> {
+                Optional<String> result = validate(t);
+                if (result.isPresent()) {
+                    return result;
+                }
+                return other.validate(t);
+            };
+        }
+    }
+
+    protected static <T> Validator<T> validator(Predicate<T> predicate, String errorMessage)
+    {
+        requireNonNull(predicate, "predicate is null");
+        requireNonNull(errorMessage, "errorMessage is null");
+        return value -> {
+            if (predicate.test(value)) {
+                return Optional.empty();
+            }
+            return Optional.of(errorMessage);
+        };
+    }
+
     protected interface CheckedPredicate<T>
     {
         boolean test(T t)
@@ -189,9 +226,10 @@ abstract class AbstractConnectionProperty<V, T>
 
     protected static <T> Predicate<T> checkedPredicate(CheckedPredicate<T> predicate)
     {
-        return t -> {
+        requireNonNull(predicate, "predicate is null");
+        return value -> {
             try {
-                return predicate.test(t);
+                return predicate.test(value);
             }
             catch (SQLException e) {
                 return false;
