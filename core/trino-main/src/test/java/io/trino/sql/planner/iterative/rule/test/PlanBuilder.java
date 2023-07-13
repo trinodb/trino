@@ -375,7 +375,11 @@ public class PlanBuilder
                 .flatMap(Collection::stream)
                 .distinct()
                 .collect(toImmutableMap(identity(), identity()));
+        return groupId(groupingSets, groupingColumns, aggregationArguments, groupIdSymbol, source);
+    }
 
+    public GroupIdNode groupId(List<List<Symbol>> groupingSets, Map<Symbol, Symbol> groupingColumns, List<Symbol> aggregationArguments, Symbol groupIdSymbol, PlanNode source)
+    {
         return new GroupIdNode(
                 idAllocator.getNextId(),
                 source,
