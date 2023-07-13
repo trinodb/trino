@@ -55,6 +55,6 @@ public class TestingHiveConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return createConnector(catalogName, config, context, module, metastore, directoryLister);
+        return createConnector(catalogName, config, context, module, metastore, Optional.empty(), directoryLister);
     }
 }
