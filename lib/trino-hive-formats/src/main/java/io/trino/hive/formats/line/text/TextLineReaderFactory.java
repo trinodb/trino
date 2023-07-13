@@ -67,14 +67,14 @@ public class TextLineReaderFactory
         try {
             Optional<Codec> codec = CompressionKind.forFile(inputFile.location().fileName())
                     .map(CompressionKind::createCodec);
+            LineReader lineReader;
             if (codec.isPresent()) {
                 checkArgument(start == 0, "Compressed files are not splittable");
-                // for compressed input, we do not know the length of the uncompressed text
-                length = Long.MAX_VALUE;
-                inputStream = codec.get().createStreamDecompressor(inputStream);
+                lineReader = TextLineReader.createCompressedReader(inputStream, fileBufferSize, codec.get());
             }
-
-            LineReader lineReader = new TextLineReader(inputStream, fileBufferSize, start, length);
+            else {
+                lineReader = TextLineReader.createUncompressedReader(inputStream, fileBufferSize, start, length);
+            }
 
             //  Only skip header rows when the split is at the beginning of the file
             if (headerCount > 0) {

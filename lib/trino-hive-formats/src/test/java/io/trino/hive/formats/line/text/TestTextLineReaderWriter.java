@@ -103,7 +103,7 @@ public class TestTextLineReaderWriter
         if (compressionKind.isPresent()) {
             inputStream = compressionKind.get().createCodec().createStreamDecompressor(inputStream);
         }
-        return new TextLineReader(inputStream, 1024);
+        return TextLineReader.createUncompressedReader(inputStream, 1024);
     }
 
     private static void writeNew(File outputFile, List<String> values, Optional<CompressionKind> compressionKind)
