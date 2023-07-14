@@ -221,7 +221,7 @@ public class TrinoNessieCatalog
     }
 
     @Override
-    public void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, String metadataLocation)
+    public void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, TableMetadata tableMetadata)
     {
         throw new TrinoException(NOT_SUPPORTED, "registerTable is not supported for Iceberg Nessie catalogs");
     }
