@@ -310,7 +310,6 @@ public final class HiveType
 
     public long getRetainedSizeInBytes()
     {
-        // typeInfo is not accounted for as the instances are cached (by TypeInfoFactory) and shared
-        return INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes();
+        return INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes() + typeInfo.getRetainedSizeInBytes();
     }
 }

@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.hive.type;
 
+import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeEntryFromTypeName;
 import static java.util.Objects.requireNonNull;
 
@@ -21,6 +24,8 @@ public sealed class PrimitiveTypeInfo
         extends TypeInfo
         permits BaseCharTypeInfo, DecimalTypeInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(PrimitiveTypeInfo.class);
+
     protected final String typeName;
     private final PrimitiveCategory primitiveCategory;
 
@@ -61,5 +66,17 @@ public sealed class PrimitiveTypeInfo
     public int hashCode()
     {
         return typeName.hashCode();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        verify(getClass() == PrimitiveTypeInfo.class, "Method must be overridden in %s", getClass());
+        return INSTANCE_SIZE + getDeclaredFieldsRetainedSizeInBytes();
+    }
+
+    protected long getDeclaredFieldsRetainedSizeInBytes()
+    {
+        return estimatedSizeOf(typeName);
     }
 }

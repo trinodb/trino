@@ -34,4 +34,6 @@ public abstract sealed class TypeInfo
 
     @Override
     public abstract int hashCode();
+
+    public abstract long getRetainedSizeInBytes();
 }
