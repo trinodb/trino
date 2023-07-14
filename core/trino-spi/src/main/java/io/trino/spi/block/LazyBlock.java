@@ -149,7 +149,7 @@ public class LazyBlock
     }
 
     @Override
-    public Block getSingleValueBlock(int position)
+    public ValueBlock getSingleValueBlock(int position)
     {
         return getBlock().getSingleValueBlock(position);
     }
