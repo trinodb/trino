@@ -25,11 +25,13 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_EXISTS;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
@@ -107,6 +109,7 @@ public class TrackingFileSystemFactory
             int nextId = fileId.incrementAndGet();
             return new TrackingInputFile(
                     delegate.newInputFile(location),
+                    OptionalLong.empty(),
                     operation -> tracker.track(location, nextId, operation));
         }
 
@@ -116,6 +119,7 @@ public class TrackingFileSystemFactory
             int nextId = fileId.incrementAndGet();
             return new TrackingInputFile(
                     delegate.newInputFile(location, length),
+                    OptionalLong.of(length),
                     operation -> tracker.track(location, nextId, operation));
         }
 
@@ -175,11 +179,13 @@ public class TrackingFileSystemFactory
             implements TrinoInputFile
     {
         private final TrinoInputFile delegate;
+        private final OptionalLong length;
         private final Consumer<OperationType> tracker;
 
-        public TrackingInputFile(TrinoInputFile delegate, Consumer<OperationType> tracker)
+        public TrackingInputFile(TrinoInputFile delegate, OptionalLong length, Consumer<OperationType> tracker)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
+            this.length = requireNonNull(length, "length is null");
             this.tracker = requireNonNull(tracker, "tracker is null");
         }
 
@@ -187,6 +193,13 @@ public class TrackingFileSystemFactory
         public long length()
                 throws IOException
         {
+            if (length.isPresent()) {
+                // Without TrinoInputFile, known length would be returned. This is additional verification
+                long actualLength = delegate.length();
+                verify(length.getAsLong() == actualLength, "Provided length does not match actual: %s != %s", length.getAsLong(), actualLength);
+                // No call tracking -- the filesystem call is for verification only. Normally it wouldn't take place.
+                return length.getAsLong();
+            }
             tracker.accept(INPUT_FILE_GET_LENGTH);
             return delegate.length();
         }
