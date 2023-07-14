@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.util;
 
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.DecimalType;
 
 import static java.util.stream.Collectors.joining;
@@ -31,10 +32,12 @@ public final class HiveSchemaUtil
             case LONG -> "bigint";
             case FLOAT -> "float";
             case DOUBLE -> "double";
+            case STRING -> "string";
             case DATE -> "date";
-            case TIME, STRING, UUID -> "string";
-            case TIMESTAMP -> "timestamp";
+            case TIME -> "time";
+            case TIMESTAMP -> ((Types.TimestampType) type).shouldAdjustToUTC() ? "timestamp with time zone" : "timestamp";
             case FIXED, BINARY -> "binary";
+            case UUID -> "uuid";
             case DECIMAL -> "decimal(%s,%s)".formatted(((DecimalType) type).precision(), ((DecimalType) type).scale());
             case LIST -> "array<%s>".formatted(convertToTypeString(type.asListType().elementType()));
             case MAP -> "map<%s,%s>".formatted(convertToTypeString(type.asMapType().keyType()), convertToTypeString(type.asMapType().valueType()));
