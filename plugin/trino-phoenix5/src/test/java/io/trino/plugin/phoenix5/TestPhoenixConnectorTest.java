@@ -93,6 +93,7 @@ public class TestPhoenixConnectorTest
                 return true;
 
             case SUPPORTS_RENAME_SCHEMA:
+            case SUPPORTS_DROP_SCHEMA_CASCADE:
                 return false;
 
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:

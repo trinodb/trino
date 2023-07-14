@@ -160,8 +160,12 @@ public class PhoenixMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
+        if (cascade) {
+            // Phoenix doesn't support CASCADE option https://phoenix.apache.org/language/index.html#drop_schema
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
+        }
         if (DEFAULT_SCHEMA.equalsIgnoreCase(schemaName)) {
             throw new TrinoException(NOT_SUPPORTED, "Can't drop 'default' schema which maps to Phoenix empty schema");
         }
