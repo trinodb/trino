@@ -441,6 +441,23 @@
                                     <old>method io.trino.spi.block.Block io.trino.spi.type.RowType::getObject(io.trino.spi.block.Block, int)</old>
                                     <new>method io.trino.spi.block.SqlRow io.trino.spi.type.RowType::getObject(io.trino.spi.block.Block, int)</new>
                                 </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.AbstractVariableWidthBlock</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.airlift.slice.Slice io.trino.spi.block.VariableWidthBlock::getRawSlice(int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.VariableWidthBlock::isEntryNull(int)</old>
+                                </item>
+                                <item>
+                                    <code>java.class.noLongerInheritsFromClass</code>
+                                    <old>class io.trino.spi.block.VariableWidthBlock</old>
+                                    <new>class io.trino.spi.block.VariableWidthBlock</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
