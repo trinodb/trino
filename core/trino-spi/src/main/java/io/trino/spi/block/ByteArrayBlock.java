@@ -219,6 +219,12 @@ public class ByteArrayBlock
     }
 
     @Override
+    public ByteArrayBlock getUnderlyingValueBlock()
+    {
+        return this;
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("ByteArrayBlock{");

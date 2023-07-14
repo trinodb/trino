@@ -611,6 +611,12 @@ public class MapBlock
         return mapIsNull != null && mapIsNull[position + startOffset];
     }
 
+    @Override
+    public MapBlock getUnderlyingValueBlock()
+    {
+        return this;
+    }
+
     // only visible for testing
     public boolean isHashTablesPresent()
     {

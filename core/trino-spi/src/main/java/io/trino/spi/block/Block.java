@@ -334,4 +334,14 @@ public interface Block
      * i.e. not on in-progress block builders.
      */
     Block copyWithAppendedNull();
+
+    /**
+     * Returns the underlying value block underlying this block.
+     */
+    ValueBlock getUnderlyingValueBlock();
+
+    /**
+     * Returns the position in the underlying value block corresponding to the specified position in this block.
+     */
+    int getUnderlyingValuePosition(int position);
 }
