@@ -1159,23 +1159,27 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         ConnectorIdentity identity = session.getIdentity();
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
             schemaName = identifierMapping.toRemoteSchemaName(getRemoteIdentifiers(connection), identity, schemaName);
-            dropSchema(session, connection, schemaName);
+            dropSchema(session, connection, schemaName, cascade);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
             throws SQLException
     {
-        execute(session, connection, "DROP SCHEMA " + quoted(remoteSchemaName));
+        String dropSchema = "DROP SCHEMA " + quoted(remoteSchemaName);
+        if (cascade) {
+            dropSchema += " CASCADE";
+        }
+        execute(session, connection, dropSchema);
     }
 
     @Override
