@@ -218,6 +218,12 @@ public class IntArrayBlock
     }
 
     @Override
+    public IntArrayBlock getUnderlyingValueBlock()
+    {
+        return this;
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("IntArrayBlock{");

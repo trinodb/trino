@@ -239,6 +239,12 @@ public class Fixed12Block
     }
 
     @Override
+    public Fixed12Block getUnderlyingValueBlock()
+    {
+        return this;
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("Fixed12Block{");

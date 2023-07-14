@@ -421,6 +421,12 @@ public class ArrayBlock
         return valueIsNull != null && valueIsNull[position + arrayOffset];
     }
 
+    @Override
+    public ArrayBlock getUnderlyingValueBlock()
+    {
+        return this;
+    }
+
     public <T> T apply(ArrayBlockFunction<T> function, int position)
     {
         checkReadablePosition(this, position);

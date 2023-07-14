@@ -591,6 +591,18 @@ public class DictionaryBlock
         return singletonList(getDictionary());
     }
 
+    @Override
+    public ValueBlock getUnderlyingValueBlock()
+    {
+        return dictionary.getUnderlyingValueBlock();
+    }
+
+    @Override
+    public int getUnderlyingValuePosition(int position)
+    {
+        return dictionary.getUnderlyingValuePosition(getId(position));
+    }
+
     public Block getDictionary()
     {
         return dictionary;
