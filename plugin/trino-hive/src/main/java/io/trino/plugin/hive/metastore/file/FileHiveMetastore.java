@@ -37,7 +37,6 @@ import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TableType;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -1084,7 +1083,7 @@ public class FileHiveMetastore
         }
     }
 
-    private List<ArrayDeque<String>> listPartitions(Path director, List<Column> partitionColumns)
+    private List<ArrayDeque<String>> listPartitions(Path director, List<io.trino.plugin.hive.metastore.Column> partitionColumns)
     {
         if (partitionColumns.isEmpty()) {
             return ImmutableList.of();
