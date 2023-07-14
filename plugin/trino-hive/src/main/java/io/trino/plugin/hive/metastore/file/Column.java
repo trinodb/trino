@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -30,17 +31,21 @@ import static java.util.Objects.requireNonNull;
 public class Column
 {
     private final String name;
-    private final HiveType type;
+    private final Optional<HiveType> type;
+    private final Optional<String> typeName;
     private final Optional<String> comment;
 
     @JsonCreator
     public Column(
             @JsonProperty("name") String name,
-            @JsonProperty("type") HiveType type,
+            @JsonProperty("type") Optional<HiveType> type,
+            @JsonProperty("typeName") Optional<String> typeName,
             @JsonProperty("comment") Optional<String> comment)
     {
         this.name = requireNonNull(name, "name is null");
+        checkArgument(type.isPresent() != typeName.isPresent(), "Expected exactly one of type and typeName, got: %s and %s", type, typeName);
         this.type = requireNonNull(type, "type is null");
+        this.typeName = requireNonNull(typeName, "typeName is null");
         this.comment = requireNonNull(comment, "comment is null");
     }
 
@@ -51,9 +56,15 @@ public class Column
     }
 
     @JsonProperty
-    public HiveType getType()
+    public Optional<HiveType> getType()
     {
         return type;
+    }
+
+    @JsonProperty
+    public Optional<String> getTypeName()
+    {
+        return typeName;
     }
 
     @JsonProperty
@@ -68,6 +79,7 @@ public class Column
         return toStringHelper(this)
                 .add("name", name)
                 .add("type", type)
+                .add("typeName", typeName)
                 .toString();
     }
 
@@ -84,13 +96,14 @@ public class Column
         Column column = (Column) o;
         return Objects.equals(name, column.name) &&
                 Objects.equals(type, column.type) &&
+                Objects.equals(typeName, column.typeName) &&
                 Objects.equals(comment, column.comment);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, comment);
+        return Objects.hash(name, type, typeName, comment);
     }
 
     public static List<Column> fromMetastoreModel(List<io.trino.plugin.hive.metastore.Column> metastoreColumns)
@@ -104,7 +117,8 @@ public class Column
     {
         return new Column(
                 metastoreColumn.getName(),
-                metastoreColumn.getType(),
+                Optional.empty(),
+                Optional.of(metastoreColumn.getTypeName()),
                 metastoreColumn.getComment());
     }
 
@@ -119,7 +133,7 @@ public class Column
     {
         return new io.trino.plugin.hive.metastore.Column(
                 fileMetastoreColumn.getName(),
-                fileMetastoreColumn.getType(),
+                fileMetastoreColumn.getTypeName().orElseGet(() -> fileMetastoreColumn.getType().toString()),
                 fileMetastoreColumn.getComment());
     }
 }

@@ -42,7 +42,6 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.util.HiveClassNames.FILE_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
@@ -286,12 +285,12 @@ public abstract class AbstractIcebergTableOperations
         return format("%s/%s/%s", stripTrailingSlash(metadata.location()), METADATA_FOLDER_NAME, filename);
     }
 
-    public static List<Column> toHiveColumns(List<NestedField> columns)
+    public static List<Column> toMetastoreColumns(List<NestedField> columns)
     {
         return columns.stream()
                 .map(column -> new Column(
                         column.name(),
-                        toHiveType(HiveSchemaUtil.convert(column.type())),
+                        HiveSchemaUtil.convertToTypeString(column.type()),
                         Optional.empty()))
                 .collect(toImmutableList());
     }

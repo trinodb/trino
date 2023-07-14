@@ -65,7 +65,7 @@ public class FileMetastoreTableOperations
         String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
 
         Table table = Table.builder(currentTable)
-                .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                .setDataColumns(toMetastoreColumns(metadata.schema().columns()))
                 .withStorage(storage -> storage.setLocation(metadata.location()))
                 .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
                 .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)

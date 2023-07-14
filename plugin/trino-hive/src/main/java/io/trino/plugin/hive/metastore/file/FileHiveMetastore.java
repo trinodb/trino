@@ -679,7 +679,7 @@ public class FileHiveMetastore
             ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
             for (Column fieldSchema : oldTable.getDataColumns()) {
                 if (fieldSchema.getName().equals(columnName)) {
-                    newDataColumns.add(new Column(columnName, fieldSchema.getType(), comment));
+                    newDataColumns.add(new Column(columnName, fieldSchema.getType(), fieldSchema.getTypeName(), comment));
                 }
                 else {
                     newDataColumns.add(fieldSchema);
@@ -702,7 +702,7 @@ public class FileHiveMetastore
                     currentVersion,
                     ImmutableList.<Column>builder()
                             .addAll(oldTable.getDataColumns())
-                            .add(new Column(columnName, columnType, Optional.ofNullable(columnComment)))
+                            .add(new Column(columnName, Optional.empty(), Optional.of(columnType.toString()), Optional.ofNullable(columnComment)))
                             .build());
         });
     }
@@ -727,7 +727,7 @@ public class FileHiveMetastore
             ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
             for (Column fieldSchema : oldTable.getDataColumns()) {
                 if (fieldSchema.getName().equals(oldColumnName)) {
-                    newDataColumns.add(new Column(newColumnName, fieldSchema.getType(), fieldSchema.getComment()));
+                    newDataColumns.add(new Column(newColumnName, fieldSchema.getType(), fieldSchema.getTypeName(), fieldSchema.getComment()));
                 }
                 else {
                     newDataColumns.add(fieldSchema);

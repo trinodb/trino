@@ -100,7 +100,7 @@ public abstract class AbstractMetastoreTableOperations
                 .setOwner(owner)
                 // Table needs to be EXTERNAL, otherwise table rename in HMS would rename table directory and break table contents.
                 .setTableType(EXTERNAL_TABLE.name())
-                .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                .setDataColumns(toMetastoreColumns(metadata.schema().columns()))
                 .withStorage(storage -> storage.setLocation(metadata.location()))
                 .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))
                 // This is a must-have property for the EXTERNAL_TABLE table type

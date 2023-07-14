@@ -13,11 +13,9 @@
  */
 package io.trino.plugin.iceberg.util;
 
-import io.trino.plugin.hive.type.TypeInfo;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types.DecimalType;
 
-import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeInfoFromTypeString;
 import static java.util.stream.Collectors.joining;
 
 // based on org.apache.iceberg.hive.HiveSchemaUtil
@@ -25,12 +23,7 @@ public final class HiveSchemaUtil
 {
     private HiveSchemaUtil() {}
 
-    public static TypeInfo convert(Type type)
-    {
-        return getTypeInfoFromTypeString(convertToTypeString(type));
-    }
-
-    private static String convertToTypeString(Type type)
+    public static String convertToTypeString(Type type)
     {
         return switch (type.typeId()) {
             case BOOLEAN -> "boolean";
@@ -43,10 +36,10 @@ public final class HiveSchemaUtil
             case TIMESTAMP -> "timestamp";
             case FIXED, BINARY -> "binary";
             case DECIMAL -> "decimal(%s,%s)".formatted(((DecimalType) type).precision(), ((DecimalType) type).scale());
-            case LIST -> "array<%s>".formatted(convert(type.asListType().elementType()));
-            case MAP -> "map<%s,%s>".formatted(convert(type.asMapType().keyType()), convert(type.asMapType().valueType()));
+            case LIST -> "array<%s>".formatted(convertToTypeString(type.asListType().elementType()));
+            case MAP -> "map<%s,%s>".formatted(convertToTypeString(type.asMapType().keyType()), convertToTypeString(type.asMapType().valueType()));
             case STRUCT -> "struct<%s>".formatted(type.asStructType().fields().stream()
-                    .map(field -> "%s:%s".formatted(field.name(), convert(field.type())))
+                    .map(field -> "%s:%s".formatted(field.name(), convertToTypeString(field.type())))
                     .collect(joining(",")));
         };
     }

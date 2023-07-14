@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.plugin.hive.HiveType;
@@ -28,17 +29,26 @@ import static java.util.Objects.requireNonNull;
 public class Column
 {
     private final String name;
-    private final HiveType type;
+    private final String typeName;
     private final Optional<String> comment;
+
+    @Deprecated
+    public Column(
+            String name,
+            HiveType hiveType,
+            Optional<String> comment)
+    {
+        this(name, hiveType.toString(), comment);
+    }
 
     @JsonCreator
     public Column(
             @JsonProperty("name") String name,
-            @JsonProperty("type") HiveType type,
+            @JsonProperty("typeName") String typeName,
             @JsonProperty("comment") Optional<String> comment)
     {
         this.name = requireNonNull(name, "name is null");
-        this.type = requireNonNull(type, "type is null");
+        this.typeName = requireNonNull(typeName, "typeName is null");
         this.comment = requireNonNull(comment, "comment is null");
     }
 
@@ -49,9 +59,22 @@ public class Column
     }
 
     @JsonProperty
+    public String getTypeName()
+    {
+        return typeName;
+    }
+
+    @Deprecated
+    @JsonIgnore
     public HiveType getType()
     {
-        return type;
+        return getHiveType();
+    }
+
+    @JsonIgnore
+    public HiveType getHiveType()
+    {
+        return HiveType.valueOf(typeName);
     }
 
     @JsonProperty
@@ -65,7 +88,7 @@ public class Column
     {
         return toStringHelper(this)
                 .add("name", name)
-                .add("type", type)
+                .add("typeName", typeName)
                 .toString();
     }
 
@@ -81,13 +104,13 @@ public class Column
 
         Column column = (Column) o;
         return Objects.equals(name, column.name) &&
-                Objects.equals(type, column.type) &&
+                Objects.equals(typeName, column.typeName) &&
                 Objects.equals(comment, column.comment);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, comment);
+        return Objects.hash(name, typeName, comment);
     }
 }
