@@ -29,7 +29,7 @@ import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
 public class ShortArrayBlock
-        implements Block
+        implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(ShortArrayBlock.class);
     public static final int SIZE_IN_BYTES_PER_POSITION = Short.BYTES + Byte.BYTES;
@@ -147,7 +147,7 @@ public class ShortArrayBlock
     }
 
     @Override
-    public Block getSingleValueBlock(int position)
+    public ShortArrayBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
         return new ShortArrayBlock(
@@ -158,7 +158,7 @@ public class ShortArrayBlock
     }
 
     @Override
-    public Block copyPositions(int[] positions, int offset, int length)
+    public ShortArrayBlock copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
@@ -179,7 +179,7 @@ public class ShortArrayBlock
     }
 
     @Override
-    public Block getRegion(int positionOffset, int length)
+    public ShortArrayBlock getRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -187,7 +187,7 @@ public class ShortArrayBlock
     }
 
     @Override
-    public Block copyRegion(int positionOffset, int length)
+    public ShortArrayBlock copyRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -208,7 +208,7 @@ public class ShortArrayBlock
     }
 
     @Override
-    public Block copyWithAppendedNull()
+    public ShortArrayBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
         short[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);

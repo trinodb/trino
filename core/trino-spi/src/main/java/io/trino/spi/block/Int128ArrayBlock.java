@@ -29,7 +29,7 @@ import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
 public class Int128ArrayBlock
-        implements Block
+        implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(Int128ArrayBlock.class);
     public static final int INT128_BYTES = Long.BYTES + Long.BYTES;
@@ -151,7 +151,7 @@ public class Int128ArrayBlock
     }
 
     @Override
-    public Block getSingleValueBlock(int position)
+    public Int128ArrayBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
         return new Int128ArrayBlock(
@@ -164,7 +164,7 @@ public class Int128ArrayBlock
     }
 
     @Override
-    public Block copyPositions(int[] positions, int offset, int length)
+    public Int128ArrayBlock copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
@@ -186,7 +186,7 @@ public class Int128ArrayBlock
     }
 
     @Override
-    public Block getRegion(int positionOffset, int length)
+    public Int128ArrayBlock getRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -194,7 +194,7 @@ public class Int128ArrayBlock
     }
 
     @Override
-    public Block copyRegion(int positionOffset, int length)
+    public Int128ArrayBlock copyRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -215,7 +215,7 @@ public class Int128ArrayBlock
     }
 
     @Override
-    public Block copyWithAppendedNull()
+    public Int128ArrayBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, positionOffset, positionCount);
         long[] newValues = ensureCapacity(values, (positionOffset + positionCount + 1) * 2);

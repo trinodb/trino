@@ -36,7 +36,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RowBlock
-        implements Block
+        implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(RowBlock.class);
     private final int numFields;
@@ -256,7 +256,7 @@ public class RowBlock
     }
 
     @Override
-    public Block copyWithAppendedNull()
+    public RowBlock copyWithAppendedNull()
     {
         boolean[] newRowIsNull = copyIsNullAndAppendNull(rowIsNull, startOffset, getPositionCount());
 
@@ -305,7 +305,7 @@ public class RowBlock
     }
 
     @Override
-    public Block copyPositions(int[] positions, int offset, int length)
+    public RowBlock copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
@@ -354,7 +354,7 @@ public class RowBlock
     }
 
     @Override
-    public Block getRegion(int position, int length)
+    public RowBlock getRegion(int position, int length)
     {
         int positionCount = getPositionCount();
         checkValidRegion(positionCount, position, length);
@@ -492,7 +492,7 @@ public class RowBlock
     }
 
     @Override
-    public Block copyRegion(int position, int length)
+    public RowBlock copyRegion(int position, int length)
     {
         int positionCount = getPositionCount();
         checkValidRegion(positionCount, position, length);
@@ -539,7 +539,7 @@ public class RowBlock
     }
 
     @Override
-    public Block getSingleValueBlock(int position)
+    public RowBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
 

@@ -37,7 +37,7 @@ import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayBlock
-        implements Block
+        implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(ArrayBlock.class);
 
@@ -216,7 +216,7 @@ public class ArrayBlock
     }
 
     @Override
-    public Block getLoadedBlock()
+    public ArrayBlock getLoadedBlock()
     {
         Block loadedValuesBlock = values.getLoadedBlock();
 
@@ -232,7 +232,7 @@ public class ArrayBlock
     }
 
     @Override
-    public Block copyWithAppendedNull()
+    public ArrayBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, getPositionCount());
         int[] newOffsets = copyOffsetsAndAppendNull(offsets, arrayOffset, getPositionCount());
@@ -246,7 +246,7 @@ public class ArrayBlock
     }
 
     @Override
-    public Block copyPositions(int[] positions, int offset, int length)
+    public ArrayBlock copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
@@ -278,7 +278,7 @@ public class ArrayBlock
     }
 
     @Override
-    public Block getRegion(int position, int length)
+    public ArrayBlock getRegion(int position, int length)
     {
         int positionCount = getPositionCount();
         checkValidRegion(positionCount, position, length);
@@ -343,7 +343,7 @@ public class ArrayBlock
     }
 
     @Override
-    public Block copyRegion(int position, int length)
+    public ArrayBlock copyRegion(int position, int length)
     {
         int positionCount = getPositionCount();
         checkValidRegion(positionCount, position, length);
@@ -377,7 +377,7 @@ public class ArrayBlock
     }
 
     @Override
-    public Block getSingleValueBlock(int position)
+    public ArrayBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
 
