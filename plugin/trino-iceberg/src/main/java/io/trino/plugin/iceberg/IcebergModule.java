@@ -16,7 +16,9 @@ package io.trino.plugin.iceberg;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -38,6 +40,8 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
+
+import java.util.concurrent.ForkJoinPool;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -95,5 +99,13 @@ public class IcebergModule
         tableProcedures.addBinding().toProvider(DropExtendedStatsTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding().toProvider(ExpireSnapshotsTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding().toProvider(RemoveOrphanFilesTableProcedure.class).in(Scopes.SINGLETON);
+    }
+
+    @Singleton
+    @Provides
+    @ForMetadataFetching
+    public ForkJoinPool createIcebergMetadataFetchingForkJoinPool(IcebergConfig icebergConfig)
+    {
+        return new ForkJoinPool(icebergConfig.getMaxConcurrentMetadataLoaders());
     }
 }

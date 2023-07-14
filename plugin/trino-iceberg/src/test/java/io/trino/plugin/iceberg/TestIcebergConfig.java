@@ -61,7 +61,8 @@ public class TestIcebergConfig
                 .setMinimumAssignedSplitWeight(0.05)
                 .setMaterializedViewsStorageSchema(null)
                 .setRegisterTableProcedureEnabled(false)
-                .setSortedWritingEnabled(true));
+                .setSortedWritingEnabled(true)
+                .setMaxConcurrentMetadataLoaders(20));
     }
 
     @Test
@@ -89,6 +90,7 @@ public class TestIcebergConfig
                 .put("iceberg.materialized-views.storage-schema", "mv_storage_schema")
                 .put("iceberg.register-table-procedure.enabled", "true")
                 .put("iceberg.sorted-writing-enabled", "false")
+                .put("iceberg.max-concurrent-metadata-loaders", "5")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -112,7 +114,8 @@ public class TestIcebergConfig
                 .setMinimumAssignedSplitWeight(0.01)
                 .setMaterializedViewsStorageSchema("mv_storage_schema")
                 .setRegisterTableProcedureEnabled(true)
-                .setSortedWritingEnabled(false);
+                .setSortedWritingEnabled(false)
+                .setMaxConcurrentMetadataLoaders(5);
 
         assertFullMapping(properties, expected);
     }

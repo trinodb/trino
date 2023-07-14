@@ -215,6 +215,7 @@ public class IcebergConnector
     public final void shutdown()
     {
         lifeCycleManager.stop();
+        transactionManager.shutdown();
     }
 
     @VisibleForTesting

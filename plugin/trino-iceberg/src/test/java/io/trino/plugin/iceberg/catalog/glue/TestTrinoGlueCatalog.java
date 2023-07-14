@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.concurrent.ForkJoinPool;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
@@ -112,7 +113,8 @@ public class TestTrinoGlueCatalog
                     connectorIdentity -> {
                         throw new UnsupportedOperationException();
                     },
-                    new TableStatisticsWriter(new NodeVersion("test-version")));
+                    new TableStatisticsWriter(new NodeVersion("test-version")),
+                    ForkJoinPool.commonPool());
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")

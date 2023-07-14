@@ -164,14 +164,17 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -250,6 +253,7 @@ import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_S
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.REMOVE_ORPHAN_FILES;
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -305,6 +309,7 @@ public class IcebergMetadata
     private final TrinoCatalog catalog;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TableStatisticsWriter tableStatisticsWriter;
+    private final ForkJoinPool metadataListingExecutor;
 
     private final Map<IcebergTableHandle, TableStatistics> tableStatisticsCache = new ConcurrentHashMap<>();
 
@@ -316,7 +321,8 @@ public class IcebergMetadata
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalog catalog,
             TrinoFileSystemFactory fileSystemFactory,
-            TableStatisticsWriter tableStatisticsWriter)
+            TableStatisticsWriter tableStatisticsWriter,
+            ForkJoinPool metadataListingExecutor)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
@@ -324,6 +330,7 @@ public class IcebergMetadata
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
+        this.metadataListingExecutor = requireNonNull(metadataListingExecutor, "metadataListingExecutor is null");
     }
 
     @Override
@@ -647,32 +654,58 @@ public class IcebergMetadata
         else {
             schemaTableNames = ImmutableList.of(prefix.toSchemaTableName());
         }
-        return schemaTableNames.stream()
-                .flatMap(tableName -> {
+
+        BlockingQueue<TableColumnsMetadata> columnQueue = new LinkedBlockingQueue<>();
+        AtomicInteger completedTasks = new AtomicInteger(0);
+
+        schemaTableNames.parallelStream().forEach(tableName ->
+                metadataListingExecutor.submit(() -> {
                     try {
                         if (redirectTable(session, tableName).isPresent()) {
-                            return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
+                            columnQueue.add(TableColumnsMetadata.forRedirectedTable(tableName));
                         }
 
                         Table icebergTable = catalog.loadTable(session, tableName);
                         List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema());
-                        return Stream.of(TableColumnsMetadata.forTable(tableName, columns));
+                        columnQueue.add(TableColumnsMetadata.forTable(tableName, columns));
                     }
                     catch (TableNotFoundException e) {
                         // Table disappeared during listing operation
-                        return Stream.empty();
                     }
                     catch (UnknownTableTypeException e) {
                         // Skip unsupported table type in case that the table redirects are not enabled
-                        return Stream.empty();
                     }
                     catch (RuntimeException e) {
                         // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
                         log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
-                        return Stream.empty();
                     }
-                })
-                .iterator();
+
+                    // Tasks must reach this point as all Exceptions are caught above
+                    completedTasks.getAndIncrement();
+                }));
+
+        return new Iterator<>() {
+            @Override
+            public boolean hasNext()
+            {
+                return !columnQueue.isEmpty() || completedTasks.get() < schemaTableNames.size();
+            }
+
+            @Override
+            public TableColumnsMetadata next()
+            {
+                try {
+                    TableColumnsMetadata next = columnQueue.poll(5, TimeUnit.SECONDS);
+                    if (next == null) {
+                        throw new TrinoException(ICEBERG_INVALID_METADATA, "Unable to fetch metadata for Iceberg table within the timeout");
+                    }
+                    return next;
+                }
+                catch (InterruptedException e) {
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Interrupted while waiting for Iceberg column metadata");
+                }
+            }
+        };
     }
 
     @Override

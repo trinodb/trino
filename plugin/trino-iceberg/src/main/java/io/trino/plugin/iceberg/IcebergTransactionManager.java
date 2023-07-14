@@ -73,6 +73,11 @@ public class IcebergTransactionManager
         });
     }
 
+    public void shutdown()
+    {
+        metadataFactory.shutdown();
+    }
+
     private class MemoizedMetadata
     {
         @GuardedBy("this")

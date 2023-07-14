@@ -30,6 +30,7 @@ import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.assertj.core.util.Files;
 
 import java.io.File;
+import java.util.concurrent.ForkJoinPool;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.NONE;
@@ -96,7 +97,8 @@ public class TestTrinoRestCatalog
                     connectorIdentity -> {
                         throw new UnsupportedOperationException();
                     },
-                    new TableStatisticsWriter(new NodeVersion("test-version")));
+                    new TableStatisticsWriter(new NodeVersion("test-version")),
+                    ForkJoinPool.commonPool());
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

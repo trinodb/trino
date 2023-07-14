@@ -73,6 +73,7 @@ public class IcebergConfig
     private double minimumAssignedSplitWeight = 0.05;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
     private boolean sortedWritingEnabled = true;
+    private int maxConcurrentMetadataLoaders = 20;
 
     public CatalogType getCatalogType()
     {
@@ -366,5 +367,19 @@ public class IcebergConfig
     {
         this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
+    }
+
+    @Config("iceberg.max-concurrent-metadata-loaders")
+    @ConfigDescription("Maximum number of threads used to load table metadata for information_schema queries")
+    public IcebergConfig setMaxConcurrentMetadataLoaders(int maxConcurrentMetadataLoaders)
+    {
+        this.maxConcurrentMetadataLoaders = maxConcurrentMetadataLoaders;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentMetadataLoaders()
+    {
+        return maxConcurrentMetadataLoaders;
     }
 }

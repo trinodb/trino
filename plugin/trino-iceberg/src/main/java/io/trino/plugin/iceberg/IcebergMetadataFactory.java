@@ -21,6 +21,8 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
+import java.util.concurrent.ForkJoinPool;
+
 import static java.util.Objects.requireNonNull;
 
 public class IcebergMetadataFactory
@@ -31,6 +33,7 @@ public class IcebergMetadataFactory
     private final TrinoCatalogFactory catalogFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TableStatisticsWriter tableStatisticsWriter;
+    private final ForkJoinPool metadataListingExecutor;
 
     @Inject
     public IcebergMetadataFactory(
@@ -39,7 +42,8 @@ public class IcebergMetadataFactory
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalogFactory catalogFactory,
             TrinoFileSystemFactory fileSystemFactory,
-            TableStatisticsWriter tableStatisticsWriter)
+            TableStatisticsWriter tableStatisticsWriter,
+            @ForMetadataFetching ForkJoinPool metadataListingExecutor)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
@@ -47,6 +51,7 @@ public class IcebergMetadataFactory
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
+        this.metadataListingExecutor = metadataListingExecutor;
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
@@ -57,6 +62,12 @@ public class IcebergMetadataFactory
                 commitTaskCodec,
                 catalogFactory.create(identity),
                 fileSystemFactory,
-                tableStatisticsWriter);
+                tableStatisticsWriter,
+                metadataListingExecutor);
+    }
+
+    public void shutdown()
+    {
+        metadataListingExecutor.shutdown();
     }
 }
