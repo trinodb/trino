@@ -59,13 +59,25 @@ public class RunLengthEncodedBlock
         if (positionCount == 1) {
             return value;
         }
-        return new RunLengthEncodedBlock(value, positionCount);
+
+        if (value instanceof ValueBlock valueBlock) {
+            return new RunLengthEncodedBlock(valueBlock, positionCount);
+        }
+
+        // unwrap the value
+        ValueBlock valueBlock = value.getUnderlyingValueBlock();
+        int valuePosition = value.getUnderlyingValuePosition(0);
+        if (valueBlock.getPositionCount() == 1 && valuePosition == 0) {
+            return new RunLengthEncodedBlock(valueBlock, positionCount);
+        }
+
+        return new RunLengthEncodedBlock(valueBlock.getRegion(valuePosition, 1), positionCount);
     }
 
-    private final Block value;
+    private final ValueBlock value;
     private final int positionCount;
 
-    private RunLengthEncodedBlock(Block value, int positionCount)
+    private RunLengthEncodedBlock(ValueBlock value, int positionCount)
     {
         requireNonNull(value, "value is null");
         if (positionCount < 0) {
@@ -75,24 +87,7 @@ public class RunLengthEncodedBlock
             throw new IllegalArgumentException("positionCount must be at least 2");
         }
 
-        // do not nest an RLE or Dictionary in an RLE
-        if (value instanceof RunLengthEncodedBlock block) {
-            this.value = block.getValue();
-        }
-        else if (value instanceof DictionaryBlock block) {
-            Block dictionary = block.getDictionary();
-            int id = block.getId(0);
-            if (dictionary.getPositionCount() == 1 && id == 0) {
-                this.value = dictionary;
-            }
-            else {
-                this.value = dictionary.getRegion(id, 1);
-            }
-        }
-        else {
-            this.value = value;
-        }
-
+        this.value = value;
         this.positionCount = positionCount;
     }
 
@@ -102,7 +97,7 @@ public class RunLengthEncodedBlock
         return singletonList(value);
     }
 
-    public Block getValue()
+    public ValueBlock getValue()
     {
         return value;
     }
@@ -297,7 +292,7 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public Block getSingleValueBlock(int position)
+    public ValueBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
         return value;
@@ -323,7 +318,7 @@ public class RunLengthEncodedBlock
             return create(value, positionCount + 1);
         }
 
-        Block dictionary = value.copyWithAppendedNull();
+        ValueBlock dictionary = value.copyWithAppendedNull();
         int[] ids = new int[positionCount + 1];
         ids[positionCount] = 1;
         return DictionaryBlock.create(ids.length, dictionary, ids);
@@ -340,31 +335,14 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public boolean isLoaded()
-    {
-        return value.isLoaded();
-    }
-
-    @Override
-    public Block getLoadedBlock()
-    {
-        Block loadedValueBlock = value.getLoadedBlock();
-
-        if (loadedValueBlock == value) {
-            return this;
-        }
-        return create(loadedValueBlock, positionCount);
-    }
-
-    @Override
     public ValueBlock getUnderlyingValueBlock()
     {
-        return value.getUnderlyingValueBlock();
+        return value;
     }
 
     @Override
     public int getUnderlyingValuePosition(int position)
     {
-        return value.getUnderlyingValuePosition(0);
+        return 0;
     }
 }
