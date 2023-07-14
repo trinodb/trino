@@ -30,6 +30,8 @@ import java.util.Optional;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.DROP_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_DATABASES;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES_FROM_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.REPLACE_TABLE;
@@ -317,6 +319,28 @@ public class TestIcebergMetastoreAccessOperations
                         .add(GET_TABLE)
                         .add(DROP_TABLE)
                         .build());
+    }
+
+    @Test
+    public void testInformationSchemaColumns()
+    {
+        int tables = 3;
+        for (int i = 0; i < tables; i++) {
+            assertUpdate("CREATE TABLE test_select_i_s_columns" + i + "(id VARCHAR, age INT)");
+            assertUpdate("CREATE TABLE test_other_select_i_s_columns" + i + "(id VARCHAR, age INT)"); // won't match the filter
+        }
+
+        assertMetastoreInvocations("SELECT * FROM information_schema.columns WHERE table_name LIKE 'test_select_i_s_columns%'",
+                ImmutableMultiset.builder()
+                        .add(GET_ALL_DATABASES)
+                        .add(GET_ALL_TABLES_FROM_DATABASE)
+                        .addCopies(GET_TABLE, 3)
+                        .build());
+
+        for (int i = 0; i < tables; i++) {
+            assertUpdate("DROP TABLE test_select_i_s_columns" + i);
+            assertUpdate("DROP TABLE test_other_select_i_s_columns" + i);
+        }
     }
 
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
