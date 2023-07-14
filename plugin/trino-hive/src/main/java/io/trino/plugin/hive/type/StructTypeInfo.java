@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.type;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.SizeOf;
 
 import java.util.Iterator;
 import java.util.List;
@@ -21,6 +22,8 @@ import java.util.Objects;
 import java.util.StringJoiner;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.util.SerdeConstants.STRUCT_TYPE_NAME;
 import static java.util.Objects.requireNonNull;
 
@@ -28,6 +31,8 @@ import static java.util.Objects.requireNonNull;
 public final class StructTypeInfo
         extends TypeInfo
 {
+    private static final int INSTANCE_SIZE = instanceSize(StructTypeInfo.class);
+
     private final List<String> names;
     private final List<TypeInfo> typeInfos;
 
@@ -96,5 +101,13 @@ public final class StructTypeInfo
     public int hashCode()
     {
         return Objects.hash(names, typeInfos);
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE +
+                estimatedSizeOf(names, SizeOf::estimatedSizeOf) +
+                estimatedSizeOf(typeInfos, TypeInfo::getRetainedSizeInBytes);
     }
 }
