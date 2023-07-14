@@ -36,7 +36,7 @@ import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
 
 public class VariableWidthBlock
-        implements Block
+        implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(VariableWidthBlock.class);
 
@@ -278,7 +278,7 @@ public class VariableWidthBlock
     }
 
     @Override
-    public Block getSingleValueBlock(int position)
+    public VariableWidthBlock getSingleValueBlock(int position)
     {
         if (isNull(position)) {
             return new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
@@ -293,7 +293,7 @@ public class VariableWidthBlock
     }
 
     @Override
-    public Block copyPositions(int[] positions, int offset, int length)
+    public VariableWidthBlock copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
         if (length == 0) {
@@ -337,7 +337,7 @@ public class VariableWidthBlock
     }
 
     @Override
-    public Block getRegion(int positionOffset, int length)
+    public VariableWidthBlock getRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -345,7 +345,7 @@ public class VariableWidthBlock
     }
 
     @Override
-    public Block copyRegion(int positionOffset, int length)
+    public VariableWidthBlock copyRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
         positionOffset += arrayOffset;
@@ -367,7 +367,7 @@ public class VariableWidthBlock
     }
 
     @Override
-    public Block copyWithAppendedNull()
+    public VariableWidthBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
         int[] newOffsets = copyOffsetsAndAppendNull(offsets, arrayOffset, positionCount);

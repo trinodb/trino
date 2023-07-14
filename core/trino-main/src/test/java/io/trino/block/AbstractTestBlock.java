@@ -26,12 +26,14 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
 import io.trino.spi.block.TestingBlockEncodingSerde;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
@@ -83,6 +85,10 @@ public abstract class AbstractTestBlock
             assertThatThrownBy(() -> block.isNull(block.getPositionCount()))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Invalid position %d in block with %d positions", block.getPositionCount(), block.getPositionCount());
+        }
+
+        if (block instanceof ValueBlock valueBlock) {
+            assertBlockClassImplementation(valueBlock.getClass());
         }
     }
 
@@ -497,5 +503,14 @@ public abstract class AbstractTestBlock
     {
         assertNotCompact(block);
         testCopyRegionCompactness(block);
+    }
+
+    private void assertBlockClassImplementation(Class<? extends ValueBlock> clazz)
+    {
+        for (Method method : clazz.getMethods()) {
+            if (method.getReturnType() == ValueBlock.class && !method.isBridge()) {
+                throw new AssertionError(format("ValueBlock method %s should override return type to be %s", method, clazz.getSimpleName()));
+            }
+        }
     }
 }
