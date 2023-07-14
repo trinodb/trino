@@ -426,7 +426,7 @@ public class ClientOptions
 
     private String getPassword()
     {
-        checkState(user.isPresent(), "Username must be specified along with password");
+        checkState(user.isPresent() && !user.get().isEmpty(), "Username must be specified along with password");
         String defaultPassword = System.getenv("TRINO_PASSWORD");
         if (defaultPassword != null) {
             return defaultPassword;
