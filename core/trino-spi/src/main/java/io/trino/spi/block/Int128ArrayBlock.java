@@ -223,6 +223,12 @@ public class Int128ArrayBlock
     }
 
     @Override
+    public Int128ArrayBlock getUnderlyingValueBlock()
+    {
+        return this;
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("Int128ArrayBlock{");

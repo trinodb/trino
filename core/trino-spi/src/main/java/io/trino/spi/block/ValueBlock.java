@@ -27,4 +27,16 @@ public interface ValueBlock
 
     @Override
     ValueBlock copyWithAppendedNull();
+
+    @Override
+    default ValueBlock getUnderlyingValueBlock()
+    {
+        return this;
+    }
+
+    @Override
+    default int getUnderlyingValuePosition(int position)
+    {
+        return position;
+    }
 }

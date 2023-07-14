@@ -376,6 +376,12 @@ public class VariableWidthBlock
     }
 
     @Override
+    public VariableWidthBlock getUnderlyingValueBlock()
+    {
+        return this;
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("VariableWidthBlock{");

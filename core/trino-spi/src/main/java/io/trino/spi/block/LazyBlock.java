@@ -291,6 +291,18 @@ public class LazyBlock
         return lazyData.getFullyLoadedBlock();
     }
 
+    @Override
+    public ValueBlock getUnderlyingValueBlock()
+    {
+        return getBlock().getUnderlyingValueBlock();
+    }
+
+    @Override
+    public int getUnderlyingValuePosition(int position)
+    {
+        return getBlock().getUnderlyingValuePosition(position);
+    }
+
     public static void listenForLoads(Block block, Consumer<Block> listener)
     {
         requireNonNull(block, "block is null");

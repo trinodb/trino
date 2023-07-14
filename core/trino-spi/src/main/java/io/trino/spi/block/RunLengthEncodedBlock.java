@@ -355,4 +355,16 @@ public class RunLengthEncodedBlock
         }
         return create(loadedValueBlock, positionCount);
     }
+
+    @Override
+    public ValueBlock getUnderlyingValueBlock()
+    {
+        return value.getUnderlyingValueBlock();
+    }
+
+    @Override
+    public int getUnderlyingValuePosition(int position)
+    {
+        return value.getUnderlyingValuePosition(0);
+    }
 }

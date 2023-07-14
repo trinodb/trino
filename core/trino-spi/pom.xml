@@ -720,6 +720,14 @@
                                     <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractVariableWidthBlock::getSingleValueBlock(int) @ io.trino.spi.block.VariableWidthBlock</old>
                                     <new>method io.trino.spi.block.VariableWidthBlock io.trino.spi.block.VariableWidthBlock::getSingleValueBlock(int)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method io.trino.spi.block.ValueBlock io.trino.spi.block.Block::getUnderlyingValueBlock()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method int io.trino.spi.block.Block::getUnderlyingValuePosition(int)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
