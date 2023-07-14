@@ -413,7 +413,7 @@ public class TrinoGlueCatalog
     public void registerTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, TableMetadata tableMetadata, String metadataLocation)
             throws TrinoException
     {
-        TableInput tableInput = getTableInput(schemaTableName.getTableName(), Optional.of(session.getUser()), ImmutableMap.of(METADATA_LOCATION_PROP, metadataLocation));
+        TableInput tableInput = getTableInput(schemaTableName.getTableName(), Optional.of(session.getUser()), tableMetadata, ImmutableMap.of(METADATA_LOCATION_PROP, metadataLocation));
         createTable(schemaTableName.getSchemaName(), tableInput);
     }
 
@@ -447,7 +447,8 @@ public class TrinoGlueCatalog
         try {
             com.amazonaws.services.glue.model.Table table = getTable(session, from)
                     .orElseThrow(() -> new TableNotFoundException(from));
-            TableInput tableInput = getTableInput(to.getTableName(), Optional.ofNullable(table.getOwner()), getTableParameters(table));
+            TableMetadata tableMetadata = null; // TODO provide TableMetadata or change getTableInput to take column list
+            TableInput tableInput = getTableInput(to.getTableName(), Optional.ofNullable(table.getOwner()), tableMetadata, getTableParameters(table));
             CreateTableRequest createTableRequest = new CreateTableRequest()
                     .withDatabaseName(to.getSchemaName())
                     .withTableInput(tableInput);

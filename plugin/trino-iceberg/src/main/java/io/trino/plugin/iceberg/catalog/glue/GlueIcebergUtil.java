@@ -13,17 +13,22 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
+import com.amazonaws.services.glue.model.Column;
+import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.TableInput;
 import com.google.common.collect.ImmutableMap;
 import jakarta.annotation.Nullable;
+import org.apache.iceberg.TableMetadata;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_EXPANDED_TEXT_MARKER;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
+import static io.trino.plugin.iceberg.util.HiveSchemaUtil.convertToTypeString;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
@@ -32,11 +37,20 @@ public final class GlueIcebergUtil
 {
     private GlueIcebergUtil() {}
 
-    public static TableInput getTableInput(String tableName, Optional<String> owner, Map<String, String> parameters)
+    public static TableInput getTableInput(String tableName, Optional<String> owner, TableMetadata tableMetadata, Map<String, String> parameters)
     {
         return new TableInput()
                 .withName(tableName)
                 .withOwner(owner.orElse(null))
+                .withStorageDescriptor(new StorageDescriptor()
+                        // TODO .setLocation()? org.apache.iceberg.aws.glue.IcebergToGlueConverter#setTableInputInformation sets this
+                        .withColumns(tableMetadata.schema().columns().stream()
+                                .map(field -> new Column()
+                                        .withName(field.name())
+                                        .withType(convertToTypeString(field.type()))
+                                        // TODO org.apache.iceberg.aws.glue.IcebergToGlueConverter#setTableInputInformation also sets some parameters
+                                        .withComment(field.doc()))
+                                .collect(toImmutableList())))
                 .withParameters(ImmutableMap.<String, String>builder()
                         .putAll(parameters)
                         .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
