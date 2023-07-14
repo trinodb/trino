@@ -219,7 +219,7 @@ public class DictionaryBlock
     }
 
     @Override
-    public Block getSingleValueBlock(int position)
+    public ValueBlock getSingleValueBlock(int position)
     {
         return dictionary.getSingleValueBlock(getId(position));
     }
