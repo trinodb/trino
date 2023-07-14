@@ -57,7 +57,7 @@ jobs:
       matrix:
         java-version:
           - 17
-          - 19
+          - 20
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v3
@@ -566,7 +566,7 @@ jobs:
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
             - { modules: core/trino-main }
-            - { modules: core/trino-main, jdk: 19 }
+            - { modules: core/trino-main, jdk: 20 }
             - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
