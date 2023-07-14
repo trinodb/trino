@@ -151,7 +151,7 @@ public interface Block
      *
      * @throws IllegalArgumentException if this position is not valid
      */
-    Block getSingleValueBlock(int position);
+    ValueBlock getSingleValueBlock(int position);
 
     /**
      * Returns the number of positions in this block.

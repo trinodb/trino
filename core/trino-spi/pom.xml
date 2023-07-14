@@ -738,6 +738,21 @@
                                     <old>method io.trino.spi.block.Block io.trino.spi.block.RunLengthEncodedBlock::getValue()</old>
                                     <new>method io.trino.spi.block.ValueBlock io.trino.spi.block.RunLengthEncodedBlock::getValue()</new>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Block::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.ValueBlock io.trino.spi.block.Block::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.DictionaryBlock::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.ValueBlock io.trino.spi.block.DictionaryBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.LazyBlock::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.ValueBlock io.trino.spi.block.LazyBlock::getSingleValueBlock(int)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
