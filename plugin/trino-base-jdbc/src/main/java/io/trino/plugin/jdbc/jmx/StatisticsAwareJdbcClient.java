@@ -400,9 +400,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
-        stats.getDropSchema().wrap(() -> delegate().dropSchema(session, schemaName));
+        stats.getDropSchema().wrap(() -> delegate().dropSchema(session, schemaName, cascade));
     }
 
     @Override

@@ -116,6 +116,9 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
                 return false;
 
+            case SUPPORTS_DROP_SCHEMA_CASCADE:
+                return false;
+
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;

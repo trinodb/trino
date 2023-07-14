@@ -68,6 +68,9 @@ public class TestRedshiftConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DROP_SCHEMA_CASCADE:
+                return false;
+
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return true;
 
