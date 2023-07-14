@@ -728,6 +728,16 @@
                                     <code>java.method.addedToInterface</code>
                                     <new>method int io.trino.spi.block.Block::getUnderlyingValuePosition(int)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RunLengthEncodedBlock::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.ValueBlock io.trino.spi.block.RunLengthEncodedBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RunLengthEncodedBlock::getValue()</old>
+                                    <new>method io.trino.spi.block.ValueBlock io.trino.spi.block.RunLengthEncodedBlock::getValue()</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

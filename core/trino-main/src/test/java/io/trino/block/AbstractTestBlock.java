@@ -119,7 +119,7 @@ public abstract class AbstractTestBlock
                         retainedSize += BlockBuilderStatus.INSTANCE_SIZE;
                     }
                 }
-                else if (type == Block.class) {
+                else if (Block.class.isAssignableFrom(type)) {
                     retainedSize += ((Block) field.get(block)).getRetainedSizeInBytes();
                 }
                 else if (type == Block[].class) {
