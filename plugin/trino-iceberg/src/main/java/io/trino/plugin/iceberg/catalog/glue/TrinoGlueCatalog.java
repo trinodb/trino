@@ -410,10 +410,10 @@ public class TrinoGlueCatalog
     }
 
     @Override
-    public void registerTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, String metadataLocation)
+    public void registerTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, TableMetadata tableMetadata)
             throws TrinoException
     {
-        TableInput tableInput = getTableInput(schemaTableName.getTableName(), Optional.of(session.getUser()), ImmutableMap.of(METADATA_LOCATION_PROP, metadataLocation));
+        TableInput tableInput = getTableInput(schemaTableName.getTableName(), Optional.of(session.getUser()), ImmutableMap.of(METADATA_LOCATION_PROP, tableMetadata.metadataFileLocation()));
         createTable(schemaTableName.getSchemaName(), tableInput);
     }
 

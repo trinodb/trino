@@ -286,7 +286,7 @@ public abstract class AbstractIcebergTableOperations
         return format("%s/%s/%s", stripTrailingSlash(metadata.location()), METADATA_FOLDER_NAME, filename);
     }
 
-    protected static List<Column> toHiveColumns(List<NestedField> columns)
+    public static List<Column> toHiveColumns(List<NestedField> columns)
     {
         return columns.stream()
                 .map(column -> new Column(
