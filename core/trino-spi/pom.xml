@@ -464,6 +464,262 @@
                                     <old>class io.trino.spi.block.VariableWidthBlock</old>
                                     <new>class io.trino.spi.block.VariableWidthBlock</new>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractArrayBlock::copyPositions(int[], int, int) @ io.trino.spi.block.ArrayBlock</old>
+                                    <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractArrayBlock::copyRegion(int, int) @ io.trino.spi.block.ArrayBlock</old>
+                                    <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlock::copyWithAppendedNull()</old>
+                                    <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::copyWithAppendedNull()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlock::getLoadedBlock()</old>
+                                    <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::getLoadedBlock()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractArrayBlock::getRegion(int, int) @ io.trino.spi.block.ArrayBlock</old>
+                                    <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractArrayBlock::getSingleValueBlock(int) @ io.trino.spi.block.ArrayBlock</old>
+                                    <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ByteArrayBlock::copyPositions(int[], int, int)</old>
+                                    <new>method io.trino.spi.block.ByteArrayBlock io.trino.spi.block.ByteArrayBlock::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ByteArrayBlock::copyRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.ByteArrayBlock io.trino.spi.block.ByteArrayBlock::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ByteArrayBlock::copyWithAppendedNull()</old>
+                                    <new>method io.trino.spi.block.ByteArrayBlock io.trino.spi.block.ByteArrayBlock::copyWithAppendedNull()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ByteArrayBlock::getRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.ByteArrayBlock io.trino.spi.block.ByteArrayBlock::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ByteArrayBlock::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.ByteArrayBlock io.trino.spi.block.ByteArrayBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Fixed12Block::copyPositions(int[], int, int)</old>
+                                    <new>method io.trino.spi.block.Fixed12Block io.trino.spi.block.Fixed12Block::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Fixed12Block::copyRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.Fixed12Block io.trino.spi.block.Fixed12Block::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Fixed12Block::copyWithAppendedNull()</old>
+                                    <new>method io.trino.spi.block.Fixed12Block io.trino.spi.block.Fixed12Block::copyWithAppendedNull()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Fixed12Block::getRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.Fixed12Block io.trino.spi.block.Fixed12Block::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Fixed12Block::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.Fixed12Block io.trino.spi.block.Fixed12Block::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Int128ArrayBlock::copyPositions(int[], int, int)</old>
+                                    <new>method io.trino.spi.block.Int128ArrayBlock io.trino.spi.block.Int128ArrayBlock::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Int128ArrayBlock::copyRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.Int128ArrayBlock io.trino.spi.block.Int128ArrayBlock::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Int128ArrayBlock::copyWithAppendedNull()</old>
+                                    <new>method io.trino.spi.block.Int128ArrayBlock io.trino.spi.block.Int128ArrayBlock::copyWithAppendedNull()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Int128ArrayBlock::getRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.Int128ArrayBlock io.trino.spi.block.Int128ArrayBlock::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Int128ArrayBlock::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.Int128ArrayBlock io.trino.spi.block.Int128ArrayBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.IntArrayBlock::copyPositions(int[], int, int)</old>
+                                    <new>method io.trino.spi.block.IntArrayBlock io.trino.spi.block.IntArrayBlock::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.IntArrayBlock::copyRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.IntArrayBlock io.trino.spi.block.IntArrayBlock::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.IntArrayBlock::copyWithAppendedNull()</old>
+                                    <new>method io.trino.spi.block.IntArrayBlock io.trino.spi.block.IntArrayBlock::copyWithAppendedNull()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.IntArrayBlock::getRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.IntArrayBlock io.trino.spi.block.IntArrayBlock::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.IntArrayBlock::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.IntArrayBlock io.trino.spi.block.IntArrayBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.LongArrayBlock::copyPositions(int[], int, int)</old>
+                                    <new>method io.trino.spi.block.LongArrayBlock io.trino.spi.block.LongArrayBlock::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.LongArrayBlock::copyRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.LongArrayBlock io.trino.spi.block.LongArrayBlock::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.LongArrayBlock::copyWithAppendedNull()</old>
+                                    <new>method io.trino.spi.block.LongArrayBlock io.trino.spi.block.LongArrayBlock::copyWithAppendedNull()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.LongArrayBlock::getRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.LongArrayBlock io.trino.spi.block.LongArrayBlock::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.LongArrayBlock::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.LongArrayBlock io.trino.spi.block.LongArrayBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractMapBlock::copyPositions(int[], int, int) @ io.trino.spi.block.MapBlock</old>
+                                    <new>method io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractMapBlock::copyRegion(int, int) @ io.trino.spi.block.MapBlock</old>
+                                    <new>method io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::copyWithAppendedNull()</old>
+                                    <new>method io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::copyWithAppendedNull()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractMapBlock::getRegion(int, int) @ io.trino.spi.block.MapBlock</old>
+                                    <new>method io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractMapBlock::getSingleValueBlock(int) @ io.trino.spi.block.MapBlock</old>
+                                    <new>method io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractRowBlock::copyPositions(int[], int, int) @ io.trino.spi.block.RowBlock</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractRowBlock::copyRegion(int, int) @ io.trino.spi.block.RowBlock</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::copyWithAppendedNull()</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::copyWithAppendedNull()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractRowBlock::getRegion(int, int) @ io.trino.spi.block.RowBlock</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractRowBlock::getSingleValueBlock(int) @ io.trino.spi.block.RowBlock</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ShortArrayBlock::copyPositions(int[], int, int)</old>
+                                    <new>method io.trino.spi.block.ShortArrayBlock io.trino.spi.block.ShortArrayBlock::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ShortArrayBlock::copyRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.ShortArrayBlock io.trino.spi.block.ShortArrayBlock::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ShortArrayBlock::copyWithAppendedNull()</old>
+                                    <new>method io.trino.spi.block.ShortArrayBlock io.trino.spi.block.ShortArrayBlock::copyWithAppendedNull()</new>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ShortArrayBlock::getRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.ShortArrayBlock io.trino.spi.block.ShortArrayBlock::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ShortArrayBlock::getSingleValueBlock(int)</old>
+                                    <new>method io.trino.spi.block.ShortArrayBlock io.trino.spi.block.ShortArrayBlock::getSingleValueBlock(int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.VariableWidthBlock::copyPositions(int[], int, int)</old>
+                                    <new>method io.trino.spi.block.VariableWidthBlock io.trino.spi.block.VariableWidthBlock::copyPositions(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.VariableWidthBlock::copyRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.VariableWidthBlock io.trino.spi.block.VariableWidthBlock::copyRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.VariableWidthBlock::copyWithAppendedNull()</old>
+                                    <new>method io.trino.spi.block.VariableWidthBlock io.trino.spi.block.VariableWidthBlock::copyWithAppendedNull()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.VariableWidthBlock::getRegion(int, int)</old>
+                                    <new>method io.trino.spi.block.VariableWidthBlock io.trino.spi.block.VariableWidthBlock::getRegion(int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.AbstractVariableWidthBlock::getSingleValueBlock(int) @ io.trino.spi.block.VariableWidthBlock</old>
+                                    <new>method io.trino.spi.block.VariableWidthBlock io.trino.spi.block.VariableWidthBlock::getSingleValueBlock(int)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

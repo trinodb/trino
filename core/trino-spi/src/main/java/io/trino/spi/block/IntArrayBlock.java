@@ -30,7 +30,7 @@ import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
 public class IntArrayBlock
-        implements Block
+        implements ValueBlock
 {
     private static final int INSTANCE_SIZE = instanceSize(IntArrayBlock.class);
     public static final int SIZE_IN_BYTES_PER_POSITION = Integer.BYTES + Byte.BYTES;
@@ -148,7 +148,7 @@ public class IntArrayBlock
     }
 
     @Override
-    public Block getSingleValueBlock(int position)
+    public IntArrayBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
         return new IntArrayBlock(
@@ -159,7 +159,7 @@ public class IntArrayBlock
     }
 
     @Override
-    public Block copyPositions(int[] positions, int offset, int length)
+    public IntArrayBlock copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
@@ -180,7 +180,7 @@ public class IntArrayBlock
     }
 
     @Override
-    public Block getRegion(int positionOffset, int length)
+    public IntArrayBlock getRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -188,7 +188,7 @@ public class IntArrayBlock
     }
 
     @Override
-    public Block copyRegion(int positionOffset, int length)
+    public IntArrayBlock copyRegion(int positionOffset, int length)
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
@@ -209,7 +209,7 @@ public class IntArrayBlock
     }
 
     @Override
-    public Block copyWithAppendedNull()
+    public IntArrayBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
         int[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
