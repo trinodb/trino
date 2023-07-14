@@ -10,19 +10,21 @@
 package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.tpch.TpchTable;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 
-public class TestSapHanaPooledConnectorTest
-        extends BaseSapHanaConnectorTest
+public class TestSapHanaPooledConnectorSmokeTest
+        extends BaseConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(TestingSapHanaServer.create());
+        TestingSapHanaServer server = closeAfterClass(TestingSapHanaServer.create());
         return createSapHanaQueryRunner(
                 server,
                 ImmutableMap.<String, String>builder()
@@ -33,5 +35,22 @@ public class TestSapHanaPooledConnectorTest
                         .put("task.scale-writers.enabled", "false")
                         .buildOrThrow(),
                 TpchTable.getTables());
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_RENAME_SCHEMA:
+            case SUPPORTS_ARRAY:
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
+            case SUPPORTS_MERGE:
+            case SUPPORTS_UPDATE:
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 }
