@@ -753,6 +753,11 @@
                                     <old>method io.trino.spi.block.Block io.trino.spi.block.LazyBlock::getSingleValueBlock(int)</old>
                                     <new>method io.trino.spi.block.ValueBlock io.trino.spi.block.LazyBlock::getSingleValueBlock(int)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.DictionaryBlock::getDictionary()</old>
+                                    <new>method io.trino.spi.block.ValueBlock io.trino.spi.block.DictionaryBlock::getDictionary()</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

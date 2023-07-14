@@ -14,11 +14,12 @@
 package io.trino.operator;
 
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LazyBlock;
 import org.junit.jupiter.api.Test;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static io.trino.block.BlockAssertions.createIntsBlock;
@@ -50,17 +51,20 @@ public class TestPageUtils
     public void testNestedBlocks()
     {
         Block elements = lazyWrapper(createIntsBlock(1, 2, 3));
-        Block dictBlock = DictionaryBlock.create(2, elements, new int[] {0, 0});
-        Page page = new Page(2, dictBlock);
+        Block arrayBlock = ArrayBlock.fromElementBlock(2, Optional.empty(), new int[] {0, 1, 3}, elements);
+        long initialArraySize = arrayBlock.getSizeInBytes();
+        Page page = new Page(2, arrayBlock);
 
         AtomicLong sizeInBytes = new AtomicLong();
         recordMaterializedBytes(page, sizeInBytes::getAndAdd);
 
-        assertEquals(sizeInBytes.get(), dictBlock.getSizeInBytes());
+        assertEquals(arrayBlock.getSizeInBytes(), initialArraySize);
+        assertEquals(sizeInBytes.get(), arrayBlock.getSizeInBytes());
 
         // dictionary block caches size in bytes
-        dictBlock.getLoadedBlock();
-        assertEquals(sizeInBytes.get(), dictBlock.getSizeInBytes() + elements.getSizeInBytes());
+        arrayBlock.getLoadedBlock();
+        assertEquals(sizeInBytes.get(), arrayBlock.getSizeInBytes());
+        assertEquals(sizeInBytes.get(), initialArraySize + elements.getSizeInBytes());
     }
 
     private static LazyBlock lazyWrapper(Block block)

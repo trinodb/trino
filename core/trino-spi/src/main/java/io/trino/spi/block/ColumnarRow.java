@@ -17,6 +17,7 @@ import jakarta.annotation.Nullable;
 
 import java.util.List;
 
+import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnarRow
@@ -103,11 +104,12 @@ public final class ColumnarRow
         Block[] fields = new Block[columnarRow.getFieldCount()];
         for (int i = 0; i < fields.length; i++) {
             // Reuse the dictionary ids array directly since no nulls are present
-            fields[i] = new DictionaryBlock(
+            fields[i] = DictionaryBlock.createInternal(
                     dictionaryBlock.getRawIdsOffset(),
                     dictionaryBlock.getPositionCount(),
                     columnarRow.getField(i),
-                    dictionaryBlock.getRawIds());
+                    dictionaryBlock.getRawIds(),
+                    randomDictionaryId());
         }
         return new ColumnarRow(dictionaryBlock.getPositionCount(), null, fields);
     }
