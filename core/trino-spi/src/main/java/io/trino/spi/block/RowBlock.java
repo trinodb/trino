@@ -583,4 +583,10 @@ public class RowBlock
         }
         return rowIsNull[position + startOffset];
     }
+
+    @Override
+    public RowBlock getUnderlyingValueBlock()
+    {
+        return this;
+    }
 }

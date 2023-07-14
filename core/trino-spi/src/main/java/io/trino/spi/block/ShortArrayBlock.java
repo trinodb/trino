@@ -216,6 +216,12 @@ public class ShortArrayBlock
     }
 
     @Override
+    public ShortArrayBlock getUnderlyingValueBlock()
+    {
+        return this;
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("ShortArrayBlock{");

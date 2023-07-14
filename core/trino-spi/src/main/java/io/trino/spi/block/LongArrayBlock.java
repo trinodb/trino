@@ -264,6 +264,12 @@ public class LongArrayBlock
     }
 
     @Override
+    public LongArrayBlock getUnderlyingValueBlock()
+    {
+        return this;
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder("LongArrayBlock{");
