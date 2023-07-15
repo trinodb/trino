@@ -32,6 +32,13 @@ public class S3FileSystemConfig
         NONE, S3, KMS
     }
 
+    public enum S3ObjectStorageClassFilter
+    {
+        READ_ALL,
+        SKIP_ALL_GLACIER,
+        READ_RESTORED_GLACIER_OBJECTS
+    }
+
     private String awsAccessKey;
     private String awsSecretKey;
     private String endpoint;
@@ -49,6 +56,7 @@ public class S3FileSystemConfig
     private Integer maxConnections;
     private HostAndPort httpProxy;
     private boolean httpProxySecure;
+    private S3ObjectStorageClassFilter s3ObjectStorageClassFilter = S3ObjectStorageClassFilter.READ_ALL;
 
     public String getAwsAccessKey()
     {
@@ -264,6 +272,18 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setHttpProxySecure(boolean httpProxySecure)
     {
         this.httpProxySecure = httpProxySecure;
+        return this;
+    }
+
+    public S3ObjectStorageClassFilter getS3ObjectStorageClassFilter()
+    {
+        return s3ObjectStorageClassFilter;
+    }
+
+    @Config("s3.object-storage-class-filter")
+    public S3FileSystemConfig setS3ObjectStorageClassFilter(S3ObjectStorageClassFilter s3ObjectStorageClassFilter)
+    {
+        this.s3ObjectStorageClassFilter = s3ObjectStorageClassFilter;
         return this;
     }
 }

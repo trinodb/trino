@@ -91,7 +91,8 @@ public final class S3FileSystemFactory
                 toIntExact(config.getStreamingPartSize().toBytes()),
                 config.isRequesterPays(),
                 config.getSseType(),
-                config.getSseKmsKeyId());
+                config.getSseKmsKeyId(),
+                config.getS3ObjectStorageClassFilter());
     }
 
     @PreDestroy

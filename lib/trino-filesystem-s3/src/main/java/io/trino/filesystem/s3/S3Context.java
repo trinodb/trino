@@ -13,13 +13,14 @@
  */
 package io.trino.filesystem.s3;
 
+import io.trino.filesystem.s3.S3FileSystemConfig.S3ObjectStorageClassFilter;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId)
+record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId, S3ObjectStorageClassFilter s3ObjectStorageClassFilter)
 {
     private static final int MIN_PART_SIZE = 5 * 1024 * 1024; // S3 requirement
 
@@ -28,6 +29,7 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
         checkArgument(partSize >= MIN_PART_SIZE, "partSize must be at least %s bytes", MIN_PART_SIZE);
         requireNonNull(sseType, "sseType is null");
         checkArgument((sseType != S3SseType.KMS) || (sseKmsKeyId != null), "sseKmsKeyId is null for SSE-KMS");
+        requireNonNull(s3ObjectStorageClassFilter, "s3ObjectStorageClassFilter is null");
     }
 
     public RequestPayer requestPayer()
