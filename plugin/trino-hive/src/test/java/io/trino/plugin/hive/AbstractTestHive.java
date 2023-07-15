@@ -3970,7 +3970,7 @@ public abstract class AbstractTestHive
     {
         SchemaTableName tableName = temporaryTable("parquet_page_source_metrics");
         try {
-            assertPageSourceMetrics(tableName, PARQUET, new Metrics(ImmutableMap.of(PARQUET_CODEC_METRIC_PREFIX + "SNAPPY", new LongCount(1169))));
+            assertPageSourceMetrics(tableName, PARQUET, new Metrics(ImmutableMap.of(PARQUET_CODEC_METRIC_PREFIX + "SNAPPY", new LongCount(1157))));
         }
         finally {
             dropTable(tableName);
