@@ -25,6 +25,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.Objects;
@@ -53,17 +54,37 @@ import static java.lang.invoke.MethodHandles.identity;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
-import static java.lang.invoke.MethodHandles.publicLookup;
 import static java.lang.invoke.MethodHandles.throwException;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 
 public final class ScalarFunctionAdapter
 {
-    private static final MethodHandle IS_NULL_METHOD = lookupIsNullMethod();
-    private static final MethodHandle APPEND_NULL_METHOD = lookupAppendNullMethod();
+    private static final MethodHandle OBJECT_IS_NULL_METHOD;
+    private static final MethodHandle APPEND_NULL_METHOD;
+    private static final MethodHandle BLOCK_IS_NULL_METHOD;
+    private static final MethodHandle IN_OUT_IS_NULL_METHOD;
+    private static final MethodHandle NEW_NEVER_NULL_IS_NULL_EXCEPTION;
     // This is needed to convert flat arguments to stack types
     private static final TypeOperators READ_VALUE_TYPE_OPERATORS = new TypeOperators();
+
+    static {
+        try {
+            MethodHandles.Lookup lookup = lookup();
+            OBJECT_IS_NULL_METHOD = lookup.findStatic(Objects.class, "isNull", methodType(boolean.class, Object.class));
+            APPEND_NULL_METHOD = lookup.findVirtual(BlockBuilder.class, "appendNull", methodType(BlockBuilder.class))
+                    .asType(methodType(void.class, BlockBuilder.class));
+            BLOCK_IS_NULL_METHOD = lookup.findVirtual(Block.class, "isNull", methodType(boolean.class, int.class));
+            IN_OUT_IS_NULL_METHOD = lookup.findVirtual(InOut.class, "isNull", methodType(boolean.class));
+
+            NEW_NEVER_NULL_IS_NULL_EXCEPTION = lookup.findConstructor(TrinoException.class, methodType(void.class, ErrorCodeSupplier.class, String.class))
+                    .bindTo(StandardErrorCode.INVALID_FUNCTION_ARGUMENT)
+                    .bindTo("A never null argument is null");
+        }
+        catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     private ScalarFunctionAdapter() {}
 
@@ -324,7 +345,7 @@ public final class ScalarFunctionAdapter
                 methodHandle = filterArguments(
                         methodHandle,
                         parameterIndex + 1,
-                        explicitCastArguments(IS_NULL_METHOD, methodType(boolean.class, wrap(parameterType))));
+                        explicitCastArguments(OBJECT_IS_NULL_METHOD, methodType(boolean.class, wrap(parameterType))));
 
                 // 1. Duplicate the argument, so we have two copies of the value
                 // Long, Long => Long
@@ -647,7 +668,7 @@ public final class ScalarFunctionAdapter
     private static MethodHandle isNullArgument(MethodType methodType, int index)
     {
         // Start with Objects.isNull(Object):boolean
-        MethodHandle isNull = IS_NULL_METHOD;
+        MethodHandle isNull = OBJECT_IS_NULL_METHOD;
         // Cast in incoming type: isNull(T):boolean
         isNull = explicitCastArguments(isNull, methodType(boolean.class, methodType.parameterType(index)));
         // Add extra argument to match the expected method type
@@ -657,40 +678,14 @@ public final class ScalarFunctionAdapter
 
     private static MethodHandle isBlockPositionNull(MethodType methodType, int index)
     {
-        // Start with Objects.isNull(Object):boolean
-        MethodHandle isNull;
-        try {
-            isNull = lookup().findVirtual(Block.class, "isNull", methodType(boolean.class, int.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
-        // Add extra argument to match the expected method type
-        isNull = permuteArguments(isNull, methodType.changeReturnType(boolean.class), index, index + 1);
-        return isNull;
+        // Add extra argument to Block.isNull(int):boolean match the expected method type
+        return permuteArguments(BLOCK_IS_NULL_METHOD, methodType.changeReturnType(boolean.class), index, index + 1);
     }
 
     private static MethodHandle isInOutNull(MethodType methodType, int index)
     {
-        MethodHandle isNull;
-        try {
-            isNull = lookup().findVirtual(InOut.class, "isNull", methodType(boolean.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
-        isNull = permuteArguments(isNull, methodType.changeReturnType(boolean.class), index);
-        return isNull;
-    }
-
-    private static MethodHandle lookupIsNullMethod()
-    {
-        try {
-            return lookup().findStatic(Objects.class, "isNull", methodType(boolean.class, Object.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
+        // Add extra argument to InOut.isNull(int):boolean match the expected method type
+        return permuteArguments(IN_OUT_IS_NULL_METHOD, methodType.changeReturnType(boolean.class), index);
     }
 
     private static MethodHandle getNullShortCircuitResult(MethodHandle methodHandle, InvocationReturnConvention returnConvention)
@@ -701,33 +696,10 @@ public final class ScalarFunctionAdapter
         return empty(methodHandle.type());
     }
 
-    private static MethodHandle lookupAppendNullMethod()
-    {
-        try {
-            return lookup().findVirtual(BlockBuilder.class, "appendNull", methodType(BlockBuilder.class))
-                    .asType(methodType(void.class, BlockBuilder.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
-    }
-
     private static MethodHandle throwTrinoNullArgumentException(MethodType type)
     {
-        MethodHandle throwException = collectArguments(throwException(type.returnType(), TrinoException.class), 0, trinoNullArgumentException());
+        MethodHandle throwException = collectArguments(throwException(type.returnType(), TrinoException.class), 0, NEW_NEVER_NULL_IS_NULL_EXCEPTION);
         return permuteArguments(throwException, type);
-    }
-
-    private static MethodHandle trinoNullArgumentException()
-    {
-        try {
-            return publicLookup().findConstructor(TrinoException.class, methodType(void.class, ErrorCodeSupplier.class, String.class))
-                    .bindTo(StandardErrorCode.INVALID_FUNCTION_ARGUMENT)
-                    .bindTo("A never null argument is null");
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
     }
 
     private static boolean isWrapperType(Class<?> type)
