@@ -2157,7 +2157,15 @@ public class HiveMetadata
                     metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
 
                     // create the table with the new location
-                    metastore.createTable(session, table, principalPrivileges, Optional.of(partitionUpdate.getWritePath()), Optional.of(partitionUpdate.getFileNames()), false, partitionStatistics, handle.isRetriesEnabled());
+                    metastore.createTable(
+                            session,
+                            table,
+                            principalPrivileges,
+                            Optional.of(new Path(partitionUpdate.getWritePath().toString())),
+                            Optional.of(partitionUpdate.getFileNames()),
+                            false,
+                            partitionStatistics,
+                            handle.isRetriesEnabled());
                 }
                 else if (partitionUpdate.getUpdateMode() == NEW || partitionUpdate.getUpdateMode() == APPEND) {
                     // insert into unpartitioned table
@@ -2243,10 +2251,11 @@ public class HiveMetadata
         return table;
     }
 
-    private void removeNonCurrentQueryFiles(ConnectorSession session, Path partitionPath)
+    private void removeNonCurrentQueryFiles(ConnectorSession session, Location partitionLocation)
     {
         String queryId = session.getQueryId();
         try {
+            Path partitionPath = new Path(partitionLocation.toString());
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), partitionPath);
             RemoteIterator<LocatedFileStatus> iterator = fileSystem.listFiles(partitionPath, false);
             while (iterator.hasNext()) {
@@ -2259,7 +2268,7 @@ public class HiveMetadata
         catch (Exception ex) {
             throw new TrinoException(
                     HIVE_FILESYSTEM_ERROR,
-                    format("Failed to delete partition %s files during overwrite", partitionPath),
+                    format("Failed to delete partition %s files during overwrite", partitionLocation),
                     ex);
         }
     }

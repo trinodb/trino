@@ -6296,8 +6296,8 @@ public abstract class AbstractTestHive
                 throws IOException
         {
             for (PartitionUpdate partitionUpdate : partitionUpdates) {
-                if ("pk2=insert2".equals(partitionUpdate.getTargetPath().getName())) {
-                    path = new Path(partitionUpdate.getTargetPath(), partitionUpdate.getFileNames().get(0));
+                if ("pk2=insert2".equals(partitionUpdate.getTargetPath().fileName())) {
+                    path = new Path(partitionUpdate.getTargetPath().toString(), partitionUpdate.getFileNames().get(0));
                     break;
                 }
             }

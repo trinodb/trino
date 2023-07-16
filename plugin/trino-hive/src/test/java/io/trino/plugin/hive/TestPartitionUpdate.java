@@ -15,8 +15,8 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -43,8 +43,8 @@ public class TestPartitionUpdate
 
         assertEquals(actual.getName(), "test");
         assertEquals(actual.getUpdateMode(), UpdateMode.APPEND);
-        assertEquals(actual.getWritePath(), new Path("/writePath"));
-        assertEquals(actual.getTargetPath(), new Path("/targetPath"));
+        assertEquals(actual.getWritePath(), Location.of("/writePath"));
+        assertEquals(actual.getTargetPath(), Location.of("/targetPath"));
         assertEquals(actual.getFileNames(), ImmutableList.of("file1", "file3"));
         assertEquals(actual.getRowCount(), 123);
         assertEquals(actual.getInMemoryDataSizeInBytes(), 456);
