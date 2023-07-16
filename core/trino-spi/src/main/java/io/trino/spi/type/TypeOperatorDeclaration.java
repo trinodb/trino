@@ -40,12 +40,12 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
@@ -462,13 +462,18 @@ public final class TypeOperatorDeclaration
                     case BLOCK_POSITION_NOT_NULL:
                     case BLOCK_POSITION:
                         checkArgument(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
-                                "Expected BLOCK_POSITION argument have parameters Block and int");
+                                "Expected BLOCK_POSITION argument to have parameters Block and int");
+                        break;
+                    case VALUE_BLOCK_POSITION_NOT_NULL:
+                    case VALUE_BLOCK_POSITION:
+                        checkArgument(Block.class.isAssignableFrom(parameterType) && methodType.parameterType(parameterIndex + 1).equals(int.class),
+                                "Expected VALUE_BLOCK_POSITION argument to have parameters ValueBlock and int");
                         break;
                     case FLAT:
                         checkArgument(parameterType.equals(byte[].class) &&
                                         methodType.parameterType(parameterIndex + 1).equals(int.class) &&
                                         methodType.parameterType(parameterIndex + 2).equals(byte[].class),
-                                "Expected FLAT argument have parameters byte[], int, and byte[]");
+                                "Expected FLAT argument to have parameters byte[], int, and byte[]");
                         break;
                     case FUNCTION:
                         throw new IllegalArgumentException("Function argument convention is not supported in type operators");
@@ -576,11 +581,14 @@ public final class TypeOperatorDeclaration
                 Method method)
         {
             if (isAnnotationPresent(parameterAnnotations.get(0), BlockPosition.class)) {
-                if (parameterTypes.size() > 1 &&
-                        isAnnotationPresent(parameterAnnotations.get(1), BlockIndex.class) &&
-                        parameterTypes.get(0).equals(Block.class) &&
-                        parameterTypes.get(1).equals(int.class)) {
-                    return isAnnotationPresent(parameterAnnotations.get(0), SqlNullable.class) ? BLOCK_POSITION : BLOCK_POSITION_NOT_NULL;
+                if (parameterTypes.size() > 1 && isAnnotationPresent(parameterAnnotations.get(1), BlockIndex.class)) {
+                    if (!Block.class.isAssignableFrom(parameterTypes.get(0))) {
+                        throw new IllegalArgumentException("@BlockPosition argument must be a ValueBlock type");
+                    }
+                    if (parameterTypes.get(1) != int.class) {
+                        throw new IllegalArgumentException("@BlockIndex argument must be type int");
+                    }
+                    return isAnnotationPresent(parameterAnnotations.get(0), SqlNullable.class) ? VALUE_BLOCK_POSITION : VALUE_BLOCK_POSITION_NOT_NULL;
                 }
             }
             else if (isAnnotationPresent(parameterAnnotations.get(0), SqlNullable.class)) {

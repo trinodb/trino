@@ -206,12 +206,22 @@ final class LongTimestampWithTimeZoneType
         return block.getLong(position, 0);
     }
 
-    private static long getEpochMillis(Block block, int position)
+    private static int getPicosOfMilli(Block block, int position)
+    {
+        return block.getInt(position, SIZE_OF_LONG);
+    }
+
+    private static long getPackedEpochMillis(Fixed12Block block, int position)
+    {
+        return block.getLong(position, 0);
+    }
+
+    private static long getEpochMillis(Fixed12Block block, int position)
     {
         return unpackMillisUtc(getPackedEpochMillis(block, position));
     }
 
-    private static int getPicosOfMilli(Block block, int position)
+    private static int getPicosOfMilli(Fixed12Block block, int position)
     {
         return block.getInt(position, SIZE_OF_LONG);
     }
@@ -253,7 +263,7 @@ final class LongTimestampWithTimeZoneType
 
     @ScalarOperator(READ_VALUE)
     private static void writeBlockFlat(
-            @BlockPosition Block block,
+            @BlockPosition Fixed12Block block,
             @BlockIndex int position,
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
@@ -275,7 +285,7 @@ final class LongTimestampWithTimeZoneType
     }
 
     @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean equalOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return equal(
                 getEpochMillis(leftBlock, leftPosition),
@@ -297,7 +307,7 @@ final class LongTimestampWithTimeZoneType
     }
 
     @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    private static long xxHash64Operator(@BlockPosition Fixed12Block block, @BlockIndex int position)
     {
         return xxHash64(
                 getEpochMillis(block, position),
@@ -316,7 +326,7 @@ final class LongTimestampWithTimeZoneType
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static long comparisonOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return comparison(
                 getEpochMillis(leftBlock, leftPosition),
@@ -341,7 +351,7 @@ final class LongTimestampWithTimeZoneType
     }
 
     @ScalarOperator(LESS_THAN)
-    private static boolean lessThanOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean lessThanOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return lessThan(
                 getEpochMillis(leftBlock, leftPosition),
@@ -363,7 +373,7 @@ final class LongTimestampWithTimeZoneType
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    private static boolean lessThanOrEqualOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean lessThanOrEqualOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return lessThanOrEqual(
                 getEpochMillis(leftBlock, leftPosition),

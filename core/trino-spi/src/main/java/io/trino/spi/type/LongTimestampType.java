@@ -167,7 +167,17 @@ class LongTimestampType
         return block.getLong(position, 0);
     }
 
+    private static long getEpochMicros(Fixed12Block block, int position)
+    {
+        return block.getLong(position, 0);
+    }
+
     private static int getFraction(Block block, int position)
+    {
+        return block.getInt(position, SIZE_OF_LONG);
+    }
+
+    private static int getFraction(Fixed12Block block, int position)
     {
         return block.getInt(position, SIZE_OF_LONG);
     }
@@ -215,7 +225,7 @@ class LongTimestampType
 
     @ScalarOperator(READ_VALUE)
     private static void writeBlockFlat(
-            @BlockPosition Block block,
+            @BlockPosition Fixed12Block block,
             @BlockIndex int position,
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
@@ -237,7 +247,7 @@ class LongTimestampType
     }
 
     @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean equalOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return equal(
                 getEpochMicros(leftBlock, leftPosition),
@@ -258,7 +268,7 @@ class LongTimestampType
     }
 
     @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    private static long xxHash64Operator(@BlockPosition Fixed12Block block, @BlockIndex int position)
     {
         return xxHash64(
                 getEpochMicros(block, position),
@@ -277,7 +287,7 @@ class LongTimestampType
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static long comparisonOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return comparison(
                 getEpochMicros(leftBlock, leftPosition),
@@ -302,7 +312,7 @@ class LongTimestampType
     }
 
     @ScalarOperator(LESS_THAN)
-    private static boolean lessThanOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean lessThanOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return lessThan(
                 getEpochMicros(leftBlock, leftPosition),
@@ -324,7 +334,7 @@ class LongTimestampType
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    private static boolean lessThanOrEqualOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean lessThanOrEqualOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return lessThanOrEqual(
                 getEpochMicros(leftBlock, leftPosition),
