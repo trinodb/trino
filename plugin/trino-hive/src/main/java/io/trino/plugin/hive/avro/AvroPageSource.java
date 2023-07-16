@@ -30,7 +30,7 @@ import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static java.util.Objects.requireNonNull;
 
-public class AvroHivePageSource
+public class AvroPageSource
         implements ConnectorPageSource
 {
     private static final long GUESSED_MEMORY_USAGE = DataSize.of(16, DataSize.Unit.MEGABYTE).toBytes();
@@ -38,7 +38,7 @@ public class AvroHivePageSource
     private final String fileName;
     private final AvroFileReader avroFileReader;
 
-    public AvroHivePageSource(
+    public AvroPageSource(
             TrinoInputFile inputFile,
             Schema schema,
             AvroTypeManager avroTypeManager,
