@@ -14,6 +14,7 @@
 package io.trino.spi.type;
 
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ValueBlock;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static java.lang.String.format;
@@ -59,9 +60,9 @@ public abstract sealed class TimeWithTimeZoneType
         return TYPES[precision];
     }
 
-    protected TimeWithTimeZoneType(int precision, Class<?> javaType)
+    protected TimeWithTimeZoneType(int precision, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
-        super(new TypeSignature(StandardTypes.TIME_WITH_TIME_ZONE, TypeSignatureParameter.numericParameter(precision)), javaType);
+        super(new TypeSignature(StandardTypes.TIME_WITH_TIME_ZONE, TypeSignatureParameter.numericParameter(precision)), javaType, valueBlockType);
         this.precision = precision;
     }
 

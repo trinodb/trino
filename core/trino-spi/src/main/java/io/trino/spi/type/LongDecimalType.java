@@ -17,6 +17,7 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.Int128ArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
@@ -49,7 +50,7 @@ final class LongDecimalType
 
     LongDecimalType(int precision, int scale)
     {
-        super(precision, scale, Int128.class);
+        super(precision, scale, Int128.class, Int128ArrayBlock.class);
         checkArgument(Decimals.MAX_SHORT_PRECISION < precision && precision <= Decimals.MAX_PRECISION, "Invalid precision: %s", precision);
         checkArgument(0 <= scale && scale <= precision, "Invalid scale for precision %s: %s", precision, scale);
     }

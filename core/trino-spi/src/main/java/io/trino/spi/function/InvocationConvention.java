@@ -116,6 +116,13 @@ public class InvocationConvention
          */
         BLOCK_POSITION_NOT_NULL(false, 2),
         /**
+         * Argument is passed a ValueBlock followed by the integer position in the block.
+         * The actual block parameter may be any subtype of ValueBlock, and the scalar function
+         * adapter will convert the parameter to ValueBlock. If the actual block position
+         * passed to the function argument is null, the results are undefined.
+         */
+        VALUE_BLOCK_POSITION_NOT_NULL(false, 2),
+        /**
          * Argument is always an object type. An SQL null will be passed a Java null.
          */
         BOXED_NULLABLE(true, 1),
@@ -125,10 +132,16 @@ public class InvocationConvention
          */
         NULL_FLAG(true, 2),
         /**
-         * Argument is passed a Block followed by the integer position in the block.  The
+         * Argument is passed a Block followed by the integer position in the block. The
          * sql value may be null.
          */
         BLOCK_POSITION(true, 2),
+        /**
+         * Argument is passed a ValueBlock followed by the integer position in the block.
+         * The actual block parameter may be any subtype of ValueBlock, and the scalar function
+         * adapter will convert the parameter to ValueBlock. The sql value may be null.
+         */
+        VALUE_BLOCK_POSITION(true, 2),
         /**
          * Argument is passed as a flat slice. The sql value may not be null.
          */

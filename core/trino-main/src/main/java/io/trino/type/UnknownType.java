@@ -16,6 +16,7 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ByteArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
@@ -51,7 +52,7 @@ public final class UnknownType
         // We never access the native container for UNKNOWN because its null check is always true.
         // The actual native container type does not matter here.
         // We choose boolean to represent UNKNOWN because it's the smallest primitive type.
-        super(new TypeSignature(NAME), boolean.class);
+        super(new TypeSignature(NAME), boolean.class, ByteArrayBlock.class);
     }
 
     @Override

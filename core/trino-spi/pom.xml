@@ -758,6 +758,24 @@
                                     <old>method io.trino.spi.block.Block io.trino.spi.block.DictionaryBlock::getDictionary()</old>
                                     <new>method io.trino.spi.block.ValueBlock io.trino.spi.block.DictionaryBlock::getDictionary()</new>
                                 </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method io.trino.spi.block.ValueBlock io.trino.spi.block.BlockBuilder::buildValueBlock()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.type.AbstractType::&lt;init&gt;(io.trino.spi.type.TypeSignature, java.lang.Class&lt;?&gt;)</old>
+                                    <new>method void io.trino.spi.type.AbstractType::&lt;init&gt;(io.trino.spi.type.TypeSignature, java.lang.Class&lt;?&gt;, java.lang.Class&lt;? extends io.trino.spi.block.ValueBlock&gt;)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.type.TimeWithTimeZoneType::&lt;init&gt;(int, java.lang.Class&lt;?&gt;)</old>
+                                    <new>method void io.trino.spi.type.TimeWithTimeZoneType::&lt;init&gt;(int, java.lang.Class&lt;?&gt;, java.lang.Class&lt;? extends io.trino.spi.block.ValueBlock&gt;)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.lang.Class&lt;? extends io.trino.spi.block.ValueBlock&gt; io.trino.spi.type.Type::getValueBlockType()</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

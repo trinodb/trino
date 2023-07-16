@@ -18,6 +18,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ByteArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
@@ -52,7 +53,7 @@ public final class TinyintType
 
     private TinyintType()
     {
-        super(new TypeSignature(StandardTypes.TINYINT), long.class);
+        super(new TypeSignature(StandardTypes.TINYINT), long.class, ByteArrayBlock.class);
     }
 
     @Override

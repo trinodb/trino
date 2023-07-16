@@ -190,6 +190,12 @@ public class VariableWidthBlockBuilder
         if (!hasNonNullValue) {
             return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positions);
         }
+        return buildValueBlock();
+    }
+
+    @Override
+    public VariableWidthBlock buildValueBlock()
+    {
         return new VariableWidthBlock(0, positions, sliceOutput.slice(), offsets, hasNullValue ? valueIsNull : null);
     }
 

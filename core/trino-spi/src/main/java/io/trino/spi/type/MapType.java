@@ -122,7 +122,8 @@ public class MapType
                         StandardTypes.MAP,
                         TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
                         TypeSignatureParameter.typeParameter(valueType.getTypeSignature())),
-                SqlMap.class);
+                SqlMap.class,
+                MapBlock.class);
         if (!keyType.isComparable()) {
             throw new IllegalArgumentException(format("key type must be comparable, got %s", keyType));
         }

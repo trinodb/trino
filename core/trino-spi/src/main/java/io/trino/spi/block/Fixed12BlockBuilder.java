@@ -90,6 +90,12 @@ public class Fixed12BlockBuilder
         if (!hasNonNullValue) {
             return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
+        return buildValueBlock();
+    }
+
+    @Override
+    public Fixed12Block buildValueBlock()
+    {
         return new Fixed12Block(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 

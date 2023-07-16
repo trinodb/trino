@@ -43,8 +43,14 @@ public interface BlockBuilder
 
     /**
      * Builds the block. This method can be called multiple times.
+     * The return value may be a block such as RLE to allow for optimizations when all block values are the same.
      */
     Block build();
+
+    /**
+     * Builds a ValueBlock. This method can be called multiple times.
+     */
+    ValueBlock buildValueBlock();
 
     /**
      * Creates a new block builder of the same type based on the current usage statistics of this block builder.
