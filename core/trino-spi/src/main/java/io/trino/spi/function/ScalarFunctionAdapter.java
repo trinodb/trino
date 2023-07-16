@@ -140,7 +140,7 @@ public final class ScalarFunctionAdapter
                 //noinspection DataFlowIssue
                 case NEVER_NULL -> true;
             };
-            case BLOCK_POSITION_NOT_NULL -> expectedArgumentConvention == BLOCK_POSITION && returnConvention.isNullable();
+            case BLOCK_POSITION_NOT_NULL -> expectedArgumentConvention == BLOCK_POSITION && (returnConvention.isNullable() || returnConvention == DEFAULT_ON_NULL);
             case BLOCK_POSITION -> expectedArgumentConvention == BLOCK_POSITION_NOT_NULL;
             case BOXED_NULLABLE, NULL_FLAG -> true;
             case IN_OUT -> false;
@@ -490,7 +490,7 @@ public final class ScalarFunctionAdapter
             }
         }
 
-        throw new IllegalArgumentException("Cannot convert argument %s to %s with return convention %s".formatted(expectedArgumentConvention, actualArgumentConvention, returnConvention));
+        throw new IllegalArgumentException("Cannot convert argument %s to %s with return convention %s".formatted(actualArgumentConvention, expectedArgumentConvention, returnConvention));
     }
 
     private static MethodHandle getBlockValue(Type argumentType, Class<?> expectedType)
