@@ -21,7 +21,6 @@ import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.rubix.CachingTrinoS3FileSystem;
 import io.trino.hdfs.s3.TrinoS3FileSystem;
 import io.trino.plugin.hive.HiveReadOnlyException;
-import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.Partition;
@@ -40,15 +39,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Int128;
-import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.fs.FileStatus;
@@ -56,22 +48,20 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.viewfs.ViewFileSystem;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
-import org.apache.hadoop.hive.common.type.Date;
-import org.apache.hadoop.hive.common.type.HiveDecimal;
-import org.apache.hadoop.hive.common.type.Timestamp;
-import org.apache.hadoop.io.Text;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
 import static io.trino.hdfs.s3.HiveS3Module.EMR_FS_CLASS_NAME;
@@ -90,26 +80,30 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.readBigDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.unmodifiableList;
-import static java.util.Collections.unmodifiableMap;
 import static java.util.UUID.randomUUID;
 
 public final class HiveWriteUtils
 {
+    private static final DateTimeFormatter HIVE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter HIVE_TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
+            .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            .optionalStart().appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true).optionalEnd()
+            .toFormatter();
+
     private HiveWriteUtils()
     {
     }
@@ -118,102 +112,66 @@ public final class HiveWriteUtils
     {
         ImmutableList.Builder<String> partitionValues = ImmutableList.builder();
         for (int field = 0; field < partitionColumns.getChannelCount(); field++) {
-            Object value = getField(partitionColumnTypes.get(field), partitionColumns.getBlock(field), position);
-            if (value == null) {
-                partitionValues.add(HIVE_DEFAULT_DYNAMIC_PARTITION);
+            String value = toPartitionValue(partitionColumnTypes.get(field), partitionColumns.getBlock(field), position);
+            if (!CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(value)) {
+                String encoded = base16().withSeparator(" ", 2).encode(value.getBytes(UTF_8));
+                throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Hive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: " + encoded);
             }
-            else {
-                String valueString = value.toString();
-                if (!CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(valueString)) {
-                    throw new TrinoException(HIVE_INVALID_PARTITION_VALUE,
-                            "Hive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: " +
-                                    base16().withSeparator(" ", 2).encode(valueString.getBytes(UTF_8)));
-                }
-                partitionValues.add(valueString);
-            }
+            partitionValues.add(value);
         }
         return partitionValues.build();
     }
 
-    private static Object getField(Type type, Block block, int position)
+    private static String toPartitionValue(Type type, Block block, int position)
     {
+        // see HiveUtil#isValidPartitionType
         if (block.isNull(position)) {
-            return null;
+            return HIVE_DEFAULT_DYNAMIC_PARTITION;
         }
         if (BOOLEAN.equals(type)) {
-            return BOOLEAN.getBoolean(block, position);
+            return String.valueOf(BOOLEAN.getBoolean(block, position));
         }
         if (BIGINT.equals(type)) {
-            return BIGINT.getLong(block, position);
+            return String.valueOf(BIGINT.getLong(block, position));
         }
         if (INTEGER.equals(type)) {
-            return INTEGER.getInt(block, position);
+            return String.valueOf(INTEGER.getInt(block, position));
         }
         if (SMALLINT.equals(type)) {
-            return SMALLINT.getShort(block, position);
+            return String.valueOf(SMALLINT.getShort(block, position));
         }
         if (TINYINT.equals(type)) {
-            return TINYINT.getByte(block, position);
+            return String.valueOf(TINYINT.getByte(block, position));
         }
         if (REAL.equals(type)) {
-            return REAL.getFloat(block, position);
+            return String.valueOf(REAL.getFloat(block, position));
         }
         if (DOUBLE.equals(type)) {
-            return DOUBLE.getDouble(block, position);
+            return String.valueOf(DOUBLE.getDouble(block, position));
         }
         if (type instanceof VarcharType varcharType) {
-            return new Text(varcharType.getSlice(block, position).getBytes());
+            return varcharType.getSlice(block, position).toStringUtf8();
         }
         if (type instanceof CharType charType) {
-            return new Text(padSpaces(charType.getSlice(block, position), charType).toStringUtf8());
-        }
-        if (VARBINARY.equals(type)) {
-            return VARBINARY.getSlice(block, position).getBytes();
+            return padSpaces(charType.getSlice(block, position), charType).toStringUtf8();
         }
         if (DATE.equals(type)) {
-            return Date.ofEpochDay(DATE.getInt(block, position));
+            return LocalDate.ofEpochDay(DATE.getInt(block, position)).format(HIVE_DATE_FORMATTER);
         }
-        if (type instanceof TimestampType timestampType) {
-            return getHiveTimestamp(timestampType, block, position);
+        if (TIMESTAMP_MILLIS.equals(type)) {
+            long epochMicros = type.getLong(block, position);
+            long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+            int nanosOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+            return LocalDateTime.ofEpochSecond(epochSeconds, nanosOfSecond, ZoneOffset.UTC).format(HIVE_TIMESTAMP_FORMATTER);
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            checkArgument(type.equals(TIMESTAMP_TZ_MILLIS));
-            return getHiveTimestampTz(block, position);
+        if (TIMESTAMP_TZ_MILLIS.equals(type)) {
+            long epochMillis = unpackMillisUtc(type.getLong(block, position));
+            return LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneOffset.UTC).format(HIVE_TIMESTAMP_FORMATTER);
         }
         if (type instanceof DecimalType decimalType) {
-            return getHiveDecimal(decimalType, block, position);
+            return readBigDecimal(decimalType, block, position).stripTrailingZeros().toPlainString();
         }
-        if (type instanceof ArrayType arrayType) {
-            Type elementType = arrayType.getElementType();
-            Block arrayBlock = block.getObject(position, Block.class);
-            List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
-            for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                list.add(getField(elementType, arrayBlock, i));
-            }
-            return unmodifiableList(list);
-        }
-        if (type instanceof MapType mapType) {
-            Type keyType = mapType.getKeyType();
-            Type valueType = mapType.getValueType();
-            Block mapBlock = block.getObject(position, Block.class);
-            Map<Object, Object> map = new HashMap<>();
-            for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-                map.put(getField(keyType, mapBlock, i),
-                        getField(valueType, mapBlock, i + 1));
-            }
-            return unmodifiableMap(map);
-        }
-        if (type instanceof RowType rowType) {
-            List<Type> fieldTypes = rowType.getTypeParameters();
-            Block rowBlock = block.getObject(position, Block.class);
-            verify(fieldTypes.size() == rowBlock.getPositionCount(), "expected row value field count does not match type field count");
-            List<Object> row = new ArrayList<>(rowBlock.getPositionCount());
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                row.add(getField(fieldTypes.get(i), rowBlock, i));
-            }
-            return unmodifiableList(row);
-        }
-        throw new TrinoException(NOT_SUPPORTED, "unsupported type: " + type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type for partition: " + type);
     }
 
     public static void checkTableIsWritable(Table table, boolean writesToNonManagedTablesEnabled)
@@ -499,45 +457,5 @@ public final class HiveWriteUtils
                 break;
         }
         return false;
-    }
-
-    private static HiveDecimal getHiveDecimal(DecimalType decimalType, Block block, int position)
-    {
-        BigInteger unscaledValue;
-        if (decimalType.isShort()) {
-            unscaledValue = BigInteger.valueOf(decimalType.getLong(block, position));
-        }
-        else {
-            unscaledValue = ((Int128) decimalType.getObject(block, position)).toBigInteger();
-        }
-        return HiveDecimal.create(unscaledValue, decimalType.getScale());
-    }
-
-    private static Timestamp getHiveTimestamp(TimestampType type, Block block, int position)
-    {
-        verify(type.getPrecision() <= HiveTimestampPrecision.MAX.getPrecision(), "Timestamp precision too high for Hive");
-
-        long epochMicros;
-        int nanosOfMicro;
-        if (type.isShort()) {
-            epochMicros = type.getLong(block, position);
-            nanosOfMicro = 0;
-        }
-        else {
-            LongTimestamp timestamp = (LongTimestamp) type.getObject(block, position);
-            epochMicros = timestamp.getEpochMicros();
-            nanosOfMicro = timestamp.getPicosOfMicro() / PICOSECONDS_PER_NANOSECOND;
-        }
-
-        long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
-        int microsOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND);
-        int nanosOfSecond = microsOfSecond * NANOSECONDS_PER_MICROSECOND + nanosOfMicro;
-        return Timestamp.ofEpochSecond(epochSeconds, nanosOfSecond);
-    }
-
-    private static Timestamp getHiveTimestampTz(Block block, int position)
-    {
-        long epochMillis = unpackMillisUtc(block.getLong(position, 0));
-        return Timestamp.ofEpochMilli(epochMillis);
     }
 }
