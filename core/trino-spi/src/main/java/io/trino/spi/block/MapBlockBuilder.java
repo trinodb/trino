@@ -167,6 +167,12 @@ public class MapBlockBuilder
     @Override
     public Block build()
     {
+        return buildValueBlock();
+    }
+
+    @Override
+    public MapBlock buildValueBlock()
+    {
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }

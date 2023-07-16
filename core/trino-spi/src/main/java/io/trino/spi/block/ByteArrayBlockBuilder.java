@@ -91,6 +91,12 @@ public class ByteArrayBlockBuilder
         if (!hasNonNullValue) {
             return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
+        return buildValueBlock();
+    }
+
+    @Override
+    public ByteArrayBlock buildValueBlock()
+    {
         return new ByteArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 

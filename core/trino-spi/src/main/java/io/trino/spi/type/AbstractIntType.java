@@ -19,6 +19,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.IntArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.function.FlatFixed;
@@ -51,7 +52,7 @@ public abstract class AbstractIntType
 
     protected AbstractIntType(TypeSignature signature)
     {
-        super(signature, long.class);
+        super(signature, long.class, IntArrayBlock.class);
     }
 
     @Override

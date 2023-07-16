@@ -89,6 +89,12 @@ public class IntArrayBlockBuilder
         if (!hasNonNullValue) {
             return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
+        return buildValueBlock();
+    }
+
+    @Override
+    public IntArrayBlock buildValueBlock()
+    {
         return new IntArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 

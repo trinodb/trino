@@ -176,6 +176,15 @@ public class ArrayBlockBuilder
         if (!hasNonNullRow) {
             return nullRle(positionCount);
         }
+        return buildValueBlock();
+    }
+
+    @Override
+    public ValueBlock buildValueBlock()
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Current entry must be closed before the block can be built");
+        }
         return createArrayBlockInternal(0, positionCount, hasNullValue ? valueIsNull : null, offsets, values.build());
     }
 
