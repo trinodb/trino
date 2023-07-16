@@ -21,7 +21,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.fs.Path;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -33,7 +32,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.FAIL;
 import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.fs.Path.SEPARATOR_CHAR;
 
 public class HiveFileIterator
         extends AbstractIterator<TrinoFileStatus>
@@ -83,7 +81,7 @@ public class HiveFileIterator
                     continue;
                 }
             }
-            else if (isHiddenFileOrDirectory(new Path(status.getPath()))) {
+            else if (isHiddenFileOrDirectory(Location.of(status.getPath()))) {
                 continue;
             }
 
@@ -111,12 +109,12 @@ public class HiveFileIterator
     }
 
     @VisibleForTesting
-    static boolean isHiddenFileOrDirectory(Path path)
+    static boolean isHiddenFileOrDirectory(Location location)
     {
         // Only looks for the last part of the path
-        String pathString = path.toUri().getPath();
-        int lastSeparator = pathString.lastIndexOf(SEPARATOR_CHAR);
-        return containsHiddenPathPartAfterIndex(pathString, lastSeparator + 1);
+        String path = location.path();
+        int lastSeparator = path.lastIndexOf('/');
+        return containsHiddenPathPartAfterIndex(path, lastSeparator + 1);
     }
 
     @VisibleForTesting
@@ -137,7 +135,7 @@ public class HiveFileIterator
             if (firstNameChar == '.' || firstNameChar == '_') {
                 return true;
             }
-            int nextSeparator = pathString.indexOf(SEPARATOR_CHAR, startFromIndex);
+            int nextSeparator = pathString.indexOf('/', startFromIndex);
             if (nextSeparator < 0) {
                 break;
             }
