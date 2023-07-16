@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.fs;
 
 import io.trino.filesystem.Location;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.hive.fs.HiveFileIterator.containsHiddenPathPartAfterIndex;
@@ -48,8 +47,8 @@ public class TestHiveFileIterator
     @Test
     public void testHiddenFileNameDetection()
     {
-        assertFalse(isHiddenFileOrDirectory(new Path("file:///parent/.hidden/ignore-parent-directories.txt")));
-        assertTrue(isHiddenFileOrDirectory(new Path("file:///parent/visible/_hidden-file.txt")));
+        assertFalse(isHiddenFileOrDirectory(Location.of("file:///parent/.hidden/ignore-parent-directories.txt")));
+        assertTrue(isHiddenFileOrDirectory(Location.of("file:///parent/visible/_hidden-file.txt")));
     }
 
     @Test
