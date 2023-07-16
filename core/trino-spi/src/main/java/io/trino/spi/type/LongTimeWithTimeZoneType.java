@@ -155,6 +155,16 @@ final class LongTimeWithTimeZoneType
         return block.getInt(position, SIZE_OF_LONG);
     }
 
+    private static long getPicos(Fixed12Block block, int position)
+    {
+        return block.getLong(position, 0);
+    }
+
+    private static int getOffsetMinutes(Fixed12Block block, int position)
+    {
+        return block.getInt(position, SIZE_OF_LONG);
+    }
+
     @ScalarOperator(READ_VALUE)
     private static LongTimeWithTimeZone readFlat(
             @FlatFixed byte[] fixedSizeSlice,
@@ -192,7 +202,7 @@ final class LongTimeWithTimeZoneType
 
     @ScalarOperator(READ_VALUE)
     private static void writeBlockFlat(
-            @BlockPosition Block block,
+            @BlockPosition Fixed12Block block,
             @BlockIndex int position,
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
@@ -214,7 +224,7 @@ final class LongTimeWithTimeZoneType
     }
 
     @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean equalOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return equal(
                 getPicos(leftBlock, leftPosition),
@@ -235,7 +245,7 @@ final class LongTimeWithTimeZoneType
     }
 
     @ScalarOperator(HASH_CODE)
-    private static long hashCodeOperator(@BlockPosition Block block, @BlockIndex int position)
+    private static long hashCodeOperator(@BlockPosition Fixed12Block block, @BlockIndex int position)
     {
         return hashCodeOperator(getPicos(block, position), getOffsetMinutes(block, position));
     }
@@ -252,7 +262,7 @@ final class LongTimeWithTimeZoneType
     }
 
     @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    private static long xxHash64Operator(@BlockPosition Fixed12Block block, @BlockIndex int position)
     {
         return xxHash64(getPicos(block, position), getOffsetMinutes(block, position));
     }
@@ -273,7 +283,7 @@ final class LongTimeWithTimeZoneType
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static long comparisonOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return comparison(
                 getPicos(leftBlock, leftPosition),
@@ -298,7 +308,7 @@ final class LongTimeWithTimeZoneType
     }
 
     @ScalarOperator(LESS_THAN)
-    private static boolean lessThanOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean lessThanOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return lessThan(
                 getPicos(leftBlock, leftPosition),
@@ -323,7 +333,7 @@ final class LongTimeWithTimeZoneType
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    private static boolean lessThanOrEqualOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean lessThanOrEqualOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return lessThanOrEqual(
                 getPicos(leftBlock, leftPosition),
