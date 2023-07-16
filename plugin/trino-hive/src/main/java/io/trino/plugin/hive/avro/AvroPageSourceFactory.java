@@ -67,7 +67,7 @@ import static io.trino.plugin.hive.util.HiveUtil.splitError;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-public class AvroHivePageSourceFactory
+public class AvroPageSourceFactory
         implements HivePageSourceFactory
 {
     private static final DataSize BUFFER_SIZE = DataSize.of(8, DataSize.Unit.MEGABYTE);
@@ -76,7 +76,7 @@ public class AvroHivePageSourceFactory
     private final FileFormatDataSourceStats stats;
 
     @Inject
-    public AvroHivePageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, FileFormatDataSourceStats stats)
+    public AvroPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, FileFormatDataSourceStats stats)
     {
         this.trinoFileSystemFactory = requireNonNull(trinoFileSystemFactory, "trinoFileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -169,7 +169,7 @@ public class AvroHivePageSourceFactory
                 nullSchema = nullSchema.name(notAColumnName).type(Schema.create(Schema.Type.NULL)).withDefault(null);
             }
             try {
-                return Optional.of(noProjectionAdaptation(new AvroHivePageSource(inputFile, nullSchema.endRecord(), new HiveAvroTypeManager(hiveTimestampPrecision), start, length)));
+                return Optional.of(noProjectionAdaptation(new AvroPageSource(inputFile, nullSchema.endRecord(), new HiveAvroTypeManager(hiveTimestampPrecision), start, length)));
             }
             catch (IOException e) {
                 throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
@@ -180,7 +180,7 @@ public class AvroHivePageSourceFactory
         }
 
         try {
-            return Optional.of(new ReaderPageSource(new AvroHivePageSource(inputFile, maskedSchema, new HiveAvroTypeManager(hiveTimestampPrecision), start, length), readerProjections));
+            return Optional.of(new ReaderPageSource(new AvroPageSource(inputFile, maskedSchema, new HiveAvroTypeManager(hiveTimestampPrecision), start, length), readerProjections));
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
