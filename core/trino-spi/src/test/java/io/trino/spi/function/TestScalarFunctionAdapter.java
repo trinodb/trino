@@ -88,8 +88,7 @@ public class TestScalarFunctionAdapter
                 FAIL_ON_NULL,
                 false,
                 true);
-        String methodName = "neverNull";
-        verifyAllAdaptations(actualConvention, methodName, RETURN_TYPE, ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, "neverNull", RETURN_TYPE, ARGUMENT_TYPES);
     }
 
     @Test
@@ -101,8 +100,7 @@ public class TestScalarFunctionAdapter
                 FAIL_ON_NULL,
                 false,
                 true);
-        String methodName = "neverNullObjects";
-        verifyAllAdaptations(actualConvention, methodName, RETURN_TYPE, OBJECTS_ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, "neverNullObjects", RETURN_TYPE, OBJECTS_ARGUMENT_TYPES);
     }
 
     @Test
@@ -114,8 +112,7 @@ public class TestScalarFunctionAdapter
                 FAIL_ON_NULL,
                 false,
                 true);
-        String methodName = "boxedNull";
-        verifyAllAdaptations(actualConvention, methodName, RETURN_TYPE, ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, "boxedNull", RETURN_TYPE, ARGUMENT_TYPES);
     }
 
     @Test
@@ -127,8 +124,7 @@ public class TestScalarFunctionAdapter
                 FAIL_ON_NULL,
                 false,
                 true);
-        String methodName = "boxedNullObjects";
-        verifyAllAdaptations(actualConvention, methodName, RETURN_TYPE, OBJECTS_ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, "boxedNullObjects", RETURN_TYPE, OBJECTS_ARGUMENT_TYPES);
     }
 
     @Test
@@ -140,8 +136,7 @@ public class TestScalarFunctionAdapter
                 FAIL_ON_NULL,
                 false,
                 true);
-        String methodName = "nullFlag";
-        verifyAllAdaptations(actualConvention, methodName, RETURN_TYPE, ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, "nullFlag", RETURN_TYPE, ARGUMENT_TYPES);
     }
 
     @Test
@@ -153,8 +148,55 @@ public class TestScalarFunctionAdapter
                 FAIL_ON_NULL,
                 false,
                 true);
-        String methodName = "nullFlagObjects";
-        verifyAllAdaptations(actualConvention, methodName, RETURN_TYPE, OBJECTS_ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, "nullFlagObjects", RETURN_TYPE, OBJECTS_ARGUMENT_TYPES);
+    }
+
+    @Test
+    public void testAdaptFromBlockPosition()
+            throws Throwable
+    {
+        InvocationConvention actualConvention = new InvocationConvention(
+                nCopies(ARGUMENT_TYPES.size(), BLOCK_POSITION),
+                FAIL_ON_NULL,
+                false,
+                true);
+        verifyAllAdaptations(actualConvention, "blockPosition", RETURN_TYPE, ARGUMENT_TYPES);
+    }
+
+    @Test
+    public void testAdaptFromBlockPositionObjects()
+            throws Throwable
+    {
+        InvocationConvention actualConvention = new InvocationConvention(
+                nCopies(OBJECTS_ARGUMENT_TYPES.size(), BLOCK_POSITION),
+                FAIL_ON_NULL,
+                false,
+                true);
+        verifyAllAdaptations(actualConvention, "blockPositionObjects", RETURN_TYPE, OBJECTS_ARGUMENT_TYPES);
+    }
+
+    @Test
+    public void testAdaptFromBlockPositionNotNull()
+            throws Throwable
+    {
+        InvocationConvention actualConvention = new InvocationConvention(
+                nCopies(ARGUMENT_TYPES.size(), BLOCK_POSITION_NOT_NULL),
+                FAIL_ON_NULL,
+                false,
+                true);
+        verifyAllAdaptations(actualConvention, "blockPosition", RETURN_TYPE, ARGUMENT_TYPES);
+    }
+
+    @Test
+    public void testAdaptFromBlockPositionNotNullObjects()
+            throws Throwable
+    {
+        InvocationConvention actualConvention = new InvocationConvention(
+                nCopies(OBJECTS_ARGUMENT_TYPES.size(), BLOCK_POSITION_NOT_NULL),
+                FAIL_ON_NULL,
+                false,
+                true);
+        verifyAllAdaptations(actualConvention, "blockPositionObjects", RETURN_TYPE, OBJECTS_ARGUMENT_TYPES);
     }
 
     private static void verifyAllAdaptations(
@@ -212,8 +254,11 @@ public class TestScalarFunctionAdapter
         }
         catch (IllegalArgumentException e) {
             if (!ScalarFunctionAdapter.canAdapt(actualConvention, expectedConvention)) {
-                assertSame(expectedConvention.getReturnConvention(), FAIL_ON_NULL);
                 if (hasNullableToNoNullableAdaptation(actualConvention, expectedConvention)) {
+                    assertSame(expectedConvention.getReturnConvention(), FAIL_ON_NULL);
+                    return;
+                }
+                if (actualConvention.getArgumentConventions().stream().anyMatch(convention -> convention == BLOCK_POSITION || convention == BLOCK_POSITION_NOT_NULL)) {
                     return;
                 }
             }
@@ -588,6 +633,80 @@ public class TestScalarFunctionAdapter
             return true;
         }
 
+        @SuppressWarnings("unused")
+        public boolean blockPosition(
+                Block doubleBlock, int doublePosition,
+                Block sliceBlock, int slicePosition,
+                Block blockBlock, int blockPosition)
+        {
+            checkState(!invoked, "Already invoked");
+            invoked = true;
+            objectsMethod = false;
+
+            if (doubleBlock.isNull(doublePosition)) {
+                this.doubleValue = null;
+            }
+            else {
+                this.doubleValue = DOUBLE.getDouble(doubleBlock, doublePosition);
+            }
+
+            if (sliceBlock.isNull(slicePosition)) {
+                this.sliceValue = null;
+            }
+            else {
+                this.sliceValue = VARCHAR.getSlice(sliceBlock, slicePosition);
+            }
+
+            if (blockBlock.isNull(blockPosition)) {
+                this.blockValue = null;
+            }
+            else {
+                this.blockValue = ARRAY_TYPE.getObject(blockBlock, blockPosition);
+            }
+            return true;
+        }
+
+        @SuppressWarnings("unused")
+        public boolean blockPositionObjects(
+                Block sliceBlock, int slicePosition,
+                Block blockBlock, int blockPosition,
+                Block objectCharBlock, int objectCharPosition,
+                Block objectTimestampBlock, int objectTimestampPosition)
+        {
+            checkState(!invoked, "Already invoked");
+            invoked = true;
+            objectsMethod = true;
+
+            if (sliceBlock.isNull(slicePosition)) {
+                this.sliceValue = null;
+            }
+            else {
+                this.sliceValue = VARCHAR.getSlice(sliceBlock, slicePosition);
+            }
+
+            if (blockBlock.isNull(blockPosition)) {
+                this.blockValue = null;
+            }
+            else {
+                this.blockValue = ARRAY_TYPE.getObject(blockBlock, blockPosition);
+            }
+
+            if (objectCharBlock.isNull(objectCharPosition)) {
+                this.objectCharValue = null;
+            }
+            else {
+                this.objectCharValue = CHAR_TYPE.getObject(objectCharBlock, objectCharPosition);
+            }
+
+            if (objectTimestampBlock.isNull(objectTimestampPosition)) {
+                this.objectTimestampValue = null;
+            }
+            else {
+                this.objectTimestampValue = TIMESTAMP_TYPE.getObject(objectTimestampBlock, objectTimestampPosition);
+            }
+            return true;
+        }
+
         public void verify(
                 InvocationConvention actualConvention,
                 BitSet nullArguments,
@@ -628,7 +747,8 @@ public class TestScalarFunctionAdapter
         private static boolean shouldFunctionBeInvoked(InvocationConvention actualConvention, BitSet nullArguments)
         {
             for (int i = 0; i < actualConvention.getArgumentConventions().size(); i++) {
-                if (actualConvention.getArgumentConvention(i) == NEVER_NULL && nullArguments.get(i)) {
+                InvocationArgumentConvention argumentConvention = actualConvention.getArgumentConvention(i);
+                if ((argumentConvention == NEVER_NULL || argumentConvention == BLOCK_POSITION_NOT_NULL) && nullArguments.get(i)) {
                     return false;
                 }
             }
