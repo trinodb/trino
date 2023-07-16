@@ -3705,12 +3705,12 @@ public class SemiTransactionalHiveMetastore
 
     public record PartitionUpdateInfo(List<String> partitionValues, Path currentLocation, List<String> fileNames, PartitionStatistics statisticsUpdate)
     {
-        public PartitionUpdateInfo(List<String> partitionValues, Path currentLocation, List<String> fileNames, PartitionStatistics statisticsUpdate)
+        public PartitionUpdateInfo
         {
-            this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
-            this.currentLocation = requireNonNull(currentLocation, "currentLocation is null");
-            this.fileNames = requireNonNull(fileNames, "fileNames is null");
-            this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
+            requireNonNull(partitionValues, "partitionValues is null");
+            requireNonNull(currentLocation, "currentLocation is null");
+            requireNonNull(fileNames, "fileNames is null");
+            requireNonNull(statisticsUpdate, "statisticsUpdate is null");
         }
     }
 }
