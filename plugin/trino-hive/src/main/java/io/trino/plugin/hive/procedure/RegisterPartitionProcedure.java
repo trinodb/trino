@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveConfig;
@@ -149,7 +150,7 @@ public class RegisterPartitionProcedure
                 table.getDatabaseName(),
                 table.getTableName(),
                 buildPartitionObject(session, table, partitionValues, partitionLocation),
-                partitionLocation,
+                Location.of(partitionLocation.toString()),
                 Optional.empty(), // no need for failed attempts cleanup
                 PartitionStatistics.empty(),
                 false);

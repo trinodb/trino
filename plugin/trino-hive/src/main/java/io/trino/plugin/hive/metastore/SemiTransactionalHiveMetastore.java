@@ -679,7 +679,7 @@ public class SemiTransactionalHiveMetastore
             ConnectorSession session,
             String databaseName,
             String tableName,
-            Path currentLocation,
+            Location currentLocation,
             List<String> fileNames,
             PartitionStatistics statisticsUpdate,
             boolean cleanExtraOutputFilesOnCommit)
@@ -704,7 +704,7 @@ public class SemiTransactionalHiveMetastore
                             new TableAndMore(
                                     table,
                                     Optional.empty(),
-                                    Optional.of(currentLocation),
+                                    Optional.of(new Path(currentLocation.toString())),
                                     Optional.of(fileNames),
                                     false,
                                     merge(currentStatistics, statisticsUpdate),
@@ -967,7 +967,7 @@ public class SemiTransactionalHiveMetastore
             String databaseName,
             String tableName,
             Partition partition,
-            Path currentLocation,
+            Location currentLocation,
             Optional<List<String>> files,
             PartitionStatistics statistics,
             boolean cleanExtraOutputFilesOnCommit)
@@ -1919,7 +1919,7 @@ public class SemiTransactionalHiveMetastore
                 }
             }
 
-            Path currentPath = partitionAndMore.getCurrentLocation();
+            Path currentPath = new Path(partitionAndMore.getCurrentLocation().toString());
             Path targetPath = new Path(targetLocation);
             if (!targetPath.equals(currentPath)) {
                 renameDirectory(
@@ -1953,7 +1953,7 @@ public class SemiTransactionalHiveMetastore
             }
             Path tableLocation = tableAndMore.getCurrentLocation().orElseThrow(() -> new IllegalArgumentException("currentLocation expected to be set if isCleanExtraOutputFilesOnCommit is true"));
             List<String> files = tableAndMore.getFileNames().orElseThrow(() -> new IllegalArgumentException("fileNames expected to be set if isCleanExtraOutputFilesOnCommit is true"));
-            SemiTransactionalHiveMetastore.cleanExtraOutputFiles(hdfsEnvironment, hdfsContext, queryId, tableLocation, ImmutableSet.copyOf(files));
+            SemiTransactionalHiveMetastore.cleanExtraOutputFiles(hdfsEnvironment, hdfsContext, queryId, Location.of(tableLocation.toString()), ImmutableSet.copyOf(files));
         }
 
         private PartitionStatistics getExistingPartitionStatistics(Partition partition, String partitionName)
@@ -1988,7 +1988,7 @@ public class SemiTransactionalHiveMetastore
 
             Partition partition = partitionAndMore.getPartition();
             String targetLocation = partition.getStorage().getLocation();
-            Path currentPath = partitionAndMore.getCurrentLocation();
+            Path currentPath = new Path(partitionAndMore.getCurrentLocation().toString());
             Path targetPath = new Path(targetLocation);
 
             cleanExtraOutputFiles(hdfsContext, queryId, partitionAndMore);
@@ -2028,7 +2028,7 @@ public class SemiTransactionalHiveMetastore
             Partition partition = partitionAndMore.getPartition();
             partitionsToInvalidate.add(partition);
             Path targetPath = new Path(partition.getStorage().getLocation());
-            Path currentPath = partitionAndMore.getCurrentLocation();
+            Path currentPath = new Path(partitionAndMore.getCurrentLocation().toString());
             cleanUpTasksForAbort.add(new DirectoryCleanUpTask(hdfsContext, targetPath, false));
 
             if (!targetPath.equals(currentPath)) {
@@ -2950,13 +2950,13 @@ public class SemiTransactionalHiveMetastore
     private static class PartitionAndMore
     {
         private final Partition partition;
-        private final Path currentLocation;
+        private final Location currentLocation;
         private final Optional<List<String>> fileNames;
         private final PartitionStatistics statistics;
         private final PartitionStatistics statisticsUpdate;
         private final boolean cleanExtraOutputFilesOnCommit;
 
-        public PartitionAndMore(Partition partition, Path currentLocation, Optional<List<String>> fileNames, PartitionStatistics statistics, PartitionStatistics statisticsUpdate, boolean cleanExtraOutputFilesOnCommit)
+        public PartitionAndMore(Partition partition, Location currentLocation, Optional<List<String>> fileNames, PartitionStatistics statistics, PartitionStatistics statisticsUpdate, boolean cleanExtraOutputFilesOnCommit)
         {
             this.partition = requireNonNull(partition, "partition is null");
             this.currentLocation = requireNonNull(currentLocation, "currentLocation is null");
@@ -2971,7 +2971,7 @@ public class SemiTransactionalHiveMetastore
             return partition;
         }
 
-        public Path getCurrentLocation()
+        public Location getCurrentLocation()
         {
             return currentLocation;
         }
@@ -3644,8 +3644,9 @@ public class SemiTransactionalHiveMetastore
         delegate.commitTransaction(transactionId);
     }
 
-    public static void cleanExtraOutputFiles(HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext, String queryId, Path path, Set<String> filesToKeep)
+    public static void cleanExtraOutputFiles(HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext, String queryId, Location location, Set<String> filesToKeep)
     {
+        Path path = new Path(location.toString());
         List<String> filesToDelete = new LinkedList<>();
         try {
             log.debug("Deleting failed attempt files from %s for query %s", path, queryId);
@@ -3703,7 +3704,7 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public record PartitionUpdateInfo(List<String> partitionValues, Path currentLocation, List<String> fileNames, PartitionStatistics statisticsUpdate)
+    public record PartitionUpdateInfo(List<String> partitionValues, Location currentLocation, List<String> fileNames, PartitionStatistics statisticsUpdate)
     {
         public PartitionUpdateInfo
         {
