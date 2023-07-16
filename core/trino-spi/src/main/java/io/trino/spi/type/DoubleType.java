@@ -17,6 +17,7 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
@@ -56,7 +57,7 @@ public final class DoubleType
 
     private DoubleType()
     {
-        super(new TypeSignature(StandardTypes.DOUBLE), double.class);
+        super(new TypeSignature(StandardTypes.DOUBLE), double.class, LongArrayBlock.class);
     }
 
     @Override

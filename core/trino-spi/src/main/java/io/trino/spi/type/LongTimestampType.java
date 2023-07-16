@@ -17,6 +17,7 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.Fixed12BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
@@ -61,7 +62,7 @@ class LongTimestampType
 
     public LongTimestampType(int precision)
     {
-        super(precision, LongTimestamp.class);
+        super(precision, LongTimestamp.class, Fixed12Block.class);
 
         if (precision < MAX_SHORT_PRECISION + 1 || precision > MAX_PRECISION) {
             throw new IllegalArgumentException(format("Precision must be in the range [%s, %s]", MAX_SHORT_PRECISION + 1, MAX_PRECISION));

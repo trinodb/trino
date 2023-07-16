@@ -19,6 +19,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.block.ShortArrayBlock;
 import io.trino.spi.block.ShortArrayBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.FlatFixed;
@@ -56,7 +57,7 @@ public final class SmallintType
 
     private SmallintType()
     {
-        super(new TypeSignature(StandardTypes.SMALLINT), long.class);
+        super(new TypeSignature(StandardTypes.SMALLINT), long.class, ShortArrayBlock.class);
     }
 
     @Override

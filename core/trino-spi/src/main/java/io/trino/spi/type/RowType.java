@@ -18,6 +18,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
@@ -127,7 +128,7 @@ public class RowType
 
     private RowType(TypeSignature typeSignature, List<Field> originalFields)
     {
-        super(typeSignature, SqlRow.class);
+        super(typeSignature, SqlRow.class, RowBlock.class);
 
         this.fields = List.copyOf(originalFields);
         this.fieldTypes = fields.stream()

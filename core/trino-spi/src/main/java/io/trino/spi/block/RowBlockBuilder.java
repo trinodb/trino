@@ -164,6 +164,16 @@ public class RowBlockBuilder
         if (!hasNonNullRow) {
             return nullRle(positionCount);
         }
+        return buildValueBlock();
+    }
+
+    @Override
+    public RowBlock buildValueBlock()
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Current entry must be closed before the block can be built");
+        }
+
         Block[] fieldBlocks = new Block[fieldBlockBuilders.length];
         for (int i = 0; i < fieldBlockBuilders.length; i++) {
             fieldBlocks[i] = fieldBlockBuilders[i].build();
