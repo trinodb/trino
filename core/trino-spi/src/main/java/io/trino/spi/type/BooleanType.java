@@ -67,7 +67,7 @@ public final class BooleanType
 
     private BooleanType()
     {
-        super(new TypeSignature(StandardTypes.BOOLEAN), boolean.class);
+        super(new TypeSignature(StandardTypes.BOOLEAN), boolean.class, ByteArrayBlock.class);
     }
 
     @Override

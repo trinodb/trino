@@ -18,6 +18,7 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.function.FlatFixed;
@@ -49,7 +50,7 @@ public abstract class AbstractLongType
 
     public AbstractLongType(TypeSignature signature)
     {
-        super(signature, long.class);
+        super(signature, long.class, LongArrayBlock.class);
     }
 
     @Override

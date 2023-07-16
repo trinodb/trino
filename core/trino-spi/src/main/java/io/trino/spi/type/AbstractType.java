@@ -16,6 +16,7 @@ package io.trino.spi.type;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 
 import java.util.List;
 
@@ -24,11 +25,13 @@ public abstract class AbstractType
 {
     private final TypeSignature signature;
     private final Class<?> javaType;
+    private final Class<? extends ValueBlock> valueBlockType;
 
-    protected AbstractType(TypeSignature signature, Class<?> javaType)
+    protected AbstractType(TypeSignature signature, Class<?> javaType, Class<? extends ValueBlock> valueBlockType)
     {
         this.signature = signature;
         this.javaType = javaType;
+        this.valueBlockType = valueBlockType;
     }
 
     @Override
@@ -47,6 +50,12 @@ public abstract class AbstractType
     public final Class<?> getJavaType()
     {
         return javaType;
+    }
+
+    @Override
+    public Class<? extends ValueBlock> getValueBlockType()
+    {
+        return valueBlockType;
     }
 
     @Override

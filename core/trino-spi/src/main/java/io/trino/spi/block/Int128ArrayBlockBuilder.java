@@ -90,6 +90,12 @@ public class Int128ArrayBlockBuilder
         if (!hasNonNullValue) {
             return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
+        return buildValueBlock();
+    }
+
+    @Override
+    public Int128ArrayBlock buildValueBlock()
+    {
         return new Int128ArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 
