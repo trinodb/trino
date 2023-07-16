@@ -233,7 +233,7 @@ public class UuidType
     }
 
     @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean equalOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return equal(
                 leftBlock.getLong(leftPosition, 0),
@@ -254,7 +254,7 @@ public class UuidType
     }
 
     @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    private static long xxHash64Operator(@BlockPosition Int128ArrayBlock block, @BlockIndex int position)
     {
         return xxHash64(block.getLong(position, 0), block.getLong(position, SIZE_OF_LONG));
     }
@@ -275,7 +275,7 @@ public class UuidType
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static long comparisonOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return compareLittleEndian(
                 leftBlock.getLong(leftPosition, 0),

@@ -19,6 +19,7 @@ import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
@@ -149,7 +150,7 @@ public final class KdbTreeType
 
     @ScalarOperator(READ_VALUE)
     private static void writeBlockToFlat(
-            @BlockPosition Block block,
+            @BlockPosition VariableWidthBlock block,
             @BlockIndex int position,
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
