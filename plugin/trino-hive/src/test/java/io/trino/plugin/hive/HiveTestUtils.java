@@ -34,6 +34,7 @@ import io.trino.hdfs.s3.HiveS3Config;
 import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
+import io.trino.plugin.hive.avro.AvroPageSourceFactory;
 import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
@@ -209,6 +210,7 @@ public final class HiveTestUtils
                 .add(new RegexPageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new SimpleTextFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new SimpleSequenceFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
+                .add(new AvroPageSourceFactory(fileSystemFactory, stats))
                 .add(new RcFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
