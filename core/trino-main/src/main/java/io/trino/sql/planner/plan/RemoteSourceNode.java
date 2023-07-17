@@ -117,4 +117,15 @@ public class RemoteSourceNode
         checkArgument(newChildren.isEmpty(), "newChildren is not empty");
         return this;
     }
+
+    public RemoteSourceNode withSourceFragmentIds(List<PlanFragmentId> sourceFragmentIds)
+    {
+        return new RemoteSourceNode(
+                this.getId(),
+                sourceFragmentIds,
+                this.getOutputSymbols(),
+                this.getOrderingScheme(),
+                this.getExchangeType(),
+                this.getRetryPolicy());
+    }
 }

@@ -60,6 +60,12 @@ public class FaultTolerantPartitioningSchemeFactory
             result = create(handle, partitionCount);
             cache.put(handle, result);
         }
+        else if (partitionCount.isPresent()) {
+            // With runtime adaptive partitioning, it's no longer guaranteed that the same handle will always map to
+            // the same partition count. Therefore, use the supplied `partitionCount` as the source of truth.
+            result = result.withPartitionCount(partitionCount.get());
+        }
+
         return result;
     }
 

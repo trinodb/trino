@@ -28,6 +28,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.QueryManagerConfig.AVAILABLE_HEAP_MEMORY;
+import static io.trino.execution.QueryManagerConfig.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -98,6 +99,9 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMaxPartitionCount(50)
                 .setFaultTolerantExecutionMinPartitionCount(4)
                 .setFaultTolerantExecutionMinPartitionCountForWrite(50)
+                .setFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(false)
+                .setFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(DataSize.of(12, GIGABYTE))
+                .setFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT)
                 .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(true)
                 .setFaultTolerantExecutionMinSourceStageProgress(0.2)
                 .setFaultTolerantExecutionSmallStageEstimationEnabled(true)
@@ -170,6 +174,9 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-max-partition-count", "123")
                 .put("fault-tolerant-execution-min-partition-count", "12")
                 .put("fault-tolerant-execution-min-partition-count-for-write", "99")
+                .put("fault-tolerant-execution-runtime-adaptive-partitioning-enabled", "true")
+                .put("fault-tolerant-execution-runtime-adaptive-partitioning-partition-count", "888")
+                .put("fault-tolerant-execution-runtime-adaptive-partitioning-max-task-size", "18GB")
                 .put("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled", "false")
                 .put("fault-tolerant-execution-min-source-stage-progress", "0.3")
                 .put("query.max-writer-task-count", "101")
@@ -239,6 +246,9 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMaxPartitionCount(123)
                 .setFaultTolerantExecutionMinPartitionCount(12)
                 .setFaultTolerantExecutionMinPartitionCountForWrite(99)
+                .setFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(true)
+                .setFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(888)
+                .setFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(DataSize.of(18, GIGABYTE))
                 .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(false)
                 .setFaultTolerantExecutionMinSourceStageProgress(0.3)
                 .setFaultTolerantExecutionSmallStageEstimationEnabled(false)

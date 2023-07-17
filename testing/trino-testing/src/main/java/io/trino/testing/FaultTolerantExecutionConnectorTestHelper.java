@@ -49,4 +49,14 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 .put("query.schedule-split-batch-size", "2")
                 .buildOrThrow();
     }
+
+    public static Map<String, String> enforceRuntimeAdaptivePartitioningProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("fault-tolerant-execution-runtime-adaptive-partitioning-enabled", "true")
+                .put("fault-tolerant-execution-runtime-adaptive-partitioning-partition-count", "40")
+                // to ensure runtime adaptive partitioning is triggered
+                .put("fault-tolerant-execution-runtime-adaptive-partitioning-max-task-size", "1B")
+                .buildOrThrow();
+    }
 }
