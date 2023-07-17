@@ -1711,12 +1711,9 @@ public abstract class BaseJdbcConnectorTest
                     "INSERT INTO " + table.getName() + " (a, b) SELECT clerk, orderkey FROM tpch.sf100.orders LIMIT " + numberOfRows,
                     WarningCollector.NOOP,
                     createPlanOptimizersStatsCollector());
-            TableWriterNode.WriterTarget target = searchFrom(plan.getRoot())
+            TableWriterNode.WriterTarget target = ((TableWriterNode) searchFrom(plan.getRoot())
                     .where(node -> node instanceof TableWriterNode)
-                    .findFirst()
-                    .map(TableWriterNode.class::cast)
-                    .map(TableWriterNode::getTarget)
-                    .orElseThrow();
+                    .findOnlyElement()).getTarget();
 
             assertThat(target.getMaxWriterTasks(getQueryRunner().getMetadata(), getSession()))
                     .hasValue(parallelism);
