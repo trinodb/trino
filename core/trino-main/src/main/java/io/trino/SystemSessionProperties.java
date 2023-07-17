@@ -187,6 +187,9 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT = "fault_tolerant_execution_max_partition_count";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT = "fault_tolerant_execution_min_partition_count";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE = "fault_tolerant_execution_min_partition_count_for_write";
+    public static final String FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_ENABLED = "fault_tolerant_execution_runtime_adaptive_partitioning_enabled";
+    public static final String FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_PARTITION_COUNT = "fault_tolerant_execution_runtime_adaptive_partitioning_partition_count";
+    public static final String FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_MAX_TASK_SIZE = "fault_tolerant_execution_runtime_adaptive_partitioning_max_task_size";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS = "fault_tolerant_execution_min_source_stage_progress";
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_ENABLED = "fault_tolerant_execution_small_stage_estimation_enabled";
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_THRESHOLD = "fault_tolerant_execution_small_stage_estimation_threshold";
@@ -949,6 +952,22 @@ public final class SystemSessionProperties
                         queryManagerConfig.getFaultTolerantExecutionMinPartitionCountForWrite(),
                         value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
                         false),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_ENABLED,
+                        "Enables change of number of partitions at runtime when intermediate data size is large",
+                        queryManagerConfig.isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(),
+                        true),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_PARTITION_COUNT,
+                        "The partition count to use for runtime adaptive partitioning when enabled",
+                        queryManagerConfig.getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(),
+                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_PARTITION_COUNT, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_MAX_TASK_SIZE,
+                        "Max average task input size when deciding runtime adaptive partitioning",
+                        queryManagerConfig.getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(),
+                        true),
                 doubleProperty(
                         FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS,
                         "Minimal progress of source stage to consider scheduling of parent stage",
@@ -1788,6 +1807,21 @@ public final class SystemSessionProperties
     public static int getFaultTolerantExecutionMinPartitionCountForWrite(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, Integer.class);
+    }
+
+    public static boolean isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_ENABLED, Boolean.class);
+    }
+
+    public static int getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_PARTITION_COUNT, Integer.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_MAX_TASK_SIZE, DataSize.class);
     }
 
     public static double getFaultTolerantExecutionMinSourceStageProgress(Session session)

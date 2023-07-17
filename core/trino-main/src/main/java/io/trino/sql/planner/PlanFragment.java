@@ -284,4 +284,49 @@ public class PlanFragment
                 .add("outputPartitioningScheme", outputPartitioningScheme)
                 .toString();
     }
+
+    public PlanFragment withPartitionCount(Optional<Integer> partitionCount)
+    {
+        return new PlanFragment(
+                this.id,
+                this.root,
+                this.symbols,
+                this.partitioning,
+                partitionCount,
+                this.partitionedSources,
+                this.outputPartitioningScheme,
+                this.statsAndCosts,
+                this.activeCatalogs,
+                this.jsonRepresentation);
+    }
+
+    public PlanFragment withOutputPartitioningScheme(PartitioningScheme outputPartitioningScheme)
+    {
+        return new PlanFragment(
+                this.id,
+                this.root,
+                this.symbols,
+                this.partitioning,
+                this.partitionCount,
+                this.partitionedSources,
+                outputPartitioningScheme,
+                this.statsAndCosts,
+                this.activeCatalogs,
+                this.jsonRepresentation);
+    }
+
+    public PlanFragment withRoot(PlanNode root)
+    {
+        return new PlanFragment(
+                this.id,
+                root,
+                this.symbols,
+                this.partitioning,
+                this.partitionCount,
+                this.partitionedSources,
+                this.outputPartitioningScheme,
+                this.statsAndCosts,
+                this.activeCatalogs,
+                this.jsonRepresentation);
+    }
 }

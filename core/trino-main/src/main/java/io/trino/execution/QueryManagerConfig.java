@@ -131,6 +131,11 @@ public class QueryManagerConfig
     private int faultTolerantExecutionMaxPartitionCount = 50;
     private int faultTolerantExecutionMinPartitionCount = 4;
     private int faultTolerantExecutionMinPartitionCountForWrite = 50;
+    private boolean faultTolerantExecutionRuntimeAdaptivePartitioningEnabled;
+    private int faultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount = FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT;
+    // Currently, initial setup is 5GB of task memory processing 4GB data. Given that we triple the memory in case of
+    // task OOM, max task size is set to 12GB such that tasks of stages below threshold will succeed within one retry.
+    private DataSize faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize = DataSize.of(12, GIGABYTE);
     private boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled = true;
     private double faultTolerantExecutionMinSourceStageProgress = 0.2;
 
@@ -962,6 +967,46 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionMinPartitionCountForWrite(int faultTolerantExecutionMinPartitionCountForWrite)
     {
         this.faultTolerantExecutionMinPartitionCountForWrite = faultTolerantExecutionMinPartitionCountForWrite;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled()
+    {
+        return faultTolerantExecutionRuntimeAdaptivePartitioningEnabled;
+    }
+
+    @Config("fault-tolerant-execution-runtime-adaptive-partitioning-enabled")
+    public QueryManagerConfig setFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(boolean faultTolerantExecutionRuntimeAdaptivePartitioningEnabled)
+    {
+        this.faultTolerantExecutionRuntimeAdaptivePartitioningEnabled = faultTolerantExecutionRuntimeAdaptivePartitioningEnabled;
+        return this;
+    }
+
+    @Min(1)
+    @Max(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT)
+    public int getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount()
+    {
+        return faultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount;
+    }
+
+    @Config("fault-tolerant-execution-runtime-adaptive-partitioning-partition-count")
+    @ConfigDescription("The partition count to use for runtime adaptive partitioning when enabled")
+    public QueryManagerConfig setFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(int faultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount)
+    {
+        this.faultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount = faultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount;
+        return this;
+    }
+
+    public DataSize getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize()
+    {
+        return faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize;
+    }
+
+    @Config("fault-tolerant-execution-runtime-adaptive-partitioning-max-task-size")
+    @ConfigDescription("Max average task input size when deciding runtime adaptive partitioning")
+    public QueryManagerConfig setFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(DataSize faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize)
+    {
+        this.faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize = faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize;
         return this;
     }
 
