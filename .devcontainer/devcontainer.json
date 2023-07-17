@@ -5,53 +5,32 @@
     "build": {
         "dockerfile": "Dockerfile",
         "args": {
-            // Update the VARIANT arg to pick a Java version: 11, 15
-            "VARIANT": "17",
-            // Options
-            "INSTALL_ZSH": "false",
-            "UPGRADE_PACKAGES": "false",
-            "ENABLE_NONROOT_DOCKER": "true",
-            "USE_MOBY": "true",
-            // Version of the Trino CLI to install
-            "TRINO_VERSION": "400"
+            "BASE_IMAGE_TAG": "420_feature_new-dev-environment"
         }
     },
     "runArgs": [
         "--init",
         "--privileged"
     ],
-    "initializeCommand": "mkdir -p ${env:HOME}/.m2 && mkdir -p ${env:HOME}/scratch && mkdir -p ${env:HOME}/.devcontainers/ && touch ${env:HOME}/.devcontainers/trino-bashhistory && WORK_DIR=${localWorkspaceFolder}/.devcontainer/.work && rm -rf $WORK_DIR && mkdir -p $WORK_DIR && cp /etc/ssl/certs/ssl_proxy_corp_cse-cst_gc_ca.pem $WORK_DIR/ssl_proxy_corp_cse-cst_gc_ca.crt",
     "mounts": [
-        "source=${env:HOME}/.ssh/agent.sock,target=/usr/local/share/ssh-agent.sock,type=bind",
-        "source=${env:HOME}/.devcontainers/trino-bashhistory,target=/usr/local/share/bash_history,type=bind",
-        "source=${env:HOME}/scratch,target=${containerWorkspaceFolder}/scratch,type=bind",
-        "source=trino-dind-var-lib-docker,target=/var/lib/docker,type=volume",
-        "source=${env:HOME}/.m2,target=/usr/local/share/m2,type=bind"
+        "source=trino-dind-var-lib-docker,target=/var/lib/docker,type=volume"
     ],
-    "remoteEnv": {
-        "SSH_AUTH_SOCK": "/usr/local/share/ssh-agent.sock",
-        "HISTFILE": "/usr/local/share/bash_history",
-        "PROMPT_COMMAND": "history -a"
+    "customizations": {
+        "vscode": {
+            // Set *default* container specific settings.json values on container create.
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "java.progressReports.enabled": false
+            },
+            // Add the IDs of extensions you want installed when the container is created.
+            "extensions": [
+                "eamodio.gitlens",
+                "ms-azuretools.vscode-docker",
+                "ms-vscode.azurecli",
+                "vscjava.vscode-java-pack"
+            ]
+        }
     },
-    "workspaceMount": "source=${localWorkspaceFolder},target=${containerWorkspaceFolder}/trino,type=bind,consistency=cached",
-    "workspaceFolder": "/workspace",
-    // Set *default* container specific settings.json values on container create.
-    "settings": {
-        "terminal.integrated.cwd": "${containerWorkspaceFolder}/trino",
-        "terminal.integrated.defaultProfile.linux": "bash",
-        "java.progressReports.enabled": false,
-        "java.home": "/docker-java-home"
-    },
-    // Add the IDs of extensions you want installed when the container is created.
-    "extensions": [
-        "eamodio.gitlens",
-        "ms-azuretools.vscode-docker",
-        "ms-vscode.azurecli",
-        "vscjava.vscode-java-pack"
-    ],
     "overrideCommand": false,
-    // Use 'forwardPorts' to make a list of ports inside the container available locally.
-    // "forwardPorts": [],
-    // Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
     "remoteUser": "vscode"
 }

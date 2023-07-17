@@ -1,0 +1,55 @@
+trigger:
+  batch: true
+  branches:
+    include:
+      - cccs-main
+  paths:
+    include:
+      - cccs-build
+
+variables:
+  containerRegistry: uchimera
+  imageRepository: cccs/dev/trino-build
+  buildTimestamp: $[format('{0:yyyyMMddHHmmss}', pipeline.startTime)]
+  baseImageTag: 22-jdk-jammy
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - bash: |
+      BRANCH_NAME=$(echo "$SYSTEM_PULLREQUEST_SOURCEBRANCH $BUILD_SOURCEBRANCH" | sed -r 's/^\s*(refs\/heads\/)?(\S*).*$/\2/' | sed 's/\//_/g')
+      echo "##vso[task.setvariable variable=BRANCH_NAME]$BRANCH_NAME"
+      TRINO_VERSION=$(./mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)
+      echo "##vso[task.setvariable variable=TRINO_VERSION]$TRINO_VERSION"
+    displayName: Parse Required Variables
+  - task: Docker@2
+    displayName: Build Image ${{ variables.imageRepository }}
+    inputs:
+      command: build
+      containerRegistry: ${{ variables.containerRegistry }}
+      repository: ${{ variables.imageRepository }}
+      arguments: --build-arg TRINO_VERSION=$(TRINO_VERSION) --build-arg BASE_IMAGE_TAG=$(baseImageTag)
+      tags: |
+        $(TRINO_VERSION)_$(BRANCH_NAME)
+        $(TRINO_VERSION)_$(BRANCH_NAME)_$(buildTimestamp)_b$(Build.BuildId)
+  - task: Docker@2
+    displayName: Login to ${{ variables.containerRegistry }}
+    inputs:
+      command: login
+      containerRegistry: ${{ variables.containerRegistry }}
+  - task: Docker@2
+    displayName: Push ${{ variables.imageRepository }} to ${{ variables.containerRegistry }}
+    inputs:
+      command: push
+      containerRegistry: ${{ variables.containerRegistry }}
+      repository: ${{ variables.imageRepository }}
+      tags: |
+        $(TRINO_VERSION)_$(BRANCH_NAME)
+        $(TRINO_VERSION)_$(BRANCH_NAME)_$(buildTimestamp)_b$(Build.BuildId)
+  - task: Docker@2
+    displayName: Logout of ${{ variables.containerRegistry }}
+    inputs:
+      command: logout
+      containerRegistry: ${{ variables.containerRegistry }}
+    condition: always()
