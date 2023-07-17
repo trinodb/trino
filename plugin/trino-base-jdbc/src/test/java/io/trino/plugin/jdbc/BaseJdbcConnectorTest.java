@@ -16,9 +16,11 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -60,6 +62,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_ENABLED;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
@@ -1703,17 +1706,20 @@ public abstract class BaseJdbcConnectorTest
                 getQueryRunner()::execute,
                 "write_parallelism",
                 "(a varchar(128), b bigint)")) {
-            assertUpdate(session, "INSERT INTO " + table.getName() + " (a, b) SELECT clerk, orderkey FROM tpch.sf100.orders LIMIT " + numberOfRows, numberOfRows, plan -> {
-                TableWriterNode.WriterTarget target = searchFrom(plan.getRoot())
-                        .where(node -> node instanceof TableWriterNode)
-                        .findFirst()
-                        .map(TableWriterNode.class::cast)
-                        .map(TableWriterNode::getTarget)
-                        .orElseThrow();
+            Plan plan = getQueryRunner().createPlan(
+                    session,
+                    "INSERT INTO " + table.getName() + " (a, b) SELECT clerk, orderkey FROM tpch.sf100.orders LIMIT " + numberOfRows,
+                    WarningCollector.NOOP,
+                    createPlanOptimizersStatsCollector());
+            TableWriterNode.WriterTarget target = searchFrom(plan.getRoot())
+                    .where(node -> node instanceof TableWriterNode)
+                    .findFirst()
+                    .map(TableWriterNode.class::cast)
+                    .map(TableWriterNode::getTarget)
+                    .orElseThrow();
 
-                assertThat(target.getMaxWriterTasks(getQueryRunner().getMetadata(), getSession()))
-                        .hasValue(parallelism);
-            });
+            assertThat(target.getMaxWriterTasks(getQueryRunner().getMetadata(), getSession()))
+                    .hasValue(parallelism);
         }
     }
 
