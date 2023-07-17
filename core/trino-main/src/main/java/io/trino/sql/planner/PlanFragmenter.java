@@ -35,6 +35,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
+import io.trino.sql.planner.plan.ChooseAlternativeNode.FilteredTableScan;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -407,6 +409,22 @@ public class PlanFragmenter
         }
 
         @Override
+        public PlanNode visitChooseAlternativeNode(ChooseAlternativeNode node, RewriteContext<FragmentProperties> context)
+        {
+            // partitioning shouldn't change when creating alternatives, therefore the original table's partitioning should fit all alternatives
+            TableScanNode scan = node.getOriginalTableScan().tableScanNode();
+            PartitioningHandle partitioning = metadata.getTableProperties(session, scan.getTable())
+                    .getTablePartitioning()
+                    .filter(value -> scan.isUseConnectorNodePartitioning())
+                    .map(TablePartitioning::getPartitioningHandle)
+                    .orElse(SOURCE_DISTRIBUTION);
+            context.get().addSourceDistribution(node.getId(), partitioning, metadata, session);
+
+            // stop the process in order not to add the underlying TableScanNodes as well
+            return node;
+        }
+
+        @Override
         public PlanNode visitExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
         {
             if (exchange.getScope() != REMOTE) {
@@ -685,7 +703,7 @@ public class PlanFragmenter
         }
 
         @Override
-        public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
+        public TableScanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
             PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
                     .getTablePartitioning()
@@ -709,6 +727,17 @@ public class PlanFragmenter
                     // plan was already fragmented with scan node's partitioning
                     // and new partitioning is compatible with previous one
                     node.getUseConnectorNodePartitioning());
+        }
+
+        @Override
+        public PlanNode visitChooseAlternativeNode(ChooseAlternativeNode node, RewriteContext<Void> context)
+        {
+            List<PlanNode> newAlternatives = node.getSources().stream()
+                    .map(alternative -> context.defaultRewrite(alternative, context.get()))
+                    .toList();
+            TableScanNode newTableScan = visitTableScan(node.getOriginalTableScan().tableScanNode(), context);
+            FilteredTableScan newFilteredTableScan = new FilteredTableScan(newTableScan, node.getOriginalTableScan().filterPredicate());
+            return new ChooseAlternativeNode(node.getId(), newAlternatives, newFilteredTableScan);
         }
     }
 }
