@@ -33,6 +33,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
@@ -46,7 +47,9 @@ public class ShortDecimalColumnReader
         super(field);
         this.parquetDecimalType = requireNonNull(parquetDecimalType, "parquetDecimalType is null");
         int typeLength = field.getDescriptor().getPrimitiveType().getTypeLength();
-        checkArgument(typeLength <= 16, "Type length %s should be <= 16 for short decimal column %s", typeLength, field.getDescriptor());
+        checkArgument(!(field.getDescriptor().getPrimitiveType().getPrimitiveTypeName() == FIXED_LEN_BYTE_ARRAY && typeLength > 16),
+                String.format("For the short decimal column %s, the type length %s should be at most %s",
+                        field.getDescriptor(), typeLength, 16));
     }
 
     @Override
