@@ -48,11 +48,10 @@ public final class OracleQueryRunner
 
     private static final Logger LOG = Logger.get(OracleQueryRunner.class);
 
-    private static final String ORACLE_CATALOG = "oracle";
-
     private OracleQueryRunner() {}
 
     private static QueryRunner createOracleQueryRunner(
+            String catalogName,
             boolean unlockEnterpriseFeatures,
             Plugin licensedPlugin,
             Map<String, String> connectorProperties,
@@ -64,7 +63,7 @@ public final class OracleQueryRunner
             Runnable provisionTables)
             throws Exception
     {
-        Session session = sessionModifier.apply(createSession(ALICE_USER));
+        Session session = sessionModifier.apply(createSession(ALICE_USER, catalogName));
         QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(nodesCount)
                 .setCoordinatorProperties(coordinatorProperties)
@@ -83,12 +82,12 @@ public final class OracleQueryRunner
                 queryRunner.installPlugin(licensedPlugin);
             }
 
-            queryRunner.createCatalog(ORACLE_CATALOG, ORACLE_CATALOG, connectorProperties);
+            queryRunner.createCatalog(catalogName, "oracle", connectorProperties);
 
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx", ImmutableMap.of());
 
-            provisionTables(session, queryRunner, tables);
+            provisionTables(session, catalogName, queryRunner, tables);
 
             provisionTables.run();
         }
@@ -99,9 +98,9 @@ public final class OracleQueryRunner
         return queryRunner;
     }
 
-    private static synchronized void provisionTables(Session session, QueryRunner queryRunner, Iterable<TpchTable<?>> tables)
+    private static synchronized void provisionTables(Session session, String catalogName, QueryRunner queryRunner, Iterable<TpchTable<?>> tables)
     {
-        Set<String> existingTables = queryRunner.listTables(session, ORACLE_CATALOG, session.getSchema().orElse(USER)).stream()
+        Set<String> existingTables = queryRunner.listTables(session, catalogName, session.getSchema().orElse(USER)).stream()
                 .map(QualifiedObjectName::getObjectName)
                 .collect(toImmutableSet());
 
@@ -112,14 +111,19 @@ public final class OracleQueryRunner
 
     public static Session createSession(String user)
     {
-        return createSession(user, USER);
+        return createSession(user, "oracle", USER);
     }
 
-    public static Session createSession(String user, String schema)
+    public static Session createSession(String user, String catalogName)
+    {
+        return createSession(user, catalogName, USER);
+    }
+
+    public static Session createSession(String user, String catalogName, String schemaName)
     {
         return testSessionBuilder()
-                .setCatalog(ORACLE_CATALOG)
-                .setSchema(schema)
+                .setCatalog(catalogName)
+                .setSchema(schemaName)
                 .setIdentity(Identity.ofUser(user))
                 .build();
     }
@@ -131,6 +135,7 @@ public final class OracleQueryRunner
 
     public static class Builder
     {
+        private String catalogName = "oracle";
         private boolean unlockEnterpriseFeatures;
         private Plugin licensedPlugin = new StarburstOraclePlugin(NOOP_LICENSE_MANAGER);
         private Map<String, String> connectorProperties;
@@ -147,6 +152,12 @@ public final class OracleQueryRunner
                     .putAll(oracleServer.get().connectionProperties())
                     .buildOrThrow();
             createUsers = () -> OracleTestUsers.createStandardUsers(oracleServer.get());
+        }
+
+        public Builder withCatalogName(String catalogName)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            return this;
         }
 
         public Builder withUnlockEnterpriseFeatures(boolean unlockEnterpriseFeatures)
@@ -207,7 +218,17 @@ public final class OracleQueryRunner
         public QueryRunner build()
                 throws Exception
         {
-            return createOracleQueryRunner(unlockEnterpriseFeatures, licensedPlugin, connectorProperties, sessionModifier, tables, nodesCount, coordinatorProperties, createUsers, provisionTables);
+            return createOracleQueryRunner(
+                    catalogName,
+                    unlockEnterpriseFeatures,
+                    licensedPlugin,
+                    connectorProperties,
+                    sessionModifier,
+                    tables,
+                    nodesCount,
+                    coordinatorProperties,
+                    createUsers,
+                    provisionTables);
         }
     }
 
