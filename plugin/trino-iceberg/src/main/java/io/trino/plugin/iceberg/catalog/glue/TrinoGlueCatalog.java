@@ -71,6 +71,7 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.FileIO;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -412,7 +413,7 @@ public class TrinoGlueCatalog
     public void registerTable(ConnectorSession session, SchemaTableName schemaTableName, TableMetadata tableMetadata)
             throws TrinoException
     {
-        TableInput tableInput = getTableInput(schemaTableName.getTableName(), Optional.of(session.getUser()), ImmutableMap.of(METADATA_LOCATION_PROP, tableMetadata.metadataFileLocation()));
+        TableInput tableInput = getTableInput(schemaTableName.getTableName(), Optional.of(session.getUser()), tableMetadata, tableMetadata.metadataFileLocation(), ImmutableMap.of());
         createTable(schemaTableName.getSchemaName(), tableInput);
     }
 
@@ -446,7 +447,14 @@ public class TrinoGlueCatalog
         try {
             com.amazonaws.services.glue.model.Table table = getTable(session, from)
                     .orElseThrow(() -> new TableNotFoundException(from));
-            TableInput tableInput = getTableInput(to.getTableName(), Optional.ofNullable(table.getOwner()), getTableParameters(table));
+            Map<String, String> tableParameters = new HashMap<>(getTableParameters(table));
+            FileIO io = loadTable(session, from).io();
+            String metadataLocation = tableParameters.remove(METADATA_LOCATION_PROP);
+            if (metadataLocation == null) {
+                throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table %s is missing [%s] property", from, METADATA_LOCATION_PROP));
+            }
+            TableMetadata metadata = TableMetadataParser.read(io, io.newInputFile(metadataLocation));
+            TableInput tableInput = getTableInput(to.getTableName(), Optional.ofNullable(table.getOwner()), metadata, metadataLocation, tableParameters);
             CreateTableRequest createTableRequest = new CreateTableRequest()
                     .withDatabaseName(to.getSchemaName())
                     .withTableInput(tableInput);
