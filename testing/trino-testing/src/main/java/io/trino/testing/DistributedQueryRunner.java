@@ -817,7 +817,7 @@ public class DistributedQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            String tracingEnabled = firstNonNull(getenv("TRACING"), "false");
+            String tracingEnabled = firstNonNull(getenv("TESTS_TRACING_ENABLED"), "false");
             if (parseBoolean(tracingEnabled) || tracingEnabled.equals("1")) {
                 withTracing();
             }
