@@ -15,6 +15,7 @@ package io.trino.spi.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
@@ -40,6 +41,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -511,6 +514,10 @@ public final class TypeOperatorDeclaration
                 default:
                     throw new UnsupportedOperationException("Unknown return convention: " + returnConvention);
             }
+
+            if (operatorMethodHandle.getCallingConvention().getArgumentConventions().stream().anyMatch(argumentConvention -> argumentConvention == BLOCK_POSITION || argumentConvention == BLOCK_POSITION_NOT_NULL)) {
+                throw new IllegalArgumentException("BLOCK_POSITION argument convention is not allowed for type operators");
+            }
         }
 
         private static InvocationConvention parseInvocationConvention(OperatorType operatorType, Class<?> typeJavaType, Method method, Class<?> expectedReturnType)
@@ -582,11 +589,11 @@ public final class TypeOperatorDeclaration
         {
             if (isAnnotationPresent(parameterAnnotations.get(0), BlockPosition.class)) {
                 if (parameterTypes.size() > 1 && isAnnotationPresent(parameterAnnotations.get(1), BlockIndex.class)) {
-                    if (!Block.class.isAssignableFrom(parameterTypes.get(0))) {
-                        throw new IllegalArgumentException("@BlockPosition argument must be a ValueBlock type");
+                    if (!ValueBlock.class.isAssignableFrom(parameterTypes.get(0))) {
+                        throw new IllegalArgumentException("@BlockPosition argument must be a ValueBlock type for %s operator: %s".formatted(operatorType, method));
                     }
                     if (parameterTypes.get(1) != int.class) {
-                        throw new IllegalArgumentException("@BlockIndex argument must be type int");
+                        throw new IllegalArgumentException("@BlockIndex argument must be type int for %s operator: %s".formatted(operatorType, method));
                     }
                     return isAnnotationPresent(parameterAnnotations.get(0), SqlNullable.class) ? VALUE_BLOCK_POSITION : VALUE_BLOCK_POSITION_NOT_NULL;
                 }
