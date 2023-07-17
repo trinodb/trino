@@ -22,6 +22,7 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.TypeManager;
 
 import java.util.Optional;
 
@@ -30,16 +31,22 @@ import static java.util.Objects.requireNonNull;
 public class GlueIcebergTableOperationsProvider
         implements IcebergTableOperationsProvider
 {
+    private final TypeManager typeManager;
+    private final boolean cacheTableMetadata;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final AWSGlueAsync glueClient;
     private final GlueMetastoreStats stats;
 
     @Inject
     public GlueIcebergTableOperationsProvider(
+            TypeManager typeManager,
+            IcebergGlueCatalogConfig catalogConfig,
             TrinoFileSystemFactory fileSystemFactory,
             GlueMetastoreStats stats,
             AWSGlueAsync glueClient)
     {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.cacheTableMetadata = catalogConfig.isCacheTableMetadata();
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
@@ -55,8 +62,13 @@ public class GlueIcebergTableOperationsProvider
             Optional<String> location)
     {
         return new GlueIcebergTableOperations(
+                typeManager,
+                cacheTableMetadata,
                 glueClient,
                 stats,
+                // Share Glue Table cache between Catalog and TableOperations so that, when doing metadata queries (e.g. information_schema.columns)
+                // the GetTableRequest is issued once per table.
+                ((TrinoGlueCatalog) catalog)::getTable,
                 new ForwardingFileIo(fileSystemFactory.create(session)),
                 session,
                 database,

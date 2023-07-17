@@ -52,6 +52,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -126,7 +127,8 @@ public class TestIcebergGlueCatalogSkipArchive
             String metadataLocation = tableParameters.remove(METADATA_LOCATION_PROP);
             FileIO io = new ForwardingFileIo(getFileSystemFactory(getDistributedQueryRunner()).create(SESSION));
             TableMetadata metadata = TableMetadataParser.read(io, io.newInputFile(metadataLocation));
-            TableInput tableInput = getTableInput(table.getName(), Optional.empty(), metadata, metadataLocation, tableParameters);
+            boolean cacheTableMetadata = new IcebergGlueCatalogConfig().isCacheTableMetadata();
+            TableInput tableInput = getTableInput(TESTING_TYPE_MANAGER, table.getName(), Optional.empty(), metadata, metadataLocation, tableParameters, cacheTableMetadata);
             glueClient.updateTable(new UpdateTableRequest().withDatabaseName(schemaName).withTableInput(tableInput));
             assertThat(getTableVersions(schemaName, table.getName())).hasSize(2);
 
