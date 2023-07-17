@@ -60,6 +60,7 @@ import static java.util.Objects.requireNonNull;
 public class QueryExplainer
 {
     private final List<PlanOptimizer> planOptimizers;
+    private final List<PlanOptimizer> alternativeOptimizers;
     private final PlanFragmenter planFragmenter;
     private final PlannerContext plannerContext;
     private final AnalyzerFactory analyzerFactory;
@@ -70,6 +71,7 @@ public class QueryExplainer
 
     QueryExplainer(
             PlanOptimizersFactory planOptimizersFactory,
+            PlanOptimizersFactory alternativesOptimizersFactory,
             PlanFragmenter planFragmenter,
             PlannerContext plannerContext,
             AnalyzerFactory analyzerFactory,
@@ -79,6 +81,7 @@ public class QueryExplainer
             NodeVersion version)
     {
         this.planOptimizers = requireNonNull(planOptimizersFactory.get(), "planOptimizers is null");
+        this.alternativeOptimizers = requireNonNull(alternativesOptimizersFactory.get(), "alternativeOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
@@ -169,6 +172,7 @@ public class QueryExplainer
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,
                 planOptimizers,
+                alternativeOptimizers,
                 idAllocator,
                 plannerContext,
                 new TypeAnalyzer(plannerContext, statementAnalyzerFactory),

@@ -127,9 +127,10 @@ public class BenchmarkPlanner
     {
         LocalQueryRunner queryRunner = benchmarkData.queryRunner;
         List<PlanOptimizer> planOptimizers = queryRunner.getPlanOptimizers(false);
+        List<PlanOptimizer> alternativeOptimizers = queryRunner.getAlternativeOptimizers();
         PlanOptimizersStatsCollector planOptimizersStatsCollector = createPlanOptimizersStatsCollector();
         return queryRunner.inTransaction(transactionSession -> benchmarkData.queries.getQueries().stream()
-                .map(query -> queryRunner.createPlan(transactionSession, query, planOptimizers, benchmarkData.stage, NOOP, planOptimizersStatsCollector))
+                .map(query -> queryRunner.createPlan(transactionSession, query, planOptimizers, alternativeOptimizers, benchmarkData.stage, NOOP, planOptimizersStatsCollector))
                 .collect(toImmutableList()));
     }
 

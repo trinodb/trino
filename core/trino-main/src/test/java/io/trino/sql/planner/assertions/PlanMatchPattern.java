@@ -35,6 +35,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -140,6 +141,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern anyNot(Class<? extends PlanNode> excludeNodeClass, PlanMatchPattern... sources)
     {
         return any(sources).with(new NotPlanNodeMatcher(excludeNodeClass));
+    }
+
+    public static PlanMatchPattern chooseAlternativeNode(PlanMatchPattern... sources)
+    {
+        return node(ChooseAlternativeNode.class, sources);
     }
 
     public static PlanMatchPattern tableScan(String expectedTableName)

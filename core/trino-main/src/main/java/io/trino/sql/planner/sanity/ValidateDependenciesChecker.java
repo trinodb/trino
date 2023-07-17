@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -333,6 +334,20 @@ public final class ValidateDependenciesChecker
                             source.getOutputSymbols());
                 });
             });
+
+            return null;
+        }
+
+        @Override
+        public Void visitChooseAlternativeNode(ChooseAlternativeNode node, Set<Symbol> boundSymbols)
+        {
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanNode source = node.getSources().get(i);
+                source.accept(this, boundSymbols);
+
+                Set<Symbol> inputs = createInputs(source, boundSymbols);
+                checkDependencies(inputs, node.getOutputSymbols(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputSymbols(), source.getOutputSymbols());
+            }
 
             return null;
         }

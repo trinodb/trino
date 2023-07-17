@@ -178,6 +178,10 @@
                                         <matcher>java</matcher>
                                         <match>@io.trino.spi.Experimental(*) ^*;</match>
                                     </item>
+                                    <item>
+                                        <matcher>java</matcher>
+                                        <match>type io.trino.spi.connector.ConstraintApplicationResult&lt;?&gt; {}</match>
+                                    </item>
                                 </exclude>
                             </elements>
                         </revapi.filter>

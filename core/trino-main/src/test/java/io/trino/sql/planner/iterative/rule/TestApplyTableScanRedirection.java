@@ -180,6 +180,7 @@ public class TestApplyTableScanRedirection
                                 transactionSession,
                                 "SELECT source_col_a FROM test_table",
                                 runner.getPlanOptimizers(true),
+                                runner.getAlternativeOptimizers(),
                                 OPTIMIZED_AND_VALIDATED,
                                 WarningCollector.NOOP,
                                 createPlanOptimizersStatsCollector()))

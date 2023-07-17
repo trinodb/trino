@@ -171,6 +171,7 @@ import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.AlternativesOptimizers;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
@@ -896,7 +897,7 @@ public class LocalQueryRunner
                     .setQueryMaxSpillSize(queryMaxSpillPerNode)
                     .build();
 
-            Plan plan = createPlan(session, sql, getPlanOptimizers(true), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
+            Plan plan = createPlan(session, sql, getPlanOptimizers(true), getAlternativeOptimizers(), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
             List<Driver> drivers = createDrivers(session, plan, outputFactory, taskContext);
             drivers.forEach(closer::register);
 
@@ -964,7 +965,7 @@ public class LocalQueryRunner
     public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
         return inTransaction(session, transactionSession -> {
-            Plan plan = createPlan(transactionSession, sql, getPlanOptimizers(true), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
+            Plan plan = createPlan(transactionSession, sql, getPlanOptimizers(true), getAlternativeOptimizers(), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
             return createDrivers(transactionSession, plan, outputFactory, taskContext);
         });
     }
@@ -1097,7 +1098,12 @@ public class LocalQueryRunner
     @Override
     public Plan createPlan(Session session, @Language("SQL") String sql)
     {
-        return createPlan(session, sql, getPlanOptimizers(true), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
+        return createPlan(session, sql, getPlanOptimizers(true), getAlternativeOptimizers(), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    {
+        return createPlan(session, sql, getPlanOptimizers(forceSingleNode), getAlternativeOptimizers(), stage, warningCollector, planOptimizersStatsCollector);
     }
 
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
@@ -1120,7 +1126,22 @@ public class LocalQueryRunner
                 new RuleStatsRecorder()).get();
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    public List<PlanOptimizer> getAlternativeOptimizers()
+    {
+        return new AlternativesOptimizers(
+                plannerContext,
+                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                statsCalculator,
+                costCalculator,
+                new RuleStatsRecorder()).get();
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, List<PlanOptimizer> alternativeOptimizers, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    {
+        return createPlan(session, sql, optimizers, alternativeOptimizers, OPTIMIZED_AND_VALIDATED, warningCollector, planOptimizersStatsCollector);
+    }
+
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, List<PlanOptimizer> alternativeOptimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         // session must be in a transaction registered with the transaction manager in this query runner
         transactionManager.getTransactionInfo(session.getRequiredTransactionId());
@@ -1142,6 +1163,7 @@ public class LocalQueryRunner
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,
                 optimizers,
+                alternativeOptimizers,
                 new PlanSanityChecker(true),
                 idAllocator,
                 getPlannerContext(),
@@ -1160,6 +1182,7 @@ public class LocalQueryRunner
     {
         return new QueryExplainerFactory(
                 () -> optimizers,
+                ImmutableList::of, // TODO: when alternatives planning is supported by LocalQueryRunner, pass the optimizers
                 planFragmenter,
                 plannerContext,
                 statementAnalyzerFactory,

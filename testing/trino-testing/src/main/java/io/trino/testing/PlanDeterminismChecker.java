@@ -59,7 +59,14 @@ public class PlanDeterminismChecker
     private String getPlanText(Session session, String sql)
     {
         return localQueryRunner.inTransaction(session, transactionSession -> {
-            Plan plan = localQueryRunner.createPlan(transactionSession, sql, localQueryRunner.getPlanOptimizers(true), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
+            Plan plan = localQueryRunner.createPlan(
+                    transactionSession,
+                    sql,
+                    localQueryRunner.getPlanOptimizers(true),
+                    localQueryRunner.getAlternativeOptimizers(),
+                    OPTIMIZED_AND_VALIDATED,
+                    NOOP,
+                    createPlanOptimizersStatsCollector());
             return PlanPrinter.textLogicalPlan(
                     plan.getRoot(),
                     plan.getTypes(),

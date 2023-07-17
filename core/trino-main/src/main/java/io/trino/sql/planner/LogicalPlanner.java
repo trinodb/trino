@@ -21,6 +21,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
@@ -176,6 +177,7 @@ public class LogicalPlanner
 
     private final Session session;
     private final List<PlanOptimizer> planOptimizers;
+    private final List<PlanOptimizer> alternativeOptimizers;
     private final PlanSanityChecker planSanityChecker;
     private final SymbolAllocator symbolAllocator = new SymbolAllocator();
     private final Metadata metadata;
@@ -191,6 +193,7 @@ public class LogicalPlanner
     public LogicalPlanner(
             Session session,
             List<PlanOptimizer> planOptimizers,
+            List<PlanOptimizer> alternativeOptimizers,
             PlanNodeIdAllocator idAllocator,
             PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
@@ -199,12 +202,13 @@ public class LogicalPlanner
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, typeAnalyzer, statsCalculator, costCalculator, warningCollector, planOptimizersStatsCollector);
+        this(session, planOptimizers, alternativeOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, typeAnalyzer, statsCalculator, costCalculator, warningCollector, planOptimizersStatsCollector);
     }
 
     public LogicalPlanner(
             Session session,
             List<PlanOptimizer> planOptimizers,
+            List<PlanOptimizer> alternativeOptimizers,
             PlanSanityChecker planSanityChecker,
             PlanNodeIdAllocator idAllocator,
             PlannerContext plannerContext,
@@ -216,6 +220,7 @@ public class LogicalPlanner
     {
         this.session = requireNonNull(session, "session is null");
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+        this.alternativeOptimizers = requireNonNull(alternativeOptimizers, "alternativeOptimizers is null");
         this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
@@ -274,8 +279,22 @@ public class LogicalPlanner
 
         if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-            try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-final")) {
-                planSanityChecker.validateFinalPlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+            try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-optimized")) {
+                planSanityChecker.validateOptimizedPlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+            }
+        }
+
+        if (SystemSessionProperties.isUseSubPlanAlternatives(session)) {
+            for (PlanOptimizer optimizer : alternativeOptimizers) {
+                try (var ignored = scopedSpan(plannerContext.getTracer(), "alternative-optimizer")) {
+                    root = runOptimizer(root, tableStatsProvider, optimizer);
+                }
+            }
+
+            if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
+                try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-alternatives")) {
+                    planSanityChecker.validatePlanWithAlternatives(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+                }
             }
         }
 
@@ -296,6 +315,7 @@ public class LogicalPlanner
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, collectTableStatsProvider);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
         try (var ignored = scopedSpan(plannerContext.getTracer(), "plan-stats")) {
+            // TODO: Choose the worse alternative for each stat. Please note that these stats are used for explain (not for CBO)
             statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
         }
         return new Plan(root, types, statsAndCosts);

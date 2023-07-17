@@ -176,8 +176,8 @@ public class IterativeOptimizer
                     Rule.Result result = transform(node, rule, context);
                     timeEnd = nanoTime();
 
-                    if (result.getTransformedPlan().isPresent()) {
-                        node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
+                    if (result.getMainAlternative().isPresent()) {
+                        node = context.memo.replace(group, result.getMainAlternative().get(), rule.getClass().getName());
 
                         applied = true;
                         done = false;
@@ -208,7 +208,7 @@ public class IterativeOptimizer
                 long start = nanoTime();
                 result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext(context));
 
-                if (LOG.isDebugEnabled() && !result.isEmpty()) {
+                if (LOG.isDebugEnabled() && result.getMainAlternative().isPresent()) {
                     LOG.debug(
                             "Rule: %s\nBefore:\n%s\nAfter:\n%s",
                             rule.getClass().getName(),
@@ -222,7 +222,7 @@ public class IterativeOptimizer
                                     0,
                                     false),
                             PlanPrinter.textLogicalPlan(
-                                    result.getTransformedPlan().get(),
+                                    result.getMainAlternative().get(),
                                     context.symbolAllocator.getTypes(),
                                     plannerContext.getMetadata(),
                                     plannerContext.getFunctionManager(),
@@ -240,7 +240,7 @@ public class IterativeOptimizer
             }
             stats.record(rule, duration, !result.isEmpty());
 
-            if (result.getTransformedPlan().isPresent()) {
+            if (result.getMainAlternative().isPresent()) {
                 return result;
             }
         }

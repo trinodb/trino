@@ -682,11 +682,13 @@ public class AddExchanges
                         (TableScanNode) node.getSource(),
                         true,
                         session,
+                        idAllocator,
                         symbolAllocator,
                         plannerContext,
                         typeAnalyzer,
                         statsProvider,
-                        domainTranslator);
+                        domainTranslator)
+                        .getMainAlternative();
                 if (plan.isPresent()) {
                     return new PlanWithProperties(plan.get(), derivePropertiesRecursively(plan.get()));
                 }

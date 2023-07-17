@@ -262,7 +262,14 @@ public class TestSpatialJoinPlanning
         LocalQueryRunner queryRunner = getQueryRunner();
         try {
             queryRunner.inTransaction(session, transactionSession -> {
-                queryRunner.createPlan(transactionSession, sql, queryRunner.getPlanOptimizers(false), OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                queryRunner.createPlan(
+                        transactionSession,
+                        sql,
+                        queryRunner.getPlanOptimizers(false),
+                        queryRunner.getAlternativeOptimizers(),
+                        OPTIMIZED_AND_VALIDATED,
+                        WarningCollector.NOOP,
+                        createPlanOptimizersStatsCollector());
                 return null;
             });
             throw new AssertionError(format("Expected query to fail: %s", sql));

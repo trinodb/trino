@@ -15,6 +15,7 @@ package io.trino.tests.tpch;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.connector.alternatives.MockPlanAlternativePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 
@@ -44,6 +45,7 @@ public final class TpchQueryRunnerBuilder
     private Optional<String> destinationSchema = Optional.empty();
     private OptionalInt splitsPerNode = OptionalInt.empty();
     private Optional<Boolean> partitioningEnabled = Optional.empty();
+    private boolean withPlanAlternatives;
 
     private TpchQueryRunnerBuilder()
     {
@@ -86,6 +88,12 @@ public final class TpchQueryRunnerBuilder
         return this;
     }
 
+    public TpchQueryRunnerBuilder withPlanAlternatives()
+    {
+        this.withPlanAlternatives = true;
+        return this;
+    }
+
     public static TpchQueryRunnerBuilder builder()
     {
         return new TpchQueryRunnerBuilder();
@@ -104,7 +112,7 @@ public final class TpchQueryRunnerBuilder
             destinationSchema.ifPresent(value -> properties.put(TPCH_TABLE_SCAN_REDIRECTION_SCHEMA, value));
             splitsPerNode.ifPresent(value -> properties.put(TPCH_SPLITS_PER_NODE, Integer.toString(value)));
             partitioningEnabled.ifPresent(value -> properties.put(TPCH_PARTITIONING_ENABLED, value.toString()));
-            queryRunner.createCatalog("tpch", "tpch", properties.buildOrThrow());
+            queryRunner.createCatalog("tpch", withPlanAlternatives ? "plan_alternatives_tpch" : "tpch", properties.buildOrThrow());
             return queryRunner;
         }
         catch (Exception e) {
@@ -119,6 +127,7 @@ public final class TpchQueryRunnerBuilder
         DistributedQueryRunner queryRunner = super.build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.installPlugin(new MockPlanAlternativePlugin(new TpchPlugin()));
             return queryRunner;
         }
         catch (Exception e) {

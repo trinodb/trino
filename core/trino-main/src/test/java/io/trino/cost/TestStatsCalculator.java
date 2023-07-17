@@ -83,7 +83,14 @@ public class TestStatsCalculator
     private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, queryRunner.getPlanOptimizers(true), stage, NOOP, createPlanOptimizersStatsCollector());
+            Plan actualPlan = queryRunner.createPlan(
+                    transactionSession,
+                    sql,
+                    queryRunner.getPlanOptimizers(true),
+                    queryRunner.getAlternativeOptimizers(),
+                    stage,
+                    NOOP,
+                    createPlanOptimizersStatsCollector());
             PlanAssert.assertPlan(
                     transactionSession,
                     queryRunner.getMetadata(),

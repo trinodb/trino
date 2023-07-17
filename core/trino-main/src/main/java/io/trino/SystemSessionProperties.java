@@ -212,6 +212,7 @@ public final class SystemSessionProperties
     public static final String MIN_INPUT_ROWS_PER_TASK = "min_input_rows_per_task";
     public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
     public static final String USE_COST_BASED_PARTITIONING = "use_cost_based_partitioning";
+    public static final String USE_SUB_PLAN_ALTERNATIVES = "use_sub_plan_alternatives";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
     public static final String COLUMNAR_FILTER_EVALUATION_ENABLED = "columnar_filter_evaluation_enabled";
@@ -1088,6 +1089,11 @@ public final class SystemSessionProperties
                         USE_COST_BASED_PARTITIONING,
                         "When enabled the cost based optimizer is used to determine if repartitioning the output of an already partitioned stage is necessary",
                         optimizerConfig.isUseCostBasedPartitioning(),
+                        false),
+                booleanProperty(
+                        USE_SUB_PLAN_ALTERNATIVES,
+                        "When enabled the optimizer might create sub-plan alternatives based on pushdown to connectors",
+                        optimizerConfig.isUseSubPlanAlternatives(),
                         false),
                 booleanProperty(
                         FORCE_SPILLING_JOIN,
@@ -1971,6 +1977,11 @@ public final class SystemSessionProperties
     public static boolean isUseCostBasedPartitioning(Session session)
     {
         return session.getSystemProperty(USE_COST_BASED_PARTITIONING, Boolean.class);
+    }
+
+    public static boolean isUseSubPlanAlternatives(Session session)
+    {
+        return session.getSystemProperty(USE_SUB_PLAN_ALTERNATIVES, Boolean.class);
     }
 
     public static boolean isForceSpillingOperator(Session session)

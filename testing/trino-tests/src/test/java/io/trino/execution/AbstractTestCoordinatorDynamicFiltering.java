@@ -89,7 +89,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
         extends AbstractTestQueryFramework
 {
     private static final TestingMetadata.TestingColumnHandle ORDERKEY_HANDLE = new TestingMetadata.TestingColumnHandle("orderkey", 0, BIGINT);
-    private static final TestingMetadata.TestingColumnHandle SUPP_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("suppkey", 2, BIGINT);
+    protected static final TestingMetadata.TestingColumnHandle SUPP_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("suppkey", 2, BIGINT);
     private static final TestingMetadata.TestingColumnHandle ADDRESS_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("address", 2, createVarcharType(40));
     private static final TestingMetadata.TestingColumnHandle SS_SOLD_SK_HANDLE = new TestingMetadata.TestingColumnHandle("ss_sold_date_sk", 0, BIGINT);
 
@@ -422,7 +422,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
         computeActual(session, query);
     }
 
-    private class TestingPlugin
+    protected class TestingPlugin
             implements Plugin
     {
         private final boolean isTaskRetryMode;

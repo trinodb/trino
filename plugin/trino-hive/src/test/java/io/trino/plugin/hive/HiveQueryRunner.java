@@ -21,6 +21,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
+import io.trino.connector.alternatives.MockPlanAlternativePlugin;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Database;
@@ -118,6 +119,7 @@ public final class HiveQueryRunner
         private boolean createTpchSchemas = true;
         private ColumnNaming tpchColumnNaming = SIMPLIFIED;
         private DecimalTypeMapping tpchDecimalTypeMapping = DOUBLE;
+        private boolean withPlanAlternatives;
 
         protected Builder()
         {
@@ -235,6 +237,12 @@ public final class HiveQueryRunner
             return self();
         }
 
+        public SELF withPlanAlternatives()
+        {
+            withPlanAlternatives = true;
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -243,19 +251,23 @@ public final class HiveQueryRunner
 
             try {
                 queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.installPlugin(new MockPlanAlternativePlugin(new TpchPlugin()));
                 Map<String, String> tpchCatalogProperties = ImmutableMap.<String, String>builder()
                         .put("tpch.column-naming", tpchColumnNaming.name())
                         .put("tpch.double-type-mapping", tpchDecimalTypeMapping.name())
                         .buildOrThrow();
-                queryRunner.createCatalog("tpch", "tpch", tpchCatalogProperties);
+
+                queryRunner.createCatalog("tpch", withPlanAlternatives ? "plan_alternatives_tpch" : "tpch", tpchCatalogProperties);
 
                 if (tpcdsCatalogEnabled) {
                     queryRunner.installPlugin(new TpcdsPlugin());
-                    queryRunner.createCatalog("tpcds", "tpcds");
+                    queryRunner.installPlugin(new MockPlanAlternativePlugin(new TpcdsPlugin()));
+                    queryRunner.createCatalog("tpcds", withPlanAlternatives ? "plan_alternatives_tpcds" : "tpcds");
                 }
 
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
                 queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), openTelemetry, module, directoryLister));
+                queryRunner.installPlugin(new MockPlanAlternativePlugin(new TestingHivePlugin(Optional.of(metastore), openTelemetry, module, directoryLister)));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
@@ -279,10 +291,10 @@ public final class HiveQueryRunner
                             .buildOrThrow();
                     hiveBucketedProperties = new HashMap<>(hiveBucketedProperties);
                     hiveBucketedProperties.put("hive.compression-codec", "NONE"); // so that the file is splittable
-                    queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
+                    queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, withPlanAlternatives ? "plan_alternatives_hive" : "hive", hiveBucketedProperties);
                 }
 
-                queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
+                queryRunner.createCatalog(HIVE_CATALOG, withPlanAlternatives ? "plan_alternatives_hive" : "hive", hiveProperties);
 
                 if (createTpchSchemas) {
                     populateData(queryRunner, metastore);

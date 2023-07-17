@@ -47,7 +47,7 @@ public final class PlanSanityChecker
                         new NoIdentifierLeftChecker(),
                         new VerifyOnlyOneOutputNode())
                 .putAll(
-                        Stage.FINAL,
+                        Stage.AFTER_LOGICAL_PLANNING,
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new SugarFreeChecker(),
@@ -64,39 +64,23 @@ public final class PlanSanityChecker
                         new DynamicFiltersChecker(),
                         new TableScanValidator(),
                         new TableExecuteStructureValidator())
+                .putAll(
+                        Stage.AFTER_ALTERNATIVES_PLANNING,
+                        new ValidateDependenciesChecker(),
+                        new NoDuplicatePlanNodeIdsChecker(),
+                        new SugarFreeChecker(),
+                        new AllFunctionsResolved(),
+                        new TypeValidator(),
+                        new NoSubqueryExpressionLeftChecker(),
+                        new NoIdentifierLeftChecker(),
+                        new VerifyOnlyOneOutputNode(),
+                        new VerifyNoFilteredAggregations(),
+                        new VerifyUseConnectorNodePartitioningSet(),
+                        new ValidateScaledWritersUsage(),
+                        new DynamicFiltersChecker(),
+                        new TableScanValidator(),
+                        new TableExecuteStructureValidator())
                 .build();
-    }
-
-    public void validateFinalPlan(
-            PlanNode planNode,
-            Session session,
-            PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
-            TypeProvider types,
-            WarningCollector warningCollector)
-    {
-        try {
-            checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, plannerContext, typeAnalyzer, types, warningCollector));
-        }
-        catch (RuntimeException e) {
-            try {
-                int nestLevel = 4; // so that it renders reasonably within exception stacktrace
-                String explain = textLogicalPlan(
-                        planNode,
-                        types,
-                        plannerContext.getMetadata(),
-                        plannerContext.getFunctionManager(),
-                        StatsAndCosts.empty(),
-                        session,
-                        nestLevel,
-                        false);
-                e.addSuppressed(new Exception("Current plan:\n" + explain));
-            }
-            catch (RuntimeException ignore) {
-                // ignored
-            }
-            throw e;
-        }
     }
 
     public void validateIntermediatePlan(
@@ -107,8 +91,42 @@ public final class PlanSanityChecker
             TypeProvider types,
             WarningCollector warningCollector)
     {
+        validate(Stage.INTERMEDIATE, planNode, session, plannerContext, typeAnalyzer, types, warningCollector);
+    }
+
+    public void validateOptimizedPlan(
+            PlanNode planNode,
+            Session session,
+            PlannerContext plannerContext,
+            TypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            WarningCollector warningCollector)
+    {
+        validate(Stage.AFTER_LOGICAL_PLANNING, planNode, session, plannerContext, typeAnalyzer, types, warningCollector);
+    }
+
+    public void validatePlanWithAlternatives(
+            PlanNode planNode,
+            Session session,
+            PlannerContext plannerContext,
+            TypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            WarningCollector warningCollector)
+    {
+        validate(Stage.AFTER_ALTERNATIVES_PLANNING, planNode, session, plannerContext, typeAnalyzer, types, warningCollector);
+    }
+
+    private void validate(
+            Stage stage,
+            PlanNode planNode,
+            Session session,
+            PlannerContext plannerContext,
+            TypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            WarningCollector warningCollector)
+    {
         try {
-            checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, plannerContext, typeAnalyzer, types, warningCollector));
+            checkers.get(stage).forEach(checker -> checker.validate(planNode, session, plannerContext, typeAnalyzer, types, warningCollector));
         }
         catch (RuntimeException e) {
             try {
@@ -144,6 +162,6 @@ public final class PlanSanityChecker
 
     private enum Stage
     {
-        INTERMEDIATE, FINAL
+        INTERMEDIATE, AFTER_LOGICAL_PLANNING, AFTER_ALTERNATIVES_PLANNING
     }
 }

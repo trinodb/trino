@@ -48,6 +48,7 @@ import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -151,7 +152,16 @@ public class BasePlanTest
     {
         try {
             queryRunner.inTransaction(transactionSession -> {
-                Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, stage, NOOP, createPlanOptimizersStatsCollector());
+                // TODO: Support alternativeOptimizers
+                List<PlanOptimizer> alternativeOptimizers = emptyList();
+                Plan actualPlan = queryRunner.createPlan(
+                        transactionSession,
+                        sql,
+                        optimizers,
+                        alternativeOptimizers,
+                        stage,
+                        NOOP,
+                        createPlanOptimizersStatsCollector());
                 PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
                 return null;
             });
@@ -197,6 +207,7 @@ public class BasePlanTest
                         transactionSession,
                         sql,
                         queryRunner.getPlanOptimizers(forceSingleNode),
+                        queryRunner.getAlternativeOptimizers(),
                         OPTIMIZED_AND_VALIDATED,
                         NOOP,
                         createPlanOptimizersStatsCollector());
@@ -214,7 +225,14 @@ public class BasePlanTest
     {
         try {
             queryRunner.inTransaction(session, transactionSession -> {
-                Plan actualPlan = queryRunner.createPlan(transactionSession, sql, queryRunner.getPlanOptimizers(forceSingleNode), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
+                Plan actualPlan = queryRunner.createPlan(
+                        transactionSession,
+                        sql,
+                        queryRunner.getPlanOptimizers(forceSingleNode),
+                        queryRunner.getAlternativeOptimizers(),
+                        OPTIMIZED_AND_VALIDATED,
+                        NOOP,
+                        createPlanOptimizersStatsCollector());
                 PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
                 planValidator.accept(actualPlan);
                 return null;
@@ -240,7 +258,14 @@ public class BasePlanTest
     {
         try {
             return queryRunner.inTransaction(queryRunner.getDefaultSession(), transactionSession ->
-                    queryRunner.createPlan(transactionSession, sql, queryRunner.getPlanOptimizers(forceSingleNode), stage, NOOP, createPlanOptimizersStatsCollector()));
+                    queryRunner.createPlan(
+                            transactionSession,
+                            sql,
+                            queryRunner.getPlanOptimizers(forceSingleNode),
+                            queryRunner.getAlternativeOptimizers(),
+                            stage,
+                            NOOP,
+                            createPlanOptimizersStatsCollector()));
         }
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);
@@ -256,7 +281,14 @@ public class BasePlanTest
     {
         try {
             return queryRunner.inTransaction(session, transactionSession -> {
-                Plan plan = queryRunner.createPlan(transactionSession, sql, queryRunner.getPlanOptimizers(forceSingleNode), stage, NOOP, createPlanOptimizersStatsCollector());
+                Plan plan = queryRunner.createPlan(
+                        transactionSession,
+                        sql,
+                        queryRunner.getPlanOptimizers(forceSingleNode),
+                        queryRunner.getAlternativeOptimizers(),
+                        stage,
+                        NOOP,
+                        createPlanOptimizersStatsCollector());
                 return queryRunner.createSubPlans(transactionSession, plan, forceSingleNode);
             });
         }

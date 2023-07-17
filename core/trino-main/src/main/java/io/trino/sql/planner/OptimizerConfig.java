@@ -88,6 +88,7 @@ public class OptimizerConfig
     private boolean forceSingleNodeOutput;
     private boolean useExactPartitioning;
     private boolean useCostBasedPartitioning = true;
+    private boolean useSubPlanAlternatives = true;
     // adaptive partial aggregation
     private boolean adaptivePartialAggregationEnabled = true;
     private double adaptivePartialAggregationUniqueRowsRatioThreshold = 0.8;
@@ -823,6 +824,19 @@ public class OptimizerConfig
     public OptimizerConfig setUseCostBasedPartitioning(boolean useCostBasedPartitioning)
     {
         this.useCostBasedPartitioning = useCostBasedPartitioning;
+        return this;
+    }
+
+    public boolean isUseSubPlanAlternatives()
+    {
+        return useSubPlanAlternatives;
+    }
+
+    @Config("optimizer.use-sub-plan-alternatives")
+    @ConfigDescription("When enabled the optimizer might create sub-plan alternatives based on pushdown to connectors")
+    public OptimizerConfig setUseSubPlanAlternatives(boolean useSubPlanAlternatives)
+    {
+        this.useSubPlanAlternatives = useSubPlanAlternatives;
         return this;
     }
 }

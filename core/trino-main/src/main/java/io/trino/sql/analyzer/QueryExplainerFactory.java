@@ -20,12 +20,14 @@ import io.trino.cost.StatsCalculator;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizersFactory;
+import io.trino.sql.planner.sanity.ForAlternatives;
 
 import static java.util.Objects.requireNonNull;
 
 public class QueryExplainerFactory
 {
     private final PlanOptimizersFactory planOptimizersFactory;
+    private final PlanOptimizersFactory alternativesOptimizersFactory;
     private final PlanFragmenter planFragmenter;
     private final PlannerContext plannerContext;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
@@ -36,6 +38,7 @@ public class QueryExplainerFactory
     @Inject
     public QueryExplainerFactory(
             PlanOptimizersFactory planOptimizersFactory,
+            @ForAlternatives PlanOptimizersFactory alternativesOptimizersFactory,
             PlanFragmenter planFragmenter,
             PlannerContext plannerContext,
             StatementAnalyzerFactory statementAnalyzerFactory,
@@ -44,6 +47,7 @@ public class QueryExplainerFactory
             NodeVersion version)
     {
         this.planOptimizersFactory = requireNonNull(planOptimizersFactory, "planOptimizersFactory is null");
+        this.alternativesOptimizersFactory = requireNonNull(alternativesOptimizersFactory, "alternativesOptimizersFactory is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.plannerContext = requireNonNull(plannerContext, "metadata is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
@@ -56,6 +60,7 @@ public class QueryExplainerFactory
     {
         return new QueryExplainer(
                 planOptimizersFactory,
+                alternativesOptimizersFactory,
                 planFragmenter,
                 plannerContext,
                 analyzerFactory,

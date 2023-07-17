@@ -103,7 +103,14 @@ public class TestGetTableStatisticsOperations
     {
         transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getMetadata(), localQueryRunner.getAccessControl())
                 .execute(localQueryRunner.getDefaultSession(), transactionSession -> {
-                    localQueryRunner.createPlan(transactionSession, sql, localQueryRunner.getPlanOptimizers(false), OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+                    localQueryRunner.createPlan(
+                            transactionSession,
+                            sql,
+                            localQueryRunner.getPlanOptimizers(false),
+                            localQueryRunner.getAlternativeOptimizers(),
+                            OPTIMIZED_AND_VALIDATED,
+                            WarningCollector.NOOP,
+                            createPlanOptimizersStatsCollector());
                 });
     }
 

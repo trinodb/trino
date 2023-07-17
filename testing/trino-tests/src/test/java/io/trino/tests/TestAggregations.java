@@ -159,7 +159,7 @@ public class TestAggregations
                 plan -> assertAggregationNodeCount(plan, 4));
     }
 
-    private void assertAggregationNodeCount(Plan plan, int count)
+    protected void assertAggregationNodeCount(Plan plan, int count)
     {
         assertThat(countOfMatchingNodes(plan, AggregationNode.class::isInstance)).isEqualTo(count);
     }

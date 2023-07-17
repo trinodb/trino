@@ -6275,7 +6275,7 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
-    private Consumer<Plan> assertRemoteExchangesCount(int expectedRemoteExchangesCount)
+    protected Consumer<Plan> assertRemoteExchangesCount(int expectedRemoteExchangesCount)
     {
         return assertRemoteExchangesCount(getSession(), expectedRemoteExchangesCount);
     }
@@ -9336,7 +9336,7 @@ public abstract class BaseHiveConnectorTest
                 .build();
     }
 
-    private static final class BucketedFilterTestSetup
+    protected static class BucketedFilterTestSetup
     {
         private final String typeName;
         private final List<String> values;
@@ -9358,27 +9358,27 @@ public abstract class BaseHiveConnectorTest
             this.expectedResult = expectedResult;
         }
 
-        private String getTypeName()
+        protected String getTypeName()
         {
             return typeName;
         }
 
-        private List<String> getValues()
+        protected List<String> getValues()
         {
             return values;
         }
 
-        private String getFilterValue()
+        protected String getFilterValue()
         {
             return filterValue;
         }
 
-        private long getExpectedPhysicalInputRows()
+        protected long getExpectedPhysicalInputRows()
         {
             return expectedPhysicalInputRows;
         }
 
-        private long getExpectedResult()
+        protected long getExpectedResult()
         {
             return expectedResult;
         }

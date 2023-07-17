@@ -44,6 +44,7 @@ import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -69,7 +70,7 @@ public class TestIterativeOptimizer
 
             Session session = sessionBuilder.build();
             queryRunner.inTransaction(session, transactionSession ->
-                    queryRunner.createPlan(transactionSession, "SELECT 1", ImmutableList.of(optimizer), OPTIMIZED_AND_VALIDATED, NOOP, planOptimizersStatsCollector));
+                    queryRunner.createPlan(transactionSession, "SELECT 1", ImmutableList.of(optimizer), emptyList(), OPTIMIZED_AND_VALIDATED, NOOP, planOptimizersStatsCollector));
             Optional<QueryPlanOptimizerStatistics> queryRuleStats = planOptimizersStatsCollector.getTopRuleStats().stream().findFirst();
 
             assertThat(queryRuleStats.isPresent()).isTrue();
@@ -108,6 +109,7 @@ public class TestIterativeOptimizer
                             transactionSession,
                             "SELECT nationkey FROM nation",
                             ImmutableList.of(optimizer),
+                            emptyList(),
                             OPTIMIZED_AND_VALIDATED,
                             NOOP,
                             createPlanOptimizersStatsCollector())))

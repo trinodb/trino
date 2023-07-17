@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.CostProvider;
 import io.trino.cost.StatsProvider;
@@ -23,8 +24,10 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.PlanNode;
 
+import java.util.List;
 import java.util.Optional;
 
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public interface Rule<T>
@@ -62,33 +65,51 @@ public interface Rule<T>
 
     final class Result
     {
-        private static final Result EMPTY = new Result(Optional.empty());
+        private static final Result EMPTY = new Result(Optional.empty(), emptyList());
 
         public static Result empty()
         {
             return EMPTY;
         }
 
+        /**
+         * @param mainAlternative an alternative that won't be pruned by the engine, one that can be used for all splits,
+         * or empty if the original {@code PlanNode} is to be retained.
+         * @param additionalAlternatives the rest of the alternatives or an empty list if there are no more alternatives.
+         * The engine might prune elements off the end of the list or even ignore it completely.
+         */
+        public static Result ofNodeAlternatives(Optional<PlanNode> mainAlternative, Iterable<PlanNode> additionalAlternatives)
+        {
+            return new Result(mainAlternative, ImmutableList.copyOf(additionalAlternatives));
+        }
+
         public static Result ofPlanNode(PlanNode transformedPlan)
         {
-            return new Result(Optional.of(transformedPlan));
+            return new Result(Optional.of(transformedPlan), emptyList());
         }
 
-        private final Optional<PlanNode> transformedPlan;
+        private final Optional<PlanNode> mainAlternative;
+        private final List<PlanNode> additionalAlternatives;
 
-        private Result(Optional<PlanNode> transformedPlan)
+        private Result(Optional<PlanNode> mainAlternative, List<PlanNode> additionalAlternatives)
         {
-            this.transformedPlan = requireNonNull(transformedPlan, "transformedPlan is null");
+            this.mainAlternative = requireNonNull(mainAlternative, "mainAlternative is null");
+            this.additionalAlternatives = ImmutableList.copyOf(requireNonNull(additionalAlternatives, "additionalAlternatives is null"));
         }
 
-        public Optional<PlanNode> getTransformedPlan()
+        public Optional<PlanNode> getMainAlternative()
         {
-            return transformedPlan;
+            return mainAlternative;
+        }
+
+        public List<PlanNode> getAdditionalAlternatives()
+        {
+            return additionalAlternatives;
         }
 
         public boolean isEmpty()
         {
-            return transformedPlan.isEmpty();
+            return mainAlternative.isEmpty() && additionalAlternatives.isEmpty();
         }
     }
 }

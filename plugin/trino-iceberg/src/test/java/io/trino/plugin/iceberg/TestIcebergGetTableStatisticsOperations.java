@@ -143,6 +143,7 @@ public class TestIcebergGetTableStatisticsOperations
                 transactionSession,
                 sql,
                 localQueryRunner.getPlanOptimizers(false),
+                localQueryRunner.getAlternativeOptimizers(),
                 OPTIMIZED_AND_VALIDATED,
                 NOOP,
                 createPlanOptimizersStatsCollector()));

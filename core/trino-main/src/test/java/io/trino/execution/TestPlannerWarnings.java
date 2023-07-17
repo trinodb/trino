@@ -52,6 +52,7 @@ import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Fail.fail;
@@ -106,6 +107,7 @@ public class TestPlannerWarnings
         try {
             queryRunner.inTransaction(sessionBuilder.build(), transactionSession -> {
                 List<PlanOptimizer> planOptimizers;
+                List<PlanOptimizer> alternativeOptimizers;
                 if (rules.isPresent()) {
                     // Warnings from testing rules will be added
                     planOptimizers = ImmutableList.of(new IterativeOptimizer(
@@ -114,11 +116,13 @@ public class TestPlannerWarnings
                             queryRunner.getStatsCalculator(),
                             queryRunner.getCostCalculator(),
                             ImmutableSet.copyOf(rules.get())));
+                    alternativeOptimizers = emptyList();
                 }
                 else {
                     planOptimizers = queryRunner.getPlanOptimizers(false);
+                    alternativeOptimizers = queryRunner.getAlternativeOptimizers();
                 }
-                queryRunner.createPlan(transactionSession, sql, planOptimizers, OPTIMIZED, warningCollector, planOptimizersStatsCollector);
+                queryRunner.createPlan(transactionSession, sql, planOptimizers, alternativeOptimizers, OPTIMIZED, warningCollector, planOptimizersStatsCollector);
                 return null;
             });
         }

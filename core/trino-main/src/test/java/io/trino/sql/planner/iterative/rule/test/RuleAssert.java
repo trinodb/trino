@@ -38,6 +38,8 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.testing.LocalQueryRunner;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -103,31 +105,33 @@ public class RuleAssert
                         formatPlan(plan, ruleApplication.types())));
             }
 
-            PlanNode actual = ruleApplication.getTransformedPlan();
+            List<PlanNode> transformedPlans = ruleApplication.getTransformedPlans();
 
-            if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
-                fail(format(
-                        """
-                        %s: rule fired but return the original plan:
-                        %s
-                        """,
-                        rule,
-                        formatPlan(plan, ruleApplication.types())));
+            for (PlanNode actual : transformedPlans) {
+                if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
+                    fail(format(
+                            """
+                                    %s: rule fired but return the original plan:
+                                    %s
+                                    """,
+                            rule,
+                            formatPlan(plan, ruleApplication.types())));
+                }
+
+                if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
+                    fail(format(
+                            """
+                                    %s: output schema of transformed and original plans are not equivalent
+                                    \texpected: %s
+                                    \tactual:   %s
+                                    """,
+                            rule,
+                            plan.getOutputSymbols(),
+                            actual.getOutputSymbols()));
+                }
+
+                assertPlan(session, queryRunner.getMetadata(), queryRunner.getFunctionManager(), ruleApplication.statsProvider(), new Plan(actual, ruleApplication.types(), StatsAndCosts.empty()), ruleApplication.lookup(), pattern);
             }
-
-            if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
-                fail(format(
-                        """
-                        %s: output schema of transformed and original plans are not equivalent
-                        \texpected: %s
-                        \tactual:   %s
-                        """,
-                        rule,
-                        plan.getOutputSymbols(),
-                        actual.getOutputSymbols()));
-            }
-
-            assertPlan(session, queryRunner.getMetadata(), queryRunner.getFunctionManager(), ruleApplication.statsProvider(), new Plan(actual, ruleApplication.types(), StatsAndCosts.empty()), ruleApplication.lookup(), pattern);
         }
         finally {
             queryRunner.getMetadata().cleanupQuery(session);
@@ -240,9 +244,19 @@ public class RuleAssert
             return !result.isEmpty();
         }
 
-        public PlanNode getTransformedPlan()
+        public List<PlanNode> getTransformedPlans()
         {
-            return result.getTransformedPlan().orElseThrow(() -> new IllegalStateException("Rule did not produce transformed plan"));
+            if (result.isEmpty()) {
+                throw new IllegalStateException("Rule did not produce transformed plans");
+            }
+            if (result.getMainAlternative().isEmpty()) {
+                throw new IllegalStateException("The main alternative wasn't transformed");
+            }
+
+            List<PlanNode> transformedPlans = new ArrayList<>(1 + result.getAdditionalAlternatives().size());
+            transformedPlans.add(result.getMainAlternative().get());
+            transformedPlans.addAll(result.getAdditionalAlternatives());
+            return transformedPlans;
         }
     }
 }

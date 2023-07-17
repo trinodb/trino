@@ -263,3 +263,11 @@ A value of `0` disables this optimization.
 
 When enabled the cost based optimizer is used to determine if repartitioning the output of an
 already partitioned stage is necessary.
+
+## `optimizer.use-sub-plan-alternatives`
+
+- **Type:** {ref}`prop-type-boolean`
+- **Default value:** `true`
+- **Session property:** `use_sub_plan_alternatives`
+
+When enabled the optimizer might create several sub-plan alternatives.

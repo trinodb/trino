@@ -1,0 +1,88 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.hive;
+
+import io.trino.Session;
+import io.trino.testing.QueryRunner;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.Test;
+
+import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
+
+public class TestHiveWithPlanAlternativesConnectorTest
+        extends BaseHiveConnectorTest
+{
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return BaseHiveConnectorTest.createHiveQueryRunner(HiveQueryRunner.builder()
+                .withPlanAlternatives());
+    }
+
+    @Test
+    public void testBucketedSelectWithFilter()
+    {
+        try {
+            assertUpdate(
+                    "CREATE TABLE test_bucketed_select\n" +
+                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
+                            "SELECT orderkey key1, comment value1, custkey FROM orders",
+                    15000);
+            Session planWithTableNodePartitioning = Session.builder(getSession())
+                    .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "true")
+                    .build();
+            Session planWithoutTableNodePartitioning = Session.builder(getSession())
+                    .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "false")
+                    .build();
+
+            @Language("SQL") String query = "SELECT key1, count(value1) FROM test_bucketed_select WHERE custkey > 5 GROUP BY key1";
+            @Language("SQL") String expectedQuery = "SELECT orderkey, count(comment) FROM orders WHERE custkey > 5 GROUP BY orderkey";
+
+            assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
+            assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_bucketed_select");
+        }
+    }
+
+    @Override
+    @Test
+    public void testExplainAnalyzeScanFilterProjectWallTime()
+    {
+        // 'Filter CPU time' is not expected when connector uses an alternative in which the filter is subsumed
+    }
+
+    @Override
+    @Test
+    public void testExplainAnalyzeColumnarFilter()
+    {
+        // Filter stats are not expected when connector uses an alternative in which the filter is subsumed
+    }
+
+    @Override
+    @Test
+    public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
+    {
+        // Not applicable with plan alternatives
+    }
+
+    @Override
+    @Test
+    public void testTimestampWithTimeZone()
+    {
+        // Ignored because there's no access to HiveMetastoreFactory and this test doesn't exercise plan alternatives anyway
+    }
+}

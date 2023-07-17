@@ -69,6 +69,7 @@ import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.sanity.ForAlternatives;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.Statement;
@@ -116,6 +117,7 @@ public class SqlQueryExecution
     private final OutputDataSizeEstimatorFactory outputDataSizeEstimatorFactory;
     private final TaskExecutionStats taskExecutionStats;
     private final List<PlanOptimizer> planOptimizers;
+    private final List<PlanOptimizer> alternativeOptimizers;
     private final PlanFragmenter planFragmenter;
     private final RemoteTaskFactory remoteTaskFactory;
     private final int scheduleSplitBatchSize;
@@ -155,6 +157,7 @@ public class SqlQueryExecution
             OutputDataSizeEstimatorFactory outputDataSizeEstimatorFactory,
             TaskExecutionStats taskExecutionStats,
             List<PlanOptimizer> planOptimizers,
+            List<PlanOptimizer> alternativeOptimizers,
             PlanFragmenter planFragmenter,
             RemoteTaskFactory remoteTaskFactory,
             int scheduleSplitBatchSize,
@@ -188,6 +191,7 @@ public class SqlQueryExecution
             this.outputDataSizeEstimatorFactory = requireNonNull(outputDataSizeEstimatorFactory, "outputDataSizeEstimatorFactory is null");
             this.taskExecutionStats = requireNonNull(taskExecutionStats, "taskExecutionStats is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+            this.alternativeOptimizers = requireNonNull(alternativeOptimizers, "alternativeOptimizers is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
@@ -474,8 +478,10 @@ public class SqlQueryExecution
     {
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(),
                 planOptimizers,
+                alternativeOptimizers,
                 idAllocator,
                 plannerContext,
                 typeAnalyzer,
@@ -755,6 +761,7 @@ public class SqlQueryExecution
         private final OutputDataSizeEstimatorFactory outputDataSizeEstimatorFactory;
         private final TaskExecutionStats taskExecutionStats;
         private final List<PlanOptimizer> planOptimizers;
+        private final List<PlanOptimizer> alternativeOptimizers;
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
         private final ExecutorService queryExecutor;
@@ -786,6 +793,7 @@ public class SqlQueryExecution
                 OutputDataSizeEstimatorFactory outputDataSizeEstimatorFactory,
                 TaskExecutionStats taskExecutionStats,
                 PlanOptimizersFactory planOptimizersFactory,
+                @ForAlternatives PlanOptimizersFactory alternativesOptimizersFactory,
                 PlanFragmenter planFragmenter,
                 RemoteTaskFactory remoteTaskFactory,
                 @ForQueryExecution ExecutorService queryExecutor,
@@ -824,6 +832,7 @@ public class SqlQueryExecution
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicies = requireNonNull(executionPolicies, "executionPolicies is null");
             this.planOptimizers = planOptimizersFactory.get();
+            this.alternativeOptimizers = alternativesOptimizersFactory.get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
@@ -862,6 +871,7 @@ public class SqlQueryExecution
                     outputDataSizeEstimatorFactory,
                     taskExecutionStats,
                     planOptimizers,
+                    alternativeOptimizers,
                     planFragmenter,
                     remoteTaskFactory,
                     scheduleSplitBatchSize,

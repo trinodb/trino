@@ -110,6 +110,7 @@ import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainerFactory;
+import io.trino.sql.planner.AlternativesOptimizers;
 import io.trino.sql.planner.OptimizerStatsMBeanExporter;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
@@ -117,6 +118,7 @@ import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.sql.planner.iterative.rule.DistinctAggregationController;
+import io.trino.sql.planner.sanity.ForAlternatives;
 import io.trino.sql.rewrite.DescribeInputRewrite;
 import io.trino.sql.rewrite.DescribeOutputRewrite;
 import io.trino.sql.rewrite.ExplainRewrite;
@@ -300,6 +302,7 @@ public class CoordinatorModule
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PlanOptimizersFactory.class).to(PlanOptimizers.class).in(Scopes.SINGLETON);
+        binder.bind(PlanOptimizersFactory.class).annotatedWith(ForAlternatives.class).to(AlternativesOptimizers.class).in(Scopes.SINGLETON);
 
         // Optimizer/Rule Stats exporter
         binder.bind(RuleStatsRecorder.class).in(Scopes.SINGLETON);
