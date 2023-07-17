@@ -161,6 +161,10 @@ import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
 public final class IcebergUtil
 {
+    public static final String TRINO_TABLE_METADATA_INFO_VALID_FOR = "trino_table_metadata_info_valid_for";
+    public static final String COLUMN_TRINO_NOT_NULL_PROPERTY = "trino_not_null";
+    public static final String COLUMN_TRINO_TYPE_ID_PROPERTY = "trino_type_id";
+
     public static final String METADATA_FOLDER_NAME = "metadata";
     public static final String METADATA_FILE_EXTENSION = ".metadata.json";
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
