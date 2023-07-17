@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
@@ -27,6 +29,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 
@@ -56,15 +59,29 @@ public class HiveNodePartitioningProvider
             List<Type> partitionChannelTypes,
             int bucketCount)
     {
-        if (partitioningHandle instanceof HiveUpdateHandle) {
+        if (partitioningHandle instanceof HiveUpdateHandle handle) {
             return new HiveUpdateBucketFunction(bucketCount);
         }
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         List<HiveType> hiveBucketTypes = handle.getHiveTypes();
-        if (!handle.isUsePartitionedBucketing()) {
-            return new HiveBucketFunction(handle.getBucketingVersion(), bucketCount, hiveBucketTypes);
+        if (!handle.isUsePartitionedBucketingForWrites()) {
+            List<String> partitions = handle.getPartitions();
+            if (partitions.size() > 0) {
+                return new HivePartitionedBucketFunction(
+                        handle.getBucketingVersion(),
+                        bucketCount,
+                        hiveBucketTypes,
+                        partitionChannelTypes.subList(0, partitionChannelTypes.size() - hiveBucketTypes.size()),
+                        partitions);
+            }
+            else {
+                return new HiveBucketFunction(
+                        handle.getBucketingVersion(),
+                        bucketCount,
+                        hiveBucketTypes);
+            }
         }
-        return new HivePartitionedBucketFunction(
+        return new HivePartitionHashBucketFunction(
                 handle.getBucketingVersion(),
                 handle.getBucketCount(),
                 hiveBucketTypes,
@@ -77,8 +94,8 @@ public class HiveNodePartitioningProvider
     public Optional<ConnectorBucketNodeMap> getBucketNodeMapping(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
-        if (!handle.isUsePartitionedBucketing()) {
-            return Optional.of(createBucketNodeMap(handle.getBucketCount()));
+        if (!handle.isUsePartitionedBucketingForWrites()) {
+            return Optional.of(createBucketNodeMap(handle.getBucketCount() * Integer.max(1, handle.getPartitions().size())));
         }
 
         // Allocate a fixed number of buckets. Trino will assign consecutive buckets
@@ -100,7 +117,22 @@ public class HiveNodePartitioningProvider
             ConnectorSession session,
             ConnectorPartitioningHandle partitioningHandle)
     {
-        return value -> ((HiveSplit) value).getReadBucketNumber()
-                .orElseThrow(() -> new IllegalArgumentException("Bucket number not set in split"));
+        HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
+        if (handle.getPartitions().isEmpty()) {
+            return value -> ((HiveSplit) value).getReadBucketNumber()
+                    .orElseThrow(() -> new IllegalArgumentException("Bucket number not set in split"));
+        }
+        List<String> partitions = handle.getPartitions();
+        ImmutableMap.Builder<String, Integer> partitionToIndexBuilder = ImmutableMap.builder();
+        for (int i = 0; i < partitions.size(); i++) {
+            partitionToIndexBuilder.put(partitions.get(i), i);
+        }
+        Map<String, Integer> partitionToIndex = partitionToIndexBuilder.buildOrThrow();
+        return value -> {
+            HiveSplit split = (HiveSplit) value;
+            String partitionValues = HiveUtil.erasePartitionColumnNames(split.getPartitionName());
+            int partitionIndex = partitionToIndex.getOrDefault(partitionValues, 0);
+            return split.getReadBucketNumber().orElse(0) + (handle.getBucketCount() * partitionIndex);
+        };
     }
 }

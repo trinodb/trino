@@ -5917,6 +5917,116 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testPartitionExecutionOnly()
+    {
+        try {
+            // These tables are partitioned but not bucketed; they should be eligible for colocated joins only if
+            // partition_execution_enabled is turned on.
+            assertUpdate(
+                    "CREATE TABLE test_partition_execution_partitioned_only\n" +
+                            "WITH (partitioned_by = ARRAY['keyp']) AS\n" +
+                            "SELECT comment value, orderkey keyN, custkey % 10 keyp FROM orders",
+                    15000);
+
+            assertUpdate(
+                    "CREATE TABLE test_partition_execution_partitioned_only_2\n" +
+                            "WITH (partitioned_by = ARRAY['keyp']) AS\n" +
+                            "SELECT comment value, orderkey keyN, custkey % 10 keyp FROM orders",
+                    15000);
+
+            Session withPartitionExecution = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                    .setCatalogSessionProperty(catalog, "partition_execution_enabled", "true")
+                    .build();
+            Session withoutPartitionExecution = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                    .setCatalogSessionProperty(catalog, "partition_execution_enabled", "false")
+                    .build();
+
+            @Language("SQL") String readTablePartitionOnly =
+                    "SELECT keyp, keyN, t1.value, t2.value\n" +
+                            "FROM\n" +
+                            "  test_partition_execution_partitioned_only t1\n" +
+                            "JOIN\n" +
+                            "  test_partition_execution_partitioned_only_2 t2\n" +
+                            "USING (keyp, keyN)";
+
+            @Language("SQL") String expectQuery = "SELECT custkey % 10, orderkey, comment, comment FROM orders";
+
+            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                    .execute(withPartitionExecution, transactionSession -> {
+                        assertQuery(transactionSession, readTablePartitionOnly, expectQuery, assertRemoteExchangesCount(transactionSession, 0));
+                    });
+
+            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                    .execute(withoutPartitionExecution, transactionSession -> {
+                        assertQuery(transactionSession, readTablePartitionOnly, expectQuery, assertRemoteExchangesCount(transactionSession, 2));
+                    });
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_partition_execution_partitioned_only");
+            assertUpdate("DROP TABLE IF EXISTS test_partition_execution_partitioned_only_2");
+        }
+    }
+
+    @Test
+    public void testPartitionAndBucketExecution()
+    {
+        try {
+            // These tables have incompatible numbers of buckets so they normally would not be able to perform a colocated join,
+            // but they can join by partition instead when the feature is enabled.
+            assertUpdate(
+                    "CREATE TABLE test_partition_execution_partitioned_and_bucketed_16\n" +
+                            "WITH (bucket_count = 16, bucketed_by = ARRAY['keyb'], partitioned_by = ARRAY['keyp']) AS\n" +
+                            "SELECT comment value, orderkey keyb, custkey % 10 keyp FROM orders",
+                    15000);
+
+            assertUpdate(
+                    "CREATE TABLE test_partition_execution_partitioned_and_bucketed_7\n" +
+                            "WITH (bucket_count = 7, bucketed_by = ARRAY['keyb'], partitioned_by = ARRAY['keyp']) AS\n" +
+                            "SELECT comment value, orderkey keyb, custkey % 10 keyp FROM orders",
+                    15000);
+
+            Session withPartitionExecution = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                    .setCatalogSessionProperty(catalog, "partition_execution_enabled", "true")
+                    .build();
+            Session withoutPartitionExecution = Session.builder(getSession())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                    .setCatalogSessionProperty(catalog, "partition_execution_enabled", "false")
+                    .build();
+
+            @Language("SQL") String readTablePartitionOnly =
+                    "SELECT keyp, keyb, t1.value, t2.value\n" +
+                            "FROM\n" +
+                            "  test_partition_execution_partitioned_and_bucketed_16 t1\n" +
+                            "JOIN\n" +
+                            "  test_partition_execution_partitioned_and_bucketed_7 t2\n" +
+                            "USING (keyp, keyb)";
+
+            @Language("SQL") String expectQuery = "SELECT custkey % 10, orderkey, comment, comment FROM orders";
+
+            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                    .execute(withPartitionExecution, transactionSession -> {
+                        assertQuery(transactionSession, readTablePartitionOnly, expectQuery, assertRemoteExchangesCount(transactionSession, 0));
+                    });
+
+            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                    .execute(withoutPartitionExecution, transactionSession -> {
+                        assertQuery(transactionSession, readTablePartitionOnly, expectQuery, assertRemoteExchangesCount(transactionSession, 1));
+                    });
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_partition_execution_partitioned_and_bucketed_16");
+            assertUpdate("DROP TABLE IF EXISTS test_partition_execution_partitioned_and_bucketed_7");
+        }
+    }
+
+    @Test
     public void testBucketedSelect()
     {
         try {

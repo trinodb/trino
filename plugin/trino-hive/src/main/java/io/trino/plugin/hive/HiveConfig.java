@@ -121,6 +121,7 @@ public class HiveConfig
     private boolean skipTargetCleanupOnRollback;
 
     private boolean bucketExecutionEnabled = true;
+    private boolean partitionExecutionEnabled;
     private boolean sortedWritingEnabled = true;
     private boolean propagateTableScanSortingProperties;
 
@@ -892,6 +893,22 @@ public class HiveConfig
     public HiveConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
+        return this;
+    }
+
+    public boolean isPartitionExecutionEnabled()
+    {
+        return partitionExecutionEnabled;
+    }
+
+    @Config("hive.partition-execution")
+    @ConfigDescription(
+            "Enable partition-aware execution: only use a single worker per partition (if " +
+            "bucket-aware execution is also enabled, work will be assigned based on the " +
+            "intersection of bucket and partition for bucketed and partitioned tables.")
+    public HiveConfig setPartitionExecutionEnabled(boolean partitionExecutionEnabled)
+    {
+        this.partitionExecutionEnabled = partitionExecutionEnabled;
         return this;
     }
 

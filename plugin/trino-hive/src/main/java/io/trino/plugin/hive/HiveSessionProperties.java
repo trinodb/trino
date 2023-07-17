@@ -60,6 +60,7 @@ public final class HiveSessionProperties
         implements SessionPropertiesProvider
 {
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
+    private static final String PARTITION_EXECUTION_ENABLED = "partition_execution_enabled";
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String PARALLEL_PARTITIONED_BUCKETED_WRITES = "parallel_partitioned_bucketed_writes";
@@ -175,6 +176,13 @@ public final class HiveSessionProperties
                         BUCKET_EXECUTION_ENABLED,
                         "Enable bucket-aware execution: only use a single worker per bucket",
                         hiveConfig.isBucketExecutionEnabled(),
+                        false),
+                booleanProperty(
+                        PARTITION_EXECUTION_ENABLED,
+                        "Enable partition-aware execution: only use a single worker per partition (if " +
+                                  "bucket-aware execution is also enabled, work will be assigned based on the " +
+                                  "intersection of bucket and partition for bucketed and partitioned tables)",
+                        hiveConfig.isPartitionExecutionEnabled(),
                         false),
                 booleanProperty(
                         VALIDATE_BUCKETING,
@@ -644,6 +652,11 @@ public final class HiveSessionProperties
     public static boolean isBucketExecutionEnabled(ConnectorSession session)
     {
         return session.getProperty(BUCKET_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPartitionExecutionEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARTITION_EXECUTION_ENABLED, Boolean.class);
     }
 
     public static boolean isValidateBucketing(ConnectorSession session)

@@ -32,7 +32,12 @@ public class TestHiveDynamicPartitionPruningTest
     {
         return HiveQueryRunner.builder()
                 .setExtraProperties(EXTRA_PROPERTIES)
-                .setHiveProperties(ImmutableMap.of("hive.dynamic-filtering.wait-timeout", "1h"))
+                .setHiveProperties(ImmutableMap.of(
+                        "hive.dynamic-filtering.wait-timeout", "1h",
+
+                        // With partition-execution, the test queries get broken up into fewer stages which
+                        // prevents dynamic filters from being executed lazily.
+                        "hive.partition-execution", "false"))
                 .setInitialTables(REQUIRED_TABLES)
                 .build();
     }

@@ -118,7 +118,8 @@ public class TestHiveConfig
                 .setDeltaLakeCatalogName(null)
                 .setHudiCatalogName(null)
                 .setAutoPurge(false)
-                .setPartitionProjectionEnabled(false));
+                .setPartitionProjectionEnabled(false)
+                .setPartitionExecutionEnabled(false));
     }
 
     @Test
@@ -205,6 +206,7 @@ public class TestHiveConfig
                 .put("hive.hudi-catalog-name", "hudi")
                 .put("hive.auto-purge", "true")
                 .put(CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true")
+                .put("hive.partition-execution", "true")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
@@ -287,7 +289,8 @@ public class TestHiveConfig
                 .setDeltaLakeCatalogName("delta")
                 .setHudiCatalogName("hudi")
                 .setAutoPurge(true)
-                .setPartitionProjectionEnabled(true);
+                .setPartitionProjectionEnabled(true)
+                .setPartitionExecutionEnabled(true);
 
         assertFullMapping(properties, expected);
     }

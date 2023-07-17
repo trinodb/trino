@@ -13,96 +13,102 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.base.MoreObjects.ToStringHelper;
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing;
-import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 
-import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.util.Objects.requireNonNull;
 
 public class HivePartitionedBucketFunction
         implements BucketFunction
 {
-    private final BucketingVersion bucketingVersion;
+    private final HiveBucketing.BucketingVersion bucketingVersion;
     private final int hiveBucketCount;
     private final List<TypeInfo> bucketTypeInfos;
-    private final int bucketCount;
-    private final int firstPartitionColumnIndex;
-    private final List<MethodHandle> hashCodeInvokers;
+    private final List<Type> partitionColumnTypes;
+    private final List<List<NullableValue>> partitions;
 
-    public HivePartitionedBucketFunction(
-            BucketingVersion bucketingVersion,
-            int hiveBucketCount,
-            List<HiveType> hiveBucketTypes,
-            List<Type> partitionColumnsTypes,
-            TypeOperators typeOperators,
-            int bucketCount)
+    public HivePartitionedBucketFunction(HiveBucketing.BucketingVersion bucketingVersion, int bucketCount, List<HiveType> hiveBucketTypes, List<Type> partitionColumnTypes, List<String> partitions)
     {
         this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
-        this.hiveBucketCount = hiveBucketCount;
+        if (bucketCount > 1) {
+            this.hiveBucketCount = bucketCount / partitions.size();
+        }
+        else {
+            this.hiveBucketCount = 1;
+        }
         this.bucketTypeInfos = hiveBucketTypes.stream()
                 .map(HiveType::getTypeInfo)
                 .collect(toImmutableList());
-        this.firstPartitionColumnIndex = hiveBucketTypes.size();
-        this.hashCodeInvokers = partitionColumnsTypes.stream()
-                .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)))
-                .collect(toImmutableList());
-        this.bucketCount = bucketCount;
+        this.partitionColumnTypes = requireNonNull(partitionColumnTypes, "partitionColumnTypes is null");
+        this.partitions = getPartitionValues(requireNonNull(partitions, "partitions is null"), partitionColumnTypes);
     }
 
     @Override
     public int getBucket(Page page, int position)
     {
-        long partitionHash = 0;
-        for (int i = 0; i < hashCodeInvokers.size(); i++) {
-            try {
-                Block partitionColumn = page.getBlock(i + firstPartitionColumnIndex);
-                partitionHash = (31 * partitionHash) + hashCodeNullSafe(hashCodeInvokers.get(i), partitionColumn, position);
+        int bucket = 0;
+        if (hiveBucketCount > 1) {
+            bucket = HiveBucketing.getHiveBucket(bucketingVersion, hiveBucketCount, bucketTypeInfos, page, position);
+        }
+        int partition = 0;
+        ImmutableList.Builder<NullableValue> partitionValueBuilder = ImmutableList.builder();
+        for (int i = 0; i < partitionColumnTypes.size(); i++) {
+            Block block = page.getBlock(i);
+            Type type = partitionColumnTypes.get(i);
+            NullableValue value;
+            if (block.isNull(position)) {
+                value = NullableValue.asNull(type);
             }
-            catch (Throwable throwable) {
-                throwIfUnchecked(throwable);
-                throw new RuntimeException(throwable);
+            else {
+                value = HiveUtil.partitionKeyFromBlock(type, block, position);
+            }
+            partitionValueBuilder.add(value);
+        }
+        // TODO: don't do a linear search!
+        List<NullableValue> partitionValue = partitionValueBuilder.build();
+        for (int i = 0; i < partitions.size(); i++) {
+            if (partitions.get(i).equals(partitionValue)) {
+                partition = i;
+                break;
             }
         }
-
-        int hiveBucket = HiveBucketing.getHiveBucket(bucketingVersion, hiveBucketCount, bucketTypeInfos, page, position);
-
-        return (int) ((((31 * partitionHash) + hiveBucket) & Long.MAX_VALUE) % bucketCount);
-    }
-
-    private static long hashCodeNullSafe(MethodHandle hashCode, Block block, int position)
-            throws Throwable
-    {
-        if (block.isNull(position)) {
-            // use -1 as a hash for null value as it's less likely to collide with
-            // hash for non-null values (mainly 0 bigints/integers)
-            return -1;
-        }
-        return (long) hashCode.invokeExact(block, position);
+        return bucket + (partition * hiveBucketCount);
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
+        ToStringHelper helper = toStringHelper(this)
                 .add("version", bucketingVersion)
                 .add("hiveBucketCount", hiveBucketCount)
                 .add("bucketTypeInfos", bucketTypeInfos)
-                .add("firstPartitionColumnIndex", firstPartitionColumnIndex)
-                .add("bucketCount", bucketCount)
-                .toString();
+                .add("partitions", partitions)
+                .add("partitionColumnTypes", partitionColumnTypes);
+        return helper.toString();
+    }
+
+    private static List<List<NullableValue>> getPartitionValues(List<String> partitions, List<Type> partitionColumnTypes)
+    {
+        return partitions.stream().map(partitionName -> {
+            List<String> values = HivePartitionManager.extractPartitionValues(partitionName);
+            ImmutableList.Builder<NullableValue> builder = ImmutableList.builder();
+            for (int i = 0; i < values.size(); i++) {
+                NullableValue parsedValue = HiveUtil.parsePartitionValue(partitionName, values.get(i), partitionColumnTypes.get(i));
+                builder.add(parsedValue);
+            }
+            return builder.build();
+        }).collect(toImmutableList());
     }
 }
