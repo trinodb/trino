@@ -522,10 +522,10 @@ public class TrinoGlueCatalog
 
                 try {
                     TrinoViewUtil.getView(schemaTableName,
-                            Optional.ofNullable(table.getViewOriginalText()),
-                            getTableType(table),
-                            parameters,
-                            Optional.ofNullable(table.getOwner()))
+                                    Optional.ofNullable(table.getViewOriginalText()),
+                                    getTableType(table),
+                                    parameters,
+                                    Optional.ofNullable(table.getOwner()))
                             .ifPresent(viewDefinition -> viewCache.put(schemaTableName, viewDefinition));
                 }
                 catch (RuntimeException e) {
@@ -600,10 +600,10 @@ public class TrinoGlueCatalog
                 session.getUser(),
                 createViewProperties(session, trinoVersion, TRINO_CREATED_BY_VALUE));
         Failsafe.with(RetryPolicy.builder()
-                .withMaxRetries(3)
-                .withDelay(Duration.ofMillis(100))
-                .abortIf(throwable -> !replace || throwable instanceof ViewAlreadyExistsException)
-                .build())
+                        .withMaxRetries(3)
+                        .withDelay(Duration.ofMillis(100))
+                        .abortIf(throwable -> !replace || throwable instanceof ViewAlreadyExistsException)
+                        .build())
                 .run(() -> doCreateView(session, schemaViewName, viewTableInput, replace));
     }
 
