@@ -18,6 +18,9 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorMethodHandle;
@@ -33,12 +36,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.BiFunction;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
@@ -139,7 +141,7 @@ public class ArrayType
         MethodHandle readFlat = insertArguments(READ_FLAT, 0, elementType, elementReadOperator, elementType.getFlatFixedSize());
         MethodHandle readFlatToBlock = insertArguments(READ_FLAT_TO_BLOCK, 0, elementReadOperator, elementType.getFlatFixedSize());
 
-        MethodHandle elementWriteOperator = typeOperators.getReadValueOperator(elementType, simpleConvention(FLAT_RETURN, BLOCK_POSITION));
+        MethodHandle elementWriteOperator = typeOperators.getReadValueOperator(elementType, simpleConvention(FLAT_RETURN, VALUE_BLOCK_POSITION_NOT_NULL));
         MethodHandle writeFlatToBlock = insertArguments(WRITE_FLAT, 0, elementType, elementWriteOperator, elementType.getFlatFixedSize(), elementType.isFlatVariableWidth());
         return List.of(
                 new OperatorMethodHandle(READ_FLAT_CONVENTION, readFlat),
@@ -152,7 +154,7 @@ public class ArrayType
         if (!elementType.isComparable()) {
             return emptyList();
         }
-        MethodHandle equalOperator = typeOperators.getEqualOperator(elementType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
+        MethodHandle equalOperator = typeOperators.getEqualOperator(elementType, simpleConvention(NULLABLE_RETURN, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(EQUAL_CONVENTION, EQUAL.bindTo(equalOperator)));
     }
 
@@ -161,7 +163,7 @@ public class ArrayType
         if (!elementType.isComparable()) {
             return emptyList();
         }
-        MethodHandle elementHashCodeOperator = typeOperators.getHashCodeOperator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
+        MethodHandle elementHashCodeOperator = typeOperators.getHashCodeOperator(elementType, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(elementHashCodeOperator)));
     }
 
@@ -170,7 +172,7 @@ public class ArrayType
         if (!elementType.isComparable()) {
             return emptyList();
         }
-        MethodHandle elementHashCodeOperator = typeOperators.getXxHash64Operator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
+        MethodHandle elementHashCodeOperator = typeOperators.getXxHash64Operator(elementType, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(elementHashCodeOperator)));
     }
 
@@ -179,7 +181,7 @@ public class ArrayType
         if (!elementType.isComparable()) {
             return emptyList();
         }
-        MethodHandle elementDistinctFromOperator = typeOperators.getDistinctFromOperator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        MethodHandle elementDistinctFromOperator = typeOperators.getDistinctFromOperator(elementType, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(DISTINCT_FROM_CONVENTION, DISTINCT_FROM.bindTo(elementDistinctFromOperator)));
     }
 
@@ -188,7 +190,7 @@ public class ArrayType
         if (!elementType.isComparable()) {
             return emptyList();
         }
-        MethodHandle elementIndeterminateOperator = typeOperators.getIndeterminateOperator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
+        MethodHandle elementIndeterminateOperator = typeOperators.getIndeterminateOperator(elementType, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(INDETERMINATE_CONVENTION, INDETERMINATE.bindTo(elementIndeterminateOperator)));
     }
 
@@ -197,7 +199,7 @@ public class ArrayType
         if (!elementType.isOrderable()) {
             return emptyList();
         }
-        MethodHandle elementComparisonOperator = comparisonOperatorFactory.apply(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
+        MethodHandle elementComparisonOperator = comparisonOperatorFactory.apply(elementType, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, COMPARISON.bindTo(elementComparisonOperator)));
     }
 
@@ -457,34 +459,59 @@ public class ArrayType
     private static void writeFlatElements(Type elementType, MethodHandle elementWriteFlat, int elementFixedSize, boolean elementVariableWidth, Block array, byte[] slice, int offset)
             throws Throwable
     {
+        array = array.getLoadedBlock();
+
         int positionCount = array.getPositionCount();
         // variable width data starts after fixed width data
         // there is one extra byte per position for the null flag
         int writeVariableWidthOffset = offset + positionCount * (1 + elementFixedSize);
-        for (int index = 0; index < positionCount; index++) {
-            if (array.isNull(index)) {
-                slice[offset] = 1;
-                offset++;
+        if (array instanceof ValueBlock valuesBlock) {
+            for (int index = 0; index < positionCount; index++) {
+                writeVariableWidthOffset = writeFlatElement(elementType, elementWriteFlat, elementVariableWidth, valuesBlock, index, slice, offset, writeVariableWidthOffset);
+                offset += 1 + elementFixedSize;
             }
-            else {
-                // skip null byte
-                offset++;
-
-                int elementVariableSize = 0;
-                if (elementVariableWidth) {
-                    elementVariableSize = elementType.getFlatVariableWidthSize(array, index);
-                }
-                elementWriteFlat.invokeExact(
-                        array,
-                        index,
-                        slice,
-                        offset,
-                        slice,
-                        writeVariableWidthOffset);
-                writeVariableWidthOffset += elementVariableSize;
-            }
-            offset += elementFixedSize;
         }
+        else if (array instanceof RunLengthEncodedBlock rleBlock) {
+            ValueBlock valuesBlock = rleBlock.getValue();
+            for (int index = 0; index < positionCount; index++) {
+                writeVariableWidthOffset = writeFlatElement(elementType, elementWriteFlat, elementVariableWidth, valuesBlock, 0, slice, offset, writeVariableWidthOffset);
+                offset += 1 + elementFixedSize;
+            }
+        }
+        else if (array instanceof DictionaryBlock dictionaryBlock) {
+            ValueBlock valuesBlock = dictionaryBlock.getDictionary();
+            for (int position = 0; position < positionCount; position++) {
+                int index = dictionaryBlock.getId(position);
+                writeVariableWidthOffset = writeFlatElement(elementType, elementWriteFlat, elementVariableWidth, valuesBlock, index, slice, offset, writeVariableWidthOffset);
+                offset += 1 + elementFixedSize;
+            }
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported block type: " + array.getClass().getName());
+        }
+    }
+
+    private static int writeFlatElement(Type elementType, MethodHandle elementWriteFlat, boolean elementVariableWidth, ValueBlock array, int index, byte[] slice, int offset, int writeVariableWidthOffset)
+            throws Throwable
+    {
+        if (array.isNull(index)) {
+            slice[offset] = 1;
+        }
+        else {
+            int elementVariableSize = 0;
+            if (elementVariableWidth) {
+                elementVariableSize = elementType.getFlatVariableWidthSize(array, index);
+            }
+            elementWriteFlat.invokeExact(
+                    array,
+                    index,
+                    slice,
+                    offset + 1, // skip null byte
+                    slice,
+                    writeVariableWidthOffset);
+            writeVariableWidthOffset += elementVariableSize;
+        }
+        return writeVariableWidthOffset;
     }
 
     private static Boolean equalOperator(MethodHandle equalOperator, Block leftArray, Block rightArray)
@@ -494,13 +521,21 @@ public class ArrayType
             return false;
         }
 
+        leftArray = leftArray.getLoadedBlock();
+        rightArray = rightArray.getLoadedBlock();
+
+        ValueBlock leftValues = leftArray.getUnderlyingValueBlock();
+        ValueBlock rightValues = rightArray.getUnderlyingValueBlock();
+
         boolean unknown = false;
         for (int position = 0; position < leftArray.getPositionCount(); position++) {
-            if (leftArray.isNull(position) || rightArray.isNull(position)) {
+            int leftIndex = leftArray.getUnderlyingValuePosition(position);
+            int rightIndex = rightArray.getUnderlyingValuePosition(position);
+            if (leftValues.isNull(leftIndex) || rightValues.isNull(rightIndex)) {
                 unknown = true;
                 continue;
             }
-            Boolean result = (Boolean) equalOperator.invokeExact(leftArray, position, rightArray, position);
+            Boolean result = (Boolean) equalOperator.invokeExact(leftValues, leftIndex, rightValues, rightIndex);
             if (result == null) {
                 unknown = true;
             }
@@ -515,15 +550,43 @@ public class ArrayType
         return true;
     }
 
-    private static long hashOperator(MethodHandle hashOperator, Block block)
+    private static long hashOperator(MethodHandle hashOperator, Block array)
             throws Throwable
     {
-        long hash = 0;
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            long elementHash = block.isNull(position) ? NULL_HASH_CODE : (long) hashOperator.invokeExact(block, position);
-            hash = 31 * hash + elementHash;
+        array = array.getLoadedBlock();
+
+        if (array instanceof ValueBlock valuesBlock) {
+            long hash = 0;
+            for (int index = 0; index < valuesBlock.getPositionCount(); index++) {
+                long elementHash = valuesBlock.isNull(index) ? NULL_HASH_CODE : (long) hashOperator.invokeExact(valuesBlock, index);
+                hash = 31 * hash + elementHash;
+            }
+            return hash;
         }
-        return hash;
+
+        if (array instanceof RunLengthEncodedBlock rleBlock) {
+            ValueBlock valuesBlock = rleBlock.getValue();
+            long elementHash = valuesBlock.isNull(0) ? NULL_HASH_CODE : (long) hashOperator.invokeExact(valuesBlock, 0);
+
+            long hash = 0;
+            for (int position = 0; position < valuesBlock.getPositionCount(); position++) {
+                hash = 31 * hash + elementHash;
+            }
+            return hash;
+        }
+
+        if (array instanceof DictionaryBlock dictionaryBlock) {
+            ValueBlock valuesBlock = dictionaryBlock.getDictionary();
+            long hash = 0;
+            for (int position = 0; position < valuesBlock.getPositionCount(); position++) {
+                int index = dictionaryBlock.getId(position);
+                long elementHash = valuesBlock.isNull(position) ? NULL_HASH_CODE : (long) hashOperator.invokeExact(valuesBlock, index);
+                hash = 31 * hash + elementHash;
+            }
+            return hash;
+        }
+
+        throw new IllegalArgumentException("Unsupported block type: " + array.getClass().getName());
     }
 
     private static boolean distinctFromOperator(MethodHandle distinctFromOperator, Block leftArray, Block rightArray)
@@ -539,8 +602,26 @@ public class ArrayType
             return true;
         }
 
+        leftArray = leftArray.getLoadedBlock();
+        rightArray = rightArray.getLoadedBlock();
+
+        ValueBlock leftValues = leftArray.getUnderlyingValueBlock();
+        ValueBlock rightValues = rightArray.getUnderlyingValueBlock();
+
         for (int position = 0; position < leftArray.getPositionCount(); position++) {
-            boolean result = (boolean) distinctFromOperator.invokeExact(leftArray, position, rightArray, position);
+            int leftIndex = leftArray.getUnderlyingValuePosition(position);
+            int rightIndex = rightArray.getUnderlyingValuePosition(position);
+
+            boolean leftValueIsNull = leftValues.isNull(leftIndex);
+            boolean rightValueIsNull = rightValues.isNull(rightIndex);
+            if (leftValueIsNull != rightValueIsNull) {
+                return true;
+            }
+            if (leftValueIsNull) {
+                continue;
+            }
+
+            boolean result = (boolean) distinctFromOperator.invokeExact(leftValues, leftIndex, rightValues, rightIndex);
             if (result) {
                 return true;
             }
@@ -549,33 +630,73 @@ public class ArrayType
         return false;
     }
 
-    private static boolean indeterminateOperator(MethodHandle elementIndeterminateFunction, Block block, boolean isNull)
+    private static boolean indeterminateOperator(MethodHandle elementIndeterminateFunction, Block array, boolean isNull)
             throws Throwable
     {
         if (isNull) {
             return true;
         }
 
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            if (block.isNull(position)) {
-                return true;
+        array = array.getLoadedBlock();
+
+        if (array instanceof ValueBlock valuesBlock) {
+            for (int index = 0; index < valuesBlock.getPositionCount(); index++) {
+                if (valuesBlock.isNull(index)) {
+                    return true;
+                }
+                if ((boolean) elementIndeterminateFunction.invoke(valuesBlock, index)) {
+                    return true;
+                }
             }
-            if ((boolean) elementIndeterminateFunction.invoke(block, position)) {
-                return true;
-            }
+            return false;
         }
-        return false;
+
+        if (array instanceof RunLengthEncodedBlock rleBlock) {
+            ValueBlock valuesBlock = rleBlock.getValue();
+            if (valuesBlock.isNull(0)) {
+                return true;
+            }
+            if ((boolean) elementIndeterminateFunction.invoke(valuesBlock, 0)) {
+                return true;
+            }
+            return false;
+        }
+
+        if (array instanceof DictionaryBlock dictionaryBlock) {
+            ValueBlock valuesBlock = dictionaryBlock.getDictionary();
+            for (int position = 0; position < valuesBlock.getPositionCount(); position++) {
+                int index = dictionaryBlock.getId(position);
+                if (valuesBlock.isNull(index)) {
+                    return true;
+                }
+                if ((boolean) elementIndeterminateFunction.invoke(valuesBlock, index)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        throw new IllegalArgumentException("Unsupported block type: " + array.getClass().getName());
     }
 
     private static long comparisonOperator(MethodHandle comparisonOperator, Block leftArray, Block rightArray)
             throws Throwable
     {
+        leftArray = leftArray.getLoadedBlock();
+        rightArray = rightArray.getLoadedBlock();
+
+        ValueBlock leftValues = leftArray.getUnderlyingValueBlock();
+        ValueBlock rightValues = rightArray.getUnderlyingValueBlock();
+
         int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
         for (int position = 0; position < len; position++) {
             checkElementNotNull(leftArray.isNull(position), ARRAY_NULL_ELEMENT_MSG);
             checkElementNotNull(rightArray.isNull(position), ARRAY_NULL_ELEMENT_MSG);
 
-            long result = (long) comparisonOperator.invokeExact(leftArray, position, rightArray, position);
+            int leftIndex = leftArray.getUnderlyingValuePosition(position);
+            int rightIndex = rightArray.getUnderlyingValuePosition(position);
+
+            long result = (long) comparisonOperator.invokeExact(leftValues, leftIndex, rightValues, rightIndex);
             if (result != 0) {
                 return result;
             }
