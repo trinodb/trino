@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -95,6 +96,11 @@ public interface TrinoCatalog
      * @throws UnknownTableTypeException if table is not of Iceberg type in the metastore
      */
     Table loadTable(ConnectorSession session, SchemaTableName schemaTableName);
+
+    /**
+     * Bulk load column metadata. The returned map may contain fewer entries then asked for.
+     */
+    Map<SchemaTableName, List<ColumnMetadata>> tryGetColumnMetadata(ConnectorSession session, List<SchemaTableName> tables);
 
     void updateTableComment(ConnectorSession session, SchemaTableName schemaTableName, Optional<String> comment);
 
