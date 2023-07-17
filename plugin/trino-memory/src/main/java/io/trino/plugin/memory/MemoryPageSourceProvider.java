@@ -38,7 +38,6 @@ import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public final class MemoryPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -70,9 +69,10 @@ public final class MemoryPageSourceProvider
         MemoryTableHandle memoryTable = (MemoryTableHandle) table;
         OptionalDouble sampleRatio = memoryTable.getSampleRatio();
 
-        List<Integer> columnIndexes = columns.stream()
+        int[] columnIndexes = columns.stream()
                 .map(MemoryColumnHandle.class::cast)
-                .map(MemoryColumnHandle::getColumnIndex).collect(toList());
+                .mapToInt(MemoryColumnHandle::getColumnIndex)
+                .toArray();
         List<Page> pages = pagesStore.getPages(
                 tableId,
                 partNumber,
