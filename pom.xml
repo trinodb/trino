@@ -171,7 +171,7 @@
         <dep.kafka-clients.version>3.3.2</dep.kafka-clients.version>
         <dep.casandra.version>4.14.0</dep.casandra.version>
         <dep.minio.version>8.4.5</dep.minio.version>
-        <dep.iceberg.version>1.3.0</dep.iceberg.version>
+        <dep.iceberg.version>1.3.1</dep.iceberg.version>
         <dep.protobuf.version>3.23.2</dep.protobuf.version>
         <dep.wire.version>4.5.0</dep.wire.version>
         <!-- Netty 4.1.94.Final breaks Apache Arrow -->
@@ -1944,6 +1944,14 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>iceberg-release-candidate</id>
+            <name>Iceberg Release Candidate</name>
+            <url>https://repository.apache.org/content/repositories/orgapacheiceberg-1141/</url>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>
