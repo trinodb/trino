@@ -13,6 +13,8 @@
  */
 package io.trino.testing.containers;
 
+import io.airlift.units.DataSize;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -27,6 +29,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.net.UrlEscapers.urlFragmentEscaper;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 
 public class OpenTracingCollector
         extends BaseTestContainer
@@ -58,7 +61,7 @@ public class OpenTracingCollector
                 "--badger.maintenance-interval=30s"));
 
         withCreateContainerModifier(command -> command.getHostConfig()
-                .withMemory(2 * 1024 * 1024 * 1024L)); // 1 GB limit
+                .withMemory(DataSize.of(1, GIGABYTE).toBytes()));
 
         try {
             this.storageDirectory = Files.createTempDirectory("tracing-collector");
