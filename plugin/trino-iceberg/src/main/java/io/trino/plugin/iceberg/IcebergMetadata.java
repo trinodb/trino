@@ -100,7 +100,9 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TypeManager;
 import org.apache.datasketches.theta.CompactSketch;
@@ -152,6 +154,9 @@ import org.apache.iceberg.types.Types.StructType;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -260,7 +265,10 @@ import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.UuidType.UUID;
+import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -391,7 +399,7 @@ public class IcebergMetadata
         Schema tableSchema;
         Optional<PartitionSpec> partitionSpec;
         if (endVersion.isPresent()) {
-            long snapshotId = getSnapshotIdFromVersion(table, endVersion.get());
+            long snapshotId = getSnapshotIdFromVersion(session, table, endVersion.get());
             tableSnapshotId = Optional.of(snapshotId);
             tableSchema = schemaFor(table, snapshotId);
             partitionSpec = Optional.empty();
@@ -424,11 +432,11 @@ public class IcebergMetadata
                 Optional.empty());
     }
 
-    private static long getSnapshotIdFromVersion(Table table, ConnectorTableVersion version)
+    private static long getSnapshotIdFromVersion(ConnectorSession session, Table table, ConnectorTableVersion version)
     {
         io.trino.spi.type.Type versionType = version.getVersionType();
         return switch (version.getPointerType()) {
-            case TEMPORAL -> getTemporalSnapshotIdFromVersion(table, version, versionType);
+            case TEMPORAL -> getTemporalSnapshotIdFromVersion(session, table, version, versionType);
             case TARGET_ID -> getTargetSnapshotIdFromVersion(table, version, versionType);
         };
     }
@@ -445,8 +453,28 @@ public class IcebergMetadata
         return snapshotId;
     }
 
-    private static long getTemporalSnapshotIdFromVersion(Table table, ConnectorTableVersion version, io.trino.spi.type.Type versionType)
+    private static long getTemporalSnapshotIdFromVersion(ConnectorSession session, Table table, ConnectorTableVersion version, io.trino.spi.type.Type versionType)
     {
+        if (versionType.equals(DATE)) {
+            // Retrieve the latest snapshot made before or at the beginning of the day of the specified date in the session's time zone
+            long epochMillis = LocalDate.ofEpochDay((Long) version.getVersion())
+                    .atStartOfDay()
+                    .atZone(session.getTimeZoneKey().getZoneId())
+                    .toInstant()
+                    .toEpochMilli();
+            return getSnapshotIdAsOfTime(table, epochMillis);
+        }
+        if (versionType instanceof TimestampType timestampVersionType) {
+            long epochMicrosUtc = timestampVersionType.isShort()
+                    ? (long) version.getVersion()
+                    : ((LongTimestamp) version.getVersion()).getEpochMicros();
+            long epochMillisUtc = floorDiv(epochMicrosUtc, MICROSECONDS_PER_MILLISECOND);
+            long epochMillis = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillisUtc), ZoneOffset.UTC)
+                    .atZone(session.getTimeZoneKey().getZoneId())
+                    .toInstant()
+                    .toEpochMilli();
+            return getSnapshotIdAsOfTime(table, epochMillis);
+        }
         if (versionType instanceof TimestampWithTimeZoneType timeZonedVersionType) {
             long epochMillis = timeZonedVersionType.isShort()
                     ? unpackMillisUtc((long) version.getVersion())
