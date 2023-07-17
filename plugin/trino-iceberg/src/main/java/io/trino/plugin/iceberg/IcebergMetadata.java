@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -168,7 +169,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -655,19 +655,20 @@ public class IcebergMetadata
             schemaTableNames = ImmutableList.of(prefix.toSchemaTableName());
         }
 
-        BlockingQueue<TableColumnsMetadata> columnQueue = new LinkedBlockingQueue<>();
+        BlockingQueue<Optional<TableColumnsMetadata>> columnsMetadataQueue = new LinkedBlockingQueue<>();
         AtomicInteger completedTasks = new AtomicInteger(0);
 
         schemaTableNames.parallelStream().forEach(tableName ->
                 metadataListingExecutor.submit(() -> {
                     try {
                         if (redirectTable(session, tableName).isPresent()) {
-                            columnQueue.add(TableColumnsMetadata.forRedirectedTable(tableName));
+                            columnsMetadataQueue.add(Optional.of(TableColumnsMetadata.forRedirectedTable(tableName)));
                         }
-
-                        Table icebergTable = catalog.loadTable(session, tableName);
-                        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema());
-                        columnQueue.add(TableColumnsMetadata.forTable(tableName, columns));
+                        else {
+                            Table icebergTable = catalog.loadTable(session, tableName);
+                            List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema());
+                            columnsMetadataQueue.add(Optional.of(TableColumnsMetadata.forTable(tableName, columns)));
+                        }
                     }
                     catch (TableNotFoundException e) {
                         // Table disappeared during listing operation
@@ -681,29 +682,26 @@ public class IcebergMetadata
                     }
 
                     // Tasks must reach this point as all Exceptions are caught above
+                    columnsMetadataQueue.add(Optional.empty());
                     completedTasks.getAndIncrement();
                 }));
-
-        return new Iterator<>() {
+        return new AbstractIterator<>() {
             @Override
-            public boolean hasNext()
+            protected TableColumnsMetadata computeNext()
             {
-                return !columnQueue.isEmpty() || completedTasks.get() < schemaTableNames.size();
-            }
-
-            @Override
-            public TableColumnsMetadata next()
-            {
-                try {
-                    TableColumnsMetadata next = columnQueue.poll(5, TimeUnit.SECONDS);
-                    if (next == null) {
-                        throw new TrinoException(ICEBERG_INVALID_METADATA, "Unable to fetch metadata for Iceberg table within the timeout");
+                while (!columnsMetadataQueue.isEmpty() || completedTasks.get() < schemaTableNames.size()) {
+                    try {
+                        Optional<TableColumnsMetadata> next = columnsMetadataQueue.take();
+                        if (next.isPresent()) {
+                            return next.get();
+                        }
                     }
-                    return next;
+                    catch (InterruptedException e) {
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Interrupted while waiting for Iceberg column metadata");
+                    }
                 }
-                catch (InterruptedException e) {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Interrupted while waiting for Iceberg column metadata");
-                }
+
+                return endOfData();
             }
         };
     }
