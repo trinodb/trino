@@ -1101,4 +1101,10 @@ public class TestSynapseConnectorTest
                         but did not.""");
         throw new SkipException("procedure() PTF not registered");
     }
+
+    @Override
+    public void testWriteTaskParallelismSessionProperty(int parallelism, int numberOfRows)
+    {
+        throw new SkipException("This test writes a table on sf100 scale. Will be re-nabled once we modify the base test to not use INSERT query. Re-enable this once https://github.com/starburstdata/starburst-trino-plugins/issues/253 is addressed");
+    }
 }
