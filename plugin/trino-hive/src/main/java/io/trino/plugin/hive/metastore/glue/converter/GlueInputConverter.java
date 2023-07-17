@@ -116,6 +116,7 @@ public final class GlueInputConverter
         return new com.amazonaws.services.glue.model.Column()
                 .withName(trinoColumn.getName())
                 .withType(trinoColumn.getType().toString())
-                .withComment(trinoColumn.getComment().orElse(null));
+                .withComment(trinoColumn.getComment().orElse(null))
+                .withParameters(trinoColumn.getProperties());
     }
 }
