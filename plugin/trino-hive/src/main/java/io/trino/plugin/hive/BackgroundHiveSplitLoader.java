@@ -25,7 +25,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.Locations;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
@@ -866,7 +865,7 @@ public class BackgroundHiveSplitLoader
         // build mapping of file name to bucket
         ListMultimap<Integer, TrinoFileStatus> bucketFiles = ArrayListMultimap.create();
         for (TrinoFileStatus file : files) {
-            String fileName = Locations.getFileName(file.getPath());
+            String fileName = Location.of(file.getPath()).fileName();
             OptionalInt bucket = getBucketNumber(fileName);
             if (bucket.isPresent()) {
                 bucketFiles.put(bucket.getAsInt(), file);
