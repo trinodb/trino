@@ -1106,11 +1106,4 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.getMaxWriterTasks(session);
         }
     }
-
-    @Override
-    protected Object clone()
-            throws CloneNotSupportedException
-    {
-        return super.clone();
-    }
 }
