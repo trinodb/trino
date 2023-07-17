@@ -14,9 +14,10 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.services.glue.model.TableInput;
-import com.google.common.collect.ImmutableMap;
 import jakarta.annotation.Nullable;
+import org.apache.iceberg.TableMetadata;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -25,22 +26,27 @@ import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 
 public final class GlueIcebergUtil
 {
     private GlueIcebergUtil() {}
 
-    public static TableInput getTableInput(String tableName, Optional<String> owner, Map<String, String> parameters)
+    public static TableInput getTableInput(String tableName, Optional<String> owner, TableMetadata metadata, String newMetadataLocation, Map<String, String> parameters)
     {
+        requireNonNull(metadata, "metadata is null"); // suppress unused
+
+        parameters = new HashMap<>(parameters);
+        parameters.putIfAbsent(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH));
+        parameters.put(METADATA_LOCATION_PROP, newMetadataLocation);
+
         return new TableInput()
                 .withName(tableName)
                 .withOwner(owner.orElse(null))
-                .withParameters(ImmutableMap.<String, String>builder()
-                        .putAll(parameters)
-                        .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
-                        .buildKeepingLast())
+                .withParameters(parameters)
                 // Iceberg does not distinguish managed and external tables, all tables are treated the same and marked as EXTERNAL
                 .withTableType(EXTERNAL_TABLE.name());
     }
