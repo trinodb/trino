@@ -982,9 +982,8 @@ public class HiveMetadata
         hiveStorageFormat.validateColumns(columnHandles);
 
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
-        List<Column> partitionColumns = partitionedBy.stream()
+        List<HiveColumnHandle> partitionColumns = partitionedBy.stream()
                 .map(columnHandlesByName::get)
-                .map(HiveColumnHandle::toMetastoreColumn)
                 .collect(toImmutableList());
         checkPartitionTypesSupported(partitionColumns);
 
@@ -1301,11 +1300,10 @@ public class HiveMetadata
         }
     }
 
-    private void checkPartitionTypesSupported(List<Column> partitionColumns)
+    private void checkPartitionTypesSupported(List<HiveColumnHandle> partitionColumns)
     {
-        for (Column partitionColumn : partitionColumns) {
-            Type partitionType = typeManager.getType(partitionColumn.getType().getTypeSignature());
-            verifyPartitionTypeSupported(partitionColumn.getName(), partitionType);
+        for (HiveColumnHandle partitionColumn : partitionColumns) {
+            verifyPartitionTypeSupported(partitionColumn.getName(), partitionColumn.getType());
         }
     }
 
@@ -1671,9 +1669,8 @@ public class HiveMetadata
         actualStorageFormat.validateColumns(columnHandles);
 
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
-        List<Column> partitionColumns = partitionedBy.stream()
+        List<HiveColumnHandle> partitionColumns = partitionedBy.stream()
                 .map(columnHandlesByName::get)
-                .map(HiveColumnHandle::toMetastoreColumn)
                 .collect(toImmutableList());
         checkPartitionTypesSupported(partitionColumns);
 
