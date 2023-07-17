@@ -153,6 +153,12 @@
     </violation>
 
     <violation>
+        <name>com/amazonaws/services/glue/model/Column.getParameters:()Ljava/util/Map;</name>
+        <version>1.1</version>
+        <comment>Column parameters map is nullable in Glue model, which is too easy to forget about. Prefer GlueToTrinoConverter.getColumnParameters</comment>
+    </violation>
+
+    <violation>
         <name>com/amazonaws/services/glue/model/Table.getParameters:()Ljava/util/Map;</name>
         <version>1.1</version>
         <comment>Table parameters map is nullable in Glue model, which is too easy to forget about. Prefer GlueToTrinoConverter.getTableParameters</comment>
