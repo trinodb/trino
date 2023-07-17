@@ -13,23 +13,36 @@
  */
 package io.trino.cli;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.client.Row;
 
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
+import static com.google.common.collect.Iterables.partition;
+import static com.google.common.collect.Iterables.transform;
+import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 
 public final class FormatUtils
 {
+    private static final Splitter HEX_SPLITTER = Splitter.fixedLength(2);
+    private static final Joiner HEX_BYTE_JOINER = Joiner.on(' ');
+    private static final Joiner HEX_LINE_JOINER = Joiner.on('\n');
+
     private FormatUtils() {}
 
     public static String formatCount(long count)
@@ -237,5 +250,94 @@ public final class FormatUtils
     private static int ceil(int dividend, int divisor)
     {
         return ((dividend + divisor) - 1) / divisor;
+    }
+
+    static String formatValue(Object o)
+    {
+        return formatValue(o, "NULL", 16);
+    }
+
+    static String formatValue(Object o, String nullValue, int bytesPerLine)
+    {
+        if (o == null) {
+            return nullValue;
+        }
+
+        if (o instanceof Map) {
+            return formatMap((Map<?, ?>) o);
+        }
+
+        if (o instanceof List) {
+            return formatList((List<?>) o);
+        }
+
+        if (o instanceof Row) {
+            return formatRow(((Row) o));
+        }
+
+        if (o instanceof byte[]) {
+            return formatHexDump((byte[]) o, bytesPerLine);
+        }
+
+        return o.toString();
+    }
+
+    private static String formatHexDump(byte[] bytes, int bytesPerLine)
+    {
+        if (bytesPerLine <= 0) {
+            return formatHexDump(bytes);
+        }
+        // hex pairs: ["61", "62", "63"]
+        Iterable<String> hexPairs = createHexPairs(bytes);
+
+        // hex lines: [["61", "62", "63], [...]]
+        Iterable<List<String>> hexLines = partition(hexPairs, bytesPerLine);
+
+        // lines: ["61 62 63", ...]
+        Iterable<String> lines = transform(hexLines, HEX_BYTE_JOINER::join);
+
+        // joined: "61 62 63\n..."
+        return HEX_LINE_JOINER.join(lines);
+    }
+
+    static String formatHexDump(byte[] bytes)
+    {
+        return HEX_BYTE_JOINER.join(createHexPairs(bytes));
+    }
+
+    private static Iterable<String> createHexPairs(byte[] bytes)
+    {
+        // hex dump: "616263"
+        String hexDump = base16().lowerCase().encode(bytes);
+
+        // hex pairs: ["61", "62", "63"]
+        return HEX_SPLITTER.split(hexDump);
+    }
+
+    static String formatList(List<? extends Object> list)
+    {
+        return list.stream()
+                .map(FormatUtils::formatValue)
+                .collect(joining(", ", "[", "]"));
+    }
+
+    static String formatMap(Map<? extends Object, ? extends Object> map)
+    {
+        return map.entrySet().stream()
+                .map(entry -> format("%s=%s", formatValue(entry.getKey()), formatValue(entry.getValue())))
+                .collect(joining(", ", "{", "}"));
+    }
+
+    static String formatRow(Row row)
+    {
+        return row.getFields().stream()
+                .map(field -> {
+                    String formattedValue = formatValue(field.getValue());
+                    if (field.getName().isPresent()) {
+                        return format("%s=%s", formatValue(field.getName().get()), formattedValue);
+                    }
+                    return formattedValue;
+                })
+                .collect(joining(", ", "{", "}"));
     }
 }

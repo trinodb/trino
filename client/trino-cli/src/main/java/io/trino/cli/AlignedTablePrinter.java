@@ -13,26 +13,21 @@
  */
 package io.trino.cli;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.client.Column;
-import io.trino.client.Row;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.partition;
-import static com.google.common.collect.Iterables.transform;
-import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.cli.FormatUtils.formatValue;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.ClientStandardTypes.DECIMAL;
 import static io.trino.client.ClientStandardTypes.DOUBLE;
@@ -43,7 +38,6 @@ import static io.trino.client.ClientStandardTypes.TINYINT;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 import static org.jline.utils.AttributedString.stripAnsi;
 import static org.jline.utils.WCWidth.wcwidth;
 
@@ -53,9 +47,6 @@ public class AlignedTablePrinter
     private static final Set<String> NUMERIC_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, DECIMAL);
 
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
-    private static final Splitter HEX_SPLITTER = Splitter.fixedLength(2);
-    private static final Joiner HEX_BYTE_JOINER = Joiner.on(' ');
-    private static final Joiner HEX_LINE_JOINER = Joiner.on('\n');
 
     private final List<String> fieldNames;
     private final List<Boolean> numericFields;
@@ -154,87 +145,6 @@ public class AlignedTablePrinter
         }
 
         writer.flush();
-    }
-
-    static String formatValue(Object o)
-    {
-        if (o == null) {
-            return "NULL";
-        }
-
-        if (o instanceof Map) {
-            return formatMap((Map<?, ?>) o);
-        }
-
-        if (o instanceof List) {
-            return formatList((List<?>) o);
-        }
-
-        if (o instanceof Row) {
-            return formatRow(((Row) o));
-        }
-
-        if (o instanceof byte[]) {
-            return formatHexDump((byte[]) o, 16);
-        }
-
-        return o.toString();
-    }
-
-    private static String formatHexDump(byte[] bytes, int bytesPerLine)
-    {
-        // hex pairs: ["61", "62", "63"]
-        Iterable<String> hexPairs = createHexPairs(bytes);
-
-        // hex lines: [["61", "62", "63], [...]]
-        Iterable<List<String>> hexLines = partition(hexPairs, bytesPerLine);
-
-        // lines: ["61 62 63", ...]
-        Iterable<String> lines = transform(hexLines, HEX_BYTE_JOINER::join);
-
-        // joined: "61 62 63\n..."
-        return HEX_LINE_JOINER.join(lines);
-    }
-
-    static String formatHexDump(byte[] bytes)
-    {
-        return HEX_BYTE_JOINER.join(createHexPairs(bytes));
-    }
-
-    private static Iterable<String> createHexPairs(byte[] bytes)
-    {
-        // hex dump: "616263"
-        String hexDump = base16().lowerCase().encode(bytes);
-
-        // hex pairs: ["61", "62", "63"]
-        return HEX_SPLITTER.split(hexDump);
-    }
-
-    static String formatList(List<? extends Object> list)
-    {
-        return list.stream()
-                .map(AlignedTablePrinter::formatValue)
-                .collect(joining(", ", "[", "]"));
-    }
-
-    static String formatMap(Map<? extends Object, ? extends Object> map)
-    {
-        return map.entrySet().stream()
-                .map(entry -> format("%s=%s", formatValue(entry.getKey()), formatValue(entry.getValue())))
-                .collect(joining(", ", "{", "}"));
-    }
-
-    static String formatRow(Row row)
-    {
-        return row.getFields().stream()
-                .map(field -> {
-                    String formattedValue = formatValue(field.getValue());
-                    if (field.getName().isPresent()) {
-                        return format("%s=%s", formatValue(field.getName().get()), formattedValue);
-                    }
-                    return formattedValue;
-                })
-                .collect(joining(", ", "{", "}"));
     }
 
     private static String center(String s, int maxWidth, int padding)
