@@ -198,7 +198,7 @@ public class TrinoJdbcCatalog
     }
 
     @Override
-    public void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, TableMetadata tableMetadata)
+    public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
     {
         // Using IcebergJdbcClient because JdbcCatalog.registerTable causes the below error.
         // "Cannot invoke "org.apache.iceberg.util.SerializableSupplier.get()" because "this.hadoopConf" is null"

@@ -76,7 +76,7 @@ public interface TrinoCatalog
             String location,
             Map<String, String> properties);
 
-    void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, TableMetadata tableMetadata);
+    void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata);
 
     void unregisterTable(ConnectorSession session, SchemaTableName tableName);
 
