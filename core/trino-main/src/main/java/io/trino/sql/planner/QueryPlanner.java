@@ -547,7 +547,7 @@ class QueryPlanner
             Symbol symbol = relationPlan.getFieldMappings().get(fieldIndex);
             columnSymbolsBuilder.add(symbol);
             if (mergeAnalysis.getRedistributionColumnHandles().contains(columnHandle)) {
-                assignmentsBuilder.put(symbol, symbol.toSymbolReference());
+                assignmentsBuilder.putIdentity(symbol);
             }
             else {
                 assignmentsBuilder.put(symbol, new NullLiteral());
@@ -720,11 +720,11 @@ class QueryPlanner
         for (ColumnHandle column : mergeAnalysis.getRedistributionColumnHandles()) {
             int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(column), "Could not find fieldIndex for redistribution column");
             Symbol symbol = relationPlan.getFieldMappings().get(fieldIndex);
-            projectionAssignmentsBuilder.put(symbol, symbol.toSymbolReference());
+            projectionAssignmentsBuilder.putIdentity(symbol);
         }
 
         // Add the rest of the page columns: rowId, merge row, case number and is_distinct
-        projectionAssignmentsBuilder.put(rowIdSymbol, rowIdSymbol.toSymbolReference());
+        projectionAssignmentsBuilder.putIdentity(rowIdSymbol);
         projectionAssignmentsBuilder.put(mergeRowSymbol, mergeRow);
         projectionAssignmentsBuilder.put(caseNumberSymbol, new GenericLiteral("INTEGER", "0"));
         projectionAssignmentsBuilder.put(isDistinctSymbol, TRUE_LITERAL);
@@ -858,10 +858,10 @@ class QueryPlanner
         for (ColumnHandle column : mergeAnalysis.getRedistributionColumnHandles()) {
             int fieldIndex = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(column), "Could not find fieldIndex for redistribution column");
             Symbol symbol = planWithPresentColumn.getFieldMappings().get(fieldIndex);
-            projectionAssignmentsBuilder.put(symbol, symbol.toSymbolReference());
+            projectionAssignmentsBuilder.putIdentity(symbol);
         }
-        projectionAssignmentsBuilder.put(uniqueIdSymbol, uniqueIdSymbol.toSymbolReference());
-        projectionAssignmentsBuilder.put(rowIdSymbol, rowIdSymbol.toSymbolReference());
+        projectionAssignmentsBuilder.putIdentity(uniqueIdSymbol);
+        projectionAssignmentsBuilder.putIdentity(rowIdSymbol);
         projectionAssignmentsBuilder.put(mergeRowSymbol, caseExpression);
 
         ProjectNode subPlanProject = new ProjectNode(
