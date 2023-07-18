@@ -21,6 +21,9 @@ import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DataProviders;
 import io.trino.testing.DistributedQueryRunner;
@@ -60,6 +63,7 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
@@ -77,6 +81,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestDeltaLakeConnectorTest
         extends BaseConnectorTest
@@ -1818,6 +1823,94 @@ public class TestDeltaLakeConnectorTest
         assertQuery("SELECT * FROM " + tableName, "VALUES ('other', 1), ('str3', 3)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "deleteFiltersForTable")
+    public void testDeleteWithFilter(String createTableSql, String deleteFilter, boolean pushDownDelete)
+    {
+        String table = "delete_with_filter_" + randomNameSuffix();
+        assertUpdate(format(createTableSql, table, bucketName, table));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch'), ('Mary', 10, 'Adelphi'), ('Aaron', 3, 'Dallas')", table), 4);
+
+        assertUpdate(
+                getSession(),
+                format("DELETE FROM %s WHERE %s", table, deleteFilter),
+                2,
+                plan -> {
+                    if (pushDownDelete) {
+                        boolean tableDelete = searchFrom(plan.getRoot()).where(node -> node instanceof TableDeleteNode).matches();
+                        assertTrue(tableDelete, "A TableDeleteNode should be present");
+                    }
+                    else {
+                        TableFinishNode finishNode = searchFrom(plan.getRoot())
+                                .where(TableFinishNode.class::isInstance)
+                                .findOnlyElement();
+                        assertTrue(finishNode.getTarget() instanceof TableWriterNode.MergeTarget, "Delete operation should be performed through MERGE mechanism");
+                    }
+                });
+        assertQuery("SELECT customer, purchases, address FROM " + table, "VALUES ('Mary', 10, 'Adelphi'), ('Aaron', 3, 'Dallas')");
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @DataProvider
+    public Object[][] deleteFiltersForTable()
+    {
+        return new Object[][]{
+                {
+                        "CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')",
+                        "address = 'Antioch'",
+                        false
+                },
+                {
+                        // delete filter applied on function over non-partitioned field
+                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                        "starts_with(address, 'Antioch')",
+                        false
+                },
+                {
+                        // delete filter applied on partitioned field
+                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                        "address = 'Antioch'",
+                        true
+                },
+                {
+                        // delete filter applied on partitioned field and on synthesized field
+                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                        "address = 'Antioch' AND \"$file_size\" > 0",
+                        false
+                },
+                {
+                        // delete filter applied on function over partitioned field
+                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
+                        "starts_with(address, 'Antioch')",
+                        false
+                },
+                {
+                        // delete filter applied on non-partitioned field
+                        "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer'])",
+                        "address = 'Antioch'",
+                        false
+                },
+                {
+                        // delete filter fully applied on composed partition
+                        "CREATE TABLE %s (purchases INT, customer VARCHAR, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])",
+                        "address = 'Antioch' AND (customer = 'Aaron' OR customer = 'Bill')",
+                        true
+                },
+                {
+                        // delete filter applied only partly on first partitioned field
+                        "CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address', 'customer'])",
+                        "address = 'Antioch'",
+                        true
+                },
+                {
+                        // delete filter applied only partly on second partitioned field
+                        "CREATE TABLE %s (purchases INT, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['customer', 'address'])",
+                        "address = 'Antioch'",
+                        true
+                },
+        };
     }
 
     @Override
