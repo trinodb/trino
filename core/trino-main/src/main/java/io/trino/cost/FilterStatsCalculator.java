@@ -409,7 +409,19 @@ public class FilterStatsCalculator
             SymbolStatsEstimate leftStats = getExpressionStats(left);
             Optional<Symbol> leftSymbol = left instanceof SymbolReference ? Optional.of(Symbol.from(left)) : Optional.empty();
             if (isEffectivelyLiteral(right)) {
-                OptionalDouble literal = doubleValueFromLiteral(getType(left), right);
+                Type type = getType(left);
+                Object literalValue = evaluateConstantExpression(
+                        right,
+                        type,
+                        plannerContext,
+                        session,
+                        new AllowAllAccessControl(),
+                        ImmutableMap.of());
+                if (literalValue == null) {
+                    // Possible when we process `x IN (..., NULL)` case.
+                    return input.mapOutputRowCount(rowCountEstimate -> 0.);
+                }
+                OptionalDouble literal = toStatsRepresentation(type, literalValue);
                 return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, literal, operator);
             }
 
@@ -464,18 +476,6 @@ public class FilterStatsCalculator
         private boolean isEffectivelyLiteral(Expression expression)
         {
             return ExpressionUtils.isEffectivelyLiteral(plannerContext, session, expression);
-        }
-
-        private OptionalDouble doubleValueFromLiteral(Type type, Expression literal)
-        {
-            Object literalValue = evaluateConstantExpression(
-                    literal,
-                    type,
-                    plannerContext,
-                    session,
-                    new AllowAllAccessControl(),
-                    ImmutableMap.of());
-            return toStatsRepresentation(type, literalValue);
         }
     }
 
