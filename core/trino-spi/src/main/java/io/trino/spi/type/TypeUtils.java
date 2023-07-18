@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import jakarta.annotation.Nullable;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -60,11 +61,11 @@ public final class TypeUtils
         return type.getObject(block, position);
     }
 
-    public static Block writeNativeValue(Type type, @Nullable Object value)
+    public static ValueBlock writeNativeValue(Type type, @Nullable Object value)
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         writeNativeValue(type, blockBuilder, value);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     /**
