@@ -13,14 +13,12 @@
  */
 package io.trino.client.uri;
 
-import java.sql.DriverPropertyInfo;
-import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Properties;
 
 import static java.lang.String.format;
 
-interface ConnectionProperty<V, T>
+public interface ConnectionProperty<V, T>
 {
     default String getKey()
     {
@@ -29,25 +27,33 @@ interface ConnectionProperty<V, T>
 
     PropertyName getPropertyName();
 
-    DriverPropertyInfo getDriverPropertyInfo(Properties properties);
+    V encodeValue(T value);
+
+    T decodeValue(V value);
+
+    default String[] getChoices()
+    {
+        return new String[]{};
+    }
 
     boolean isRequired(Properties properties);
 
-    boolean isValid(Properties properties);
-
-    Optional<T> getValue(Properties properties)
-            throws SQLException;
-
-    default T getRequiredValue(Properties properties)
-            throws SQLException
+    default boolean isValid(Properties properties)
     {
-        return getValue(properties).orElseThrow(() ->
-                new SQLException(format("Connection property %s is required", getKey())));
+        return !validate(properties).isPresent();
     }
 
-    Optional<T> getValueOrDefault(Properties properties, Optional<T> defaultValue)
-            throws SQLException;
+    Optional<T> getValue(Properties properties);
 
-    void validate(Properties properties)
-            throws SQLException;
+    default T getRequiredValue(Properties properties)
+    {
+        return getValue(properties).orElseThrow(() -> new RuntimeException(format("Connection property '%s' is required", getPropertyName())));
+    }
+
+    default T getValueOrDefault(Properties properties, T defaultValue)
+    {
+        return getValue(properties).orElse(defaultValue);
+    }
+
+    Optional<RuntimeException> validate(Properties properties);
 }

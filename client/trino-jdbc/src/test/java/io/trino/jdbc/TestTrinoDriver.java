@@ -400,10 +400,7 @@ public class TestTrinoDriver
                 .contains("{name=user, required=false}")
                 .contains("{name=password, required=false}")
                 .contains("{name=accessToken, required=false}")
-                .contains("{name=SSL, required=false, choices=[true, false]}");
-
-        assertThat(infos).extracting(x -> x.name)
-                .doesNotContain("SSLVerification", "SSLTrustStorePath");
+                .contains("{name=SSL, value=false, required=false, choices=[true, false]}");
     }
 
     @Test
@@ -421,7 +418,7 @@ public class TestTrinoDriver
                 .extracting(TestTrinoDriver::driverPropertyInfoToString)
                 .contains("{name=user, value=test, required=false}")
                 .contains("{name=SSL, value=true, required=false, choices=[true, false]}")
-                .contains("{name=SSLVerification, required=false, choices=[FULL, CA, NONE]}")
+                .contains("{name=SSLVerification, value=FULL, required=false, choices=[FULL, CA, NONE]}")
                 .contains("{name=SSLTrustStorePath, required=false}");
     }
 

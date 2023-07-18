@@ -252,7 +252,7 @@ public class TestTrinoLdapCli
         ldapServerAddress = format("http://%s:8443", serverHost);
         launchTrinoCliWithServerArgument("--execute", SELECT_FROM_NATION);
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
-                assertThat(line).contains("TLS/SSL required for authentication with username and password"));
+                assertThat(line).contains("TLS/SSL is required for authentication with username and password"));
         skipAfterMethodWithContext();
     }
 

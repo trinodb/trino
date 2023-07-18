@@ -15,56 +15,39 @@ package io.trino.client.uri;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import io.trino.client.ClientException;
+import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
+import io.trino.client.ClientSession;
 import io.trino.client.DnsResolver;
-import io.trino.client.OkHttpUtil;
-import io.trino.client.auth.external.CompositeRedirectHandler;
-import io.trino.client.auth.external.ExternalAuthenticator;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
-import io.trino.client.auth.external.HttpTokenPoller;
 import io.trino.client.auth.external.RedirectHandler;
-import io.trino.client.auth.external.TokenPoller;
-import okhttp3.OkHttpClient;
+import okhttp3.logging.HttpLoggingInterceptor;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.sql.DriverPropertyInfo;
-import java.sql.SQLException;
-import java.time.Duration;
 import java.time.ZoneId;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
-import static io.trino.client.OkHttpUtil.basicAuth;
-import static io.trino.client.OkHttpUtil.setupAlternateHostnameVerification;
-import static io.trino.client.OkHttpUtil.setupCookieJar;
-import static io.trino.client.OkHttpUtil.setupHttpProxy;
-import static io.trino.client.OkHttpUtil.setupInsecureSsl;
-import static io.trino.client.OkHttpUtil.setupKerberos;
-import static io.trino.client.OkHttpUtil.setupSocksProxy;
-import static io.trino.client.OkHttpUtil.setupSsl;
-import static io.trino.client.OkHttpUtil.tokenAuth;
+import static com.google.common.base.Verify.verify;
 import static io.trino.client.uri.ConnectionProperties.ACCESS_TOKEN;
 import static io.trino.client.uri.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static io.trino.client.uri.ConnectionProperties.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS;
 import static io.trino.client.uri.ConnectionProperties.ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS;
+import static io.trino.client.uri.ConnectionProperties.CATALOG;
 import static io.trino.client.uri.ConnectionProperties.CLIENT_INFO;
 import static io.trino.client.uri.ConnectionProperties.CLIENT_TAGS;
 import static io.trino.client.uri.ConnectionProperties.DISABLE_COMPRESSION;
@@ -76,6 +59,7 @@ import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_T
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
 import static io.trino.client.uri.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.trino.client.uri.ConnectionProperties.HOSTNAME_IN_CERTIFICATE;
+import static io.trino.client.uri.ConnectionProperties.HTTP_LOGGING_LEVEL;
 import static io.trino.client.uri.ConnectionProperties.HTTP_PROXY;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_CONFIG_PATH;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_CONSTRAINED_DELEGATION;
@@ -87,8 +71,10 @@ import static io.trino.client.uri.ConnectionProperties.KERBEROS_REMOTE_SERVICE_N
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.trino.client.uri.ConnectionProperties.LEGACY_PREPARED_STATEMENTS;
+import static io.trino.client.uri.ConnectionProperties.LOCALE;
 import static io.trino.client.uri.ConnectionProperties.PASSWORD;
 import static io.trino.client.uri.ConnectionProperties.ROLES;
+import static io.trino.client.uri.ConnectionProperties.SCHEMA;
 import static io.trino.client.uri.ConnectionProperties.SESSION_PROPERTIES;
 import static io.trino.client.uri.ConnectionProperties.SESSION_USER;
 import static io.trino.client.uri.ConnectionProperties.SOCKS_PROXY;
@@ -103,14 +89,15 @@ import static io.trino.client.uri.ConnectionProperties.SSL_TRUST_STORE_TYPE;
 import static io.trino.client.uri.ConnectionProperties.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.client.uri.ConnectionProperties.SSL_VERIFICATION;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode;
-import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.CA;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
-import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.NONE;
+import static io.trino.client.uri.ConnectionProperties.TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.TIMEZONE;
 import static io.trino.client.uri.ConnectionProperties.TRACE_TOKEN;
 import static io.trino.client.uri.ConnectionProperties.USER;
 import static java.lang.String.format;
+import static java.lang.System.getProperty;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 /**
  * Parses and extracts parameters from a Trino URL.
@@ -119,325 +106,43 @@ public class TrinoUri
 {
     private static final String URL_START = "trino:";
 
-    private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();
-    private static final Splitter ARG_SPLITTER = Splitter.on('=').limit(2);
-    private static final AtomicReference<RedirectHandler> REDIRECT_HANDLER = new AtomicReference<>(null);
-    private final HostAndPort address;
-    private final URI uri;
+    public static final int DEFAULT_INSECURE_PORT = 80;
+    public static final int DEFAULT_SECURE_PORT = 443;
 
+    private static final Splitter.MapSplitter QUERY_SPLITTER = Splitter.on('&').trimResults().withKeyValueSeparator('=');
+    private static final AtomicReference<RedirectHandler> REDIRECT_HANDLER = new AtomicReference<>(null);
+
+    private final URI uri;
+    private final List<PropertyName> restrictedProperties;
     private final Properties properties;
 
-    private Optional<String> user;
-    private Optional<String> password;
-    private Optional<String> sessionUser;
-    private Optional<Map<String, ClientSelectedRole>> roles;
-    private Optional<HostAndPort> socksProxy;
-    private Optional<HostAndPort> httpProxy;
-    private Optional<String> applicationNamePrefix;
-    private Optional<Boolean> disableCompression;
-    private Optional<Boolean> assumeLiteralNamesInMetadataCallsForNonConformingClients;
-    private Optional<Boolean> assumeLiteralUnderscoreInMetadataCallsForNonConformingClients;
-    private Optional<Boolean> ssl;
-    private Optional<SslVerificationMode> sslVerification;
-    private Optional<String> sslKeyStorePath;
-    private Optional<String> sslKeyStorePassword;
-    private Optional<String> sslKeyStoreType;
-    private Optional<String> sslTrustStorePath;
-    private Optional<String> sslTrustStorePassword;
-    private Optional<String> sslTrustStoreType;
-    private Optional<Boolean> sslUseSystemTrustStore;
-    private Optional<String> kerberosServicePrincipalPattern;
-    private Optional<String> kerberosRemoteServiceName;
-    private Optional<Boolean> kerberosUseCanonicalHostname;
-    private Optional<String> kerberosPrincipal;
-    private Optional<File> kerberosConfigPath;
-    private Optional<File> kerberosKeytabPath;
-    private Optional<File> kerberosCredentialCachePath;
-    private Optional<Boolean> kerberosDelegation;
-    private Optional<GSSCredential> kerberosConstrainedDelegation;
-    private Optional<String> accessToken;
-    private Optional<Boolean> externalAuthentication;
-    private Optional<io.airlift.units.Duration> externalAuthenticationTimeout;
-    private Optional<List<ExternalRedirectStrategy>> externalRedirectStrategies;
-    private Optional<KnownTokenCache> externalAuthenticationTokenCache;
-    private Optional<Map<String, String>> extraCredentials;
-    private Optional<String> hostnameInCertificate;
-    private Optional<ZoneId> timeZone;
-    private Optional<String> clientInfo;
-    private Optional<String> clientTags;
-    private Optional<String> traceToken;
-    private Optional<Map<String, String>> sessionProperties;
-    private Optional<String> source;
-    private Optional<Boolean> legacyPreparedStatements;
-
-    private Optional<String> catalog = Optional.empty();
-    private Optional<String> schema = Optional.empty();
-    private final List<PropertyName> restrictedProperties;
-
-    private final boolean useSecureConnection;
-
-    private TrinoUri(
-            URI uri,
-            Optional<String> catalog,
-            Optional<String> schema,
-            List<PropertyName> restrictedProperties,
-            Optional<String> user,
-            Optional<String> password,
-            Optional<String> sessionUser,
-            Optional<Map<String, ClientSelectedRole>> roles,
-            Optional<HostAndPort> socksProxy,
-            Optional<HostAndPort> httpProxy,
-            Optional<String> applicationNamePrefix,
-            Optional<Boolean> disableCompression,
-            Optional<Boolean> assumeLiteralNamesInMetadataCallsForNonConformingClients,
-            Optional<Boolean> assumeLiteralUnderscoreInMetadataCallsForNonConformingClients,
-            Optional<Boolean> ssl,
-            Optional<SslVerificationMode> sslVerification,
-            Optional<String> sslKeyStorePath,
-            Optional<String> sslKeyStorePassword,
-            Optional<String> sslKeyStoreType,
-            Optional<String> sslTrustStorePath,
-            Optional<String> sslTrustStorePassword,
-            Optional<String> sslTrustStoreType,
-            Optional<Boolean> sslUseSystemTrustStore,
-            Optional<String> kerberosServicePrincipalPattern,
-            Optional<String> kerberosRemoteServiceName,
-            Optional<Boolean> kerberosUseCanonicalHostname,
-            Optional<String> kerberosPrincipal,
-            Optional<File> kerberosConfigPath,
-            Optional<File> kerberosKeytabPath,
-            Optional<File> kerberosCredentialCachePath,
-            Optional<Boolean> kerberosDelegation,
-            Optional<GSSCredential> kerberosConstrainedDelegation,
-            Optional<String> accessToken,
-            Optional<Boolean> externalAuthentication,
-            Optional<io.airlift.units.Duration> externalAuthenticationTimeout,
-            Optional<List<ExternalRedirectStrategy>> externalRedirectStrategies,
-            Optional<KnownTokenCache> externalAuthenticationTokenCache,
-            Optional<Map<String, String>> extraCredentials,
-            Optional<String> hostnameInCertificate,
-            Optional<ZoneId> timeZone,
-            Optional<String> clientInfo,
-            Optional<String> clientTags,
-            Optional<String> traceToken,
-            Optional<Map<String, String>> sessionProperties,
-            Optional<String> source,
-            Optional<Boolean> legacyPreparedStatements)
-            throws SQLException
+    private TrinoUri(List<PropertyName> restrictedProperties, URI uri, Properties explicitProperties)
     {
+        this.restrictedProperties = ImmutableList.copyOf(requireNonNull(restrictedProperties, "restrictedProperties is null"));
         this.uri = requireNonNull(uri, "uri is null");
-        this.catalog = catalog;
-        this.schema = schema;
-        this.restrictedProperties = restrictedProperties;
+        this.properties = mergeConnectionProperties(
+                extractPropertiesFromUri(uri, restrictedProperties),
+                requireNonNull(explicitProperties, "explicitProperties is null"));
 
-        Map<String, Object> urlParameters = parseParameters(uri.getQuery());
-        Properties urlProperties = new Properties();
-        urlProperties.putAll(urlParameters);
-
-        this.user = USER.getValueOrDefault(urlProperties, user);
-        this.password = PASSWORD.getValueOrDefault(urlProperties, password);
-        this.sessionUser = SESSION_USER.getValueOrDefault(urlProperties, sessionUser);
-        this.roles = ROLES.getValueOrDefault(urlProperties, roles);
-        this.socksProxy = SOCKS_PROXY.getValueOrDefault(urlProperties, socksProxy);
-        this.httpProxy = HTTP_PROXY.getValueOrDefault(urlProperties, httpProxy);
-        this.applicationNamePrefix = APPLICATION_NAME_PREFIX.getValueOrDefault(urlProperties, applicationNamePrefix);
-        this.disableCompression = DISABLE_COMPRESSION.getValueOrDefault(urlProperties, disableCompression);
-        this.assumeLiteralNamesInMetadataCallsForNonConformingClients = ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValueOrDefault(urlProperties, assumeLiteralNamesInMetadataCallsForNonConformingClients);
-        this.assumeLiteralUnderscoreInMetadataCallsForNonConformingClients = ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValueOrDefault(urlProperties, assumeLiteralUnderscoreInMetadataCallsForNonConformingClients);
-        this.ssl = SSL.getValueOrDefault(urlProperties, ssl);
-        this.sslVerification = SSL_VERIFICATION.getValueOrDefault(urlProperties, sslVerification);
-        this.sslKeyStorePath = SSL_KEY_STORE_PATH.getValueOrDefault(urlProperties, sslKeyStorePath);
-        this.sslKeyStorePassword = SSL_KEY_STORE_PASSWORD.getValueOrDefault(urlProperties, sslKeyStorePassword);
-        this.sslKeyStoreType = SSL_KEY_STORE_TYPE.getValueOrDefault(urlProperties, sslKeyStoreType);
-        this.sslTrustStorePath = SSL_TRUST_STORE_PATH.getValueOrDefault(urlProperties, sslTrustStorePath);
-        this.sslTrustStorePassword = SSL_TRUST_STORE_PASSWORD.getValueOrDefault(urlProperties, sslTrustStorePassword);
-        this.sslTrustStoreType = SSL_TRUST_STORE_TYPE.getValueOrDefault(urlProperties, sslTrustStoreType);
-        this.sslUseSystemTrustStore = SSL_USE_SYSTEM_TRUST_STORE.getValueOrDefault(urlProperties, sslUseSystemTrustStore);
-        this.kerberosServicePrincipalPattern = KERBEROS_SERVICE_PRINCIPAL_PATTERN.getValueOrDefault(urlProperties, kerberosServicePrincipalPattern);
-        this.kerberosRemoteServiceName = KERBEROS_REMOTE_SERVICE_NAME.getValueOrDefault(urlProperties, kerberosRemoteServiceName);
-        this.kerberosUseCanonicalHostname = KERBEROS_USE_CANONICAL_HOSTNAME.getValueOrDefault(urlProperties, kerberosUseCanonicalHostname);
-        this.kerberosPrincipal = KERBEROS_PRINCIPAL.getValueOrDefault(urlProperties, kerberosPrincipal);
-        this.kerberosConfigPath = KERBEROS_CONFIG_PATH.getValueOrDefault(urlProperties, kerberosConfigPath);
-        this.kerberosKeytabPath = KERBEROS_KEYTAB_PATH.getValueOrDefault(urlProperties, kerberosKeytabPath);
-        this.kerberosCredentialCachePath = KERBEROS_CREDENTIAL_CACHE_PATH.getValueOrDefault(urlProperties, kerberosCredentialCachePath);
-        this.kerberosDelegation = KERBEROS_DELEGATION.getValueOrDefault(urlProperties, kerberosDelegation);
-        this.kerberosConstrainedDelegation = KERBEROS_CONSTRAINED_DELEGATION.getValueOrDefault(urlProperties, kerberosConstrainedDelegation);
-        this.accessToken = ACCESS_TOKEN.getValueOrDefault(urlProperties, accessToken);
-        this.externalAuthentication = EXTERNAL_AUTHENTICATION.getValueOrDefault(urlProperties, externalAuthentication);
-        this.externalAuthenticationTimeout = EXTERNAL_AUTHENTICATION_TIMEOUT.getValueOrDefault(urlProperties, externalAuthenticationTimeout);
-        this.externalRedirectStrategies = EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS.getValueOrDefault(urlProperties, externalRedirectStrategies);
-        this.externalAuthenticationTokenCache = EXTERNAL_AUTHENTICATION_TOKEN_CACHE.getValueOrDefault(urlProperties, externalAuthenticationTokenCache);
-        this.extraCredentials = EXTRA_CREDENTIALS.getValueOrDefault(urlProperties, extraCredentials);
-        this.hostnameInCertificate = HOSTNAME_IN_CERTIFICATE.getValueOrDefault(urlProperties, hostnameInCertificate);
-        this.timeZone = TIMEZONE.getValueOrDefault(urlProperties, timeZone);
-        this.clientInfo = CLIENT_INFO.getValueOrDefault(urlProperties, clientInfo);
-        this.clientTags = CLIENT_TAGS.getValueOrDefault(urlProperties, clientTags);
-        this.traceToken = TRACE_TOKEN.getValueOrDefault(urlProperties, traceToken);
-        this.sessionProperties = SESSION_PROPERTIES.getValueOrDefault(urlProperties, sessionProperties);
-        this.source = SOURCE.getValueOrDefault(urlProperties, source);
-        this.legacyPreparedStatements = LEGACY_PREPARED_STATEMENTS.getValueOrDefault(urlProperties, legacyPreparedStatements);
-
-        properties = buildProperties();
-
-        // enable SSL by default for the trino schema and the standard port
-        useSecureConnection = SSL.getValue(properties).orElse(uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443));
-        if (!password.orElse("").isEmpty()) {
-            if (!useSecureConnection) {
-                throw new SQLException("TLS/SSL required for authentication with username and password");
-            }
-        }
         validateConnectionProperties(properties);
-
-        this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort() == -1 ? (useSecureConnection ? 443 : 80) : uri.getPort());
-        initCatalogAndSchema();
-    }
-
-    private Properties buildProperties()
-    {
-        Properties properties = new Properties();
-        user.ifPresent(value -> properties.setProperty(PropertyName.USER.toString(), value));
-        password.ifPresent(value -> properties.setProperty(PropertyName.PASSWORD.toString(), value));
-        sessionUser.ifPresent(value -> properties.setProperty(PropertyName.SESSION_USER.toString(), value));
-        roles.ifPresent(value -> properties.setProperty(
-                PropertyName.ROLES.toString(),
-                value.entrySet().stream()
-                        .map(entry -> entry.getKey() + ":" + entry.getValue())
-                        .collect(Collectors.joining(";"))));
-        socksProxy.ifPresent(value -> properties.setProperty(PropertyName.SOCKS_PROXY.toString(), value.toString()));
-        httpProxy.ifPresent(value -> properties.setProperty(PropertyName.HTTP_PROXY.toString(), value.toString()));
-        applicationNamePrefix.ifPresent(value -> properties.setProperty(PropertyName.APPLICATION_NAME_PREFIX.toString(), value));
-        disableCompression.ifPresent(value -> properties.setProperty(PropertyName.DISABLE_COMPRESSION.toString(), Boolean.toString(value)));
-        assumeLiteralNamesInMetadataCallsForNonConformingClients.ifPresent(
-                value -> properties.setProperty(
-                        PropertyName.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.toString(),
-                        Boolean.toString(value)));
-        assumeLiteralUnderscoreInMetadataCallsForNonConformingClients.ifPresent(
-                value -> properties.setProperty(
-                        PropertyName.ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.toString(),
-                        Boolean.toString(value)));
-        ssl.ifPresent(value -> properties.setProperty(PropertyName.SSL.toString(), Boolean.toString(value)));
-        sslVerification.ifPresent(value -> properties.setProperty(PropertyName.SSL_VERIFICATION.toString(), value.toString()));
-        sslKeyStoreType.ifPresent(value -> properties.setProperty(PropertyName.SSL_KEY_STORE_TYPE.toString(), value));
-        sslKeyStorePath.ifPresent(value -> properties.setProperty(PropertyName.SSL_KEY_STORE_PATH.toString(), value));
-        sslKeyStorePassword.ifPresent(value -> properties.setProperty(PropertyName.SSL_KEY_STORE_PASSWORD.toString(), value));
-        sslTrustStoreType.ifPresent(value -> properties.setProperty(PropertyName.SSL_TRUST_STORE_TYPE.toString(), value));
-        sslTrustStorePath.ifPresent(value -> properties.setProperty(PropertyName.SSL_TRUST_STORE_PATH.toString(), value));
-        sslTrustStorePassword.ifPresent(value -> properties.setProperty(PropertyName.SSL_TRUST_STORE_PASSWORD.toString(), value));
-        sslUseSystemTrustStore.ifPresent(value -> properties.setProperty(PropertyName.SSL_USE_SYSTEM_TRUST_STORE.toString(), Boolean.toString(value)));
-        kerberosServicePrincipalPattern.ifPresent(value -> properties.setProperty(PropertyName.KERBEROS_SERVICE_PRINCIPAL_PATTERN.toString(), value));
-        kerberosRemoteServiceName.ifPresent(value -> properties.setProperty(PropertyName.KERBEROS_REMOTE_SERVICE_NAME.toString(), value));
-        kerberosUseCanonicalHostname.ifPresent(value -> properties.setProperty(PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME.toString(), Boolean.toString(value)));
-        kerberosPrincipal.ifPresent(value -> properties.setProperty(PropertyName.KERBEROS_PRINCIPAL.toString(), value));
-        kerberosConfigPath.ifPresent(value -> properties.setProperty(PropertyName.KERBEROS_CONFIG_PATH.toString(), value.getPath()));
-        kerberosKeytabPath.ifPresent(value -> properties.setProperty(PropertyName.KERBEROS_KEYTAB_PATH.toString(), value.getPath()));
-        kerberosCredentialCachePath.ifPresent(value -> properties.setProperty(PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH.toString(), value.getPath()));
-        kerberosDelegation.ifPresent(value -> properties.setProperty(PropertyName.KERBEROS_DELEGATION.toString(), Boolean.toString(value)));
-        kerberosConstrainedDelegation.ifPresent(value -> properties.put(PropertyName.KERBEROS_CONSTRAINED_DELEGATION.toString(), value));
-        accessToken.ifPresent(value -> properties.setProperty(PropertyName.ACCESS_TOKEN.toString(), value));
-        externalAuthentication.ifPresent(value -> properties.setProperty(PropertyName.EXTERNAL_AUTHENTICATION.toString(), Boolean.toString(value)));
-        externalAuthenticationTimeout.ifPresent(value -> properties.setProperty(PropertyName.EXTERNAL_AUTHENTICATION_TIMEOUT.toString(), value.toString()));
-        externalRedirectStrategies.ifPresent(value ->
-                properties.setProperty(
-                        PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS.toString(),
-                        value.stream()
-                                .map(ExternalRedirectStrategy::toString)
-                                .collect(Collectors.joining(","))));
-        externalAuthenticationTokenCache.ifPresent(value -> properties.setProperty(PropertyName.EXTERNAL_AUTHENTICATION_TOKEN_CACHE.toString(), value.toString()));
-        extraCredentials.ifPresent(value ->
-                properties.setProperty(
-                        PropertyName.EXTRA_CREDENTIALS.toString(),
-                        value.entrySet().stream()
-                                .map(entry -> entry.getKey() + ":" + entry.getValue())
-                                .collect(Collectors.joining(";"))));
-        sessionProperties.ifPresent(value ->
-                properties.setProperty(
-                        PropertyName.SESSION_PROPERTIES.toString(),
-                        value.entrySet().stream()
-                                .map(entry -> entry.getKey() + ":" + entry.getValue())
-                                .collect(Collectors.joining(";"))));
-        hostnameInCertificate.ifPresent(value -> properties.setProperty(PropertyName.HOSTNAME_IN_CERTIFICATE.toString(), value));
-        timeZone.ifPresent(value -> properties.setProperty(PropertyName.TIMEZONE.toString(), value.getId()));
-        clientInfo.ifPresent(value -> properties.setProperty(PropertyName.CLIENT_INFO.toString(), value));
-        clientTags.ifPresent(value -> properties.setProperty(PropertyName.CLIENT_TAGS.toString(), value));
-        traceToken.ifPresent(value -> properties.setProperty(PropertyName.TRACE_TOKEN.toString(), value));
-        source.ifPresent(value -> properties.setProperty(PropertyName.SOURCE.toString(), value));
-        legacyPreparedStatements.ifPresent(value -> properties.setProperty(PropertyName.LEGACY_PREPARED_STATEMENTS.toString(), value.toString()));
-        return properties;
     }
 
     protected TrinoUri(String url, Properties properties)
-            throws SQLException
     {
         this(parseDriverUrl(url), properties);
     }
 
     protected TrinoUri(URI uri, Properties driverProperties)
-            throws SQLException
     {
-        this.restrictedProperties = Collections.emptyList();
-        this.uri = requireNonNull(uri, "uri is null");
-        properties = mergeConnectionProperties(uri, driverProperties);
-
-        validateConnectionProperties(properties);
-
-        this.user = USER.getValue(properties);
-        this.password = PASSWORD.getValue(properties);
-        this.sessionUser = SESSION_USER.getValue(properties);
-        this.roles = ROLES.getValue(properties);
-        this.socksProxy = SOCKS_PROXY.getValue(properties);
-        this.httpProxy = HTTP_PROXY.getValue(properties);
-        this.applicationNamePrefix = APPLICATION_NAME_PREFIX.getValue(properties);
-        this.disableCompression = DISABLE_COMPRESSION.getValue(properties);
-        this.assumeLiteralNamesInMetadataCallsForNonConformingClients = ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties);
-        this.assumeLiteralUnderscoreInMetadataCallsForNonConformingClients = ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties);
-        this.ssl = SSL.getValue(properties);
-        this.sslVerification = SSL_VERIFICATION.getValue(properties);
-        this.sslKeyStorePath = SSL_KEY_STORE_PATH.getValue(properties);
-        this.sslKeyStorePassword = SSL_KEY_STORE_PASSWORD.getValue(properties);
-        this.sslKeyStoreType = SSL_KEY_STORE_TYPE.getValue(properties);
-        this.sslTrustStorePath = SSL_TRUST_STORE_PATH.getValue(properties);
-        this.sslTrustStorePassword = SSL_TRUST_STORE_PASSWORD.getValue(properties);
-        this.sslTrustStoreType = SSL_TRUST_STORE_TYPE.getValue(properties);
-        this.sslUseSystemTrustStore = SSL_USE_SYSTEM_TRUST_STORE.getValue(properties);
-        this.kerberosServicePrincipalPattern = KERBEROS_SERVICE_PRINCIPAL_PATTERN.getValue(properties);
-        this.kerberosRemoteServiceName = KERBEROS_REMOTE_SERVICE_NAME.getValue(properties);
-        this.kerberosUseCanonicalHostname = KERBEROS_USE_CANONICAL_HOSTNAME.getValue(properties);
-        this.kerberosPrincipal = KERBEROS_PRINCIPAL.getValue(properties);
-        this.kerberosConfigPath = KERBEROS_CONFIG_PATH.getValue(properties);
-        this.kerberosKeytabPath = KERBEROS_KEYTAB_PATH.getValue(properties);
-        this.kerberosCredentialCachePath = KERBEROS_CREDENTIAL_CACHE_PATH.getValue(properties);
-        this.kerberosDelegation = KERBEROS_DELEGATION.getValue(properties);
-        this.kerberosConstrainedDelegation = KERBEROS_CONSTRAINED_DELEGATION.getValue(properties);
-        this.accessToken = ACCESS_TOKEN.getValue(properties);
-        this.externalAuthentication = EXTERNAL_AUTHENTICATION.getValue(properties);
-        this.externalAuthenticationTimeout = EXTERNAL_AUTHENTICATION_TIMEOUT.getValue(properties);
-        this.externalRedirectStrategies = EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS.getValue(properties);
-        this.externalAuthenticationTokenCache = EXTERNAL_AUTHENTICATION_TOKEN_CACHE.getValue(properties);
-        this.extraCredentials = EXTRA_CREDENTIALS.getValue(properties);
-        this.hostnameInCertificate = HOSTNAME_IN_CERTIFICATE.getValue(properties);
-        this.timeZone = TIMEZONE.getValue(properties);
-        this.clientInfo = CLIENT_INFO.getValue(properties);
-        this.clientTags = CLIENT_TAGS.getValue(properties);
-        this.traceToken = TRACE_TOKEN.getValue(properties);
-        this.sessionProperties = SESSION_PROPERTIES.getValue(properties);
-        this.source = SOURCE.getValue(properties);
-        this.legacyPreparedStatements = LEGACY_PREPARED_STATEMENTS.getValue(properties);
-
-        // enable SSL by default for the trino schema and the standard port
-        useSecureConnection = ssl.orElse(uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443));
-        address = HostAndPort.fromParts(uri.getHost(), uri.getPort() == -1 ? (useSecureConnection ? 443 : 80) : uri.getPort());
-
-        initCatalogAndSchema();
+        this(ImmutableList.of(), uri, driverProperties);
     }
 
     public static TrinoUri create(String url, Properties properties)
-            throws SQLException
     {
         return new TrinoUri(url, firstNonNull(properties, new Properties()));
     }
 
     public static TrinoUri create(URI uri, Properties properties)
-            throws SQLException
     {
         return new TrinoUri(uri, firstNonNull(properties, new Properties()));
     }
@@ -447,111 +152,288 @@ public class TrinoUri
         return uri;
     }
 
+    public Optional<Boolean> getSSL()
+    {
+        return resolveOptional(SSL);
+    }
+
     public Optional<String> getSchema()
     {
-        return schema;
+        return resolveOptional(SCHEMA);
     }
 
     public Optional<String> getCatalog()
     {
-        return catalog;
+        return resolveOptional(CATALOG);
     }
 
     public URI getHttpUri()
     {
-        return buildHttpUri();
+        return URI.create(format("%s://%s:%d", isUseSecureConnection() ? "https" : "http", uri.getHost(), getPort()));
+    }
+
+    private int getPort()
+    {
+        if (uri.getPort() > 0) {
+            return uri.getPort();
+        }
+
+        return isUseSecureConnection() ? DEFAULT_SECURE_PORT : DEFAULT_INSECURE_PORT;
     }
 
     public String getRequiredUser()
-            throws SQLException
     {
-        return checkRequired(user, PropertyName.USER);
+        return resolveRequired(USER);
     }
 
-    public static <T> T checkRequired(Optional<T> obj, PropertyName name)
-            throws SQLException
+    public <V, T> T resolveRequired(ConnectionProperty<V, T> property)
     {
-        return obj.orElseThrow(() -> new SQLException(format("Connection property '%s' is required", name)));
+        return property.getRequiredValue(properties);
     }
 
-    public Optional<String> getUser()
+    public String getUser()
     {
-        return user;
+        return resolveWithDefault(USER, getProperty("user.name"));
     }
 
     public boolean hasPassword()
     {
-        return password.isPresent();
+        return !isNullOrEmpty(resolveOptional(PASSWORD).orElse(""));
     }
 
     public Optional<String> getSessionUser()
     {
-        return sessionUser;
+        return resolveOptional(SESSION_USER);
     }
 
     public Map<String, ClientSelectedRole> getRoles()
     {
-        return roles.orElse(ImmutableMap.of());
+        return resolveWithDefault(ROLES, ImmutableMap.of());
     }
 
     public Optional<String> getApplicationNamePrefix()
     {
-        return applicationNamePrefix;
+        return resolveOptional(APPLICATION_NAME_PREFIX);
     }
 
     public Map<String, String> getExtraCredentials()
     {
-        return extraCredentials.orElse(ImmutableMap.of());
+        return resolveWithDefault(EXTRA_CREDENTIALS, ImmutableMap.of());
     }
 
     public Optional<String> getClientInfo()
     {
-        return clientInfo;
+        return resolveOptional(CLIENT_INFO);
     }
 
-    public Optional<String> getClientTags()
+    public Optional<Set<String>> getClientTags()
     {
-        return clientTags;
+        return resolveOptional(CLIENT_TAGS);
     }
 
     public Optional<String> getTraceToken()
     {
-        return traceToken;
+        return resolveOptional(TRACE_TOKEN);
     }
 
     public Map<String, String> getSessionProperties()
     {
-        return sessionProperties.orElse(ImmutableMap.of());
+        return resolveWithDefault(SESSION_PROPERTIES, ImmutableMap.of());
     }
 
     public Optional<String> getSource()
     {
-        return source;
+        return resolveOptional(SOURCE);
+    }
+
+    public Optional<HostAndPort> getSocksProxy()
+    {
+        return resolveOptional(SOCKS_PROXY);
+    }
+
+    public Optional<HostAndPort> getHttpProxy()
+    {
+        return resolveOptional(HTTP_PROXY);
+    }
+
+    public boolean isUseSecureConnection()
+    {
+        return resolveRequired(SSL);
+    }
+
+    public Optional<String> getPassword()
+    {
+        return resolveOptional(PASSWORD);
+    }
+
+    public SslVerificationMode getSslVerification()
+    {
+        return resolveWithDefault(SSL_VERIFICATION, FULL);
+    }
+
+    public Optional<String> getSslKeyStorePath()
+    {
+        return resolveOptional(SSL_KEY_STORE_PATH);
+    }
+
+    public Optional<String> getSslKeyStorePassword()
+    {
+        return resolveOptional(SSL_KEY_STORE_PASSWORD);
+    }
+
+    public Optional<String> getSslKeyStoreType()
+    {
+        return resolveOptional(SSL_KEY_STORE_TYPE);
+    }
+
+    public Optional<String> getSslTrustStorePath()
+    {
+        return resolveOptional(SSL_TRUST_STORE_PATH);
+    }
+
+    public Optional<String> getSslTrustStorePassword()
+    {
+        return resolveOptional(SSL_TRUST_STORE_PASSWORD);
+    }
+
+    public Optional<String> getSslTrustStoreType()
+    {
+        return resolveOptional(SSL_TRUST_STORE_TYPE);
+    }
+
+    public boolean getSslUseSystemTrustStore()
+    {
+        return resolveWithDefault(SSL_USE_SYSTEM_TRUST_STORE, false);
+    }
+
+    public Optional<String> getHostnameInCertificate()
+    {
+        return resolveOptional(HOSTNAME_IN_CERTIFICATE);
+    }
+
+    public String getRequiredKerberosServicePrincipalPattern()
+    {
+        return resolveWithDefault(KERBEROS_SERVICE_PRINCIPAL_PATTERN, "${SERVICE}@${HOST}");
+    }
+
+    public Optional<String> getKerberosRemoteServiceName()
+    {
+        return resolveOptional(KERBEROS_REMOTE_SERVICE_NAME);
+    }
+
+    public String getRequiredKerberosRemoteServiceName()
+    {
+        return resolveRequired(KERBEROS_REMOTE_SERVICE_NAME);
+    }
+
+    public boolean getRequiredKerberosUseCanonicalHostname()
+    {
+        return resolveWithDefault(KERBEROS_USE_CANONICAL_HOSTNAME, false);
+    }
+
+    public Optional<String> getKerberosPrincipal()
+    {
+        return resolveOptional(KERBEROS_PRINCIPAL);
+    }
+
+    public Optional<File> getKerberosConfigPath()
+    {
+        return resolveOptional(KERBEROS_CONFIG_PATH);
+    }
+
+    public Optional<File> getKerberosKeytabPath()
+    {
+        return resolveOptional(KERBEROS_KEYTAB_PATH);
+    }
+
+    public Optional<File> getKerberosCredentialCachePath()
+    {
+        return resolveOptional(KERBEROS_CREDENTIAL_CACHE_PATH);
+    }
+
+    public boolean getKerberosDelegation()
+    {
+        return resolveWithDefault(KERBEROS_DELEGATION, false);
+    }
+
+    public Optional<GSSCredential> getKerberosConstrainedDelegation()
+    {
+        return resolveOptional(KERBEROS_CONSTRAINED_DELEGATION);
+    }
+
+    public Optional<String> getAccessToken()
+    {
+        return resolveOptional(ACCESS_TOKEN);
+    }
+
+    public boolean isExternalAuthenticationEnabled()
+    {
+        return resolveWithDefault(EXTERNAL_AUTHENTICATION, false);
+    }
+
+    public Optional<Duration> getExternalAuthenticationTimeout()
+    {
+        return resolveOptional(EXTERNAL_AUTHENTICATION_TIMEOUT);
+    }
+
+    public Optional<List<ExternalRedirectStrategy>> getExternalRedirectStrategies()
+    {
+        return resolveOptional(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS);
+    }
+
+    public KnownTokenCache getExternalAuthenticationTokenCache()
+    {
+        return resolveWithDefault(EXTERNAL_AUTHENTICATION_TOKEN_CACHE, KnownTokenCache.NONE);
+    }
+
+    public String getDnsResolverContext()
+    {
+        return resolveWithDefault(DNS_RESOLVER_CONTEXT, null);
+    }
+
+    public Optional<Class<? extends DnsResolver>> getDnsResolver()
+    {
+        return resolveOptional(DNS_RESOLVER);
     }
 
     public Optional<Boolean> getLegacyPreparedStatements()
     {
-        return legacyPreparedStatements;
+        return resolveOptional(LEGACY_PREPARED_STATEMENTS);
     }
 
     public boolean isCompressionDisabled()
     {
-        return disableCompression.orElse(false);
+        return resolveWithDefault(DISABLE_COMPRESSION, false);
     }
 
     public boolean isAssumeLiteralNamesInMetadataCallsForNonConformingClients()
     {
-        return assumeLiteralNamesInMetadataCallsForNonConformingClients.orElse(false);
+        return resolveWithDefault(ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS, false);
     }
 
     public boolean isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
     {
-        return assumeLiteralUnderscoreInMetadataCallsForNonConformingClients.orElse(false);
+        return resolveWithDefault(ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS, false);
     }
 
     public ZoneId getTimeZone()
     {
-        return timeZone.orElseGet(ZoneId::systemDefault);
+        return resolveWithDefault(TIMEZONE, ZoneId.systemDefault());
+    }
+
+    public Locale getLocale()
+    {
+        return resolveWithDefault(LOCALE, Locale.getDefault());
+    }
+
+    public Duration getTimeout()
+    {
+        return resolveWithDefault(TIMEOUT, Duration.valueOf("30s"));
+    }
+
+    public HttpLoggingInterceptor.Level getHttpLoggingLevel()
+    {
+        return resolveWithDefault(HTTP_LOGGING_LEVEL, HttpLoggingInterceptor.Level.NONE);
     }
 
     public Properties getProperties()
@@ -559,255 +441,163 @@ public class TrinoUri
         return properties;
     }
 
-    public static DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
+    private <V, T> Optional<T> resolveOptional(ConnectionProperty<V, T> property)
     {
-        Properties properties = urlProperties(url, info);
-
-        return ConnectionProperties.allProperties().stream()
-                .filter(property -> property.isValid(properties))
-                .map(property -> property.getDriverPropertyInfo(properties))
-                .toArray(DriverPropertyInfo[]::new);
+        return property.getValue(properties);
     }
 
-    private static Properties urlProperties(String url, Properties info)
+    private <V, T> T resolveWithDefault(ConnectionProperty<V, T> property, T defaultValue)
+    {
+        return property.getValueOrDefault(properties, defaultValue);
+    }
+
+    public static Properties urlProperties(String url, Properties info)
     {
         try {
             return create(url, info).getProperties();
         }
-        catch (SQLException e) {
+        catch (RuntimeException e) {
             return info;
         }
     }
 
-    public Consumer<OkHttpClient.Builder> getSetupSsl()
+    public static boolean isSecureConnection(URI uri)
     {
-        if (!useSecureConnection) {
-            return OkHttpUtil::setupInsecureSsl;
-        }
-        SslVerificationMode sslVerificationMode = sslVerification.orElse(FULL);
-        if (sslVerificationMode.equals(NONE)) {
-            return OkHttpUtil::setupInsecureSsl;
-        }
-        return builder -> setupSsl(
-                builder,
-                sslKeyStorePath,
-                sslKeyStorePassword,
-                sslKeyStoreType,
-                sslTrustStorePath,
-                sslTrustStorePassword,
-                sslTrustStoreType,
-                sslUseSystemTrustStore.orElse(false));
+        return uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443);
     }
 
-    public void setupClient(OkHttpClient.Builder builder)
-            throws SQLException
+    public ClientSession toClientSession()
     {
-        try {
-            setupCookieJar(builder);
-            setupSocksProxy(builder, socksProxy);
-            setupHttpProxy(builder, httpProxy);
-
-            String password = this.password.orElse("");
-            if (!password.isEmpty()) {
-                if (!useSecureConnection) {
-                    throw new SQLException("TLS/SSL is required for authentication with username and password");
-                }
-                builder.addInterceptor(basicAuth(getRequiredUser(), password));
-            }
-
-            if (useSecureConnection) {
-                SslVerificationMode sslVerificationMode = sslVerification.orElse(FULL);
-                if (sslVerificationMode.equals(FULL) || sslVerificationMode.equals(CA)) {
-                    setupSsl(
-                            builder,
-                            sslKeyStorePath,
-                            sslKeyStorePassword,
-                            sslKeyStoreType,
-                            sslTrustStorePath,
-                            sslTrustStorePassword,
-                            sslTrustStoreType,
-                            sslUseSystemTrustStore.orElse(false));
-                }
-                if (sslVerificationMode.equals(FULL)) {
-                    HOSTNAME_IN_CERTIFICATE.getValue(properties).ifPresent(certHostname ->
-                            setupAlternateHostnameVerification(builder, certHostname));
-                }
-
-                if (sslVerificationMode.equals(CA)) {
-                    builder.hostnameVerifier((hostname, session) -> true);
-                }
-
-                if (sslVerificationMode.equals(NONE)) {
-                    setupInsecureSsl(builder);
-                }
-            }
-
-            if (kerberosRemoteServiceName.isPresent()) {
-                if (!useSecureConnection) {
-                    throw new SQLException("TLS/SSL is required for Kerberos authentication");
-                }
-                setupKerberos(
-                        builder,
-                        checkRequired(kerberosServicePrincipalPattern, PropertyName.KERBEROS_SERVICE_PRINCIPAL_PATTERN),
-                        checkRequired(kerberosRemoteServiceName, PropertyName.KERBEROS_REMOTE_SERVICE_NAME),
-                        checkRequired(kerberosUseCanonicalHostname, PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME),
-                        kerberosPrincipal,
-                        kerberosConfigPath,
-                        kerberosKeytabPath,
-                        Optional.ofNullable(kerberosCredentialCachePath
-                                .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null))),
-                        kerberosDelegation.orElse(false),
-                        kerberosConstrainedDelegation);
-            }
-
-            if (accessToken.isPresent()) {
-                if (!useSecureConnection) {
-                    throw new SQLException("TLS/SSL required for authentication using an access token");
-                }
-                builder.addInterceptor(tokenAuth(accessToken.get()));
-            }
-
-            if (externalAuthentication.orElse(false)) {
-                if (!useSecureConnection) {
-                    throw new SQLException("TLS/SSL required for authentication using external authorization");
-                }
-
-                // create HTTP client that shares the same settings, but without the external authenticator
-                TokenPoller poller = new HttpTokenPoller(builder.build());
-
-                Duration timeout = externalAuthenticationTimeout
-                        .map(value -> Duration.ofMillis(value.toMillis()))
-                        .orElse(Duration.ofMinutes(2));
-
-                KnownTokenCache knownTokenCache = externalAuthenticationTokenCache.orElse(KnownTokenCache.NONE);
-
-                Optional<RedirectHandler> configuredHandler = externalRedirectStrategies
-                        .map(CompositeRedirectHandler::new)
-                        .map(RedirectHandler.class::cast);
-
-                RedirectHandler redirectHandler = Optional.ofNullable(REDIRECT_HANDLER.get())
-                        .orElseGet(() -> configuredHandler.orElseThrow(() -> new RuntimeException("External authentication redirect handler is not configured")));
-
-                ExternalAuthenticator authenticator = new ExternalAuthenticator(
-                        redirectHandler, poller, knownTokenCache.create(), timeout);
-
-                builder.authenticator(authenticator);
-                builder.addInterceptor(authenticator);
-            }
-
-            Optional<String> resolverContext = DNS_RESOLVER_CONTEXT.getValue(properties);
-            DNS_RESOLVER.getValue(properties).ifPresent(resolverClass -> builder.dns(instantiateDnsResolver(resolverClass, resolverContext)::lookup));
-        }
-        catch (ClientException e) {
-            throw new SQLException(e.getMessage(), e);
-        }
-        catch (RuntimeException e) {
-            throw new SQLException("Error setting up connection", e);
-        }
+        return ClientSession.builder()
+                .server(getHttpUri())
+                .principal(Optional.of(getUser()))
+                .user(getSessionUser())
+                .clientTags(getClientTags().orElse(ImmutableSet.of()))
+                .source(getSource().orElse(null))
+                .traceToken(getTraceToken())
+                .clientInfo(getClientInfo().orElse(null))
+                .catalog(getCatalog().orElse(null))
+                .schema(getSchema().orElse(null))
+                .timeZone(getTimeZone())
+                .locale(getLocale())
+                .properties(getSessionProperties())
+                .credentials(getExtraCredentials())
+                .transactionId(null)
+                .compressionDisabled(isCompressionDisabled())
+                .build();
     }
 
-    private static DnsResolver instantiateDnsResolver(Class<? extends DnsResolver> resolverClass, Optional<String> context)
+    protected static Set<ConnectionProperty<?, ?>> allProperties()
     {
-        try {
-            return resolverClass.getConstructor(String.class).newInstance(context.orElse(null));
-        }
-        catch (ReflectiveOperationException e) {
-            throw new ClientException("Unable to instantiate custom DNS resolver " + resolverClass.getName(), e);
-        }
+        // This is needed to expose properties to TrinoDriverUri
+        return ConnectionProperties.allProperties();
     }
 
-    private Map<String, Object> parseParameters(String query)
-            throws SQLException
+    private static Properties extractPropertiesFromUri(URI uri, List<PropertyName> restrictedProperties)
     {
-        Map<String, Object> result = new HashMap<>();
+        Properties result = new Properties();
+        CatalogAndSchema catalogAndSchema = parseCatalogAndSchema(uri);
+        if (catalogAndSchema.getCatalog().isPresent() && restrictedProperties.contains(CATALOG.getPropertyName())) {
+            throw new RestrictedPropertyException(PropertyName.CATALOG, "Catalog cannot be set in the URL");
+        }
 
-        if (query == null) {
+        if (catalogAndSchema.getSchema().isPresent() && restrictedProperties.contains(SCHEMA.getPropertyName())) {
+            throw new RestrictedPropertyException(PropertyName.SCHEMA, "Schema cannot be set in the URL");
+        }
+
+        catalogAndSchema.getCatalog().ifPresent(value -> result.put(CATALOG.getKey(), value));
+        catalogAndSchema.getSchema().ifPresent(value -> result.put(SCHEMA.getKey(), value));
+
+        if (isSecureConnection(uri)) {
+            result.put(SSL.getKey(), SSL.encodeValue(true));
+        }
+
+        if (isNullOrEmpty(uri.getQuery())) {
             return result;
         }
 
-        Iterable<String> queryArgs = QUERY_SPLITTER.split(query);
-        for (String queryArg : queryArgs) {
-            List<String> parts = ARG_SPLITTER.splitToList(queryArg);
-            if (parts.size() != 2) {
-                throw new SQLException(format("Connection argument is not a valid connection property: '%s'", queryArg));
+        try {
+            Map<String, String> params = QUERY_SPLITTER.split(uri.getQuery());
+            for (Map.Entry<String, String> entry : params.entrySet()) {
+                PropertyName name = PropertyName.findByKey(entry.getKey()).orElseThrow(() -> new RuntimeException(format("Unrecognized connection property '%s'", entry.getKey())));
+                if (restrictedProperties.contains(name)) {
+                    throw new RestrictedPropertyException(name, format("Connection property %s cannot be set in the URL", name));
+                }
+                result.put(entry.getKey(), entry.getValue());
             }
 
-            String key = parts.get(0);
-            PropertyName name = PropertyName.findByKey(key).orElseThrow(() -> new SQLException(format("Unrecognized connection property '%s'", key)));
-            if (restrictedProperties.contains(name)) {
-                throw new RestrictedPropertyException(name, format("Connection property %s cannot be set in the URL", parts.get(0)));
-            }
-            if (result.put(parts.get(0), parts.get(1)) != null) {
-                throw new SQLException(format("Connection property %s is in the URL multiple times", parts.get(0)));
-            }
+            return result;
         }
+        catch (IllegalArgumentException e) {
+            String message = e.getMessage();
+            if (message.matches("Duplicate key \\[.*\\] found.")) {
+                throw new RuntimeException(format("Connection property %s is in the URL multiple times", extractPropertyName(message)));
+            }
+            if (message.matches("Chunk \\[.*\\] is not a valid entry")) {
+                throw new RuntimeException(format("Connection argument is not a valid connection property: '%s'", extractPropertyName(message)));
+            }
+            throw e;
+        }
+    }
 
-        return result;
+    private static String extractPropertyName(String message)
+    {
+        int offset = message.indexOf("[");
+        int end = message.indexOf("]");
+
+        verify(offset > -1, "Error message does not contain [");
+        verify(end > -1, "Error message does not contain ]");
+        return message.substring(offset + 1, end);
     }
 
     private static URI parseDriverUrl(String url)
-            throws SQLException
     {
         validatePrefix(url);
         URI uri = parseUrl(url);
 
         if (isNullOrEmpty(uri.getHost())) {
-            throw new SQLException("No host specified: " + url);
+            throw new RuntimeException("No host specified: " + url);
         }
         if (uri.getPort() == -1) {
-            throw new SQLException("No port number specified: " + url);
+            throw new RuntimeException("No port number specified: " + url);
         }
         if ((uri.getPort() < 1) || (uri.getPort() > 65535)) {
-            throw new SQLException("Invalid port number: " + url);
+            throw new RuntimeException("Invalid port number: " + url);
         }
         return uri;
     }
 
     private static URI parseUrl(String url)
-            throws SQLException
     {
         try {
             return new URI(url);
         }
         catch (URISyntaxException e) {
-            throw new SQLException("Invalid Trino URL: " + url, e);
+            throw new RuntimeException("Invalid Trino URL: " + url, e);
         }
     }
 
     private static void validatePrefix(String url)
-            throws SQLException
     {
         if (!url.startsWith(URL_START)) {
-            throw new SQLException("Invalid Trino URL: " + url);
+            throw new RuntimeException("Invalid Trino URL: " + url);
         }
 
         if (url.equals(URL_START)) {
-            throw new SQLException("Empty Trino URL: " + url);
+            throw new RuntimeException("Empty Trino URL: " + url);
         }
     }
 
-    private URI buildHttpUri()
-    {
-        String scheme = useSecureConnection ? "https" : "http";
-        try {
-            return new URI(scheme, null, address.getHost(), address.getPort(), null, null, null);
-        }
-        catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void initCatalogAndSchema()
-            throws SQLException
+    private static CatalogAndSchema parseCatalogAndSchema(URI uri)
     {
         String path = uri.getPath();
-        if (isNullOrEmpty(uri.getPath()) || path.equals("/")) {
-            return;
+        if (isNullOrEmpty(path) || path.equals("/")) {
+            return new CatalogAndSchema(Optional.empty(), Optional.empty());
         }
 
         // remove first slash
         if (!path.startsWith("/")) {
-            throw new SQLException("Path does not start with a slash: " + uri);
+            throw new RuntimeException("Path does not start with a slash: " + uri);
         }
         path = path.substring(1);
 
@@ -818,65 +608,72 @@ public class TrinoUri
         }
 
         if (parts.size() > 2) {
-            throw new SQLException("Invalid path segments in URL: " + uri);
+            throw new RuntimeException("Invalid path segments in URL: " + uri);
         }
 
         if (parts.get(0).isEmpty()) {
-            throw new SQLException("Catalog name is empty: " + uri);
+            throw new RuntimeException("Catalog name is empty: " + uri);
         }
 
-        if (catalog.isPresent()) {
-            throw new RestrictedPropertyException(PropertyName.CATALOG, "Catalog cannot be set in the URL");
-        }
-        catalog = Optional.ofNullable(parts.get(0));
+        Optional<String> catalogName = Optional.of(parts.get(0));
+        Optional<String> schemaName = Optional.empty();
 
         if (parts.size() > 1) {
             if (parts.get(1).isEmpty()) {
-                throw new SQLException("Schema name is empty: " + uri);
+                throw new RuntimeException("Schema name is empty: " + uri);
             }
 
-            if (schema.isPresent()) {
-                throw new RestrictedPropertyException(PropertyName.SCHEMA, "Schema cannot be set in the URL");
-            }
-            schema = Optional.ofNullable(parts.get(1));
+            schemaName = Optional.of(parts.get(1));
         }
+
+        return new CatalogAndSchema(catalogName, schemaName);
     }
 
-    private Properties mergeConnectionProperties(URI uri, Properties driverProperties)
-            throws SQLException
+    private Properties mergeConnectionProperties(Properties urlProperties, Properties properties)
     {
-        Map<String, Object> urlProperties = parseParameters(uri.getQuery());
-        Map<String, Object> suppliedProperties = driverProperties.entrySet().stream()
-                .collect(toImmutableMap(entry -> (String) entry.getKey(), Entry::getValue));
-
-        for (String key : urlProperties.keySet()) {
-            if (suppliedProperties.containsKey(key)) {
-                throw new SQLException(format("Connection property %s is both in the URL and an argument", key));
+        for (Object key : urlProperties.keySet()) {
+            if (key != SSL.getKey() && properties.containsKey(key)) {
+                throw new RuntimeException(format("Connection property %s is passed both by URL and properties", key));
             }
         }
 
         Properties result = new Properties();
-        setProperties(result, suppliedProperties);
-        setProperties(result, urlProperties);
+        result.putAll(urlProperties);
+        // Order is important if i.e. explicitly passed properties disables SSL
+        result.putAll(properties);
+
         return result;
     }
 
-    private static void setProperties(Properties properties, Map<String, Object> values)
+    private void validateConnectionProperties(Properties connectionProperties)
     {
-        properties.putAll(values);
-    }
+        ImmutableList.Builder<RuntimeException> violations = ImmutableList.builder();
 
-    private static void validateConnectionProperties(Properties connectionProperties)
-            throws SQLException
-    {
         for (String propertyName : connectionProperties.stringPropertyNames()) {
             if (ConnectionProperties.forKey(propertyName) == null) {
-                throw new SQLException(format("Unrecognized connection property '%s'", propertyName));
+                violations.add(new IllegalArgumentException(format("Unrecognized connection property '%s'", propertyName)));
             }
         }
 
-        for (ConnectionProperty<?, ?> property : ConnectionProperties.allProperties()) {
-            property.validate(connectionProperties);
+        for (ConnectionProperty<?, ?> property : allProperties()) {
+            Optional<RuntimeException> validationError = property.validate(connectionProperties);
+            validationError.ifPresent(violations::add);
+        }
+
+        if (hasPassword() && !isUseSecureConnection()) {
+            violations.add(new IllegalStateException("TLS/SSL is required for authentication with username and password"));
+        }
+
+        List<RuntimeException> errors = violations.build();
+        if (errors.size() == 1) {
+            throw errors.get(0);
+        }
+        else if (!errors.isEmpty()) {
+            String multipleViolations = errors.stream()
+                    .map(RuntimeException::getMessage)
+                    .collect(joining("\n"));
+
+            throw new RuntimeException("Provided connection properties are invalid:\n" + multipleViolations);
         }
     }
 
@@ -886,59 +683,51 @@ public class TrinoUri
         REDIRECT_HANDLER.set(requireNonNull(handler, "handler is null"));
     }
 
+    public static Optional<RedirectHandler> getRedirectHandler()
+    {
+        return Optional.ofNullable(REDIRECT_HANDLER.get());
+    }
+
+    private static class CatalogAndSchema
+    {
+        private final Optional<String> catalog;
+        private final Optional<String> schema;
+
+        public CatalogAndSchema(Optional<String> catalog, Optional<String> schema)
+        {
+            this.catalog = requireNonNull(catalog, "catalog is null");
+            this.schema = requireNonNull(schema, "schema is null");
+        }
+
+        public Optional<String> getCatalog()
+        {
+            return catalog;
+        }
+
+        public Optional<String> getSchema()
+        {
+            return schema;
+        }
+    }
+
     public static Builder builder()
     {
         return new Builder();
     }
 
+    public static Builder builder(TrinoUri trinoUri)
+    {
+        return new Builder()
+                .setUri(trinoUri.uri)
+                .setProperties(trinoUri.properties)
+                .setRestrictedProperties(trinoUri.restrictedProperties);
+    }
+
     public static final class Builder
     {
         private URI uri;
-        private String catalog;
-        private String schema;
-        private List<PropertyName> restrictedProperties;
-        private String user;
-        private String password;
-        private String sessionUser;
-        private Map<String, ClientSelectedRole> roles;
-        private HostAndPort socksProxy;
-        private HostAndPort httpProxy;
-        private String applicationNamePrefix;
-        private Boolean disableCompression;
-        private Boolean assumeLiteralNamesInMetadataCallsForNonConformingClients;
-        private Boolean assumeLiteralUnderscoreInMetadataCallsForNonConformingClients;
-        private Boolean ssl;
-        private SslVerificationMode sslVerification;
-        private String sslKeyStorePath;
-        private String sslKeyStorePassword;
-        private String sslKeyStoreType;
-        private String sslTrustStorePath;
-        private String sslTrustStorePassword;
-        private String sslTrustStoreType;
-        private Boolean sslUseSystemTrustStore;
-        private String kerberosServicePrincipalPattern;
-        private String kerberosRemoteServiceName;
-        private Boolean kerberosUseCanonicalHostname;
-        private String kerberosPrincipal;
-        private File kerberosConfigPath;
-        private File kerberosKeytabPath;
-        private File kerberosCredentialCachePath;
-        private Boolean kerberosDelegation;
-        private GSSCredential kerberosConstrainedDelegation;
-        private String accessToken;
-        private Boolean externalAuthentication;
-        private io.airlift.units.Duration externalAuthenticationTimeout;
-        private List<ExternalRedirectStrategy> externalRedirectStrategies;
-        private KnownTokenCache externalAuthenticationTokenCache;
-        private Map<String, String> extraCredentials;
-        private String hostnameInCertificate;
-        private ZoneId timeZone;
-        private String clientInfo;
-        private String clientTags;
-        private String traceToken;
-        private Map<String, String> sessionProperties;
-        private String source;
-        private Boolean legacyPreparedStatements;
+        private List<PropertyName> restrictedProperties = ImmutableList.of();
+        private ImmutableMap.Builder<Object, Object> properties = ImmutableMap.builder();
 
         private Builder() {}
 
@@ -950,14 +739,12 @@ public class TrinoUri
 
         public Builder setCatalog(String catalog)
         {
-            this.catalog = requireNonNull(catalog, "catalog is null");
-            return this;
+            return setProperty(CATALOG, requireNonNull(catalog, "catalog is null"));
         }
 
         public Builder setSchema(String schema)
         {
-            this.schema = requireNonNull(schema, "schema is null");
-            return this;
+            return setProperty(SCHEMA, requireNonNull(schema, "schema is null"));
         }
 
         public Builder setRestrictedProperties(List<PropertyName> restrictedProperties)
@@ -968,140 +755,117 @@ public class TrinoUri
 
         public Builder setUser(String user)
         {
-            this.user = requireNonNull(user, "user is null");
-            return this;
+            return setProperty(USER, requireNonNull(user, "user is null"));
         }
 
         public Builder setPassword(String password)
         {
-            this.password = requireNonNull(password, "password is null");
-            return this;
+            return setProperty(PASSWORD, requireNonNull(password, "password is null"));
         }
 
         public Builder setSessionUser(String sessionUser)
         {
-            this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
-            return this;
+            return setProperty(SESSION_USER, requireNonNull(sessionUser, "sessionUser is null"));
         }
 
         public Builder setRoles(Map<String, ClientSelectedRole> roles)
         {
-            this.roles = requireNonNull(roles, "roles is null");
-            return this;
+            return setProperty(ROLES, requireNonNull(roles, "roles is null"));
         }
 
         public Builder setSocksProxy(HostAndPort socksProxy)
         {
-            this.socksProxy = requireNonNull(socksProxy, "socksProxy is null");
-            return this;
+            return setProperty(SOCKS_PROXY, requireNonNull(socksProxy, "socksProxy is null"));
         }
 
         public Builder setHttpProxy(HostAndPort httpProxy)
         {
-            this.httpProxy = requireNonNull(httpProxy, "httpProxy is null");
-            return this;
+            return setProperty(HTTP_PROXY, requireNonNull(httpProxy, "httpProxy is null"));
         }
 
         public Builder setApplicationNamePrefix(String applicationNamePrefix)
         {
-            this.applicationNamePrefix = requireNonNull(applicationNamePrefix, "applicationNamePrefix is null");
-            return this;
+            return setProperty(APPLICATION_NAME_PREFIX, requireNonNull(applicationNamePrefix, "applicationNamePrefix is null"));
         }
 
         public Builder setDisableCompression(Boolean disableCompression)
         {
-            this.disableCompression = requireNonNull(disableCompression, "disableCompression is null");
-            return this;
+            return setProperty(DISABLE_COMPRESSION, requireNonNull(disableCompression, "disableCompression is null"));
         }
 
         public Builder setAssumeLiteralNamesInMetadataCallsForNonConformingClients(Boolean assumeLiteralNamesInMetadataCallsForNonConformingClients)
         {
-            this.assumeLiteralNamesInMetadataCallsForNonConformingClients = requireNonNull(assumeLiteralNamesInMetadataCallsForNonConformingClients, "assumeLiteralNamesInMetadataCallsForNonConformingClients is null");
-            return this;
+            return setProperty(ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS, requireNonNull(assumeLiteralNamesInMetadataCallsForNonConformingClients, "assumeLiteralNamesInMetadataCallsForNonConformingClients is null"));
         }
 
         public Builder setAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients(Boolean assumeLiteralUnderscoreInMetadataCallsForNonConformingClients)
         {
-            this.assumeLiteralUnderscoreInMetadataCallsForNonConformingClients = requireNonNull(assumeLiteralUnderscoreInMetadataCallsForNonConformingClients, "assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is null");
-            return this;
+            return setProperty(ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS, requireNonNull(assumeLiteralUnderscoreInMetadataCallsForNonConformingClients, "assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is null"));
         }
 
         public Builder setSsl(Boolean ssl)
         {
-            this.ssl = requireNonNull(ssl, "ssl is null");
-            return this;
+            return setProperty(SSL, requireNonNull(ssl, "ssl is null"));
         }
 
         public Builder setSslVerificationNone()
         {
-            this.sslVerification = NONE;
-            return this;
+            return setProperty(SSL_VERIFICATION, SslVerificationMode.NONE);
         }
 
         public Builder setSslKeyStorePath(String sslKeyStorePath)
         {
-            this.sslKeyStorePath = requireNonNull(sslKeyStorePath, "sslKeyStorePath is null");
-            return this;
+            return setProperty(SSL_KEY_STORE_PATH, requireNonNull(sslKeyStorePath, "sslKeyStorePath is null"));
         }
 
         public Builder setSslKeyStorePassword(String sslKeyStorePassword)
         {
-            this.sslKeyStorePassword = requireNonNull(sslKeyStorePassword, "sslKeyStorePassword is null");
-            return this;
+            return setProperty(SSL_KEY_STORE_PASSWORD, requireNonNull(sslKeyStorePassword, "sslKeyStorePassword is null"));
         }
 
         public Builder setSslKeyStoreType(String sslKeyStoreType)
         {
-            this.sslKeyStoreType = requireNonNull(sslKeyStoreType, "sslKeyStoreType is null");
-            return this;
+            return setProperty(SSL_KEY_STORE_TYPE, requireNonNull(sslKeyStoreType, "sslKeyStoreType is null"));
         }
 
         public Builder setSslTrustStorePath(String sslTrustStorePath)
         {
-            this.sslTrustStorePath = requireNonNull(sslTrustStorePath, "sslTrustStorePath is null");
-            return this;
+            return setProperty(SSL_TRUST_STORE_PATH, requireNonNull(sslTrustStorePath, "sslTrustStorePath is null"));
         }
 
         public Builder setSslTrustStorePassword(String sslTrustStorePassword)
         {
-            this.sslTrustStorePassword = requireNonNull(sslTrustStorePassword, "sslTrustStorePassword is null");
-            return this;
+            return setProperty(SSL_TRUST_STORE_PASSWORD, requireNonNull(sslTrustStorePassword, "sslTrustStorePassword is null"));
         }
 
         public Builder setSslTrustStoreType(String sslTrustStoreType)
         {
-            this.sslTrustStoreType = requireNonNull(sslTrustStoreType, "sslTrustStoreType is null");
-            return this;
+            return setProperty(SSL_TRUST_STORE_TYPE, requireNonNull(sslTrustStoreType, "sslTrustStoreType is null"));
         }
 
         public Builder setSslUseSystemTrustStore(Boolean sslUseSystemTrustStore)
         {
-            this.sslUseSystemTrustStore = requireNonNull(sslUseSystemTrustStore, "sslUseSystemTrustStore is null");
-            return this;
+            return setProperty(SSL_USE_SYSTEM_TRUST_STORE, requireNonNull(sslUseSystemTrustStore, "sslUseSystemTrustStore is null"));
         }
 
         public Builder setKerberosServicePrincipalPattern(String kerberosServicePrincipalPattern)
         {
-            this.kerberosServicePrincipalPattern = requireNonNull(kerberosServicePrincipalPattern, "kerberosServicePrincipalPattern is null");
-            return this;
+            return setProperty(KERBEROS_SERVICE_PRINCIPAL_PATTERN, requireNonNull(kerberosServicePrincipalPattern, "kerberosServicePrincipalPattern is null"));
         }
 
         public Builder setKerberosRemoveServiceName(String kerberosRemoteServiceName)
         {
-            this.kerberosRemoteServiceName = requireNonNull(kerberosRemoteServiceName, "kerberosRemoteServiceName is null");
-            return this;
+            return setProperty(KERBEROS_REMOTE_SERVICE_NAME, requireNonNull(kerberosRemoteServiceName, "kerberosRemoteServiceName is null"));
         }
 
         public Builder setKerberosUseCanonicalHostname(Boolean kerberosUseCanonicalHostname)
         {
-            this.kerberosUseCanonicalHostname = requireNonNull(kerberosUseCanonicalHostname, "kerberosUseCanonicalHostname is null");
-            return this;
+            return setProperty(KERBEROS_USE_CANONICAL_HOSTNAME, requireNonNull(kerberosUseCanonicalHostname, "kerberosUseCanonicalHostname is null"));
         }
 
         public Builder setKerberosPrincipal(String kerberosPrincipal)
         {
-            this.kerberosPrincipal = requireNonNull(kerberosPrincipal, "kerberosPrincipal is null");
-            return this;
+            return setProperty(KERBEROS_PRINCIPAL, requireNonNull(kerberosPrincipal, "kerberosPrincipal is null"));
         }
 
         public Builder setKerberosConfigPath(String kerberosConfigPath)
@@ -1111,8 +875,7 @@ public class TrinoUri
 
         public Builder setKerberosConfigPath(File kerberosConfigPath)
         {
-            this.kerberosConfigPath = requireNonNull(kerberosConfigPath, "kerberosConfigPath is null");
-            return this;
+            return setProperty(KERBEROS_CONFIG_PATH, requireNonNull(kerberosConfigPath, "kerberosConfigPath is null"));
         }
 
         public Builder setKerberosKeytabPath(String kerberosKeytabPath)
@@ -1122,8 +885,7 @@ public class TrinoUri
 
         public Builder setKerberosKeytabPath(File kerberosKeytabPath)
         {
-            this.kerberosKeytabPath = requireNonNull(kerberosKeytabPath, "kerberosKeytabPath is null");
-            return this;
+            return setProperty(KERBEROS_KEYTAB_PATH, requireNonNull(kerberosKeytabPath, "kerberosKeytabPath is null"));
         }
 
         public Builder setKerberosCredentialCachePath(String kerberosCredentialCachePath)
@@ -1133,156 +895,142 @@ public class TrinoUri
 
         public Builder setKerberosCredentialCachePath(File kerberosCredentialCachePath)
         {
-            this.kerberosCredentialCachePath = requireNonNull(kerberosCredentialCachePath, "kerberosCredentialCachePath is null");
-            return this;
+            return setProperty(KERBEROS_CREDENTIAL_CACHE_PATH, requireNonNull(kerberosCredentialCachePath, "kerberosCredentialCachePath is null"));
         }
 
         public Builder setKerberosDelegation(Boolean kerberosDelegation)
         {
-            this.kerberosDelegation = requireNonNull(kerberosDelegation, "kerberosDelegation is null");
-            return this;
+            return setProperty(KERBEROS_DELEGATION, requireNonNull(kerberosDelegation, "kerberosDelegation is null"));
         }
 
         public Builder setKerberosConstrainedDelegation(GSSCredential kerberosConstrainedDelegation)
         {
-            this.kerberosConstrainedDelegation = requireNonNull(kerberosConstrainedDelegation, "kerberosConstrainedDelegation is null");
-            return this;
+            return setProperty(KERBEROS_CONSTRAINED_DELEGATION, requireNonNull(kerberosConstrainedDelegation, "kerberosConstrainedDelegation is null"));
         }
 
         public Builder setAccessToken(String accessToken)
         {
-            this.accessToken = requireNonNull(accessToken, "accessToken is null");
-            return this;
+            return setProperty(ACCESS_TOKEN, requireNonNull(accessToken, "accessToken is null"));
         }
 
         public Builder setExternalAuthentication(Boolean externalAuthentication)
         {
-            this.externalAuthentication = requireNonNull(externalAuthentication, "externalAuthentication is null");
-            return this;
+            return setProperty(EXTERNAL_AUTHENTICATION, requireNonNull(externalAuthentication, "externalAuthentication is null"));
         }
 
         public Builder setExternalAuthenticationTimeout(io.airlift.units.Duration externalAuthenticationTimeout)
         {
-            this.externalAuthenticationTimeout = requireNonNull(externalAuthenticationTimeout, "externalAuthenticationTimeout is null");
-            return this;
+            return setProperty(EXTERNAL_AUTHENTICATION_TIMEOUT, requireNonNull(externalAuthenticationTimeout, "externalAuthenticationTimeout is null"));
         }
 
         public Builder setExternalRedirectStrategies(List<ExternalRedirectStrategy> externalRedirectStrategies)
         {
-            this.externalRedirectStrategies = requireNonNull(externalRedirectStrategies, "externalRedirectStrategies is null");
-            return this;
+            return setProperty(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS, requireNonNull(externalRedirectStrategies, "externalRedirectStrategies is null"));
         }
 
         public Builder setExternalAuthenticationTokenCache(KnownTokenCache externalAuthenticationTokenCache)
         {
-            this.externalAuthenticationTokenCache = requireNonNull(externalAuthenticationTokenCache, "externalAuthenticationTokenCache is null");
-            return this;
+            return setProperty(EXTERNAL_AUTHENTICATION_TOKEN_CACHE, requireNonNull(externalAuthenticationTokenCache, "externalAuthenticationTokenCache is null"));
         }
 
         public Builder setExtraCredentials(Map<String, String> extraCredentials)
         {
-            this.extraCredentials = requireNonNull(extraCredentials, "extraCredentials is null");
-            return this;
+            return setProperty(EXTRA_CREDENTIALS, requireNonNull(extraCredentials, "extraCredentials is null"));
         }
 
         public Builder setHostnameInCertificate(String hostnameInCertificate)
         {
-            this.hostnameInCertificate = requireNonNull(hostnameInCertificate, "hostnameInCertificate is null");
-            return this;
+            return setProperty(HOSTNAME_IN_CERTIFICATE, requireNonNull(hostnameInCertificate, "hostnameInCertificate is null"));
         }
 
-        public Builder setTimeZone(ZoneId timeZone)
+        public Builder setTimezone(ZoneId zoneId)
         {
-            this.timeZone = requireNonNull(timeZone, "timeZone is null");
-            return this;
+            return setProperty(TIMEZONE, requireNonNull(zoneId, "zoneId is null"));
         }
 
         public Builder setClientInfo(String clientInfo)
         {
-            this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
-            return this;
+            return setProperty(CLIENT_INFO, requireNonNull(clientInfo, "clientInfo is null"));
         }
 
-        public Builder setClientTags(String clientTags)
+        public Builder setClientTags(Set<String> clientTags)
         {
-            this.clientTags = requireNonNull(clientTags, "clientTags is null");
-            return this;
+            return setProperty(CLIENT_TAGS, requireNonNull(clientTags, "clientTags is null"));
         }
 
         public Builder setTraceToken(String traceToken)
         {
-            this.traceToken = requireNonNull(traceToken, "traceToken is null");
-            return this;
+            return setProperty(TRACE_TOKEN, requireNonNull(traceToken, "traceToken is null"));
         }
 
         public Builder setSessionProperties(Map<String, String> sessionProperties)
         {
-            this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
-            return this;
+            return setProperty(SESSION_PROPERTIES, requireNonNull(sessionProperties, "sessionProperties is null"));
         }
 
         public Builder setSource(String source)
         {
-            this.source = requireNonNull(source, "source is null");
-            return this;
+            return setProperty(SOURCE, requireNonNull(source, "source is null"));
         }
 
         public Builder setLegacyPreparedStatements(Boolean legacyPreparedStatements)
         {
-            this.legacyPreparedStatements = requireNonNull(legacyPreparedStatements, "legacyPreparedStatements is null");
+            return setProperty(LEGACY_PREPARED_STATEMENTS, requireNonNull(legacyPreparedStatements, "legacyPreparedStatements is null"));
+        }
+
+        public Builder setKerberosRemoteServiceName(String kerberosRemoteServiceName)
+        {
+            return setProperty(KERBEROS_REMOTE_SERVICE_NAME, requireNonNull(kerberosRemoteServiceName, "kerberosRemoteServiceName is null"));
+        }
+
+        public Builder setDnsResolverContext(String dnsResolverContext)
+        {
+            return setProperty(DNS_RESOLVER_CONTEXT, requireNonNull(dnsResolverContext, "dnsResolverContext is null"));
+        }
+
+        public Builder setDnsResolver(Class<? extends DnsResolver> dnsResolver)
+        {
+            return setProperty(DNS_RESOLVER, requireNonNull(dnsResolver, "dnsResolver is null"));
+        }
+
+        public Builder setTimeout(Duration timeout)
+        {
+            return setProperty(TIMEOUT, requireNonNull(timeout, "timeout is null"));
+        }
+
+        public Builder setHttpLoggingLevel(HttpLoggingInterceptor.Level level)
+        {
+            return setProperty(HTTP_LOGGING_LEVEL, requireNonNull(level, "level is null"));
+        }
+
+        public <V, T> Builder setProperty(ConnectionProperty<V, T> connectionProperty, T value)
+        {
+            properties.put(connectionProperty.getKey(), connectionProperty.encodeValue(value));
+            return this;
+        }
+
+        public <T> Builder setProperties(Map<ConnectionProperty<?, T>, T> values)
+        {
+            values.forEach(this::setProperty);
+            return this;
+        }
+
+        public Builder setProperties(Properties properties)
+        {
+            this.properties.putAll(properties);
             return this;
         }
 
         public TrinoUri build()
-                throws SQLException
         {
-            return new TrinoUri(
-                    uri,
-                    Optional.ofNullable(catalog),
-                    Optional.ofNullable(schema),
-                    restrictedProperties,
-                    Optional.ofNullable(user),
-                    Optional.ofNullable(password),
-                    Optional.ofNullable(sessionUser),
-                    Optional.ofNullable(roles),
-                    Optional.ofNullable(socksProxy),
-                    Optional.ofNullable(httpProxy),
-                    Optional.ofNullable(applicationNamePrefix),
-                    Optional.ofNullable(disableCompression),
-                    Optional.ofNullable(assumeLiteralNamesInMetadataCallsForNonConformingClients),
-                    Optional.ofNullable(assumeLiteralUnderscoreInMetadataCallsForNonConformingClients),
-                    Optional.ofNullable(ssl),
-                    Optional.ofNullable(sslVerification),
-                    Optional.ofNullable(sslKeyStorePath),
-                    Optional.ofNullable(sslKeyStorePassword),
-                    Optional.ofNullable(sslKeyStoreType),
-                    Optional.ofNullable(sslTrustStorePath),
-                    Optional.ofNullable(sslTrustStorePassword),
-                    Optional.ofNullable(sslTrustStoreType),
-                    Optional.ofNullable(sslUseSystemTrustStore),
-                    Optional.ofNullable(kerberosServicePrincipalPattern),
-                    Optional.ofNullable(kerberosRemoteServiceName),
-                    Optional.ofNullable(kerberosUseCanonicalHostname),
-                    Optional.ofNullable(kerberosPrincipal),
-                    Optional.ofNullable(kerberosConfigPath),
-                    Optional.ofNullable(kerberosKeytabPath),
-                    Optional.ofNullable(kerberosCredentialCachePath),
-                    Optional.ofNullable(kerberosDelegation),
-                    Optional.ofNullable(kerberosConstrainedDelegation),
-                    Optional.ofNullable(accessToken),
-                    Optional.ofNullable(externalAuthentication),
-                    Optional.ofNullable(externalAuthenticationTimeout),
-                    Optional.ofNullable(externalRedirectStrategies),
-                    Optional.ofNullable(externalAuthenticationTokenCache),
-                    Optional.ofNullable(extraCredentials),
-                    Optional.ofNullable(hostnameInCertificate),
-                    Optional.ofNullable(timeZone),
-                    Optional.ofNullable(clientInfo),
-                    Optional.ofNullable(clientTags),
-                    Optional.ofNullable(traceToken),
-                    Optional.ofNullable(sessionProperties),
-                    Optional.ofNullable(source),
-                    Optional.ofNullable(legacyPreparedStatements));
+            return new TrinoUri(restrictedProperties, uri, toProperties(properties.buildOrThrow()));
+        }
+
+        private Properties toProperties(Map<Object, Object> values)
+        {
+            Properties properties = new Properties();
+            properties.putAll(values);
+            return properties;
         }
     }
 }

@@ -1612,7 +1612,7 @@ public class TestTrinoDatabaseMetaData
                 "admin",
                 null))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled");
+                .hasMessageContaining("Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled");
     }
 
     @Test

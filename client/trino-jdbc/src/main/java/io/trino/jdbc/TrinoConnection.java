@@ -14,6 +14,7 @@
 package io.trino.jdbc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -121,7 +122,7 @@ public class TrinoConnection
         this.httpUri = uri.getHttpUri();
         uri.getSchema().ifPresent(schema::set);
         uri.getCatalog().ifPresent(catalog::set);
-        this.user = uri.getUser();
+        this.user = Optional.ofNullable(uri.getUser());
         this.sessionUser.set(uri.getSessionUser());
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.source = uri.getSource();
@@ -138,7 +139,7 @@ public class TrinoConnection
 
         this.httpCallFactory = requireNonNull(httpCallFactory, "httpCallFactory is null");
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
-        uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, tags));
+        uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, Joiner.on(",").join(tags)));
         uri.getTraceToken().ifPresent(tags -> clientInfo.put(TRACE_TOKEN, tags));
 
         roles.putAll(uri.getRoles());
@@ -773,13 +774,13 @@ public class TrinoConnection
 
     void updateSession(StatementClient client)
     {
-        client.getSetSessionProperties().forEach(sessionProperties::put);
+        sessionProperties.putAll(client.getSetSessionProperties());
         client.getResetSessionProperties().forEach(sessionProperties::remove);
 
-        client.getAddedPreparedStatements().forEach(preparedStatements::put);
+        preparedStatements.putAll(client.getAddedPreparedStatements());
         client.getDeallocatedPreparedStatements().forEach(preparedStatements::remove);
 
-        client.getSetRoles().forEach(roles::put);
+        roles.putAll(client.getSetRoles());
 
         client.getSetCatalog().ifPresent(catalog::set);
         client.getSetSchema().ifPresent(schema::set);

@@ -16,7 +16,6 @@ package io.trino.client.uri;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
-import java.sql.SQLException;
 import java.util.Properties;
 
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.CA;
@@ -83,11 +82,15 @@ public class TestTrinoUri
         assertInvalid("trino://localhost:8080/blackhole?password&user=abc", "Connection argument is not a valid connection property: 'password'");
 
         // property in both url and arguments
-        assertInvalid("trino://localhost:8080/blackhole?user=test123", "Connection property user is both in the URL and an argument");
+        assertInvalid("trino://localhost:8080/blackhole?user=test123", "Connection property user is passed both by URL and properties");
 
         // setting both socks and http proxy
-        assertInvalid("trino://localhost:8080?socksProxy=localhost:1080&httpProxy=localhost:8888", "Connection property socksProxy cannot be used when httpProxy is set");
-        assertInvalid("trino://localhost:8080?httpProxy=localhost:8888&socksProxy=localhost:1080", "Connection property socksProxy cannot be used when httpProxy is set");
+        assertInvalid("trino://localhost:8080?socksProxy=localhost:1080&httpProxy=localhost:8888", "Provided connection properties are invalid:\n" +
+                "Connection property socksProxy cannot be used when httpProxy is set\n" +
+                "Connection property httpProxy cannot be used when socksProxy is set");
+        assertInvalid("trino://localhost:8080?httpProxy=localhost:8888&socksProxy=localhost:1080", "Provided connection properties are invalid:\n" +
+                "Connection property socksProxy cannot be used when httpProxy is set\n" +
+                "Connection property httpProxy cannot be used when socksProxy is set");
 
         // invalid ssl flag
         assertInvalid("trino://localhost:8080?SSL=0", "Connection property SSL value is invalid: 0");
@@ -102,8 +105,8 @@ public class TestTrinoUri
         // ssl verification without ssl
         assertInvalid("trino://localhost:8080?SSLVerification=FULL", "Connection property SSLVerification requires TLS/SSL to be enabled");
 
-        // ssl verification using port 443 without ssl
-        assertInvalid("trino://localhost:443?SSLVerification=FULL", "Connection property SSLVerification requires TLS/SSL to be enabled");
+        // ssl verification using port 8080 without ssl
+        assertInvalid("trino://localhost:8080?SSLVerification=FULL", "Connection property SSLVerification requires TLS/SSL to be enabled");
 
         // ssl key store password without path
         assertInvalid("trino://localhost:8080?SSL=true&SSLKeyStorePassword=password", "Connection property SSLKeyStorePassword requires SSLKeyStorePath to be set");
@@ -120,14 +123,14 @@ public class TestTrinoUri
         // key store path without ssl
         assertInvalid("trino://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property SSLKeyStorePath cannot be set if SSLVerification is set to NONE");
 
-        // key store path using port 443 without ssl
-        assertInvalid("trino://localhost:443?SSLKeyStorePath=keystore.jks", "Connection property SSLKeyStorePath cannot be set if SSLVerification is set to NONE");
+        // key store path using port 8080 without ssl
+        assertInvalid("trino://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property SSLKeyStorePath cannot be set if SSLVerification is set to NONE");
 
         // trust store path without ssl
         assertInvalid("trino://localhost:8080?SSLTrustStorePath=truststore.jks", "Connection property SSLTrustStorePath cannot be set if SSLVerification is set to NONE");
 
-        // trust store path using port 443 without ssl
-        assertInvalid("trino://localhost:443?SSLTrustStorePath=truststore.jks", "Connection property SSLTrustStorePath cannot be set if SSLVerification is set to NONE");
+        // trust store path using port 8080 without ssl
+        assertInvalid("trino://localhost:8080?SSLTrustStorePath=truststore.jks", "Connection property SSLTrustStorePath cannot be set if SSLVerification is set to NONE");
 
         // key store password without ssl
         assertInvalid("trino://localhost:8080?SSLKeyStorePassword=password", "Connection property SSLKeyStorePassword requires SSLKeyStorePath to be set");
@@ -181,38 +184,47 @@ public class TestTrinoUri
 
         // cannot set mutually exclusive properties for non-conforming clients to true
         assertInvalid("trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true",
-                "Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled");
+                "Provided connection properties are invalid:\n" +
+                        "Connection property assumeLiteralNamesInMetadataCallsForNonConformingClients cannot be set if assumeLiteralUnderscoreInMetadataCallsForNonConformingClients is enabled\n" +
+                        "Connection property assumeLiteralUnderscoreInMetadataCallsForNonConformingClients cannot be set if assumeLiteralNamesInMetadataCallsForNonConformingClients is enabled");
     }
 
     @Test
     public void testEmptyUser()
     {
         assertThatThrownBy(() -> TrinoUri.create("trino://localhost:8080?user=", new Properties()))
-                .isInstanceOf(SQLException.class)
+                .isInstanceOf(RuntimeException.class)
                 .hasMessage("Connection property user value is empty");
     }
 
     @Test
-    public void testEmptyPassword()
-            throws SQLException
+    public void testMultipleInvalidProperties()
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080?password=");
+        assertThatThrownBy(() -> TrinoUri.create("trino://localhost:8080?user=&SSLVerification=true", new Properties()))
+                .hasMessageContaining(
+                    "Provided connection properties are invalid:\n" +
+                    "Connection property user value is empty\n" +
+                    "Connection property SSLVerification requires TLS/SSL to be enabled");
+    }
+
+    @Test
+    public void testEmptyPassword()
+    {
+        TrinoUri parameters = createTrinoUri("trino://localhost:443?password=");
         assertEquals(parameters.getProperties().getProperty("password"), "");
     }
 
     @Test
     public void testNonEmptyPassword()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080?password=secret");
+        TrinoUri parameters = createTrinoUri("trino://localhost:443?password=secret");
         assertEquals(parameters.getProperties().getProperty("password"), "secret");
     }
 
     @Test
     public void testUriWithSocksProxy()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080?socksProxy=localhost:1234");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080?socksProxy=localhost:1234");
         assertUriPortScheme(parameters, 8080, "http");
 
         Properties properties = parameters.getProperties();
@@ -221,9 +233,8 @@ public class TestTrinoUri
 
     @Test
     public void testUriWithHttpProxy()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080?httpProxy=localhost:5678");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080?httpProxy=localhost:5678");
         assertUriPortScheme(parameters, 8080, "http");
 
         Properties properties = parameters.getProperties();
@@ -232,9 +243,8 @@ public class TestTrinoUri
 
     @Test
     public void testUriWithoutCompression()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080?disableCompression=true");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080?disableCompression=true");
         assertTrue(parameters.isCompressionDisabled());
 
         Properties properties = parameters.getProperties();
@@ -243,25 +253,22 @@ public class TestTrinoUri
 
     @Test
     public void testUriWithoutSsl()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080/blackhole");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080/blackhole");
         assertUriPortScheme(parameters, 8080, "http");
     }
 
     @Test
     public void testUriWithSslDisabled()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080/blackhole?SSL=false");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080/blackhole?SSL=false");
         assertUriPortScheme(parameters, 8080, "http");
     }
 
     @Test
     public void testUriWithSslEnabled()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080/blackhole?SSL=true");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080/blackhole?SSL=true");
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
@@ -271,25 +278,22 @@ public class TestTrinoUri
 
     @Test
     public void testUriWithSslDisabledUsing443()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:443/blackhole?SSL=false");
+        TrinoUri parameters = createTrinoUri("trino://localhost:443/blackhole?SSL=false");
         assertUriPortScheme(parameters, 443, "http");
     }
 
     @Test
     public void testUriWithSslEnabledUsing443()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:443/blackhole");
+        TrinoUri parameters = createTrinoUri("trino://localhost:443/blackhole");
         assertUriPortScheme(parameters, 443, "https");
     }
 
     @Test
     public void testUriWithSslEnabledPathOnly()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080/blackhole?SSL=true&SSLTrustStorePath=truststore.jks");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080/blackhole?SSL=true&SSLTrustStorePath=truststore.jks");
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
@@ -299,9 +303,8 @@ public class TestTrinoUri
 
     @Test
     public void testUriWithSslEnabledPassword()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080/blackhole?SSL=true&SSLTrustStorePath=truststore.jks&SSLTrustStorePassword=password");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080/blackhole?SSL=true&SSLTrustStorePath=truststore.jks&SSLTrustStorePassword=password");
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
@@ -311,9 +314,8 @@ public class TestTrinoUri
 
     @Test
     public void testUriWithSslEnabledUsing443SslVerificationFull()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:443/blackhole?SSL=true&SSLVerification=FULL");
+        TrinoUri parameters = createTrinoUri("trino://localhost:443/blackhole?SSL=true&SSLVerification=FULL");
         assertUriPortScheme(parameters, 443, "https");
 
         Properties properties = parameters.getProperties();
@@ -322,9 +324,8 @@ public class TestTrinoUri
 
     @Test
     public void testUriWithSslEnabledUsing443SslVerificationCA()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:443/blackhole?SSL=true&SSLVerification=CA");
+        TrinoUri parameters = createTrinoUri("trino://localhost:443/blackhole?SSL=true&SSLVerification=CA");
         assertUriPortScheme(parameters, 443, "https");
 
         Properties properties = parameters.getProperties();
@@ -333,9 +334,8 @@ public class TestTrinoUri
 
     @Test
     public void testUriWithSslEnabledUsing443SslVerificationNONE()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:443/blackhole?SSL=true&SSLVerification=NONE");
+        TrinoUri parameters = createTrinoUri("trino://localhost:443/blackhole?SSL=true&SSLVerification=NONE");
         assertUriPortScheme(parameters, 443, "https");
 
         Properties properties = parameters.getProperties();
@@ -344,9 +344,8 @@ public class TestTrinoUri
 
     @Test
     public void testUriWithSslEnabledSystemTrustStoreDefault()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080/blackhole?SSL=true&SSLUseSystemTrustStore=true");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080/blackhole?SSL=true&SSLUseSystemTrustStore=true");
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
@@ -355,9 +354,8 @@ public class TestTrinoUri
 
     @Test
     public void testUriWithSslEnabledSystemTrustStoreOverride()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080/blackhole?SSL=true&SSLTrustStoreType=Override&SSLUseSystemTrustStore=true");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080/blackhole?SSL=true&SSLTrustStoreType=Override&SSLUseSystemTrustStore=true");
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
@@ -367,56 +365,50 @@ public class TestTrinoUri
 
     @Test
     public void testUriWithExtraCredentials()
-            throws SQLException
     {
         String extraCredentials = "test.token.foo:bar;test.token.abc:xyz";
-        TrinoUri parameters = createDriverUri("trino://localhost:8080?extraCredentials=" + extraCredentials);
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080?extraCredentials=" + extraCredentials);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(EXTRA_CREDENTIALS.toString()), extraCredentials);
     }
 
     @Test
     public void testUriWithClientTags()
-            throws SQLException
     {
         String clientTags = "c1,c2";
-        TrinoUri parameters = createDriverUri("trino://localhost:8080?clientTags=" + clientTags);
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080?clientTags=" + clientTags);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(CLIENT_TAGS.toString()), clientTags);
     }
 
     @Test
     public void testOptionalCatalogAndSchema()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080");
         assertThat(parameters.getCatalog()).isEmpty();
         assertThat(parameters.getSchema()).isEmpty();
     }
 
     @Test
     public void testOptionalSchema()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080/catalog");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080/catalog");
         assertThat(parameters.getCatalog()).isPresent();
         assertThat(parameters.getSchema()).isEmpty();
     }
 
     @Test
     public void testAssumeLiteralNamesInMetadataCallsForNonConformingClients()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080?assumeLiteralNamesInMetadataCallsForNonConformingClients=true");
         assertThat(parameters.isAssumeLiteralNamesInMetadataCallsForNonConformingClients()).isTrue();
         assertThat(parameters.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()).isFalse();
     }
 
     @Test
     public void testAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()
-            throws SQLException
     {
-        TrinoUri parameters = createDriverUri("trino://localhost:8080?assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true");
+        TrinoUri parameters = createTrinoUri("trino://localhost:8080?assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true");
         assertThat(parameters.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()).isTrue();
         assertThat(parameters.isAssumeLiteralNamesInMetadataCallsForNonConformingClients()).isFalse();
     }
@@ -428,8 +420,7 @@ public class TestTrinoUri
         assertEquals(uri.getScheme(), scheme);
     }
 
-    private static TrinoUri createDriverUri(String url)
-            throws SQLException
+    private static TrinoUri createTrinoUri(String url)
     {
         Properties properties = new Properties();
         properties.setProperty("user", "test");
@@ -439,8 +430,8 @@ public class TestTrinoUri
 
     private static void assertInvalid(String url, String prefix)
     {
-        assertThatThrownBy(() -> createDriverUri(url))
-                .isInstanceOf(SQLException.class)
+        assertThatThrownBy(() -> createTrinoUri(url))
+                .isInstanceOf(RuntimeException.class)
                 .hasMessageStartingWith(prefix);
     }
 }

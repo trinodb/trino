@@ -68,7 +68,10 @@ public enum PropertyName
     TIMEZONE("timezone"),
     // these two are not actual properties but parts of the path
     CATALOG("catalog"),
-    SCHEMA("schema");
+    SCHEMA("schema"),
+    LOCALE("locale"),
+    TIMEOUT("timeout"),
+    HTTP_LOGGING_LEVEL("httpLoggingLevel");
 
     private final String key;
 

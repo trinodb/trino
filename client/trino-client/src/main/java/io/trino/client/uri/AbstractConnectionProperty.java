@@ -16,10 +16,10 @@ package io.trino.client.uri;
 import com.google.common.reflect.TypeToken;
 
 import java.io.File;
-import java.sql.DriverPropertyInfo;
-import java.sql.SQLException;
+import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -27,6 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 abstract class AbstractConnectionProperty<V, T>
         implements ConnectionProperty<V, T>
@@ -83,77 +84,80 @@ abstract class AbstractConnectionProperty<V, T>
     }
 
     @Override
-    public DriverPropertyInfo getDriverPropertyInfo(Properties mergedProperties)
-    {
-        String currentValue = mergedProperties.getProperty(key);
-        DriverPropertyInfo result = new DriverPropertyInfo(key, currentValue);
-        result.required = isRequired.test(mergedProperties);
-        result.choices = (choices != null) ? choices.clone() : null;
-        return result;
-    }
-
-    @Override
     public boolean isRequired(Properties properties)
     {
         return isRequired.test(properties);
     }
 
     @Override
-    public boolean isValid(Properties properties)
-    {
-        return !validator.validate(properties).isPresent();
-    }
-
-    @Override
     public Optional<T> getValue(Properties properties)
-            throws SQLException
     {
-        return getValueOrDefault(properties, defaultValue);
-    }
-
-    @Override
-    public Optional<T> getValueOrDefault(Properties properties, Optional<T> defaultValue)
-            throws SQLException
-    {
-        V value = (V) properties.get(key);
+        Object value = properties.get(key);
         if (value == null) {
             if (isRequired(properties) && !defaultValue.isPresent()) {
-                throw new SQLException(format("Connection property %s is required", key));
+                throw new RuntimeException(format("Connection property %s is required", key));
             }
             return defaultValue;
         }
 
         try {
-            return Optional.of(converter.convert(value));
+            return Optional.of(decodeValue((V) value));
         }
         catch (RuntimeException e) {
             if (isEmpty(value)) {
-                throw new SQLException(format("Connection property %s value is empty", key), e);
+                throw new RuntimeException(format("Connection property %s value is empty", key), e);
             }
-            throw new SQLException(format("Connection property %s value is invalid: %s", key, value), e);
+            throw new RuntimeException(format("Connection property %s value is invalid: %s", key, value), e);
         }
-    }
-
-    private boolean isEmpty(V value)
-    {
-        if (value instanceof String) {
-            return ((String) value).isEmpty();
-        }
-        return false;
     }
 
     @Override
-    public void validate(Properties properties)
-            throws SQLException
+    public V encodeValue(T value)
+    {
+        return converter.encode(value);
+    }
+
+    @Override
+    public T decodeValue(V value)
+    {
+        return converter.decode(value);
+    }
+
+    @Override
+    public String[] getChoices()
+    {
+        return choices;
+    }
+
+    @Override
+    public Optional<RuntimeException> validate(Properties properties)
     {
         if (properties.containsKey(key)) {
             Optional<String> message = validator.validate(properties);
             if (message.isPresent()) {
-                throw new SQLException(message.get());
+                return message.map(RuntimeException::new);
             }
         }
 
-        getValue(properties);
+        try {
+            getValue(properties);
+        }
+        catch (RuntimeException e) {
+            return Optional.of(e);
+        }
+
+        return Optional.empty();
+    }
+
+    private boolean isEmpty(Object value)
+    {
+        if (value == null) {
+            return true;
+        }
+        if (value instanceof String) {
+            return ((String) value).isEmpty();
+        }
+        return false;
     }
 
     protected static final Predicate<Properties> NOT_REQUIRED = properties -> false;
@@ -162,26 +166,82 @@ abstract class AbstractConnectionProperty<V, T>
 
     interface Converter<V, T>
     {
-        T convert(V value);
+        T decode(V value);
+
+        V encode(T value);
     }
 
-    protected static final Converter<String, String> STRING_CONVERTER = String.class::cast;
+    protected static <V, T> Converter<V, T> converter(Function<V, T> decoder, Function<T, V> encoder)
+    {
+        return new Converter<V, T>()
+        {
+            @Override
+            public T decode(V value)
+            {
+                return decoder.apply(value);
+            }
 
-    protected static final Converter<String, String> NON_EMPTY_STRING_CONVERTER = value -> {
-        checkArgument(!value.isEmpty(), "value is empty");
-        return value;
+            @Override
+            public V encode(T value)
+            {
+                return encoder.apply(value);
+            }
+        };
+    }
+
+    protected static final Converter<String, String> STRING_CONVERTER = converter(identity(), identity());
+
+    protected static final Converter<String, String> NON_EMPTY_STRING_CONVERTER = new Converter<String, String>()
+    {
+        @Override
+        public String decode(String value)
+        {
+            checkArgument(!value.isEmpty(), "value is empty");
+            return value;
+        }
+
+        @Override
+        public String encode(String value)
+        {
+            return value;
+        }
     };
 
-    protected static final Converter<String, File> FILE_CONVERTER = File::new;
-
-    protected static final Converter<String, Boolean> BOOLEAN_CONVERTER = value -> {
-        switch (value.toLowerCase(ENGLISH)) {
-            case "true":
-                return true;
-            case "false":
-                return false;
+    protected static final Converter<String, File> FILE_CONVERTER = new Converter<String, File>()
+    {
+        @Override
+        public File decode(String value)
+        {
+            return Paths.get(value).toFile();
         }
-        throw new IllegalArgumentException("value must be 'true' or 'false'");
+
+        @Override
+        public String encode(File value)
+        {
+            return value.getPath();
+        }
+    };
+
+    protected static final Converter<String, Boolean> BOOLEAN_CONVERTER = new Converter<String, Boolean>()
+    {
+        @Override
+        public Boolean decode(String value)
+        {
+            switch ((value).toLowerCase(ENGLISH)) {
+                case "true":
+                    return true;
+                case "false":
+                    return false;
+            }
+
+            throw new IllegalArgumentException("value must be 'true' or 'false'");
+        }
+
+        @Override
+        public String encode(Boolean value)
+        {
+            return value.toString();
+        }
     };
 
     protected interface Validator<T>
@@ -215,25 +275,6 @@ abstract class AbstractConnectionProperty<V, T>
                 return Optional.empty();
             }
             return Optional.of(errorMessage);
-        };
-    }
-
-    protected interface CheckedPredicate<T>
-    {
-        boolean test(T t)
-                throws SQLException;
-    }
-
-    protected static <T> Predicate<T> checkedPredicate(CheckedPredicate<T> predicate)
-    {
-        requireNonNull(predicate, "predicate is null");
-        return value -> {
-            try {
-                return predicate.test(value);
-            }
-            catch (SQLException e) {
-                return false;
-            }
         };
     }
 }

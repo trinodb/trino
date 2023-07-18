@@ -116,8 +116,12 @@ public final class Trino
         @Override
         public String[] getVersion()
         {
-            String version = getClass().getPackage().getImplementationVersion();
-            return new String[] {"Trino CLI " + firstNonNull(version, "(version unknown)")};
+            return new String[] {"Trino CLI " + firstNonNull(getCliVersion(), "(version unknown)")};
         }
+    }
+
+    public static String getCliVersion()
+    {
+        return Trino.class.getPackage().getImplementationVersion();
     }
 }

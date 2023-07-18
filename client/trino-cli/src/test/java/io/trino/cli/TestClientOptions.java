@@ -23,7 +23,6 @@ import io.trino.client.ClientSession;
 import io.trino.client.uri.TrinoUri;
 import org.junit.jupiter.api.Test;
 
-import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.Optional;
 
@@ -162,7 +161,6 @@ public class TestClientOptions
 
     @Test
     public void testURLParams()
-            throws SQLException
     {
         Console console = createConsole("trino://server.example:8080/my-catalog/my-schema?source=my-client");
         TrinoUri uri = console.clientOptions.getTrinoUri();
@@ -251,7 +249,7 @@ public class TestClientOptions
         Console console = createConsole("--timezone=Europe/Vilnius");
 
         ClientOptions options = console.clientOptions;
-        assertEquals(options.timeZone, ZoneId.of("Europe/Vilnius"));
+        assertEquals(options.timeZone, Optional.of(ZoneId.of("Europe/Vilnius")));
 
         ClientSession session = options.toClientSession(options.getTrinoUri());
         assertEquals(session.getTimeZone(), ZoneId.of("Europe/Vilnius"));
@@ -263,7 +261,7 @@ public class TestClientOptions
         Console console = createConsole("--disable-compression");
 
         ClientOptions options = console.clientOptions;
-        assertTrue(options.disableCompression);
+        assertEquals(options.disableCompression, Optional.of(true));
 
         ClientSession session = options.toClientSession(options.getTrinoUri());
         assertTrue(session.isCompressionDisabled());
