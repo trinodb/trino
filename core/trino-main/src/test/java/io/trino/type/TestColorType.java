@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.operator.scalar.ColorFunctions.rgb;
@@ -54,7 +55,7 @@ public class TestColorType
         }
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = COLOR.createBlockBuilder(null, 15);
         COLOR.writeLong(blockBuilder, rgb(1, 1, 1));
@@ -68,7 +69,7 @@ public class TestColorType
         COLOR.writeLong(blockBuilder, rgb(3, 3, 3));
         COLOR.writeLong(blockBuilder, rgb(3, 3, 3));
         COLOR.writeLong(blockBuilder, rgb(4, 4, 4));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

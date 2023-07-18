@@ -14,9 +14,9 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.RowType;
 import org.junit.jupiter.api.Test;
 
@@ -41,7 +41,7 @@ public class TestSimpleRowType
         super(TYPE, List.class, createTestBlock());
     }
 
-    private static Block createTestBlock()
+    private static ValueBlock createTestBlock()
     {
         RowBlockBuilder blockBuilder = TYPE.createBlockBuilder(null, 3);
 
@@ -60,7 +60,7 @@ public class TestSimpleRowType
             VARCHAR.writeSlice(fieldBuilders.get(1), utf8Slice("dog"));
         });
 
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

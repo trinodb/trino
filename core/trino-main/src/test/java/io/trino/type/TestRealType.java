@@ -16,6 +16,7 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,7 @@ public class TestRealType
         super(REAL, Float.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = REAL.createBlockBuilder(null, 30);
         REAL.writeLong(blockBuilder, floatToRawIntBits(11.11F));
@@ -48,7 +49,7 @@ public class TestRealType
         REAL.writeLong(blockBuilder, floatToRawIntBits(33.33F));
         REAL.writeLong(blockBuilder, floatToRawIntBits(33.33F));
         REAL.writeLong(blockBuilder, floatToRawIntBits(44.44F));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

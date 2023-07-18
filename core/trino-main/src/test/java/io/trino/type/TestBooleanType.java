@@ -16,6 +16,7 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.BooleanType;
 import org.junit.jupiter.api.Test;
 
@@ -66,7 +67,7 @@ public class TestBooleanType
         assertFalse(BooleanType.createBlockForSingleNonNullValue(false).mayHaveNull());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, 15);
         BOOLEAN.writeBoolean(blockBuilder, true);
@@ -80,7 +81,7 @@ public class TestBooleanType
         BOOLEAN.writeBoolean(blockBuilder, true);
         BOOLEAN.writeBoolean(blockBuilder, true);
         BOOLEAN.writeBoolean(blockBuilder, false);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
