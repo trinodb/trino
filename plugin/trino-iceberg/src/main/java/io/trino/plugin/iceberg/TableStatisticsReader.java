@@ -60,6 +60,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -140,7 +141,8 @@ public final class TableStatisticsReader
                 .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(effectivePredicate))
+                // Table enforced constraint may include eg $path column predicate which is not handled by Iceberg library TODO apply $path and $file_modified_time filters here
+                .filter(toIcebergExpression(effectivePredicate.filter((column, domain) -> !isMetadataColumnId(column.getId()))))
                 .useSnapshot(snapshotId)
                 .includeColumnStats();
 
