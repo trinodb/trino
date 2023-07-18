@@ -15,7 +15,7 @@ package io.trino.execution.scheduler.faulttolerant;
 
 import io.trino.Session;
 
-public interface OutputDataSizeEstimatorFactory
+public interface OutputStatsEstimatorFactory
 {
-    OutputDataSizeEstimator create(Session session);
+    OutputStatsEstimator create(Session session);
 }
