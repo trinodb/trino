@@ -357,7 +357,7 @@ public abstract class AbstractDeltaLakePageSink
                 partitionName = Optional.of(partName);
             }
 
-            String fileName = session.getQueryId() + "-" + randomUUID();
+            String fileName = session.getQueryId() + "_" + randomUUID();
             filePath = filePath.appendPath(fileName);
 
             FileWriter fileWriter = createParquetFileWriter(filePath);
