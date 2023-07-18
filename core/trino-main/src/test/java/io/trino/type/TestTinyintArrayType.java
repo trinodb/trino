@@ -15,6 +15,7 @@ package io.trino.type;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
@@ -34,14 +35,14 @@ public class TestTinyintArrayType
         super(TESTING_TYPE_MANAGER.getType(arrayType(TINYINT.getTypeSignature())), List.class, createTestBlock(TESTING_TYPE_MANAGER.getType(arrayType(TINYINT.getTypeSignature()))));
     }
 
-    public static Block createTestBlock(Type arrayType)
+    public static ValueBlock createTestBlock(Type arrayType)
     {
         BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 4);
         arrayType.writeObject(blockBuilder, arrayBlockOf(TINYINT, 1, 2));
         arrayType.writeObject(blockBuilder, arrayBlockOf(TINYINT, 1, 2, 3));
         arrayType.writeObject(blockBuilder, arrayBlockOf(TINYINT, 1, 2, 3));
         arrayType.writeObject(blockBuilder, arrayBlockOf(TINYINT, 100, 110, 127));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
@@ -54,7 +55,7 @@ public class TestTinyintArrayType
         }
         TINYINT.writeLong(blockBuilder, 1L);
 
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Test

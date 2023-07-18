@@ -16,8 +16,8 @@ package io.trino.type;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -33,7 +33,7 @@ public class TestIpAddressType
         super(IPADDRESS, String.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = IPADDRESS.createBlockBuilder(null, 1);
         IPADDRESS.writeSlice(blockBuilder, getSliceForAddress("2001:db8::ff00:42:8320"));
@@ -46,7 +46,7 @@ public class TestIpAddressType
         IPADDRESS.writeSlice(blockBuilder, getSliceForAddress("2001:db8::ff00:42:8327"));
         IPADDRESS.writeSlice(blockBuilder, getSliceForAddress("2001:db8::ff00:42:8328"));
         IPADDRESS.writeSlice(blockBuilder, getSliceForAddress("2001:db8::ff00:42:8329"));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
