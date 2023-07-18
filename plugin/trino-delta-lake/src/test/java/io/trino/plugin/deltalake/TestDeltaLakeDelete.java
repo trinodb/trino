@@ -181,9 +181,14 @@ public class TestDeltaLakeDelete
     public void testDeleteAllOssDeltaLake()
     {
         String tableName = "test_delete_all_deltalake" + randomNameSuffix();
-        Set<String> originalFiles = testDeleteAllAndReturnInitialDataLakeFilesSet(
-                tableName,
-                "io/trino/plugin/deltalake/testing/resources/ossdeltalake");
+        hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/ossdeltalake/customer", tableName);
+        Set<String> originalFiles = ImmutableSet.copyOf(hiveMinioDataLake.listFiles(tableName));
+        getQueryRunner().execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, getLocationForTable(tableName)));
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM customer");
+        // There are `add` files in the transaction log without stats, reason why the DELETE statement on the whole table
+        // performed on the basis of metadata does not return the number of deleted records
+        assertUpdate("DELETE FROM " + tableName);
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
         Set<String> expected = ImmutableSet.<String>builder()
                 .addAll(originalFiles)
                 .add(tableName + "/_delta_log/00000000000000000001.json")
