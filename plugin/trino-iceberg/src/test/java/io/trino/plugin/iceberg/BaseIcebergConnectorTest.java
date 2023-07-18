@@ -5376,6 +5376,10 @@ public abstract class BaseIcebergConnectorTest
                 .returnsEmptyResult()
                 .isFullyPushedDown();
 
+        assertQuerySucceeds("SHOW STATS FOR (SELECT userid FROM " + tableName + " WHERE \"$path\" = '" + somePath + "')");
+        // EXPLAIN triggers stats calculation and also rendering
+        assertQuerySucceeds("EXPLAIN SELECT userid FROM " + tableName + " WHERE \"$path\" = '" + somePath + "'");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -5462,6 +5466,10 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IS NULL"))
                     .returnsEmptyResult()
                     .isFullyPushedDown();
+
+            assertQuerySucceeds("SHOW STATS FOR (SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'))");
+            // EXPLAIN triggers stats calculation and also rendering
+            assertQuerySucceeds("EXPLAIN SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
         }
     }
 
