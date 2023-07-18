@@ -55,13 +55,14 @@ public final class MinByAggregationFunction
             @AggregationState("K") InOut keyState,
             @AggregationState("V") InOut valueState,
             @SqlNullable @BlockPosition @SqlType("V") Block valueBlock,
+            @BlockIndex int valuePosition,
             @BlockPosition @SqlType("K") Block keyBlock,
-            @BlockIndex int position)
+            @BlockIndex int keyPosition)
             throws Throwable
     {
-        if (keyState.isNull() || ((long) compare.invokeExact(keyBlock, position, keyState)) < 0) {
-            keyState.set(keyBlock, position);
-            valueState.set(valueBlock, position);
+        if (keyState.isNull() || ((long) compare.invokeExact(keyBlock, keyPosition, keyState)) < 0) {
+            keyState.set(keyBlock, keyPosition);
+            valueState.set(valueBlock, valuePosition);
         }
     }
 

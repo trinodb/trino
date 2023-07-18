@@ -37,11 +37,11 @@ public final class ListaggAggregationFunction
     public static void input(
             @AggregationState ListaggAggregationState state,
             @BlockPosition @SqlType("VARCHAR") Block value,
+            @BlockIndex int position,
             @SqlType("VARCHAR") Slice separator,
             @SqlType("BOOLEAN") boolean overflowError,
             @SqlType("VARCHAR") Slice overflowFiller,
-            @SqlType("BOOLEAN") boolean showOverflowEntryCount,
-            @BlockIndex int position)
+            @SqlType("BOOLEAN") boolean showOverflowEntryCount)
     {
         state.initialize(separator, overflowError, overflowFiller, showOverflowEntryCount);
         state.add(value, position);

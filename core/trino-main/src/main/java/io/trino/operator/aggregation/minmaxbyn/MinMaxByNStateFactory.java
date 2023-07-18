@@ -118,12 +118,12 @@ public final class MinMaxByNStateFactory
         }
 
         @Override
-        public final void add(Block keyBlock, Block valueBlock, int position)
+        public final void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition)
         {
             TypedKeyValueHeap typedHeap = getTypedKeyValueHeap();
 
             size -= typedHeap.getEstimatedSize();
-            typedHeap.add(keyBlock, valueBlock, position);
+            typedHeap.add(keyBlock, keyPosition, valueBlock, valuePosition);
             size += typedHeap.getEstimatedSize();
         }
 
@@ -203,9 +203,9 @@ public final class MinMaxByNStateFactory
         }
 
         @Override
-        public final void add(Block keyBlock, Block valueBlock, int position)
+        public final void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition)
         {
-            typedHeap.add(keyBlock, valueBlock, position);
+            typedHeap.add(keyBlock, keyPosition, valueBlock, valuePosition);
         }
 
         @Override
