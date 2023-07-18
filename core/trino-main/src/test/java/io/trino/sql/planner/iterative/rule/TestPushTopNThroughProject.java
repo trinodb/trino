@@ -173,7 +173,7 @@ public class TestPushTopNThroughProject
                                     Assignments.builder()
                                             .put(p.symbol("b"), new SubscriptExpression(a.toSymbolReference(), new LongLiteral("1")))
                                             .put(p.symbol("c", rowType), a.toSymbolReference())
-                                            .put(d, d.toSymbolReference())
+                                            .putIdentity(d)
                                             .build(),
                                     p.values(a, d)));
                 })
