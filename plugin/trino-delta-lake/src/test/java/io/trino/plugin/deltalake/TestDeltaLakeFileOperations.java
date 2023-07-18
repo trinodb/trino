@@ -282,7 +282,7 @@ public class TestDeltaLakeFileOperations
     {
         public static FileOperation create(String path, OperationType operationType)
         {
-            Pattern dataFilePattern = Pattern.compile(".*/(?<partition>key=[^/]*/)(?<queryId>\\d{8}_\\d{6}_\\d{5}_\\w{5})-(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})");
+            Pattern dataFilePattern = Pattern.compile(".*/(?<partition>key=[^/]*/)(?<queryId>\\d{8}_\\d{6}_\\d{5}_\\w{5})_(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})");
             String fileName = path.replaceFirst(".*/", "");
             if (path.matches(".*/_delta_log/_last_checkpoint")) {
                 return new FileOperation(LAST_CHECKPOINT, fileName, operationType);
