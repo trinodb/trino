@@ -272,7 +272,7 @@ public class TrinoHiveCatalog
     }
 
     @Override
-    public void registerTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, TableMetadata tableMetadata)
+    public void registerTable(ConnectorSession session, SchemaTableName schemaTableName, TableMetadata tableMetadata)
             throws TrinoException
     {
         Optional<String> owner = isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser());
@@ -284,7 +284,7 @@ public class TrinoHiveCatalog
                 .setDataColumns(toHiveColumns(tableMetadata.schema().columns()))
                 // Table needs to be EXTERNAL, otherwise table rename in HMS would rename table directory and break table contents.
                 .setTableType(EXTERNAL_TABLE.name())
-                .withStorage(storage -> storage.setLocation(tableLocation))
+                .withStorage(storage -> storage.setLocation(tableMetadata.location()))
                 .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))
                 // This is a must-have property for the EXTERNAL_TABLE table type
                 .setParameter("EXTERNAL", "TRUE")
