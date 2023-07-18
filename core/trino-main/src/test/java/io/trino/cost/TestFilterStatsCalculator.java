@@ -609,7 +609,9 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         assertExpression("'a' IN ('a', 'b')").equalTo(standardInputStatistics);
+        assertExpression("'a' IN ('a', 'b', NULL)").equalTo(standardInputStatistics);
         assertExpression("'a' IN ('b', 'c')").outputRowsCount(0);
+        assertExpression("'a' IN ('b', 'c', NULL)").outputRowsCount(0);
         assertExpression("CAST('b' AS VARCHAR(3)) IN (CAST('a' AS VARCHAR(3)), CAST('b' AS VARCHAR(3)))").equalTo(standardInputStatistics);
         assertExpression("CAST('c' AS VARCHAR(3)) IN (CAST('a' AS VARCHAR(3)), CAST('b' AS VARCHAR(3)))").outputRowsCount(0);
     }
@@ -678,6 +680,15 @@ public class TestFilterStatsCalculator
 
         // Multiple values some in some out of range
         assertExpression("x IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0)")
+                .outputRowsCount(56.25)
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(3.0)
+                                .lowValue(1.5)
+                                .highValue(7.5)
+                                .nullsFraction(0.0));
+
+        // Multiple values some including NULL
+        assertExpression("x IN (DOUBLE '-42', 1.5e0, 2.5e0, 7.5e0, 314e0, CAST(NULL AS double))")
                 .outputRowsCount(56.25)
                 .symbolStats("x", symbolStats ->
                         symbolStats.distinctValuesCount(3.0)
