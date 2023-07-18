@@ -21,21 +21,21 @@ import io.trino.execution.scheduler.faulttolerant.EventDrivenFaultTolerantQueryS
 import java.util.Optional;
 import java.util.function.Function;
 
-public class ByEagerParentOutputDataSizeEstimator
-        implements OutputDataSizeEstimator
+public class ByEagerParentOutputStatsEstimator
+        implements OutputStatsEstimator
 {
     public static class Factory
-            implements OutputDataSizeEstimatorFactory
+            implements OutputStatsEstimatorFactory
     {
         @Override
-        public OutputDataSizeEstimator create(Session session)
+        public OutputStatsEstimator create(Session session)
         {
-            return new ByEagerParentOutputDataSizeEstimator();
+            return new ByEagerParentOutputStatsEstimator();
         }
     }
 
     @Override
-    public Optional<OutputDataSizeEstimateResult> getEstimatedOutputDataSize(StageExecution stageExecution, Function<StageId, StageExecution> stageExecutionLookup, boolean parentEager)
+    public Optional<OutputStatsEstimateResult> getEstimatedOutputStats(StageExecution stageExecution, Function<StageId, StageExecution> stageExecutionLookup, boolean parentEager)
     {
         if (!parentEager) {
             return Optional.empty();
@@ -49,6 +49,6 @@ public class ByEagerParentOutputDataSizeEstimator
         for (int i = 0; i < outputPartitionsCount; ++i) {
             estimateBuilder.add(0);
         }
-        return Optional.of(new OutputDataSizeEstimateResult(estimateBuilder.build(), "FOR_EAGER_PARENT"));
+        return Optional.of(new OutputStatsEstimateResult(estimateBuilder.build(), 0, "FOR_EAGER_PARENT"));
     }
 }

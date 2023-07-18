@@ -24,29 +24,31 @@ import java.util.function.Function;
 import java.util.stream.LongStream;
 
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionStageEstimationByStatsEnabled;
+import static java.lang.Double.isFinite;
+import static java.lang.Double.isNaN;
 
-public class ByStatsOutputDataSizeEstimator
-        implements OutputDataSizeEstimator
+public class ByStatsOutputStatsEstimator
+        implements OutputStatsEstimator
 {
     public static class Factory
-            implements OutputDataSizeEstimatorFactory
+            implements OutputStatsEstimatorFactory
     {
         @Override
-        public OutputDataSizeEstimator create(Session session)
+        public OutputStatsEstimator create(Session session)
         {
-            return new ByStatsOutputDataSizeEstimator(isFaultTolerantExecutionStageEstimationByStatsEnabled(session));
+            return new ByStatsOutputStatsEstimator(isFaultTolerantExecutionStageEstimationByStatsEnabled(session));
         }
     }
 
     private final boolean enabled;
 
-    public ByStatsOutputDataSizeEstimator(boolean enabled)
+    public ByStatsOutputStatsEstimator(boolean enabled)
     {
         this.enabled = enabled;
     }
 
     @Override
-    public Optional<OutputDataSizeEstimateResult> getEstimatedOutputDataSize(
+    public Optional<OutputStatsEstimateResult> getEstimatedOutputStats(
             EventDrivenFaultTolerantQueryScheduler.StageExecution stageExecution,
             Function<StageId, EventDrivenFaultTolerantQueryScheduler.StageExecution> stageExecutionLookup,
             boolean parentEager)
@@ -55,13 +57,14 @@ public class ByStatsOutputDataSizeEstimator
             return Optional.empty();
         }
         PlanNodeStatsEstimate stats = stageExecution.getStats();
+        double outputRowCount = stats.getOutputRowCount();
         double size = stats.getOutputSizeInBytes(stats.getSymbolsWithKnownStatistics(), stageExecution.getTypeProvider());
-        if (Double.isNaN(size)) {
+        if (!isFinite(outputRowCount) || isNaN(size)) {
             return Optional.empty();
         }
         int partitionsCount = stageExecution.getPartitionsCount();
         // Assume uniform output-size distribution across all partitions.
         ImmutableLongArray sizes = ImmutableLongArray.copyOf(LongStream.generate(() -> (long) (size / partitionsCount)).limit(partitionsCount));
-        return Optional.of(new OutputDataSizeEstimateResult(new OutputDataSizeEstimate(sizes), "BY_STATS"));
+        return Optional.of(new OutputStatsEstimateResult(new OutputDataSizeEstimate(sizes), (long) outputRowCount, "BY_STATS"));
     }
 }

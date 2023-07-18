@@ -24,28 +24,28 @@ import java.util.function.Function;
 
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinSourceStageProgress;
 
-public class ByTaskProgressOutputDataSizeEstimator
-        implements OutputDataSizeEstimator
+public class ByTaskProgressOutputStatsEstimator
+        implements OutputStatsEstimator
 {
     public static class Factory
-            implements OutputDataSizeEstimatorFactory
+            implements OutputStatsEstimatorFactory
     {
         @Override
-        public OutputDataSizeEstimator create(Session session)
+        public OutputStatsEstimator create(Session session)
         {
-            return new ByTaskProgressOutputDataSizeEstimator(getFaultTolerantExecutionMinSourceStageProgress(session));
+            return new ByTaskProgressOutputStatsEstimator(getFaultTolerantExecutionMinSourceStageProgress(session));
         }
     }
 
     private final double minSourceStageProgress;
 
-    private ByTaskProgressOutputDataSizeEstimator(double minSourceStageProgress)
+    private ByTaskProgressOutputStatsEstimator(double minSourceStageProgress)
     {
         this.minSourceStageProgress = minSourceStageProgress;
     }
 
     @Override
-    public Optional<OutputDataSizeEstimateResult> getEstimatedOutputDataSize(StageExecution stageExecution, Function<StageId, StageExecution> stageExecutionLookup, boolean parentEager)
+    public Optional<OutputStatsEstimateResult> getEstimatedOutputStats(StageExecution stageExecution, Function<StageId, StageExecution> stageExecutionLookup, boolean parentEager)
     {
         if (!stageExecution.isNoMorePartitions()) {
             return Optional.empty();
@@ -71,6 +71,7 @@ public class ByTaskProgressOutputDataSizeEstimator
         for (long partitionSize : currentOutputDataSize) {
             estimateBuilder.add((long) (partitionSize / progress));
         }
-        return Optional.of(new OutputDataSizeEstimateResult(new OutputDataSizeEstimate(estimateBuilder.build()), "BY_PROGRESS"));
+        long outputRowCountEstimate = (long) (stageExecution.getOutputRowCount() / progress);
+        return Optional.of(new OutputStatsEstimateResult(new OutputDataSizeEstimate(estimateBuilder.build()), outputRowCountEstimate, "BY_PROGRESS"));
     }
 }

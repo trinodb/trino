@@ -22,23 +22,24 @@ import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
-public interface OutputDataSizeEstimator
+public interface OutputStatsEstimator
 {
-    Optional<OutputDataSizeEstimateResult> getEstimatedOutputDataSize(
+    Optional<OutputStatsEstimateResult> getEstimatedOutputStats(
             EventDrivenFaultTolerantQueryScheduler.StageExecution stageExecution,
             Function<StageId, EventDrivenFaultTolerantQueryScheduler.StageExecution> stageExecutionLookup,
             boolean parentEager);
 
-    record OutputDataSizeEstimateResult(
+    record OutputStatsEstimateResult(
             OutputDataSizeEstimate outputDataSizeEstimate,
+            long outputRowCountEstimate,
             String kind)
     {
-        OutputDataSizeEstimateResult(ImmutableLongArray partitionDataSizes, String kind)
+        OutputStatsEstimateResult(ImmutableLongArray partitionDataSizes, long outputRowCountEstimate, String kind)
         {
-            this(new OutputDataSizeEstimate(partitionDataSizes), kind);
+            this(new OutputDataSizeEstimate(partitionDataSizes), outputRowCountEstimate, kind);
         }
 
-        public OutputDataSizeEstimateResult
+        public OutputStatsEstimateResult
         {
             requireNonNull(outputDataSizeEstimate, "outputDataSizeEstimate is null");
             requireNonNull(kind, "kind is null");

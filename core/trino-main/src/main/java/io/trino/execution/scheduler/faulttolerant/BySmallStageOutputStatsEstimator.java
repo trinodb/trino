@@ -34,16 +34,16 @@ import static io.trino.SystemSessionProperties.isFaultTolerantExecutionSmallStag
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionSmallStageRequireNoMorePartitions;
 import static java.util.Objects.requireNonNull;
 
-public class BySmallStageOutputDataSizeEstimator
-        implements OutputDataSizeEstimator
+public class BySmallStageOutputStatsEstimator
+        implements OutputStatsEstimator
 {
     public static class Factory
-            implements OutputDataSizeEstimatorFactory
+            implements OutputStatsEstimatorFactory
     {
         @Override
-        public OutputDataSizeEstimator create(Session session)
+        public OutputStatsEstimator create(Session session)
         {
-            return new BySmallStageOutputDataSizeEstimator(
+            return new BySmallStageOutputStatsEstimator(
                     session.getQueryId(),
                     isFaultTolerantExecutionSmallStageEstimationEnabled(session),
                     getFaultTolerantExecutionSmallStageEstimationThreshold(session),
@@ -60,7 +60,7 @@ public class BySmallStageOutputDataSizeEstimator
     private final DataSize smallSizePartitionSizeEstimate;
     private final boolean smallStageRequireNoMorePartitions;
 
-    private BySmallStageOutputDataSizeEstimator(
+    private BySmallStageOutputStatsEstimator(
             QueryId queryId,
             boolean smallStageEstimationEnabled,
             DataSize smallStageEstimationThreshold,
@@ -77,7 +77,7 @@ public class BySmallStageOutputDataSizeEstimator
     }
 
     @Override
-    public Optional<OutputDataSizeEstimateResult> getEstimatedOutputDataSize(StageExecution stageExecution, Function<StageId, StageExecution> stageExecutionLookup, boolean parentEager)
+    public Optional<OutputStatsEstimateResult> getEstimatedOutputStats(StageExecution stageExecution, Function<StageId, StageExecution> stageExecutionLookup, boolean parentEager)
     {
         if (!smallStageEstimationEnabled) {
             return Optional.empty();
@@ -119,7 +119,7 @@ public class BySmallStageOutputDataSizeEstimator
 
                 StageExecution sourceStage = stageExecutionLookup.apply(sourceStageId);
                 requireNonNull(sourceStage, "sourceStage is null");
-                Optional<OutputDataSizeEstimateResult> sourceStageOutputDataSize = sourceStage.getOutputDataSize(stageExecutionLookup, false);
+                Optional<OutputStatsEstimateResult> sourceStageOutputDataSize = sourceStage.getOutputStats(stageExecutionLookup, false);
 
                 if (sourceStageOutputDataSize.isEmpty()) {
                     // cant estimate size of one of sources; should not happen in practice
@@ -142,6 +142,7 @@ public class BySmallStageOutputDataSizeEstimator
             // TODO; should we use distribution as in this.outputDataSize if we have some data there already?
             estimateBuilder.add(inputSizeEstimate / outputPartitionsCount);
         }
-        return Optional.of(new OutputDataSizeEstimateResult(estimateBuilder.build(), "BY_SMALL_INPUT"));
+        // TODO: For now we can skip calculating outputRowCountEstimate since we won't run adaptive planner in the case of small inputs
+        return Optional.of(new OutputStatsEstimateResult(estimateBuilder.build(), 0, "BY_SMALL_INPUT"));
     }
 }
