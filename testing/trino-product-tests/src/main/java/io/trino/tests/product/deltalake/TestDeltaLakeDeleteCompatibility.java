@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.deltalake;
 
+import io.trino.testing.DataProviders;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
@@ -36,6 +37,39 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeDeleteCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testDeleteOnEnforcedConstraintsReturnsRowsCount(boolean partitioned)
+    {
+        String tableName = "test_delete_push_down_" + randomNameSuffix();
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                "(v INT, p INT)" +
+                "USING delta " +
+                (partitioned ? "PARTITIONED BY (p)" : "") +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 10), (2, 10), (11, 20), (21, 30), (22, 30)");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 10), (12, 20)");
+            if (partitioned) {
+                assertThat(onTrino().executeQuery("DELETE FROM default." + tableName + " WHERE p = 10"))
+                        .containsOnly(row(3));
+                assertThat(onTrino().executeQuery("DELETE FROM default." + tableName))
+                        .containsOnly(row(4));
+            }
+            else {
+                assertThat(onTrino().executeQuery("DELETE FROM default." + tableName))
+                        .containsOnly(row(7));
+            }
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).hasNoRows();
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeleteOnAppendOnlyTableFails()
@@ -52,6 +86,9 @@ public class TestDeltaLakeDeleteCompatibility
         assertQueryFailure(() -> onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 1"))
                 .hasMessageContaining("This table is configured to only allow appends");
         assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM default." + tableName + " WHERE a = 1"))
+                .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
+        // Whole table deletes should be disallowed as well
+        assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM default." + tableName))
                 .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
 
         assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))

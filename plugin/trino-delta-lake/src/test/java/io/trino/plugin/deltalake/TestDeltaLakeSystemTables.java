@@ -78,7 +78,7 @@ public class TestDeltaLakeSystemTables
                     .matches("""
                             VALUES
                                 (BIGINT '5', VARCHAR 'OPTIMIZE', BIGINT '4', VARCHAR 'WriteSerializable', true),
-                                (BIGINT '4', VARCHAR 'MERGE', BIGINT '3', VARCHAR 'WriteSerializable', true),
+                                (BIGINT '4', VARCHAR 'DELETE', BIGINT '3', VARCHAR 'WriteSerializable', true),
                                 (BIGINT '3', VARCHAR 'MERGE', BIGINT '2', VARCHAR 'WriteSerializable', true),
                                 (BIGINT '2', VARCHAR 'WRITE', BIGINT '1', VARCHAR 'WriteSerializable', true),
                                 (BIGINT '1', VARCHAR 'WRITE', BIGINT '0', VARCHAR 'WriteSerializable', true),
