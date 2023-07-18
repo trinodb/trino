@@ -23,12 +23,12 @@ import io.trino.client.ClientSession;
 import io.trino.client.uri.TrinoUri;
 import org.junit.jupiter.api.Test;
 
-import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.Optional;
 
 import static io.trino.cli.Trino.createCommandLine;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -40,7 +40,6 @@ public class TestClientOptions
     {
         Console console = createConsole();
         ClientOptions options = console.clientOptions;
-        assertEquals(options.krb5ServicePrincipalPattern, Optional.of("${SERVICE}@${HOST}"));
         ClientSession session = options.toClientSession(options.getTrinoUri());
         assertEquals(session.getServer().toString(), "http://localhost:8080");
         assertEquals(session.getSource(), "trino-cli");
@@ -162,15 +161,14 @@ public class TestClientOptions
 
     @Test
     public void testURLParams()
-            throws SQLException
     {
-        Console console = createConsole("trino://server.example:8080/my-catalog/my-schema?source=my-client");
+        Console console = createConsole("trino://server.example:8080/my-catalog/my-schema");
         TrinoUri uri = console.clientOptions.getTrinoUri();
         ClientSession session = console.clientOptions.toClientSession(uri);
         assertEquals(session.getServer().toString(), "http://server.example:8080");
         assertEquals(session.getCatalog(), Optional.of("my-catalog"));
         assertEquals(session.getSchema(), Optional.of("my-schema"));
-        assertEquals(uri.getSource(), Optional.of("my-client"));
+        assertEquals(uri.getSource(), Optional.of("trino-cli"));
     }
 
     @Test
@@ -251,7 +249,7 @@ public class TestClientOptions
         Console console = createConsole("--timezone=Europe/Vilnius");
 
         ClientOptions options = console.clientOptions;
-        assertEquals(options.timeZone, ZoneId.of("Europe/Vilnius"));
+        assertEquals(options.timeZone, Optional.of(ZoneId.of("Europe/Vilnius")));
 
         ClientSession session = options.toClientSession(options.getTrinoUri());
         assertEquals(session.getTimeZone(), ZoneId.of("Europe/Vilnius"));
@@ -263,7 +261,7 @@ public class TestClientOptions
         Console console = createConsole("--disable-compression");
 
         ClientOptions options = console.clientOptions;
-        assertTrue(options.disableCompression);
+        assertThat(options.disableCompression).isPresent().hasValue(true);
 
         ClientSession session = options.toClientSession(options.getTrinoUri());
         assertTrue(session.isCompressionDisabled());

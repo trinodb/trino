@@ -33,15 +33,19 @@ public final class TrinoDriverUri
     private static final String JDBC_URL_START = JDBC_URL_PREFIX + "trino:";
 
     private TrinoDriverUri(String uri, Properties driverProperties)
-            throws SQLException
     {
         super(parseDriverUrl(uri), driverProperties);
     }
 
-    public static TrinoDriverUri create(String url, Properties properties)
+    public static TrinoDriverUri createDriverUri(String url, Properties properties)
             throws SQLException
     {
-        return new TrinoDriverUri(url, firstNonNull(properties, new Properties()));
+        try {
+            return new TrinoDriverUri(url, firstNonNull(properties, new Properties()));
+        }
+        catch (RuntimeException e) {
+            throw new SQLException(e.getMessage(), e.getCause());
+        }
     }
 
     public static boolean acceptsURL(String url)
@@ -50,43 +54,40 @@ public final class TrinoDriverUri
     }
 
     private static URI parseDriverUrl(String url)
-            throws SQLException
     {
         validatePrefix(url);
         URI uri = parseUrl(url);
 
         if (isNullOrEmpty(uri.getHost())) {
-            throw new SQLException("No host specified: " + url);
+            throw new RuntimeException("No host specified: " + url);
         }
         if (uri.getPort() == -1) {
-            throw new SQLException("No port number specified: " + url);
+            throw new RuntimeException("No port number specified: " + url);
         }
         if ((uri.getPort() < 1) || (uri.getPort() > 65535)) {
-            throw new SQLException("Invalid port number: " + url);
+            throw new RuntimeException("Invalid port number: " + url);
         }
         return uri;
     }
 
     private static URI parseUrl(String url)
-            throws SQLException
     {
         try {
             return new URI(url.substring(JDBC_URL_PREFIX.length()));
         }
         catch (URISyntaxException e) {
-            throw new SQLException("Invalid JDBC URL: " + url, e);
+            throw new RuntimeException("Invalid JDBC URL: " + url, e);
         }
     }
 
     private static void validatePrefix(String url)
-            throws SQLException
     {
         if (!url.startsWith(JDBC_URL_START)) {
-            throw new SQLException("Invalid JDBC URL: " + url);
+            throw new RuntimeException("Invalid JDBC URL: " + url);
         }
 
         if (url.equals(JDBC_URL_START)) {
-            throw new SQLException("Empty JDBC URL: " + url);
+            throw new RuntimeException("Empty JDBC URL: " + url);
         }
     }
 }

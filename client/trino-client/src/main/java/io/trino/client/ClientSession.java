@@ -15,6 +15,7 @@ package io.trino.client;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -28,6 +29,7 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 
@@ -54,6 +56,7 @@ public class ClientSession
     private final String transactionId;
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
+    private final DataSize targetResultSize;
 
     public static Builder builder()
     {
@@ -93,6 +96,7 @@ public class ClientSession
             Map<String, String> extraCredentials,
             String transactionId,
             Duration clientRequestTimeout,
+            DataSize targetResultSize,
             boolean compressionDisabled)
     {
         this.server = requireNonNull(server, "server is null");
@@ -115,6 +119,7 @@ public class ClientSession
         this.roles = ImmutableMap.copyOf(requireNonNull(roles, "roles is null"));
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.clientRequestTimeout = clientRequestTimeout;
+        this.targetResultSize = requireNonNull(targetResultSize, "targetResultSize is null");
         this.compressionDisabled = compressionDisabled;
 
         for (String clientTag : clientTags) {
@@ -226,6 +231,11 @@ public class ClientSession
         return preparedStatements;
     }
 
+    public DataSize getTargetResultSize()
+    {
+        return targetResultSize;
+    }
+
     /**
      * Returns the map of catalog name -> selected role
      */
@@ -303,6 +313,7 @@ public class ClientSession
         private Map<String, String> credentials = ImmutableMap.of();
         private String transactionId;
         private Duration clientRequestTimeout;
+        private DataSize targetResultSize = DataSize.of(1, MEGABYTE); // same as DEFAULT_TARGET_RESULT_SIZE
         private boolean compressionDisabled;
 
         private Builder() {}
@@ -330,6 +341,7 @@ public class ClientSession
             credentials = clientSession.getExtraCredentials();
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
+            targetResultSize = clientSession.getTargetResultSize();
             compressionDisabled = clientSession.isCompressionDisabled();
         }
 
@@ -459,6 +471,12 @@ public class ClientSession
             return this;
         }
 
+        public Builder setTargetResultSize(DataSize targetResultSize)
+        {
+            this.targetResultSize = targetResultSize;
+            return this;
+        }
+
         public ClientSession build()
         {
             return new ClientSession(
@@ -482,6 +500,7 @@ public class ClientSession
                     credentials,
                     transactionId,
                     clientRequestTimeout,
+                    targetResultSize,
                     compressionDisabled);
         }
     }

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
@@ -98,6 +99,7 @@ class StatementClientV1
     private final Optional<String> originalUser;
     private final String clientCapabilities;
     private final boolean compressionDisabled;
+    private final DataSize targetResultSize;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
@@ -123,6 +125,7 @@ class StatementClientV1
                 .map(Enum::name)
                 .collect(toImmutableSet())));
         this.compressionDisabled = session.isCompressionDisabled();
+        this.targetResultSize = session.getTargetResultSize();
 
         Request request = buildQueryRequest(session, query);
 
@@ -340,13 +343,21 @@ class StatementClientV1
     {
         Request.Builder builder = new Request.Builder()
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
-                .url(url);
+                .url(withTargetResultSize(url));
+
         user.ifPresent(requestUser -> builder.addHeader(TRINO_HEADERS.requestUser(), requestUser));
         originalUser.ifPresent(originalUser -> builder.addHeader(TRINO_HEADERS.requestOriginalUser(), originalUser));
         if (compressionDisabled) {
             builder.header(ACCEPT_ENCODING, "identity");
         }
         return builder;
+    }
+
+    private HttpUrl withTargetResultSize(HttpUrl url)
+    {
+        return url.newBuilder()
+                .addQueryParameter("targetResultSize", targetResultSize.toString())
+                .build();
     }
 
     @Override

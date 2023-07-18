@@ -81,7 +81,7 @@ public class TestInsecureQueryRunner
             query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false);
         }
 
-        assertEquals(server.takeRequest().getPath(), "/v1/statement");
+        assertEquals(server.takeRequest().getPath(), "/v1/statement?targetResultSize=1MB");
     }
 
     private SSLContext buildTestSslContext()

@@ -16,6 +16,7 @@ package io.trino.client;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.net.HostAndPort;
+import io.airlift.units.Duration;
 import io.trino.client.auth.kerberos.DelegatedConstrainedContextProvider;
 import io.trino.client.auth.kerberos.DelegatedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.GSSContextProvider;
@@ -26,6 +27,8 @@ import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
+import okhttp3.logging.HttpLoggingInterceptor;
+import okhttp3.logging.HttpLoggingInterceptor.Level;
 import org.ietf.jgss.GSSCredential;
 
 import javax.net.ssl.KeyManager;
@@ -53,7 +56,6 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
@@ -62,6 +64,7 @@ import static java.net.Proxy.Type.HTTP;
 import static java.net.Proxy.Type.SOCKS;
 import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class OkHttpUtil
 {
@@ -98,12 +101,12 @@ public final class OkHttpUtil
                 .build());
     }
 
-    public static void setupTimeouts(OkHttpClient.Builder clientBuilder, int timeout, TimeUnit unit)
+    public static void setupTimeouts(OkHttpClient.Builder clientBuilder, Duration duration)
     {
         clientBuilder
-                .connectTimeout(timeout, unit)
-                .readTimeout(timeout, unit)
-                .writeTimeout(timeout, unit);
+                .connectTimeout(duration.toMillis(), MILLISECONDS)
+                .readTimeout(duration.toMillis(), MILLISECONDS)
+                .writeTimeout(duration.toMillis(), MILLISECONDS);
     }
 
     public static void setupCookieJar(OkHttpClient.Builder clientBuilder)
@@ -126,6 +129,17 @@ public final class OkHttpUtil
         proxy.map(OkHttpUtil::toUnresolvedAddress)
                 .map(address -> new Proxy(type, address))
                 .ifPresent(clientBuilder::proxy);
+    }
+
+    public static void setupHttpLogging(OkHttpClient.Builder clientBuilder, Level level)
+    {
+        if (level.equals(Level.NONE)) {
+            return;
+        }
+
+        clientBuilder.addNetworkInterceptor(
+                new HttpLoggingInterceptor(System.err::println)
+                        .setLevel(level));
     }
 
     private static InetSocketAddress toUnresolvedAddress(HostAndPort address)

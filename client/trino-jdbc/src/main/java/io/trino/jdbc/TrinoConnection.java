@@ -121,7 +121,7 @@ public class TrinoConnection
         this.httpUri = uri.getHttpUri();
         uri.getSchema().ifPresent(schema::set);
         uri.getCatalog().ifPresent(catalog::set);
-        this.user = uri.getUser();
+        this.user = Optional.ofNullable(uri.getUser());
         this.sessionUser.set(uri.getSessionUser());
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.source = uri.getSource();
@@ -773,13 +773,13 @@ public class TrinoConnection
 
     void updateSession(StatementClient client)
     {
-        client.getSetSessionProperties().forEach(sessionProperties::put);
+        sessionProperties.putAll(client.getSetSessionProperties());
         client.getResetSessionProperties().forEach(sessionProperties::remove);
 
-        client.getAddedPreparedStatements().forEach(preparedStatements::put);
+        preparedStatements.putAll(client.getAddedPreparedStatements());
         client.getDeallocatedPreparedStatements().forEach(preparedStatements::remove);
 
-        client.getSetRoles().forEach(roles::put);
+        roles.putAll(client.getSetRoles());
 
         client.getSetCatalog().ifPresent(catalog::set);
         client.getSetSchema().ifPresent(schema::set);

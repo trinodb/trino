@@ -14,6 +14,7 @@
 package io.trino.cli;
 
 import com.google.common.net.HostAndPort;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.ClientExtraCredential;
 import io.trino.cli.ClientOptions.ClientResourceEstimate;
@@ -56,6 +57,7 @@ public final class Trino
                 .registerConverter(ClientExtraCredential.class, ClientExtraCredential::new)
                 .registerConverter(HostAndPort.class, HostAndPort::fromString)
                 .registerConverter(Duration.class, Duration::valueOf)
+                .registerConverter(DataSize.class, DataSize::valueOf)
                 .setExecutionExceptionHandler((e, cmd, parseResult) -> {
                     System.err.println(formatCliErrorMessage(e, parseResult.hasMatchedOption(DEBUG_OPTION_NAME)));
                     return 1;
@@ -116,8 +118,12 @@ public final class Trino
         @Override
         public String[] getVersion()
         {
-            String version = getClass().getPackage().getImplementationVersion();
-            return new String[] {"Trino CLI " + firstNonNull(version, "(version unknown)")};
+            return new String[] {"Trino CLI " + firstNonNull(getCliVersion(), "(version unknown)")};
         }
+    }
+
+    public static String getCliVersion()
+    {
+        return Trino.class.getPackage().getImplementationVersion();
     }
 }

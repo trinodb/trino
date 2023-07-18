@@ -51,6 +51,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.zone.ZoneRulesException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
@@ -395,15 +396,14 @@ public class TestTrinoDriver
         Properties properties = new Properties();
         DriverPropertyInfo[] infos = driver.getPropertyInfo(jdbcUrl(), properties);
 
+        System.out.println(Arrays.toString(infos));
+
         assertThat(infos)
                 .extracting(TestTrinoDriver::driverPropertyInfoToString)
-                .contains("{name=user, required=false}")
-                .contains("{name=password, required=false}")
-                .contains("{name=accessToken, required=false}")
-                .contains("{name=SSL, required=false, choices=[true, false]}");
-
-        assertThat(infos).extracting(x -> x.name)
-                .doesNotContain("SSLVerification", "SSLTrustStorePath");
+                .contains("{name=user, description=User name, required=false}")
+                .contains("{name=password, description=User password, required=false}")
+                .contains("{name=accessToken, description=Access token to use while connecting to the OAuth2-secured cluster, required=false}")
+                .contains("{name=SSL, value=false, description=Enable SSL/TLS connections, required=false, choices=[true, false]}");
     }
 
     @Test
@@ -419,10 +419,10 @@ public class TestTrinoDriver
 
         assertThat(infos)
                 .extracting(TestTrinoDriver::driverPropertyInfoToString)
-                .contains("{name=user, value=test, required=false}")
-                .contains("{name=SSL, value=true, required=false, choices=[true, false]}")
-                .contains("{name=SSLVerification, required=false, choices=[FULL, CA, NONE]}")
-                .contains("{name=SSLTrustStorePath, required=false}");
+                .contains("{name=user, value=test, description=User name, required=false}")
+                .contains("{name=SSL, value=true, description=Enable SSL/TLS connections, required=false, choices=[true, false]}")
+                .contains("{name=SSLVerification, value=FULL, description=SSL/TLS verification mode, required=false, choices=[FULL, CA, NONE]}")
+                .contains("{name=SSLTrustStorePath, description=Path to the Java Trust Store, required=false}");
     }
 
     private static String driverPropertyInfoToString(DriverPropertyInfo info)

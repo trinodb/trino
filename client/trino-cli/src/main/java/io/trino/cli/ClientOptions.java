@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
@@ -33,11 +34,9 @@ import org.jline.reader.LineReaderBuilder;
 import java.lang.annotation.Retention;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -55,6 +54,7 @@ import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
+import static io.trino.client.uri.PropertyName.HTTP_LOGGING_LEVEL;
 import static io.trino.client.uri.PropertyName.HTTP_PROXY;
 import static io.trino.client.uri.PropertyName.KERBEROS_CONFIG_PATH;
 import static io.trino.client.uri.PropertyName.KERBEROS_CREDENTIAL_CACHE_PATH;
@@ -77,6 +77,8 @@ import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PATH;
 import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_TYPE;
 import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.client.uri.PropertyName.SSL_VERIFICATION;
+import static io.trino.client.uri.PropertyName.TIMEOUT;
+import static io.trino.client.uri.PropertyName.TIMEZONE;
 import static io.trino.client.uri.PropertyName.TRACE_TOKEN;
 import static io.trino.client.uri.PropertyName.USER;
 import static java.lang.String.format;
@@ -92,7 +94,6 @@ public class ClientOptions
     private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E); // spaces are not allowed
     private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
     private static final String SERVER_DEFAULT = "localhost:8080";
-    private static final String SOURCE_DEFAULT = "trino-cli";
     static final String DEBUG_OPTION_NAME = "--debug";
 
     @Parameters(paramLabel = "URL", description = "Trino server URL", arity = "0..1")
@@ -102,7 +103,7 @@ public class ClientOptions
     public Optional<String> server;
 
     @PropertyMapping(KERBEROS_SERVICE_PRINCIPAL_PATTERN)
-    @Option(names = "--krb5-service-principal-pattern", paramLabel = "<pattern>", defaultValue = "$${SERVICE}@$${HOST}", description = "Remote kerberos service principal pattern " + DEFAULT_VALUE)
+    @Option(names = "--krb5-service-principal-pattern", paramLabel = "<pattern>", description = "Remote kerberos service principal pattern " + DEFAULT_VALUE)
     public Optional<String> krb5ServicePrincipalPattern;
 
     @PropertyMapping(KERBEROS_REMOTE_SERVICE_NAME)
@@ -110,11 +111,11 @@ public class ClientOptions
     public Optional<String> krb5RemoteServiceName;
 
     @PropertyMapping(KERBEROS_CONFIG_PATH)
-    @Option(names = "--krb5-config-path", paramLabel = "<path>", defaultValue = "/etc/krb5.conf", description = "Kerberos config file path " + DEFAULT_VALUE)
+    @Option(names = "--krb5-config-path", paramLabel = "<path>", description = "Kerberos config file path " + DEFAULT_VALUE)
     public Optional<String> krb5ConfigPath;
 
     @PropertyMapping(KERBEROS_KEYTAB_PATH)
-    @Option(names = "--krb5-keytab-path", paramLabel = "<path>", defaultValue = "/etc/krb5.keytab", description = "Kerberos key table path " + DEFAULT_VALUE)
+    @Option(names = "--krb5-keytab-path", paramLabel = "<path>", description = "Kerberos key table path " + DEFAULT_VALUE)
     public Optional<String> krb5KeytabPath;
 
     @PropertyMapping(KERBEROS_CREDENTIAL_CACHE_PATH)
@@ -127,7 +128,7 @@ public class ClientOptions
 
     @PropertyMapping(KERBEROS_USE_CANONICAL_HOSTNAME)
     @Option(names = "--krb5-disable-remote-service-hostname-canonicalization", description = "Disable service hostname canonicalization using the DNS reverse lookup")
-    public boolean krb5DisableRemoteServiceHostnameCanonicalization;
+    public Optional<Boolean> krb5DisableRemoteServiceHostnameCanonicalization;
 
     @PropertyMapping(SSL_KEY_STORE_PATH)
     @Option(names = "--keystore-path", paramLabel = "<path>", description = "Keystore path")
@@ -155,18 +156,18 @@ public class ClientOptions
 
     @PropertyMapping(SSL_USE_SYSTEM_TRUST_STORE)
     @Option(names = "--use-system-truststore", description = "Use default system (OS) truststore")
-    public boolean useSystemTruststore;
+    public Optional<Boolean> useSystemTruststore;
 
     @PropertyMapping(SSL_VERIFICATION)
     @Option(names = "--insecure", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
-    public boolean insecure;
+    public Optional<Boolean> insecure;
 
     @PropertyMapping(ACCESS_TOKEN)
     @Option(names = "--access-token", paramLabel = "<token>", description = "Access token")
     public Optional<String> accessToken;
 
     @PropertyMapping(USER)
-    @Option(names = "--user", paramLabel = "<user>", defaultValue = "${sys:user.name}", description = "Username " + DEFAULT_VALUE)
+    @Option(names = "--user", paramLabel = "<user>", description = "Username")
     public Optional<String> user;
 
     @PropertyMapping(PASSWORD)
@@ -175,14 +176,14 @@ public class ClientOptions
 
     @PropertyMapping(EXTERNAL_AUTHENTICATION)
     @Option(names = "--external-authentication", paramLabel = "<externalAuthentication>", description = "Enable external authentication")
-    public boolean externalAuthentication;
+    public Optional<Boolean> externalAuthentication;
 
     @PropertyMapping(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
     @Option(names = "--external-authentication-redirect-handler", paramLabel = "<externalAuthenticationRedirectHandler>", description = "External authentication redirect handlers: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ALL")
-    public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
+    public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = ImmutableList.of();
 
     @PropertyMapping(SOURCE)
-    @Option(names = "--source", paramLabel = "<source>", description = "Name of the client to use as source that submits the query (default: " + SOURCE_DEFAULT + ")")
+    @Option(names = "--source", paramLabel = "<source>", description = "Name of the client to use as source that submits the query (default: " + DEFAULT_VALUE + ")", defaultValue = "trino-cli")
     public Optional<String> source;
 
     @PropertyMapping(CLIENT_INFO)
@@ -214,8 +215,9 @@ public class ClientOptions
     @Option(names = "--history-file", paramLabel = "<historyFile>", defaultValue = "${env:TRINO_HISTORY_FILE:-${sys:user.home}/.trino_history}", description = "Path to the history file " + DEFAULT_VALUE)
     public String historyFile;
 
-    @Option(names = "--network-logging", paramLabel = "<level>", defaultValue = "NONE", description = "Network logging level [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
-    public HttpLoggingInterceptor.Level networkLogging;
+    @PropertyMapping(HTTP_LOGGING_LEVEL)
+    @Option(names = "--network-logging", paramLabel = "<level>", description = "Network logging level [${COMPLETION-CANDIDATES}]")
+    public Optional<HttpLoggingInterceptor.Level> networkLogging;
 
     @Option(names = "--progress", paramLabel = "<progress>", description = "Show query progress", negatable = true)
     public Optional<Boolean> progress;
@@ -255,17 +257,22 @@ public class ClientOptions
     @Option(names = "--http-proxy", paramLabel = "<proxy>", description = "HTTP proxy to use for server connections")
     public Optional<HostAndPort> httpProxy;
 
+    @PropertyMapping(TIMEOUT)
     @Option(names = "--client-request-timeout", paramLabel = "<timeout>", defaultValue = "2m", description = "Client request timeout " + DEFAULT_VALUE)
     public Duration clientRequestTimeout;
 
     @Option(names = "--ignore-errors", description = "Continue processing in batch mode when an error occurs (default is to exit immediately)")
     public boolean ignoreErrors;
 
+    @PropertyMapping(TIMEZONE)
     @Option(names = "--timezone", paramLabel = "<timezone>", description = "Session time zone " + DEFAULT_VALUE)
-    public ZoneId timeZone = ZoneId.systemDefault();
+    public Optional<ZoneId> timeZone = Optional.of(ZoneId.systemDefault());
 
     @Option(names = "--disable-compression", description = "Disable compression of query results")
-    public boolean disableCompression;
+    public Optional<Boolean> disableCompression;
+
+    @Option(names = "--target-result-size", description = "Fetch results in parts of a given size")
+    public Optional<DataSize> targetResultSize;
 
     @Option(names = "--editing-mode", paramLabel = "<editing-mode>", defaultValue = "EMACS", description = "Editing mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public EditingMode editingMode;
@@ -317,22 +324,23 @@ public class ClientOptions
     {
         return ClientSession.builder()
                 .server(uri.getHttpUri())
-                .principal(user)
-                .user(sessionUser)
-                .source(source.orElse("trino-cli"))
-                .traceToken(traceToken)
-                .clientTags(parseClientTags(clientTags.orElse("")))
-                .clientInfo(clientInfo.orElse(null))
-                .catalog(uri.getCatalog().orElse(catalog.orElse(null)))
-                .schema(uri.getSchema().orElse(schema.orElse(null)))
+                .principal(Optional.of(uri.getUser()))
+                .user(uri.getSessionUser())
+                .source(uri.getSource().orElse("trino-cli"))
+                .traceToken(uri.getTraceToken())
+                .clientTags(parseClientTags(uri.getClientTags().orElse("")))
+                .clientInfo(uri.getClientInfo().orElse(null))
+                .catalog(uri.getCatalog().orElse(null))
+                .schema(uri.getSchema().orElse(null))
                 .timeZone(uri.getTimeZone())
-                .locale(Locale.getDefault())
+                .locale(uri.getLocale())
                 .resourceEstimates(toResourceEstimates(resourceEstimates))
-                .properties(toProperties(sessionProperties))
-                .credentials(toExtraCredentials(extraCredentials))
+                .properties(uri.getSessionProperties())
+                .credentials(uri.getExtraCredentials())
                 .transactionId(null)
                 .clientRequestTimeout(clientRequestTimeout)
-                .compressionDisabled(disableCompression)
+                .compressionDisabled(uri.isCompressionDisabled())
+                .setTargetResultSize(uri.getTargetResultSize())
                 .build();
     }
 
@@ -375,25 +383,19 @@ public class ClientOptions
         }
         krb5CredentialCachePath.ifPresent(builder::setKerberosCredentialCachePath);
         krb5Principal.ifPresent(builder::setKerberosPrincipal);
-        if (krb5DisableRemoteServiceHostnameCanonicalization) {
-            builder.setKerberosUseCanonicalHostname(false);
-        }
-        boolean useSecureConnection = uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443);
-        if (useSecureConnection) {
-            builder.setSsl(true);
-        }
-        if (insecure) {
-            builder.setSslVerificationNone();
-        }
+        krb5DisableRemoteServiceHostnameCanonicalization.ifPresent(value -> builder.setKerberosUseCanonicalHostname(!value));
+        insecure.ifPresent(value -> {
+            if (value) {
+                builder.setSslVerificationNone();
+            }
+        });
         keystorePath.ifPresent(builder::setSslKeyStorePath);
         keystorePassword.ifPresent(builder::setSslKeyStorePassword);
         keystoreType.ifPresent(builder::setSslKeyStoreType);
         truststorePath.ifPresent(builder::setSslTrustStorePath);
         truststorePassword.ifPresent(builder::setSslTrustStorePassword);
         truststoreType.ifPresent(builder::setSslTrustStoreType);
-        if (useSystemTruststore) {
-            builder.setSslUseSystemTrustStore(true);
-        }
+        useSystemTruststore.ifPresent(builder::setSslUseSystemTrustStore);
         accessToken.ifPresent(builder::setAccessToken);
         if (!extraCredentials.isEmpty()) {
             builder.setExtraCredentials(toExtraCredentials(extraCredentials));
@@ -401,20 +403,23 @@ public class ClientOptions
         if (!sessionProperties.isEmpty()) {
             builder.setSessionProperties(toProperties(sessionProperties));
         }
-        builder.setExternalAuthentication(externalAuthentication);
-        builder.setExternalRedirectStrategies(externalAuthenticationRedirectHandler);
+        externalAuthentication.ifPresent(builder::setExternalAuthentication);
+        if (!externalAuthenticationRedirectHandler.isEmpty()) {
+            builder.setExternalRedirectStrategies(externalAuthenticationRedirectHandler);
+        }
         source.ifPresent(builder::setSource);
         clientInfo.ifPresent(builder::setClientInfo);
         clientTags.ifPresent(builder::setClientTags);
         traceToken.ifPresent(builder::setTraceToken);
         socksProxy.ifPresent(builder::setSocksProxy);
         httpProxy.ifPresent(builder::setHttpProxy);
-        builder.setTimeZone(timeZone);
-        builder.setDisableCompression(disableCompression);
-        TrinoUri trinoUri;
+        disableCompression.ifPresent(builder::setDisableCompression);
+        timeZone.ifPresent(builder::setTimezone);
+        networkLogging.ifPresent(builder::setHttpLoggingLevel);
+        targetResultSize.ifPresent(builder::setTargetResultSize);
 
         try {
-            trinoUri = builder.build();
+            return builder.build();
         }
         catch (RestrictedPropertyException e) {
             if (e.getPropertyName() == PropertyName.PASSWORD) {
@@ -427,10 +432,6 @@ public class ClientOptions
                     e.getPropertyName(),
                     restrictedProperties.get(e.getPropertyName())), e);
         }
-        catch (SQLException e) {
-            throw new IllegalArgumentException(e);
-        }
-        return trinoUri;
     }
 
     private String getPassword()
