@@ -490,10 +490,6 @@ public final class AccumulatorCompiler
         // input parameters
         for (int i = 0; i < inputParameterCount; i++) {
             expressions.add(index.cast(InternalWindowIndex.class).invoke("getRawBlock", Block.class, constantInt(i), position));
-        }
-
-        // position parameter
-        if (inputParameterCount > 0) {
             expressions.add(index.cast(InternalWindowIndex.class).invoke("getRawBlockPosition", int.class, position));
         }
 
@@ -596,10 +592,8 @@ public final class AccumulatorCompiler
         }
 
         // input parameters
-        parameters.addAll(parameterVariables);
-
-        // position parameter
-        if (!parameterVariables.isEmpty()) {
+        for (Variable variable : parameterVariables) {
+            parameters.add(variable);
             parameters.add(position);
         }
 

@@ -52,11 +52,11 @@ public class TestListaggAggregationFunction
         ListaggAggregationFunction.input(
                 state,
                 value,
+                0,
                 separator,
                 false,
                 overflowFiller,
-                true,
-                0);
+                true);
 
         VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);
         state.write(blockBuilder);
@@ -74,11 +74,11 @@ public class TestListaggAggregationFunction
         assertThatThrownBy(() -> ListaggAggregationFunction.input(
                 state,
                 createStringsBlock("value1"),
+                0,
                 utf8Slice(","),
                 false,
                 utf8Slice(overflowFillerTooLong),
-                false,
-                0))
+                false))
                 .isInstanceOf(TrinoException.class)
                 .matches(throwable -> ((TrinoException) throwable).getErrorCode() == INVALID_FUNCTION_ARGUMENT.toErrorCode());
     }
