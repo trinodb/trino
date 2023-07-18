@@ -23,6 +23,7 @@ import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.AggregationImplementation;
@@ -239,6 +240,11 @@ public class FunctionManager
                 case BLOCK_POSITION:
                     verifyFunctionSignature(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
                             "Expected %s argument types to be Block and int".formatted(argumentConvention));
+                    break;
+                case VALUE_BLOCK_POSITION:
+                case VALUE_BLOCK_POSITION_NOT_NULL:
+                    verifyFunctionSignature(ValueBlock.class.isAssignableFrom(parameterType) && methodType.parameterType(parameterIndex + 1).equals(int.class),
+                            "Expected %s argument types to be ValueBlock and int".formatted(argumentConvention));
                     break;
                 case FLAT:
                     verifyFunctionSignature(parameterType.equals(byte[].class) &&
