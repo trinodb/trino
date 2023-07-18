@@ -82,11 +82,11 @@ public class TestDeltaLakeDatabricksDelete
 
             assertThat(onTrino().executeQuery("SHOW TABLES FROM delta.default"))
                     .contains(row(tableName));
+            assertThat(onTrino().executeQuery("SELECT version, operation FROM delta.default.\"" + tableName + "$history\""))
+                    .containsOnly(row(0, "CREATE TABLE"), row(1, "WRITE"), row(2, "DELETE"));
             assertThat(onTrino().executeQuery("SELECT comment FROM information_schema.columns WHERE table_schema = 'default' AND table_name = '" + tableName + "'"))
                     .hasNoRows();
             assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .hasMessageMatching(".* Table .* does not exist");
-            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default.\"" + tableName + "$history\""))
                     .hasMessageMatching(".* Table .* does not exist");
             assertQueryFailure(() -> onTrino().executeQuery("SHOW COLUMNS FROM delta.default." + tableName))
                     .hasMessageMatching(".* Table .* does not exist");
