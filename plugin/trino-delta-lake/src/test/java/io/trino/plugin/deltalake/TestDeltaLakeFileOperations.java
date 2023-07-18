@@ -34,7 +34,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_EXISTS;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CDF_DATA;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.DATA;
@@ -153,6 +156,94 @@ public class TestDeltaLakeFileOperations
                         .build());
 
         assertUpdate("DROP TABLE test_read_part_key");
+    }
+
+    @Test
+    public void testDeleteWholePartition()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_delete_part_key");
+        assertUpdate("CREATE TABLE test_delete_part_key(key varchar, data varchar) WITH (partitioned_by=ARRAY['key'])");
+
+        // Create multiple files per partition
+        assertUpdate("INSERT INTO test_delete_part_key(key, data) VALUES ('p1', '1-abc'), ('p1', '1-def'), ('p2', '2-abc'), ('p2', '2-def')", 4);
+        assertUpdate("INSERT INTO test_delete_part_key(key, data) VALUES ('p1', '1-baz'), ('p2', '2-baz')", 2);
+
+        // Delete partition column only
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_delete_part_key')");
+        assertFileSystemAccesses(
+                "DELETE FROM test_delete_part_key WHERE key = 'p1'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), 5) // TODO (https://github.com/trinodb/trino/issues/16782) should be checked once per query
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_EXISTS), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_EXISTS), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_EXISTS), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), 4) // TODO (https://github.com/trinodb/trino/issues/16780) why is last transaction log accessed more times than others?
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", INPUT_FILE_NEW_STREAM), 1)
+                        .build());
+
+        assertUpdate("DROP TABLE test_delete_part_key");
+    }
+
+    @Test
+    public void testDeleteWholeTable()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_delete_whole_table");
+        assertUpdate("CREATE TABLE test_delete_whole_table(key varchar, data varchar)");
+
+        // Create multiple files per partition
+        assertUpdate("INSERT INTO test_delete_whole_table(key, data) VALUES ('p1', '1-abc'), ('p1', '1-def'), ('p2', '2-abc'), ('p2', '2-def')", 4);
+        assertUpdate("INSERT INTO test_delete_whole_table(key, data) VALUES ('p1', '1-baz'), ('p2', '2-baz')", 2);
+
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_delete_whole_table')");
+        assertFileSystemAccesses(
+                "DELETE FROM test_delete_whole_table WHERE true",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), 5) // TODO (https://github.com/trinodb/trino/issues/16782) should be checked once per query
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_EXISTS), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_EXISTS), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_EXISTS), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), 4) // TODO (https://github.com/trinodb/trino/issues/16780) why is last transaction log accessed more times than others?
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", INPUT_FILE_NEW_STREAM), 1)
+                        .build());
+
+        assertUpdate("DROP TABLE test_delete_whole_table");
+    }
+
+    @Test
+    public void testDeleteWithNonPartitionFilter()
+    {
+        assertUpdate("CREATE TABLE test_delete_with_non_partition_filter (page_url VARCHAR, key VARCHAR, views INTEGER) WITH (partitioned_by=ARRAY['key'])");
+        assertUpdate("INSERT INTO test_delete_with_non_partition_filter VALUES('url1', 'domain1', 1)", 1);
+        assertUpdate("INSERT INTO test_delete_with_non_partition_filter VALUES('url2', 'domain2', 2)", 1);
+        assertUpdate("INSERT INTO test_delete_with_non_partition_filter VALUES('url3', 'domain3', 3)", 1);
+
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_delete_with_non_partition_filter')");
+        assertFileSystemAccesses(
+                "DELETE FROM test_delete_with_non_partition_filter WHERE page_url ='url1'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), 7) // TODO (https://github.com/trinodb/trino/issues/16782) should be checked once per query
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_EXISTS), 2)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_EXISTS), 2)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_EXISTS), 2)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", INPUT_FILE_EXISTS), 2)
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", INPUT_FILE_NEW_STREAM), 5) // TODO (https://github.com/trinodb/trino/issues/16780) why is last transaction log accessed more times than others?
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(DATA, "key=domain1/", INPUT_FILE_NEW_STREAM), 2)
+                        .addCopies(new FileOperation(DATA, "key=domain1/", INPUT_FILE_GET_LENGTH), 2)
+                        .addCopies(new FileOperation(DATA, "key=domain1/", OUTPUT_FILE_CREATE), 1)
+                        .build());
+
+        assertUpdate("DROP TABLE test_delete_with_non_partition_filter");
     }
 
     @Test
