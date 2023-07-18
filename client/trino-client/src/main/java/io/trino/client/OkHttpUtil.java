@@ -28,6 +28,8 @@ import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
+import okhttp3.logging.HttpLoggingInterceptor;
+import okhttp3.logging.HttpLoggingInterceptor.Level;
 import org.ietf.jgss.GSSCredential;
 
 import javax.net.ssl.KeyManager;
@@ -134,6 +136,17 @@ public final class OkHttpUtil
         proxy.map(OkHttpUtil::toUnresolvedAddress)
                 .map(address -> new Proxy(type, address))
                 .ifPresent(clientBuilder::proxy);
+    }
+
+    public static void setupHttpLogging(OkHttpClient.Builder clientBuilder, Level level)
+    {
+        if (level.equals(Level.NONE)) {
+            return;
+        }
+
+        clientBuilder.addNetworkInterceptor(
+                new HttpLoggingInterceptor(System.err::println)
+                        .setLevel(level));
     }
 
     private static InetSocketAddress toUnresolvedAddress(HostAndPort address)

@@ -23,10 +23,14 @@ import io.trino.client.ClientSession;
 import io.trino.client.uri.TrinoUri;
 import org.junit.jupiter.api.Test;
 
-import java.sql.SQLException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.cli.Trino.createCommandLine;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -161,7 +165,6 @@ public class TestClientOptions
 
     @Test
     public void testURLParams()
-            throws SQLException
     {
         Console console = createConsole("trino://server.example:8080/my-catalog/my-schema?source=my-client");
         TrinoUri uri = console.clientOptions.getTrinoUri();
@@ -317,6 +320,42 @@ public class TestClientOptions
         })
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Multiple entries with same key: test.token.foo=bar and test.token.foo=foo");
+    }
+
+    @Test
+    public void testAllClientOptionsHaveMappingToAConnectionProperty()
+    {
+        Set<String> fieldsWithoutMapping = Arrays.stream(ClientOptions.class.getDeclaredFields())
+                .filter(field -> Modifier.isPublic(field.getModifiers()))
+                .filter(field -> field.getAnnotation(ClientOptions.PropertyMapping.class) == null)
+                .map(Field::getName)
+                .filter(value -> !isCliSpecificOptions(value))
+                .collect(toImmutableSet());
+
+        assertThat(fieldsWithoutMapping).isEmpty();
+    }
+
+    private boolean isCliSpecificOptions(String name)
+    {
+        switch (name) {
+            case "url":
+            case "server":
+            case "file":
+            case "debug":
+            case "historyFile":
+            case "progress":
+            case "execute":
+            case "outputFormat":
+            case "outputFormatInteractive":
+            case "pager":
+            case "resourceEstimates":
+            case "ignoreErrors":
+            case "editingMode":
+            case "disableAutoSuggestion":
+                return true;
+        }
+
+        return false;
     }
 
     private static Console createConsole(String... args)
