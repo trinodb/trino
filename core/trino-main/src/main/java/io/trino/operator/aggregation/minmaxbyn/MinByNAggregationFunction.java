@@ -39,12 +39,13 @@ public final class MinByNAggregationFunction
     public static void input(
             @AggregationState({"K", "V"}) MinByNState state,
             @SqlNullable @BlockPosition @SqlType("V") Block valueBlock,
+            @BlockIndex int valuePosition,
             @BlockPosition @SqlType("K") Block keyBlock,
-            @SqlType("BIGINT") long n,
-            @BlockIndex int blockIndex)
+            @BlockIndex int keyPosition,
+            @SqlType("BIGINT") long n)
     {
         state.initialize(n);
-        state.add(keyBlock, valueBlock, blockIndex);
+        state.add(keyBlock, keyPosition, valueBlock, valuePosition);
     }
 
     @CombineFunction

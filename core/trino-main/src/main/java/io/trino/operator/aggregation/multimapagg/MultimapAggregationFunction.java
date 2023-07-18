@@ -40,10 +40,11 @@ public final class MultimapAggregationFunction
     public static void input(
             @AggregationState({"K", "V"}) MultimapAggregationState state,
             @BlockPosition @SqlType("K") Block key,
+            @BlockIndex int keyPosition,
             @SqlNullable @BlockPosition @SqlType("V") Block value,
-            @BlockIndex int position)
+            @BlockIndex int valuePosition)
     {
-        state.add(key, position, value, position);
+        state.add(key, keyPosition, value, valuePosition);
     }
 
     @CombineFunction
