@@ -13,8 +13,8 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type.Range;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +32,7 @@ public class TestBigintType
         super(BIGINT, Long.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 15);
         BIGINT.writeLong(blockBuilder, 1111);
@@ -46,7 +46,7 @@ public class TestBigintType
         BIGINT.writeLong(blockBuilder, 3333);
         BIGINT.writeLong(blockBuilder, 3333);
         BIGINT.writeLong(blockBuilder, 4444);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

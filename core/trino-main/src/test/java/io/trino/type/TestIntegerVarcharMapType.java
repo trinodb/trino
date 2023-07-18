@@ -14,8 +14,8 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
@@ -36,13 +36,13 @@ public class TestIntegerVarcharMapType
         super(mapType(INTEGER, VARCHAR), Map.class, createTestBlock(mapType(INTEGER, VARCHAR)));
     }
 
-    public static Block createTestBlock(Type mapType)
+    public static ValueBlock createTestBlock(Type mapType)
     {
         BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 2);
         mapType.writeObject(blockBuilder, sqlMapOf(INTEGER, VARCHAR, ImmutableMap.of(1, "hi")));
         mapType.writeObject(blockBuilder, sqlMapOf(INTEGER, VARCHAR, ImmutableMap.of(1, "2", 2, "hello")));
         mapType.writeObject(blockBuilder, sqlMapOf(INTEGER, VARCHAR, ImmutableMap.of(1, "123456789012345", 2, "hello-world-hello-world-hello-world")));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

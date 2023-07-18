@@ -13,8 +13,8 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.Type.Range;
@@ -39,7 +39,7 @@ public class TestShortTimestampType
         super(TIMESTAMP_MILLIS, SqlTimestamp.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = TIMESTAMP_MILLIS.createBlockBuilder(null, 15);
         TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111_000);
@@ -53,7 +53,7 @@ public class TestShortTimestampType
         TIMESTAMP_MILLIS.writeLong(blockBuilder, 3333_000);
         TIMESTAMP_MILLIS.writeLong(blockBuilder, 3333_000);
         TIMESTAMP_MILLIS.writeLong(blockBuilder, 4444_000);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

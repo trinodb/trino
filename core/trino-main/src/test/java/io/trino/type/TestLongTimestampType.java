@@ -14,8 +14,8 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type.Range;
@@ -36,7 +36,7 @@ public class TestLongTimestampType
         super(TIMESTAMP_NANOS, SqlTimestamp.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = TIMESTAMP_NANOS.createBlockBuilder(null, 15);
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(1111_123, 123_000));
@@ -50,7 +50,7 @@ public class TestLongTimestampType
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(3333_123, 123_000));
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(3333_123, 123_000));
         TIMESTAMP_NANOS.writeObject(blockBuilder, new LongTimestamp(4444_123, 123_000));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override
