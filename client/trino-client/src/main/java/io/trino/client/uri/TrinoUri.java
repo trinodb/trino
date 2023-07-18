@@ -20,7 +20,6 @@ import com.google.common.net.HostAndPort;
 import io.trino.client.ClientException;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.DnsResolver;
-import io.trino.client.OkHttpUtil;
 import io.trino.client.auth.external.CompositeRedirectHandler;
 import io.trino.client.auth.external.ExternalAuthenticator;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
@@ -44,7 +43,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -60,6 +58,7 @@ import static io.trino.client.OkHttpUtil.setupKerberos;
 import static io.trino.client.OkHttpUtil.setupSocksProxy;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.OkHttpUtil.tokenAuth;
+import static io.trino.client.OkHttpUtil.userAgent;
 import static io.trino.client.uri.ConnectionProperties.ACCESS_TOKEN;
 import static io.trino.client.uri.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static io.trino.client.uri.ConnectionProperties.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS;
@@ -517,33 +516,19 @@ public class TrinoUri
         }
     }
 
-    public Consumer<OkHttpClient.Builder> getSetupSsl()
-    {
-        if (!useSecureConnection) {
-            return OkHttpUtil::setupInsecureSsl;
-        }
-        SslVerificationMode sslVerificationMode = sslVerification.orElse(FULL);
-        if (sslVerificationMode.equals(NONE)) {
-            return OkHttpUtil::setupInsecureSsl;
-        }
-        return builder -> setupSsl(
-                builder,
-                sslKeyStorePath,
-                sslKeyStorePassword,
-                sslKeyStoreType,
-                sslTrustStorePath,
-                sslTrustStorePassword,
-                sslTrustStoreType,
-                sslUseSystemTrustStore.orElse(false));
-    }
-
-    public void setupClient(OkHttpClient.Builder builder)
+    public OkHttpClient.Builder toHttpClientBuilder(String userAgent)
             throws SQLException
     {
+        OkHttpClient.Builder builder = new OkHttpClient.Builder();
+        builder.addInterceptor(userAgent(userAgent));
         try {
             setupCookieJar(builder);
             setupSocksProxy(builder, socksProxy);
             setupHttpProxy(builder, httpProxy);
+
+            if (!useSecureConnection) {
+                setupInsecureSsl(builder);
+            }
 
             String password = this.password.orElse("");
             if (!password.isEmpty()) {
@@ -642,6 +627,8 @@ public class TrinoUri
         catch (RuntimeException e) {
             throw new SQLException("Error setting up connection", e);
         }
+
+        return builder;
     }
 
     private static DnsResolver instantiateDnsResolver(Class<? extends DnsResolver> resolverClass, Optional<String> context)

@@ -101,7 +101,7 @@ abstract class AbstractConnectionProperty<V, T>
     @Override
     public boolean isValid(Properties properties)
     {
-        return !validator.validate(properties).isPresent();
+        return validator.isValid(properties);
     }
 
     @Override
@@ -188,6 +188,11 @@ abstract class AbstractConnectionProperty<V, T>
     {
         Optional<String> validate(T t);
 
+        default boolean isValid(T t)
+        {
+            return !validate(t).isPresent();
+        }
+
         default Validator<T> and(Validator<? super T> other)
         {
             requireNonNull(other, "other is null");
@@ -204,7 +209,12 @@ abstract class AbstractConnectionProperty<V, T>
 
     protected static <T> Validator<T> validator(Predicate<T> predicate, String message)
     {
-        return t -> Optional.ofNullable(predicate.test(t) ? null : message);
+        return t -> {
+            if (predicate.test(t)) {
+                return Optional.empty();
+            }
+            return Optional.of(message);
+        };
     }
 
     protected interface CheckedPredicate<T>

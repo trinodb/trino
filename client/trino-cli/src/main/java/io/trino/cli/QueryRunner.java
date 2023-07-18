@@ -23,8 +23,9 @@ import okhttp3.logging.HttpLoggingInterceptor;
 import java.io.Closeable;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static io.trino.cli.Trino.getCliVersion;
 import static io.trino.client.ClientSession.stripTransactionId;
 import static io.trino.client.OkHttpUtil.setupTimeouts;
 import static io.trino.client.StatementClientFactory.newStatementClient;
@@ -34,10 +35,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class QueryRunner
         implements Closeable
 {
+    private static final String USER_AGENT = "Trino CLI/" + firstNonNull(getCliVersion(), "unknown");
+
     private final AtomicReference<ClientSession> session;
     private final boolean debug;
     private final OkHttpClient httpClient;
-    private final Consumer<OkHttpClient.Builder> sslSetup;
 
     public QueryRunner(
             TrinoUri uri,
@@ -48,20 +50,11 @@ public class QueryRunner
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.debug = debug;
 
-        OkHttpClient.Builder builder = new OkHttpClient.Builder();
-        try {
-            sslSetup = uri.getSetupSsl();
-            uri.setupClient(builder);
-        }
-        catch (SQLException e) {
-            throw new IllegalArgumentException(e);
-        }
-
+        OkHttpClient.Builder builder = toHttpClientBuilder(uri);
         setupTimeouts(builder, 30, SECONDS);
         builder.addNetworkInterceptor(
                 new HttpLoggingInterceptor(System.err::println)
                         .setLevel(networkLogging));
-
         this.httpClient = builder.build();
     }
 
@@ -92,11 +85,7 @@ public class QueryRunner
 
     private StatementClient startInternalQuery(ClientSession session, String query)
     {
-        OkHttpClient.Builder builder = httpClient.newBuilder();
-        sslSetup.accept(builder);
-        OkHttpClient client = builder.build();
-
-        return newStatementClient((Call.Factory) client, session, query);
+        return newStatementClient((Call.Factory) httpClient, session, query);
     }
 
     @Override
@@ -104,5 +93,15 @@ public class QueryRunner
     {
         httpClient.dispatcher().executorService().shutdown();
         httpClient.connectionPool().evictAll();
+    }
+
+    public static OkHttpClient.Builder toHttpClientBuilder(TrinoUri uri)
+    {
+        try {
+            return uri.toHttpClientBuilder(USER_AGENT);
+        }
+        catch (SQLException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 }
