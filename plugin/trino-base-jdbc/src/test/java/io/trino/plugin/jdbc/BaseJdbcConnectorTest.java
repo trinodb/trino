@@ -42,6 +42,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -120,6 +121,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
 {
+    protected static final int EXECUTE_LAST = 1000;
+
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
 
     protected abstract SqlExecutor onRemoteDatabase();
@@ -1888,7 +1891,8 @@ public abstract class BaseJdbcConnectorTest
         return new Object[][] {{BROADCAST}, {PARTITIONED}};
     }
 
-    @Test(dataProvider = "fixedJoinDistributionTypes")
+    @Flaky(issue = "https://github.com/trinodb/trino/pull/18468", match = ".*SqlQueryManager.getFullQueryInfo.*")
+    @Test(priority = EXECUTE_LAST, dataProvider = "fixedJoinDistributionTypes")
     public void testDynamicFiltering(JoinDistributionType joinDistributionType)
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
@@ -1897,7 +1901,8 @@ public abstract class BaseJdbcConnectorTest
                 joinDistributionType);
     }
 
-    @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/pull/18468", match = ".*SqlQueryManager.getFullQueryInfo.*")
+    @Test(priority = EXECUTE_LAST)
     public void testDynamicFilteringWithAggregationGroupingColumn()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
@@ -1907,7 +1912,8 @@ public abstract class BaseJdbcConnectorTest
                 PARTITIONED);
     }
 
-    @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/pull/18468", match = ".*SqlQueryManager.getFullQueryInfo.*")
+    @Test(priority = EXECUTE_LAST)
     public void testDynamicFilteringWithAggregationAggregateColumn()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
@@ -1923,7 +1929,8 @@ public abstract class BaseJdbcConnectorTest
                 isAggregationPushedDown);
     }
 
-    @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/pull/18468", match = ".*SqlQueryManager.getFullQueryInfo.*")
+    @Test(priority = EXECUTE_LAST)
     public void testDynamicFilteringWithAggregationGroupingSet()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
@@ -1933,7 +1940,8 @@ public abstract class BaseJdbcConnectorTest
                         "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
     }
 
-    @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/pull/18468", match = ".*SqlQueryManager.getFullQueryInfo.*")
+    @Test(priority = EXECUTE_LAST)
     public void testDynamicFilteringWithLimit()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
@@ -1943,7 +1951,8 @@ public abstract class BaseJdbcConnectorTest
                         "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
     }
 
-    @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/pull/18468", match = ".*SqlQueryManager.getFullQueryInfo.*")
+    @Test(priority = EXECUTE_LAST)
     public void testDynamicFilteringDomainCompactionThreshold()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
@@ -2071,6 +2080,11 @@ public abstract class BaseJdbcConnectorTest
                 .build();
     }
 
+    /**
+     * This method relies on global state of QueryTracker. It may fail because of QueryTracker.pruneExpiredQueries()
+     * You must ensure that query was issued and this method invoked in isolation -
+     * which guarantees that there is less other queries between query creation and obtaining query info than `query.max-history`
+     */
     private long getPhysicalInputPositions(QueryId queryId)
     {
         return getDistributedQueryRunner().getCoordinator()
