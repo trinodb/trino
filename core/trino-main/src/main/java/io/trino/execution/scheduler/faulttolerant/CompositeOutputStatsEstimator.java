@@ -33,27 +33,27 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-public class CompositeOutputDataSizeEstimator
-        implements OutputDataSizeEstimator
+public class CompositeOutputStatsEstimator
+        implements OutputStatsEstimator
 {
     public static class Factory
-            implements OutputDataSizeEstimatorFactory
+            implements OutputStatsEstimatorFactory
     {
-        private final List<OutputDataSizeEstimatorFactory> delegateFactories;
+        private final List<OutputStatsEstimatorFactory> delegateFactories;
 
         @Inject
-        public Factory(@ForCompositeOutputDataSizeEstimator List<OutputDataSizeEstimatorFactory> delegateFactories)
+        public Factory(@ForCompositeOutputDataSizeEstimator List<OutputStatsEstimatorFactory> delegateFactories)
         {
             checkArgument(!delegateFactories.isEmpty(), "Got empty list of delegates");
             this.delegateFactories = ImmutableList.copyOf(delegateFactories);
         }
 
         @Override
-        public OutputDataSizeEstimator create(Session session)
+        public OutputStatsEstimator create(Session session)
         {
-            List<OutputDataSizeEstimator> estimators = delegateFactories.stream().map(factory -> factory.create(session))
+            List<OutputStatsEstimator> estimators = delegateFactories.stream().map(factory -> factory.create(session))
                     .collect(toImmutableList());
-            return new CompositeOutputDataSizeEstimator(estimators);
+            return new CompositeOutputStatsEstimator(estimators);
         }
     }
 
@@ -62,21 +62,21 @@ public class CompositeOutputDataSizeEstimator
     @BindingAnnotation
     public @interface ForCompositeOutputDataSizeEstimator {}
 
-    private final List<OutputDataSizeEstimator> estimators;
+    private final List<OutputStatsEstimator> estimators;
 
-    private CompositeOutputDataSizeEstimator(List<OutputDataSizeEstimator> estimators)
+    private CompositeOutputStatsEstimator(List<OutputStatsEstimator> estimators)
     {
         this.estimators = ImmutableList.copyOf(estimators);
     }
 
     @Override
-    public Optional<OutputDataSizeEstimateResult> getEstimatedOutputDataSize(
+    public Optional<OutputStatsEstimateResult> getEstimatedOutputStats(
             StageExecution stageExecution,
             Function<StageId, StageExecution> stageExecutionLookup,
             boolean parentEager)
     {
-        for (OutputDataSizeEstimator estimator : estimators) {
-            Optional<OutputDataSizeEstimateResult> result = estimator.getEstimatedOutputDataSize(stageExecution, stageExecutionLookup, parentEager);
+        for (OutputStatsEstimator estimator : estimators) {
+            Optional<OutputStatsEstimateResult> result = estimator.getEstimatedOutputStats(stageExecution, stageExecutionLookup, parentEager);
             if (result.isPresent()) {
                 return result;
             }

@@ -22,30 +22,31 @@ import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
-public interface OutputDataSizeEstimator
+public interface OutputStatsEstimator
 {
-    Optional<OutputDataSizeEstimateResult> getEstimatedOutputDataSize(
+    Optional<OutputStatsEstimateResult> getEstimatedOutputStats(
             EventDrivenFaultTolerantQueryScheduler.StageExecution stageExecution,
             Function<StageId, EventDrivenFaultTolerantQueryScheduler.StageExecution> stageExecutionLookup,
             boolean parentEager);
 
-    enum OutputDataSizeEstimateStatus {
+    enum OutputStatsEstimateStatus {
         FINISHED,
         ESTIMATED_BY_PROGRESS,
         ESTIMATED_BY_SMALL_INPUT,
         ESTIMATED_FOR_EAGER_PARENT
     }
 
-    record OutputDataSizeEstimateResult(
+    record OutputStatsEstimateResult(
             OutputDataSizeEstimate outputDataSizeEstimate,
-            OutputDataSizeEstimateStatus status)
+            long outputRowCountEstimate,
+            OutputStatsEstimateStatus status)
     {
-        OutputDataSizeEstimateResult(ImmutableLongArray partitionDataSizes, OutputDataSizeEstimateStatus status)
+        OutputStatsEstimateResult(ImmutableLongArray partitionDataSizes, long outputRowCountEstimate, OutputStatsEstimateStatus status)
         {
-            this(new OutputDataSizeEstimate(partitionDataSizes), status);
+            this(new OutputDataSizeEstimate(partitionDataSizes), outputRowCountEstimate, status);
         }
 
-        public OutputDataSizeEstimateResult
+        public OutputStatsEstimateResult
         {
             requireNonNull(outputDataSizeEstimate, "outputDataSizeEstimate is null");
             requireNonNull(status, "status is null");
