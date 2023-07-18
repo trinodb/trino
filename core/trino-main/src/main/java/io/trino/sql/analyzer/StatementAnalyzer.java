@@ -932,7 +932,7 @@ class StatementAnalyzer
             // analyze the query that creates the table
             Scope queryScope = analyze(node.getQuery());
 
-            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+            ImmutableList.Builder<ColumnMetadata> columnsBuilder = ImmutableList.builder();
 
             // analyze target table columns and column aliases
             ImmutableList.Builder<OutputColumn> outputColumns = ImmutableList.builder();
@@ -945,14 +945,14 @@ class StatementAnalyzer
                         throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
                     String columnName = node.getColumnAliases().get().get(aliasPosition).getValue();
-                    columns.add(new ColumnMetadata(columnName, field.getType()));
+                    columnsBuilder.add(new ColumnMetadata(columnName, field.getType()));
                     outputColumns.add(new OutputColumn(new Column(columnName, field.getType().toString()), analysis.getSourceColumns(field)));
                     aliasPosition++;
                 }
             }
             else {
                 validateColumns(node, queryScope.getRelationType());
-                columns.addAll(queryScope.getRelationType().getVisibleFields().stream()
+                columnsBuilder.addAll(queryScope.getRelationType().getVisibleFields().stream()
                         .map(field -> new ColumnMetadata(field.getName().orElseThrow(), field.getType()))
                         .collect(toImmutableList()));
                 queryScope.getRelationType().getVisibleFields().stream()
@@ -961,12 +961,13 @@ class StatementAnalyzer
             }
 
             // create target table metadata
-            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
+            List<ColumnMetadata> columns = columnsBuilder.build();
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns, properties, node.getComment());
 
             // analyze target table layout
             Optional<TableLayout> newTableLayout = metadata.getNewTableLayout(session, catalogName, tableMetadata);
 
-            Set<String> columnNames = columns.build().stream()
+            Set<String> columnNames = columns.stream()
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableSet());
 
