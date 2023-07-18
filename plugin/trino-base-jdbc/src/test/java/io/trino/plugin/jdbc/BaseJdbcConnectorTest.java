@@ -42,6 +42,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -1888,6 +1889,7 @@ public abstract class BaseJdbcConnectorTest
         return new Object[][] {{BROADCAST}, {PARTITIONED}};
     }
 
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/18499", match = ".*SqlQueryManager.getFullQueryInfo.*")
     @Test(dataProvider = "fixedJoinDistributionTypes")
     public void testDynamicFiltering(JoinDistributionType joinDistributionType)
     {
@@ -1897,6 +1899,7 @@ public abstract class BaseJdbcConnectorTest
                 joinDistributionType);
     }
 
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/18499", match = ".*SqlQueryManager.getFullQueryInfo.*")
     @Test
     public void testDynamicFilteringWithAggregationGroupingColumn()
     {
@@ -1907,6 +1910,7 @@ public abstract class BaseJdbcConnectorTest
                 PARTITIONED);
     }
 
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/18499", match = ".*SqlQueryManager.getFullQueryInfo.*")
     @Test
     public void testDynamicFilteringWithAggregationAggregateColumn()
     {
@@ -1923,6 +1927,7 @@ public abstract class BaseJdbcConnectorTest
                 isAggregationPushedDown);
     }
 
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/18499", match = ".*SqlQueryManager.getFullQueryInfo.*")
     @Test
     public void testDynamicFilteringWithAggregationGroupingSet()
     {
@@ -1933,6 +1938,7 @@ public abstract class BaseJdbcConnectorTest
                         "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
     }
 
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/18499", match = ".*SqlQueryManager.getFullQueryInfo.*")
     @Test
     public void testDynamicFilteringWithLimit()
     {
@@ -1943,6 +1949,7 @@ public abstract class BaseJdbcConnectorTest
                         "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
     }
 
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/18499", match = ".*SqlQueryManager.getFullQueryInfo.*")
     @Test
     public void testDynamicFilteringDomainCompactionThreshold()
     {
@@ -2071,8 +2078,14 @@ public abstract class BaseJdbcConnectorTest
                 .build();
     }
 
+    /**
+     * This method relies on global state of QueryTracker. It may fail because of QueryTracker.pruneExpiredQueries()
+     * You must ensure that query was issued and this method invoked in isolation -
+     * which guarantees that there is less other queries between query creation and obtaining query info than `query.max-history`
+     */
     private long getPhysicalInputPositions(QueryId queryId)
     {
+        // TODO https://github.com/trinodb/trino/issues/18499
         return getDistributedQueryRunner().getCoordinator()
                 .getQueryManager()
                 .getFullQueryInfo(queryId)
