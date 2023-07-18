@@ -13,8 +13,8 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
@@ -28,7 +28,7 @@ public class TestIntervalYearMonthType
         super(INTERVAL_YEAR_MONTH, SqlIntervalYearMonth.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = INTERVAL_YEAR_MONTH.createBlockBuilder(null, 15);
         INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 1111);
@@ -42,7 +42,7 @@ public class TestIntervalYearMonthType
         INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 3333);
         INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 3333);
         INTERVAL_YEAR_MONTH.writeLong(blockBuilder, 4444);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

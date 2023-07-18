@@ -16,6 +16,7 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LongArrayBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionXxHash64;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,7 @@ public class TestDoubleType
         super(DOUBLE, Double.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, 15);
         DOUBLE.writeDouble(blockBuilder, 11.11);
@@ -48,7 +49,7 @@ public class TestDoubleType
         DOUBLE.writeDouble(blockBuilder, 33.33);
         DOUBLE.writeDouble(blockBuilder, 33.33);
         DOUBLE.writeDouble(blockBuilder, 44.44);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

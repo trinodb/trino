@@ -13,8 +13,8 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -28,7 +28,7 @@ public class TestIntervalDayTimeType
         super(INTERVAL_DAY_TIME, SqlIntervalDayTime.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createBlockBuilder(null, 15);
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 1111);
@@ -42,7 +42,7 @@ public class TestIntervalDayTimeType
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 3333);
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 3333);
         INTERVAL_DAY_TIME.writeLong(blockBuilder, 4444);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

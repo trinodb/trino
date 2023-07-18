@@ -14,8 +14,8 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.ArrayType;
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +39,7 @@ public class TestArrayOfMapOfBigintVarcharType
         super(TYPE, List.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = TYPE.createBlockBuilder(null, 4);
         TYPE.writeObject(blockBuilder, arrayBlockOf(TYPE.getElementType(),
@@ -51,7 +51,7 @@ public class TestArrayOfMapOfBigintVarcharType
         TYPE.writeObject(blockBuilder, arrayBlockOf(TYPE.getElementType(),
                 sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(100, "hundred")),
                 sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(200, "two hundred"))));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

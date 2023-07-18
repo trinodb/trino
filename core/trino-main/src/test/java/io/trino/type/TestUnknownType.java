@@ -29,7 +29,7 @@ public class TestUnknownType
                         .appendNull()
                         .appendNull()
                         .appendNull()
-                        .build());
+                        .buildValueBlock());
     }
 
     @Override
