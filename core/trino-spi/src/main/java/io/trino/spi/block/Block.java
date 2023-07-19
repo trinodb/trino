@@ -92,58 +92,6 @@ public interface Block
     }
 
     /**
-     * Is the byte sequences at {@code offset} in the value at {@code position} equal
-     * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Compares the byte sequences at {@code offset} in the value at {@code position}
-     * to the byte sequence at {@code otherOffset} in {@code otherSlice}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Is the byte sequences at {@code offset} in the value at {@code position} equal
-     * to the byte sequence at {@code otherOffset} in the value at {@code otherPosition}
-     * in {@code otherBlock}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Calculates the hash code the byte sequences at {@code offset} in the
-     * value at {@code position}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default long hash(int position, int offset, int length)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Compares the byte sequences at {@code offset} in the value at {@code position}
-     * to the byte sequence at {@code otherOffset} in the value at {@code otherPosition}
-     * in {@code otherBlock}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
      * Gets the value at the specified position as a single element block.  The method
      * must copy the data into a new block.
      * <p>

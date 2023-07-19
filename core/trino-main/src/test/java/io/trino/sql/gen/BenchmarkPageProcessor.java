@@ -22,6 +22,7 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
@@ -175,14 +176,20 @@ public class BenchmarkPageProcessor
 
         private static boolean lessThan(Block left, int leftPosition, Slice right)
         {
+            VariableWidthBlock leftBlock = (VariableWidthBlock) left.getUnderlyingValueBlock();
+            Slice leftSlice = leftBlock.getRawSlice();
+            int leftOffset = leftBlock.getRawSliceOffset(leftPosition);
             int leftLength = left.getSliceLength(leftPosition);
-            return left.bytesCompare(leftPosition, 0, leftLength, right, 0, right.length()) < 0;
+            return leftSlice.compareTo(leftOffset, leftLength, right, 0, right.length()) < 0;
         }
 
         private static boolean greaterThanOrEqual(Block left, int leftPosition, Slice right)
         {
+            VariableWidthBlock leftBlock = (VariableWidthBlock) left.getUnderlyingValueBlock();
+            Slice leftSlice = leftBlock.getRawSlice();
+            int leftOffset = leftBlock.getRawSliceOffset(leftPosition);
             int leftLength = left.getSliceLength(leftPosition);
-            return left.bytesCompare(leftPosition, 0, leftLength, right, 0, right.length()) >= 0;
+            return leftSlice.compareTo(leftOffset, leftLength, right, 0, right.length()) >= 0;
         }
     }
 
