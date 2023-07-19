@@ -1120,13 +1120,6 @@ public class DeltaLakeMetadata
                 "Table '%s' does not have correct query id set",
                 table);
 
-        ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(handle.getInputColumns().size());
-        ImmutableMap.Builder<String, Object> columnTypes = ImmutableMap.builderWithExpectedSize(handle.getInputColumns().size());
-        for (DeltaLakeColumnHandle column : handle.getInputColumns()) {
-            columnNames.add(column.getBaseColumnName());
-            columnTypes.put(column.getBaseColumnName(), serializeColumnType(NONE, new AtomicInteger(), column.getBaseType()));
-        }
-
         ColumnMappingMode columnMappingMode = handle.getColumnMappingMode();
         String schemaString = handle.getSchemaString();
         try {
