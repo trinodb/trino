@@ -87,4 +87,3 @@ jobs:
           command: logout
           containerRegistry: ${{ variables.containerRegistry }}
         condition: always()
-
