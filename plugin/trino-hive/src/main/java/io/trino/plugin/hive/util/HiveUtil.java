@@ -1126,8 +1126,7 @@ public final class HiveUtil
 
     public static boolean isDeltaLakeTable(Map<String, String> tableParameters)
     {
-        return tableParameters.containsKey(SPARK_TABLE_PROVIDER_KEY)
-                && tableParameters.get(SPARK_TABLE_PROVIDER_KEY).toLowerCase(ENGLISH).equals(DELTA_LAKE_PROVIDER);
+        return DELTA_LAKE_PROVIDER.equalsIgnoreCase(tableParameters.get(SPARK_TABLE_PROVIDER_KEY));
     }
 
     public static boolean isIcebergTable(Table table)
