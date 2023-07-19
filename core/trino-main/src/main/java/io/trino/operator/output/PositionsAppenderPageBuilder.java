@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class PositionsAppenderPageBuilder
 {
     private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
-    private final PositionsAppender[] channelAppenders;
+    private final UnnestingPositionsAppender[] channelAppenders;
     private final int maxPageSizeInBytes;
     private int declaredPositions;
 
@@ -45,7 +45,7 @@ public class PositionsAppenderPageBuilder
         requireNonNull(positionsAppenderFactory, "positionsAppenderFactory is null");
 
         this.maxPageSizeInBytes = maxPageSizeInBytes;
-        channelAppenders = new PositionsAppender[types.size()];
+        channelAppenders = new UnnestingPositionsAppender[types.size()];
         for (int i = 0; i < channelAppenders.length; i++) {
             channelAppenders[i] = positionsAppenderFactory.create(types.get(i), initialExpectedEntries, maxPageSizeInBytes);
         }
@@ -76,7 +76,7 @@ public class PositionsAppenderPageBuilder
         // We use a foreach loop instead of streams
         // as it has much better performance.
         long retainedSizeInBytes = 0;
-        for (PositionsAppender positionsAppender : channelAppenders) {
+        for (UnnestingPositionsAppender positionsAppender : channelAppenders) {
             retainedSizeInBytes += positionsAppender.getRetainedSizeInBytes();
         }
         return retainedSizeInBytes;
@@ -85,7 +85,7 @@ public class PositionsAppenderPageBuilder
     public long getSizeInBytes()
     {
         long sizeInBytes = 0;
-        for (PositionsAppender positionsAppender : channelAppenders) {
+        for (UnnestingPositionsAppender positionsAppender : channelAppenders) {
             sizeInBytes += positionsAppender.getSizeInBytes();
         }
         return sizeInBytes;

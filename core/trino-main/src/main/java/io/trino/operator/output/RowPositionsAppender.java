@@ -34,7 +34,7 @@ public class RowPositionsAppender
         implements PositionsAppender
 {
     private static final int INSTANCE_SIZE = instanceSize(RowPositionsAppender.class);
-    private final PositionsAppender[] fieldAppenders;
+    private final UnnestingPositionsAppender[] fieldAppenders;
     private int initialEntryCount;
     private boolean initialized;
 
@@ -51,14 +51,14 @@ public class RowPositionsAppender
             int expectedPositions,
             long maxPageSizeInBytes)
     {
-        PositionsAppender[] fields = new PositionsAppender[type.getFields().size()];
+        UnnestingPositionsAppender[] fields = new UnnestingPositionsAppender[type.getFields().size()];
         for (int i = 0; i < fields.length; i++) {
             fields[i] = positionsAppenderFactory.create(type.getFields().get(i).getType(), expectedPositions, maxPageSizeInBytes);
         }
         return new RowPositionsAppender(fields, expectedPositions);
     }
 
-    private RowPositionsAppender(PositionsAppender[] fieldAppenders, int expectedPositions)
+    private RowPositionsAppender(UnnestingPositionsAppender[] fieldAppenders, int expectedPositions)
     {
         this.fieldAppenders = requireNonNull(fieldAppenders, "fields is null");
         this.initialEntryCount = expectedPositions;
@@ -195,7 +195,7 @@ public class RowPositionsAppender
         }
 
         long size = INSTANCE_SIZE + sizeOf(rowIsNull);
-        for (PositionsAppender field : fieldAppenders) {
+        for (UnnestingPositionsAppender field : fieldAppenders) {
             size += field.getRetainedSizeInBytes();
         }
 
@@ -211,7 +211,7 @@ public class RowPositionsAppender
         }
 
         long size = (Integer.BYTES + Byte.BYTES) * (long) positionCount;
-        for (PositionsAppender field : fieldAppenders) {
+        for (UnnestingPositionsAppender field : fieldAppenders) {
             size += field.getSizeInBytes();
         }
 
