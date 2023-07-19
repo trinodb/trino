@@ -19,7 +19,7 @@ import org.apache.ignite.IgniteJdbcThinDriver;
 
 import java.sql.SQLException;
 
-import static org.apache.ignite.IgniteJdbcDriver.URL_PREFIX;
+import static org.apache.ignite.internal.jdbc.thin.JdbcThinUtils.URL_PREFIX;
 
 public class IgniteJdbcConfig
         extends BaseJdbcConfig
