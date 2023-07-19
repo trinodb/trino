@@ -658,7 +658,7 @@ public class IcebergMetadata
         BlockingQueue<Optional<TableColumnsMetadata>> columnsMetadataQueue = new LinkedBlockingQueue<>();
         AtomicInteger completedTasks = new AtomicInteger(0);
 
-        schemaTableNames.parallelStream().forEach(tableName ->
+        schemaTableNames.forEach(tableName ->
                 metadataListingExecutor.submit(() -> {
                     try {
                         if (redirectTable(session, tableName).isPresent()) {
