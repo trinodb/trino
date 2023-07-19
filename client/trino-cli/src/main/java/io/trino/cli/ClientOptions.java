@@ -181,7 +181,7 @@ public class ClientOptions
     public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
 
     @PropertyMapping(SOURCE)
-    @Option(names = "--source", paramLabel = "<source>", description = "Name of source making query (default: " + SOURCE_DEFAULT + ")")
+    @Option(names = "--source", paramLabel = "<source>", description = "Name of the client to use as source that submits the query (default: " + SOURCE_DEFAULT + ")")
     public Optional<String> source;
 
     @PropertyMapping(CLIENT_INFO)
@@ -415,7 +415,9 @@ public class ClientOptions
         }
         catch (RestrictedPropertyException e) {
             if (e.getPropertyName() == PropertyName.PASSWORD) {
-                throw new IllegalArgumentException("Setting the password in the URL parameter is not allowed, use the `--password` option or the `TRINO_PASSWORD` environment variable");
+                throw new IllegalArgumentException(
+                        "Setting the password in the URL parameter is not allowed, " +
+                                "use the `--password` option or the `TRINO_PASSWORD` environment variable");
             }
             throw new IllegalArgumentException(format(
                     "Connection property '%s' cannot be set in the URL when option '%s' is set",
