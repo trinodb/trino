@@ -162,8 +162,7 @@ public class DictionaryBuilder
 
         int newElementPositionInBlock = entryCount;
 
-        int length = block.getSliceLength(position);
-        block.writeSliceTo(position, 0, length, sliceOutput);
+        sliceOutput.writeBytes(block.getRawSlice(), block.getRawSliceOffset(position), block.getSliceLength(position));
         entryCount++;
         offsets[entryCount] = sliceOutput.size();
 
