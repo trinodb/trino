@@ -338,7 +338,7 @@ public abstract class AbstractVariableWidthType
         @ScalarOperator(XX_HASH_64)
         private static long xxHash64Operator(@BlockPosition VariableWidthBlock block, @BlockIndex int position)
         {
-            return block.hash(position, 0, block.getSliceLength(position));
+            return XxHash64.hash(block.getRawSlice(), block.getRawSliceOffset(position), block.getSliceLength(position));
         }
 
         @ScalarOperator(XX_HASH_64)

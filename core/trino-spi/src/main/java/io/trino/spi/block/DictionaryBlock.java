@@ -183,36 +183,6 @@ public class DictionaryBlock
     }
 
     @Override
-    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
-    {
-        return dictionary.bytesEqual(getId(position), offset, otherSlice, otherOffset, length);
-    }
-
-    @Override
-    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        return dictionary.bytesCompare(getId(position), offset, length, otherSlice, otherOffset, otherLength);
-    }
-
-    @Override
-    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
-    {
-        return dictionary.equals(getId(position), offset, otherBlock, otherPosition, otherOffset, length);
-    }
-
-    @Override
-    public long hash(int position, int offset, int length)
-    {
-        return dictionary.hash(getId(position), offset, length);
-    }
-
-    @Override
-    public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
-    {
-        return dictionary.compareTo(getId(leftPosition), leftOffset, leftLength, rightBlock, rightPosition, rightOffset, rightLength);
-    }
-
-    @Override
     public ValueBlock getSingleValueBlock(int position)
     {
         return dictionary.getSingleValueBlock(getId(position));

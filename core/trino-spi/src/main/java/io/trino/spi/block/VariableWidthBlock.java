@@ -16,7 +16,6 @@ package io.trino.spi.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
@@ -219,49 +218,6 @@ public class VariableWidthBlock
     {
         checkReadablePosition(this, position);
         output.writeBytes(slice, getPositionOffset(position) + offset, length);
-    }
-
-    @Override
-    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
-    {
-        checkReadablePosition(this, position);
-        Slice rawSlice = slice;
-        if (getSliceLength(position) < length) {
-            return false;
-        }
-        return otherBlock.bytesEqual(otherPosition, otherOffset, rawSlice, getPositionOffset(position) + offset, length);
-    }
-
-    @Override
-    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
-    {
-        checkReadablePosition(this, position);
-        return slice.equals(getPositionOffset(position) + offset, length, otherSlice, otherOffset, length);
-    }
-
-    @Override
-    public long hash(int position, int offset, int length)
-    {
-        checkReadablePosition(this, position);
-        return XxHash64.hash(slice, getPositionOffset(position) + offset, length);
-    }
-
-    @Override
-    public int compareTo(int position, int offset, int length, Block otherBlock, int otherPosition, int otherOffset, int otherLength)
-    {
-        checkReadablePosition(this, position);
-        Slice rawSlice = slice;
-        if (getSliceLength(position) < length) {
-            throw new IllegalArgumentException("Length longer than value length");
-        }
-        return -otherBlock.bytesCompare(otherPosition, otherOffset, otherLength, rawSlice, getPositionOffset(position) + offset, length);
-    }
-
-    @Override
-    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        checkReadablePosition(this, position);
-        return slice.compareTo(getPositionOffset(position) + offset, length, otherSlice, otherOffset, otherLength);
     }
 
     @Override

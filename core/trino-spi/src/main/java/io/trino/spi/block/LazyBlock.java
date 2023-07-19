@@ -100,55 +100,6 @@ public class LazyBlock
     }
 
     @Override
-    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
-    {
-        return getBlock().bytesEqual(position, offset, otherSlice, otherOffset, length);
-    }
-
-    @Override
-    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        return getBlock().bytesCompare(
-                position,
-                offset,
-                length,
-                otherSlice,
-                otherOffset,
-                otherLength);
-    }
-
-    @Override
-    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
-    {
-        return getBlock().equals(
-                position,
-                offset,
-                otherBlock,
-                otherPosition,
-                otherOffset,
-                length);
-    }
-
-    @Override
-    public long hash(int position, int offset, int length)
-    {
-        return getBlock().hash(position, offset, length);
-    }
-
-    @Override
-    public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
-    {
-        return getBlock().compareTo(
-                leftPosition,
-                leftOffset,
-                leftLength,
-                rightBlock,
-                rightPosition,
-                rightOffset,
-                rightLength);
-    }
-
-    @Override
     public ValueBlock getSingleValueBlock(int position)
     {
         return getBlock().getSingleValueBlock(position);
