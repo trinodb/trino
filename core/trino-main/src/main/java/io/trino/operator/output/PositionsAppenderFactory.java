@@ -20,6 +20,9 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VariableWidthType;
 import io.trino.type.BlockTypeOperators;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,16 +35,13 @@ public class PositionsAppenderFactory
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
-    public PositionsAppender create(Type type, int expectedPositions, long maxPageSizeInBytes)
+    public UnnestingPositionsAppender create(Type type, int expectedPositions, long maxPageSizeInBytes)
     {
-        if (!type.isComparable()) {
-            return new UnnestingPositionsAppender(createPrimitiveAppender(type, expectedPositions, maxPageSizeInBytes));
+        Optional<BlockPositionIsDistinctFrom> distinctFromOperator = Optional.empty();
+        if (type.isComparable()) {
+            distinctFromOperator = Optional.of(blockTypeOperators.getDistinctFromOperator(type));
         }
-
-        return new UnnestingPositionsAppender(
-                new RleAwarePositionsAppender(
-                        blockTypeOperators.getDistinctFromOperator(type),
-                        createPrimitiveAppender(type, expectedPositions, maxPageSizeInBytes)));
+        return new UnnestingPositionsAppender(createPrimitiveAppender(type, expectedPositions, maxPageSizeInBytes), distinctFromOperator);
     }
 
     private PositionsAppender createPrimitiveAppender(Type type, int expectedPositions, long maxPageSizeInBytes)
