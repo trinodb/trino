@@ -93,6 +93,7 @@ public class ClientOptions
     private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
     private static final String SERVER_DEFAULT = "localhost:8080";
     private static final String SOURCE_DEFAULT = "trino-cli";
+    static final String DEBUG_OPTION_NAME = "--debug";
 
     @Parameters(paramLabel = "URL", description = "Trino server URL", arity = "0..1")
     public Optional<String> url;
@@ -207,7 +208,7 @@ public class ClientOptions
     @Option(names = {"-f", "--file"}, paramLabel = "<file>", description = "Execute statements from file and exit")
     public String file;
 
-    @Option(names = "--debug", paramLabel = "<debug>", description = "Enable debug information")
+    @Option(names = DEBUG_OPTION_NAME, paramLabel = "<debug>", description = "Enable debug information")
     public boolean debug;
 
     @Option(names = "--history-file", paramLabel = "<historyFile>", defaultValue = "${env:TRINO_HISTORY_FILE:-${sys:user.home}/.trino_history}", description = "Path to the history file " + DEFAULT_VALUE)
