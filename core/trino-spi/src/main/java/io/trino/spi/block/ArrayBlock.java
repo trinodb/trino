@@ -54,7 +54,7 @@ public class ArrayBlock
      * Create an array block directly from columnar nulls, values, and offsets into the values.
      * A null array must have no entries.
      */
-    public static Block fromElementBlock(int positionCount, Optional<boolean[]> valueIsNullOptional, int[] arrayOffset, Block values)
+    public static ArrayBlock fromElementBlock(int positionCount, Optional<boolean[]> valueIsNullOptional, int[] arrayOffset, Block values)
     {
         boolean[] valueIsNull = valueIsNullOptional.orElse(null);
         validateConstructorArguments(0, positionCount, valueIsNull, arrayOffset, values);

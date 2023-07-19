@@ -14,8 +14,8 @@
 package io.trino.operator.aggregation.listagg;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
@@ -28,7 +28,7 @@ public interface ListaggAggregationState
 {
     void initialize(Slice separator, boolean overflowError, Slice overflowFiller, boolean showOverflowEntryCount);
 
-    void add(Block block, int position);
+    void add(ValueBlock block, int position);
 
     void serialize(RowBlockBuilder out);
 

@@ -18,6 +18,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
@@ -30,8 +31,8 @@ import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
@@ -53,7 +54,7 @@ public final class ArrayHistogramFunction
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "T",
-                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN)) MethodHandle writeFlat,
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN)) MethodHandle writeFlat,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "T",
@@ -61,19 +62,20 @@ public final class ArrayHistogramFunction
             @OperatorDependency(
                     operator = OperatorType.IS_DISTINCT_FROM,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {FLAT, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle distinctFlatBlock,
+                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle distinctFlatBlock,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "T",
-                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle hashBlock,
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle hashBlock,
             @TypeParameter("map(T, bigint)") MapType mapType,
             @SqlType("array(T)") Block arrayBlock)
     {
         TypedHistogram histogram = new TypedHistogram(elementType, readFlat, writeFlat, hashFlat, distinctFlatBlock, hashBlock, false);
-        int positionCount = arrayBlock.getPositionCount();
-        for (int position = 0; position < positionCount; position++) {
+        ValueBlock valueBlock = arrayBlock.getUnderlyingValueBlock();
+        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+            int position = arrayBlock.getUnderlyingValuePosition(i);
             if (!arrayBlock.isNull(position)) {
-                histogram.add(0, arrayBlock, position, 1L);
+                histogram.add(0, valueBlock, position, 1L);
             }
         }
         MapBlockBuilder blockBuilder = mapType.createBlockBuilder(null, histogram.size());

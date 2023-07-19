@@ -19,6 +19,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.type.ArrayType;
@@ -50,7 +51,12 @@ public final class MinMaxByNStateFactory
 
             Block keys = new ArrayType(typedKeyValueHeap.getKeyType()).getObject(sqlRow.getRawFieldBlock(1), rawIndex);
             Block values = new ArrayType(typedKeyValueHeap.getValueType()).getObject(sqlRow.getRawFieldBlock(2), rawIndex);
-            typedKeyValueHeap.addAll(keys, values);
+
+            ValueBlock rawKeyValues = keys.getUnderlyingValueBlock();
+            ValueBlock rawValueValues = values.getUnderlyingValueBlock();
+            for (int i = 0; i < keys.getPositionCount(); i++) {
+                typedKeyValueHeap.add(rawKeyValues, keys.getUnderlyingValuePosition(i), rawValueValues, values.getUnderlyingValuePosition(i));
+            }
         }
 
         @Override
@@ -118,7 +124,7 @@ public final class MinMaxByNStateFactory
         }
 
         @Override
-        public final void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition)
+        public final void add(ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
         {
             TypedKeyValueHeap typedHeap = getTypedKeyValueHeap();
 
@@ -203,7 +209,7 @@ public final class MinMaxByNStateFactory
         }
 
         @Override
-        public final void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition)
+        public final void add(ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
         {
             typedHeap.add(keyBlock, keyPosition, valueBlock, valuePosition);
         }

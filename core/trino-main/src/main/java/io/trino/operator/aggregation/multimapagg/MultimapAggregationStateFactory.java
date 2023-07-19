@@ -22,8 +22,8 @@ import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
@@ -52,7 +52,7 @@ public class MultimapAggregationStateFactory
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "K",
-                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN)) MethodHandle keyWriteFlat,
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN)) MethodHandle keyWriteFlat,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "K",
@@ -60,11 +60,11 @@ public class MultimapAggregationStateFactory
             @OperatorDependency(
                     operator = OperatorType.IS_DISTINCT_FROM,
                     argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {FLAT, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle keyDistinctFlatBlock,
+                    convention = @Convention(arguments = {FLAT, VALUE_BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle keyDistinctFlatBlock,
             @OperatorDependency(
                     operator = OperatorType.HASH_CODE,
                     argumentTypes = "K",
-                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle keyHashBlock,
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL)) MethodHandle keyHashBlock,
             @TypeParameter("V") Type valueType,
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
@@ -73,7 +73,7 @@ public class MultimapAggregationStateFactory
             @OperatorDependency(
                     operator = OperatorType.READ_VALUE,
                     argumentTypes = "V",
-                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN)) MethodHandle valueWriteFlat)
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN)) MethodHandle valueWriteFlat)
     {
         this.keyType = requireNonNull(keyType, "keyType is null");
         this.keyReadFlat = requireNonNull(keyReadFlat, "keyReadFlat is null");

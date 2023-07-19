@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowState;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
@@ -142,7 +143,7 @@ public class TestDecimalSumAggregation
         else {
             BlockBuilder blockBuilder = TYPE.createFixedSizeBlockBuilder(1);
             TYPE.writeObject(blockBuilder, Int128.valueOf(value));
-            DecimalSumAggregation.inputLongDecimal(state, blockBuilder.build(), 0);
+            DecimalSumAggregation.inputLongDecimal(state, (Int128ArrayBlock) blockBuilder.buildValueBlock(), 0);
         }
     }
 

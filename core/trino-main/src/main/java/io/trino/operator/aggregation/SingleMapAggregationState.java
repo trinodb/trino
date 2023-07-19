@@ -13,9 +13,9 @@
  */
 package io.trino.operator.aggregation;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.type.Type;
 
@@ -61,7 +61,7 @@ public class SingleMapAggregationState
     }
 
     @Override
-    public void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition)
+    public void add(ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
     {
         add(0, keyBlock, keyPosition, valueBlock, valuePosition);
     }

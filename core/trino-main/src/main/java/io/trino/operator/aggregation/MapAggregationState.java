@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 
@@ -27,7 +28,7 @@ import io.trino.spi.function.AccumulatorStateMetadata;
 public interface MapAggregationState
         extends AccumulatorState
 {
-    void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition);
+    void add(ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition);
 
     default void merge(MapAggregationState other)
     {
@@ -36,8 +37,10 @@ public interface MapAggregationState
         Block rawKeyBlock = serializedState.getRawKeyBlock();
         Block rawValueBlock = serializedState.getRawValueBlock();
 
+        ValueBlock rawKeyValues = rawKeyBlock.getUnderlyingValueBlock();
+        ValueBlock rawValueValues = rawValueBlock.getUnderlyingValueBlock();
         for (int i = 0; i < serializedState.getSize(); i++) {
-            add(rawKeyBlock, rawOffset + i, rawValueBlock, rawOffset + i);
+            add(rawKeyValues, rawKeyBlock.getUnderlyingValuePosition(rawOffset + i), rawValueValues, rawValueBlock.getUnderlyingValuePosition(rawOffset + i));
         }
     }
 

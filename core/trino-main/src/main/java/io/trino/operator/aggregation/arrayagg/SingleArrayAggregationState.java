@@ -15,6 +15,7 @@ package io.trino.operator.aggregation.arrayagg;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -52,15 +53,7 @@ public class SingleArrayAggregationState
     }
 
     @Override
-    public void addAll(Block block)
-    {
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            add(block, position);
-        }
-    }
-
-    @Override
-    public void add(Block block, int position)
+    public void add(ValueBlock block, int position)
     {
         arrayBuilder.add(block, position);
     }
