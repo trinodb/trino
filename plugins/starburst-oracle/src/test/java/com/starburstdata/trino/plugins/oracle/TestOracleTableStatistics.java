@@ -23,6 +23,7 @@ import java.sql.SQLException;
 import java.util.List;
 
 import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.executeInOracle;
+import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.gatherStatisticsInOracle;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static java.lang.String.format;
 
@@ -383,19 +384,5 @@ public class TestOracleTableStatistics
     protected void gatherStats(String tableName)
     {
         gatherStatisticsInOracle(tableName);
-    }
-
-    static void gatherStatisticsInOracle(String tableName)
-    {
-        executeInOracle(connection -> {
-            try (CallableStatement statement = connection.prepareCall("{CALL DBMS_STATS.GATHER_TABLE_STATS(?, ?)}")) {
-                statement.setString(1, OracleTestUsers.USER);
-                statement.setString(2, tableName);
-                statement.execute();
-            }
-            catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-        });
     }
 }

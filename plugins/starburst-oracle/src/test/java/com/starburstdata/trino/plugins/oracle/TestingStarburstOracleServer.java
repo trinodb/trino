@@ -17,6 +17,7 @@ import io.trino.testing.sql.TestView;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -106,6 +107,20 @@ public final class TestingStarburstOracleServer
     {
         executeInOracle(format("CREATE SYNONYM %s FOR %s", tableName, tableDefinition));
         return () -> executeInOracle(format("DROP SYNONYM %s", tableName));
+    }
+
+    public static void gatherStatisticsInOracle(String tableName)
+    {
+        executeInOracle(connection -> {
+            try (CallableStatement statement = connection.prepareCall("{CALL DBMS_STATS.GATHER_TABLE_STATS(?, ?)}")) {
+                statement.setString(1, OracleTestUsers.USER);
+                statement.setString(2, tableName);
+                statement.execute();
+            }
+            catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private TestingStarburstOracleServer() {}
