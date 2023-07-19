@@ -214,13 +214,6 @@ public class VariableWidthBlock
     }
 
     @Override
-    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
-    {
-        checkReadablePosition(this, position);
-        output.writeBytes(slice, getPositionOffset(position) + offset, length);
-    }
-
-    @Override
     public boolean mayHaveNull()
     {
         return valueIsNull != null;

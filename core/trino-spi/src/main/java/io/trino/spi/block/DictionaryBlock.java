@@ -14,7 +14,6 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -168,12 +167,6 @@ public class DictionaryBlock
     public Slice getSlice(int position, int offset, int length)
     {
         return dictionary.getSlice(getId(position), offset, length);
-    }
-
-    @Override
-    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
-    {
-        dictionary.writeSliceTo(getId(position), offset, length, output);
     }
 
     @Override

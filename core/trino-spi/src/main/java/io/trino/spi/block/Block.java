@@ -14,7 +14,6 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 
 import java.util.Collections;
 import java.util.List;
@@ -71,14 +70,6 @@ public interface Block
      * Gets a slice at {@code offset} in the value at {@code position}.
      */
     default Slice getSlice(int position, int offset, int length)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Writes a slice at {@code offset} in the value at {@code position} into the {@code output} slice output.
-     */
-    default void writeSliceTo(int position, int offset, int length, SliceOutput output)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
