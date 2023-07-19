@@ -891,6 +891,22 @@
                                     <code>java.method.removed</code>
                                     <old>method long io.trino.spi.block.RunLengthEncodedBlock::hash(int, int, int)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.Block::writeSliceTo(int, int, int, io.airlift.slice.SliceOutput)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.DictionaryBlock::writeSliceTo(int, int, int, io.airlift.slice.SliceOutput)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.LazyBlock::writeSliceTo(int, int, int, io.airlift.slice.SliceOutput)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.RunLengthEncodedBlock::writeSliceTo(int, int, int, io.airlift.slice.SliceOutput)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

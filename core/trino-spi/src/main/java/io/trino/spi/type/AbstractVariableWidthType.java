@@ -90,7 +90,12 @@ public abstract class AbstractVariableWidthType
             blockBuilder.appendNull();
         }
         else {
-            ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
+            VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+            position = block.getUnderlyingValuePosition(position);
+            Slice slice = variableWidthBlock.getRawSlice();
+            int offset = variableWidthBlock.getRawSliceOffset(position);
+            int length = variableWidthBlock.getSliceLength(position);
+            ((VariableWidthBlockBuilder) blockBuilder).writeEntry(slice, offset, length);
         }
     }
 
