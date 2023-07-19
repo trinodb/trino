@@ -238,7 +238,7 @@ public class TestGenericPartitioningSpiller
         }
 
         @Override
-        public int getPartitionCount()
+        public int partitionCount()
         {
             return 4;
         }
@@ -274,7 +274,7 @@ public class TestGenericPartitioningSpiller
         }
 
         @Override
-        public int getPartitionCount()
+        public int partitionCount()
         {
             return partitionCount;
         }

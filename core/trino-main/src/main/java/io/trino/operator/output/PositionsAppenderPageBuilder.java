@@ -91,7 +91,7 @@ public class PositionsAppenderPageBuilder
         return sizeInBytes;
     }
 
-    public void declarePositions(int positions)
+    private void declarePositions(int positions)
     {
         declaredPositions += positions;
     }

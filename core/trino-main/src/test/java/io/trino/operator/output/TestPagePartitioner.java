@@ -459,7 +459,7 @@ public class TestPagePartitioner
                 IPADDRESS);
     }
 
-    private Block createBlockForType(Type type, int positionsPerPage)
+    private static Block createBlockForType(Type type, int positionsPerPage)
     {
         return createRandomBlockForType(type, positionsPerPage, 0.2F);
     }
@@ -707,7 +707,7 @@ public class TestPagePartitioner
         public List<Slice> getEnqueued(int partition)
         {
             Collection<Slice> serializedPages = enqueued.get(partition);
-            return serializedPages == null ? ImmutableList.of() : ImmutableList.copyOf(serializedPages);
+            return ImmutableList.copyOf(serializedPages);
         }
 
         public void throwOnEnqueue(RuntimeException throwOnEnqueue)
@@ -813,31 +813,20 @@ public class TestPagePartitioner
         }
     }
 
-    private static class SumModuloPartitionFunction
+    private record SumModuloPartitionFunction(int partitionCount, int... hashChannels)
             implements PartitionFunction
     {
-        private final int[] hashChannels;
-        private final int partitionCount;
-
-        SumModuloPartitionFunction(int partitionCount, int... hashChannels)
+        private SumModuloPartitionFunction
         {
             checkArgument(partitionCount > 0);
-            this.partitionCount = partitionCount;
-            this.hashChannels = hashChannels;
-        }
-
-        @Override
-        public int getPartitionCount()
-        {
-            return partitionCount;
         }
 
         @Override
         public int getPartition(Page page, int position)
         {
             long value = 0;
-            for (int i = 0; i < hashChannels.length; i++) {
-                value += page.getBlock(hashChannels[i]).getLong(position, 0);
+            for (int hashChannel : hashChannels) {
+                value += page.getBlock(hashChannel).getLong(position, 0);
             }
 
             return toIntExact(Math.abs(value) % partitionCount);

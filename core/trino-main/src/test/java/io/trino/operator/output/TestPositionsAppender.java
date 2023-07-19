@@ -169,7 +169,7 @@ public class TestPositionsAppender
                         {TestType.INTEGER, createIntsBlock(0), createIntsBlock(1)},
                         {TestType.CHAR_10, createStringsBlock("0"), createStringsBlock("1")},
                         {TestType.VARCHAR, createStringsBlock("0"), createStringsBlock("1")},
-                        {TestType.DOUBLE, createDoublesBlock(0D), createDoublesBlock(1D)},
+                        {TestType.DOUBLE, createDoublesBlock(0.0), createDoublesBlock(1.0)},
                         {TestType.SMALLINT, createSmallintsBlock(0), createSmallintsBlock(1)},
                         {TestType.TINYINT, createTinyintsBlock(0), createTinyintsBlock(1)},
                         {TestType.VARBINARY, createSlicesBlock(Slices.allocate(Long.BYTES)), createSlicesBlock(Slices.allocate(Long.BYTES).getOutput().appendLong(1).slice())},
@@ -226,7 +226,7 @@ public class TestPositionsAppender
     }
 
     @Test(dataProvider = "types")
-    public void testMultipleTheSameDictionariesProduceDictionary(TestType type)
+    public static void testMultipleTheSameDictionariesProduceDictionary(TestType type)
     {
         PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
 
@@ -235,7 +235,7 @@ public class TestPositionsAppender
         testMultipleTheSameDictionariesProduceDictionary(type, positionsAppender);
     }
 
-    private void testMultipleTheSameDictionariesProduceDictionary(TestType type, PositionsAppender positionsAppender)
+    private static void testMultipleTheSameDictionariesProduceDictionary(TestType type, PositionsAppender positionsAppender)
     {
         Block dictionary = createRandomBlockForType(type, 4, 0);
         positionsAppender.append(allPositions(3), createRandomDictionaryBlock(dictionary, 3));
@@ -282,8 +282,8 @@ public class TestPositionsAppender
         PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         long initialRetainedSize = positionsAppender.getRetainedSizeInBytes();
 
-        firstInput.getPositions().forEach((int position) -> positionsAppender.append(position, firstInput.getBlock()));
-        positionsAppender.append(secondInput.getPositions(), secondInput.getBlock());
+        firstInput.positions().forEach((int position) -> positionsAppender.append(position, firstInput.block()));
+        positionsAppender.append(secondInput.positions(), secondInput.block());
 
         assertBuildResult(type, ImmutableList.of(firstInput, secondInput), positionsAppender, initialRetainedSize);
     }
@@ -329,8 +329,8 @@ public class TestPositionsAppender
     }
 
     // testcase for jit bug described https://github.com/trinodb/trino/issues/12821.
-    // this test needs to be run first (hence lowest priority) as order of tests
-    // influence jit compilation making this problem to not occur if other tests are run first.
+    // this test needs to be run first (hence the lowest priority) as the test order
+    // influences jit compilation, making this problem to not occur if other tests are run first.
     @Test(priority = Integer.MIN_VALUE)
     public void testSliceRle()
     {
@@ -375,7 +375,7 @@ public class TestPositionsAppender
     public static Object[][] types()
     {
         return Arrays.stream(TestType.values())
-                .filter(testType -> !testType.equals(TestType.UNKNOWN))
+                .filter(testType -> testType != TestType.UNKNOWN)
                 .map(type -> new Object[] {type})
                 .toArray(Object[][]::new);
     }
@@ -387,12 +387,12 @@ public class TestPositionsAppender
         return blockBuilder.build();
     }
 
-    private IntArrayList allPositions(int count)
+    private static IntArrayList allPositions(int count)
     {
         return new IntArrayList(IntStream.range(0, count).toArray());
     }
 
-    private BlockView input(Block block, int... positions)
+    private static BlockView input(Block block, int... positions)
     {
         return new BlockView(block, new IntArrayList(positions));
     }
@@ -402,53 +402,53 @@ public class TestPositionsAppender
         return new IntArrayList(positions);
     }
 
-    private Block dictionaryBlock(Block dictionary, int positionCount)
+    private static Block dictionaryBlock(Block dictionary, int positionCount)
     {
         return createRandomDictionaryBlock(dictionary, positionCount);
     }
 
-    private Block dictionaryBlock(Block dictionary, int[] ids)
+    private static Block dictionaryBlock(Block dictionary, int[] ids)
     {
         return DictionaryBlock.create(ids.length, dictionary, ids);
     }
 
-    private Block dictionaryBlock(TestType type, int positionCount, int dictionarySize, float nullRate)
+    private static Block dictionaryBlock(TestType type, int positionCount, int dictionarySize, float nullRate)
     {
         Block dictionary = createRandomBlockForType(type, dictionarySize, nullRate);
         return createRandomDictionaryBlock(dictionary, positionCount);
     }
 
-    private RunLengthEncodedBlock rleBlock(Block value, int positionCount)
+    private static RunLengthEncodedBlock rleBlock(Block value, int positionCount)
     {
         checkArgument(positionCount >= 2);
         return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(value, positionCount);
     }
 
-    private RunLengthEncodedBlock rleBlock(TestType type, int positionCount)
+    private static RunLengthEncodedBlock rleBlock(TestType type, int positionCount)
     {
         checkArgument(positionCount >= 2);
         Block rleValue = createRandomBlockForType(type, 1, 0);
         return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(rleValue, positionCount);
     }
 
-    private RunLengthEncodedBlock nullRleBlock(TestType type, int positionCount)
+    private static RunLengthEncodedBlock nullRleBlock(TestType type, int positionCount)
     {
         checkArgument(positionCount >= 2);
         Block rleValue = nullBlock(type, 1);
         return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(rleValue, positionCount);
     }
 
-    private Block partiallyNullBlock(TestType type, int positionCount)
+    private static Block partiallyNullBlock(TestType type, int positionCount)
     {
         return createRandomBlockForType(type, positionCount, 0.5F);
     }
 
-    private Block notNullBlock(TestType type, int positionCount)
+    private static Block notNullBlock(TestType type, int positionCount)
     {
         return createRandomBlockForType(type, positionCount, 0);
     }
 
-    private Block nullBlock(TestType type, int positionCount)
+    private static Block nullBlock(TestType type, int positionCount)
     {
         BlockBuilder blockBuilder = type.getType().createBlockBuilder(null, positionCount);
         for (int i = 0; i < positionCount; i++) {
@@ -466,17 +466,17 @@ public class TestPositionsAppender
         return blockBuilder.build();
     }
 
-    private Block emptyBlock(TestType type)
+    private static Block emptyBlock(TestType type)
     {
         return type.adapt(type.getType().createBlockBuilder(null, 0).build());
     }
 
-    private Block createRandomBlockForType(TestType type, int positionCount, float nullRate)
+    private static Block createRandomBlockForType(TestType type, int positionCount, float nullRate)
     {
         return type.adapt(BlockAssertions.createRandomBlockForType(type.getType(), positionCount, nullRate));
     }
 
-    private void testNullRle(Type type, Block source)
+    private static void testNullRle(Type type, Block source)
     {
         PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         // extract null positions
@@ -495,22 +495,22 @@ public class TestPositionsAppender
         assertInstanceOf(actual, RunLengthEncodedBlock.class);
     }
 
-    private void testAppend(TestType type, List<BlockView> inputs)
+    private static void testAppend(TestType type, List<BlockView> inputs)
     {
         testAppendBatch(type, inputs);
         testAppendSingle(type, inputs);
     }
 
-    private void testAppendBatch(TestType type, List<BlockView> inputs)
+    private static void testAppendBatch(TestType type, List<BlockView> inputs)
     {
         PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         long initialRetainedSize = positionsAppender.getRetainedSizeInBytes();
 
-        inputs.forEach(input -> positionsAppender.append(input.getPositions(), input.getBlock()));
+        inputs.forEach(input -> positionsAppender.append(input.positions(), input.block()));
         assertBuildResult(type, inputs, positionsAppender, initialRetainedSize);
     }
 
-    private void assertBuildResult(TestType type, List<BlockView> inputs, PositionsAppender positionsAppender, long initialRetainedSize)
+    private static void assertBuildResult(TestType type, List<BlockView> inputs, PositionsAppender positionsAppender, long initialRetainedSize)
     {
         long sizeInBytes = positionsAppender.getSizeInBytes();
         assertGreaterThanOrEqual(positionsAppender.getRetainedSizeInBytes(), sizeInBytes);
@@ -524,12 +524,12 @@ public class TestPositionsAppender
         assertEquals(secondBlock.getPositionCount(), 0);
     }
 
-    private void testAppendSingle(TestType type, List<BlockView> inputs)
+    private static void testAppendSingle(TestType type, List<BlockView> inputs)
     {
         PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         long initialRetainedSize = positionsAppender.getRetainedSizeInBytes();
 
-        inputs.forEach(input -> input.getPositions().forEach((int position) -> positionsAppender.append(position, input.getBlock())));
+        inputs.forEach(input -> input.positions().forEach((int position) -> positionsAppender.append(position, input.block())));
         long sizeInBytes = positionsAppender.getSizeInBytes();
         assertGreaterThanOrEqual(positionsAppender.getRetainedSizeInBytes(), sizeInBytes);
         Block actual = positionsAppender.build();
@@ -542,7 +542,7 @@ public class TestPositionsAppender
         assertEquals(secondBlock.getPositionCount(), 0);
     }
 
-    private void assertBlockIsValid(Block actual, long sizeInBytes, Type type, List<BlockView> inputs)
+    private static void assertBlockIsValid(Block actual, long sizeInBytes, Type type, List<BlockView> inputs)
     {
         PageBuilderStatus pageBuilderStatus = new PageBuilderStatus();
         BlockBuilderStatus blockBuilderStatus = pageBuilderStatus.createBlockBuilderStatus();
@@ -552,12 +552,12 @@ public class TestPositionsAppender
         assertEquals(sizeInBytes, pageBuilderStatus.getSizeInBytes());
     }
 
-    private Block buildBlock(Type type, List<BlockView> inputs, BlockBuilderStatus blockBuilderStatus)
+    private static Block buildBlock(Type type, List<BlockView> inputs, BlockBuilderStatus blockBuilderStatus)
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(blockBuilderStatus, 10);
         for (BlockView input : inputs) {
-            for (int position : input.getPositions()) {
-                type.appendTo(input.getBlock(), position, blockBuilder);
+            for (int position : input.positions()) {
+                type.appendTo(input.block(), position, blockBuilder);
             }
         }
         return blockBuilder.build();
@@ -606,30 +606,12 @@ public class TestPositionsAppender
         }
     }
 
-    private static class BlockView
+    private record BlockView(Block block, IntArrayList positions)
     {
-        private final Block block;
-        private final IntArrayList positions;
-
-        private BlockView(Block block, IntArrayList positions)
+        private BlockView
         {
-            this.block = requireNonNull(block, "block is null");
-            this.positions = requireNonNull(positions, "positions is null");
-        }
-
-        public Block getBlock()
-        {
-            return block;
-        }
-
-        public IntArrayList getPositions()
-        {
-            return positions;
-        }
-
-        public void appendTo(PositionsAppender positionsAppender)
-        {
-            positionsAppender.append(getPositions(), getBlock());
+            requireNonNull(block, "block is null");
+            requireNonNull(positions, "positions is null");
         }
     }
 
