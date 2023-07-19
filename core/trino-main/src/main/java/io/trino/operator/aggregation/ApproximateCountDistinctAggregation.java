@@ -16,8 +16,8 @@ package io.trino.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.trino.operator.aggregation.state.HyperLogLogState;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -52,7 +52,7 @@ public final class ApproximateCountDistinctAggregation
     @InputFunction
     public static void input(
             @AggregationState HyperLogLogState state,
-            @BlockPosition @SqlType("unknown") Block block,
+            @BlockPosition @SqlType("unknown") ValueBlock block,
             @BlockIndex int index,
             @SqlType(StandardTypes.DOUBLE) double maxStandardError)
     {

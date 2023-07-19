@@ -55,7 +55,7 @@ public class RowBlock
     /**
      * Create a row block directly from columnar nulls and field blocks.
      */
-    public static Block fromFieldBlocks(int positionCount, Optional<boolean[]> rowIsNullOptional, Block[] fieldBlocks)
+    public static RowBlock fromFieldBlocks(int positionCount, Optional<boolean[]> rowIsNullOptional, Block[] fieldBlocks)
     {
         boolean[] rowIsNull = rowIsNullOptional.orElse(null);
         int[] fieldBlockOffsets = null;

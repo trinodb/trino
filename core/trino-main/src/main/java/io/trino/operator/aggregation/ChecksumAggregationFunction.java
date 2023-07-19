@@ -17,8 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.operator.aggregation.state.NullableLongState;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -36,7 +36,7 @@ import io.trino.spi.function.TypeParameter;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 
@@ -55,10 +55,10 @@ public final class ChecksumAggregationFunction
             @OperatorDependency(
                     operator = OperatorType.XX_HASH_64,
                     argumentTypes = "T",
-                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL))
+                    convention = @Convention(arguments = VALUE_BLOCK_POSITION_NOT_NULL, result = FAIL_ON_NULL))
                     MethodHandle xxHash64Operator,
             @AggregationState NullableLongState state,
-            @SqlNullable @BlockPosition @SqlType("T") Block block,
+            @SqlNullable @BlockPosition @SqlType("T") ValueBlock block,
             @BlockIndex int position)
             throws Throwable
     {

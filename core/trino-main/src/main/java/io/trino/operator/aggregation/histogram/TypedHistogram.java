@@ -17,9 +17,9 @@ import com.google.common.base.Throwables;
 import com.google.common.primitives.Ints;
 import io.trino.operator.VariableWidthData;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -237,7 +237,7 @@ public final class TypedHistogram
         BIGINT.writeLong(valueBuilder, (long) LONG_HANDLE.get(records, recordOffset + recordCountOffset));
     }
 
-    public void add(int groupId, Block block, int position, long count)
+    public void add(int groupId, ValueBlock block, int position, long count)
     {
         checkArgument(!block.isNull(position), "value must not be null");
         checkArgument(groupId == 0 || groupRecordIndex != null, "groupId must be zero when grouping is not enabled");
@@ -275,7 +275,7 @@ public final class TypedHistogram
         }
     }
 
-    private int matchInVector(int groupId, Block block, int position, int vectorStartBucket, long repeated, long controlVector)
+    private int matchInVector(int groupId, ValueBlock block, int position, int vectorStartBucket, long repeated, long controlVector)
     {
         long controlMatches = match(controlVector, repeated);
         while (controlMatches != 0) {
@@ -306,7 +306,7 @@ public final class TypedHistogram
         LONG_HANDLE.set(records, countOffset, (long) LONG_HANDLE.get(records, countOffset) + increment);
     }
 
-    private void insert(int index, int groupId, Block block, int position, long count, byte hashPrefix)
+    private void insert(int index, int groupId, ValueBlock block, int position, long count, byte hashPrefix)
     {
         setControl(index, hashPrefix);
 
@@ -455,7 +455,7 @@ public final class TypedHistogram
         }
     }
 
-    private long valueHashCode(int groupId, Block right, int rightPosition)
+    private long valueHashCode(int groupId, ValueBlock right, int rightPosition)
     {
         try {
             long valueHash = (long) hashBlock.invokeExact(right, rightPosition);
@@ -467,7 +467,7 @@ public final class TypedHistogram
         }
     }
 
-    private boolean valueNotDistinctFrom(int leftPosition, Block right, int rightPosition, int rightGroupId)
+    private boolean valueNotDistinctFrom(int leftPosition, ValueBlock right, int rightPosition, int rightGroupId)
     {
         byte[] leftRecords = getRecords(leftPosition);
         int leftRecordOffset = getRecordOffset(leftPosition);

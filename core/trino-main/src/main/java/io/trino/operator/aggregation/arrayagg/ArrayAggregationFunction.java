@@ -14,8 +14,8 @@
 package io.trino.operator.aggregation.arrayagg;
 
 import io.trino.spi.block.ArrayBlockBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -39,7 +39,7 @@ public final class ArrayAggregationFunction
     @TypeParameter("T")
     public static void input(
             @AggregationState("T") ArrayAggregationState state,
-            @SqlNullable @BlockPosition @SqlType("T") Block value,
+            @SqlNullable @BlockPosition @SqlType("T") ValueBlock value,
             @BlockIndex int position)
     {
         state.add(value, position);

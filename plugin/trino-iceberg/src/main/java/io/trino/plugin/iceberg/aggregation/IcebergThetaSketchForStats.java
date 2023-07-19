@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.iceberg.aggregation;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -53,7 +53,7 @@ public final class IcebergThetaSketchForStats
 
     @InputFunction
     @TypeParameter("T")
-    public static void input(@TypeParameter("T") Type type, @AggregationState DataSketchState state, @BlockPosition @SqlType("T") Block block, @BlockIndex int index)
+    public static void input(@TypeParameter("T") Type type, @AggregationState DataSketchState state, @BlockPosition @SqlType("T") ValueBlock block, @BlockIndex int index)
     {
         verify(!block.isNull(index), "Input function is not expected to be called on a NULL input");
 

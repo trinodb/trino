@@ -38,6 +38,7 @@ import io.trino.operator.annotations.TypeImplementationDependency;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationState;
@@ -388,7 +389,7 @@ public class TestAnnotationEngineForAggregates
         @InputFunction
         public static void input(
                 @AggregationState NullableDoubleState state,
-                @BlockPosition @SqlType(DOUBLE) Block value,
+                @BlockPosition @SqlType(DOUBLE) ValueBlock value,
                 @BlockIndex int id)
         {
             // noop this is only for annotation testing puproses

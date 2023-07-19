@@ -17,9 +17,9 @@ import com.google.common.base.Throwables;
 import com.google.common.primitives.Ints;
 import io.trino.operator.VariableWidthData;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -285,7 +285,7 @@ public abstract class AbstractMapAggregationState
         }
     }
 
-    protected void add(int groupId, Block keyBlock, int keyPosition, Block valueBlock, int valuePosition)
+    protected void add(int groupId, ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
     {
         checkArgument(!keyBlock.isNull(keyPosition), "key must not be null");
         checkArgument(groupId == 0 || groupRecordIndex != null, "groupId must be zero when grouping is not enabled");
@@ -322,7 +322,7 @@ public abstract class AbstractMapAggregationState
         }
     }
 
-    private int matchInVector(int groupId, Block block, int position, int vectorStartBucket, long repeated, long controlVector)
+    private int matchInVector(int groupId, ValueBlock block, int position, int vectorStartBucket, long repeated, long controlVector)
     {
         long controlMatches = match(controlVector, repeated);
         while (controlMatches != 0) {
@@ -346,7 +346,7 @@ public abstract class AbstractMapAggregationState
         return bucket(vectorStartBucket + slot);
     }
 
-    private void insert(int index, int groupId, Block keyBlock, int keyPosition, Block valueBlock, int valuePosition, byte hashPrefix)
+    private void insert(int index, int groupId, ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition, byte hashPrefix)
     {
         setControl(index, hashPrefix);
 
@@ -499,7 +499,7 @@ public abstract class AbstractMapAggregationState
         }
     }
 
-    private long keyHashCode(int groupId, Block right, int rightPosition)
+    private long keyHashCode(int groupId, ValueBlock right, int rightPosition)
     {
         try {
             long valueHash = (long) keyHashBlock.invokeExact(right, rightPosition);
@@ -511,7 +511,7 @@ public abstract class AbstractMapAggregationState
         }
     }
 
-    private boolean keyNotDistinctFrom(int leftPosition, Block right, int rightPosition, int rightGroupId)
+    private boolean keyNotDistinctFrom(int leftPosition, ValueBlock right, int rightPosition, int rightGroupId)
     {
         byte[] leftRecords = getRecords(leftPosition);
         int leftRecordOffset = getRecordOffset(leftPosition);

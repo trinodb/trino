@@ -15,11 +15,11 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +32,7 @@ import static io.trino.operator.aggregation.AggregationFunctionAdapter.Aggregati
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 
 public final class AggregationFunctionAdapter
@@ -52,10 +53,14 @@ public final class AggregationFunctionAdapter
 
     static {
         try {
-            BOOLEAN_TYPE_GETTER = lookup().findVirtual(Type.class, "getBoolean", MethodType.methodType(boolean.class, Block.class, int.class));
-            LONG_TYPE_GETTER = lookup().findVirtual(Type.class, "getLong", MethodType.methodType(long.class, Block.class, int.class));
-            DOUBLE_TYPE_GETTER = lookup().findVirtual(Type.class, "getDouble", MethodType.methodType(double.class, Block.class, int.class));
-            OBJECT_TYPE_GETTER = lookup().findVirtual(Type.class, "getObject", MethodType.methodType(Object.class, Block.class, int.class));
+            BOOLEAN_TYPE_GETTER = lookup().findVirtual(Type.class, "getBoolean", methodType(boolean.class, Block.class, int.class))
+                    .asType(methodType(boolean.class, Type.class, ValueBlock.class, int.class));
+            LONG_TYPE_GETTER = lookup().findVirtual(Type.class, "getLong", methodType(long.class, Block.class, int.class))
+                    .asType(methodType(long.class, Type.class, ValueBlock.class, int.class));
+            DOUBLE_TYPE_GETTER = lookup().findVirtual(Type.class, "getDouble", methodType(double.class, Block.class, int.class))
+                    .asType(methodType(double.class, Type.class, ValueBlock.class, int.class));
+            OBJECT_TYPE_GETTER = lookup().findVirtual(Type.class, "getObject", methodType(Object.class, Block.class, int.class))
+                    .asType(methodType(Object.class, Type.class, ValueBlock.class, int.class));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
@@ -126,6 +131,9 @@ public final class AggregationFunctionAdapter
             int parameterIndex = stateArgumentKinds.size() + (argumentIndex * 2);
             AggregationParameterKind inputArgument = inputArgumentKinds.get(argumentIndex);
             if (inputArgument != INPUT_CHANNEL) {
+                if (inputArgument == BLOCK_INPUT_CHANNEL || inputArgument == NULLABLE_BLOCK_INPUT_CHANNEL) {
+                    checkArgument(ValueBlock.class.isAssignableFrom(inputMethod.type().parameterType(parameterIndex)), "Expected parameter %s to be a ValueBlock", parameterIndex);
+                }
                 continue;
             }
             Type argumentType = boundSignature.getArgumentType(argumentIndex);

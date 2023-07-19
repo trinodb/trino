@@ -15,8 +15,8 @@
 package io.trino.operator.aggregation.histogram;
 
 import io.trino.operator.aggregation.state.AbstractGroupedAccumulatorState;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -50,7 +50,7 @@ public class GroupedHistogramState
     }
 
     @Override
-    public void add(Block block, int position, long count)
+    public void add(ValueBlock block, int position, long count)
     {
         histogram.add(toIntExact(getGroupId()), block, position, count);
     }

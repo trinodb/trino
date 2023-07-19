@@ -19,7 +19,7 @@ import io.trino.operator.ParametricImplementation;
 import io.trino.operator.aggregation.AggregationFromAnnotationsParser.AccumulatorStateDetails;
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
 import io.trino.operator.annotations.ImplementationDependency;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -220,7 +220,7 @@ public class ParametricAggregationImplementation
 
             // block and position works for any type, but if block is annotated with SqlType nativeContainerType, then only types with the
             // specified container type match
-            if (isCurrentBlockPosition && methodDeclaredType.isAssignableFrom(Block.class)) {
+            if (isCurrentBlockPosition && ValueBlock.class.isAssignableFrom(methodDeclaredType)) {
                 continue;
             }
             if (methodDeclaredType.isAssignableFrom(argumentType)) {
