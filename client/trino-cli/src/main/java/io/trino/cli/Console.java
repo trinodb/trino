@@ -63,6 +63,7 @@ import static io.trino.cli.TerminalUtils.closeTerminal;
 import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static io.trino.cli.TerminalUtils.terminalEncoding;
+import static io.trino.cli.Trino.formatCliErrorMessage;
 import static io.trino.client.ClientSession.stripTransactionId;
 import static io.trino.sql.parser.StatementSplitter.Statement;
 import static io.trino.sql.parser.StatementSplitter.isEmptyStatement;
@@ -420,10 +421,7 @@ public class Console
             return success;
         }
         catch (RuntimeException e) {
-            System.err.println("Error running command: " + e.getMessage());
-            if (queryRunner.isDebug()) {
-                e.printStackTrace(System.err);
-            }
+            System.err.println(formatCliErrorMessage(e, queryRunner.isDebug()));
             return false;
         }
     }
