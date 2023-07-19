@@ -199,13 +199,13 @@ public final class MergePartitioningHandle
             this.updateFunction = requireNonNull(updateFunction, "updateFunction is null");
             this.insertColumns = requireNonNull(insertColumns, "insertColumns is null");
             this.updateColumns = requireNonNull(updateColumns, "updateColumns is null");
-            checkArgument(insertFunction.getPartitionCount() == updateFunction.getPartitionCount(), "partition counts must match");
+            checkArgument(insertFunction.partitionCount() == updateFunction.partitionCount(), "partition counts must match");
         }
 
         @Override
-        public int getPartitionCount()
+        public int partitionCount()
         {
-            return insertFunction.getPartitionCount();
+            return insertFunction.partitionCount();
         }
 
         @Override

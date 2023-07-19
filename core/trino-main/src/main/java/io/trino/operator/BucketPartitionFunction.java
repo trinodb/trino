@@ -35,7 +35,7 @@ public class BucketPartitionFunction
     }
 
     @Override
-    public int getPartitionCount()
+    public int partitionCount()
     {
         return partitionCount;
     }

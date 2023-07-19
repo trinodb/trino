@@ -78,7 +78,7 @@ public class RowPositionsAppender
             if (sourceRowBlock.mayHaveNull()) {
                 nonNullPositions = processNullablePositions(positions, sourceRowBlock);
                 hasNullRow |= nonNullPositions.size() < positions.size();
-                hasNonNullRow |= nonNullPositions.size() > 0;
+                hasNonNullRow |= !nonNullPositions.isEmpty();
             }
             else {
                 // the source Block does not have nulls
@@ -230,7 +230,7 @@ public class RowPositionsAppender
         resetSize();
     }
 
-    private boolean allPositionsNull(IntArrayList positions, Block block)
+    private static boolean allPositionsNull(IntArrayList positions, Block block)
     {
         for (int i = 0; i < positions.size(); i++) {
             if (!block.isNull(positions.getInt(i))) {
@@ -256,7 +256,7 @@ public class RowPositionsAppender
         return IntArrayList.wrap(nonNullPositions, nonNullPositionsCount);
     }
 
-    private IntArrayList processNonNullablePositions(IntArrayList positions, RowBlock sourceRowBlock)
+    private static IntArrayList processNonNullablePositions(IntArrayList positions, RowBlock sourceRowBlock)
     {
         int[] nonNullPositions = new int[positions.size()];
         for (int i = 0; i < positions.size(); i++) {

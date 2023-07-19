@@ -31,15 +31,8 @@ class TypedPositionsAppender
 
     TypedPositionsAppender(Type type, int expectedPositions)
     {
-        this(
-                type,
-                type.createBlockBuilder(null, expectedPositions));
-    }
-
-    TypedPositionsAppender(Type type, BlockBuilder blockBuilder)
-    {
         this.type = requireNonNull(type, "type is null");
-        this.blockBuilder = requireNonNull(blockBuilder, "blockBuilder is null");
+        this.blockBuilder = type.createBlockBuilder(null, expectedPositions);
     }
 
     @Override

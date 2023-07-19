@@ -200,7 +200,7 @@ public class Int128PositionsAppender
             newSize = initialEntryCount;
             initialized = true;
         }
-        newSize = Math.max(newSize, capacity);
+        newSize = max(newSize, capacity);
 
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         values = Arrays.copyOf(values, newSize * 2);

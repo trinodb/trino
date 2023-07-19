@@ -35,7 +35,7 @@ public class PagePartitionerPool
      * In normal conditions, in the steady state,
      * the number of free {@link PagePartitioner}s is going to be close to 0.
      * There is a possible case though, where initially big number of concurrent drivers, say 128,
-     * drops to a small number e.g. 32 in a steady state. This could cause a lot of memory
+     * drops to a small number e.g., 32 in a steady state. This could cause a lot of memory
      * to be retained by the unused buffers.
      * To defend against that, {@link #maxFree} limits the number of free buffers,
      * thus limiting unused memory.
