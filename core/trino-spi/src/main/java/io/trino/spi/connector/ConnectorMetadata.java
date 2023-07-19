@@ -286,7 +286,7 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Gets the metadata for all columns that match the specified table prefix.
+     * Gets the metadata for all columns that match the specified table prefix. Columns of views and materialized views are not included.
      *
      * @deprecated use {@link #streamTableColumns} which handles redirected tables
      */
@@ -298,7 +298,7 @@ public interface ConnectorMetadata
 
     /**
      * Gets the metadata for all columns that match the specified table prefix. Redirected table names are included, but
-     * the column metadata for them is not.
+     * the column metadata for them is not. Views and materialized views are not included.
      */
     default Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {

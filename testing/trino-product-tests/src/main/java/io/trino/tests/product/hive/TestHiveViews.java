@@ -91,7 +91,7 @@ public class TestHiveViews
                 .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
 
         // Queries on information_schema.columns also trigger ConnectorMetadata#getViews. Columns from failing_view are
-        // listed too since HiveMetadata#listTableColumns does not ignore views.
+        // listed too since HiveMetadata#listTableColumns does not ignore Hive views.
         assertThat(onTrino().executeQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'test_list_failing_views'"))
                 .containsOnly(
                         row("correct_view", "n_nationkey"),
@@ -141,7 +141,7 @@ public class TestHiveViews
                 .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
 
         // Queries on system.jdbc.columns also trigger ConnectorMetadata#getViews. Columns from failing_view are
-        // listed too since HiveMetadata#listTableColumns does not ignore views.
+        // listed too since HiveMetadata#listTableColumns does not ignore Hive views.
         assertThat(onTrino().executeQuery("SELECT table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views'"))
                 .containsOnly(
                         row("correct_view", "n_nationkey"),
