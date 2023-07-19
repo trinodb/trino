@@ -487,13 +487,7 @@ public class LogicalPlanner
         RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.empty(), session, ImmutableMap.of());
         RelationPlan plan = planner.process(query, null);
 
-        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
-        for (int i = 0; i < plan.getFieldMappings().size(); i++) {
-            if (!plan.getDescriptor().getFieldByIndex(i).isHidden()) {
-                builder.add(plan.getFieldMappings().get(i));
-            }
-        }
-        List<Symbol> visibleFieldMappings = builder.build();
+        List<Symbol> visibleFieldMappings = visibleFields(plan);
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
         Assignments.Builder assignments = Assignments.builder();
