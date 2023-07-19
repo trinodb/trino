@@ -17,7 +17,7 @@ import io.trino.spi.Page;
 
 public interface PartitionFunction
 {
-    int getPartitionCount();
+    int partitionCount();
 
     /**
      * @param page the arguments to bucketing function in order (no extra columns)

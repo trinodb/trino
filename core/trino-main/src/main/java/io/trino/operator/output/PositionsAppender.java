@@ -23,7 +23,7 @@ public interface PositionsAppender
     /**
      * Appends the specified value positionCount times.
      * The result is the same as with using {@link PositionsAppender#append(IntArrayList, Block)} with
-     * positions list [0...positionCount -1] but with possible performance optimizations.
+     * a position list [0...positionCount -1] but with possible performance optimizations.
      */
     void appendRle(Block value, int rlePositionCount);
 

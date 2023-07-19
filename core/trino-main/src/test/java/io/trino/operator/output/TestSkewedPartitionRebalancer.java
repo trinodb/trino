@@ -28,14 +28,14 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestSkewedPartitionRebalancer
+class TestSkewedPartitionRebalancer
 {
     private static final long MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD = DataSize.of(1, MEGABYTE).toBytes();
     private static final long MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = DataSize.of(50, MEGABYTE).toBytes();
     private static final int MAX_REBALANCED_PARTITIONS = 30;
 
     @Test
-    public void testRebalanceWithSkewness()
+    void testRebalanceWithSkewness()
     {
         int partitionCount = 3;
         SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
@@ -51,7 +51,7 @@ public class TestSkewedPartitionRebalancer
         rebalancer.addPartitionRowCount(1, 1000);
         rebalancer.addPartitionRowCount(2, 1000);
         rebalancer.addDataProcessed(DataSize.of(40, MEGABYTE).toBytes());
-        // No rebalancing will happen since data processed is less than 50MB limit
+        // No rebalancing will happen since the data processed is less than 50MB
         rebalancer.rebalance();
 
         assertThat(getPartitionPositions(function, 17))
@@ -96,7 +96,7 @@ public class TestSkewedPartitionRebalancer
     }
 
     @Test
-    public void testRebalanceWithoutSkewness()
+    void testRebalanceWithoutSkewness()
     {
         int partitionCount = 6;
         SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
@@ -128,7 +128,7 @@ public class TestSkewedPartitionRebalancer
     }
 
     @Test
-    public void testNoRebalanceWhenDataWrittenIsLessThanTheRebalanceLimit()
+    void testNoRebalanceWhenDataWrittenIsLessThanTheRebalanceLimit()
     {
         int partitionCount = 3;
         SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
@@ -157,7 +157,7 @@ public class TestSkewedPartitionRebalancer
     }
 
     @Test
-    public void testNoRebalanceWhenDataWrittenByThePartitionIsLessThanWriterScalingMinDataProcessed()
+    void testNoRebalanceWhenDataWrittenByThePartitionIsLessThanWriterScalingMinDataProcessed()
     {
         int partitionCount = 3;
         long minPartitionDataProcessedRebalanceThreshold = DataSize.of(50, MEGABYTE).toBytes();
@@ -187,7 +187,7 @@ public class TestSkewedPartitionRebalancer
     }
 
     @Test
-    public void testRebalancePartitionToSingleTaskInARebalancingLoop()
+    void testRebalancePartitionToSingleTaskInARebalancingLoop()
     {
         int partitionCount = 3;
         SkewedPartitionRebalancer rebalancer = new SkewedPartitionRebalancer(
@@ -204,7 +204,7 @@ public class TestSkewedPartitionRebalancer
         rebalancer.addPartitionRowCount(2, 0);
 
         rebalancer.addDataProcessed(DataSize.of(60, MEGABYTE).toBytes());
-        // rebalancing will only happen to single task even though two tasks are available
+        // rebalancing will only happen to a single task even though two tasks are available
         rebalancer.rebalance();
 
         assertThat(getPartitionPositions(function, 17))
@@ -344,10 +344,10 @@ public class TestSkewedPartitionRebalancer
                 .containsExactly(ImmutableList.of(0, 1), ImmutableList.of(1, 0), ImmutableList.of(2));
     }
 
-    private List<List<Integer>> getPartitionPositions(PartitionFunction function, int maxPosition)
+    private static List<List<Integer>> getPartitionPositions(PartitionFunction function, int maxPosition)
     {
         List<List<Integer>> partitionPositions = new ArrayList<>();
-        for (int partition = 0; partition < function.getPartitionCount(); partition++) {
+        for (int partition = 0; partition < function.partitionCount(); partition++) {
             partitionPositions.add(new ArrayList<>());
         }
 
@@ -364,22 +364,9 @@ public class TestSkewedPartitionRebalancer
         return SequencePageBuilder.createSequencePage(ImmutableList.of(BIGINT), 100, 0);
     }
 
-    private static class TestPartitionFunction
+    private record TestPartitionFunction(int partitionCount)
             implements PartitionFunction
     {
-        private final int partitionCount;
-
-        private TestPartitionFunction(int partitionCount)
-        {
-            this.partitionCount = partitionCount;
-        }
-
-        @Override
-        public int getPartitionCount()
-        {
-            return partitionCount;
-        }
-
         @Override
         public int getPartition(Page page, int position)
         {
