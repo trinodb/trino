@@ -3755,6 +3755,15 @@ public class HiveMetadata
     {
         requireNonNull(session, "session is null");
         requireNonNull(tableName, "tableName is null");
+
+        Optional<String> icebergCatalogName = getIcebergCatalogName(session);
+        Optional<String> deltaLakeCatalogName = getDeltaLakeCatalogName(session);
+        Optional<String> hudiCatalogName = getHudiCatalogName(session);
+
+        if (icebergCatalogName.isEmpty() && deltaLakeCatalogName.isEmpty() && hudiCatalogName.isEmpty()) {
+            return Optional.empty();
+        }
+
         if (isHiveSystemSchema(tableName.getSchemaName())) {
             return Optional.empty();
         }
@@ -3765,9 +3774,10 @@ public class HiveMetadata
             return Optional.empty();
         }
 
-        Optional<CatalogSchemaTableName> catalogSchemaTableName = redirectTableToIceberg(session, table.get())
-                .or(() -> redirectTableToDeltaLake(session, table.get()))
-                .or(() -> redirectTableToHudi(session, table.get()));
+        Optional<CatalogSchemaTableName> catalogSchemaTableName = Optional.<CatalogSchemaTableName>empty()
+                .or(() -> redirectTableToIceberg(icebergCatalogName, table.get()))
+                .or(() -> redirectTableToDeltaLake(deltaLakeCatalogName, table.get()))
+                .or(() -> redirectTableToHudi(hudiCatalogName, table.get()));
 
         // stitch back the suffix we cut off.
         return catalogSchemaTableName.map(name -> new CatalogSchemaTableName(
@@ -3777,9 +3787,8 @@ public class HiveMetadata
                         name.getSchemaTableName().getTableName() + tableNameSplit.getSuffix().orElse(""))));
     }
 
-    private Optional<CatalogSchemaTableName> redirectTableToIceberg(ConnectorSession session, Table table)
+    private Optional<CatalogSchemaTableName> redirectTableToIceberg(Optional<String> targetCatalogName, Table table)
     {
-        Optional<String> targetCatalogName = getIcebergCatalogName(session);
         if (targetCatalogName.isEmpty()) {
             return Optional.empty();
         }
@@ -3789,9 +3798,8 @@ public class HiveMetadata
         return Optional.empty();
     }
 
-    private Optional<CatalogSchemaTableName> redirectTableToDeltaLake(ConnectorSession session, Table table)
+    private Optional<CatalogSchemaTableName> redirectTableToDeltaLake(Optional<String> targetCatalogName, Table table)
     {
-        Optional<String> targetCatalogName = getDeltaLakeCatalogName(session);
         if (targetCatalogName.isEmpty()) {
             return Optional.empty();
         }
@@ -3801,9 +3809,8 @@ public class HiveMetadata
         return Optional.empty();
     }
 
-    private Optional<CatalogSchemaTableName> redirectTableToHudi(ConnectorSession session, Table table)
+    private Optional<CatalogSchemaTableName> redirectTableToHudi(Optional<String> targetCatalogName, Table table)
     {
-        Optional<String> targetCatalogName = getHudiCatalogName(session);
         if (targetCatalogName.isEmpty()) {
             return Optional.empty();
         }
