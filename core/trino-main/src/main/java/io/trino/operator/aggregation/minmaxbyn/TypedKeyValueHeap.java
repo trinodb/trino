@@ -16,8 +16,8 @@ package io.trino.operator.aggregation.minmaxbyn;
 import com.google.common.base.Throwables;
 import io.airlift.slice.SizeOf;
 import io.trino.operator.VariableWidthData;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import jakarta.annotation.Nullable;
@@ -227,14 +227,7 @@ public final class TypedKeyValueHeap
         }
     }
 
-    public void addAll(Block keyBlock, Block valueBlock)
-    {
-        for (int i = 0; i < keyBlock.getPositionCount(); i++) {
-            add(keyBlock, i, valueBlock, i);
-        }
-    }
-
-    public void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition)
+    public void add(ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
     {
         checkArgument(!keyBlock.isNull(keyPosition));
         if (positionCount == capacity) {
@@ -274,7 +267,7 @@ public final class TypedKeyValueHeap
                 });
     }
 
-    private void set(int index, Block keyBlock, int keyPosition, Block valueBlock, int valuePosition)
+    private void set(int index, ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
     {
         int recordOffset = getRecordOffset(index);
 
@@ -394,7 +387,7 @@ public final class TypedKeyValueHeap
         }
     }
 
-    private boolean shouldConsiderValue(Block right, int rightPosition)
+    private boolean shouldConsiderValue(ValueBlock right, int rightPosition)
     {
         byte[] leftFixedRecordChunk = fixedChunk;
         int leftRecordOffset = getRecordOffset(0);

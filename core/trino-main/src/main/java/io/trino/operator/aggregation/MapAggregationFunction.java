@@ -13,9 +13,9 @@
  */
 package io.trino.operator.aggregation;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -39,9 +39,9 @@ public final class MapAggregationFunction
     @TypeParameter("V")
     public static void input(
             @AggregationState({"K", "V"}) MapAggregationState state,
-            @BlockPosition @SqlType("K") Block key,
+            @BlockPosition @SqlType("K") ValueBlock key,
             @BlockIndex int keyPosition,
-            @SqlNullable @BlockPosition @SqlType("V") Block value,
+            @SqlNullable @BlockPosition @SqlType("V") ValueBlock value,
             @BlockIndex int valuePosition)
     {
         state.add(key, keyPosition, value, valuePosition);

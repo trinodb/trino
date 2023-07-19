@@ -23,6 +23,7 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.ArrayType;
 
@@ -153,7 +154,7 @@ public abstract class AbstractListaggAggregationState
     }
 
     @Override
-    public void add(Block block, int position)
+    public void add(ValueBlock block, int position)
     {
         checkArgument(!block.isNull(position), "element is null");
 
@@ -231,9 +232,10 @@ public abstract class AbstractListaggAggregationState
         boolean showOverflowEntryCount = BOOLEAN.getBoolean(fields.get(3), index);
         initialize(separator, overflowError, overflowFiller, showOverflowEntryCount);
 
-        Block values = new ArrayType(VARCHAR).getObject(fields.get(4), index);
-        for (int i = 0; i < values.getPositionCount(); i++) {
-            add(values, i);
+        Block array = new ArrayType(VARCHAR).getObject(fields.get(4), index);
+        ValueBlock arrayValues = array.getUnderlyingValueBlock();
+        for (int i = 0; i < array.getPositionCount(); i++) {
+            add(arrayValues, arrayValues.getUnderlyingValuePosition(i));
         }
     }
 

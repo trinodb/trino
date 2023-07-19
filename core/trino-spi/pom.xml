@@ -781,6 +781,21 @@
                                     <old>method io.trino.spi.block.Block io.trino.spi.type.TypeUtils::writeNativeValue(io.trino.spi.type.Type, java.lang.Object)</old>
                                     <new>method io.trino.spi.block.ValueBlock io.trino.spi.type.TypeUtils::writeNativeValue(io.trino.spi.type.Type, java.lang.Object)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlock::fromElementBlock(int, java.util.Optional&lt;boolean[]&gt;, int[], io.trino.spi.block.Block)</old>
+                                    <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::fromElementBlock(int, java.util.Optional&lt;boolean[]&gt;, int[], io.trino.spi.block.Block)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::fromFieldBlocks(int, java.util.Optional&lt;boolean[]&gt;, io.trino.spi.block.Block[])</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::fromFieldBlocks(int, java.util.Optional&lt;boolean[]&gt;, io.trino.spi.block.Block[])</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.type.MapType::createBlockFromKeyValue(java.util.Optional&lt;boolean[]&gt;, int[], io.trino.spi.block.Block, io.trino.spi.block.Block)</old>
+                                    <new>method io.trino.spi.block.MapBlock io.trino.spi.type.MapType::createBlockFromKeyValue(java.util.Optional&lt;boolean[]&gt;, int[], io.trino.spi.block.Block, io.trino.spi.block.Block)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

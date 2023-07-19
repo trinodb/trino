@@ -13,8 +13,8 @@
  */
 package io.trino.operator.aggregation;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.type.Type;
 
@@ -65,7 +65,7 @@ public class GroupedMapAggregationState
     }
 
     @Override
-    public void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition)
+    public void add(ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
     {
         add(groupId, keyBlock, keyPosition, valueBlock, valuePosition);
     }

@@ -15,8 +15,8 @@ package io.trino.operator.aggregation.arrayagg;
 
 import com.google.common.base.Throwables;
 import io.trino.operator.VariableWidthData;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -154,7 +154,7 @@ public class FlatArrayBuilder
         LONG_HANDLE.set(records, recordOffset + recordNextIndexOffset, nextIndex);
     }
 
-    public void add(Block block, int position)
+    public void add(ValueBlock block, int position)
     {
         if (size == capacity) {
             growCapacity();

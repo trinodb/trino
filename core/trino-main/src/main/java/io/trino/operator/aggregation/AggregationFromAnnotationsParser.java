@@ -280,7 +280,7 @@ public final class AggregationFromAnnotationsParser
                     expectedParameterTypes.stream().map(Class::getSimpleName).collect(toImmutableList()),
                     inputFunction);
 
-            // g input functions did not require parameters to be fully annotated
+            // input functions did not require parameters to be fully annotated
             if (stateDetails.size() > 1) {
                 List<List<Annotation>> parameterAnnotations = getNonDependencyParameterAnnotations(inputFunction)
                         .subList(0, stateDetails.size());

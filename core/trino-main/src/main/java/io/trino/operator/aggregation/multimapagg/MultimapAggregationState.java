@@ -13,8 +13,8 @@
  */
 package io.trino.operator.aggregation.multimapagg;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 
@@ -26,7 +26,7 @@ import io.trino.spi.function.AccumulatorStateMetadata;
 public interface MultimapAggregationState
         extends AccumulatorState
 {
-    void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition);
+    void add(ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition);
 
     void merge(MultimapAggregationState other);
 
