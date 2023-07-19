@@ -257,41 +257,6 @@ public class RunLengthEncodedBlock
     }
 
     @Override
-    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
-    {
-        checkReadablePosition(this, position);
-        return value.bytesEqual(0, offset, otherSlice, otherOffset, length);
-    }
-
-    @Override
-    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        checkReadablePosition(this, position);
-        return value.bytesCompare(0, offset, length, otherSlice, otherOffset, otherLength);
-    }
-
-    @Override
-    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
-    {
-        checkReadablePosition(this, position);
-        return value.equals(0, offset, otherBlock, otherPosition, otherOffset, length);
-    }
-
-    @Override
-    public long hash(int position, int offset, int length)
-    {
-        checkReadablePosition(this, position);
-        return value.hash(0, offset, length);
-    }
-
-    @Override
-    public int compareTo(int leftPosition, int leftOffset, int leftLength, Block rightBlock, int rightPosition, int rightOffset, int rightLength)
-    {
-        checkReadablePosition(this, leftPosition);
-        return value.compareTo(0, leftOffset, leftLength, rightBlock, rightPosition, rightOffset, rightLength);
-    }
-
-    @Override
     public ValueBlock getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);

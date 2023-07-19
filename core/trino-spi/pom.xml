@@ -810,6 +810,87 @@
                                     <oldVisibility>package</oldVisibility>
                                     <newVisibility>public</newVisibility>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.Block::bytesCompare(int, int, int, io.airlift.slice.Slice, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.Block::bytesEqual(int, int, io.airlift.slice.Slice, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.Block::compareTo(int, int, int, io.trino.spi.block.Block, int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.Block::equals(int, int, io.trino.spi.block.Block, int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Block::hash(int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.DictionaryBlock::bytesCompare(int, int, int, io.airlift.slice.Slice, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.DictionaryBlock::bytesEqual(int, int, io.airlift.slice.Slice, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.DictionaryBlock::compareTo(int, int, int, io.trino.spi.block.Block, int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.DictionaryBlock::equals(int, int, io.trino.spi.block.Block, int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.DictionaryBlock::hash(int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.LazyBlock::bytesCompare(int, int, int, io.airlift.slice.Slice, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.LazyBlock::bytesEqual(int, int, io.airlift.slice.Slice, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.LazyBlock::compareTo(int, int, int, io.trino.spi.block.Block, int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.LazyBlock::equals(int, int, io.trino.spi.block.Block, int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.LazyBlock::hash(int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.RunLengthEncodedBlock::bytesCompare(int, int, int, io.airlift.slice.Slice, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.RunLengthEncodedBlock::bytesEqual(int, int, io.airlift.slice.Slice, int, int)</old>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.RunLengthEncodedBlock::compareTo(int, int, int, io.trino.spi.block.Block, int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.RunLengthEncodedBlock::equals(int, int, io.trino.spi.block.Block, int, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.RunLengthEncodedBlock::hash(int, int, int)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

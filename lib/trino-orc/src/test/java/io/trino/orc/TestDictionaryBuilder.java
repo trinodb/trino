@@ -47,12 +47,5 @@ public class TestDictionaryBuilder
         {
             super(positionCount, slice, offsets, Optional.of(valueIsNull));
         }
-
-        @Override
-        public long hash(int position, int offset, int length)
-        {
-            // return 0 to hash to the reserved null position which is zero
-            return 0;
-        }
     }
 }

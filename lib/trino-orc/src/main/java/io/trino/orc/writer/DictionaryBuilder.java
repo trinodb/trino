@@ -14,10 +14,10 @@
 package io.trino.orc.writer;
 
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.XxHash64;
 import io.trino.array.IntBigArray;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
 
 import java.util.Arrays;
@@ -86,7 +86,7 @@ public class DictionaryBuilder
                 blockPositionByHash.sizeOf();
     }
 
-    public Block getElementBlock()
+    public VariableWidthBlock getElementBlock()
     {
         boolean[] isNull = new boolean[entryCount];
         isNull[NULL_POSITION] = true;
@@ -103,7 +103,7 @@ public class DictionaryBuilder
         Arrays.fill(offsets, 0);
     }
 
-    public int putIfAbsent(Block block, int position)
+    public int putIfAbsent(VariableWidthBlock block, int position)
     {
         requireNonNull(block, "block must not be null");
 
@@ -131,11 +131,14 @@ public class DictionaryBuilder
     /**
      * Get slot position of the element at {@code position} of {@code block}
      */
-    private long getHashPositionOfElement(Block block, int position)
+    private long getHashPositionOfElement(VariableWidthBlock block, int position)
     {
         checkArgument(!block.isNull(position), "position is null");
+        Slice rawSlice = block.getRawSlice();
+        int rawSliceOffset = block.getRawSliceOffset(position);
         int length = block.getSliceLength(position);
-        long hashPosition = getMaskedHash(block.hash(position, 0, length));
+
+        long hashPosition = getMaskedHash(XxHash64.hash(rawSlice, rawSliceOffset, length));
         while (true) {
             int entryPosition = blockPositionByHash.get(hashPosition);
             if (entryPosition == EMPTY_SLOT) {
@@ -144,7 +147,7 @@ public class DictionaryBuilder
             }
             int entryOffset = offsets[entryPosition];
             int entryLength = offsets[entryPosition + 1] - entryOffset;
-            if (entryLength == length && block.bytesEqual(position, 0, sliceOutput.getUnderlyingSlice(), entryOffset, entryLength)) {
+            if (rawSlice.equals(rawSliceOffset, length, sliceOutput.getUnderlyingSlice(), entryOffset, entryLength)) {
                 // Already has this element
                 return hashPosition;
             }
@@ -153,7 +156,7 @@ public class DictionaryBuilder
         }
     }
 
-    private int addNewElement(long hashPosition, Block block, int position)
+    private int addNewElement(long hashPosition, VariableWidthBlock block, int position)
     {
         checkArgument(!block.isNull(position), "position is null");
 
