@@ -257,6 +257,7 @@ import static io.trino.plugin.hive.ViewReaderUtil.createViewReader;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.acid.AcidTransaction.forCreateTable;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
@@ -614,7 +615,24 @@ public class HiveMetadata
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hive table '%s'", tableName));
         }
 
-        if (!translateHiveViews && isHiveOrPrestoView(table)) {
+        boolean isTrinoView = isPrestoView(table);
+        boolean isHiveView = !isTrinoView && isHiveOrPrestoView(table);
+        boolean isTrinoMaterializedView = isTrinoMaterializedView(table);
+        if (isHiveView && translateHiveViews) {
+            // Produce metadata for a (translated) Hive view as if it was a table. This is incorrect from ConnectorMetadata.streamTableColumns
+            // perspective, but is done on purpose to keep information_schema.columns working.
+            // Because of fallback in ThriftHiveMetastoreClient.getAllViews, this method may return Trino/Presto views only,
+            // so HiveMetadata.getViews may fail to return Hive views.
+        }
+        else if (isHiveView) {
+            // When Hive view translation is not enabled, a Hive view is currently treated inconsistently
+            //  - getView treats this as an unusable view (fails instead of returning Optional.empty)
+            //  - getTableHandle treats this as a table (returns non-null)
+            // In any case, returning metadata is not useful.
+            throw new TableNotFoundException(tableName);
+        }
+        else if (isTrinoView || isTrinoMaterializedView) {
+            // streamTableColumns should not include views and materialized views
             throw new TableNotFoundException(tableName);
         }
 
@@ -837,6 +855,7 @@ public class HiveMetadata
             return Stream.empty();
         }
         catch (TableNotFoundException e) {
+            // it is not a table (e.g. it's a view) (TODO remove exception-driven logic for this case) OR
             // table disappeared during listing operation
             return Stream.empty();
         }
