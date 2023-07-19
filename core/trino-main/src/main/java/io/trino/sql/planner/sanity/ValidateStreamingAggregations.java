@@ -49,7 +49,7 @@ public class ValidateStreamingAggregations
             PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
- WarningCollector warningCollector)
+            WarningCollector warningCollector)
     {
         planNode.accept(new Visitor(session, plannerContext, typeAnalyzer, types), null);
     }
