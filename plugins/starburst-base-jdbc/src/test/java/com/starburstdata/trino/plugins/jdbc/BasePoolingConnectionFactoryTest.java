@@ -12,12 +12,10 @@ package com.starburstdata.trino.plugins.jdbc;
 import io.airlift.units.Duration;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMapping;
 import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
-import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import org.testng.annotations.Test;
@@ -52,19 +50,9 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestPoolingConnectionFactory
+public abstract class BasePoolingConnectionFactoryTest
 {
-    private final IdentityCacheMapping identityCacheMapping;
-
-    public TestPoolingConnectionFactory()
-    {
-        this(new ExtraCredentialsBasedIdentityCacheMapping(new ExtraCredentialConfig().setUserCredentialName("user").setPasswordCredentialName("password")));
-    }
-
-    public TestPoolingConnectionFactory(IdentityCacheMapping identityCacheMapping)
-    {
-        this.identityCacheMapping = identityCacheMapping;
-    }
+    protected abstract IdentityCacheMapping getIdentityCacheMapping();
 
     @Test(timeOut = 60_000)
     public void testPoolingConnectionFactory()
@@ -152,7 +140,7 @@ public class TestPoolingConnectionFactory
                         return Optional.of("password");
                     }
                 }),
-                identityCacheMapping);
+                getIdentityCacheMapping());
     }
 
     private static class TestConnection
