@@ -63,9 +63,9 @@ public class ValidateStreamingAggregations
         private final TypeProvider types;
 
         private Visitor(Session session,
-            PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
-            TypeProvider types)
+                PlannerContext plannerContext,
+                TypeAnalyzer typeAnalyzer,
+                TypeProvider types)
         {
             this.session = session;
             this.plannerContext = plannerContext;
