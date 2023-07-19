@@ -18,7 +18,7 @@ import org.testng.annotations.Test;
 
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;
-import static org.apache.ignite.IgniteJdbcDriver.URL_PREFIX;
+import static org.apache.ignite.internal.jdbc.thin.JdbcThinUtils.URL_PREFIX;
 
 public class TestIgniteJdbcConfig
 {
