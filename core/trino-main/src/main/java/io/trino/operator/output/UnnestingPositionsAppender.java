@@ -132,7 +132,7 @@ public class UnnestingPositionsAppender
         }
     }
 
-    private IntArrayList getDictionaryPositions(IntArrayList positions, DictionaryBlock block)
+    private static IntArrayList getDictionaryPositions(IntArrayList positions, DictionaryBlock block)
     {
         int[] positionArray = new int[positions.size()];
         for (int i = 0; i < positions.size(); i++) {
@@ -226,7 +226,7 @@ public class UnnestingPositionsAppender
             else {
                 newSize = initialEntryCount;
             }
-            newSize = Math.max(newSize, capacity);
+            newSize = max(newSize, capacity);
 
             dictionaryIds = IntArrays.ensureCapacity(dictionaryIds, newSize, positionCount);
         }

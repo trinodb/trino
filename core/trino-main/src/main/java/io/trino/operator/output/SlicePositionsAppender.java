@@ -51,7 +51,7 @@ public class SlicePositionsAppender
 
     private boolean hasNullValue;
     private boolean hasNonNullValue;
-    // it is assumed that the offsets array is one position longer than the valueIsNull array
+    // it is assumed that the offset array is one position longer than the valueIsNull array
     private boolean[] valueIsNull = new boolean[0];
     private int[] offsets = new int[1];
 
