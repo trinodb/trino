@@ -102,7 +102,6 @@ import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalPropertie
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
-import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
@@ -1019,14 +1018,12 @@ public class TrinoGlueCatalog
     }
 
     @Override
-    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName, String hiveCatalogName)
     {
         requireNonNull(session, "session is null");
         requireNonNull(tableName, "tableName is null");
-        Optional<String> targetCatalogName = getHiveCatalogName(session);
-        if (targetCatalogName.isEmpty()) {
-            return Optional.empty();
-        }
+        requireNonNull(hiveCatalogName, "hiveCatalogName is null");
+
         if (isHiveSystemSchema(tableName.getSchemaName())) {
             return Optional.empty();
         }
@@ -1044,7 +1041,7 @@ public class TrinoGlueCatalog
         }
         if (!isIcebergTable(getTableParameters(table.get()))) {
             // After redirecting, use the original table name, with "$partitions" and similar suffixes
-            return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, tableName));
+            return Optional.of(new CatalogSchemaTableName(hiveCatalogName, tableName));
         }
         return Optional.empty();
     }
