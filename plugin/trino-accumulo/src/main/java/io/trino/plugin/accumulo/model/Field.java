@@ -19,7 +19,6 @@ import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.Types;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.Type;
@@ -27,8 +26,6 @@ import io.trino.spi.type.VarcharType;
 
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.util.Arrays;
-import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -45,7 +42,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
@@ -67,57 +63,6 @@ public class Field
         this.value = convert(nativeValue, type);
         this.type = requireNonNull(type, "type is null");
         this.indexed = indexed;
-    }
-
-    public Field(Field field)
-    {
-        this.type = field.type;
-        this.indexed = false;
-
-        if (Types.isArrayType(this.type) || Types.isMapType(this.type)) {
-            this.value = field.value;
-            return;
-        }
-
-        if (type.equals(BIGINT)) {
-            this.value = field.getLong();
-        }
-        else if (type.equals(BOOLEAN)) {
-            this.value = field.getBoolean();
-        }
-        else if (type.equals(DATE)) {
-            this.value = field.getDate();
-        }
-        else if (type.equals(DOUBLE)) {
-            this.value = field.getDouble();
-        }
-        else if (type.equals(INTEGER)) {
-            this.value = field.getInt();
-        }
-        else if (type.equals(REAL)) {
-            this.value = field.getFloat();
-        }
-        else if (type.equals(SMALLINT)) {
-            this.value = field.getShort();
-        }
-        else if (type.equals(TIME_MILLIS)) {
-            this.value = new Time(field.getTime().getTime());
-        }
-        else if (type.equals(TIMESTAMP_MILLIS)) {
-            this.value = new Timestamp(field.getTimestamp().getTime());
-        }
-        else if (type.equals(TINYINT)) {
-            this.value = field.getByte();
-        }
-        else if (type.equals(VARBINARY)) {
-            this.value = Arrays.copyOf(field.getVarbinary(), field.getVarbinary().length);
-        }
-        else if (type.equals(VARCHAR)) {
-            this.value = field.getVarchar();
-        }
-        else {
-            throw new TrinoException(NOT_SUPPORTED, "Unsupported type " + type);
-        }
     }
 
     public Type getType()
@@ -208,59 +153,6 @@ public class Field
     public boolean isNull()
     {
         return value == null;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(value, type, indexed);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        boolean retval = true;
-        if (obj instanceof Field field) {
-            if (type.equals(field.getType())) {
-                if (this.isNull() && field.isNull()) {
-                    retval = true;
-                }
-                else if (this.isNull() != field.isNull()) {
-                    retval = false;
-                }
-                else if (type.equals(VARBINARY)) {
-                    // special case for byte arrays
-                    // aren't they so fancy
-                    retval = Arrays.equals((byte[]) value, (byte[]) field.getObject());
-                }
-                else if (type.equals(DATE) || type.equals(TIME_MILLIS) || type.equals(TIMESTAMP_MILLIS)) {
-                    retval = value.toString().equals(field.getObject().toString());
-                }
-                else {
-                    if (value instanceof Block) {
-                        retval = equals((Block) value, (Block) field.getObject());
-                    }
-                    else {
-                        retval = value.equals(field.getObject());
-                    }
-                }
-            }
-        }
-        return retval;
-    }
-
-    private static boolean equals(Block block1, Block block2)
-    {
-        boolean retval = block1.getPositionCount() == block2.getPositionCount();
-        for (int i = 0; i < block1.getPositionCount() && retval; ++i) {
-            if (block1 instanceof ArrayBlock && block2 instanceof ArrayBlock) {
-                retval = equals(block1.getObject(i, Block.class), block2.getObject(i, Block.class));
-            }
-            else {
-                retval = block1.compareTo(i, 0, block1.getSliceLength(i), block2, i, 0, block2.getSliceLength(i)) == 0;
-            }
-        }
-        return retval;
     }
 
     @Override
