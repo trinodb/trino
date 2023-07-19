@@ -15,7 +15,7 @@ package io.trino.operator.aggregation.listagg;
 
 import com.google.common.primitives.Ints;
 import io.airlift.slice.SliceOutput;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.GroupedAccumulatorState;
@@ -102,7 +102,7 @@ public class GroupListaggAggregationState
     }
 
     @Override
-    public void add(Block block, int position)
+    public void add(ValueBlock block, int position)
     {
         super.add(block, position);
 

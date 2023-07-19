@@ -33,6 +33,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RowValueBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -429,25 +430,40 @@ public final class AccumulatorCompiler
                 type(void.class),
                 ImmutableList.of(index, startPosition, endPosition));
         Scope scope = method.getScope();
+        BytecodeBlock body = method.getBody();
 
         Variable position = scope.declareVariable(int.class, "position");
 
+        // input parameters
+        Variable inputBlockPosition = scope.declareVariable(int.class, "inputBlockPosition");
+        List<Variable> inputBlockVariables = new ArrayList<>();
+        for (int i = 0; i < argumentNullable.size(); i++) {
+            inputBlockVariables.add(scope.declareVariable(Block.class, "inputBlock" + i));
+        }
+
         Binding binding = callSiteBinder.bind(inputFunction);
-        BytecodeExpression invokeInputFunction = invokeDynamic(
+        BytecodeBlock invokeInputFunction = new BytecodeBlock();
+        // WindowIndex is built on PagesIndex, which simply wraps Blocks
+        // and currently does not understand ValueBlocks.
+        // Until PagesIndex is updated to understand ValueBlocks, the
+        // input function parameters must be directly unwrapped to ValueBlocks.
+        invokeInputFunction.append(inputBlockPosition.set(index.cast(InternalWindowIndex.class).invoke("getRawBlockPosition", int.class, position)));
+        for (int i = 0; i < inputBlockVariables.size(); i++) {
+            invokeInputFunction.append(inputBlockVariables.get(i).set(index.cast(InternalWindowIndex.class).invoke("getRawBlock", Block.class, constantInt(i), position)));
+        }
+        invokeInputFunction.append(invokeDynamic(
                 BOOTSTRAP_METHOD,
                 ImmutableList.of(binding.getBindingId()),
                 generatedFunctionName,
                 binding.getType(),
                 getInvokeFunctionOnWindowIndexParameters(
-                        scope,
-                        argumentNullable.size(),
-                        lambdaProviderFields,
+                        scope.getThis(),
                         stateField,
-                        index,
-                        position));
+                        inputBlockPosition,
+                        inputBlockVariables,
+                        lambdaProviderFields)));
 
-        method.getBody()
-                .append(new ForLoop()
+        body.append(new ForLoop()
                         .initialize(position.set(startPosition))
                         .condition(BytecodeExpressions.lessThanOrEqual(position, endPosition))
                         .update(position.increment())
@@ -473,29 +489,28 @@ public final class AccumulatorCompiler
     }
 
     private static List<BytecodeExpression> getInvokeFunctionOnWindowIndexParameters(
-            Scope scope,
-            int inputParameterCount,
-            List<FieldDefinition> lambdaProviderFields,
+            Variable thisVariable,
             List<FieldDefinition> stateField,
-            Variable index,
-            Variable position)
+            Variable inputBlockPosition,
+            List<Variable> inputBlockVariables,
+            List<FieldDefinition> lambdaProviderFields)
     {
         List<BytecodeExpression> expressions = new ArrayList<>();
 
         // state parameters
         for (FieldDefinition field : stateField) {
-            expressions.add(scope.getThis().getField(field));
+            expressions.add(thisVariable.getField(field));
         }
 
         // input parameters
-        for (int i = 0; i < inputParameterCount; i++) {
-            expressions.add(index.cast(InternalWindowIndex.class).invoke("getRawBlock", Block.class, constantInt(i), position));
-            expressions.add(index.cast(InternalWindowIndex.class).invoke("getRawBlockPosition", int.class, position));
+        for (Variable blockVariable : inputBlockVariables) {
+            expressions.add(blockVariable.invoke("getUnderlyingValueBlock", ValueBlock.class));
+            expressions.add(blockVariable.invoke("getUnderlyingValuePosition", int.class, inputBlockPosition));
         }
 
         // lambda parameters
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
-            expressions.add(scope.getThis().getField(lambdaProviderField)
+            expressions.add(thisVariable.getField(lambdaProviderField)
                     .invoke("get", Object.class));
         }
 
@@ -593,8 +608,8 @@ public final class AccumulatorCompiler
 
         // input parameters
         for (Variable variable : parameterVariables) {
-            parameters.add(variable);
-            parameters.add(position);
+            parameters.add(variable.invoke("getUnderlyingValueBlock", ValueBlock.class));
+            parameters.add(variable.invoke("getUnderlyingValuePosition", int.class, position));
         }
 
         // lambda parameters
@@ -1048,32 +1063,38 @@ public final class AccumulatorCompiler
     private static AggregationImplementation normalizeAggregationMethods(AggregationImplementation implementation)
     {
         // change aggregations state variables to simply AccumulatorState to avoid any class loader issues in generated code
-        int stateParameterCount = implementation.getAccumulatorStateDescriptors().size();
         int lambdaParameterCount = implementation.getLambdaInterfaces().size();
         AggregationImplementation.Builder builder = AggregationImplementation.builder();
-        builder.inputFunction(castStateParameters(implementation.getInputFunction(), stateParameterCount, lambdaParameterCount));
+        builder.inputFunction(normalizeParameters(implementation.getInputFunction(), lambdaParameterCount));
         implementation.getRemoveInputFunction()
-                .map(removeFunction -> castStateParameters(removeFunction, stateParameterCount, lambdaParameterCount))
+                .map(removeFunction -> normalizeParameters(removeFunction, lambdaParameterCount))
                 .ifPresent(builder::removeInputFunction);
         implementation.getCombineFunction()
-                .map(combineFunction -> castStateParameters(combineFunction, stateParameterCount * 2, lambdaParameterCount))
+                .map(combineFunction -> normalizeParameters(combineFunction, lambdaParameterCount))
                 .ifPresent(builder::combineFunction);
-        builder.outputFunction(castStateParameters(implementation.getOutputFunction(), stateParameterCount, 0));
+        builder.outputFunction(normalizeParameters(implementation.getOutputFunction(), 0));
         builder.accumulatorStateDescriptors(implementation.getAccumulatorStateDescriptors());
         builder.lambdaInterfaces(implementation.getLambdaInterfaces());
         return builder.build();
     }
 
-    private static MethodHandle castStateParameters(MethodHandle inputFunction, int stateParameterCount, int lambdaParameterCount)
+    private static MethodHandle normalizeParameters(MethodHandle function, int lambdaParameterCount)
     {
-        Class<?>[] parameterTypes = inputFunction.type().parameterArray();
-        for (int i = 0; i < stateParameterCount; i++) {
-            parameterTypes[i] = AccumulatorState.class;
+        Class<?>[] parameterTypes = function.type().parameterArray();
+        for (int i = 0; i < parameterTypes.length; i++) {
+            Class<?> parameterType = parameterTypes[i];
+            if (AccumulatorState.class.isAssignableFrom(parameterType)) {
+                parameterTypes[i] = AccumulatorState.class;
+            }
+            else if (ValueBlock.class.isAssignableFrom(parameterType)) {
+                parameterTypes[i] = ValueBlock.class;
+            }
         }
         for (int i = parameterTypes.length - lambdaParameterCount; i < parameterTypes.length; i++) {
             parameterTypes[i] = Object.class;
         }
-        return MethodHandles.explicitCastArguments(inputFunction, MethodType.methodType(inputFunction.type().returnType(), parameterTypes));
+        MethodType newType = MethodType.methodType(function.type().returnType(), parameterTypes);
+        return MethodHandles.explicitCastArguments(function, newType);
     }
 
     private static class StateFieldAndDescriptor

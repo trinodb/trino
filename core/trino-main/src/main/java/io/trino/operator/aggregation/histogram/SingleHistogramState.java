@@ -14,9 +14,9 @@
 
 package io.trino.operator.aggregation.histogram;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -56,7 +56,7 @@ public class SingleHistogramState
     }
 
     @Override
-    public void add(Block block, int position, long count)
+    public void add(ValueBlock block, int position, long count)
     {
         if (typedHistogram == null) {
             typedHistogram = new TypedHistogram(keyType, readFlat, writeFlat, hashFlat, distinctFlatBlock, hashBlock, false);

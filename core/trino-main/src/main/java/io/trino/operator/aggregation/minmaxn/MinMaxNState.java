@@ -13,8 +13,8 @@
  */
 package io.trino.operator.aggregation.minmaxn;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AccumulatorState;
 
 public interface MinMaxNState
@@ -29,7 +29,7 @@ public interface MinMaxNState
     /**
      * Adds the value to this state.
      */
-    void add(Block block, int position);
+    void add(ValueBlock block, int position);
 
     /**
      * Merge with the specified state.

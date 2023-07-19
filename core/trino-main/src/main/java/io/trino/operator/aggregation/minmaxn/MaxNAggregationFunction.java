@@ -13,8 +13,8 @@
  */
 package io.trino.operator.aggregation.minmaxn;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -36,7 +36,7 @@ public final class MaxNAggregationFunction
     @TypeParameter("E")
     public static void input(
             @AggregationState("E") MaxNState state,
-            @BlockPosition @SqlType("E") Block block,
+            @BlockPosition @SqlType("E") ValueBlock block,
             @BlockIndex int blockIndex,
             @SqlType("BIGINT") long n)
     {
