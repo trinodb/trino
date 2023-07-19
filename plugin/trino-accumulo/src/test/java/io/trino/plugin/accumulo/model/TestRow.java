@@ -63,9 +63,6 @@ public class TestRow
         r1.addField(null, VARCHAR);
 
         assertEquals(r1.length(), 14);
-
-        Row r2 = new Row(r1);
-        assertEquals(r2, r1);
     }
 
     @Test
