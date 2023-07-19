@@ -386,6 +386,30 @@ public class TestCheckConstraint
     }
 
     @Test
+    public void testUpdateCheckMultipleColumns()
+    {
+        // Within allowed check constraint
+        assertThat(assertions.query("UPDATE mock.tiny.nation_multiple_column_constraint SET regionkey = 49, nationkey = 99"))
+                .matches("SELECT BIGINT '25'");
+        assertThat(assertions.query("UPDATE mock.tiny.nation_multiple_column_constraint SET regionkey = 49"))
+                .matches("SELECT BIGINT '25'");
+        assertThat(assertions.query("UPDATE mock.tiny.nation_multiple_column_constraint SET nationkey = 99"))
+                .matches("SELECT BIGINT '25'");
+
+        // Outside allowed check constraint
+        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_multiple_column_constraint SET regionkey = 50, nationkey = 100"))
+                .hasMessage("Check constraint violation: ((nationkey < 100) AND (regionkey < 50))");
+        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_multiple_column_constraint SET regionkey = 50, nationkey = 99"))
+                .hasMessage("Check constraint violation: ((nationkey < 100) AND (regionkey < 50))");
+        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_multiple_column_constraint SET regionkey = 49, nationkey = 100"))
+                .hasMessage("Check constraint violation: ((nationkey < 100) AND (regionkey < 50))");
+        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_multiple_column_constraint SET regionkey = 50"))
+                .hasMessage("Check constraint violation: ((nationkey < 100) AND (regionkey < 50))");
+        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_multiple_column_constraint SET nationkey = 100"))
+                .hasMessage("Check constraint violation: ((nationkey < 100) AND (regionkey < 50))");
+    }
+
+    @Test
     public void testUpdateSubquery()
     {
         // TODO Support subqueries for UPDATE statement in check constraint
