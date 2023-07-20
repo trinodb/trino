@@ -30,11 +30,12 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -143,7 +144,6 @@ import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveType.toHiveType;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -8370,6 +8370,8 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testTimestampWithTimeZone()
     {
+        String catalog = getSession().getCatalog().orElseThrow();
+
         assertUpdate("CREATE TABLE test_timestamptz_base (t timestamp) WITH (format = 'PARQUET')");
         assertUpdate("INSERT INTO test_timestamptz_base (t) VALUES" +
                      "(timestamp '2022-07-26 12:13')", 1);
@@ -8379,7 +8381,9 @@ public abstract class BaseHiveConnectorTest
         String tableLocation = getTableLocation("test_timestamptz_base");
 
         // TIMESTAMP WITH LOCAL TIME ZONE is not mapped to any Trino type, so we need to create the metastore entry manually
-        FileHiveMetastore metastore = createTestingFileHiveMetastore(new File(getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile(), "hive_data"));
+        HiveMetastore metastore = ((HiveConnector) getDistributedQueryRunner().getCoordinator().getConnector(catalog))
+                .getInjector().getInstance(HiveMetastoreFactory.class)
+                .createMetastore(Optional.of(getSession().getIdentity().toConnectorIdentity(catalog)));
         metastore.createTable(
                 new Table(
                         "tpch",
