@@ -310,6 +310,24 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testCreateTableWithAllPartitionColumns()
+    {
+        String tableName = "test_create_table_all_partition_columns_" + randomNameSuffix();
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(part INT) WITH (partitioned_by = ARRAY['part'])",
+                "Using all columns for partition columns is unsupported");
+    }
+
+    @Test
+    public void testCreateTableAsSelectAllPartitionColumns()
+    {
+        String tableName = "test_create_table_all_partition_columns_" + randomNameSuffix();
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 part",
+                "Using all columns for partition columns is unsupported");
+    }
+
+    @Test
     public void testCreateTableWithUnsupportedPartitionType()
     {
         String tableName = "test_create_table_unsupported_partition_types_" + randomNameSuffix();

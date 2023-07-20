@@ -1078,6 +1078,9 @@ public class DeltaLakeMetadata
         if (!invalidPartitionNames.isEmpty()) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Table property 'partition_by' contained column names which do not exist: " + invalidPartitionNames);
         }
+        if (columns.size() == partitionColumnNames.size()) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Using all columns for partition columns is unsupported");
+        }
     }
 
     private void checkColumnTypes(List<ColumnMetadata> columnMetadata)
