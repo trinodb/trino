@@ -16,6 +16,7 @@ package io.trino.operator.output;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.Arrays;
@@ -56,8 +57,7 @@ public class Fixed12PositionsAppender
     }
 
     @Override
-    // TODO: Make PositionsAppender work performant with different block types (https://github.com/trinodb/trino/issues/13267)
-    public void append(IntArrayList positions, Block block)
+    public void append(IntArrayList positions, ValueBlock block)
     {
         if (positions.isEmpty()) {
             return;
@@ -100,7 +100,7 @@ public class Fixed12PositionsAppender
     }
 
     @Override
-    public void appendRle(Block block, int rlePositionCount)
+    public void appendRle(ValueBlock block, int rlePositionCount)
     {
         if (rlePositionCount == 0) {
             return;
@@ -130,7 +130,7 @@ public class Fixed12PositionsAppender
     }
 
     @Override
-    public void append(int sourcePosition, Block source)
+    public void append(int sourcePosition, ValueBlock source)
     {
         ensureCapacity(positionCount + 1);
         if (source.isNull(sourcePosition)) {

@@ -16,6 +16,7 @@ package io.trino.operator.output;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.RowType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
@@ -66,8 +67,7 @@ public class RowPositionsAppender
     }
 
     @Override
-    // TODO: Make PositionsAppender work performant with different block types (https://github.com/trinodb/trino/issues/13267)
-    public void append(IntArrayList positions, Block block)
+    public void append(IntArrayList positions, ValueBlock block)
     {
         if (positions.isEmpty()) {
             return;
@@ -106,7 +106,7 @@ public class RowPositionsAppender
     }
 
     @Override
-    public void appendRle(Block value, int rlePositionCount)
+    public void appendRle(ValueBlock value, int rlePositionCount)
     {
         ensureCapacity(rlePositionCount);
         if (value instanceof RowBlock sourceRowBlock) {
@@ -138,7 +138,7 @@ public class RowPositionsAppender
     }
 
     @Override
-    public void append(int position, Block value)
+    public void append(int position, ValueBlock value)
     {
         ensureCapacity(1);
         if (value instanceof RowBlock sourceRowBlock) {
