@@ -11,12 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hudi;
+package io.trino.plugin.hudi.testing;
 
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import com.google.common.collect.ImmutableList;
 
-public abstract class BaseHudiMinioConnectorTest
-        extends BaseHudiConnectorTest
+import static io.trino.plugin.hudi.testing.TpchHudiTablesInitializer.FIELD_UUID;
+import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
+
+public final class HudiTestUtils
 {
-    protected HiveMinioDataLake hiveMinioDataLake;
+    private HudiTestUtils() {}
+
+    public static final String COLUMNS_TO_HIDE = String.join(",", ImmutableList.<String>builder()
+            .addAll(HOODIE_META_COLUMNS)
+            .add(FIELD_UUID)
+            .build());
 }

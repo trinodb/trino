@@ -13,20 +13,31 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
+import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
+import static io.trino.plugin.hudi.testing.HudiTestUtils.COLUMNS_TO_HIDE;
+import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public abstract class BaseHudiConnectorTest
+public class TestHudiConnectorTest
         extends BaseConnectorTest
 {
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return createHudiQueryRunner(
+                ImmutableMap.of(),
+                ImmutableMap.of("hudi.columns-to-hide", COLUMNS_TO_HIDE),
+                new TpchHudiTablesInitializer(COPY_ON_WRITE, REQUIRED_TPCH_TABLES));
+    }
+
     @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
@@ -94,13 +105,5 @@ public abstract class BaseHudiConnectorTest
     {
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain("sys");
         assertQueryFails("SHOW TABLES IN hudi.sys", ".*Schema 'sys' does not exist");
-    }
-
-    protected static String columnsToHide()
-    {
-        List<String> columns = new ArrayList<>(HOODIE_META_COLUMNS.size() + 1);
-        columns.addAll(HOODIE_META_COLUMNS);
-        columns.add(TpchHudiTablesInitializer.FIELD_UUID);
-        return String.join(",", columns);
     }
 }

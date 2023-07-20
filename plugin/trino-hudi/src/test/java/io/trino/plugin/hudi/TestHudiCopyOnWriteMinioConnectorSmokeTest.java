@@ -19,25 +19,26 @@ import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
+import static io.trino.plugin.hudi.testing.HudiTestUtils.COLUMNS_TO_HIDE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
+import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
-public class TestHudiMergeOnReadMinioConnectorTest
-        extends BaseHudiMinioConnectorTest
+public class TestHudiCopyOnWriteMinioConnectorSmokeTest
+        extends BaseHudiConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         String bucketName = "test-hudi-connector-" + randomNameSuffix();
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, HIVE3_IMAGE));
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, HIVE3_IMAGE));
         hiveMinioDataLake.start();
         hiveMinioDataLake.getMinioClient().ensureBucketExists(bucketName);
 
         return S3HudiQueryRunner.create(
                 ImmutableMap.of(),
-                ImmutableMap.of("hudi.columns-to-hide", columnsToHide()),
-                new TpchHudiTablesInitializer(MERGE_ON_READ, REQUIRED_TPCH_TABLES),
+                ImmutableMap.of("hudi.columns-to-hide", COLUMNS_TO_HIDE),
+                new TpchHudiTablesInitializer(COPY_ON_WRITE, REQUIRED_TPCH_TABLES),
                 hiveMinioDataLake);
     }
 }
