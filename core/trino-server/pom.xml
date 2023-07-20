@@ -53,6 +53,7 @@
             <plugin>
                 <groupId>io.takari.maven.plugins</groupId>
                 <artifactId>takari-lifecycle-plugin</artifactId>
+                <version>${dep.takari.version}</version>
                 <configuration>
                     <proc>none</proc>
                 </configuration>
