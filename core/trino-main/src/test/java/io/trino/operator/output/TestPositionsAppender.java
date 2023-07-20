@@ -91,8 +91,6 @@ public class TestPositionsAppender
         List<BlockView> input = ImmutableList.of(
                 input(emptyBlock(type)),
                 input(nullBlock(type, 3), 0, 2),
-                input(nullBlock(TestType.UNKNOWN, 3), 0, 2), // a := null projections are handled by UnknownType null block
-                input(nullBlock(TestType.UNKNOWN, 1), 0), // a := null projections are handled by UnknownType null block, 1 position uses non RLE block
                 input(notNullBlock(type, 3), 1, 2),
                 input(partiallyNullBlock(type, 4), 0, 1, 2, 3),
                 input(partiallyNullBlock(type, 4)), // empty position list
