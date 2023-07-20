@@ -18,10 +18,11 @@ import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
-import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
+import static io.trino.plugin.hudi.testing.HudiTestUtils.COLUMNS_TO_HIDE;
+import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
-public class TestHudiMergeOnReadConnectorTest
-        extends BaseHudiConnectorTest
+public class TestHudiCopyOnWriteConnectorSmokeTest
+        extends BaseHudiConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -29,7 +30,7 @@ public class TestHudiMergeOnReadConnectorTest
     {
         return createHudiQueryRunner(
                 ImmutableMap.of(),
-                ImmutableMap.of("hudi.columns-to-hide", columnsToHide()),
-                new TpchHudiTablesInitializer(MERGE_ON_READ, REQUIRED_TPCH_TABLES));
+                ImmutableMap.of("hudi.columns-to-hide", COLUMNS_TO_HIDE),
+                new TpchHudiTablesInitializer(COPY_ON_WRITE, REQUIRED_TPCH_TABLES));
     }
 }
