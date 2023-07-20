@@ -60,32 +60,37 @@ Trino clusters to be stored in the same database if required.
 The configuration is reloaded from the database every second, and the changes
 are reflected automatically for incoming queries.
 
-Database resource group manager properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. list-table:: Database resource group manager properties
+   :widths: 40, 50, 10
+   :header-rows: 1
 
-================================================ =========================================================== ===============
-Property name                                    Description                                                 Default
-================================================ =========================================================== ===============
-``resource-groups.config-db-url``                Database URL to load configuration from.                    ``none``
-
-``resource-groups.config-db-user``               Database user to connect with.                              ``none``
-
-``resource-groups.config-db-password``           Password for database user to connect with.                 ``none``
-
-``resource-groups.max-refresh-interval``         The maximum time period for which the cluster will          ``1h``
-                                                 continue to accept queries after refresh failures,
-                                                 causing configuration to become stale.
-
-``resource-groups.refresh-interval``             How often the cluster reloads from the database             ``1s``
-
-``resource-groups.exact-match-selector-enabled`` Setting this flag enables usage of an additional            ``false``
-                                                 ``exact_match_source_selectors`` table to configure
-                                                 resource group selection rules defined exact name based
-                                                 matches for source, environment and query type. By
-                                                 default, the rules are only loaded from the ``selectors``
-                                                 table, with a regex-based filter for ``source``, among
-                                                 other filters.
-================================================ =========================================================== ===============
+   * - Property name
+     - Description
+     - Default value
+   * - ``resource-groups.config-db-url``
+     - Database URL to load configuration from.
+     - ``none``
+   * - ``resource-groups.config-db-user``
+     - Database user to connect with.
+     - ``none``
+   * - ``resource-groups.config-db-password``
+     - Password for database user to connect with.
+     - ``none``
+   * - ``resource-groups.max-refresh-interval``
+     - The maximum time period for which the cluster will continue to accept
+       queries after refresh failures, causing configuration to become stale.
+     - ``1h``
+   * - ``resource-groups.refresh-interval``
+     -  How often the cluster reloads from the database
+     - ``1s``
+   * - ``resource-groups.exact-match-selector-enabled``
+     - Setting this flag enables usage of an additional
+       ``exact_match_source_selectors`` table to configure resource group
+       selection rules defined exact name based matches for source, environment
+       and query type. By default, the rules are only loaded from the
+       ``selectors`` table, with a regex-based filter for ``source``, among
+       other filters.
+     - ``false``
 
 Resource group properties
 -------------------------
@@ -290,9 +295,9 @@ This example is for a MySQL database.
     -- global properties
     INSERT INTO resource_groups_global_properties (name, value) VALUES ('cpu_quota_period', '1h');
 
-    -- Every row in resource_groups table indicates a resource group. 
+    -- Every row in resource_groups table indicates a resource group.
     -- The enviroment name is 'test_environment', make sure it matches `node.environment` in your cluster.
-    -- The parent-child relationship is indicated by the ID in 'parent' column. 
+    -- The parent-child relationship is indicated by the ID in 'parent' column.
 
     -- create a root group 'global' with NULL parent
     INSERT INTO resource_groups (name, soft_memory_limit, hard_concurrency_limit, max_queued, scheduling_policy, jmx_export, environment) VALUES ('global', '80%', 100, 1000, 'weighted', true, 'test_environment');

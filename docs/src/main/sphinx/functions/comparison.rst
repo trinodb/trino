@@ -7,17 +7,26 @@ Comparison functions and operators
 Comparison operators
 --------------------
 
-======== ===========
-Operator Description
-======== ===========
-``<``    Less than
-``>``    Greater than
-``<=``   Less than or equal to
-``>=``   Greater than or equal to
-``=``    Equal
-``<>``   Not equal
-``!=``   Not equal (non-standard but popular syntax)
-======== ===========
+.. list-table::
+   :widths: 30, 70
+   :header-rows: 1
+
+   * - Operator
+     - Description
+   * - ``<``
+     - Less than
+   * - ``>``
+     - Greater than
+   * - ``<=``
+     - Less than or equal to
+   * - ``>=``
+     - Greater than or equal to
+   * - ``=``
+     - Equal
+   * - ``<>``
+     - Not equal
+   * - ``!=``
+     - Not equal (non-standard but popular syntax)
 
 .. _range-operator:
 
@@ -156,16 +165,25 @@ For example::
 
 Here are the meanings of some quantifier and comparison operator combinations:
 
-====================    ===========
-Expression              Meaning
-====================    ===========
-``A = ALL (...)``       Evaluates to ``true`` when ``A`` is equal to all values.
-``A <> ALL (...)``      Evaluates to ``true`` when ``A`` doesn't match any value.
-``A < ALL (...)``       Evaluates to ``true`` when ``A`` is smaller than the smallest value.
-``A = ANY (...)``       Evaluates to ``true`` when ``A`` is equal to any of the values. This form is equivalent to ``A IN (...)``.
-``A <> ANY (...)``      Evaluates to ``true`` when ``A`` doesn't match one or more values.
-``A < ANY (...)``       Evaluates to ``true`` when ``A`` is smaller than the biggest value.
-====================    ===========
+.. list-table::
+   :widths: 40, 60
+   :header-rows: 1
+
+   * - Expression
+     - Meaning
+   * - ``A = ALL (...)``
+     - Evaluates to ``true`` when ``A`` is equal to all values.
+   * - ``A <> ALL (...)``
+     - Evaluates to ``true`` when ``A`` doesn't match any value.
+   * - ``A < ALL (...)``
+     - Evaluates to ``true`` when ``A`` is smaller than the smallest value.
+   * - ``A = ANY (...)``
+     - Evaluates to ``true`` when ``A`` is equal to any of the values. This form
+       is equivalent to ``A IN (...)``.
+   * - ``A <> ANY (...)``
+     - Evaluates to ``true`` when ``A`` doesn't match one or more values.
+   * - ``A < ANY (...)``
+     - Evaluates to ``true`` when ``A`` is smaller than the biggest value.
 
 ``ANY`` and ``SOME`` have the same meaning and can be used interchangeably.
 
