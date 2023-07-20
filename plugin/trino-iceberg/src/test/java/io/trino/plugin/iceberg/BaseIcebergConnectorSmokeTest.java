@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.concurrent.MoreFutures;
 import io.trino.Session;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -36,7 +37,6 @@ import java.util.concurrent.Future;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
@@ -135,21 +135,16 @@ public abstract class BaseIcebergConnectorSmokeTest
             assertUpdate("INSERT INTO " + tableName + " VALUES (0, 0, 1, 0)", 1);
             assertUpdate("INSERT INTO " + tableName + " VALUES (0, 0, 0, 1)", 1);
 
-            List<Future<Boolean>> futures = IntStream.range(0, threads)
+            List<Future<Void>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
-                        try {
-                            String columnName = "col" + threadNumber;
-                            getQueryRunner().execute(format("DELETE FROM %s WHERE %s = 1", tableName, columnName));
-                            return true;
-                        }
-                        catch (Exception e) {
-                            return false;
-                        }
+                        String columnName = "col" + threadNumber;
+                        getQueryRunner().execute(format("DELETE FROM %s WHERE %s = 1", tableName, columnName));
+                        return (Void) null;
                     }))
                     .collect(toImmutableList());
 
-            futures.forEach(future -> assertTrue(getFutureValue(future)));
+            futures.forEach(MoreFutures::getFutureValue);
             assertThat(query("SELECT max(col0), max(col1), max(col2), max(col3) FROM " + tableName)).matches("VALUES (0, 0, 0, 0)");
         }
         finally {
