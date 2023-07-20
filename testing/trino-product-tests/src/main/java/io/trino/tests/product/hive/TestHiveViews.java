@@ -541,4 +541,13 @@ public class TestHiveViews
         onHive().executeQuery("DROP VIEW cast_timestamp_as_decimal_view");
         onHive().executeQuery("DROP TABLE cast_timestamp_as_decimal");
     }
+
+    @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    @Override
+    public void testUnionAllDifferentNumericalTypesViews()
+    {
+        assertThatThrownBy(() -> super.testUnionAllDifferentNumericalTypesViews())
+                .hasMessageContaining("View 'hive.default.union_all_numerical_types_view' is stale or in invalid state: column [number] of type bigint projected from query view at position 0 cannot be coerced to column [number] of type tinyint stored in view definition");
+    }
 }

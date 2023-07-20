@@ -586,6 +586,65 @@ public abstract class AbstractTestHiveViews
 
     @Test(groups = HIVE_VIEWS)
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    public void testUnionAllDifferentNumericalTypesViews()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS test_table_numerical_types");
+        onHive().executeQuery("CREATE TABLE test_table_numerical_types (\n"
+                + "a_tinyint TINYINT,\n"
+                + "a_smallint SMALLINT,\n"
+                + "a_integer INTEGER,\n"
+                + "a_bigint BIGINT\n"
+                + ")");
+        onHive().executeQuery("INSERT INTO test_table_numerical_types\n"
+                + "VALUES (1, 1000, 1000000, 1000000000)");
+
+        onHive().executeQuery("DROP VIEW IF EXISTS union_all_numerical_types_view");
+        onHive().executeQuery("CREATE VIEW union_all_numerical_types_view AS\n" +
+                "SELECT a_tinyint AS number FROM test_table_numerical_types\n" +
+                "UNION ALL\n" +
+                "SELECT a_smallint AS number FROM test_table_numerical_types\n" +
+                "UNION ALL\n" +
+                "SELECT a_integer AS number FROM test_table_numerical_types\n" +
+                "UNION ALL\n" +
+                "SELECT a_bigint AS number FROM test_table_numerical_types\n");
+
+        assertThat(onTrino().executeQuery("SELECT number FROM union_all_numerical_types_view"))
+                .containsOnly(
+                        row(1),
+                        row(1000),
+                        row(1000000),
+                        row(1000000000));
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
+    public void testUnionAllDifferentTextualTypesViews()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS test_table_textual_types");
+        onHive().executeQuery("CREATE TABLE test_table_textual_types (\n"
+                + "a_char CHAR(1),\n"
+                + "a_varchar VARCHAR(1024),\n"
+                + "a_string STRING\n"
+                + ")");
+        onHive().executeQuery("INSERT INTO test_table_textual_types\n"
+                + "VALUES ('a', 'Trino', 'SQL')");
+
+        onHive().executeQuery("DROP VIEW IF EXISTS union_all_textual_types_view");
+        onHive().executeQuery("CREATE VIEW union_all_textual_types_view AS\n" +
+                "SELECT a_char AS data FROM test_table_textual_types\n" +
+                "UNION ALL\n" +
+                "SELECT a_varchar AS data FROM test_table_textual_types\n" +
+                "UNION ALL\n" +
+                "SELECT a_string AS data FROM test_table_textual_types\n" +
+                "UNION ALL\n" +
+                "SELECT CAST(a_char AS VARCHAR(65535)) AS data FROM test_table_textual_types\n");
+
+        assertThatThrownBy(() -> onTrino().executeQuery("SELECT data FROM union_all_textual_types_view"))
+                .hasMessageContaining("View 'hive.default.union_all_textual_types_view' is stale or in invalid state: column [data] of type char(65536) projected from query view at position 0 cannot be coerced to column [data] of type varchar stored in view definition");
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnionDistinctViews()
     {
         if (getHiveVersionMajor() < 1 || (getHiveVersionMajor() == 1 && getHiveVersionMinor() < 2)) {
