@@ -1070,6 +1070,11 @@ public class DeltaLakeMetadata
                 .filter(partitionColumnName -> !columnNames.contains(partitionColumnName))
                 .collect(toImmutableList());
 
+        if (columns.stream().filter(column -> partitionColumnNames.contains(column.getName()))
+                .anyMatch(column -> column.getType() instanceof ArrayType || column.getType() instanceof MapType || column.getType() instanceof RowType)) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Using array, map or row type on partitioned columns is unsupported");
+        }
+
         if (!invalidPartitionNames.isEmpty()) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Table property 'partition_by' contained column names which do not exist: " + invalidPartitionNames);
         }
