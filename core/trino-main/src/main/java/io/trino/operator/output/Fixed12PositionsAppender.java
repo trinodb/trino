@@ -22,6 +22,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -59,6 +60,8 @@ public class Fixed12PositionsAppender
     @Override
     public void append(IntArrayList positions, ValueBlock block)
     {
+        checkArgument(block instanceof Fixed12Block, "Block must be instance of %s", Fixed12Block.class);
+
         if (positions.isEmpty()) {
             return;
         }
@@ -102,6 +105,8 @@ public class Fixed12PositionsAppender
     @Override
     public void appendRle(ValueBlock block, int rlePositionCount)
     {
+        checkArgument(block instanceof Fixed12Block, "Block must be instance of %s", Fixed12Block.class);
+
         if (rlePositionCount == 0) {
             return;
         }
@@ -132,6 +137,8 @@ public class Fixed12PositionsAppender
     @Override
     public void append(int sourcePosition, ValueBlock source)
     {
+        checkArgument(source instanceof Fixed12Block, "Block must be instance of %s", Fixed12Block.class);
+
         ensureCapacity(positionCount + 1);
         if (source.isNull(sourcePosition)) {
             valueIsNull[positionCount] = true;

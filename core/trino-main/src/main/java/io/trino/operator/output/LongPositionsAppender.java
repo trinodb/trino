@@ -22,6 +22,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
@@ -58,6 +59,8 @@ public class LongPositionsAppender
     @Override
     public void append(IntArrayList positions, ValueBlock block)
     {
+        checkArgument(block instanceof LongArrayBlock, "Block must be instance of %s", LongArrayBlock.class);
+
         if (positions.isEmpty()) {
             return;
         }
@@ -96,6 +99,8 @@ public class LongPositionsAppender
     @Override
     public void appendRle(ValueBlock block, int rlePositionCount)
     {
+        checkArgument(block instanceof LongArrayBlock, "Block must be instance of %s", LongArrayBlock.class);
+
         if (rlePositionCount == 0) {
             return;
         }
@@ -118,6 +123,8 @@ public class LongPositionsAppender
     @Override
     public void append(int sourcePosition, ValueBlock source)
     {
+        checkArgument(source instanceof LongArrayBlock, "Block must be instance of %s", LongArrayBlock.class);
+
         ensureCapacity(positionCount + 1);
         if (source.isNull(sourcePosition)) {
             valueIsNull[positionCount] = true;
