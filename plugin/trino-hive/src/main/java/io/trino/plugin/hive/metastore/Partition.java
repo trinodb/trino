@@ -27,7 +27,6 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -55,12 +54,6 @@ public class Partition
         this.storage = requireNonNull(storage, "storage is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
-    }
-
-    @JsonIgnore
-    public Partition withAdjustedRowCount(String partitionName, long rowCountDelta)
-    {
-        return new Partition(databaseName, tableName, values, storage, columns, adjustRowCount(parameters, partitionName, rowCountDelta));
     }
 
     @JsonProperty
