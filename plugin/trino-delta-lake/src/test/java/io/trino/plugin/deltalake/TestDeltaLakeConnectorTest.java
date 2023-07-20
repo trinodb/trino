@@ -309,6 +309,36 @@ public class TestDeltaLakeConnectorTest
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'first#1', 'second#1'), (2, 'first#2', NULL), (3, NULL, 'second#3'), (4, NULL, NULL)");
     }
 
+    @Test
+    public void testCreateTableWithUnsupportedPartitionType()
+    {
+        String tableName = "test_create_table_unsupported_partition_types_" + randomNameSuffix();
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(a INT, part ARRAY(INT)) WITH (partitioned_by = ARRAY['part'])",
+                "Using array, map or row type on partitioned columns is unsupported");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(a INT, part MAP(INT,INT)) WITH (partitioned_by = ARRAY['part'])",
+                "Using array, map or row type on partitioned columns is unsupported");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(a INT, part ROW(field INT)) WITH (partitioned_by = ARRAY['part'])",
+                "Using array, map or row type on partitioned columns is unsupported");
+    }
+
+    @Test
+    public void testCreateTableAsSelectWithUnsupportedPartitionType()
+    {
+        String tableName = "test_ctas_unsupported_partition_types_" + randomNameSuffix();
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, array[1] part",
+                "Using array, map or row type on partitioned columns is unsupported");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, map() part",
+                "Using array, map or row type on partitioned columns is unsupported");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " WITH (partitioned_by = ARRAY['part']) AS SELECT 1 a, row(1) part",
+                "Using array, map or row type on partitioned columns is unsupported");
+    }
+
     @Override
     public void testShowCreateSchema()
     {
