@@ -1,0 +1,39 @@
+{
+  "partitionToWriteStats" : {
+    "" : [ {
+      "fileId" : "9116d596-b29e-4653-9daf-c4cfd8f62ef8",
+      "path" : ".9116d596-b29e-4653-9daf-c4cfd8f62ef8_20230719174329988.log.1_1-2-0",
+      "prevCommit" : "20230719174329988",
+      "numWrites" : 2,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 0,
+      "numInserts" : 2,
+      "totalWriteBytes" : 1485,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 1485,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "logVersion" : 1,
+      "logOffset" : 0,
+      "baseFile" : "",
+      "logFiles" : [ ".9116d596-b29e-4653-9daf-c4cfd8f62ef8_20230719174329988.log.1_1-2-0" ],
+      "recordsStats" : {
+        "val" : null
+      }
+    } ]
+  },
+  "compacted" : false,
+  "extraMetadata" : {
+    "schema" : "{\"type\":\"record\",\"name\":\"record\",\"fields\":[{\"name\":\"c_custkey\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"c_name\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"c_address\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"c_nationkey\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"c_phone\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"c_acctbal\",\"type\":[\"null\",{\"type\":\"fixed\",\"name\":\"fixed\",\"namespace\":\"record.c_acctbal\",\"size\":7,\"logicalType\":\"decimal\",\"precision\":15,\"scale\":2}],\"default\":null},{\"name\":\"c_mktsegment\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"c_comment\",\"type\":[\"null\",\"string\"],\"default\":null}]}"
+  },
+  "operationType" : null
+}

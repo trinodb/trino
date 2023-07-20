@@ -25,6 +25,7 @@ import java.time.ZonedDateTime;
 
 import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MOR_PURE_LOG;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
@@ -163,6 +164,12 @@ public class TestHudiSmokeTest
         assertQuery("SELECT \"$partition\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 2", "VALUES 'dt=2021-12-09/hh=11'");
 
         assertQueryFails("SELECT \"$partition\" FROM " + HUDI_NON_PART_COW, ".* Column '\\$partition' cannot be resolved");
+    }
+
+    @Test
+    public void testMORPureLogTable()
+    {
+        assertEquals(computeActual("SELECT COUNT(1) FROM " + HUDI_MOR_PURE_LOG).getOnlyValue(), 6L);
     }
 
     private static Path toPath(String path)
