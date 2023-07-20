@@ -108,8 +108,10 @@ public class TestDeltaLakeDatabricksInsertCompatibility
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1,'ala'), (2, 'kota')");
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 'osla')");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (null, 'mysz')");
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (3, 'psa'), (4, 'bobra')");
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (4, 'lwa'), (5, 'jeza')");
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (null, 'kon')");
 
             List<Row> expectedRows = ImmutableList.of(
                     row(1, "ala"),
@@ -118,12 +120,18 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     row(3, "psa"),
                     row(4, "bobra"),
                     row(4, "lwa"),
-                    row(5, "jeza"));
+                    row(5, "jeza"),
+                    row(null, "mysz"),
+                    row(null, "kon"));
 
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                     .containsOnly(expectedRows);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
                     .containsOnly(expectedRows);
+
+            assertThat(onTrino().executeQuery("SELECT \"$path\" FROM delta.default." + tableName + " WHERE a_number IS NULL").column(1))
+                    .hasSize(2)
+                    .allMatch(path -> ((String) path).contains("/a_number=__HIVE_DEFAULT_PARTITION__/"));
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
