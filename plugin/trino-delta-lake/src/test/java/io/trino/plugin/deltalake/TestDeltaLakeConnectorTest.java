@@ -424,6 +424,46 @@ public class TestDeltaLakeConnectorTest
                 results -> {});
     }
 
+    @Test
+    public void testTimestampWithTimeZonePartition()
+    {
+        String tableName = "test_timestamp_tz_partition_" + randomNameSuffix();
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        assertUpdate("CREATE TABLE " + tableName + "(id INT, part TIMESTAMP WITH TIME ZONE) WITH (partitioned_by = ARRAY['part'])");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, NULL)," +
+                        "(2, TIMESTAMP '0001-01-01 00:00:00.000 UTC')," +
+                        "(3, TIMESTAMP '2023-07-20 01:02:03.9999 -01:00')," +
+                        "(4, TIMESTAMP '9999-12-31 23:59:59.999 UTC')",
+                4);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES " +
+                        "(1, NULL)," +
+                        "(2, TIMESTAMP '0001-01-01 00:00:00.000 UTC')," +
+                        "(3, TIMESTAMP '2023-07-20 02:02:04.000 UTC')," +
+                        "(4, TIMESTAMP '9999-12-31 23:59:59.999 UTC')");
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('id', null, 4.0, 0.0, null, 1, 4)," +
+                        "('part', null, 3.0, 0.25, null, null, null)," +
+                        "(null, null, null, null, 4.0, null, null)");
+
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 1"))
+                .contains("/part=__HIVE_DEFAULT_PARTITION__/");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 2"))
+                .contains("/part=0001-01-01 00%3A00%3A00/");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 3"))
+                .contains("/part=2023-07-20 02%3A02%3A04/");
+        assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 4"))
+                .contains("/part=9999-12-31 23%3A59%3A59.999/");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @DataProvider
     public Object[][] timestampValues()
     {
