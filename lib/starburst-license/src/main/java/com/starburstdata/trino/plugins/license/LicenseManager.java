@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.license;
+package com.starburstdata.trino.plugins.license;
 
 import io.trino.spi.TrinoException;
 

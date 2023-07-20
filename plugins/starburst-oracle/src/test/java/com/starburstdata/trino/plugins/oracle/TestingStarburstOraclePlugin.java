@@ -9,7 +9,7 @@
  */
 package com.starburstdata.trino.plugins.oracle;
 
-import com.starburstdata.presto.license.LicenseManager;
+import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.trino.plugin.jdbc.JdbcPlugin;
 
 public class TestingStarburstOraclePlugin

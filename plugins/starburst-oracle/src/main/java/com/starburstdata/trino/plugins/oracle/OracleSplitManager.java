@@ -14,7 +14,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
 import com.google.common.math.IntMath;
 import com.google.inject.Inject;
-import com.starburstdata.presto.license.LicenseManager;
+import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;

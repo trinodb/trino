@@ -13,7 +13,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Runnables;
-import com.starburstdata.presto.license.LicenseManager;
+import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;

@@ -12,7 +12,7 @@ package com.starburstdata.trino.plugins.oracle;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
-import com.starburstdata.presto.license.LicenseManager;
+import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
