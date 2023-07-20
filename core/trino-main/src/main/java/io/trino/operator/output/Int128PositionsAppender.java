@@ -22,6 +22,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -59,6 +60,8 @@ public class Int128PositionsAppender
     @Override
     public void append(IntArrayList positions, ValueBlock block)
     {
+        checkArgument(block instanceof Int128ArrayBlock, "Block must be instance of %s", Int128ArrayBlock.class);
+
         if (positions.isEmpty()) {
             return;
         }
@@ -103,6 +106,8 @@ public class Int128PositionsAppender
     @Override
     public void appendRle(ValueBlock block, int rlePositionCount)
     {
+        checkArgument(block instanceof Int128ArrayBlock, "Block must be instance of %s", Int128ArrayBlock.class);
+
         if (rlePositionCount == 0) {
             return;
         }
@@ -131,6 +136,8 @@ public class Int128PositionsAppender
     @Override
     public void append(int sourcePosition, ValueBlock source)
     {
+        checkArgument(source instanceof Int128ArrayBlock, "Block must be instance of %s", Int128ArrayBlock.class);
+
         ensureCapacity(positionCount + 1);
         if (source.isNull(sourcePosition)) {
             valueIsNull[positionCount] = true;
