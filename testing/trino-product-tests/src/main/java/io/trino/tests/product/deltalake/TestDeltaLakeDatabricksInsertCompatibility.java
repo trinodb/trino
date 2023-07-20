@@ -140,6 +140,50 @@ public class TestDeltaLakeDatabricksInsertCompatibility
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testTimestampWithTimeZonePartitionedInsertCompatibility()
+    {
+        String tableName = "test_dl_timestamp_tz_partitioned_insert_" + randomNameSuffix();
+
+        onTrino().executeQuery("" +
+                "CREATE TABLE delta.default." + tableName +
+                "(id INT, part TIMESTAMP WITH TIME ZONE)" +
+                "WITH (partitioned_by = ARRAY['part'], location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')");
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES" +
+                    "(1, TIMESTAMP '0001-01-01 00:00:00.000 UTC')," +
+                    "(2, TIMESTAMP '2023-01-02 01:02:03.999 +01:00')");
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES" +
+                    "(3, TIMESTAMP '2023-03-04 01:02:03.999 -01:00')," +
+                    "(4, TIMESTAMP '9999-12-31 23:59:59.999 UTC')");
+
+            List<Row> expectedRows = ImmutableList.<Row>builder()
+                    .add(row(1, "0001-01-01 00:00:00.000"))
+                    .add(row(2, "2023-01-02 00:02:03.999"))
+                    .add(row(3, "2023-03-04 02:02:03.999"))
+                    .add(row(4, "9999-12-31 23:59:59.999"))
+                    .build();
+
+            assertThat(onDelta().executeQuery("SELECT id, date_format(part, \"yyyy-MM-dd HH:mm:ss.SSS\") FROM default." + tableName))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT id, format_datetime(part, 'yyyy-MM-dd HH:mm:ss.SSS') FROM delta.default." + tableName))
+                    .containsOnly(expectedRows);
+
+            assertThat((String) onTrino().executeQuery("SELECT \"$path\" FROM delta.default." + tableName + " WHERE id = 1").getOnlyValue())
+                    .contains("/part=0001-01-01 00%3A00%3A00/");
+            assertThat((String) onTrino().executeQuery("SELECT \"$path\" FROM delta.default." + tableName + " WHERE id = 2").getOnlyValue())
+                    .contains("/part=2023-01-02 00%3A02%3A03.999/");
+            assertThat((String) onTrino().executeQuery("SELECT \"$path\" FROM delta.default." + tableName + " WHERE id = 3").getOnlyValue())
+                    .contains("/part=2023-03-04 02%3A02%3A03.999/");
+            assertThat((String) onTrino().executeQuery("SELECT \"$path\" FROM delta.default." + tableName + " WHERE id = 4").getOnlyValue())
+                    .contains("/part=9999-12-31 23%3A59%3A59.999/");
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoPartitionedDifferentOrderInsertCompatibility()
     {
         String tableName = "test_dl_trino_partitioned_different_order_insert_" + randomNameSuffix();
