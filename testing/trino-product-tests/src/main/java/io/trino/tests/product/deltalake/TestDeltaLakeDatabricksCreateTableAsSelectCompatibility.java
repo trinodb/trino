@@ -281,4 +281,43 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
             dropDeltaTableWithRetry("default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testCreateTableAsSelectWithAllPartitionColumns()
+    {
+        String tableName = "test_dl_ctas_with_all_partition_columns_" + randomNameSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        try {
+            assertThatThrownBy(() -> onTrino().executeQuery("" +
+                    "CREATE TABLE delta.default." + tableName + " " +
+                    "WITH (partitioned_by = ARRAY['part'], location = 's3://" + bucketName + "/" + tableDirectory + "')" +
+                    "AS SELECT 1 part"))
+                    .hasMessageContaining("Using all columns for partition columns is unsupported");
+            assertThatThrownBy(() -> onTrino().executeQuery("" +
+                    "CREATE TABLE delta.default." + tableName + " " +
+                    "WITH (partitioned_by = ARRAY['part', 'another_part'], location = 's3://" + bucketName + "/" + tableDirectory + "')" +
+                    "AS SELECT 1 part, 2 another_part"))
+                    .hasMessageContaining("Using all columns for partition columns is unsupported");
+
+            assertThatThrownBy(() -> onDelta().executeQuery("" +
+                    "CREATE TABLE default." + tableName + " " +
+                    "USING DELTA " +
+                    "PARTITIONED BY (part)" +
+                    "LOCATION 's3://" + bucketName + "/" + tableDirectory + "'" +
+                    "AS SELECT 1 part"))
+                    .hasMessageContaining("Cannot use all columns for partition columns");
+            assertThatThrownBy(() -> onDelta().executeQuery("" +
+                    "CREATE TABLE default." + tableName + " " +
+                    "USING DELTA " +
+                    "PARTITIONED BY (part, another_part)" +
+                    "LOCATION 's3://" + bucketName + "/" + tableDirectory + "'" +
+                    "SELECT 1 part, 2 another_part"))
+                    .hasMessageContaining("Cannot use all columns for partition columns");
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
 }

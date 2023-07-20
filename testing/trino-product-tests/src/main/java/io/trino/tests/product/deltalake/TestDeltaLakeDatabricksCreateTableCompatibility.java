@@ -362,6 +362,41 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testCreateTableWithAllPartitionColumns()
+    {
+        String tableName = "test_dl_create_table_with_all_partition_columns_" + randomNameSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        try {
+            assertThatThrownBy(() -> onTrino().executeQuery("" +
+                    "CREATE TABLE delta.default." + tableName + "(part int)" +
+                    "WITH (partitioned_by = ARRAY['part'], location = 's3://" + bucketName + "/" + tableDirectory + "')"))
+                    .hasMessageContaining("Using all columns for partition columns is unsupported");
+            assertThatThrownBy(() -> onTrino().executeQuery("" +
+                    "CREATE TABLE delta.default." + tableName + "(part int, another_part int)" +
+                    "WITH (partitioned_by = ARRAY['part', 'another_part'], location = 's3://" + bucketName + "/" + tableDirectory + "')"))
+                    .hasMessageContaining("Using all columns for partition columns is unsupported");
+
+            assertThatThrownBy(() -> onDelta().executeQuery("" +
+                    "CREATE TABLE default." + tableName + "(part int)" +
+                    "USING DELTA " +
+                    "PARTITIONED BY (part)" +
+                    "LOCATION 's3://" + bucketName + "/" + tableDirectory + "'"))
+                    .hasMessageContaining("Cannot use all columns for partition columns");
+            assertThatThrownBy(() -> onDelta().executeQuery("" +
+                    "CREATE TABLE default." + tableName + "(part int, another_part int)" +
+                    "USING DELTA " +
+                    "PARTITIONED BY (part, another_part)" +
+                    "LOCATION 's3://" + bucketName + "/" + tableDirectory + "'"))
+                    .hasMessageContaining("Cannot use all columns for partition columns");
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
     private String getDatabricksDefaultTableProperties()
     {
         if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
