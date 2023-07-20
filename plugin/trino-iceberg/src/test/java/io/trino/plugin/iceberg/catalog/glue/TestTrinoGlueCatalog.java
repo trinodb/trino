@@ -20,6 +20,7 @@ import com.amazonaws.services.glue.model.DatabaseInput;
 import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.NodeVersion;
@@ -50,6 +51,7 @@ import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
@@ -114,7 +116,8 @@ public class TestTrinoGlueCatalog
                         throw new UnsupportedOperationException();
                     },
                     new TableStatisticsWriter(new NodeVersion("test-version")),
-                    ForkJoinPool.commonPool());
+                    Optional.of(ForkJoinPool.commonPool()),
+                    new Duration(10, SECONDS));
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")

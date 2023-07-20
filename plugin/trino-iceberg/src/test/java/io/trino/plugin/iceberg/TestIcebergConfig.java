@@ -34,6 +34,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestIcebergConfig
 {
@@ -62,7 +63,9 @@ public class TestIcebergConfig
                 .setMaterializedViewsStorageSchema(null)
                 .setRegisterTableProcedureEnabled(false)
                 .setSortedWritingEnabled(true)
-                .setMaxConcurrentMetadataLoaders(20));
+                .setParallelMetadataLoadingEnabled(true)
+                .setMaxConcurrentMetadataLoaders(20)
+                .setParallelMetadataLoadingTimeout(new Duration(10, SECONDS)));
     }
 
     @Test
@@ -90,7 +93,9 @@ public class TestIcebergConfig
                 .put("iceberg.materialized-views.storage-schema", "mv_storage_schema")
                 .put("iceberg.register-table-procedure.enabled", "true")
                 .put("iceberg.sorted-writing-enabled", "false")
+                .put("iceberg.parallel-metadata-loading-enabled", "false")
                 .put("iceberg.max-concurrent-metadata-loaders", "5")
+                .put("iceberg.parallel-metadata-loading-timeout", "1m")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -115,7 +120,9 @@ public class TestIcebergConfig
                 .setMaterializedViewsStorageSchema("mv_storage_schema")
                 .setRegisterTableProcedureEnabled(true)
                 .setSortedWritingEnabled(false)
-                .setMaxConcurrentMetadataLoaders(5);
+                .setParallelMetadataLoadingEnabled(false)
+                .setMaxConcurrentMetadataLoaders(5)
+                .setParallelMetadataLoadingTimeout(new Duration(1, MINUTES));
 
         assertFullMapping(properties, expected);
     }

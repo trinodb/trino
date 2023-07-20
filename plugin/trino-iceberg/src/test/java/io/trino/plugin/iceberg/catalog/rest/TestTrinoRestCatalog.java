@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.CommitTaskData;
@@ -30,6 +31,7 @@ import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.assertj.core.util.Files;
 
 import java.io.File;
+import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -39,6 +41,7 @@ import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -98,7 +101,8 @@ public class TestTrinoRestCatalog
                         throw new UnsupportedOperationException();
                     },
                     new TableStatisticsWriter(new NodeVersion("test-version")),
-                    ForkJoinPool.commonPool());
+                    Optional.of(ForkJoinPool.commonPool()),
+                    new Duration(10, SECONDS));
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

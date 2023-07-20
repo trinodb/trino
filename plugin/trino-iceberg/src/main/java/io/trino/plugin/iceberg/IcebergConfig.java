@@ -73,7 +73,9 @@ public class IcebergConfig
     private double minimumAssignedSplitWeight = 0.05;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
     private boolean sortedWritingEnabled = true;
+    private boolean parallelMetadataLoadingEnabled = true;
     private int maxConcurrentMetadataLoaders = 20;
+    private Duration parallelMetadataLoadingTimeout = new Duration(10, SECONDS);
 
     public CatalogType getCatalogType()
     {
@@ -369,6 +371,19 @@ public class IcebergConfig
         return this;
     }
 
+    @Config("iceberg.parallel-metadata-loading-enabled")
+    @ConfigDescription("Enable parallel metadata loading during information_schema queries")
+    public IcebergConfig setParallelMetadataLoadingEnabled(boolean parallelMetadataLoadingEnabled)
+    {
+        this.parallelMetadataLoadingEnabled = parallelMetadataLoadingEnabled;
+        return this;
+    }
+
+    public boolean isParallelMetadataLoadingEnabled()
+    {
+        return parallelMetadataLoadingEnabled;
+    }
+
     @Config("iceberg.max-concurrent-metadata-loaders")
     @ConfigDescription("Maximum number of threads used to load table metadata for information_schema queries")
     public IcebergConfig setMaxConcurrentMetadataLoaders(int maxConcurrentMetadataLoaders)
@@ -381,5 +396,17 @@ public class IcebergConfig
     public int getMaxConcurrentMetadataLoaders()
     {
         return maxConcurrentMetadataLoaders;
+    }
+
+    @Config("iceberg.parallel-metadata-loading-timeout")
+    public IcebergConfig setParallelMetadataLoadingTimeout(Duration parallelMetadataLoadingTimeout)
+    {
+        this.parallelMetadataLoadingTimeout = parallelMetadataLoadingTimeout;
+        return this;
+    }
+
+    public Duration getParallelMetadataLoadingTimeout()
+    {
+        return parallelMetadataLoadingTimeout;
     }
 }

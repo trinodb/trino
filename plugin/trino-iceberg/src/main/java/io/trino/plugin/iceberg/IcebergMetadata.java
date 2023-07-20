@@ -165,16 +165,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletionService;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -268,6 +271,7 @@ import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
@@ -309,7 +313,9 @@ public class IcebergMetadata
     private final TrinoCatalog catalog;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TableStatisticsWriter tableStatisticsWriter;
-    private final ForkJoinPool metadataListingExecutor;
+    private final Optional<ExecutorService> metadataListingExecutor;
+
+    private final Duration parallelMetadataLoadingTimeout;
 
     private final Map<IcebergTableHandle, TableStatistics> tableStatisticsCache = new ConcurrentHashMap<>();
 
@@ -322,7 +328,8 @@ public class IcebergMetadata
             TrinoCatalog catalog,
             TrinoFileSystemFactory fileSystemFactory,
             TableStatisticsWriter tableStatisticsWriter,
-            ForkJoinPool metadataListingExecutor)
+            Optional<ExecutorService> metadataListingExecutor,
+            Duration parallelMetadataLoadingTimeout)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
@@ -331,6 +338,7 @@ public class IcebergMetadata
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
         this.metadataListingExecutor = requireNonNull(metadataListingExecutor, "metadataListingExecutor is null");
+        this.parallelMetadataLoadingTimeout = requireNonNull(parallelMetadataLoadingTimeout, "parallelMetadataLoadingTimeout is null");
     }
 
     @Override
@@ -655,19 +663,55 @@ public class IcebergMetadata
             schemaTableNames = ImmutableList.of(prefix.toSchemaTableName());
         }
 
-        BlockingQueue<Optional<TableColumnsMetadata>> columnsMetadataQueue = new LinkedBlockingQueue<>();
-        AtomicInteger completedTasks = new AtomicInteger(0);
+        if (metadataListingExecutor.isPresent()) {
+            return streamTableColumnsParallel(session, prefix, schemaTableNames);
+        }
 
-        schemaTableNames.forEach(tableName ->
-                metadataListingExecutor.submit(() -> {
+        return schemaTableNames.stream()
+                .flatMap(tableName -> {
                     try {
                         if (redirectTable(session, tableName).isPresent()) {
-                            columnsMetadataQueue.add(Optional.of(TableColumnsMetadata.forRedirectedTable(tableName)));
+                            return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
+                        }
+
+                        Table icebergTable = catalog.loadTable(session, tableName);
+                        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema());
+                        return Stream.of(TableColumnsMetadata.forTable(tableName, columns));
+                    }
+                    catch (TableNotFoundException e) {
+                        // Table disappeared during listing operation
+                        return Stream.empty();
+                    }
+                    catch (UnknownTableTypeException e) {
+                        // Skip unsupported table type in case that the table redirects are not enabled
+                        return Stream.empty();
+                    }
+                    catch (RuntimeException e) {
+                        // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
+                        log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
+                        return Stream.empty();
+                    }
+                })
+                .iterator();
+    }
+
+    private Iterator<TableColumnsMetadata> streamTableColumnsParallel(
+            ConnectorSession session,
+            SchemaTablePrefix prefix,
+            List<SchemaTableName> schemaTableNames)
+    {
+        verify(metadataListingExecutor.isPresent(), "streamTableColumnsParallel may only be called when metadataListingExecutor is present");
+        CompletionService<Optional<TableColumnsMetadata>> completionService = new ExecutorCompletionService<>(metadataListingExecutor.get());
+        schemaTableNames.forEach(tableName ->
+                completionService.submit(() -> {
+                    try {
+                        if (redirectTable(session, tableName).isPresent()) {
+                            return Optional.of(TableColumnsMetadata.forRedirectedTable(tableName));
                         }
                         else {
                             Table icebergTable = catalog.loadTable(session, tableName);
                             List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema());
-                            columnsMetadataQueue.add(Optional.of(TableColumnsMetadata.forTable(tableName, columns)));
+                            return Optional.of(TableColumnsMetadata.forTable(tableName, columns));
                         }
                     }
                     catch (TableNotFoundException e) {
@@ -681,23 +725,33 @@ public class IcebergMetadata
                         log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
                     }
 
-                    // Tasks must reach this point as all Exceptions are caught above
-                    columnsMetadataQueue.add(Optional.empty());
-                    completedTasks.getAndIncrement();
+                    return Optional.empty();
                 }));
+
         return new AbstractIterator<>() {
+            private int completedTasks;
+
             @Override
             protected TableColumnsMetadata computeNext()
             {
-                while (!columnsMetadataQueue.isEmpty() || completedTasks.get() < schemaTableNames.size()) {
+                while (completedTasks < schemaTableNames.size()) {
                     try {
-                        Optional<TableColumnsMetadata> next = columnsMetadataQueue.take();
-                        if (next.isPresent()) {
-                            return next.get();
+                        Future<Optional<TableColumnsMetadata>> futureColumnMetadata = completionService.poll(parallelMetadataLoadingTimeout.toMillis(), MILLISECONDS);
+                        if (futureColumnMetadata == null) {
+                            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Unable to fetch Iceberg column metadata within the timeout");
+                        }
+
+                        completedTasks++;
+                        Optional<TableColumnsMetadata> taskResult = futureColumnMetadata.get();
+                        if (taskResult.isPresent()) {
+                            return taskResult.get();
                         }
                     }
                     catch (InterruptedException e) {
                         throw new TrinoException(GENERIC_INTERNAL_ERROR, "Interrupted while waiting for Iceberg column metadata");
+                    }
+                    catch (ExecutionException e) {
+                        throw new RuntimeException(e);
                     }
                 }
 

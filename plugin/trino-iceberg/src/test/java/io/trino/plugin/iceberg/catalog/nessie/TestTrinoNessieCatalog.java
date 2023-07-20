@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.nessie;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
@@ -42,6 +43,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ForkJoinPool;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -52,6 +54,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.fail;
@@ -181,7 +184,8 @@ public class TestTrinoNessieCatalog
                         throw new UnsupportedOperationException();
                     },
                     new TableStatisticsWriter(new NodeVersion("test-version")),
-                    ForkJoinPool.commonPool());
+                    Optional.of(ForkJoinPool.commonPool()),
+                    new Duration(10, SECONDS));
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

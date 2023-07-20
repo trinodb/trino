@@ -15,13 +15,15 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
-import java.util.concurrent.ForkJoinPool;
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +35,8 @@ public class IcebergMetadataFactory
     private final TrinoCatalogFactory catalogFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TableStatisticsWriter tableStatisticsWriter;
-    private final ForkJoinPool metadataListingExecutor;
+    private final Optional<ExecutorService> parallelMetadataLoadingExecutor;
+    private final Duration parallelMetadataLoadingTimeout;
 
     @Inject
     public IcebergMetadataFactory(
@@ -43,7 +46,8 @@ public class IcebergMetadataFactory
             TrinoCatalogFactory catalogFactory,
             TrinoFileSystemFactory fileSystemFactory,
             TableStatisticsWriter tableStatisticsWriter,
-            @ForMetadataFetching ForkJoinPool metadataListingExecutor)
+            @ForMetadataFetching ExecutorService parallelMetadataLoadingExecutor,
+            IcebergConfig icebergConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
@@ -51,7 +55,10 @@ public class IcebergMetadataFactory
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
-        this.metadataListingExecutor = metadataListingExecutor;
+        this.parallelMetadataLoadingExecutor = icebergConfig.isParallelMetadataLoadingEnabled() ?
+                Optional.of(parallelMetadataLoadingExecutor) :
+                Optional.empty();
+        this.parallelMetadataLoadingTimeout = icebergConfig.getParallelMetadataLoadingTimeout();
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
@@ -63,11 +70,7 @@ public class IcebergMetadataFactory
                 catalogFactory.create(identity),
                 fileSystemFactory,
                 tableStatisticsWriter,
-                metadataListingExecutor);
-    }
-
-    public void shutdown()
-    {
-        metadataListingExecutor.shutdown();
+                parallelMetadataLoadingExecutor,
+                parallelMetadataLoadingTimeout);
     }
 }

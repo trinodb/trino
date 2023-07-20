@@ -41,6 +41,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
 
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -104,7 +105,7 @@ public class IcebergModule
     @Singleton
     @Provides
     @ForMetadataFetching
-    public ForkJoinPool createIcebergMetadataFetchingForkJoinPool(IcebergConfig icebergConfig)
+    public ExecutorService createIcebergMetadataFetchingForkJoinPool(IcebergConfig icebergConfig)
     {
         return new ForkJoinPool(icebergConfig.getMaxConcurrentMetadataLoaders());
     }
