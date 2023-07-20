@@ -15,6 +15,7 @@ package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
@@ -36,7 +37,7 @@ class TypedPositionsAppender
     }
 
     @Override
-    public void append(IntArrayList positions, Block source)
+    public void append(IntArrayList positions, ValueBlock source)
     {
         int[] positionArray = positions.elements();
         for (int i = 0; i < positions.size(); i++) {
@@ -45,7 +46,7 @@ class TypedPositionsAppender
     }
 
     @Override
-    public void appendRle(Block block, int rlePositionCount)
+    public void appendRle(ValueBlock block, int rlePositionCount)
     {
         for (int i = 0; i < rlePositionCount; i++) {
             type.appendTo(block, 0, blockBuilder);
@@ -53,7 +54,7 @@ class TypedPositionsAppender
     }
 
     @Override
-    public void append(int position, Block source)
+    public void append(int position, ValueBlock source)
     {
         type.appendTo(source, position, blockBuilder);
     }

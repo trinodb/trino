@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
@@ -74,8 +75,7 @@ public class SlicePositionsAppender
     }
 
     @Override
-    // TODO: Make PositionsAppender work performant with different block types (https://github.com/trinodb/trino/issues/13267)
-    public void append(IntArrayList positions, Block block)
+    public void append(IntArrayList positions, ValueBlock block)
     {
         if (positions.isEmpty()) {
             return;
@@ -120,7 +120,7 @@ public class SlicePositionsAppender
     }
 
     @Override
-    public void appendRle(Block block, int rlePositionCount)
+    public void appendRle(ValueBlock block, int rlePositionCount)
     {
         if (rlePositionCount == 0) {
             return;
@@ -141,7 +141,7 @@ public class SlicePositionsAppender
     }
 
     @Override
-    public void append(int position, Block source)
+    public void append(int position, ValueBlock source)
     {
         ensurePositionCapacity(positionCount + 1);
         if (source.isNull(position)) {
