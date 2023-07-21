@@ -24,7 +24,7 @@ public class BingTileType
     public static final BingTileType BING_TILE = new BingTileType();
     public static final String NAME = "BingTile";
 
-    public BingTileType()
+    private BingTileType()
     {
         super(new TypeSignature(NAME));
     }

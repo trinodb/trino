@@ -73,7 +73,7 @@ public abstract class AbstractVariableWidthType
         int expectedBytes = (int) min((long) expectedEntries * expectedBytesPerEntry, maxBlockSizeInBytes);
         return new VariableWidthBlockBuilder(
                 blockBuilderStatus,
-                expectedBytesPerEntry == 0 ? expectedEntries : Math.min(expectedEntries, maxBlockSizeInBytes / expectedBytesPerEntry),
+                expectedBytesPerEntry == 0 ? expectedEntries : min(expectedEntries, maxBlockSizeInBytes / expectedBytesPerEntry),
                 expectedBytes);
     }
 

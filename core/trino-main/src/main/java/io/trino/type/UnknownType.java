@@ -123,8 +123,8 @@ public final class UnknownType
     @Override
     public boolean getBoolean(Block block, int position)
     {
-        // Ideally, this function should never be invoked for unknown type.
-        // However, some logic rely on having a default value before the null check.
+        // Ideally, this function should never be invoked for the unknown type.
+        // However, some logic relies on having a default value before the null check.
         checkArgument(block.isNull(position));
         return false;
     }
@@ -133,8 +133,8 @@ public final class UnknownType
     @Override
     public void writeBoolean(BlockBuilder blockBuilder, boolean value)
     {
-        // Ideally, this function should never be invoked for unknown type.
-        // However, some logic (e.g. AbstractMinMaxBy) rely on writing a default value before the null check.
+        // Ideally, this function should never be invoked for the unknown type.
+        // However, some logic (e.g. AbstractMinMaxBy) relies on writing a default value before the null check.
         checkArgument(!value);
         blockBuilder.appendNull();
     }

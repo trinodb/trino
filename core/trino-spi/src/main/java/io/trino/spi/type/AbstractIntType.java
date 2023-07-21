@@ -108,7 +108,7 @@ public abstract class AbstractIntType
         return ((IntArrayBlockBuilder) blockBuilder).writeInt(value);
     }
 
-    protected void checkValueValid(long value)
+    protected static void checkValueValid(long value)
     {
         if (value > Integer.MAX_VALUE) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT", value));

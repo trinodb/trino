@@ -52,7 +52,7 @@ import static java.lang.invoke.MethodHandles.lookup;
  * in the first long and the fractional increment in the remaining integer, as
  * a number of picoseconds additional to the epoch microsecond.
  */
-class LongTimestampType
+final class LongTimestampType
         extends TimestampType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongTimestampType.class, lookup(), LongTimestamp.class);
@@ -68,7 +68,7 @@ class LongTimestampType
             throw new IllegalArgumentException(format("Precision must be in the range [%s, %s]", MAX_SHORT_PRECISION + 1, MAX_PRECISION));
         }
 
-        // ShortTimestampType instances are created eagerly and shared so it's OK to precompute some things.
+        // ShortTimestampType instances are created eagerly and shared, so it's OK to precompute some things.
         int picosOfMicroMax = toIntExact(PICOSECONDS_PER_MICROSECOND - rescale(1, 0, 12 - getPrecision()));
         range = new Range(new LongTimestamp(Long.MIN_VALUE, 0), new LongTimestamp(Long.MAX_VALUE, picosOfMicroMax));
     }

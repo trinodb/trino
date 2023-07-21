@@ -161,7 +161,7 @@ public final class VarcharType
         if (!cachedRangePresent) {
             if (length > 100) {
                 // The max/min values may be materialized in the plan, so we don't want them to be too large.
-                // Range comparison against large values are usually nonsensical, too, so no need to support them
+                // Range comparison against large values is usually nonsensical, too, so no need to support them
                 // beyond a certain size. They specific choice above is arbitrary and can be adjusted if needed.
                 range = Optional.empty();
             }
