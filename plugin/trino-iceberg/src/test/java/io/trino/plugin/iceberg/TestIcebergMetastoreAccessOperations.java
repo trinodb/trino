@@ -326,8 +326,8 @@ public class TestIcebergMetastoreAccessOperations
     {
         int tables = 3;
         for (int i = 0; i < tables; i++) {
-            assertUpdate("CREATE TABLE test_select_i_s_columns" + i + "(id VARCHAR, age INT)");
-            assertUpdate("CREATE TABLE test_other_select_i_s_columns" + i + "(id VARCHAR, age INT)"); // won't match the filter
+            assertUpdate("CREATE TABLE test_select_i_s_columns" + i + "(id varchar, age integer)");
+            assertUpdate("CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
         }
 
         assertMetastoreInvocations("SELECT * FROM information_schema.columns WHERE table_name LIKE 'test_select_i_s_columns%'",
