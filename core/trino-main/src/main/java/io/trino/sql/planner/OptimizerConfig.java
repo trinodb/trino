@@ -42,6 +42,7 @@ public class OptimizerConfig
 
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 9;
+    private int maxPrefetchedInformationSchemaPrefixes = 100;
 
     private boolean enableStatsCalculator = true;
     private boolean statisticsPrecalculationForPushdownEnabled = true;
@@ -227,6 +228,20 @@ public class OptimizerConfig
     public OptimizerConfig setMaxReorderedJoins(int maxReorderedJoins)
     {
         this.maxReorderedJoins = maxReorderedJoins;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxPrefetchedInformationSchemaPrefixes()
+    {
+        return maxPrefetchedInformationSchemaPrefixes;
+    }
+
+    @Config("optimizer.max-prefetched-information-schema-prefixes")
+    @ConfigDescription("Experimental: maximum number of internal \"prefixes\" to be prefetched when optimizing information_schema queries")
+    public OptimizerConfig setMaxPrefetchedInformationSchemaPrefixes(int maxPrefetchedInformationSchemaPrefixes)
+    {
+        this.maxPrefetchedInformationSchemaPrefixes = maxPrefetchedInformationSchemaPrefixes;
         return this;
     }
 
