@@ -20,7 +20,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
-import io.trino.spi.type.Type;
+import io.trino.spi.type.RowType;
 
 import java.util.List;
 
@@ -28,17 +28,19 @@ public class StructEncoding
         extends BlockEncoding
 {
     private final List<BinaryColumnEncoding> structFields;
+    private final RowType rowType;
 
-    public StructEncoding(Type type, List<BinaryColumnEncoding> structFields)
+    public StructEncoding(RowType rowType, List<BinaryColumnEncoding> structFields)
     {
-        super(type);
+        super(rowType);
+        this.rowType = rowType;
         this.structFields = ImmutableList.copyOf(structFields);
     }
 
     @Override
     public void encodeValue(Block block, int position, SliceOutput output)
     {
-        SqlRow row = block.getObject(position, SqlRow.class);
+        SqlRow row = rowType.getObject(block, position);
         int rawIndex = row.getRawIndex();
 
         // write values

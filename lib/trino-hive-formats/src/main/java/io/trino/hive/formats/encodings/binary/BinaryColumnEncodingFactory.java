@@ -85,19 +85,19 @@ public class BinaryColumnEncodingFactory
         if (type instanceof TimestampType) {
             return new TimestampEncoding((TimestampType) type, timeZone);
         }
-        if (type instanceof ArrayType) {
-            return new ListEncoding(type, getEncoding(type.getTypeParameters().get(0)));
+        if (type instanceof ArrayType arrayType) {
+            return new ListEncoding(arrayType, getEncoding(arrayType.getElementType()));
         }
-        if (type instanceof MapType) {
+        if (type instanceof MapType mapType) {
             return new MapEncoding(
-                    type,
-                    getEncoding(type.getTypeParameters().get(0)),
-                    getEncoding(type.getTypeParameters().get(1)));
+                    mapType,
+                    getEncoding(mapType.getKeyType()),
+                    getEncoding(mapType.getValueType()));
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             return new StructEncoding(
-                    type,
-                    type.getTypeParameters().stream()
+                    rowType,
+                    rowType.getTypeParameters().stream()
                             .map(this::getEncoding)
                             .collect(Collectors.toList()));
         }

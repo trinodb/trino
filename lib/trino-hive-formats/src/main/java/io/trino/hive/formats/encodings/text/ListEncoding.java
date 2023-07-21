@@ -19,17 +19,19 @@ import io.trino.hive.formats.FileCorruptionException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.Type;
+import io.trino.spi.type.ArrayType;
 
 public class ListEncoding
         extends BlockEncoding
 {
+    private final ArrayType arrayType;
     private final byte separator;
     private final TextColumnEncoding elementEncoding;
 
-    public ListEncoding(Type type, Slice nullSequence, byte separator, Byte escapeByte, TextColumnEncoding elementEncoding)
+    public ListEncoding(ArrayType arrayType, Slice nullSequence, byte separator, Byte escapeByte, TextColumnEncoding elementEncoding)
     {
-        super(type, nullSequence, escapeByte);
+        super(arrayType, nullSequence, escapeByte);
+        this.arrayType = arrayType;
         this.separator = separator;
         this.elementEncoding = elementEncoding;
     }
@@ -38,7 +40,7 @@ public class ListEncoding
     public void encodeValueInto(Block block, int position, SliceOutput output)
             throws FileCorruptionException
     {
-        Block list = block.getObject(position, Block.class);
+        Block list = arrayType.getObject(block, position);
         for (int elementIndex = 0; elementIndex < list.getPositionCount(); elementIndex++) {
             if (elementIndex > 0) {
                 output.writeByte(separator);

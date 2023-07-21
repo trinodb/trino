@@ -20,26 +20,28 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
-import io.trino.spi.type.Type;
+import io.trino.spi.type.RowType;
 
 import java.util.List;
 
 public class StructEncoding
         extends BlockEncoding
 {
+    private final RowType rowType;
     private final byte separator;
     private final boolean lastColumnTakesRest;
     private final List<TextColumnEncoding> structFields;
 
     public StructEncoding(
-            Type type,
+            RowType rowType,
             Slice nullSequence,
             byte separator,
             Byte escapeByte,
             boolean lastColumnTakesRest,
             List<TextColumnEncoding> structFields)
     {
-        super(type, nullSequence, escapeByte);
+        super(rowType, nullSequence, escapeByte);
+        this.rowType = rowType;
         this.separator = separator;
         this.lastColumnTakesRest = lastColumnTakesRest;
         this.structFields = structFields;
@@ -49,7 +51,7 @@ public class StructEncoding
     public void encodeValueInto(Block block, int position, SliceOutput output)
             throws FileCorruptionException
     {
-        SqlRow row = block.getObject(position, SqlRow.class);
+        SqlRow row = rowType.getObject(block, position);
         int rawIndex = row.getRawIndex();
         for (int fieldIndex = 0; fieldIndex < structFields.size(); fieldIndex++) {
             if (fieldIndex > 0) {

@@ -202,7 +202,7 @@ public class MongoPageSink
         if (type instanceof ArrayType arrayType) {
             Type elementType = arrayType.getElementType();
 
-            Block arrayBlock = block.getObject(position, Block.class);
+            Block arrayBlock = arrayType.getObject(block, position);
 
             List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -216,7 +216,7 @@ public class MongoPageSink
             Type keyType = mapType.getKeyType();
             Type valueType = mapType.getValueType();
 
-            SqlMap sqlMap = block.getObject(position, SqlMap.class);
+            SqlMap sqlMap = mapType.getObject(block, position);
             int size = sqlMap.getSize();
             int rawOffset = sqlMap.getRawOffset();
             Block rawKeyBlock = sqlMap.getRawKeyBlock();

@@ -196,7 +196,7 @@ public final class IcebergAvroDataConversion
             Type elementType = arrayType.getElementType();
             org.apache.iceberg.types.Type elementIcebergType = icebergType.asListType().elementType();
 
-            Block arrayBlock = block.getObject(position, Block.class);
+            Block arrayBlock = arrayType.getObject(block, position);
 
             List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -212,7 +212,7 @@ public final class IcebergAvroDataConversion
             org.apache.iceberg.types.Type keyIcebergType = icebergType.asMapType().keyType();
             org.apache.iceberg.types.Type valueIcebergType = icebergType.asMapType().valueType();
 
-            SqlMap sqlMap = block.getObject(position, SqlMap.class);
+            SqlMap sqlMap = mapType.getObject(block, position);
             int rawOffset = sqlMap.getRawOffset();
             Block rawKeyBlock = sqlMap.getRawKeyBlock();
             Block rawValueBlock = sqlMap.getRawValueBlock();
