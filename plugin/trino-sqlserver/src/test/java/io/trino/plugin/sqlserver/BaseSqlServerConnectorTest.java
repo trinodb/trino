@@ -852,6 +852,17 @@ public abstract class BaseSqlServerConnectorTest
         }
     }
 
+    @Test
+    @Override
+    public void testConstantUpdateWithVarcharInequalityPredicates()
+    {
+        // Sql Server supports push down predicate for not equal operator
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
+            assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a'), (2, 'A')");
+        }
+    }
+
     private TestProcedure createTestingProcedure(String baseQuery)
     {
         return createTestingProcedure("", baseQuery);

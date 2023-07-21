@@ -652,7 +652,8 @@ public class TestCachingJdbcClient
                 Optional.empty(),
                 Optional.of(Set.of(new SchemaTableName(schema, "first"))),
                 0,
-                Optional.empty());
+                Optional.empty(),
+                ImmutableList.of());
 
         // load
         assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {

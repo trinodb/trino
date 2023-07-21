@@ -603,6 +603,14 @@ public class CachingJdbcClient
     }
 
     @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
+        OptionalLong updatedRowsCount = delegate.update(session, handle);
+        onDataChanged(handle.getRequiredNamedRelation().getSchemaTableName());
+        return updatedRowsCount;
+    }
+
+    @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
         delegate.truncateTable(session, handle);
