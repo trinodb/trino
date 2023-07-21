@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.connector.informationschema.InformationSchemaMetadata.MAX_PREFIXES_COUNT;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_DATABASES;
@@ -57,6 +56,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestHiveMetastoreMetadataQueriesAccessOperations
         extends AbstractTestQueryFramework
 {
+    private static final int MAX_PREFIXES_COUNT = 20;
     private static final int TEST_SCHEMAS_COUNT = MAX_PREFIXES_COUNT + 1;
     private static final int TEST_TABLES_IN_SCHEMA_COUNT = MAX_PREFIXES_COUNT + 3;
     private static final int TEST_ALL_TABLES_COUNT = TEST_SCHEMAS_COUNT * TEST_TABLES_IN_SCHEMA_COUNT;
@@ -75,6 +75,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                                 .build())
                 // metadata queries do not use workers
                 .setNodeCount(1)
+                .addCoordinatorProperty("optimizer.max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
 
         mockMetastore = new MockHiveMetastore();
@@ -500,7 +501,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                 // some lengthy explanatory comment why variable count
                 // TODO switch to assertMetastoreInvocations when GET_TABLE invocation count becomes deterministic
                 // TODO this is horribly lot, why, o why we do those redirect-related calls in ... even if redirects not enabled?????????!!?!1
-                .isBetween(TEST_ALL_TABLES_COUNT + 85, TEST_ALL_TABLES_COUNT + 95);
+                .isBetween(TEST_ALL_TABLES_COUNT, TEST_ALL_TABLES_COUNT + 95);
         invocations = HashMultiset.create(invocations);
         invocations.elementSet().remove(GET_TABLE);
 
