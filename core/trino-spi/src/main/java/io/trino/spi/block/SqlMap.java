@@ -98,6 +98,26 @@ public class SqlMap
         return rawValueBlock;
     }
 
+    public int getUnderlyingKeyPosition(int position)
+    {
+        return rawKeyBlock.getUnderlyingValuePosition(offset + position);
+    }
+
+    public ValueBlock getUnderlyingKeyBlock()
+    {
+        return rawKeyBlock.getUnderlyingValueBlock();
+    }
+
+    public int getUnderlyingValuePosition(int position)
+    {
+        return rawValueBlock.getUnderlyingValuePosition(offset + position);
+    }
+
+    public ValueBlock getUnderlyingValueBlock()
+    {
+        return rawValueBlock.getUnderlyingValueBlock();
+    }
+
     @Override
     public String toString()
     {

@@ -128,10 +128,15 @@ public class ByteArrayBlock
     @Override
     public byte getByte(int position, int offset)
     {
-        checkReadablePosition(this, position);
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
+        return getByte(position);
+    }
+
+    public byte getByte(int position)
+    {
+        checkReadablePosition(this, position);
         return values[position + arrayOffset];
     }
 
