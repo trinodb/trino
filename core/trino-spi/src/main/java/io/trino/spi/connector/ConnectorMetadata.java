@@ -57,6 +57,7 @@ import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 import static io.trino.spi.ErrorType.EXTERNAL;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -957,6 +958,25 @@ public interface ConnectorMetadata
     default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Attempt to push down an update operation into the connector. If a connector
+     * can execute an update for the table handle on its own, it should return a
+     * table handle, which will be passed back to {@link #executeUpdate} during
+     * query executing to actually execute the update.
+     */
+    default Optional<ConnectorTableHandle> applyUpdate(ConnectorSession session, ConnectorTableHandle handle, Map<ColumnHandle, Constant> assignments)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Execute the update operation on the handle returned from {@link #applyUpdate}.
+     */
+    default OptionalLong executeUpdate(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "ConnectorMetadata applyUpdate() is implemented without executeUpdate()");
     }
 
     /**

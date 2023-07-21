@@ -261,6 +261,22 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Override
+    public void verifySupportsUpdateDeclaration()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_update", "AS SELECT * FROM nation")) {
+            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+        }
+    }
+
+    @Override
+    public void verifySupportsRowLevelUpdateDeclaration()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
+            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = nationkey * 100 WHERE regionkey = 2", MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+        }
+    }
+
+    @Override
     protected String createTableForWrites(String createTable)
     {
         return createTable + " WITH (transactional = true)";
@@ -312,6 +328,13 @@ public abstract class BaseHiveConnectorTest
     public void testUpdate()
     {
         assertThatThrownBy(super::testUpdate)
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+    }
+
+    @Override
+    public void testRowLevelUpdate()
+    {
+        assertThatThrownBy(super::testRowLevelUpdate)
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 

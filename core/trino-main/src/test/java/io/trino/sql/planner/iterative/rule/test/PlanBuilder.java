@@ -72,6 +72,7 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
@@ -739,16 +740,39 @@ public class PlanBuilder
 
     public MergeWriterNode merge(SchemaTableName schemaTableName, PlanNode mergeSource, Symbol mergeRow, Symbol rowId, List<Symbol> outputs)
     {
+        return merge(mergeSource, mergeTarget(schemaTableName), mergeRow, rowId, outputs);
+    }
+
+    public MergeWriterNode merge(PlanNode mergeSource, MergeTarget target, Symbol mergeRow, Symbol rowId, List<Symbol> outputs)
+    {
         return new MergeWriterNode(
                 idAllocator.getNextId(),
                 mergeSource,
-                mergeTarget(schemaTableName),
+                target,
                 ImmutableList.of(mergeRow, rowId),
                 Optional.empty(),
                 outputs);
     }
 
-    private MergeTarget mergeTarget(SchemaTableName schemaTableName)
+    public MergeProcessorNode mergeProcessor(SchemaTableName schemaTableName, PlanNode source, Symbol mergeRow, Symbol rowId, List<Symbol> dataColumnSymbols, List<Symbol> redistributionColumnSymbols, List<Symbol> outputs)
+    {
+        return new MergeProcessorNode(
+                idAllocator.getNextId(),
+                source,
+                mergeTarget(schemaTableName),
+                rowId,
+                mergeRow,
+                dataColumnSymbols,
+                redistributionColumnSymbols,
+                outputs);
+    }
+
+    public MergeTarget mergeTarget(SchemaTableName schemaTableName)
+    {
+        return mergeTarget(schemaTableName, new MergeParadigmAndTypes(Optional.of(DELETE_ROW_AND_INSERT_ROW), ImmutableList.of(), ImmutableList.of(), INTEGER));
+    }
+
+    public MergeTarget mergeTarget(SchemaTableName schemaTableName, MergeParadigmAndTypes mergeParadigmAndTypes)
     {
         return new MergeTarget(
                 new TableHandle(
@@ -757,7 +781,7 @@ public class PlanBuilder
                         TestingTransactionHandle.create()),
                 Optional.empty(),
                 schemaTableName,
-                new MergeParadigmAndTypes(Optional.of(DELETE_ROW_AND_INSERT_ROW), ImmutableList.of(), ImmutableList.of(), INTEGER));
+                mergeParadigmAndTypes);
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)

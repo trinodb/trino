@@ -82,6 +82,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -821,6 +822,16 @@ public class AddExchanges
 
         @Override
         public PlanWithProperties visitTableDelete(TableDeleteNode node, PreferredProperties context)
+        {
+            return new PlanWithProperties(
+                    node,
+                    ActualProperties.builder()
+                            .global(singlePartition())
+                            .build());
+        }
+
+        @Override
+        public PlanWithProperties visitTableUpdate(TableUpdateNode node, PreferredProperties context)
         {
             return new PlanWithProperties(
                     node,
