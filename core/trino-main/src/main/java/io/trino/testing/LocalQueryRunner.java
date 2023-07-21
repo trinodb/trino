@@ -408,7 +408,8 @@ public class LocalQueryRunner
                 OpenTelemetry.noop(),
                 transactionManager,
                 typeManager,
-                nodeSchedulerConfig));
+                nodeSchedulerConfig,
+                optimizerConfig));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProvider(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));

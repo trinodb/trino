@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.trino.Session;
-import io.trino.connector.informationschema.InformationSchemaMetadata;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
 import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
@@ -55,6 +54,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestIcebergMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {
+    private static final int MAX_PREFIXES_COUNT = 10;
     private static final Session TEST_SESSION = testSessionBuilder()
             .setCatalog("iceberg")
             .setSchema("test_schema")
@@ -66,7 +66,9 @@ public class TestIcebergMetastoreAccessOperations
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION).build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
+                .addCoordinatorProperty("optimizer.max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
+                .build();
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
         metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir));
@@ -360,8 +362,8 @@ public class TestIcebergMetastoreAccessOperations
     {
         return new Object[][] {
                 {3},
-                {InformationSchemaMetadata.MAX_PREFIXES_COUNT},
-                {InformationSchemaMetadata.MAX_PREFIXES_COUNT + 3},
+                {MAX_PREFIXES_COUNT},
+                {MAX_PREFIXES_COUNT + 3},
         };
     }
 

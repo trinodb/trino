@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.inject.Key;
 import io.trino.Session;
-import io.trino.connector.informationschema.InformationSchemaMetadata;
 import io.trino.filesystem.TrackingFileSystemFactory;
 import io.trino.filesystem.TrackingFileSystemFactory.OperationType;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -67,6 +66,8 @@ import static java.util.stream.Collectors.toCollection;
 public class TestIcebergMetadataFileOperations
         extends AbstractTestQueryFramework
 {
+    private static final int MAX_PREFIXES_COUNT = 10;
+
     private TrackingFileSystemFactory trackingFileSystemFactory;
 
     @Override
@@ -86,6 +87,7 @@ public class TestIcebergMetadataFileOperations
                 // Tests that inspect MBean attributes need to run with just one node, otherwise
                 // the attributes may come from the bound class instance in non-coordinator node
                 .setNodeCount(1)
+                .addCoordinatorProperty("optimizer.max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
@@ -509,8 +511,8 @@ public class TestIcebergMetadataFileOperations
     {
         return new Object[][] {
                 {3},
-                {InformationSchemaMetadata.MAX_PREFIXES_COUNT},
-                {InformationSchemaMetadata.MAX_PREFIXES_COUNT + 3},
+                {MAX_PREFIXES_COUNT},
+                {MAX_PREFIXES_COUNT + 3},
         };
     }
 
