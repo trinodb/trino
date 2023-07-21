@@ -327,6 +327,10 @@ public class TestIcebergMetastoreAccessOperations
         int tables = 3;
         for (int i = 0; i < tables; i++) {
             assertUpdate("CREATE TABLE test_select_i_s_columns" + i + "(id varchar, age integer)");
+            // Produce multiple snapshots and metadata files
+            assertUpdate("INSERT INTO test_select_i_s_columns" + i + " VALUES ('abc', 11)", 1);
+            assertUpdate("INSERT INTO test_select_i_s_columns" + i + " VALUES ('xyz', 12)", 1);
+
             assertUpdate("CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
         }
 
