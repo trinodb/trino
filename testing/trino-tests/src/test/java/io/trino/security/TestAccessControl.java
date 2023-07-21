@@ -158,7 +158,7 @@ public class TestAccessControl
                 })
                 .withGetViews((connectorSession, prefix) -> {
                     ConnectorViewDefinition definitionRunAsDefiner = new ConnectorViewDefinition(
-                            "select 1",
+                            "SELECT 1 AS test",
                             Optional.of("mock"),
                             Optional.of("default"),
                             ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test", BIGINT.getTypeId(), Optional.empty())),
@@ -166,7 +166,7 @@ public class TestAccessControl
                             Optional.of("admin"),
                             false);
                     ConnectorViewDefinition definitionRunAsInvoker = new ConnectorViewDefinition(
-                            "select 1",
+                            "SELECT 1 AS test",
                             Optional.of("mock"),
                             Optional.of("default"),
                             ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test", BIGINT.getTypeId(), Optional.empty())),
@@ -182,7 +182,7 @@ public class TestAccessControl
                     public Map<SchemaTableName, ConnectorMaterializedViewDefinition> apply(ConnectorSession session, SchemaTablePrefix schemaTablePrefix)
                     {
                         ConnectorMaterializedViewDefinition materializedViewDefinition = new ConnectorMaterializedViewDefinition(
-                                "select 1",
+                                "SELECT 1 AS test",
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
