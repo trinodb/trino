@@ -434,6 +434,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return delegate().update(session, handle);
+    }
+
+    @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
         delegate().truncateTable(session, handle);

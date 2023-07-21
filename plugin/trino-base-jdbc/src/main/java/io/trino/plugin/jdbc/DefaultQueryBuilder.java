@@ -177,6 +177,57 @@ public class DefaultQueryBuilder
     }
 
     @Override
+    public PreparedQuery prepareUpdateQuery(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            JdbcNamedRelationHandle baseRelation,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<ParameterizedExpression> additionalPredicate,
+            List<JdbcAssignmentItem> assignments)
+    {
+        ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
+
+        String sql = "UPDATE " + getRelation(client, baseRelation.getRemoteTableName()) + " SET ";
+
+        assignments.forEach(entry -> {
+            JdbcColumnHandle columnHandle = entry.column();
+            accumulator.add(
+                    new QueryParameter(
+                            columnHandle.getJdbcTypeHandle(),
+                            columnHandle.getColumnType(),
+                            entry.queryParameter().getValue()));
+        });
+
+        sql += assignments.stream()
+                .map(JdbcAssignmentItem::column)
+                .map(columnHandle -> {
+                    String bindExpression = getWriteFunction(
+                            client,
+                            session,
+                            connection,
+                            columnHandle.getJdbcTypeHandle(),
+                            columnHandle.getColumnType())
+                            .getBindExpression();
+                    return client.quoted(columnHandle.getColumnName()) + " = " + bindExpression;
+                })
+                .collect(joining(", "));
+
+        ImmutableList.Builder<String> conjuncts = ImmutableList.builder();
+
+        toConjuncts(client, session, connection, tupleDomain, conjuncts, accumulator::add);
+        additionalPredicate.ifPresent(predicate -> {
+            conjuncts.add(predicate.expression());
+            accumulator.addAll(predicate.parameters());
+        });
+        List<String> clauses = conjuncts.build();
+        if (!clauses.isEmpty()) {
+            sql += " WHERE " + Joiner.on(" AND ").join(clauses);
+        }
+        return new PreparedQuery(sql, accumulator.build());
+    }
+
+    @Override
     public PreparedStatement prepareStatement(
             JdbcClient client,
             ConnectorSession session,
