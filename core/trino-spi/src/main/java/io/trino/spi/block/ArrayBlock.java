@@ -369,11 +369,15 @@ public class ArrayBlock
         if (clazz != Block.class) {
             throw new IllegalArgumentException("clazz must be Block.class");
         }
-        checkReadablePosition(this, position);
+        return clazz.cast(getArray(position));
+    }
 
+    public Block getArray(int position)
+    {
+        checkReadablePosition(this, position);
         int startValueOffset = offsets[position + arrayOffset];
         int endValueOffset = offsets[position + 1 + arrayOffset];
-        return clazz.cast(values.getRegion(startValueOffset, endValueOffset - startValueOffset));
+        return values.getRegion(startValueOffset, endValueOffset - startValueOffset);
     }
 
     @Override

@@ -213,6 +213,14 @@ public class VariableWidthBlock
         return slice.slice(getPositionOffset(position) + offset, length);
     }
 
+    public Slice getSlice(int position)
+    {
+        checkReadablePosition(this, position);
+        int offset = offsets[position + arrayOffset];
+        int length = offsets[position + 1 + arrayOffset] - offset;
+        return slice.slice(offset, length);
+    }
+
     @Override
     public boolean mayHaveNull()
     {

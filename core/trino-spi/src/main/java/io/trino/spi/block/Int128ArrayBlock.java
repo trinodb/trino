@@ -127,14 +127,25 @@ public class Int128ArrayBlock
     @Override
     public long getLong(int position, int offset)
     {
-        checkReadablePosition(this, position);
         if (offset == 0) {
-            return values[(position + positionOffset) * 2];
+            return getInt128High(position);
         }
         if (offset == 8) {
-            return values[((position + positionOffset) * 2) + 1];
+            return getInt128Low(position);
         }
         throw new IllegalArgumentException("offset must be 0 or 8");
+    }
+
+    public long getInt128High(int position)
+    {
+        checkReadablePosition(this, position);
+        return values[(position + positionOffset) * 2];
+    }
+
+    public long getInt128Low(int position)
+    {
+        checkReadablePosition(this, position);
+        return values[((position + positionOffset) * 2) + 1];
     }
 
     @Override

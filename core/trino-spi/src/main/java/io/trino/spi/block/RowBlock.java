@@ -533,9 +533,13 @@ public class RowBlock
         if (clazz != SqlRow.class) {
             throw new IllegalArgumentException("clazz must be SqlRow.class");
         }
-        checkReadablePosition(this, position);
+        return clazz.cast(getRow(position));
+    }
 
-        return clazz.cast(new SqlRow(getFieldBlockOffset(position), fieldBlocks));
+    public SqlRow getRow(int position)
+    {
+        checkReadablePosition(this, position);
+        return new SqlRow(getFieldBlockOffset(position), fieldBlocks);
     }
 
     @Override
