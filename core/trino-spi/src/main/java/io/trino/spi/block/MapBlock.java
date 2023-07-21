@@ -541,17 +541,21 @@ public class MapBlock
         if (clazz != SqlMap.class) {
             throw new IllegalArgumentException("clazz must be SqlMap.class");
         }
-        checkReadablePosition(this, position);
+        return clazz.cast(getMap(position));
+    }
 
+    public SqlMap getMap(int position)
+    {
+        checkReadablePosition(this, position);
         int startEntryOffset = getOffset(position);
         int endEntryOffset = getOffset(position + 1);
-        return clazz.cast(new SqlMap(
+        return new SqlMap(
                 mapType,
                 keyBlock,
                 valueBlock,
                 new SqlMap.HashTableSupplier(this),
                 startEntryOffset,
-                (endEntryOffset - startEntryOffset)));
+                (endEntryOffset - startEntryOffset));
     }
 
     @Override
