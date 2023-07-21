@@ -111,7 +111,7 @@ public final class BigQueryTypeUtils
             return timestampToStringConverter(timestamp);
         }
         if (type instanceof ArrayType arrayType) {
-            Block arrayBlock = block.getObject(position, Block.class);
+            Block arrayBlock = arrayType.getObject(block, position);
             ImmutableList.Builder<Object> list = ImmutableList.builderWithExpectedSize(arrayBlock.getPositionCount());
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
                 Object element = readNativeValue(arrayType.getElementType(), arrayBlock, i);
@@ -123,7 +123,7 @@ public final class BigQueryTypeUtils
             return list.build();
         }
         if (type instanceof RowType rowType) {
-            SqlRow sqlRow = block.getObject(position, SqlRow.class);
+            SqlRow sqlRow = rowType.getObject(block, position);
 
             List<Type> fieldTypes = rowType.getTypeParameters();
             if (fieldTypes.size() != sqlRow.getFieldCount()) {
