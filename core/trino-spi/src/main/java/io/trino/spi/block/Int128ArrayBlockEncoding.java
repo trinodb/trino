@@ -33,29 +33,22 @@ public class Int128ArrayBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        int positionCount = block.getPositionCount();
+        Int128ArrayBlock int128ArrayBlock = (Int128ArrayBlock) block;
+        int positionCount = int128ArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        encodeNullsAsBits(sliceOutput, block);
+        encodeNullsAsBits(sliceOutput, int128ArrayBlock);
 
-        if (!block.mayHaveNull()) {
-            if (block instanceof Int128ArrayBlock valueBlock) {
-                sliceOutput.writeLongs(valueBlock.getRawValues(), valueBlock.getPositionOffset() * 2, valueBlock.getPositionCount() * 2);
-            }
-            else if (block instanceof Int128ArrayBlockBuilder blockBuilder) {
-                sliceOutput.writeLongs(blockBuilder.getRawValues(), 0, blockBuilder.getPositionCount() * 2);
-            }
-            else {
-                throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
-            }
+        if (!int128ArrayBlock.mayHaveNull()) {
+            sliceOutput.writeLongs(int128ArrayBlock.getRawValues(), int128ArrayBlock.getPositionOffset() * 2, int128ArrayBlock.getPositionCount() * 2);
         }
         else {
             long[] valuesWithoutNull = new long[positionCount * 2];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = block.getLong(i, 0);
-                valuesWithoutNull[nonNullPositionCount + 1] = block.getLong(i, 8);
-                if (!block.isNull(i)) {
+                valuesWithoutNull[nonNullPositionCount] = int128ArrayBlock.getLong(i, 0);
+                valuesWithoutNull[nonNullPositionCount + 1] = int128ArrayBlock.getLong(i, 8);
+                if (!int128ArrayBlock.isNull(i)) {
                     nonNullPositionCount += 2;
                 }
             }
@@ -66,7 +59,7 @@ public class Int128ArrayBlockEncoding
     }
 
     @Override
-    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
+    public Int128ArrayBlock readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
 
