@@ -155,9 +155,4 @@ public class Int128ArrayBlockBuilder
         sb.append('}');
         return sb.toString();
     }
-
-    long[] getRawValues()
-    {
-        return values;
-    }
 }

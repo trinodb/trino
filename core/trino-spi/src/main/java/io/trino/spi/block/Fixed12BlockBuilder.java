@@ -155,9 +155,4 @@ public class Fixed12BlockBuilder
         sb.append('}');
         return sb.toString();
     }
-
-    int[] getRawValues()
-    {
-        return values;
-    }
 }

@@ -13,8 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
@@ -155,10 +153,5 @@ public class ByteArrayBlockBuilder
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
-    }
-
-    Slice getValuesSlice()
-    {
-        return Slices.wrappedBuffer(values, 0, positionCount);
     }
 }
