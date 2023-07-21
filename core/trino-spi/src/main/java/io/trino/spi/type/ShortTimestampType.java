@@ -49,7 +49,7 @@ import static java.lang.invoke.MethodHandles.lookup;
  * The value is encoded as microseconds from the 1970-01-01 00:00:00 epoch and is to be interpreted as
  * local date time without regards to any time zone.
  */
-class ShortTimestampType
+final class ShortTimestampType
         extends TimestampType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortTimestampType.class, lookup(), long.class);
@@ -64,7 +64,7 @@ class ShortTimestampType
             throw new IllegalArgumentException(format("Precision must be in the range [0, %s]", MAX_SHORT_PRECISION));
         }
 
-        // ShortTimestampType instances are created eagerly and shared so it's OK to precompute some things.
+        // ShortTimestampType instances are created eagerly and shared, so it's OK to precompute some things.
         if (getPrecision() == MAX_SHORT_PRECISION) {
             range = new Range(Long.MIN_VALUE, Long.MAX_VALUE);
         }
@@ -81,25 +81,25 @@ class ShortTimestampType
     }
 
     @Override
-    public final int getFixedSize()
+    public int getFixedSize()
     {
         return Long.BYTES;
     }
 
     @Override
-    public final long getLong(Block block, int position)
+    public long getLong(Block block, int position)
     {
         return block.getLong(position, 0);
     }
 
     @Override
-    public final void writeLong(BlockBuilder blockBuilder, long value)
+    public void writeLong(BlockBuilder blockBuilder, long value)
     {
         ((LongArrayBlockBuilder) blockBuilder).writeLong(value);
     }
 
     @Override
-    public final void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {
             blockBuilder.appendNull();
@@ -110,7 +110,7 @@ class ShortTimestampType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         int maxBlockSizeInBytes;
         if (blockBuilderStatus == null) {
@@ -125,13 +125,13 @@ class ShortTimestampType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, Long.BYTES);
     }
 
     @Override
-    public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new LongArrayBlockBuilder(null, positionCount);
     }

@@ -111,7 +111,7 @@ public class MapType
     private final MethodHandle keyBlockNativeEqual;
     private final MethodHandle keyBlockEqual;
 
-    // this field is used in double checked locking
+    // this field is used in double-checked locking
     @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
     private volatile TypeOperatorDeclaration typeOperatorDeclaration;
 
@@ -826,7 +826,7 @@ public class MapType
         Block rawValueBlock = sqlMap.getRawValueBlock();
 
         for (int i = 0; i < sqlMap.getSize(); i++) {
-            // since maps are not allowed to have indeterminate keys we only check values here
+            // since maps are not allowed to have indeterminate keys, we only check values here
             if (rawValueBlock.isNull(rawOffset + i)) {
                 return true;
             }

@@ -189,7 +189,7 @@ public final class SmallintType
         ((ShortArrayBlockBuilder) blockBuilder).writeShort(value);
     }
 
-    private void checkValueValid(long value)
+    private static void checkValueValid(long value)
     {
         if (value > Short.MAX_VALUE) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_SHORT", value));

@@ -190,6 +190,7 @@ public final class DoubleType
         DOUBLE_HANDLE.set(fixedSizeSlice, fixedSizeOffset, value);
     }
 
+    @SuppressWarnings("FloatingPointEquality")
     @ScalarOperator(EQUAL)
     private static boolean equalOperator(double left, double right)
     {
@@ -214,6 +215,7 @@ public final class DoubleType
         return XxHash64.hash(doubleToLongBits(value));
     }
 
+    @SuppressWarnings("FloatingPointEquality")
     @ScalarOperator(IS_DISTINCT_FROM)
     private static boolean distinctFromOperator(double left, @IsNull boolean leftNull, double right, @IsNull boolean rightNull)
     {

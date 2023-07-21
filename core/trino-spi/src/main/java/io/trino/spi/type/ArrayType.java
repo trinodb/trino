@@ -99,7 +99,7 @@ public class ArrayType
 
     private final Type elementType;
 
-    // this field is used in double checked locking
+    // this field is used in double-checked locking
     @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
     private volatile TypeOperatorDeclaration operatorDeclaration;
 
