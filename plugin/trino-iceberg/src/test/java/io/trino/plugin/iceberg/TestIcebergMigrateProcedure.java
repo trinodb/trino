@@ -27,7 +27,9 @@ import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -72,6 +74,60 @@ public class TestIcebergMigrateProcedure
 
         assertUpdate("INSERT INTO " + icebergTableName + " VALUES (2)", 1);
         assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1), (2)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "fileFormats")
+    public void testMigrateTableWithTinyintType(IcebergFileFormat fileFormat)
+    {
+        String tableName = "test_migrate_tinyint" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        String createTable = "CREATE TABLE " + hiveTableName + "(col TINYINT) WITH (format = '" + fileFormat + "')";
+        if (fileFormat == AVRO) {
+            assertQueryFails(createTable, "Column 'col' is tinyint, which is not supported by Avro. Use integer instead.");
+            return;
+        }
+
+        assertUpdate(createTable);
+        assertUpdate("INSERT INTO " + hiveTableName + " VALUES NULL, -128, 127", 3);
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+
+        assertThat(getColumnType(tableName, "col")).isEqualTo("integer");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (NULL), (-128), (127)");
+
+        assertUpdate("INSERT INTO " + icebergTableName + " VALUES -2147483648, 2147483647", 2);
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (NULL), (-2147483648), (-128), (127), (2147483647)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "fileFormats")
+    public void testMigrateTableWithSmallintType(IcebergFileFormat fileFormat)
+    {
+        String tableName = "test_migrate_smallint" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        String createTable = "CREATE TABLE " + hiveTableName + "(col SMALLINT) WITH (format = '" + fileFormat + "')";
+        if (fileFormat == AVRO) {
+            assertQueryFails(createTable, "Column 'col' is smallint, which is not supported by Avro. Use integer instead.");
+            return;
+        }
+
+        assertUpdate(createTable);
+        assertUpdate("INSERT INTO " + hiveTableName + " VALUES NULL, -32768, 32767", 3);
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+
+        assertThat(getColumnType(tableName, "col")).isEqualTo("integer");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (NULL), (-32768), (32767)");
+
+        assertUpdate("INSERT INTO " + icebergTableName + " VALUES -2147483648, 2147483647", 2);
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (NULL), (-2147483648), (-32768), (32767), (2147483647)");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -334,5 +390,12 @@ public class TestIcebergMigrateProcedure
         assertQueryReturnsEmptyResult("SELECT * FROM " + icebergTableName);
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private String getColumnType(String tableName, String columnName)
+    {
+        return (String) computeScalar(format("SELECT data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '%s' AND column_name = '%s'",
+                tableName,
+                columnName));
     }
 }
