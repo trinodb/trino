@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.cloud.bigquery.TableDefinition;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.spi.QueryId;
@@ -29,22 +28,13 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
-import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
-import static com.google.cloud.bigquery.TableDefinition.Type.SNAPSHOT;
-import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
-import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.bigquery.BigQueryClient.TABLE_TYPES;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.TEST_SCHEMA;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -52,7 +42,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -219,12 +208,51 @@ public abstract class BaseBigQueryConnectorTest
         }
     }
 
-    @Test(dataProvider = "emptyProjectionSetupDataProvider")
-    public void testEmptyProjection(TableDefinition.Type tableType, String createSql, String dropSql)
+    @Test
+    public void testEmptyProjectionTable()
+    {
+        testEmptyProjection(
+                tableName -> onBigQuery("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.region"),
+                tableName -> onBigQuery("DROP TABLE " + tableName));
+    }
+
+    @Test
+    public void testEmptyProjectionView()
+    {
+        testEmptyProjection(
+                viewName -> onBigQuery("CREATE VIEW " + viewName + " AS SELECT * FROM tpch.region"),
+                viewName -> onBigQuery("DROP VIEW " + viewName));
+    }
+
+    @Test
+    public void testEmptyProjectionMaterializedView()
+    {
+        testEmptyProjection(
+                materializedViewName -> onBigQuery("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT * FROM tpch.region"),
+                materializedViewName -> onBigQuery("DROP MATERIALIZED VIEW " + materializedViewName));
+    }
+
+    @Test
+    public void testEmptyProjectionExternalTable()
+    {
+        testEmptyProjection(
+                externalTableName -> onBigQuery("CREATE EXTERNAL TABLE " + externalTableName + " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])"),
+                externalTableName -> onBigQuery("DROP EXTERNAL TABLE " + externalTableName));
+    }
+
+    @Test
+    public void testEmptyProjectionSnapshotTable()
+    {
+        testEmptyProjection(
+                snapshotTableName -> onBigQuery("CREATE SNAPSHOT TABLE " + snapshotTableName + " CLONE tpch.region"),
+                snapshotTableName -> onBigQuery("DROP SNAPSHOT TABLE " + snapshotTableName));
+    }
+
+    private void testEmptyProjection(Consumer<String> createTable, Consumer<String> dropTable)
     {
         // Regression test for https://github.com/trinodb/trino/issues/14981, https://github.com/trinodb/trino/issues/5635 and https://github.com/trinodb/trino/issues/6696
-        String name = TEST_SCHEMA + ".test_empty_projection_" + tableType.name().toLowerCase(ENGLISH) + randomNameSuffix();
-        onBigQuery(createSql.formatted(name));
+        String name = TEST_SCHEMA + ".test_empty_projection_" + randomNameSuffix();
+        createTable.accept(name);
         try {
             assertQuery("SELECT count(*) FROM " + name, "VALUES 5");
             assertQuery("SELECT count(*) FROM " + name, "VALUES 5"); // repeated query to cover https://github.com/trinodb/trino/issues/6696
@@ -232,25 +260,8 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery("SELECT count(name) FROM " + name + " WHERE regionkey = 1", "VALUES 1");
         }
         finally {
-            onBigQuery(dropSql.formatted(name));
+            dropTable.accept(name);
         }
-    }
-
-    @DataProvider
-    public Object[][] emptyProjectionSetupDataProvider()
-    {
-        Object[][] testCases = new Object[][] {
-                {TABLE, "CREATE TABLE %s AS SELECT * FROM tpch.region", "DROP TABLE %s"},
-                {VIEW, "CREATE VIEW %s AS SELECT * FROM tpch.region", "DROP VIEW %s"},
-                {MATERIALIZED_VIEW, "CREATE MATERIALIZED VIEW %s AS SELECT * FROM tpch.region", "DROP MATERIALIZED VIEW %s"},
-                {EXTERNAL, "CREATE EXTERNAL TABLE %s OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])", "DROP EXTERNAL TABLE %s"},
-                {SNAPSHOT, "CREATE SNAPSHOT TABLE %s CLONE tpch.region", "DROP SNAPSHOT TABLE %s"},
-        };
-        Set<TableDefinition.Type> testedTableTypes = Arrays.stream(testCases)
-                .map(array -> (TableDefinition.Type) array[0])
-                .collect(toImmutableSet());
-        verify(testedTableTypes.containsAll(TABLE_TYPES));
-        return testCases;
     }
 
     @Override
