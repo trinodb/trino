@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.inject.Key;
 import io.trino.Session;
+import io.trino.connector.informationschema.InformationSchemaMetadata;
 import io.trino.filesystem.TrackingFileSystemFactory;
 import io.trino.filesystem.TrackingFileSystemFactory.OperationType;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -474,8 +475,8 @@ public class TestIcebergMetadataFileOperations
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
-    public void testInformationSchemaColumns()
+    @Test(dataProvider = "metadataQueriesTestTableCountDataProvider")
+    public void testInformationSchemaColumns(int tables)
     {
         String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
         assertUpdate("CREATE SCHEMA " + schemaName);
@@ -483,7 +484,6 @@ public class TestIcebergMetadataFileOperations
                 .setSchema(schemaName)
                 .build();
 
-        int tables = 3;
         for (int i = 0; i < tables; i++) {
             assertUpdate(session, "CREATE TABLE test_select_i_s_columns" + i + "(id varchar, age integer)");
             // Produce multiple snapshots and metadata files
@@ -495,13 +495,23 @@ public class TestIcebergMetadataFileOperations
 
         assertFileSystemAccesses(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
                 ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 6)
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), tables * 2)
                         .build());
 
         for (int i = 0; i < tables; i++) {
             assertUpdate(session, "DROP TABLE test_select_i_s_columns" + i);
             assertUpdate(session, "DROP TABLE test_other_select_i_s_columns" + i);
         }
+    }
+
+    @DataProvider
+    public Object[][] metadataQueriesTestTableCountDataProvider()
+    {
+        return new Object[][] {
+                {3},
+                {InformationSchemaMetadata.MAX_PREFIXES_COUNT},
+                {InformationSchemaMetadata.MAX_PREFIXES_COUNT + 3},
+        };
     }
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<FileOperation> expectedAccesses)
