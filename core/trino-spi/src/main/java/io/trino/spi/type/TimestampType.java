@@ -25,9 +25,10 @@ import static java.lang.String.format;
  * @see ShortTimestampType
  * @see LongTimestampType
  */
-public abstract class TimestampType
+public abstract sealed class TimestampType
         extends AbstractType
         implements FixedWidthType
+        permits LongTimestampType, ShortTimestampType
 {
     public static final int MAX_PRECISION = 12;
 

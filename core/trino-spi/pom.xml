@@ -942,6 +942,11 @@
                                     <old>method io.trino.spi.block.Block io.trino.spi.block.ShortArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</old>
                                     <new>method io.trino.spi.block.ShortArrayBlock io.trino.spi.block.ShortArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.nowStatic</code>
+                                    <old>method void io.trino.spi.type.AbstractIntType::checkValueValid(long)</old>
+                                    <new>method void io.trino.spi.type.AbstractIntType::checkValueValid(long)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
