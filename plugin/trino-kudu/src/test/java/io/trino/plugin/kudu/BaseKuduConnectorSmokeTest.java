@@ -121,7 +121,7 @@ public abstract class BaseKuduConnectorSmokeTest
 
     @Test
     @Override
-    public void testUpdate()
+    public void testRowLevelUpdate()
     {
         String tableName = "test_update_" + randomNameSuffix();
         assertUpdate("CREATE TABLE %s %s".formatted(tableName, getCreateTableDefaultDefinition()));
@@ -132,6 +132,21 @@ public abstract class BaseKuduConnectorSmokeTest
         assertUpdate("UPDATE " + tableName + " SET b = b + 1.2 WHERE a % 2 = 0", 3);
         assertThat(query("SELECT a, b FROM " + tableName))
                 .matches(expectedValues("(0, 1.2), (1, 2.5), (2, 6.2), (3, 7.5), (4, 11.2)"));
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        String tableName = "test_update_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE %s %s".formatted(tableName, getCreateTableDefaultDefinition()));
+        assertUpdate("INSERT INTO " + tableName + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
+        assertThat(query("SELECT a, b FROM " + tableName))
+                .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
+
+        assertUpdate("UPDATE " + tableName + " SET b = 1.2 WHERE a = 0", 1);
+        assertThat(query("SELECT a, b FROM " + tableName))
+                .matches(expectedValues("(0, 1.2), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
         assertUpdate("DROP TABLE " + tableName);
     }
 
