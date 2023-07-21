@@ -126,10 +126,15 @@ public class ShortArrayBlock
     @Override
     public short getShort(int position, int offset)
     {
-        checkReadablePosition(this, position);
         if (offset != 0) {
             throw new IllegalArgumentException("offset must be zero");
         }
+        return getShort(position);
+    }
+
+    public short getShort(int position)
+    {
+        checkReadablePosition(this, position);
         return values[position + arrayOffset];
     }
 

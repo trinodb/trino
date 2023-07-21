@@ -82,6 +82,16 @@ public class SqlRow
         consumer.accept(this, INSTANCE_SIZE);
     }
 
+    public int getUnderlyingFieldPosition(int fieldIndex)
+    {
+        return fieldBlocks[fieldIndex].getUnderlyingValuePosition(rawIndex);
+    }
+
+    public ValueBlock getUnderlyingFieldBlock(int fieldIndex)
+    {
+        return fieldBlocks[fieldIndex].getUnderlyingValueBlock();
+    }
+
     @Override
     public String toString()
     {

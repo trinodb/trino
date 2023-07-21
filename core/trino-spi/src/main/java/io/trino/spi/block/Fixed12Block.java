@@ -132,7 +132,7 @@ public class Fixed12Block
             // If needed, we can add support for offset 4
             throw new IllegalArgumentException("offset must be 0");
         }
-        return decodeFixed12First(values, position + positionOffset);
+        return getFixed12First(position);
     }
 
     @Override
@@ -149,6 +149,16 @@ public class Fixed12Block
             return values[((position + positionOffset) * 3) + 2];
         }
         throw new IllegalArgumentException("offset must be 0, 4, or 8");
+    }
+
+    public long getFixed12First(int position)
+    {
+        return decodeFixed12First(values, position + positionOffset);
+    }
+
+    public int getFixed12Second(int position)
+    {
+        return decodeFixed12Second(values, position + positionOffset);
     }
 
     @Override
