@@ -415,7 +415,8 @@ public class DruidJdbcClient
                     table.getColumns(),
                     table.getOtherReferencedTables(),
                     table.getNextSyntheticColumnId(),
-                    table.getAuthorization());
+                    table.getAuthorization(),
+                    table.getUpdateAssignments());
         }
 
         return table;
@@ -459,6 +460,12 @@ public class DruidJdbcClient
     public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {
         // DELETE statement is not yet support in Druid (Avatica JDBC, see https://issues.apache.org/jira/browse/CALCITE-706)
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
         throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
 

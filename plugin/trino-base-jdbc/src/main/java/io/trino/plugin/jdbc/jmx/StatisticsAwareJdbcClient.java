@@ -454,6 +454,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public OptionalLong update(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return stats.getUpdate().wrap(() -> delegate().update(session, handle));
+    }
+
+    @Override
     public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
     {
         stats.getTruncateTable().wrap(() -> delegate().truncateTable(session, handle));
