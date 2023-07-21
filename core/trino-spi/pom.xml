@@ -907,6 +907,41 @@
                                     <code>java.method.removed</code>
                                     <old>method void io.trino.spi.block.RunLengthEncodedBlock::writeSliceTo(int, int, int, io.airlift.slice.SliceOutput)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</old>
+                                    <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ByteArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</old>
+                                    <new>method io.trino.spi.block.ByteArrayBlock io.trino.spi.block.ByteArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Fixed12BlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</old>
+                                    <new>method io.trino.spi.block.Fixed12Block io.trino.spi.block.Fixed12BlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Int128ArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</old>
+                                    <new>method io.trino.spi.block.Int128ArrayBlock io.trino.spi.block.Int128ArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.IntArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</old>
+                                    <new>method io.trino.spi.block.IntArrayBlock io.trino.spi.block.IntArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.LongArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</old>
+                                    <new>method io.trino.spi.block.LongArrayBlock io.trino.spi.block.LongArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.ShortArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</old>
+                                    <new>method io.trino.spi.block.ShortArrayBlock io.trino.spi.block.ShortArrayBlockEncoding::readBlock(io.trino.spi.block.BlockEncodingSerde, io.airlift.slice.SliceInput)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
