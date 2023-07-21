@@ -154,9 +154,4 @@ public class LongArrayBlockBuilder
         sb.append('}');
         return sb.toString();
     }
-
-    long[] getRawValues()
-    {
-        return values;
-    }
 }

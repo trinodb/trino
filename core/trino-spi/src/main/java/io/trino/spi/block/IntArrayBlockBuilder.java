@@ -154,9 +154,4 @@ public class IntArrayBlockBuilder
         sb.append('}');
         return sb.toString();
     }
-
-    int[] getRawValues()
-    {
-        return values;
-    }
 }

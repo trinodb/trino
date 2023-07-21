@@ -154,9 +154,4 @@ public class ShortArrayBlockBuilder
         sb.append('}');
         return sb.toString();
     }
-
-    short[] getRawValues()
-    {
-        return values;
-    }
 }

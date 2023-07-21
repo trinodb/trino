@@ -13,7 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -37,20 +36,21 @@ public class ByteArrayBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        int positionCount = block.getPositionCount();
+        ByteArrayBlock byteArrayBlock = (ByteArrayBlock) block;
+        int positionCount = byteArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        encodeNullsAsBits(sliceOutput, block);
+        encodeNullsAsBits(sliceOutput, byteArrayBlock);
 
-        if (!block.mayHaveNull()) {
-            sliceOutput.writeBytes(getValuesSlice(block));
+        if (!byteArrayBlock.mayHaveNull()) {
+            sliceOutput.writeBytes(byteArrayBlock.getValuesSlice());
         }
         else {
             byte[] valuesWithoutNull = new byte[positionCount];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = block.getByte(i, 0);
-                if (!block.isNull(i)) {
+                valuesWithoutNull[nonNullPositionCount] = byteArrayBlock.getByte(i, 0);
+                if (!byteArrayBlock.isNull(i)) {
                     nonNullPositionCount++;
                 }
             }
@@ -61,7 +61,7 @@ public class ByteArrayBlockEncoding
     }
 
     @Override
-    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
+    public ByteArrayBlock readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
 
@@ -104,17 +104,5 @@ public class ByteArrayBlockEncoding
             // Do nothing if there are only nulls
         }
         return new ByteArrayBlock(0, positionCount, valueIsNull, values);
-    }
-
-    private Slice getValuesSlice(Block block)
-    {
-        if (block instanceof ByteArrayBlock) {
-            return ((ByteArrayBlock) block).getValuesSlice();
-        }
-        if (block instanceof ByteArrayBlockBuilder) {
-            return ((ByteArrayBlockBuilder) block).getValuesSlice();
-        }
-
-        throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
     }
 }

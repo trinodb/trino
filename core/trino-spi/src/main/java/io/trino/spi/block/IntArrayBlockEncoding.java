@@ -35,28 +35,21 @@ public class IntArrayBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        int positionCount = block.getPositionCount();
+        IntArrayBlock intArrayBlock = (IntArrayBlock) block;
+        int positionCount = intArrayBlock.getPositionCount();
         sliceOutput.appendInt(positionCount);
 
-        encodeNullsAsBits(sliceOutput, block);
+        encodeNullsAsBits(sliceOutput, intArrayBlock);
 
-        if (!block.mayHaveNull()) {
-            if (block instanceof IntArrayBlock valueBlock) {
-                sliceOutput.writeInts(valueBlock.getRawValues(), valueBlock.getRawValuesOffset(), valueBlock.getPositionCount());
-            }
-            else if (block instanceof IntArrayBlockBuilder blockBuilder) {
-                sliceOutput.writeInts(blockBuilder.getRawValues(), 0, blockBuilder.getPositionCount());
-            }
-            else {
-                throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
-            }
+        if (!intArrayBlock.mayHaveNull()) {
+            sliceOutput.writeInts(intArrayBlock.getRawValues(), intArrayBlock.getRawValuesOffset(), intArrayBlock.getPositionCount());
         }
         else {
             int[] valuesWithoutNull = new int[positionCount];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = block.getInt(i, 0);
-                if (!block.isNull(i)) {
+                valuesWithoutNull[nonNullPositionCount] = intArrayBlock.getInt(i, 0);
+                if (!intArrayBlock.isNull(i)) {
                     nonNullPositionCount++;
                 }
             }
@@ -67,7 +60,7 @@ public class IntArrayBlockEncoding
     }
 
     @Override
-    public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
+    public IntArrayBlock readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
 
