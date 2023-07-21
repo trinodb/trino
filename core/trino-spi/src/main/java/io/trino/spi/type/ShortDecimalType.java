@@ -71,7 +71,7 @@ final class ShortDecimalType
     private ShortDecimalType(int precision, int scale)
     {
         super(precision, scale, long.class, LongArrayBlock.class);
-        checkArgument(0 < precision && precision <= Decimals.MAX_SHORT_PRECISION, "Invalid precision: %s", precision);
+        checkArgument(0 < precision && precision <= MAX_SHORT_PRECISION, "Invalid precision: %s", precision);
         checkArgument(0 <= scale && scale <= precision, "Invalid scale for precision %s: %s", precision, scale);
     }
 

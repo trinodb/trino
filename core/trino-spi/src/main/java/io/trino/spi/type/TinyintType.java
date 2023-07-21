@@ -185,7 +185,7 @@ public final class TinyintType
         ((ByteArrayBlockBuilder) blockBuilder).writeByte(value);
     }
 
-    private void checkValueValid(long value)
+    private static void checkValueValid(long value)
     {
         if (value > Byte.MAX_VALUE) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_BYTE", value));

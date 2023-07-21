@@ -71,31 +71,31 @@ final class ShortTimeWithTimeZoneType
     }
 
     @Override
-    public final int getFixedSize()
+    public int getFixedSize()
     {
         return Long.BYTES;
     }
 
     @Override
-    public final long getLong(Block block, int position)
+    public long getLong(Block block, int position)
     {
         return block.getLong(position, 0);
     }
 
     @Override
-    public final Slice getSlice(Block block, int position)
+    public Slice getSlice(Block block, int position)
     {
         return block.getSlice(position, 0, getFixedSize());
     }
 
     @Override
-    public final void writeLong(BlockBuilder blockBuilder, long value)
+    public void writeLong(BlockBuilder blockBuilder, long value)
     {
         ((LongArrayBlockBuilder) blockBuilder).writeLong(value);
     }
 
     @Override
-    public final void appendTo(Block block, int position, BlockBuilder blockBuilder)
+    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {
             blockBuilder.appendNull();
@@ -106,7 +106,7 @@ final class ShortTimeWithTimeZoneType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         int maxBlockSizeInBytes;
         if (blockBuilderStatus == null) {
@@ -121,13 +121,13 @@ final class ShortTimeWithTimeZoneType
     }
 
     @Override
-    public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, Long.BYTES);
     }
 
     @Override
-    public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new LongArrayBlockBuilder(null, positionCount);
     }
