@@ -42,7 +42,7 @@ import io.trino.sql.planner.plan.SpatialJoinNode;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -311,7 +311,7 @@ public class PhasedExecutionSchedule
         private final QueryId queryId;
         private final Map<PlanFragmentId, PlanFragment> fragments;
         private final ImmutableSet.Builder<PlanFragmentId> nonLazyFragments = ImmutableSet.builder();
-        private final Map<PlanFragmentId, FragmentSubGraph> fragmentSubGraphs = new HashMap<>();
+        private final Set<PlanFragmentId> processedFragments = new HashSet<>();
 
         public Visitor(QueryId queryId, Collection<PlanFragment> fragments)
         {
@@ -340,20 +340,17 @@ public class PhasedExecutionSchedule
                     .flatMap(Collection::stream)
                     .collect(toImmutableSet());
 
-            // process fragments (starting from root)
-            fragments.keySet().stream()
+            // process output fragment
+            PlanFragmentId outputFragmentId = fragments.keySet().stream()
                     .filter(fragmentId -> !remoteSources.contains(fragmentId))
-                    .forEach(this::processFragment);
+                    .collect(onlyElement());
+            processFragment(outputFragmentId);
         }
 
         public FragmentSubGraph processFragment(PlanFragmentId planFragmentId)
         {
-            if (fragmentSubGraphs.containsKey(planFragmentId)) {
-                return fragmentSubGraphs.get(planFragmentId);
-            }
-
+            verify(processedFragments.add(planFragmentId), "fragment %s was already processed", planFragmentId);
             FragmentSubGraph subGraph = processFragment(fragments.get(planFragmentId));
-            verify(fragmentSubGraphs.put(planFragmentId, subGraph) == null, "fragment %s was already processed", planFragmentId);
             sortedFragments.add(planFragmentId);
             return subGraph;
         }
