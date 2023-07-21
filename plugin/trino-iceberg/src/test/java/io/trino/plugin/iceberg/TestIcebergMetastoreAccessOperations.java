@@ -16,12 +16,14 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.trino.Session;
+import io.trino.connector.informationschema.InformationSchemaMetadata;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
 import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -322,8 +324,8 @@ public class TestIcebergMetastoreAccessOperations
                         .build());
     }
 
-    @Test
-    public void testInformationSchemaColumns()
+    @Test(dataProvider = "metadataQueriesTestTableCountDataProvider")
+    public void testInformationSchemaColumns(int tables)
     {
         String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
         assertUpdate("CREATE SCHEMA " + schemaName);
@@ -331,7 +333,6 @@ public class TestIcebergMetastoreAccessOperations
                 .setSchema(schemaName)
                 .build();
 
-        int tables = 3;
         for (int i = 0; i < tables; i++) {
             assertUpdate(session, "CREATE TABLE test_select_i_s_columns" + i + "(id varchar, age integer)");
             // Produce multiple snapshots and metadata files
@@ -344,7 +345,7 @@ public class TestIcebergMetastoreAccessOperations
         assertMetastoreInvocations(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
                 ImmutableMultiset.builder()
                         .add(GET_ALL_TABLES_FROM_DATABASE)
-                        .addCopies(GET_TABLE, 6)
+                        .addCopies(GET_TABLE, tables * 2)
                         .addCopies(GET_TABLE_WITH_PARAMETER, 2)
                         .build());
 
@@ -352,6 +353,16 @@ public class TestIcebergMetastoreAccessOperations
             assertUpdate(session, "DROP TABLE test_select_i_s_columns" + i);
             assertUpdate(session, "DROP TABLE test_other_select_i_s_columns" + i);
         }
+    }
+
+    @DataProvider
+    public Object[][] metadataQueriesTestTableCountDataProvider()
+    {
+        return new Object[][] {
+                {3},
+                {InformationSchemaMetadata.MAX_PREFIXES_COUNT},
+                {InformationSchemaMetadata.MAX_PREFIXES_COUNT + 3},
+        };
     }
 
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
