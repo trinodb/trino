@@ -64,6 +64,7 @@ public final class JdbcClientStats
     private final JdbcApiStats convertPredicate = new JdbcApiStats();
     private final JdbcApiStats getTableScanRedirection = new JdbcApiStats();
     private final JdbcApiStats delete = new JdbcApiStats();
+    private final JdbcApiStats update = new JdbcApiStats();
     private final JdbcApiStats truncateTable = new JdbcApiStats();
 
     @Managed
@@ -386,6 +387,13 @@ public final class JdbcClientStats
     public JdbcApiStats getDelete()
     {
         return delete;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getUpdate()
+    {
+        return update;
     }
 
     @Managed

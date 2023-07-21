@@ -85,6 +85,7 @@ public class TestPhoenixConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_MERGE,
                     SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
+                    SUPPORTS_ROW_LEVEL_UPDATE,
                     SUPPORTS_UPDATE -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                     SUPPORTS_AGGREGATION_PUSHDOWN,
