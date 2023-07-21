@@ -39,8 +39,9 @@ import static java.lang.String.format;
 public final class ReservedIdentifiers
 {
     private static final Pattern IDENTIFIER = Pattern.compile("'([A-Z_]+)'");
-    private static final Pattern TABLE_ROW = Pattern.compile("``([A-Z_]+)``.*");
-    private static final String TABLE_PREFIX = "============================== ";
+    private static final Pattern TABLE_ROW = Pattern.compile("\\| `([A-Z_]+).*");
+    private static final String TABLE_START = "| ------------------- |";
+    private static final String TABLE_ROW_START = "|";
 
     private static final SqlParser PARSER = new SqlParser();
 
@@ -71,28 +72,22 @@ public final class ReservedIdentifiers
         System.out.println("Validating " + path);
         List<String> lines = Files.readAllLines(path);
 
-        if (lines.stream().filter(s -> s.startsWith(TABLE_PREFIX)).count() != 3) {
+        if (lines.stream().filter(s -> s.startsWith(TABLE_START)).count() != 1) {
             throw new RuntimeException("Failed to find exactly one table");
         }
 
         Iterator<String> iterator = lines.iterator();
 
-        // find table and skip header
-        while (!iterator.next().startsWith(TABLE_PREFIX)) {
+        // find start of list in table
+        while (!iterator.next().startsWith(TABLE_START)) {
             // skip
-        }
-        if (iterator.next().startsWith(TABLE_PREFIX)) {
-            throw new RuntimeException("Expected to find a header line");
-        }
-        if (!iterator.next().startsWith(TABLE_PREFIX)) {
-            throw new RuntimeException("Found multiple header lines");
         }
 
         Set<String> reserved = reservedIdentifiers();
         Set<String> found = new HashSet<>();
         while (true) {
             String line = iterator.next();
-            if (line.startsWith(TABLE_PREFIX)) {
+            if (!line.startsWith(TABLE_ROW_START)) {
                 break;
             }
 
