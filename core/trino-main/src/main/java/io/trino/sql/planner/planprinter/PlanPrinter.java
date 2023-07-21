@@ -110,6 +110,7 @@ import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableUpdateNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -1736,6 +1737,17 @@ public class PlanPrinter
         {
             addNode(node,
                     "TableDelete",
+                    ImmutableMap.of("target", anonymizer.anonymize(node.getTarget())),
+                    context.tag());
+
+            return processChildren(node, new Context());
+        }
+
+        @Override
+        public Void visitTableUpdate(TableUpdateNode node, Context context)
+        {
+            addNode(node,
+                    "TableUpdate",
                     ImmutableMap.of("target", anonymizer.anonymize(node.getTarget())),
                     context.tag());
 

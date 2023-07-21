@@ -76,6 +76,7 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
@@ -702,6 +703,24 @@ public class TracingMetadata
         Span span = startSpan("finishRefreshMaterializedView", tableHandle);
         try (var ignored = scopedSpan(span)) {
             return delegate.finishRefreshMaterializedView(session, tableHandle, insertTableHandle, fragments, computedStatistics, sourceTableHandles);
+        }
+    }
+
+    @Override
+    public Optional<TableHandle> applyUpdate(Session session, TableHandle tableHandle, Map<ColumnHandle, Constant> assignments)
+    {
+        Span span = startSpan("applyUpdate", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.applyUpdate(session, tableHandle, assignments);
+        }
+    }
+
+    @Override
+    public OptionalLong executeUpdate(Session session, TableHandle tableHandle)
+    {
+        Span span = startSpan("executeUpdate", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.executeUpdate(session, tableHandle);
         }
     }
 

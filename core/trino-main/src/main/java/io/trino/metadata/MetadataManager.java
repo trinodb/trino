@@ -86,6 +86,7 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
@@ -1181,6 +1182,27 @@ public final class MetadataManager
 
         return metadata.getUpdateLayout(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle())
                 .map(partitioning -> new PartitioningHandle(Optional.of(catalogHandle), Optional.of(transactionHandle), partitioning));
+    }
+
+    @Override
+    public Optional<TableHandle> applyUpdate(Session session, TableHandle table, Map<ColumnHandle, Constant> assignments)
+    {
+        CatalogHandle catalogHandle = table.getCatalogHandle();
+        ConnectorMetadata metadata = getMetadata(session, catalogHandle);
+
+        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+        return metadata.applyUpdate(connectorSession, table.getConnectorHandle(), assignments)
+                .map(newHandle -> new TableHandle(catalogHandle, newHandle, table.getTransaction()));
+    }
+
+    @Override
+    public OptionalLong executeUpdate(Session session, TableHandle table)
+    {
+        CatalogHandle catalogHandle = table.getCatalogHandle();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+
+        return metadata.executeUpdate(connectorSession, table.getConnectorHandle());
     }
 
     @Override
