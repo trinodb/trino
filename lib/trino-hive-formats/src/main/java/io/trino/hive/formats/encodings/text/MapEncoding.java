@@ -24,7 +24,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.Type;
 
 public class MapEncoding
         extends BlockEncoding
@@ -39,7 +38,7 @@ public class MapEncoding
     private BlockBuilder keyBlockBuilder;
 
     public MapEncoding(
-            Type type,
+            MapType mapType,
             Slice nullSequence,
             byte elementSeparator,
             byte keyValueSeparator,
@@ -47,8 +46,8 @@ public class MapEncoding
             TextColumnEncoding keyEncoding,
             TextColumnEncoding valueEncoding)
     {
-        super(type, nullSequence, escapeByte);
-        this.mapType = (MapType) type;
+        super(mapType, nullSequence, escapeByte);
+        this.mapType = mapType;
         this.elementSeparator = elementSeparator;
         this.keyValueSeparator = keyValueSeparator;
         this.keyEncoding = keyEncoding;
@@ -61,7 +60,7 @@ public class MapEncoding
     public void encodeValueInto(Block block, int position, SliceOutput output)
             throws FileCorruptionException
     {
-        SqlMap sqlMap = block.getObject(position, SqlMap.class);
+        SqlMap sqlMap = mapType.getObject(block, position);
         int rawOffset = sqlMap.getRawOffset();
         Block rawKeyBlock = sqlMap.getRawKeyBlock();
         Block rawValueBlock = sqlMap.getRawValueBlock();

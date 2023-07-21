@@ -22,19 +22,21 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.SqlMap;
-import io.trino.spi.type.Type;
+import io.trino.spi.type.MapType;
 
 import static java.lang.Math.toIntExact;
 
 public class MapEncoding
         extends BlockEncoding
 {
+    private final MapType mapType;
     private final BinaryColumnEncoding keyReader;
     private final BinaryColumnEncoding valueReader;
 
-    public MapEncoding(Type type, BinaryColumnEncoding keyReader, BinaryColumnEncoding valueReader)
+    public MapEncoding(MapType mapType, BinaryColumnEncoding keyReader, BinaryColumnEncoding valueReader)
     {
-        super(type);
+        super(mapType);
+        this.mapType = mapType;
         this.keyReader = keyReader;
         this.valueReader = valueReader;
     }
@@ -42,7 +44,7 @@ public class MapEncoding
     @Override
     public void encodeValue(Block block, int position, SliceOutput output)
     {
-        SqlMap sqlMap = block.getObject(position, SqlMap.class);
+        SqlMap sqlMap = mapType.getObject(block, position);
         int rawOffset = sqlMap.getRawOffset();
         Block rawKeyBlock = sqlMap.getRawKeyBlock();
         Block rawValueBlock = sqlMap.getRawValueBlock();

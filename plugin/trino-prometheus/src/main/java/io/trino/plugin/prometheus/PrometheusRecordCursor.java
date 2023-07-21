@@ -262,9 +262,9 @@ public class PrometheusRecordCursor
 
     private static Object readObject(Type type, Block block, int position)
     {
-        if (type instanceof ArrayType) {
-            Type elementType = ((ArrayType) type).getElementType();
-            return getArrayFromBlock(elementType, block.getObject(position, Block.class));
+        if (type instanceof ArrayType arrayType) {
+            Type elementType = arrayType.getElementType();
+            return getArrayFromBlock(elementType, arrayType.getObject(block, position));
         }
         if (type instanceof MapType mapType) {
             return getMapFromSqlMap(type, mapType.getObject(block, position));
