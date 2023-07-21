@@ -55,10 +55,21 @@ public class TestHiveCoercionOnUnpartitionedTable
                             tinyint_to_smallint                TINYINT,
                             tinyint_to_int                     TINYINT,
                             tinyint_to_bigint                  TINYINT,
+                            tinyint_to_string                  TINYINT,
+                            tinyint_to_bounded_varchar         TINYINT,
+                            tinyint_to_smaller_varchar         TINYINT,
                             smallint_to_int                    SMALLINT,
                             smallint_to_bigint                 SMALLINT,
+                            smallint_to_string                 SMALLINT,
+                            smallint_to_bounded_varchar        SMALLINT,
+                            smallint_to_smaller_varchar        SMALLINT,
                             int_to_bigint                      INT,
-                            bigint_to_varchar                  BIGINT,
+                            int_to_string                      INT,
+                            int_to_bounded_varchar             INT,
+                            int_to_smaller_varchar             INT,
+                            bigint_to_string                   BIGINT,
+                            bigint_to_bounded_varchar          BIGINT,
+                            bigint_to_smaller_varchar          BIGINT,
                             float_to_double                    FLOAT,
                             double_to_float                    DOUBLE,
                             shortdecimal_to_shortdecimal       DECIMAL(10,2),
@@ -139,7 +150,18 @@ public class TestHiveCoercionOnUnpartitionedTable
                 .put(columnContext("orc", "tinyint_to_smallint"), "Cannot read SQL type 'smallint' from ORC stream '.tinyint_to_smallint' of type BYTE")
                 .put(columnContext("orc", "tinyint_to_int"), "Cannot read SQL type 'integer' from ORC stream '.tinyint_to_int' of type BYTE")
                 .put(columnContext("orc", "tinyint_to_bigint"), "Cannot read SQL type 'bigint' from ORC stream '.tinyint_to_bigint' of type BYTE")
-                .put(columnContext("orc", "bigint_to_varchar"), "Cannot read SQL type 'varchar' from ORC stream '.bigint_to_varchar' of type LONG")
+                .put(columnContext("orc", "tinyint_to_string"), "Cannot read SQL type 'varchar' from ORC stream '.tinyint_to_string' of type BYTE")
+                .put(columnContext("orc", "tinyint_to_bounded_varchar"), "Cannot read SQL type 'varchar(30)' from ORC stream '.tinyint_to_bounded_varchar' of type BYTE")
+                .put(columnContext("orc", "tinyint_to_smaller_varchar"), "Cannot read SQL type 'varchar(1)' from ORC stream '.tinyint_to_smaller_varchar' of type BYTE")
+                .put(columnContext("orc", "smallint_to_string"), "Cannot read SQL type 'varchar' from ORC stream '.smallint_to_string' of type SHORT")
+                .put(columnContext("orc", "smallint_to_bounded_varchar"), "Cannot read SQL type 'varchar(30)' from ORC stream '.smallint_to_bounded_varchar' of type SHORT")
+                .put(columnContext("orc", "smallint_to_smaller_varchar"), "Cannot read SQL type 'varchar(5)' from ORC stream '.smallint_to_smaller_varchar' of type SHORT")
+                .put(columnContext("orc", "int_to_string"), "Cannot read SQL type 'varchar' from ORC stream '.int_to_string' of type INT")
+                .put(columnContext("orc", "int_to_bounded_varchar"), "Cannot read SQL type 'varchar(30)' from ORC stream '.int_to_bounded_varchar' of type INT")
+                .put(columnContext("orc", "int_to_smaller_varchar"), "Cannot read SQL type 'varchar(5)' from ORC stream '.int_to_smaller_varchar' of type INT")
+                .put(columnContext("orc", "bigint_to_string"), "Cannot read SQL type 'varchar' from ORC stream '.bigint_to_string' of type LONG")
+                .put(columnContext("orc", "bigint_to_bounded_varchar"), "Cannot read SQL type 'varchar(30)' from ORC stream '.bigint_to_bounded_varchar' of type LONG")
+                .put(columnContext("orc", "bigint_to_smaller_varchar"), "Cannot read SQL type 'varchar(5)' from ORC stream '.bigint_to_smaller_varchar' of type LONG")
                 .put(columnContext("orc", "double_to_float"), "Cannot read SQL type 'real' from ORC stream '.double_to_float' of type DOUBLE")
                 .put(columnContext("orc", "longdecimal_to_shortdecimal"), "Decimal does not fit long (invalid table schema?)")
                 .put(columnContext("orc", "float_to_decimal"), "Cannot read SQL type 'decimal(10,5)' from ORC stream '.float_to_decimal' of type FLOAT")
