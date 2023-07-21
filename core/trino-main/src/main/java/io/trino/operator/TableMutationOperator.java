@@ -14,9 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.Session;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.TableHandle;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -30,36 +27,39 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
-public class TableDeleteOperator
+public class TableMutationOperator
         implements Operator
 {
     public static final List<Type> TYPES = ImmutableList.of(BIGINT);
 
-    public static class TableDeleteOperatorFactory
+    private final OperatorContext operatorContext;
+    private final Operation operation;
+    private boolean finished;
+
+    public static class TableMutationOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final Metadata metadata;
-        private final Session session;
-        private final TableHandle tableHandle;
+        private final Operation operation;
         private boolean closed;
 
-        public TableDeleteOperatorFactory(int operatorId, PlanNodeId planNodeId, Metadata metadata, Session session, TableHandle tableHandle)
+        public TableMutationOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                Operation operation)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.session = requireNonNull(session, "session is null");
-            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+            this.operation = requireNonNull(operation, "operation is null");
         }
 
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableDeleteOperator.class.getSimpleName());
-            return new TableDeleteOperator(context, metadata, session, tableHandle);
+            OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableMutationOperator.class.getSimpleName());
+            return new TableMutationOperator(context, operation);
         }
 
         @Override
@@ -71,23 +71,17 @@ public class TableDeleteOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TableDeleteOperatorFactory(operatorId, planNodeId, metadata, session, tableHandle);
+            return new TableMutationOperatorFactory(
+                    operatorId,
+                    planNodeId,
+                    operation);
         }
     }
 
-    private final OperatorContext operatorContext;
-    private final Metadata metadata;
-    private final Session session;
-    private final TableHandle tableHandle;
-
-    private boolean finished;
-
-    public TableDeleteOperator(OperatorContext operatorContext, Metadata metadata, Session session, TableHandle tableHandle)
+    public TableMutationOperator(OperatorContext operatorContext, Operation operation)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.session = requireNonNull(session, "session is null");
-        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.operation = requireNonNull(operation, "operation is null");
     }
 
     @Override
@@ -97,9 +91,7 @@ public class TableDeleteOperator
     }
 
     @Override
-    public void finish()
-    {
-    }
+    public void finish() {}
 
     @Override
     public boolean isFinished()
@@ -127,19 +119,29 @@ public class TableDeleteOperator
         }
         finished = true;
 
-        OptionalLong rowsDeletedCount = metadata.executeDelete(session, tableHandle);
+        OptionalLong rowsUpdatedCount = operation.execute();
 
+        return buildUpdatedCountPage(rowsUpdatedCount);
+    }
+
+    private Page buildUpdatedCountPage(OptionalLong count)
+    {
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
         PageBuilder page = new PageBuilder(1, TYPES);
         BlockBuilder rowsBuilder = page.getBlockBuilder(0);
         page.declarePosition();
-        if (rowsDeletedCount.isPresent()) {
-            BIGINT.writeLong(rowsBuilder, rowsDeletedCount.getAsLong());
+        if (count.isPresent()) {
+            BIGINT.writeLong(rowsBuilder, count.getAsLong());
         }
         else {
             rowsBuilder.appendNull();
         }
         return page.build();
+    }
+
+    public interface Operation
+    {
+        OptionalLong execute();
     }
 }

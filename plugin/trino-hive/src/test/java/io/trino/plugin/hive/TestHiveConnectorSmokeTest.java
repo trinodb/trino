@@ -56,6 +56,13 @@ public class TestHiveConnectorSmokeTest
     }
 
     @Override
+    public void testRowLevelUpdate()
+    {
+        assertThatThrownBy(super::testRowLevelUpdate)
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+    }
+
+    @Override
     public void testUpdate()
     {
         assertThatThrownBy(super::testUpdate)
