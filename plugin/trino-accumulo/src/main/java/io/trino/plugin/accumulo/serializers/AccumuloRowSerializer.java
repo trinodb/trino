@@ -21,6 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.SqlMap;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeUtils;
@@ -604,12 +605,12 @@ public interface AccumuloRowSerializer
      */
     static Object readObject(Type type, Block block, int position)
     {
-        if (Types.isArrayType(type)) {
-            Type elementType = Types.getElementType(type);
-            return getArrayFromBlock(elementType, block.getObject(position, Block.class));
+        if (type instanceof ArrayType arrayType) {
+            Type elementType = arrayType.getElementType();
+            return getArrayFromBlock(elementType, arrayType.getObject(block, position));
         }
-        if (Types.isMapType(type)) {
-            return getMapFromSqlMap(type, block.getObject(position, SqlMap.class));
+        if (type instanceof MapType mapType) {
+            return getMapFromSqlMap(type, mapType.getObject(block, position));
         }
         if (type.getJavaType() == Slice.class) {
             Slice slice = (Slice) TypeUtils.readNativeValue(type, block, position);

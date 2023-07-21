@@ -45,6 +45,7 @@ import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -220,11 +221,12 @@ public class TestReaderProjectionsAdapter
 
     private static void verifyBlock(Block actualBlock, Type outputType, Block input, Type inputType, List<Integer> dereferences)
     {
-        Block expectedOutputBlock = createProjectedColumnBlock(input, outputType, inputType, dereferences);
+        assertThat(inputType).isInstanceOf(RowType.class);
+        Block expectedOutputBlock = createProjectedColumnBlock(input, outputType, (RowType) inputType, dereferences);
         assertBlockEquals(outputType, actualBlock, expectedOutputBlock);
     }
 
-    private static Block createProjectedColumnBlock(Block data, Type finalType, Type blockType, List<Integer> dereferences)
+    private static Block createProjectedColumnBlock(Block data, Type finalType, RowType blockType, List<Integer> dereferences)
     {
         if (dereferences.size() == 0) {
             return data;
@@ -233,14 +235,14 @@ public class TestReaderProjectionsAdapter
         BlockBuilder builder = finalType.createBlockBuilder(null, data.getPositionCount());
 
         for (int i = 0; i < data.getPositionCount(); i++) {
-            Type sourceType = blockType;
+            RowType sourceType = blockType;
 
             SqlRow currentData = null;
             boolean isNull = data.isNull(i);
 
             if (!isNull) {
-                // Get SingleRowBlock corresponding to element at position i
-                currentData = data.getObject(i, SqlRow.class);
+                // Get SqlRow corresponding to element at position i
+                currentData = sourceType.getObject(data, i);
             }
 
             // Apply all dereferences except for the last one, because the type can be different
@@ -253,14 +255,14 @@ public class TestReaderProjectionsAdapter
                 int fieldIndex = dereferences.get(j);
                 Block fieldBlock = currentData.getRawFieldBlock(fieldIndex);
 
-                RowType rowType = (RowType) sourceType;
+                RowType rowType = sourceType;
                 int rawIndex = currentData.getRawIndex();
                 if (fieldBlock.isNull(rawIndex)) {
                     currentData = null;
                 }
                 else {
-                    sourceType = rowType.getFields().get(fieldIndex).getType();
-                    currentData = fieldBlock.getObject(rawIndex, SqlRow.class);
+                    sourceType = (RowType) rowType.getFields().get(fieldIndex).getType();
+                    currentData = sourceType.getObject(fieldBlock, rawIndex);
                 }
 
                 isNull = isNull || (currentData == null);
