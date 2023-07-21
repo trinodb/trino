@@ -253,6 +253,14 @@ public class TestAccessControl
         assertAccessAllowed("SELECT name AS my_alias FROM nation", privilege("my_alias", SELECT_COLUMN));
         assertAccessAllowed("SELECT my_alias from (SELECT name AS my_alias FROM nation)", privilege("my_alias", SELECT_COLUMN));
         assertAccessDenied("SELECT name AS my_alias FROM nation", "Cannot select from columns \\[name] in table .*.nation.*", privilege("nation.name", SELECT_COLUMN));
+        assertAccessAllowed("SELECT 1 FROM mock.default.test_materialized_view");
+        assertAccessDenied("SELECT 1 FROM mock.default.test_materialized_view", "Cannot select from columns.*", privilege("test_materialized_view", SELECT_COLUMN));
+        assertAccessAllowed("SELECT * FROM mock.default.test_materialized_view");
+        assertAccessDenied("SELECT * FROM mock.default.test_materialized_view", "Cannot select from columns.*", privilege("test_materialized_view", SELECT_COLUMN));
+        // with current implementation this next block of checks is redundant, but it is not obvious unless details of how
+        // semantics analyzer works are known
+        assertAccessAllowed("SELECT count(*) FROM mock.default.test_materialized_view");
+        assertAccessDenied("SELECT count(*) FROM mock.default.test_materialized_view", "Cannot select from columns.*", privilege("test_materialized_view", SELECT_COLUMN));
 
         assertAccessDenied(
                 "SELECT orders.custkey, lineitem.quantity FROM orders JOIN lineitem USING (orderkey)",
