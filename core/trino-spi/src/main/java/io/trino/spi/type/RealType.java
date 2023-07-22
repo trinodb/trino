@@ -76,7 +76,7 @@ public final class RealType
 
     public float getFloat(Block block, int position)
     {
-        return intBitsToFloat(block.getInt(position, 0));
+        return intBitsToFloat(getInt(block, position));
     }
 
     @Override

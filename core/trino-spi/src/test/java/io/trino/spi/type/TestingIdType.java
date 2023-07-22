@@ -40,7 +40,7 @@ public class TestingIdType
             return null;
         }
 
-        return block.getLong(position, 0);
+        return getLong(block, position);
     }
 
     @Override

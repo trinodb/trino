@@ -48,7 +48,7 @@ public class LongArrayBlockEncoding
             long[] valuesWithoutNull = new long[positionCount];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = longArrayBlock.getLong(i, 0);
+                valuesWithoutNull[nonNullPositionCount] = longArrayBlock.getLong(i);
                 if (!longArrayBlock.isNull(i)) {
                     nonNullPositionCount++;
                 }

@@ -21,6 +21,8 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.IntArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
@@ -86,7 +88,7 @@ public abstract class AbstractIntType
 
     public final int getInt(Block block, int position)
     {
-        return block.getInt(position, 0);
+        return readInt((IntArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -118,7 +120,7 @@ public abstract class AbstractIntType
             blockBuilder.appendNull();
         }
         else {
-            writeInt(blockBuilder, block.getInt(position, 0));
+            writeInt(blockBuilder, getInt(block, position));
         }
     }
 
@@ -153,6 +155,17 @@ public abstract class AbstractIntType
     public final BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
         return new IntArrayBlockBuilder(null, positionCount);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static long read(@BlockPosition IntArrayBlock block, @BlockIndex int position)
+    {
+        return readInt(block, position);
+    }
+
+    private static int readInt(IntArrayBlock block, int position)
+    {
+        return block.getInt(position);
     }
 
     @ScalarOperator(READ_VALUE)

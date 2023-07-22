@@ -269,7 +269,7 @@ public class RowType
     @Override
     public SqlRow getObject(Block block, int position)
     {
-        return block.getObject(position, SqlRow.class);
+        return read((RowBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -424,6 +424,11 @@ public class RowType
                 new OperatorMethodHandle(READ_FLAT_CONVENTION, readFlat),
                 new OperatorMethodHandle(READ_FLAT_TO_BLOCK_CONVENTION, readFlatToBlock),
                 new OperatorMethodHandle(WRITE_FLAT_CONVENTION, writeFlat));
+    }
+
+    private static SqlRow read(RowBlock block, int position)
+    {
+        return block.getRow(position);
     }
 
     private static SqlRow megamorphicReadFlat(

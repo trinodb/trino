@@ -49,7 +49,7 @@ public class ByteArrayBlockEncoding
             byte[] valuesWithoutNull = new byte[positionCount];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = byteArrayBlock.getByte(i, 0);
+                valuesWithoutNull[nonNullPositionCount] = byteArrayBlock.getByte(i);
                 if (!byteArrayBlock.isNull(i)) {
                     nonNullPositionCount++;
                 }

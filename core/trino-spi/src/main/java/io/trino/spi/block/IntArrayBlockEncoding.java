@@ -48,7 +48,7 @@ public class IntArrayBlockEncoding
             int[] valuesWithoutNull = new int[positionCount];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = intArrayBlock.getInt(i, 0);
+                valuesWithoutNull[nonNullPositionCount] = intArrayBlock.getInt(i);
                 if (!intArrayBlock.isNull(i)) {
                     nonNullPositionCount++;
                 }

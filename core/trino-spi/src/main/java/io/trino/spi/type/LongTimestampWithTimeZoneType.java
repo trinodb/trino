@@ -118,15 +118,19 @@ final class LongTimestampWithTimeZoneType
             blockBuilder.appendNull();
         }
         else {
-            write(blockBuilder, getPackedEpochMillis(block, position), getPicosOfMilli(block, position));
+            Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+            int valuePosition = block.getUnderlyingValuePosition(position);
+            write(blockBuilder, getPackedEpochMillis(valueBlock, valuePosition), getPicosOfMilli(valueBlock, valuePosition));
         }
     }
 
     @Override
     public Object getObject(Block block, int position)
     {
-        long packedEpochMillis = getPackedEpochMillis(block, position);
-        int picosOfMilli = getPicosOfMilli(block, position);
+        Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        long packedEpochMillis = getPackedEpochMillis(valueBlock, valuePosition);
+        int picosOfMilli = getPicosOfMilli(valueBlock, valuePosition);
 
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(unpackMillisUtc(packedEpochMillis), picosOfMilli, unpackZoneKey(packedEpochMillis));
     }
@@ -153,8 +157,10 @@ final class LongTimestampWithTimeZoneType
             return null;
         }
 
-        long packedEpochMillis = getPackedEpochMillis(block, position);
-        int picosOfMilli = getPicosOfMilli(block, position);
+        Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        long packedEpochMillis = getPackedEpochMillis(valueBlock, valuePosition);
+        int picosOfMilli = getPicosOfMilli(valueBlock, valuePosition);
 
         return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(packedEpochMillis), picosOfMilli, unpackZoneKey(packedEpochMillis));
     }
@@ -201,19 +207,9 @@ final class LongTimestampWithTimeZoneType
         return Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMilli, UTC_KEY));
     }
 
-    private static long getPackedEpochMillis(Block block, int position)
-    {
-        return block.getLong(position, 0);
-    }
-
-    private static int getPicosOfMilli(Block block, int position)
-    {
-        return block.getInt(position, SIZE_OF_LONG);
-    }
-
     private static long getPackedEpochMillis(Fixed12Block block, int position)
     {
-        return block.getLong(position, 0);
+        return block.getFixed12First(position);
     }
 
     private static long getEpochMillis(Fixed12Block block, int position)
@@ -223,7 +219,7 @@ final class LongTimestampWithTimeZoneType
 
     private static int getPicosOfMilli(Fixed12Block block, int position)
     {
-        return block.getInt(position, SIZE_OF_LONG);
+        return block.getFixed12Second(position);
     }
 
     @ScalarOperator(READ_VALUE)

@@ -84,9 +84,10 @@ public final class KdbTreeType
         if (block.isNull(position)) {
             return null;
         }
-        Slice bytes = block.getSlice(position, 0, block.getSliceLength(position));
-        KdbTree kdbTree = KdbTreeUtils.fromJson(bytes.toStringUtf8());
-        return kdbTree;
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        String json = valueBlock.getSlice(valuePosition).toStringUtf8();
+        return KdbTreeUtils.fromJson(json);
     }
 
     @Override
@@ -157,7 +158,9 @@ public final class KdbTreeType
             byte[] variableSizeSlice,
             int variableSizeOffset)
     {
-        Slice bytes = block.getSlice(position, 0, block.getSliceLength(position));
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        Slice bytes = valueBlock.getSlice(valuePosition);
         bytes.getBytes(0, variableSizeSlice, variableSizeOffset, bytes.length());
 
         INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, bytes.length());
