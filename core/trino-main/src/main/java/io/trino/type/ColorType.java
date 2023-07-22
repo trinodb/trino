@@ -46,7 +46,7 @@ public class ColorType
             return null;
         }
 
-        int color = block.getInt(position, 0);
+        int color = getInt(block, position);
         if (color < 0) {
             return ColorFunctions.SystemColor.valueOf(-(color + 1)).getName();
         }

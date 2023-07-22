@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -132,7 +133,7 @@ public final class VarcharType
             return null;
         }
 
-        Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
+        Slice slice = getSlice(block, position);
         if (!isUnbounded() && countCodePoints(slice) > length) {
             throw new IllegalArgumentException(format("Character count exceeds length limit %s: %s", length, sliceRepresentation(slice)));
         }
@@ -184,7 +185,9 @@ public final class VarcharType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getSliceLength(position));
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return valueBlock.getSlice(valuePosition);
     }
 
     public void writeString(BlockBuilder blockBuilder, String value)

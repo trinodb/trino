@@ -119,16 +119,18 @@ final class LongTimestampType
             blockBuilder.appendNull();
         }
         else {
-            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(
-                    getEpochMicros(block, position),
-                    getFraction(block, position));
+            Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+            int valuePosition = block.getUnderlyingValuePosition(position);
+            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(getEpochMicros(valueBlock, valuePosition), getFraction(valueBlock, valuePosition));
         }
     }
 
     @Override
     public Object getObject(Block block, int position)
     {
-        return new LongTimestamp(getEpochMicros(block, position), getFraction(block, position));
+        Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return new LongTimestamp(getEpochMicros(valueBlock, valuePosition), getFraction(valueBlock, valuePosition));
     }
 
     @Override
@@ -150,10 +152,9 @@ final class LongTimestampType
             return null;
         }
 
-        long epochMicros = getEpochMicros(block, position);
-        int fraction = getFraction(block, position);
-
-        return SqlTimestamp.newInstance(getPrecision(), epochMicros, fraction);
+        Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return SqlTimestamp.newInstance(getPrecision(), getEpochMicros(valueBlock, valuePosition), getFraction(valueBlock, valuePosition));
     }
 
     @Override
@@ -162,24 +163,14 @@ final class LongTimestampType
         return Long.BYTES + Integer.BYTES;
     }
 
-    private static long getEpochMicros(Block block, int position)
-    {
-        return block.getLong(position, 0);
-    }
-
     private static long getEpochMicros(Fixed12Block block, int position)
     {
-        return block.getLong(position, 0);
-    }
-
-    private static int getFraction(Block block, int position)
-    {
-        return block.getInt(position, SIZE_OF_LONG);
+        return block.getFixed12First(position);
     }
 
     private static int getFraction(Fixed12Block block, int position)
     {
-        return block.getInt(position, SIZE_OF_LONG);
+        return block.getFixed12Second(position);
     }
 
     @Override

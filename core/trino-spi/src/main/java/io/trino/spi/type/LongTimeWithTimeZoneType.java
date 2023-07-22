@@ -107,14 +107,18 @@ final class LongTimeWithTimeZoneType
             blockBuilder.appendNull();
         }
         else {
-            write(blockBuilder, getPicos(block, position), getOffsetMinutes(block, position));
+            Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+            int valuePosition = block.getUnderlyingValuePosition(position);
+            write(blockBuilder, getPicos(valueBlock, valuePosition), getOffsetMinutes(valueBlock, valuePosition));
         }
     }
 
     @Override
-    public Object getObject(Block block, int position)
+    public LongTimeWithTimeZone getObject(Block block, int position)
     {
-        return new LongTimeWithTimeZone(getPicos(block, position), getOffsetMinutes(block, position));
+        Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return new LongTimeWithTimeZone(getPicos(valueBlock, valuePosition), getOffsetMinutes(valueBlock, valuePosition));
     }
 
     @Override
@@ -136,7 +140,9 @@ final class LongTimeWithTimeZoneType
             return null;
         }
 
-        return SqlTimeWithTimeZone.newInstance(getPrecision(), getPicos(block, position), getOffsetMinutes(block, position));
+        Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return SqlTimeWithTimeZone.newInstance(getPrecision(), getPicos(valueBlock, valuePosition), getOffsetMinutes(valueBlock, valuePosition));
     }
 
     @Override
@@ -145,24 +151,14 @@ final class LongTimeWithTimeZoneType
         return Long.BYTES + Integer.BYTES;
     }
 
-    private static long getPicos(Block block, int position)
-    {
-        return block.getLong(position, 0);
-    }
-
-    private static int getOffsetMinutes(Block block, int position)
-    {
-        return block.getInt(position, SIZE_OF_LONG);
-    }
-
     private static long getPicos(Fixed12Block block, int position)
     {
-        return block.getLong(position, 0);
+        return block.getFixed12First(position);
     }
 
     private static int getOffsetMinutes(Fixed12Block block, int position)
     {
-        return block.getInt(position, SIZE_OF_LONG);
+        return block.getFixed12Second(position);
     }
 
     @ScalarOperator(READ_VALUE)

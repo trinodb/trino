@@ -21,6 +21,8 @@ import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
@@ -120,8 +122,7 @@ final class ShortDecimalType
         if (block.isNull(position)) {
             return null;
         }
-        long unscaledValue = block.getLong(position, 0);
-        return new SqlDecimal(BigInteger.valueOf(unscaledValue), getPrecision(), getScale());
+        return new SqlDecimal(BigInteger.valueOf(getLong(block, position)), getPrecision(), getScale());
     }
 
     @Override
@@ -131,14 +132,14 @@ final class ShortDecimalType
             blockBuilder.appendNull();
         }
         else {
-            writeLong(blockBuilder, block.getLong(position, 0));
+            writeLong(blockBuilder, getLong(block, position));
         }
     }
 
     @Override
     public long getLong(Block block, int position)
     {
-        return block.getLong(position, 0);
+        return read((LongArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -157,6 +158,12 @@ final class ShortDecimalType
     public Optional<Stream<?>> getDiscreteValues(Range range)
     {
         return Optional.of(LongStream.rangeClosed((long) range.getMin(), (long) range.getMax()).boxed());
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static long read(@BlockPosition LongArrayBlock block, @BlockIndex int position)
+    {
+        return block.getLong(position);
     }
 
     @ScalarOperator(READ_VALUE)

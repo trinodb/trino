@@ -127,7 +127,6 @@ public class Fixed12Block
     @Override
     public long getLong(int position, int offset)
     {
-        checkReadablePosition(this, position);
         if (offset != 0) {
             // If needed, we can add support for offset 4
             throw new IllegalArgumentException("offset must be 0");
@@ -153,6 +152,7 @@ public class Fixed12Block
 
     public long getFixed12First(int position)
     {
+        checkReadablePosition(this, position);
         return decodeFixed12First(values, position + positionOffset);
     }
 
