@@ -22,6 +22,8 @@ import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ByteArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
@@ -114,7 +116,7 @@ public final class TinyintType
             return null;
         }
 
-        return block.getByte(position, 0);
+        return getByte(block, position);
     }
 
     @Override
@@ -158,7 +160,7 @@ public final class TinyintType
             blockBuilder.appendNull();
         }
         else {
-            writeByte(blockBuilder, block.getByte(position, 0));
+            writeByte(blockBuilder, getByte(block, position));
         }
     }
 
@@ -170,7 +172,7 @@ public final class TinyintType
 
     public byte getByte(Block block, int position)
     {
-        return block.getByte(position, 0);
+        return readByte((ByteArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -211,6 +213,17 @@ public final class TinyintType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static long read(@BlockPosition ByteArrayBlock block, @BlockIndex int position)
+    {
+        return readByte(block, position);
+    }
+
+    private static byte readByte(ByteArrayBlock block, int position)
+    {
+        return block.getByte(position);
     }
 
     @ScalarOperator(READ_VALUE)

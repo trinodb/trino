@@ -81,7 +81,7 @@ public class TestDeleteAndInsertMergeProcessor
 
         // Show that the row to be deleted is rowId 0, e.g. ('Dave', 11, 'Devon')
         SqlRow rowIdRow = outputPage.getBlock(4).getObject(0, SqlRow.class);
-        assertThat(INTEGER.getInt(rowIdRow.getRawFieldBlock(1), rowIdRow.getRawIndex())).isEqualTo(0);
+        assertThat(BIGINT.getLong(rowIdRow.getRawFieldBlock(1), rowIdRow.getRawIndex())).isEqualTo(0);
     }
 
     @Test

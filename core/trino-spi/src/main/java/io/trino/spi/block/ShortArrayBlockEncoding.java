@@ -48,7 +48,7 @@ public class ShortArrayBlockEncoding
             short[] valuesWithoutNull = new short[positionCount];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = shortArrayBlock.getShort(i, 0);
+                valuesWithoutNull[nonNullPositionCount] = shortArrayBlock.getShort(i);
                 if (!shortArrayBlock.isNull(i)) {
                     nonNullPositionCount++;
                 }

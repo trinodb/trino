@@ -21,6 +21,8 @@ import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
@@ -89,7 +91,7 @@ final class ShortTimestampType
     @Override
     public long getLong(Block block, int position)
     {
-        return block.getLong(position, 0);
+        return read((LongArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -175,6 +177,12 @@ final class ShortTimestampType
             return Optional.empty();
         }
         return Optional.of((long) value + rescale(1_000_000, getPrecision(), 0));
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static long read(@BlockPosition LongArrayBlock block, @BlockIndex int position)
+    {
+        return block.getLong(position);
     }
 
     @ScalarOperator(READ_VALUE)

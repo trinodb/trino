@@ -292,7 +292,7 @@ public class MapType
             return null;
         }
 
-        SqlMap sqlMap = block.getObject(position, SqlMap.class);
+        SqlMap sqlMap = getObject(block, position);
         int rawOffset = sqlMap.getRawOffset();
         Block rawKeyBlock = sqlMap.getRawKeyBlock();
         Block rawValueBlock = sqlMap.getRawValueBlock();
@@ -319,7 +319,7 @@ public class MapType
     @Override
     public SqlMap getObject(Block block, int position)
     {
-        return block.getObject(position, SqlMap.class);
+        return read((MapBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -543,6 +543,11 @@ public class MapType
             return NULL_HASH_CODE;
         }
         return (long) hashOperator.invokeExact((Block) block, position);
+    }
+
+    private static SqlMap read(MapBlock block, int position)
+    {
+        return block.getMap(position);
     }
 
     private static SqlMap readFlat(

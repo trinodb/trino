@@ -21,6 +21,7 @@ import io.trino.operator.scalar.json.JsonInputConversionError;
 import io.trino.operator.scalar.json.JsonOutputConversionError;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
@@ -54,7 +55,9 @@ public class Json2016Type
             return null;
         }
 
-        String json = block.getSlice(position, 0, block.getSliceLength(position)).toStringUtf8();
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        String json = valueBlock.getSlice(valuePosition).toStringUtf8();
         if (json.equals(JSON_ERROR.toString())) {
             return JSON_ERROR;
         }
