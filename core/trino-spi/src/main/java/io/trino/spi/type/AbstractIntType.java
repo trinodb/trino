@@ -13,7 +13,6 @@
  */
 package io.trino.spi.type;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -88,12 +87,6 @@ public abstract class AbstractIntType
     public final int getInt(Block block, int position)
     {
         return block.getInt(position, 0);
-    }
-
-    @Override
-    public final Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, getFixedSize());
     }
 
     @Override
