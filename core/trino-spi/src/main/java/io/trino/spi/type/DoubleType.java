@@ -21,6 +21,8 @@ import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
@@ -90,7 +92,7 @@ public final class DoubleType
         if (block.isNull(position)) {
             return null;
         }
-        return longBitsToDouble(block.getLong(position, 0));
+        return getDouble(block, position);
     }
 
     @Override
@@ -100,14 +102,16 @@ public final class DoubleType
             blockBuilder.appendNull();
         }
         else {
-            ((LongArrayBlockBuilder) blockBuilder).writeLong(block.getLong(position, 0));
+            LongArrayBlock valueBlock = (LongArrayBlock) block.getUnderlyingValueBlock();
+            int valuePosition = block.getUnderlyingValuePosition(position);
+            ((LongArrayBlockBuilder) blockBuilder).writeLong(valueBlock.getLong(valuePosition));
         }
     }
 
     @Override
     public double getDouble(Block block, int position)
     {
-        return longBitsToDouble(block.getLong(position, 0));
+        return read((LongArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -168,6 +172,12 @@ public final class DoubleType
         // The range for double is undefined because NaN is a special value that
         // is *not* in any reasonable definition of a range for this type.
         return Optional.empty();
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static double read(@BlockPosition LongArrayBlock block, @BlockIndex int position)
+    {
+        return longBitsToDouble(block.getLong(position));
     }
 
     @ScalarOperator(READ_VALUE)

@@ -16,6 +16,7 @@ package io.trino.type;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
@@ -23,8 +24,8 @@ import io.trino.spi.type.TypeSignature;
 
 import java.util.Optional;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class LikePatternType
         extends AbstractVariableWidthType
@@ -50,19 +51,19 @@ public class LikePatternType
             return null;
         }
 
-        // layout is: <pattern length> <pattern> <hasEscape> <escape>?
-        int offset = 0;
-        int length = block.getInt(position, offset);
-        offset += SIZE_OF_INT;
-        String pattern = block.getSlice(position, offset, length).toStringUtf8();
-        offset += length;
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        Slice slice = valueBlock.getSlice(valuePosition);
 
-        boolean hasEscape = block.getByte(position, offset) != 0;
-        offset++;
+        // layout is: <pattern length> <pattern> <hasEscape> <escape>?
+        int length = slice.getInt(0);
+        String pattern = slice.toString(4, length, UTF_8);
+
+        boolean hasEscape = slice.getByte(4 + length) != 0;
 
         Optional<Character> escape = Optional.empty();
         if (hasEscape) {
-            escape = Optional.of((char) block.getInt(position, offset));
+            escape = Optional.of((char) slice.getInt(4 + length + 1));
         }
 
         return LikePattern.compile(pattern, escape);

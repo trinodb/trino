@@ -230,7 +230,7 @@ public class ArrayType
         if (block instanceof ArrayBlock) {
             return ((ArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
         }
-        Block arrayBlock = block.getObject(position, Block.class);
+        Block arrayBlock = getObject(block, position);
         return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
     }
 
@@ -259,7 +259,7 @@ public class ArrayType
     @Override
     public Block getObject(Block block, int position)
     {
-        return block.getObject(position, Block.class);
+        return read((ArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -386,6 +386,11 @@ public class ArrayType
     public String getDisplayName()
     {
         return ARRAY + "(" + elementType.getDisplayName() + ")";
+    }
+
+    private static Block read(ArrayBlock block, int position)
+    {
+        return block.getArray(position);
     }
 
     private static Block readFlat(

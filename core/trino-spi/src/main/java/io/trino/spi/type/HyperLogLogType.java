@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -37,7 +38,9 @@ public class HyperLogLogType
     @Override
     public Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, block.getSliceLength(position));
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return valueBlock.getSlice(valuePosition);
     }
 
     @Override
@@ -59,6 +62,6 @@ public class HyperLogLogType
             return null;
         }
 
-        return new SqlVarbinary(block.getSlice(position, 0, block.getSliceLength(position)).getBytes());
+        return new SqlVarbinary(getSlice(block, position).getBytes());
     }
 }

@@ -46,8 +46,8 @@ public class Int128ArrayBlockEncoding
             long[] valuesWithoutNull = new long[positionCount * 2];
             int nonNullPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                valuesWithoutNull[nonNullPositionCount] = int128ArrayBlock.getLong(i, 0);
-                valuesWithoutNull[nonNullPositionCount + 1] = int128ArrayBlock.getLong(i, 8);
+                valuesWithoutNull[nonNullPositionCount] = int128ArrayBlock.getInt128High(i);
+                valuesWithoutNull[nonNullPositionCount + 1] = int128ArrayBlock.getInt128Low(i);
                 if (!int128ArrayBlock.isNull(i)) {
                     nonNullPositionCount += 2;
                 }

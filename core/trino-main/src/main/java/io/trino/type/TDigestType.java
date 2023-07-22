@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.TDigest;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
@@ -37,7 +38,9 @@ public class TDigestType
     @Override
     public Object getObject(Block block, int position)
     {
-        return TDigest.deserialize(block.getSlice(position, 0, block.getSliceLength(position)));
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return TDigest.deserialize(valueBlock.getSlice(valuePosition));
     }
 
     @Override
@@ -54,6 +57,8 @@ public class TDigestType
             return null;
         }
 
-        return new SqlVarbinary(block.getSlice(position, 0, block.getSliceLength(position)).getBytes());
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return new SqlVarbinary(valueBlock.getSlice(valuePosition).getBytes());
     }
 }

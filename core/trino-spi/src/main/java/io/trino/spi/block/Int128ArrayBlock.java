@@ -13,6 +13,7 @@
  */
 package io.trino.spi.block;
 
+import io.trino.spi.type.Int128;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
@@ -134,6 +135,13 @@ public class Int128ArrayBlock
             return getInt128Low(position);
         }
         throw new IllegalArgumentException("offset must be 0 or 8");
+    }
+
+    public Int128 getInt128(int position)
+    {
+        checkReadablePosition(this, position);
+        int offset = (position + positionOffset) * 2;
+        return Int128.valueOf(values[offset], values[offset + 1]);
     }
 
     public long getInt128High(int position)
