@@ -1147,6 +1147,53 @@ from relations on the left side of the join::
      Mary    |     9
     (6 rows)
 
+Another example of ``UNNEST`` referencing columns from relation on the left side of join::
+
+    WITH
+      t1 (student, courses, scores) AS (
+        VALUES
+          ('John', ARRAY['Science', 'Mathematics', 'English'], ARRAY[71, 84, 79]),
+          ('Mary', ARRAY['Mathematics', 'Science'], ARRAY[68, 80])
+      )
+    SELECT
+      student,
+      course,
+      score
+    FROM t1
+    CROSS JOIN UNNEST (t1.courses, t1.scores) AS t2 (course, score);
+
+.. code-block:: text
+
+     student |   course    | score
+    ---------+-------------+-------
+     John    | Science     |    71
+     John    | Mathematics |    84
+     John    | English     |    79
+     Mary    | Mathematics |    68
+     Mary    | Science     |    80
+    (5 rows)
+
+The following query will fail with error ``Column 't2.scores' cannot be resolved``
+as relation on the left side of the join is ``t1``::
+
+    WITH
+      t1 (student, age) AS (
+        VALUES
+          ('John', 15),
+          ('Mary', 14)
+      ),
+      t2 (student, scores) AS (
+        VALUES
+          ('John', ARRAY[71, 84, 79]),
+          ('Mary', ARRAY[68, 80])
+      )
+    SELECT
+      student,
+      age,
+      score
+    FROM t1
+    CROSS JOIN UNNEST (t2.scores) AS t3 (score);
+
 ``UNNEST`` can also be used with multiple arguments, in which case they are expanded into multiple columns,
 with as many rows as the highest cardinality argument (the other columns are padded with nulls)::
 
