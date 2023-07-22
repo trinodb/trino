@@ -13,7 +13,6 @@
  */
 package io.trino.spi.type;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -80,12 +79,6 @@ final class ShortTimestampWithTimeZoneType
     public long getLong(Block block, int position)
     {
         return block.getLong(position, 0);
-    }
-
-    @Override
-    public Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, getFixedSize());
     }
 
     @Override
