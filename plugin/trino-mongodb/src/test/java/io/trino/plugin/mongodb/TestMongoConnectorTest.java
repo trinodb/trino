@@ -341,6 +341,8 @@ public class TestMongoConnectorTest
                 {"smallint '2'"},
                 {"integer '3'"},
                 {"bigint '4'"},
+                {"decimal '3.14'"},
+                {"decimal '1234567890.123456789'"},
                 {"'test'"},
                 {"char 'test'"},
                 {"objectid('6216f0c6c432d45190f25e7c')"},
@@ -349,6 +351,30 @@ public class TestMongoConnectorTest
                 {"timestamp '1970-01-01 00:00:00.000'"},
                 {"timestamp '1970-01-01 00:00:00.000 UTC'"},
         };
+    }
+
+    @Test
+    public void testHighPrecisionDecimalPredicate()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_high_precision_decimal_predicate",
+                "(col DECIMAL(34, 0))",
+                ImmutableList.of("decimal '3141592653589793238462643383279502'"))) { // 34 precision decimal value
+            String predicateValue = "decimal '31415926535897932384626433832795028841'"; // 38 precision decimal value
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + predicateValue))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col != " + predicateValue))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col < " + predicateValue))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col > " + predicateValue))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col <= " + predicateValue))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col >= " + predicateValue))
+                    .isFullyPushedDown();
+        }
     }
 
     @Test
