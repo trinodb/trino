@@ -8062,6 +8062,12 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testOptimizeWithWriterScaling()
     {
+        testOptimizeWithWriterScaling(true, false, DataSize.of(1, GIGABYTE));
+        testOptimizeWithWriterScaling(false, true, DataSize.of(0, MEGABYTE));
+    }
+
+    private void testOptimizeWithWriterScaling(boolean scaleWriters, boolean taskScaleWritersEnabled, DataSize writerScalingMinDataProcessed)
+    {
         String tableName = "test_optimize_witer_scaling" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
 
@@ -8071,12 +8077,18 @@ public abstract class BaseHiveConnectorTest
         Set<String> initialFiles = getTableFiles(tableName);
         assertThat(initialFiles).hasSize(4);
 
-        Session writerScalingSession = Session.builder(optimizeEnabledSession())
-                .setSystemProperty("scale_writers", "true")
-                .setSystemProperty("writer_scaling_min_data_processed", "100GB")
-                .build();
+        Session.SessionBuilder writerScalingSessionBuilder = Session.builder(optimizeEnabledSession())
+                .setSystemProperty("scale_writers", String.valueOf(scaleWriters))
+                .setSystemProperty("writer_scaling_min_data_processed", writerScalingMinDataProcessed.toString())
+                // task_scale_writers_enabled shouldn't have any effect on writing data in the optimize command
+                .setSystemProperty("task_scale_writers_enabled", String.valueOf(taskScaleWritersEnabled))
+                .setSystemProperty("task_writer_count", "1");
 
-        assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
+        if (!scaleWriters) {
+            writerScalingSessionBuilder.setSystemProperty("max_writer_tasks_count", "1");
+        }
+
+        assertUpdate(writerScalingSessionBuilder.build(), "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
         assertNationNTimes(tableName, 4);
 
         Set<String> compactedFiles = getTableFiles(tableName);

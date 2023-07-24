@@ -16,6 +16,9 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
+import io.trino.connector.MockConnector;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
@@ -23,12 +26,17 @@ import io.trino.connector.MockConnectorTransactionHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
+import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.plan.TableExecuteNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.LocalQueryRunner;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -37,6 +45,7 @@ import java.util.Optional;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
+import static io.trino.spi.connector.TableProcedureExecutionMode.distributedWithFilteringAndRepartitioning;
 import static io.trino.spi.statistics.TableStatistics.empty;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -46,6 +55,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableWriter;
@@ -99,6 +109,17 @@ public class TestAddLocalExchangesForTaskScaleWriters
                     }
                     return empty();
                 })
+                .withGetLayoutForTableExecute((session, tableHandle) -> {
+                    MockConnector.MockConnectorTableExecuteHandle tableExecuteHandle = (MockConnector.MockConnectorTableExecuteHandle) tableHandle;
+                    if (tableExecuteHandle.getSchemaTableName().getTableName().equals("system_partitioned_table")) {
+                        return Optional.of(new ConnectorTableLayout(ImmutableList.of("year")));
+                    }
+                    return Optional.empty();
+                })
+                .withTableProcedures(ImmutableSet.of(new TableProcedureMetadata(
+                        "OPTIMIZE",
+                        distributedWithFilteringAndRepartitioning(),
+                        ImmutableList.of(PropertyMetadata.stringProperty("file_size_threshold", "file_size_threshold", "10GB", false)))))
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata("customer", INTEGER),
                         new ColumnMetadata("year", INTEGER)))
@@ -315,5 +336,49 @@ public class TestAddLocalExchangesForTaskScaleWriters
                                                 exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION,
                                                         project(
                                                                 tableScan("source_table", ImmutableMap.of("customer", "customer", "year", "year")))))))));
+    }
+
+    @Test
+    public void testTableExecuteLocalScalingDisabledForPartitionedTable()
+    {
+        @Language("SQL") String query = "ALTER TABLE system_partitioned_table EXECUTE optimize(file_size_threshold => '10MB')";
+
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog("mock_with_multiple_writer_per_partition")
+                .setSchema("mock")
+                .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
+                .build();
+
+        assertDistributedPlan(
+                query,
+                session,
+                anyTree(
+                        node(TableExecuteNode.class,
+                                project(
+                                        exchange(LOCAL, REPARTITION, FIXED_HASH_DISTRIBUTION,
+                                                exchange(REMOTE, REPARTITION, SCALED_WRITER_HASH_DISTRIBUTION,
+                                                        project(
+                                                                node(TableScanNode.class))))))));
+    }
+
+    @Test
+    public void testTableExecuteLocalScalingDisabledForUnpartitionedTable()
+    {
+        @Language("SQL") String query = "ALTER TABLE unpartitioned_table EXECUTE optimize(file_size_threshold => '10MB')";
+
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog("mock_with_multiple_writer_per_partition")
+                .setSchema("mock")
+                .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
+                .build();
+
+        assertDistributedPlan(
+                query,
+                session,
+                anyTree(
+                        node(TableExecuteNode.class,
+                                exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
+                                        exchange(REMOTE, REPARTITION, SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
+                                                node(TableScanNode.class))))));
     }
 }
