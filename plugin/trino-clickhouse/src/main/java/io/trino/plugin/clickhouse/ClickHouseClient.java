@@ -35,11 +35,13 @@ import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
@@ -58,6 +60,8 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -119,6 +123,7 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDef
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -233,6 +238,24 @@ public class ClickHouseClient
     {
         // TODO support complex ConnectorExpressions
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+    @Override
+    public Optional<PreparedQuery> implementJoin(ConnectorSession session, JoinType joinType, PreparedQuery leftSource, PreparedQuery rightSource, List<JdbcJoinCondition> joinConditions, Map<JdbcColumnHandle, String> rightAssignments, Map<JdbcColumnHandle, String> leftAssignments, JoinStatistics statistics)
+    {
+        return implementJoinCostAware(
+                session,
+                joinType,
+                leftSource,
+                rightSource,
+                statistics,
+                () -> super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
+    }
+
+    @Override
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
+    {
+        return true;
     }
 
     @Override
