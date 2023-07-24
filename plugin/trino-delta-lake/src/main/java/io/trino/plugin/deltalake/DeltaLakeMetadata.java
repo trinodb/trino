@@ -1429,6 +1429,9 @@ public class DeltaLakeMetadata
         if (columns.size() == columnNames.size()) {
             throw new ColumnNotFoundException(table.schemaTableName(), dropColumnName);
         }
+        if (columnNames.size() == partitionColumns.size()) {
+            throw new TrinoException(NOT_SUPPORTED, "Dropping the last non-partition column is unsupported");
+        }
         Map<String, String> physicalColumnNameMapping = columns.stream()
                 .collect(toImmutableMap(DeltaLakeColumnMetadata::getName, DeltaLakeColumnMetadata::getPhysicalName));
 

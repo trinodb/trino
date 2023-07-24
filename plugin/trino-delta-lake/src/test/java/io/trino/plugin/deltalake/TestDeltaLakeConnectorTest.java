@@ -411,6 +411,17 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
     }
 
+    @Test
+    public void testDropLastNonPartitionColumn()
+    {
+        String tableName = "test_drop_last_non_partition_column_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(data int, part int) WITH (partitioned_by = ARRAY['part'], column_mapping_mode = 'name')");
+
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN data", "Dropping the last non-partition column is unsupported");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Override
     public void testRenameColumn()
     {
