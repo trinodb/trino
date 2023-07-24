@@ -1478,6 +1478,32 @@ public class TestDeltaLakeColumnMappingMode
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testDropLastNonPartitionColumnWithColumnMappingMode(String mode)
+    {
+        String tableName = "test_drop_column_" + randomNameSuffix();
+        String tableLocation = "s3://" + bucketName + "/databricks-compatibility-test-" + tableName;
+
+        onTrino().executeQuery("CREATE TABLE delta.default." + tableName +
+                " WITH (column_mapping_mode = '" + mode + "', partitioned_by = ARRAY['part'], location = '" + tableLocation + "')" +
+                "AS SELECT 1 data, 'part#1' part");
+        try {
+            assertThatThrownBy(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " DROP COLUMN data"))
+                    .hasMessageContaining("Dropping the last non-partition column is unsupported");
+
+            // TODO https://github.com/delta-io/delta/issues/1929 Delta Lake disallows creating tables with all partitioned column, but allows dropping the non-partition column
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " DROP COLUMN data");
+
+            assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .hasMessageContaining("Index 0 out of bounds for length 0");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName).getOnlyValue()).isNull();
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoExtendedStatisticsDropAndAddColumnWithColumnMappingMode(String mode)
     {
         String tableName = "test_drop_and_add_column_" + randomNameSuffix();
