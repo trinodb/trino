@@ -14,6 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -52,6 +53,9 @@ public final class TypeUtils
 
     public static boolean isPushdownSupportedType(Type type)
     {
-        return type instanceof VarcharType || type instanceof ObjectIdType || PUSHDOWN_SUPPORTED_PRIMITIVE_TYPES.contains(type);
+        return type instanceof CharType
+                || type instanceof VarcharType
+                || type instanceof ObjectIdType
+                || PUSHDOWN_SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }
 }

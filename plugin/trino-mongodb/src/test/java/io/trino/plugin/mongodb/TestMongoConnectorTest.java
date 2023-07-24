@@ -342,6 +342,7 @@ public class TestMongoConnectorTest
                 {"integer '3'"},
                 {"bigint '4'"},
                 {"'test'"},
+                {"char 'test'"},
                 {"objectid('6216f0c6c432d45190f25e7c')"},
                 {"date '1970-01-01'"},
                 {"time '00:00:00.000'"},
