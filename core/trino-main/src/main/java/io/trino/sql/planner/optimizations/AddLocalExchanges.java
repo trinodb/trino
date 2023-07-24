@@ -691,7 +691,8 @@ public class AddLocalExchanges
                     node.getPartitioningScheme(),
                     node.getSource(),
                     parentPreferences,
-                    node.getTarget());
+                    node.getTarget(),
+                    isTaskScaleWritersEnabled(session));
         }
 
         @Override
@@ -702,7 +703,10 @@ public class AddLocalExchanges
                     node.getPartitioningScheme(),
                     node.getSource(),
                     parentPreferences,
-                    node.getTarget());
+                    node.getTarget(),
+                    // Disable task writer scaling for TableExecute since it can result in smaller files than
+                    // file_size_threshold, which can be undesirable behaviour.
+                    false);
         }
 
         private PlanWithProperties visitTableWriter(
@@ -710,9 +714,10 @@ public class AddLocalExchanges
                 Optional<PartitioningScheme> partitioningScheme,
                 PlanNode source,
                 StreamPreferredProperties parentPreferences,
-                WriterTarget writerTarget)
+                WriterTarget writerTarget,
+                boolean isTaskScaleWritersEnabled)
         {
-            if (isTaskScaleWritersEnabled(session)
+            if (isTaskScaleWritersEnabled
                     && writerTarget.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session)
                     && partitioningScheme.isPresent()) {
                 return visitScalePartitionedWriter(node, partitioningScheme.get(), source);
@@ -720,12 +725,12 @@ public class AddLocalExchanges
 
             return partitioningScheme
                     .map(scheme -> visitPartitionedWriter(node, scheme, source, parentPreferences))
-                    .orElseGet(() -> visitUnpartitionedWriter(node, source));
+                    .orElseGet(() -> visitUnpartitionedWriter(node, source, isTaskScaleWritersEnabled));
         }
 
-        private PlanWithProperties visitUnpartitionedWriter(PlanNode node, PlanNode source)
+        private PlanWithProperties visitUnpartitionedWriter(PlanNode node, PlanNode source, boolean isTaskScaleWritersEnabled)
         {
-            if (isTaskScaleWritersEnabled(session)) {
+            if (isTaskScaleWritersEnabled) {
                 PlanWithProperties newSource = source.accept(this, defaultParallelism(session));
                 PlanWithProperties exchange = deriveProperties(
                         partitionedExchange(
@@ -826,7 +831,7 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitMergeWriter(MergeWriterNode node, StreamPreferredProperties parentPreferences)
         {
-            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences, node.getTarget());
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences, node.getTarget(), false);
         }
 
         //

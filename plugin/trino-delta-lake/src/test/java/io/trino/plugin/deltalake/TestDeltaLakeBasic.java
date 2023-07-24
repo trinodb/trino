@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Resources;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -252,7 +253,11 @@ public class TestDeltaLakeBasic
         assertUpdate("INSERT INTO " + tableName + " VALUES 10", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES 20", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES NULL", 1);
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        assertUpdate(Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty("task_writer_count", "1")
+                        .build(),
+                "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
         // Verify 'add' entry contains the expected physical name in the stats
         List<DeltaLakeTransactionLogEntry> transactionLog = getEntriesFromJson(4, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
