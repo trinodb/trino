@@ -343,6 +343,8 @@ public class TestMongoConnectorTest
                 {"smallint '2'"},
                 {"integer '3'"},
                 {"bigint '4'"},
+                {"decimal '3.14'"},
+                {"decimal '1234567890.123456789'"},
                 {"'test'"},
                 {"char 'test'"},
                 {"objectid('6216f0c6c432d45190f25e7c')"},
@@ -384,6 +386,43 @@ public class TestMongoConnectorTest
                     .matches("VALUES 7, 8, 9")
                     .isFullyPushedDown();
         }
+    }
+
+    @Test
+    public void testHighPrecisionDecimalPredicate()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_high_precision_decimal_predicate",
+                "(col DECIMAL(34, 0))",
+                Arrays.asList("decimal '3141592653589793238462643383279502'", null))) {
+            // Filter clause with 38 precision decimal value
+            String predicateValue = "decimal '31415926535897932384626433832795028841'";
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + predicateValue))
+                    // With EQUAL operator when column type precision is less than the predicate value's precision,
+                    // PushPredicateIntoTableScan#pushFilterIntoTableScan returns ValuesNode. So It is not possible to verify isFullyPushedDown.
+                    .returnsEmptyResult();
+            testPredicatePushdown(table.getName(), "col != " + predicateValue);
+            testPredicatePushdown(table.getName(), "col < " + predicateValue);
+            testPredicatePushdown(table.getName(), "col > " + predicateValue);
+            testPredicatePushdown(table.getName(), "col <= " + predicateValue);
+            testPredicatePushdown(table.getName(), "col >= " + predicateValue);
+
+            // Filter clause with 34 precision decimal value
+            predicateValue = "decimal '3141592653589793238462643383279502'";
+            testPredicatePushdown(table.getName(), "col = " + predicateValue);
+            testPredicatePushdown(table.getName(), "col != " + predicateValue);
+            testPredicatePushdown(table.getName(), "col < " + predicateValue);
+            testPredicatePushdown(table.getName(), "col > " + predicateValue);
+            testPredicatePushdown(table.getName(), "col <= " + predicateValue);
+            testPredicatePushdown(table.getName(), "col >= " + predicateValue);
+        }
+    }
+
+    private void testPredicatePushdown(String tableName, String whereClause)
+    {
+        assertThat(query("SELECT * FROM " + tableName + " WHERE " + whereClause))
+                .isFullyPushedDown();
     }
 
     @Test

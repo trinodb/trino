@@ -51,6 +51,9 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
@@ -62,6 +65,7 @@ import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import org.bson.Document;
 import org.bson.types.Binary;
+import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 
 import java.time.Instant;
@@ -665,6 +669,13 @@ public class MongoSession
 
         if (type == BIGINT) {
             return Optional.of(trinoNativeValue);
+        }
+
+        if (type instanceof DecimalType decimalType) {
+            if (decimalType.isShort()) {
+                return Optional.of(Decimal128.parse(Decimals.toString((long) trinoNativeValue, decimalType.getScale())));
+            }
+            return Optional.of(Decimal128.parse(Decimals.toString((Int128) trinoNativeValue, decimalType.getScale())));
         }
 
         if (type instanceof ObjectIdType) {
