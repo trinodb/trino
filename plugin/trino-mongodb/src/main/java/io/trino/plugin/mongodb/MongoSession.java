@@ -50,6 +50,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
@@ -90,6 +91,7 @@ import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -667,6 +669,11 @@ public class MongoSession
 
         if (type instanceof ObjectIdType) {
             return Optional.of(new ObjectId(((Slice) trinoNativeValue).getBytes()));
+        }
+
+        if (type instanceof CharType charType) {
+            Slice slice = padSpaces(((Slice) trinoNativeValue), charType);
+            return Optional.of(slice.toStringUtf8());
         }
 
         if (type instanceof VarcharType) {

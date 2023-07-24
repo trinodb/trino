@@ -344,12 +344,46 @@ public class TestMongoConnectorTest
                 {"integer '3'"},
                 {"bigint '4'"},
                 {"'test'"},
+                {"char 'test'"},
                 {"objectid('6216f0c6c432d45190f25e7c')"},
                 {"date '1970-01-01'"},
                 {"time '00:00:00.000'"},
                 {"timestamp '1970-01-01 00:00:00.000'"},
                 {"timestamp '1970-01-01 00:00:00.000 UTC'"},
         };
+    }
+
+    @Test
+    public void testPredicatePushdownCharWithPaddedSpace()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_predicate_pushdown_char_with_padded_space",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS char(3))), " +
+                        "   (0, CAST('' AS char(3)))," +
+                        "   (1, CAST(' ' AS char(3))), " +
+                        "   (2, CAST('  ' AS char(3))), " +
+                        "   (3, CAST('   ' AS char(3)))," +
+                        "   (4, CAST('x' AS char(3)))," +
+                        "   (5, CAST('x ' AS char(3)))," +
+                        "   (6, CAST('x  ' AS char(3)))," +
+                        "   (7, CAST('\0' AS char(3)))," +
+                        "   (8, CAST('\0 ' AS char(3)))," +
+                        "   (9, CAST('\0  ' AS char(3)))")) {
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = ''"))
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    .matches("VALUES 0, 1, 2, 3")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = 'x '"))
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    .matches("VALUES 4, 5, 6")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT k FROM " + table.getName() + " WHERE v = '\0  '"))
+                    // The value is included because both sides of the comparison are coerced to char(3)
+                    .matches("VALUES 7, 8, 9")
+                    .isFullyPushedDown();
+        }
     }
 
     @Test
