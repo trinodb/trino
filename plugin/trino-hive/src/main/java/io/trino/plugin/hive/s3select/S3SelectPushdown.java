@@ -75,7 +75,7 @@ public final class S3SelectPushdown
 
     private static boolean isInputFormatSupported(Properties schema)
     {
-        String inputFormat = getInputFormatName(schema);
+        String inputFormat = getInputFormatName(schema).orElse(null);
 
         if (TEXT_INPUT_FORMAT_CLASS.equals(inputFormat)) {
             if (!Objects.equals(schema.getProperty(SKIP_HEADER_COUNT_KEY, "0"), "0")) {

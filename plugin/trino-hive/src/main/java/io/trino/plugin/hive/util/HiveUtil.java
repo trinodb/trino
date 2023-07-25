@@ -294,7 +294,7 @@ public final class HiveUtil
                     path,
                     start,
                     length,
-                    getInputFormatName(schema),
+                    getInputFormatName(schema).orElse(null),
                     firstNonNull(e.getMessage(), e.getClass().getName())),
                     e);
         }
@@ -353,7 +353,8 @@ public final class HiveUtil
 
     public static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
     {
-        String inputFormatName = getInputFormatName(schema);
+        String inputFormatName = getInputFormatName(schema).orElseThrow(() ->
+                new TrinoException(HIVE_INVALID_METADATA, "Table or partition is missing Hive input format property: " + FILE_INPUT_FORMAT));
         try {
             JobConf jobConf = toJobConf(configuration);
             configureCompressionCodecs(jobConf);
@@ -397,11 +398,9 @@ public final class HiveUtil
         return (Class<? extends InputFormat<?, ?>>) clazz.asSubclass(InputFormat.class);
     }
 
-    public static String getInputFormatName(Properties schema)
+    public static Optional<String> getInputFormatName(Properties schema)
     {
-        String name = schema.getProperty(FILE_INPUT_FORMAT);
-        checkCondition(name != null, HIVE_INVALID_METADATA, "Table or partition is missing Hive input format property: %s", FILE_INPUT_FORMAT);
-        return name;
+        return Optional.ofNullable(schema.getProperty(FILE_INPUT_FORMAT));
     }
 
     private static long parseHiveDate(String value)
