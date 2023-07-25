@@ -142,6 +142,7 @@ import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_FILE_RECORD_COUNT;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_DATA;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_SPEC_ID;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -272,6 +273,9 @@ public class IcebergPageSourceProvider
                             requiredColumns.add(new IcebergColumnHandle(identity, BIGINT, ImmutableList.of(), BIGINT, Optional.empty()));
                         }
                         else if (identity.getId() == TRINO_MERGE_FILE_RECORD_COUNT) {
+                            requiredColumns.add(new IcebergColumnHandle(identity, BIGINT, ImmutableList.of(), BIGINT, Optional.empty()));
+                        }
+                        else if (identity.getId() == TRINO_MERGE_FILE_SIZE) {
                             requiredColumns.add(new IcebergColumnHandle(identity, BIGINT, ImmutableList.of(), BIGINT, Optional.empty()));
                         }
                         else if (identity.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
@@ -614,6 +618,9 @@ public class IcebergPageSourceProvider
                 }
                 else if (column.getId() == TRINO_MERGE_FILE_RECORD_COUNT) {
                     columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(column.getType(), fileRecordCount)));
+                }
+                else if (column.getId() == TRINO_MERGE_FILE_SIZE) {
+                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(column.getType(), inputFile.length())));
                 }
                 else if (column.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
                     columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(column.getType(), (long) partitionSpecId)));
@@ -976,6 +983,9 @@ public class IcebergPageSourceProvider
                 else if (column.getId() == TRINO_MERGE_FILE_RECORD_COUNT) {
                     pageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), fileRecordCount));
                 }
+                else if (column.getId() == TRINO_MERGE_FILE_SIZE) {
+                    pageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), inputFile.length()));
+                }
                 else if (column.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
                     pageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), (long) partitionSpecId));
                 }
@@ -1148,6 +1158,9 @@ public class IcebergPageSourceProvider
                 }
                 else if (column.getId() == TRINO_MERGE_FILE_RECORD_COUNT) {
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), fileRecordCount));
+                }
+                else if (column.getId() == TRINO_MERGE_FILE_SIZE) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), inputFile.length()));
                 }
                 else if (column.getId() == TRINO_MERGE_PARTITION_SPEC_ID) {
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), (long) partitionSpecId));

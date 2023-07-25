@@ -116,6 +116,8 @@ import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.MetadataColumns;
+import org.apache.iceberg.Metrics;
+import org.apache.iceberg.OverwriteFiles;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -137,6 +139,7 @@ import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.UpdateSchema;
 import org.apache.iceberg.UpdateStatistics;
 import org.apache.iceberg.exceptions.ValidationException;
+import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Term;
 import org.apache.iceberg.io.CloseableIterable;
@@ -192,6 +195,7 @@ import static io.trino.plugin.iceberg.ConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_FILE_RECORD_COUNT;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_FILE_SIZE;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_DATA;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_SPEC_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_ROW_ID;
@@ -900,36 +904,9 @@ public class IcebergMetadata
         Table icebergTable = transaction.table();
         Optional<Long> beforeWriteSnapshotId = Optional.ofNullable(icebergTable.currentSnapshot()).map(Snapshot::snapshotId);
         Schema schema = icebergTable.schema();
-        Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
-                .map(field -> field.transform().getResultType(
-                        schema.findType(field.sourceId())))
-                .toArray(Type[]::new);
 
-        AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
-        ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
-        for (CommitTaskData task : commitTasks) {
-            DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withPath(task.getPath())
-                    .withFileSizeInBytes(task.getFileSizeInBytes())
-                    .withFormat(table.getFileFormat().toIceberg())
-                    .withMetrics(task.getMetrics().metrics());
+        commitWriteAsAppend(session, commitTasks, schema, table.getRetryMode());
 
-            if (!icebergTable.spec().fields().isEmpty()) {
-                String partitionDataJson = task.getPartitionDataJson()
-                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
-            }
-
-            appendFiles.appendFile(builder.build());
-            writtenFiles.add(task.getPath());
-        }
-
-        // try to leave as little garbage as possible behind
-        if (table.getRetryMode() != NO_RETRIES) {
-            cleanExtraOutputFiles(session, writtenFiles.build());
-        }
-
-        commit(appendFiles, session);
         transaction.commitTransaction();
         // TODO (https://github.com/trinodb/trino/issues/15439) this may not exactly be the snapshot we committed, if there is another writer
         long newSnapshotId = transaction.table().currentSnapshot().snapshotId();
@@ -967,6 +944,41 @@ public class IcebergMetadata
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
                 .map(CommitTaskData::getPath)
                 .collect(toImmutableList())));
+    }
+
+    private void commitWriteAsAppend(ConnectorSession session, List<CommitTaskData> commitTasks, Schema schema, RetryMode retryMode)
+    {
+        AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
+        ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
+        for (CommitTaskData task : commitTasks) {
+            verify(task.getContent() == FileContent.DATA, "commitWriteAsAppend called with content besides new data files: " + task);
+            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.getPartitionSpecJson());
+            DataFiles.Builder builder = DataFiles.builder(partitionSpec)
+                    .withPath(task.getPath())
+                    .withFileSizeInBytes(task.getFileSizeInBytes())
+                    .withFormat(task.getFileFormat().toIceberg())
+                    .withMetrics(task.getMetrics().metrics());
+
+            if (!partitionSpec.fields().isEmpty()) {
+                Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                        .map(field -> field.transform().getResultType(
+                                schema.findType(field.sourceId())))
+                        .toArray(Type[]::new);
+                String partitionDataJson = task.getPartitionDataJson()
+                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+            }
+
+            appendFiles.appendFile(builder.build());
+            writtenFiles.add(task.getPath());
+        }
+
+        // try to leave as little garbage as possible behind
+        if (retryMode != NO_RETRIES) {
+            cleanExtraOutputFiles(session, writtenFiles.build());
+        }
+
+        commit(appendFiles, session);
     }
 
     private void cleanExtraOutputFiles(ConnectorSession session, Set<String> writtenFiles)
@@ -2063,6 +2075,7 @@ public class IcebergMetadata
                 .add(MetadataColumns.FILE_PATH)
                 .add(MetadataColumns.ROW_POSITION)
                 .add(NestedField.required(TRINO_MERGE_FILE_RECORD_COUNT, "file_record_count", LongType.get()))
+                .add(NestedField.required(TRINO_MERGE_FILE_SIZE, "file_size", LongType.get()))
                 .add(NestedField.required(TRINO_MERGE_PARTITION_SPEC_ID, "partition_spec_id", IntegerType.get()))
                 .add(NestedField.required(TRINO_MERGE_PARTITION_DATA, "partition_data", StringType.get()))
                 .build());
@@ -2142,115 +2155,203 @@ public class IcebergMetadata
 
         Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
 
-        Map<String, List<CommitTaskData>> deletesByFilePath = commitTasks.stream()
-                .filter(task -> task.getContent() == POSITION_DELETES)
+        TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
+        Optional<Expression> conflictDetectionFilter = dataColumnPredicate.isAll() ?
+                Optional.empty() :
+                Optional.of(toIcebergExpression(dataColumnPredicate));
+
+        Map<FileContent, List<CommitTaskData>> taskDataByContent = commitTasks.stream().collect(groupingBy(CommitTaskData::getContent));
+        List<CommitTaskData> newDataFiles = taskDataByContent.getOrDefault(FileContent.DATA, ImmutableList.of());
+        List<CommitTaskData> newDeleteFiles = taskDataByContent.getOrDefault(POSITION_DELETES, ImmutableList.of());
+
+        Map<String, List<CommitTaskData>> deletesByFilePath = taskDataByContent.getOrDefault(POSITION_DELETES, ImmutableList.of()).stream()
                 .collect(groupingBy(task -> task.getReferencedDataFile().orElseThrow()));
-        Map<String, List<CommitTaskData>> fullyDeletedFiles = deletesByFilePath
-                .entrySet().stream()
+        Map<String, List<CommitTaskData>> fullyDeletedFiles = deletesByFilePath.entrySet().stream()
                 .filter(entry -> fileIsFullyDeleted(entry.getValue()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        if (!deletesByFilePath.keySet().equals(fullyDeletedFiles.keySet()) || commitTasks.stream().anyMatch(task -> task.getContent() == FileContent.DATA)) {
-            RowDelta rowDelta = transaction.newRowDelta();
-            table.getSnapshotId().map(icebergTable::snapshot).ifPresent(s -> rowDelta.validateFromSnapshot(s.snapshotId()));
-            TupleDomain<IcebergColumnHandle> dataColumnPredicate = table.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
-            if (!dataColumnPredicate.isAll()) {
-                rowDelta.conflictDetectionFilter(toIcebergExpression(dataColumnPredicate));
-            }
-            IsolationLevel isolationLevel = IsolationLevel.fromName(icebergTable.properties().getOrDefault(DELETE_ISOLATION_LEVEL, DELETE_ISOLATION_LEVEL_DEFAULT));
-            if (isolationLevel == IsolationLevel.SERIALIZABLE) {
-                rowDelta.validateNoConflictingDataFiles();
-            }
-
-            // Ensure a row that is updated by this commit was not deleted by a separate commit
-            rowDelta.validateDeletedFiles();
-            rowDelta.validateNoConflictingDeleteFiles();
-
-            ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
-            ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
-            for (CommitTaskData task : commitTasks) {
-                PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.getPartitionSpecJson());
-                Type[] partitionColumnTypes = partitionSpec.fields().stream()
-                        .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
-                        .toArray(Type[]::new);
-                switch (task.getContent()) {
-                    case POSITION_DELETES -> {
-                        if (fullyDeletedFiles.containsKey(task.getReferencedDataFile().orElseThrow())) {
-                            continue;
-                        }
-                        FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
-                                .withPath(task.getPath())
-                                .withFormat(task.getFileFormat().toIceberg())
-                                .ofPositionDeletes()
-                                .withFileSizeInBytes(task.getFileSizeInBytes())
-                                .withMetrics(task.getMetrics().metrics());
-                        if (!partitionSpec.fields().isEmpty()) {
-                            String partitionDataJson = task.getPartitionDataJson()
-                                    .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                            deleteBuilder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
-                        }
-                        rowDelta.addDeletes(deleteBuilder.build());
-                        writtenFiles.add(task.getPath());
-                        task.getReferencedDataFile().ifPresent(referencedDataFiles::add);
-                    }
-                    case DATA -> {
-                        DataFiles.Builder builder = DataFiles.builder(partitionSpec)
-                                .withPath(task.getPath())
-                                .withFormat(task.getFileFormat().toIceberg())
-                                .withFileSizeInBytes(task.getFileSizeInBytes())
-                                .withMetrics(task.getMetrics().metrics());
-                        if (!icebergTable.spec().fields().isEmpty()) {
-                            String partitionDataJson = task.getPartitionDataJson()
-                                    .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                            builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
-                        }
-                        rowDelta.addRows(builder.build());
-                        writtenFiles.add(task.getPath());
-                    }
-                    default -> throw new UnsupportedOperationException("Unsupported task content: " + task.getContent());
-                }
-            }
-
-            // try to leave as little garbage as possible behind
-            if (retryMode != NO_RETRIES) {
-                cleanExtraOutputFiles(session, writtenFiles.build());
-            }
-
-            rowDelta.validateDataFilesExist(referencedDataFiles.build());
-            try {
-                commit(rowDelta, session);
-            }
-            catch (ValidationException e) {
-                throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to commit Iceberg update to table: " + table.getSchemaTableName(), e);
-            }
-        }
-
-        if (!fullyDeletedFiles.isEmpty()) {
-            try {
-                TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-                fileSystem.deleteFiles(fullyDeletedFiles.values().stream()
-                        .flatMap(Collection::stream)
-                        .map(CommitTaskData::getPath)
-                        .map(Location::of)
-                        .collect(toImmutableSet()));
-            }
-            catch (IOException e) {
-                log.warn(e, "Failed to clean up uncommitted position delete files");
-            }
-        }
+        IsolationLevel isolationLevel = IsolationLevel.fromName(icebergTable.properties().getOrDefault(DELETE_ISOLATION_LEVEL, DELETE_ISOLATION_LEVEL_DEFAULT));
 
         try {
-            if (!fullyDeletedFiles.isEmpty()) {
-                DeleteFiles deleteFiles = transaction.newDelete();
-                fullyDeletedFiles.keySet().forEach(deleteFiles::deleteFile);
-                commit(deleteFiles, session);
+            if (!newDataFiles.isEmpty() && deletesByFilePath.isEmpty()) {
+                // No deletions, only added files
+                commitWriteAsAppend(session, commitTasks, schema, retryMode);
             }
+            else if (Sets.difference(deletesByFilePath.keySet(), fullyDeletedFiles.keySet()).isEmpty()) {
+                // Fully replace existing files with new files, or just wholly removing all files
+                commitWriteAsOverwrite(session, newDataFiles, newDeleteFiles, schema, conflictDetectionFilter, table.getSnapshotId(), isolationLevel, retryMode);
+            }
+            else {
+                // Requires row level deletes
+                commitWriteAsRowDelta(session, newDataFiles, newDeleteFiles, schema, conflictDetectionFilter, table.getSnapshotId(), isolationLevel, retryMode);
+            }
+
             transaction.commitTransaction();
         }
         catch (ValidationException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to commit Iceberg update to table: " + table.getSchemaTableName(), e);
         }
-        transaction = null;
+    }
+
+    private void commitWriteAsOverwrite(
+            ConnectorSession session,
+            List<CommitTaskData> newDataFiles,
+            List<CommitTaskData> newDeleteFiles,
+            Schema schema,
+            Optional<Expression> conflictDetectionFilter,
+            Optional<Long> readSnapshotId,
+            IsolationLevel isolationLevel,
+            RetryMode retryMode)
+    {
+        OverwriteFiles overwriteFiles = transaction.newOverwrite();
+        overwriteFiles.validateNoConflictingDeletes();
+
+        if (isolationLevel == IsolationLevel.SERIALIZABLE) {
+            overwriteFiles.validateNoConflictingData();
+        }
+
+        readSnapshotId.ifPresent(overwriteFiles::validateFromSnapshot);
+        conflictDetectionFilter.ifPresent(overwriteFiles::conflictDetectionFilter);
+
+        for (CommitTaskData task : newDataFiles) {
+            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.getPartitionSpecJson());
+            Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                    .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
+                    .toArray(Type[]::new);
+            DataFiles.Builder builder = DataFiles.builder(partitionSpec)
+                    .withPath(task.getPath())
+                    .withFormat(task.getFileFormat().toIceberg())
+                    .withFileSizeInBytes(task.getFileSizeInBytes())
+                    .withMetrics(task.getMetrics().metrics());
+            if (!partitionSpec.fields().isEmpty()) {
+                String partitionDataJson = task.getPartitionDataJson()
+                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+            }
+            overwriteFiles.addFile(builder.build());
+        }
+
+        Set<String> seenDeletedFiles = new HashSet<>();
+        for (CommitTaskData task : newDeleteFiles) {
+            String referencedDataFile = task.getReferencedDataFile().orElseThrow();
+            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, task.getPartitionSpecJson());
+            Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                    .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
+                    .toArray(Type[]::new);
+            if (seenDeletedFiles.add(referencedDataFile)) {
+                DataFiles.Builder deletedFile = DataFiles.builder(partitionSpec)
+                        .withPath(referencedDataFile)
+                        .withFileSizeInBytes(task.getReferencedDataFileSize().orElseThrow())
+                        .withMetrics(new Metrics(
+                                task.getFileRecordCount().orElseThrow(),
+                                ImmutableMap.of(),
+                                ImmutableMap.of(),
+                                ImmutableMap.of(),
+                                ImmutableMap.of()));
+                if (!partitionSpec.fields().isEmpty()) {
+                    String partitionDataJson = task.getPartitionDataJson()
+                            .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                    deletedFile.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+                }
+
+                overwriteFiles.deleteFile(deletedFile.build());
+            }
+        }
+
+        try {
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            fileSystem.deleteFiles(newDeleteFiles.stream()
+                    .map(CommitTaskData::getPath)
+                    .map(Location::of)
+                    .collect(toImmutableSet()));
+        }
+        catch (IOException e) {
+            log.warn(e, "Failed to clean up uncommitted position delete files");
+        }
+
+        // try to leave as little garbage as possible behind
+        if (retryMode != NO_RETRIES) {
+            Set<String> writtenFilePaths = Streams.concat(newDataFiles.stream(), newDeleteFiles.stream())
+                    .map(CommitTaskData::getPath)
+                    .collect(toImmutableSet());
+            cleanExtraOutputFiles(session, writtenFilePaths);
+        }
+
+        overwriteFiles.commit();
+    }
+
+    private void commitWriteAsRowDelta(
+            ConnectorSession session,
+            List<CommitTaskData> newDataFiles,
+            List<CommitTaskData> newDeleteFiles,
+            Schema schema,
+            Optional<Expression> conflictDetectionFilter,
+            Optional<Long> readSnapshotId,
+            IsolationLevel isolationLevel,
+            RetryMode retryMode)
+    {
+        RowDelta rowDelta = transaction.newRowDelta();
+
+        // Ensure a row that is updated by this commit was not deleted by a separate commit
+        rowDelta.validateDeletedFiles();
+        rowDelta.validateNoConflictingDeleteFiles();
+
+        readSnapshotId.ifPresent(rowDelta::validateFromSnapshot);
+        conflictDetectionFilter.ifPresent(rowDelta::conflictDetectionFilter);
+
+        if (isolationLevel == IsolationLevel.SERIALIZABLE) {
+            rowDelta.validateNoConflictingDataFiles();
+        }
+
+        for (CommitTaskData newDataFile : newDataFiles) {
+            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, newDataFile.getPartitionSpecJson());
+            Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                    .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
+                    .toArray(Type[]::new);
+            DataFiles.Builder builder = DataFiles.builder(partitionSpec)
+                    .withPath(newDataFile.getPath())
+                    .withFormat(newDataFile.getFileFormat().toIceberg())
+                    .withFileSizeInBytes(newDataFile.getFileSizeInBytes())
+                    .withMetrics(newDataFile.getMetrics().metrics());
+            if (!partitionSpec.fields().isEmpty()) {
+                String partitionDataJson = newDataFile.getPartitionDataJson()
+                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+            }
+            rowDelta.addRows(builder.build());
+        }
+
+        ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
+        for (CommitTaskData newDeleteFile : newDeleteFiles) {
+            PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, newDeleteFile.getPartitionSpecJson());
+            Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                    .map(field -> field.transform().getResultType(schema.findType(field.sourceId())))
+                    .toArray(Type[]::new);
+            FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
+                    .withPath(newDeleteFile.getPath())
+                    .withFormat(newDeleteFile.getFileFormat().toIceberg())
+                    .ofPositionDeletes()
+                    .withFileSizeInBytes(newDeleteFile.getFileSizeInBytes())
+                    .withMetrics(newDeleteFile.getMetrics().metrics());
+            if (!partitionSpec.fields().isEmpty()) {
+                String partitionDataJson = newDeleteFile.getPartitionDataJson()
+                        .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+                deleteBuilder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+            }
+            rowDelta.addDeletes(deleteBuilder.build());
+            newDeleteFile.getReferencedDataFile().ifPresent(referencedDataFiles::add);
+        }
+
+        // try to leave as little garbage as possible behind
+        if (retryMode != NO_RETRIES) {
+            Set<String> writtenFilePaths = Streams.concat(newDataFiles.stream(), newDeleteFiles.stream())
+                    .map(CommitTaskData::getPath)
+                    .collect(toImmutableSet());
+            cleanExtraOutputFiles(session, writtenFilePaths);
+        }
+
+        rowDelta.validateDataFilesExist(referencedDataFiles.build());
+        commit(rowDelta, session);
     }
 
     private static boolean fileIsFullyDeleted(List<CommitTaskData> positionDeletes)

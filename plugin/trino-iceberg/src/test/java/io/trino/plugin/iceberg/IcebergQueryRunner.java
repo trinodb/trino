@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.log.Logger;
@@ -23,6 +24,7 @@ import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.Plugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.containers.Minio;
 import io.trino.tpch.TpchTable;
@@ -76,6 +78,7 @@ public final class IcebergQueryRunner
         private Optional<File> metastoreDirectory = Optional.empty();
         private ImmutableMap.Builder<String, String> icebergProperties = ImmutableMap.builder();
         private Optional<SchemaInitializer> schemaInitializer = Optional.empty();
+        private ImmutableSet.Builder<AdditionalCatalog> additionalCatalogs = ImmutableSet.builder();
 
         protected Builder()
         {
@@ -123,6 +126,12 @@ public final class IcebergQueryRunner
             return self();
         }
 
+        public Builder addAdditionalCatalog(Plugin connectorPlugin, String catalogName, String connectorName)
+        {
+            additionalCatalogs.add(new AdditionalCatalog(connectorPlugin, catalogName, connectorName));
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -131,6 +140,11 @@ public final class IcebergQueryRunner
             try {
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
+
+                for (AdditionalCatalog additionalCatalog : additionalCatalogs.build()) {
+                    queryRunner.installPlugin(additionalCatalog.connectorPlugin());
+                    queryRunner.createCatalog(additionalCatalog.catalogName(), additionalCatalog.connectorName());
+                }
 
                 queryRunner.installPlugin(new IcebergPlugin());
                 Map<String, String> icebergProperties = new HashMap<>(this.icebergProperties.buildOrThrow());
@@ -150,6 +164,16 @@ public final class IcebergQueryRunner
                 closeAllSuppress(e, queryRunner);
                 throw e;
             }
+        }
+    }
+
+    private record AdditionalCatalog(Plugin connectorPlugin, String catalogName, String connectorName)
+    {
+        public AdditionalCatalog
+        {
+            requireNonNull(connectorPlugin);
+            requireNonNull(catalogName);
+            requireNonNull(connectorName);
         }
     }
 

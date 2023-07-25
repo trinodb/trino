@@ -110,9 +110,10 @@ public class IcebergMergeSink
                 int index = position;
                 FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, ignored -> {
                     long fileRecordCount = BIGINT.getLong(rowIdRow.getField(2), index);
-                    int partitionSpecId = INTEGER.getInt(rowIdRow.getField(3), index);
-                    String partitionData = VarcharType.VARCHAR.getSlice(rowIdRow.getField(4), index).toStringUtf8();
-                    return new FileDeletion(partitionSpecId, partitionData, fileRecordCount);
+                    long fileSize = BIGINT.getLong(rowIdRow.getField(3), index);
+                    int partitionSpecId = INTEGER.getInt(rowIdRow.getField(4), index);
+                    String partitionData = VarcharType.VARCHAR.getSlice(rowIdRow.getField(5), index).toStringUtf8();
+                    return new FileDeletion(partitionSpecId, partitionData, fileRecordCount, fileSize);
                 });
 
                 deletion.rowsToDelete().addLong(rowPosition);
@@ -130,7 +131,8 @@ public class IcebergMergeSink
                     dataFilePath.toStringUtf8(),
                     partitionsSpecs.get(deletion.partitionSpecId()),
                     deletion.partitionDataJson(),
-                    deletion.fileRecordCount());
+                    deletion.fileRecordCount(),
+                    deletion.fileSize());
 
             fragments.addAll(writePositionDeletes(sink, deletion.rowsToDelete()));
         });
@@ -144,7 +146,7 @@ public class IcebergMergeSink
         insertPageSink.abort();
     }
 
-    private ConnectorPageSink createPositionDeletePageSink(String dataFilePath, PartitionSpec partitionSpec, String partitionDataJson, long fileRecordCount)
+    private ConnectorPageSink createPositionDeletePageSink(String dataFilePath, PartitionSpec partitionSpec, String partitionDataJson, long fileRecordCount, long fileSize)
     {
         Optional<PartitionData> partitionData = Optional.empty();
         if (partitionSpec.isPartitioned()) {
@@ -165,7 +167,8 @@ public class IcebergMergeSink
                 session,
                 fileFormat,
                 storageProperties,
-                fileRecordCount);
+                fileRecordCount,
+                fileSize);
     }
 
     private static Collection<Slice> writePositionDeletes(ConnectorPageSink sink, ImmutableLongBitmapDataProvider rowsToDelete)
@@ -204,13 +207,15 @@ public class IcebergMergeSink
         private final int partitionSpecId;
         private final String partitionDataJson;
         private final long fileRecordCount;
+        private final long fileSize;
         private final LongBitmapDataProvider rowsToDelete = new Roaring64Bitmap();
 
-        public FileDeletion(int partitionSpecId, String partitionDataJson, long fileRecordCount)
+        public FileDeletion(int partitionSpecId, String partitionDataJson, long fileRecordCount, long fileSize)
         {
             this.partitionSpecId = partitionSpecId;
             this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
             this.fileRecordCount = fileRecordCount;
+            this.fileSize = fileSize;
         }
 
         public int partitionSpecId()
@@ -226,6 +231,11 @@ public class IcebergMergeSink
         public long fileRecordCount()
         {
             return fileRecordCount;
+        }
+
+        public long fileSize()
+        {
+            return fileSize;
         }
 
         public LongBitmapDataProvider rowsToDelete()
