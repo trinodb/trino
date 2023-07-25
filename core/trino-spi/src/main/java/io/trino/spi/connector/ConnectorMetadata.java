@@ -479,6 +479,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Set the specified field type
+     *
+     * @param fieldPath path starting with column name. The path is always lower-cased. It cannot be an empty or a single element.
+     */
+    @Experimental(eta = "2023-09-01")
+    default void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting field types");
+    }
+
+    /**
      * Sets the user/role on the specified table.
      */
     default void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal)
