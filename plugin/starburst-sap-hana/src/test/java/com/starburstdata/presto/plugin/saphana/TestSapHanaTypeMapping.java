@@ -566,7 +566,7 @@ public class TestSapHanaTypeMapping
         // The range of the date value is between 0001-01-01 and 9999-12-31 in SAP HANA
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(dt DATE)")) {
             assertQueryFails(format("INSERT INTO %s VALUES (DATE '0000-12-31')", table.getName()), "SAP DBTech JDBC: Date/time value out of range.*");
-            assertQueryFails(format("INSERT INTO %s VALUES (DATE '10000-01-01')", table.getName()), "\\QSAP DBTech JDBC: Cannot convert data +10000-01-01 to type java.sql.Date.");
+            assertQueryFails(format("INSERT INTO %s VALUES (DATE '10000-01-01')", table.getName()), "SAP DBTech JDBC: Date/time value out of range.*");
         }
     }
 

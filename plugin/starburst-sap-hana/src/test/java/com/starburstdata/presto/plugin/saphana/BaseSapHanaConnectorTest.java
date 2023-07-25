@@ -77,7 +77,7 @@ public abstract class BaseSapHanaConnectorTest
     {
         // SAP HANA connector throws an exception for negative date values instead of an empty result
         assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
-        assertQueryFails("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'", "SAP DBTech JDBC: Cannot convert data -1996-09-14 to type java.sql.Date.");
+        assertQueryFails("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'", "\\QSAP DBTech JDBC: Date/time value out of range: 1997-09-14\\E.*");
     }
 
     @Override
@@ -428,13 +428,13 @@ public abstract class BaseSapHanaConnectorTest
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return "SAP DBTech JDBC: Cannot convert data -0001-01-01 to type java.sql.Date.";
+        return "\\QSAP DBTech JDBC: Date/time value out of range: 0002-01-01 00:00:00.000000000 UTC BC (value must be between 0001-01-01 00:00:00.000000000 UTC AD and 9999-12-31 23:59:59.999999900 UTC AD inclusive).\\E";
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return "SAP DBTech JDBC: Cannot convert data -0001-01-01 to type java.sql.Date.";
+        return "\\QSAP DBTech JDBC: Date/time value out of range: 0002-01-01 00:00:00.000000000 UTC BC (value must be between 0001-01-01 00:00:00.000000000 UTC AD and 9999-12-31 23:59:59.999999900 UTC AD inclusive).\\E";
     }
 
     @Override
