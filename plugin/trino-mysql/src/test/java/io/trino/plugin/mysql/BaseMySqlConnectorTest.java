@@ -26,6 +26,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -284,8 +285,52 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Test
+    public void testLikePredicatePushdownWithCollation()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_like_predicate_pushdown",
+                "(id integer, a_varchar varchar(1) CHARACTER SET utf8 COLLATE utf8_bin)",
+                List.of(
+                        "1, 'A'",
+                        "2, 'a'",
+                        "3, 'B'",
+                        "4, 'ą'",
+                        "5, 'Ą'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A%'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą%'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testLikeWithEscapePredicatePushdownWithCollation()
+    {
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_like_with_escape_predicate_pushdown",
+                "(id integer, a_varchar varchar(4) CHARACTER SET utf8 COLLATE utf8_bin)",
+                List.of(
+                        "1, 'A%b'",
+                        "2, 'Asth'",
+                        "3, 'ą%b'",
+                        "4, 'ąsth'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A\\%%' ESCAPE '\\'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą\\%%' ESCAPE '\\'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testPredicatePushdown()
     {
+        // varchar like
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name LIKE '%ROM%'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
         // varchar equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
