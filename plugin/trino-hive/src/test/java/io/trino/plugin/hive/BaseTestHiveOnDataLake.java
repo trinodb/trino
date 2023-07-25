@@ -2036,6 +2036,65 @@ public abstract class BaseTestHiveOnDataLake
         };
     }
 
+    @Test
+    public void testDropStatsPartitionedTable()
+    {
+        String tableName = "test_hive_drop_stats_partitioned_table_" + randomNameSuffix();
+        assertUpdate(("CREATE TABLE %s (" +
+                "  data integer," +
+                "  p_varchar varchar," +
+                "  p_integer integer" +
+                ") " +
+                "WITH (" +
+                "  partitioned_by=ARRAY['p_varchar', 'p_integer']" +
+                ")").formatted(getFullyQualifiedTestTableName(tableName)));
+
+        // Drop stats for partition which does not exist
+        assertThatThrownBy(() -> query(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['partnotfound', '999']])", HIVE_TEST_SCHEMA, tableName)))
+                .hasMessage("No partition found for name: p_varchar=partnotfound/p_integer=999");
+
+        assertUpdate("INSERT INTO " + getFullyQualifiedTestTableName(tableName) + " VALUES (1, 'part1', 10) , (2, 'part2', 10), (12, 'part2', 20)", 3);
+
+        // Run analyze on the entire table
+        assertUpdate("ANALYZE " + getFullyQualifiedTestTableName(tableName), 3);
+
+        assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(tableName),
+                """
+                        VALUES
+                            ('data', null, 1.0, 0.0, null, 1, 12),
+                            ('p_varchar', 15.0, 2.0, 0.0, null, null, null),
+                            ('p_integer', null, 2.0, 0.0, null, 10, 20),
+                            (null, null, null, null, 3.0, null, null)
+                        """);
+
+        assertUpdate(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['part1', '10']])", HIVE_TEST_SCHEMA, tableName));
+
+        assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(tableName),
+                """
+                        VALUES
+                            ('data', null, 1.0, 0.0, null, 2, 12),
+                            ('p_varchar', 15.0, 2.0, 0.0, null, null, null),
+                            ('p_integer', null, 2.0, 0.0, null, 10, 20),
+                            (null, null, null, null, 3.0, null, null)
+                        """);
+
+        assertUpdate("DELETE FROM " + getFullyQualifiedTestTableName(tableName) + " WHERE p_varchar ='part1' and p_integer = 10");
+
+        // Drop stats for partition which does not exist
+        assertThatThrownBy(() -> query(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['part1', '10']])", HIVE_TEST_SCHEMA, tableName)))
+                .hasMessage("No partition found for name: p_varchar=part1/p_integer=10");
+
+        assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(tableName),
+                """
+                        VALUES
+                            ('data', null, 1.0, 0.0, null, 2, 12),
+                            ('p_varchar', 10.0, 1.0, 0.0, null, null, null),
+                            ('p_integer', null, 2.0, 0.0, null, 10, 20),
+                            (null, null, null, null, 2.0, null, null)
+                        """);
+        assertUpdate("DROP TABLE " + getFullyQualifiedTestTableName(tableName));
+    }
+
     private void renamePartitionResourcesOutsideTrino(String tableName, String partitionColumn, String regionKey)
     {
         String partitionName = format("%s=%s", partitionColumn, regionKey);
