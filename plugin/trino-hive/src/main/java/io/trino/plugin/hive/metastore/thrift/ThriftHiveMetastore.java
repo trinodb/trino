@@ -590,6 +590,9 @@ public class ThriftHiveMetastore
     public void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         List<Partition> partitions = getPartitionsByNames(table.getDbName(), table.getTableName(), ImmutableList.of(partitionName));
+        if (partitions.isEmpty()) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "No partition found for name: " + partitionName);
+        }
         if (partitions.size() != 1) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Metastore returned multiple partitions for name: " + partitionName);
         }
