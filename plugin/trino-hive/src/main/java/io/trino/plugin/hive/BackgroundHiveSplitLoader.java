@@ -418,7 +418,9 @@ public class BackgroundHiveSplitLoader
     {
         HivePartition hivePartition = partition.getHivePartition();
         String partitionName = hivePartition.getPartitionId();
-        Properties schema = getPartitionSchema(table, partition.getPartition());
+        Properties schema = partition.getPartition()
+                .map(value -> getHiveSchema(value, table))
+                .orElseGet(() -> getHiveSchema(table));
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
         TupleDomain<HiveColumnHandle> effectivePredicate = compactEffectivePredicate.transformKeys(HiveColumnHandle.class::cast);
 
@@ -1027,14 +1029,6 @@ public class BackgroundHiveSplitLoader
             partitionKeys.add(new HivePartitionKey(name, value));
         }
         return partitionKeys.build();
-    }
-
-    private static Properties getPartitionSchema(Table table, Optional<Partition> partition)
-    {
-        if (partition.isEmpty()) {
-            return getHiveSchema(table);
-        }
-        return getHiveSchema(partition.get(), table);
     }
 
     public static class BucketSplitInfo
