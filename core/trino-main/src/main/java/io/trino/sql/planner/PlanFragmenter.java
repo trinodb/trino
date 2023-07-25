@@ -214,7 +214,7 @@ public class PlanFragmenter
         private final TypeProvider types;
         private final StatsAndCosts statsAndCosts;
         private final List<CatalogProperties> activeCatalogs;
-        private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
+        private final PlanFragmentIdAllocator idAllocator = new PlanFragmentIdAllocator(ROOT_FRAGMENT_ID + 1);
 
         public Fragmenter(Session session, Metadata metadata, FunctionManager functionManager, TypeProvider types, StatsAndCosts statsAndCosts, List<CatalogProperties> activeCatalogs)
         {
@@ -229,11 +229,6 @@ public class PlanFragmenter
         public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
         {
             return buildFragment(root, properties, new PlanFragmentId(String.valueOf(ROOT_FRAGMENT_ID)));
-        }
-
-        private PlanFragmentId nextFragmentId()
-        {
-            return new PlanFragmentId(String.valueOf(nextFragmentId++));
         }
 
         private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
@@ -433,7 +428,7 @@ public class PlanFragmenter
 
         private SubPlan buildSubPlan(PlanNode node, FragmentProperties properties, RewriteContext<FragmentProperties> context)
         {
-            PlanFragmentId planFragmentId = nextFragmentId();
+            PlanFragmentId planFragmentId = idAllocator.getNextId();
             PlanNode child = context.rewrite(node, properties);
             return buildFragment(child, properties, planFragmentId);
         }
