@@ -83,11 +83,9 @@ public final class S3SelectPushdown
                 // TODO https://github.com/trinodb/trino/issues/2349
                 return false;
             }
-            if (!Objects.equals(schema.getProperty(SKIP_FOOTER_COUNT_KEY, "0"), "0")) {
-                // S3 Select does not support skipping footers
-                return false;
-            }
-            return true;
+
+            // S3 Select does not support skipping footers
+            return Objects.equals(schema.getProperty(SKIP_FOOTER_COUNT_KEY, "0"), "0");
         }
 
         return false;
