@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.DataProviders;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -324,10 +325,10 @@ public class TestMongoConnectorTest
     }
 
     @Test(dataProvider = "predicatePushdownProvider")
-    public void testPredicatePushdown(String value)
+    public void testPredicatePushdown(String value, String operator)
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_predicate_pushdown", "AS SELECT %s col".formatted(value))) {
-            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + value + ""))
+            assertThat(query("SELECT * FROM %s WHERE col %s %s".formatted(table.getName(), operator, value)))
                     .isFullyPushedDown();
         }
     }
@@ -335,21 +336,35 @@ public class TestMongoConnectorTest
     @DataProvider
     public Object[][] predicatePushdownProvider()
     {
+        return DataProviders.cartesianProduct(
+                new Object[][] {
+                        {"true"},
+                        {"tinyint '1'"},
+                        {"smallint '2'"},
+                        {"integer '3'"},
+                        {"bigint '4'"},
+                        {"decimal '3.14'"},
+                        {"decimal '1234567890.123456789'"},
+                        {"'test'"},
+                        {"char 'test'"},
+                        {"objectid('6216f0c6c432d45190f25e7c')"},
+                        {"date '1970-01-01'"},
+                        {"time '00:00:00.000'"},
+                        {"timestamp '1970-01-01 00:00:00.000'"},
+                        {"timestamp '1970-01-01 00:00:00.000 UTC'"},
+                },
+                comparisonOperator());
+    }
+
+    private Object[][] comparisonOperator()
+    {
         return new Object[][] {
-                {"true"},
-                {"tinyint '1'"},
-                {"smallint '2'"},
-                {"integer '3'"},
-                {"bigint '4'"},
-                {"decimal '3.14'"},
-                {"decimal '1234567890.123456789'"},
-                {"'test'"},
-                {"char 'test'"},
-                {"objectid('6216f0c6c432d45190f25e7c')"},
-                {"date '1970-01-01'"},
-                {"time '00:00:00.000'"},
-                {"timestamp '1970-01-01 00:00:00.000'"},
-                {"timestamp '1970-01-01 00:00:00.000 UTC'"},
+                {"="},
+                {"!="},
+                {"<"},
+                {">"},
+                {"<="},
+                {">="},
         };
     }
 
