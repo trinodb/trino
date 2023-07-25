@@ -113,6 +113,7 @@ public class TestMongoConnectorTest
             case SUPPORTS_ADD_FIELD:
             case SUPPORTS_RENAME_FIELD:
             case SUPPORTS_DROP_FIELD:
+            case SUPPORTS_SET_FIELD_TYPE:
                 return false;
 
             case SUPPORTS_CREATE_VIEW:
