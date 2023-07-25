@@ -70,7 +70,6 @@ import org.apache.hadoop.util.StringUtils;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.ArrayList;
@@ -101,7 +100,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Maps.fromProperties;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
@@ -539,26 +537,6 @@ public class BackgroundHiveSplitLoader
                 s3SelectPushdownEnabled,
                 maxSplitFileSize);
 
-        // To support custom input formats, we want to call getSplits()
-        // on the input format to obtain file splits.
-        if (shouldUseFileSplitsFromInputFormat(inputFormat)) {
-            if (tableBucketInfo.isPresent()) {
-                throw new TrinoException(NOT_SUPPORTED, "Trino cannot read bucketed partition in an input format with UseFileSplitsFromInputFormat annotation: " + inputFormat.getClass().getSimpleName());
-            }
-
-            if (isTransactionalTable(table.getParameters())) {
-                throw new TrinoException(NOT_SUPPORTED, "Hive transactional tables in an input format with UseFileSplitsFromInputFormat annotation are not supported: " + inputFormat.getClass().getSimpleName());
-            }
-
-            JobConf jobConf = toJobConf(configuration);
-            jobConf.set(FILE_INPUT_FORMAT_INPUT_DIR, StringUtils.escapeString(path.toString()));
-            // Pass SerDes and Table parameters into input format configuration
-            fromProperties(schema).forEach(jobConf::set);
-            InputSplit[] splits = hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> inputFormat.getSplits(jobConf, 0));
-
-            return addSplitsToSource(splits, splitFactory);
-        }
-
         if (isTransactionalTable(table.getParameters())) {
             return getTransactionalSplits(Location.of(path.toString()), splittable, bucketConversion, splitFactory);
         }
@@ -821,14 +799,6 @@ public class BackgroundHiveSplitLoader
             }
         }
         return lastResult;
-    }
-
-    private static boolean shouldUseFileSplitsFromInputFormat(InputFormat<?, ?> inputFormat)
-    {
-        return Arrays.stream(inputFormat.getClass().getAnnotations())
-                .map(Annotation::annotationType)
-                .map(Class::getSimpleName)
-                .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
     }
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(TrinoFileSystem fileSystem, Location location, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<AcidInfo> acidInfo)
