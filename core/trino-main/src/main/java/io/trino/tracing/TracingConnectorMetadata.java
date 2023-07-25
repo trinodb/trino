@@ -470,6 +470,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, Type type)
+    {
+        Span span = startSpan("setFieldType", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            delegate.setFieldType(session, tableHandle, fieldPath, type);
+        }
+    }
+
+    @Override
     public void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal)
     {
         Span span = startSpan("setTableAuthorization", tableName);

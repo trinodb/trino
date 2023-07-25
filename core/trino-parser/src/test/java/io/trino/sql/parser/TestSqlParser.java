@@ -3235,7 +3235,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(
                                 new Identifier(location(1, 13), "foo", false),
                                 new Identifier(location(1, 17), "t", false))),
-                        new Identifier(location(1, 32), "a", false),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 32), "a", false))),
                         simpleType(location(1, 48), "bigint"),
                         false));
 
@@ -3245,7 +3245,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(
                                 new Identifier(location(1, 23), "foo", false),
                                 new Identifier(location(1, 27), "t", false))),
-                        new Identifier(location(1, 42), "b", false),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 42), "b", false))),
                         simpleType(location(1, 58), "double"),
                         true));
     }
