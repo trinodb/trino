@@ -329,8 +329,12 @@ public class TestMongoConnectorTest
     public void testPredicatePushdown(String value)
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_predicate_pushdown", "AS SELECT %s col".formatted(value))) {
-            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = " + value + ""))
-                    .isFullyPushedDown();
+            testPredicatePushdown(table.getName(), "col = " + value);
+            testPredicatePushdown(table.getName(), "col != " + value);
+            testPredicatePushdown(table.getName(), "col < " + value);
+            testPredicatePushdown(table.getName(), "col > " + value);
+            testPredicatePushdown(table.getName(), "col <= " + value);
+            testPredicatePushdown(table.getName(), "col >= " + value);
         }
     }
 
