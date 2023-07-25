@@ -66,8 +66,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
-import org.apache.hadoop.io.compress.CompressionCodec;
-import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
@@ -149,7 +147,6 @@ import static io.trino.plugin.hive.util.SerdeConstants.COLLECTION_DELIM;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -331,24 +328,6 @@ public final class HiveUtil
             codecs.add(0, LzopCodec.class.getName());
         }
         jobConf.set("io.compression.codecs", String.join(",", codecs));
-    }
-
-    public static Optional<CompressionCodec> getCompressionCodec(TextInputFormat inputFormat, String file)
-    {
-        CompressionCodecFactory compressionCodecFactory;
-
-        try {
-            compressionCodecFactory = (CompressionCodecFactory) COMPRESSION_CODECS_FIELD.get(inputFormat);
-        }
-        catch (IllegalAccessException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to find compressionCodec for inputFormat: " + inputFormat.getClass().getName(), e);
-        }
-
-        if (compressionCodecFactory == null) {
-            return Optional.empty();
-        }
-
-        return Optional.ofNullable(compressionCodecFactory.getCodec(new Path(file)));
     }
 
     public static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)

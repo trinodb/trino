@@ -225,7 +225,7 @@ public class InternalHiveSplitFactory
                 tableToPartitionMapping,
                 bucketConversion,
                 bucketValidation,
-                s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
+                s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(strippedSchema, path),
                 acidInfo,
                 partitionMatchSupplier));
     }
