@@ -763,7 +763,7 @@ Drop stats for a partition of the ``page_views`` table::
     CALL system.drop_stats(
         schema_name => 'web',
         table_name => 'page_views',
-        partition_values => ARRAY['2016-08-09', 'US']);
+        partition_values => ARRAY[ARRAY['2016-08-09', 'US']]);
 
 .. _hive-procedures:
 
