@@ -1864,6 +1864,36 @@ public class IcebergMetadata
         return false;
     }
 
+    @Override
+    public void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, io.trino.spi.type.Type type)
+    {
+        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        String parentPath = String.join(".", fieldPath.subList(0, fieldPath.size() - 1));
+        NestedField parent = icebergTable.schema().caseInsensitiveFindField(parentPath);
+
+        String caseSensitiveParentName = icebergTable.schema().findColumnName(parent.fieldId());
+        NestedField field = parent.type().asStructType().caseInsensitiveField(getLast(fieldPath));
+        // TODO: Add support for changing non-primitive field type
+        if (!field.type().isPrimitiveType()) {
+            throw new TrinoException(NOT_SUPPORTED, "Iceberg doesn't support changing field type from non-primitive types");
+        }
+
+        String name = caseSensitiveParentName + "." + field.name();
+        // Pass dummy AtomicInteger. The field id will be discarded because the subsequent logic disallows non-primitive types.
+        Type icebergType = toIcebergTypeForNewColumn(type, new AtomicInteger());
+        if (!icebergType.isPrimitiveType()) {
+            throw new TrinoException(NOT_SUPPORTED, "Iceberg doesn't support changing field type to non-primitive types");
+        }
+        try {
+            icebergTable.updateSchema()
+                    .updateColumn(name, icebergType.asPrimitiveType())
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set field type: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
     private List<ColumnMetadata> getColumnMetadatas(Schema schema)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();

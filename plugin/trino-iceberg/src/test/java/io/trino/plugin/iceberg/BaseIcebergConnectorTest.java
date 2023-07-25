@@ -6952,6 +6952,48 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Override
+    protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "bigint -> integer":
+            case "decimal(5,3) -> decimal(5,2)":
+            case "varchar -> char(20)":
+            case "time(6) -> time(3)":
+            case "timestamp(6) -> timestamp(3)":
+            case "array(integer) -> array(bigint)":
+            case "row(x integer) -> row(x bigint)":
+            case "row(x integer) -> row(y integer)":
+            case "row(x integer, y integer) -> row(x integer, z integer)":
+            case "row(x integer) -> row(x integer, y integer)":
+            case "row(x integer, y integer) -> row(x integer)":
+            case "row(x integer, y integer) -> row(y integer, x integer)":
+            case "row(x integer, y integer) -> row(z integer, y integer, x integer)":
+            case "row(x row(nested integer)) -> row(x row(nested bigint))":
+            case "row(x row(a integer, b integer)) -> row(x row(b integer, a integer))":
+                // Iceberg allows updating column types if the update is safe. Safe updates are:
+                // - int to bigint
+                // - float to double
+                // - decimal(P,S) to decimal(P2,S) when P2 > P (scale cannot change)
+                // https://iceberg.apache.org/docs/latest/spark-ddl/#alter-table--alter-column
+                return Optional.of(setup.asUnsupported());
+
+            case "varchar(100) -> varchar(50)":
+                // Iceberg connector ignores the varchar length
+                return Optional.empty();
+        }
+        return Optional.of(setup);
+    }
+
+    @Override
+    protected void verifySetFieldTypeFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching(".*(Failed to set field type: Cannot change (column type:|type from .* to )" +
+                "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
+                "|Type not supported for Iceberg: char\\(20\\)" +
+                "|Iceberg doesn't support changing field type (from|to) non-primitive types).*");
+    }
+
+    @Override
     protected boolean supportsPhysicalPushdown()
     {
         // TODO https://github.com/trinodb/trino/issues/17156
