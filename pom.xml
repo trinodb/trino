@@ -179,6 +179,7 @@
         <dep.netty.version>4.1.93.Final</dep.netty.version>
         <dep.jna.version>5.13.0</dep.jna.version>
         <dep.okio.version>3.3.0</dep.okio.version>
+        <dep.flyway.version>9.21.0</dep.flyway.version>
 
         <dep.docker.images.version>80</dep.docker.images.version>
 
@@ -1785,7 +1786,19 @@
             <dependency>
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-core</artifactId>
-                <version>7.15.0</version>
+                <version>${dep.flyway.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-database-oracle</artifactId>
+                <version>${dep.flyway.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-mysql</artifactId>
+                <version>${dep.flyway.version}</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
@@ -2173,6 +2186,21 @@
                                 </conflictingDependencies>
                                 <resources>
                                     <resource>mime.types</resource>
+                                </resources>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>org.flywaydb</groupId>
+                                        <artifactId>flyway-database-oracle</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.flywaydb</groupId>
+                                        <artifactId>flyway-mysql</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>org/flywaydb/database/version.txt</resource>
                                 </resources>
                             </exception>
                         </exceptions>
