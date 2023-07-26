@@ -17,11 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverFactory;
-import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.TaskContext;
-import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
 import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.operator.join.JoinBridgeManager;
@@ -41,25 +39,17 @@ import java.util.OptionalInt;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
-import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
+import static io.trino.operator.JoinOperatorType.innerJoin;
+import static io.trino.operator.OperatorFactories.spillingJoin;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
-import static java.util.Objects.requireNonNull;
 
 public class HashBuildBenchmark
         extends AbstractOperatorBenchmark
 {
-    private final OperatorFactories operatorFactories;
-
     public HashBuildBenchmark(LocalQueryRunner localQueryRunner)
     {
-        this(localQueryRunner, new TrinoOperatorFactories());
-    }
-
-    public HashBuildBenchmark(LocalQueryRunner localQueryRunner, OperatorFactories operatorFactories)
-    {
         super(localQueryRunner, "hash_build", 4, 5);
-        this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
     }
 
     @Override
@@ -100,7 +90,7 @@ public class HashBuildBenchmark
         // empty join so build finishes
         ImmutableList.Builder<OperatorFactory> joinDriversBuilder = ImmutableList.builder();
         joinDriversBuilder.add(new ValuesOperatorFactory(0, new PlanNodeId("values"), ImmutableList.of()));
-        OperatorFactory joinOperator = operatorFactories.spillingJoin(
+        OperatorFactory joinOperator = spillingJoin(
                 innerJoin(false, false),
                 2,
                 new PlanNodeId("test"),

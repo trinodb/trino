@@ -19,11 +19,9 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverFactory;
-import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.TaskContext;
-import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.PartitionedLookupSourceFactory;
@@ -43,11 +41,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunnerHashEnabled;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
-import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
+import static io.trino.operator.JoinOperatorType.innerJoin;
+import static io.trino.operator.OperatorFactories.spillingJoin;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Objects.requireNonNull;
 
 public class HashBuildAndJoinBenchmark
         extends AbstractOperatorBenchmark
@@ -57,18 +55,11 @@ public class HashBuildAndJoinBenchmark
     private final OperatorFactory ordersTableScan = createTableScanOperator(0, new PlanNodeId("test"), "orders", "orderkey", "totalprice");
     private final List<Type> lineItemTableTypes = getColumnTypes("lineitem", "orderkey", "quantity");
     private final OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
-    private final OperatorFactories operatorFactories;
 
     public HashBuildAndJoinBenchmark(Session session, LocalQueryRunner localQueryRunner)
     {
-        this(session, localQueryRunner, new TrinoOperatorFactories());
-    }
-
-    public HashBuildAndJoinBenchmark(Session session, LocalQueryRunner localQueryRunner, OperatorFactories operatorFactories)
-    {
         super(session, localQueryRunner, "hash_build_and_join_hash_enabled_" + isHashEnabled(session), 4, 5);
         this.hashEnabled = isHashEnabled(session);
-        this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
     }
 
     private static boolean isHashEnabled(Session session)
@@ -141,7 +132,7 @@ public class HashBuildAndJoinBenchmark
             hashChannel = OptionalInt.of(sourceTypes.size() - 1);
         }
 
-        OperatorFactory joinOperator = operatorFactories.spillingJoin(
+        OperatorFactory joinOperator = spillingJoin(
                 innerJoin(false, false),
                 2,
                 new PlanNodeId("test"),

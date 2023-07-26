@@ -63,6 +63,7 @@ import io.trino.operator.FilterAndProjectOperator;
 import io.trino.operator.GroupIdOperator;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.trino.operator.HashSemiJoinOperator;
+import io.trino.operator.JoinOperatorType;
 import io.trino.operator.LeafTableFunctionOperator.LeafTableFunctionOperatorFactory;
 import io.trino.operator.LimitOperator.LimitOperatorFactory;
 import io.trino.operator.LocalPlannerAware;
@@ -70,8 +71,6 @@ import io.trino.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.trino.operator.MergeOperator.MergeOperatorFactory;
 import io.trino.operator.MergeProcessorOperator;
 import io.trino.operator.MergeWriterOperator.MergeWriterOperatorFactory;
-import io.trino.operator.OperatorFactories;
-import io.trino.operator.OperatorFactories.JoinOperatorType;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.OrderByOperator.OrderByOperatorFactory;
 import io.trino.operator.OutputFactory;
@@ -317,6 +316,8 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
+import static io.trino.operator.OperatorFactories.join;
+import static io.trino.operator.OperatorFactories.spillingJoin;
 import static io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
 import static io.trino.operator.TableFinishOperator.TableFinisher;
 import static io.trino.operator.TableWriterOperator.FRAGMENT_CHANNEL;
@@ -411,7 +412,6 @@ public class LocalExecutionPlanner
     private final PartitioningSpillerFactory partitioningSpillerFactory;
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
-    private final OperatorFactories operatorFactories;
     private final OrderingCompiler orderingCompiler;
     private final int largeMaxDistinctValuesPerDriver;
     private final int largePartitionedMaxDistinctValuesPerDriver;
@@ -462,7 +462,6 @@ public class LocalExecutionPlanner
             PartitioningSpillerFactory partitioningSpillerFactory,
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
-            OperatorFactories operatorFactories,
             OrderingCompiler orderingCompiler,
             DynamicFilterConfig dynamicFilterConfig,
             BlockTypeOperators blockTypeOperators,
@@ -492,7 +491,6 @@ public class LocalExecutionPlanner
         this.maxLocalExchangeBufferSize = taskManagerConfig.getMaxLocalExchangeBufferSize();
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.largeMaxDistinctValuesPerDriver = dynamicFilterConfig.getLargeMaxDistinctValuesPerDriver();
         this.smallMaxDistinctValuesPerDriver = dynamicFilterConfig.getSmallMaxDistinctValuesPerDriver();
@@ -2455,7 +2453,7 @@ public class LocalExecutionPlanner
             OptionalInt totalOperatorsCount = context.getDriverInstanceCount();
             // We use spilling operator since Non-spilling one does not support index lookup sources
             lookupJoinOperatorFactory = switch (node.getType()) {
-                case INNER -> operatorFactories.spillingJoin(
+                case INNER -> spillingJoin(
                         JoinOperatorType.innerJoin(false, false),
                         context.getNextOperatorId(),
                         node.getId(),
@@ -2468,7 +2466,7 @@ public class LocalExecutionPlanner
                         totalOperatorsCount,
                         unsupportedPartitioningSpillerFactory(),
                         blockTypeOperators);
-                case SOURCE_OUTER -> operatorFactories.spillingJoin(
+                case SOURCE_OUTER -> spillingJoin(
                         JoinOperatorType.probeOuterJoin(false),
                         context.getNextOperatorId(),
                         node.getId(),
@@ -2946,7 +2944,7 @@ public class LocalExecutionPlanner
                         buildContext);
 
                 JoinOperatorType joinType = JoinOperatorType.ofJoinNodeType(node.getType(), outputSingleMatch, waitForBuild);
-                operator = operatorFactories.spillingJoin(
+                operator = spillingJoin(
                         joinType,
                         context.getNextOperatorId(),
                         node.getId(),
@@ -2998,7 +2996,7 @@ public class LocalExecutionPlanner
                         buildContext);
 
                 JoinOperatorType joinType = JoinOperatorType.ofJoinNodeType(node.getType(), outputSingleMatch, waitForBuild);
-                operator = operatorFactories.join(
+                operator = join(
                         joinType,
                         context.getNextOperatorId(),
                         node.getId(),

@@ -87,11 +87,9 @@ import io.trino.operator.DirectExchangeClientFactory;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.operator.ForExchange;
 import io.trino.operator.GroupByHashPageIndexerFactory;
-import io.trino.operator.OperatorFactories;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.RetryPolicy;
-import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.scalar.json.JsonExistsFunction;
 import io.trino.operator.scalar.json.JsonQueryFunction;
@@ -332,7 +330,6 @@ public class ServerMainModule
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(OrderingCompiler.class).withGeneratedName();
         binder.bind(PagesIndex.Factory.class).to(PagesIndex.DefaultFactory.class);
-        newOptionalBinder(binder, OperatorFactories.class).setDefault().to(TrinoOperatorFactories.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(PagesResponseWriter.class);
 

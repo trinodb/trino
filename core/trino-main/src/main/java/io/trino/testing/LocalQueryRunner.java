@@ -116,12 +116,10 @@ import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.OperatorContext;
-import io.trino.operator.OperatorFactories;
 import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.TaskContext;
-import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.scalar.json.JsonExistsFunction;
 import io.trino.operator.scalar.json.JsonQueryFunction;
@@ -316,7 +314,6 @@ public class LocalQueryRunner
     private final DataSize maxSpillPerNode;
     private final DataSize queryMaxSpillPerNode;
     private final OptimizerConfig optimizerConfig;
-    private final OperatorFactories operatorFactories;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private boolean printPlan;
 
@@ -342,7 +339,6 @@ public class LocalQueryRunner
             int nodeCountForStats,
             Map<String, List<PropertyMetadata<?>>> defaultSessionProperties,
             MetadataProvider metadataProvider,
-            OperatorFactories operatorFactories,
             Set<SystemSessionPropertiesProvider> extraSessionProperties)
     {
         requireNonNull(defaultSession, "defaultSession is null");
@@ -354,7 +350,6 @@ public class LocalQueryRunner
         requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
         this.maxSpillPerNode = nodeSpillConfig.getMaxSpillPerNode();
         this.queryMaxSpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
-        this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
         this.yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
@@ -1000,7 +995,6 @@ public class LocalQueryRunner
                 partitioningSpillerFactory,
                 new PagesIndex.TestingFactory(false),
                 joinCompiler,
-                operatorFactories,
                 new OrderingCompiler(plannerContext.getTypeOperators()),
                 new DynamicFilterConfig(),
                 blockTypeOperators,
@@ -1215,7 +1209,6 @@ public class LocalQueryRunner
         private Set<SystemSessionPropertiesProvider> extraSessionProperties = ImmutableSet.of();
         private int nodeCountForStats;
         private MetadataProvider metadataProvider = MetadataManager::new;
-        private OperatorFactories operatorFactories = new TrinoOperatorFactories();
 
         private Builder(Session defaultSession)
         {
@@ -1264,12 +1257,6 @@ public class LocalQueryRunner
             return this;
         }
 
-        public Builder withOperatorFactories(OperatorFactories operatorFactories)
-        {
-            this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
-            return this;
-        }
-
         /**
          * This method is required to pass in system session properties and their
          * metadata for Trino extension modules (separate from the default system
@@ -1292,7 +1279,6 @@ public class LocalQueryRunner
                     nodeCountForStats,
                     defaultSessionProperties,
                     metadataProvider,
-                    operatorFactories,
                     extraSessionProperties);
         }
     }
