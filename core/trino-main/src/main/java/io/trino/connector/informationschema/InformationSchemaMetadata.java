@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -68,11 +69,13 @@ public class InformationSchemaMetadata
     private final String catalogName;
     private final Metadata metadata;
     private final int maxPrefetchedInformationSchemaPrefixes;
+    private final AccessControl accessControl;
 
-    public InformationSchemaMetadata(String catalogName, Metadata metadata, int maxPrefetchedInformationSchemaPrefixes)
+    public InformationSchemaMetadata(String catalogName, Metadata metadata, AccessControl accessControl, int maxPrefetchedInformationSchemaPrefixes)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.maxPrefetchedInformationSchemaPrefixes = maxPrefetchedInformationSchemaPrefixes;
     }
 
@@ -178,6 +181,7 @@ public class InformationSchemaMetadata
             SystemTableFilter<ColumnHandle> filter = new SystemTableFilter<>(
                     catalogName,
                     metadata,
+                    accessControl,
                     CATALOG_COLUMN_HANDLE,
                     SCHEMA_COLUMN_HANDLE,
                     TABLE_NAME_COLUMN_HANDLE,

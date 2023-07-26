@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
@@ -40,6 +41,8 @@ import java.util.stream.Stream;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.metadata.MetadataListing.listSchemas;
+import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
@@ -49,6 +52,7 @@ public final class SystemTableFilter<T>
 {
     private final String catalogName;
     private final Metadata metadata;
+    private final AccessControl accessControl;
     private final T catalogColumnReference;
     private final T schemaColumnReference;
     private final T tableColumnReference;
@@ -58,6 +62,7 @@ public final class SystemTableFilter<T>
     public SystemTableFilter(
             String catalogName,
             Metadata metadata,
+            AccessControl accessControl,
             T catalogColumnReference,
             T schemaColumnReference,
             T tableColumnReference,
@@ -66,6 +71,7 @@ public final class SystemTableFilter<T>
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.catalogColumnReference = requireNonNull(catalogColumnReference, "catalogColumnReference is null");
         this.schemaColumnReference = requireNonNull(schemaColumnReference, "schemaColumnReference is null");
         this.tableColumnReference = requireNonNull(tableColumnReference, "tableColumnReference is null");
@@ -185,7 +191,7 @@ public final class SystemTableFilter<T>
         }
 
         Set<QualifiedTablePrefix> tablePrefixes = prefixes.stream()
-                .flatMap(prefix -> metadata.listTables(session, prefix).stream())
+                .flatMap(prefix -> listTableNames(session, prefix))
                 .filter(objectName -> predicate.get().test(asFixedValues(objectName)))
                 .map(QualifiedObjectName::asQualifiedTablePrefix)
                 .distinct()
@@ -201,8 +207,16 @@ public final class SystemTableFilter<T>
 
     private Stream<QualifiedTablePrefix> listSchemaNames(Session session)
     {
-        return metadata.listSchemaNames(session, catalogName).stream()
+        return listSchemas(session, metadata, accessControl, catalogName, Optional.empty())
+                .stream()
                 .map(schema -> new QualifiedTablePrefix(catalogName, schema));
+    }
+
+    private Stream<QualifiedObjectName> listTableNames(Session session, QualifiedTablePrefix prefix)
+    {
+        return listTables(session, metadata, accessControl, prefix)
+                .stream()
+                .map(table -> new QualifiedObjectName(catalogName, table.getSchemaName(), table.getTableName()));
     }
 
     private Optional<Set<String>> filterString(TupleDomain<T> constraint, T column)
