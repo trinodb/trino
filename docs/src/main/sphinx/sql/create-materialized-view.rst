@@ -34,7 +34,9 @@ The optional ``OR REPLACE`` clause causes the materialized view to be replaced
 if it already exists rather than raising an error.
 
 The optional ``IF NOT EXISTS`` clause causes the materialized view only to be
-created or replaced if it does not exist yet.
+created if it does not exist yet.
+
+Note that ``OR REPLACE`` and ``IF NOT EXISTS`` are mutually exclusive clauses.
 
 The optional ``GRACE PERIOD`` clause specifies how long the query materialization
 is used for querying. If the time elapsed since last materialized view refresh
