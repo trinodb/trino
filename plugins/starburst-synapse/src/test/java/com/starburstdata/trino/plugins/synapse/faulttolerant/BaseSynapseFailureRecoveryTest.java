@@ -51,7 +51,7 @@ public abstract class BaseSynapseFailureRecoveryTest
                 configProperties,
                 synapseServer,
                 DEFAULT_CATALOG_NAME,
-                Map.of("connection-pool.enabled", "true"),
+                Map.of(),
                 coordinatorProperties,
                 requiredTpchTables,
                 runner -> {

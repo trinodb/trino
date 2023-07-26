@@ -37,7 +37,7 @@ public class TestSynapseAutomaticJoinPushdown
                 synapseServer,
                 "sqlserver",
                 // Synapse tests are slow. Cache metadata to speed them up.
-                Map.of("metadata.cache-ttl", "60m", "connection-pool.enabled", "true"),
+                Map.of("metadata.cache-ttl", "60m"),
                 List.of());
     }
 
