@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.plugin.hive.metastore.StorageFormat;
@@ -26,11 +27,9 @@ import io.trino.spi.TrinoException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Functions.identity;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_CONTAINER_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_CONTAINER_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
@@ -56,6 +55,7 @@ import static io.trino.plugin.hive.util.HiveClassNames.TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public enum HiveStorageFormat
 {
@@ -179,45 +179,6 @@ public enum HiveStorageFormat
         }
     }
 
-    private static final Map<SerdeAndInputFormat, HiveStorageFormat> HIVE_STORAGE_FORMAT_FROM_STORAGE_FORMAT = Arrays.stream(HiveStorageFormat.values())
-            .collect(toImmutableMap(format -> new SerdeAndInputFormat(format.getSerde(), format.getInputFormat()), identity()));
-
-    private static final class SerdeAndInputFormat
-    {
-        private final String serde;
-        private final String inputFormat;
-
-        public SerdeAndInputFormat(String serde, String inputFormat)
-        {
-            this.serde = serde;
-            this.inputFormat = inputFormat;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            SerdeAndInputFormat that = (SerdeAndInputFormat) o;
-            return serde.equals(that.serde) && inputFormat.equals(that.inputFormat);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(serde, inputFormat);
-        }
-    }
-
-    public static Optional<HiveStorageFormat> getHiveStorageFormat(StorageFormat storageFormat)
-    {
-        return Optional.ofNullable(HIVE_STORAGE_FORMAT_FROM_STORAGE_FORMAT.get(new SerdeAndInputFormat(storageFormat.getSerde(), storageFormat.getInputFormat())));
-    }
-
     private static PrimitiveTypeInfo primitiveTypeInfo(TypeInfo typeInfo)
     {
         return (PrimitiveTypeInfo) typeInfo;
@@ -226,5 +187,21 @@ public enum HiveStorageFormat
     private static MapTypeInfo mapTypeInfo(TypeInfo typeInfo)
     {
         return (MapTypeInfo) typeInfo;
+    }
+
+    @SuppressWarnings("unused")
+    private record SerdeAndInputFormat(String serde, String inputFormat) {}
+
+    private static final Map<SerdeAndInputFormat, HiveStorageFormat> HIVE_STORAGE_FORMATS = ImmutableMap.<SerdeAndInputFormat, HiveStorageFormat>builder()
+            .putAll(Arrays.stream(values()).collect(
+                    toMap(format -> new SerdeAndInputFormat(format.getSerde(), format.getInputFormat()), identity())))
+            .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "parquet.hive.DeprecatedParquetInputFormat"), PARQUET)
+            .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "parquet.hive.MapredParquetInputFormat"), PARQUET)
+            .buildOrThrow();
+
+    public static Optional<HiveStorageFormat> getHiveStorageFormat(StorageFormat storageFormat)
+    {
+        return Optional.ofNullable(HIVE_STORAGE_FORMATS.get(
+                new SerdeAndInputFormat(storageFormat.getSerde(), storageFormat.getInputFormat())));
     }
 }
