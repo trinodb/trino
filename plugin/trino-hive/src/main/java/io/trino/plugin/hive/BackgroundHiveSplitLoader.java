@@ -134,6 +134,7 @@ import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
 import static io.trino.plugin.hive.util.HiveUtil.getHeaderCount;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormat;
+import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hive.util.PartitionMatchSupplier.createPartitionMatchSupplier;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -435,7 +436,6 @@ public class BackgroundHiveSplitLoader
 
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
-        InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
         FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
 
         boolean s3SelectPushdownEnabled = S3SelectPushdown.shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
@@ -447,12 +447,12 @@ public class BackgroundHiveSplitLoader
         // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
         boolean splittable = shouldEnableSplits && getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
 
-        if (inputFormat.getClass().getName().equals(SYMLINK_TEXT_INPUT_FORMAT_CLASS)) {
+        if (SYMLINK_TEXT_INPUT_FORMAT_CLASS.equals(getInputFormatName(schema).orElse(null))) {
             if (tableBucketInfo.isPresent()) {
                 throw new TrinoException(NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
             }
             HiveStorageFormat targetStorageFormat = getSymlinkStorageFormat(getDeserializerClassName(schema));
-            InputFormat<?, ?> targetInputFormat = getInputFormat(configuration, schema, true);
+            InputFormat<?, ?> targetInputFormat = getInputFormat(configuration, schema);
             List<Path> targetPaths = hdfsEnvironment.doAs(
                     hdfsContext.getIdentity(),
                     () -> getTargetPathsFromSymlink(fs, path));

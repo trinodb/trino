@@ -249,7 +249,7 @@ public final class HiveUtil
         configuration = copy(configuration);
         setReadColumns(configuration, readHiveColumnIndexes);
 
-        InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, true);
+        InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema);
         JobConf jobConf = toJobConf(configuration);
         FileSplit fileSplit = new FileSplit(path, start, length, (String[]) null);
 
@@ -326,7 +326,7 @@ public final class HiveUtil
         jobConf.set("io.compression.codecs", String.join(",", codecs));
     }
 
-    public static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
+    public static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema)
     {
         String inputFormatName = getInputFormatName(schema).orElseThrow(() ->
                 new TrinoException(HIVE_INVALID_METADATA, "Table or partition is missing Hive input format property: " + FILE_INPUT_FORMAT));
@@ -335,7 +335,7 @@ public final class HiveUtil
             configureCompressionCodecs(jobConf);
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
-            if (symlinkTarget && inputFormatClass.getName().equals(SYMLINK_TEXT_INPUT_FORMAT_CLASS)) {
+            if (inputFormatClass.getName().equals(SYMLINK_TEXT_INPUT_FORMAT_CLASS)) {
                 String serde = getDeserializerClassName(schema);
                 // LazySimpleSerDe is used by TEXTFILE and SEQUENCEFILE. Default to TEXTFILE
                 // per Hive spec (https://hive.apache.org/javadocs/r2.1.1/api/org/apache/hadoop/hive/ql/io/SymlinkTextInputFormat.html)
