@@ -18,11 +18,9 @@ import com.google.common.primitives.Ints;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
-import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.TaskContext;
-import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.join.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.LookupSourceProvider;
@@ -45,25 +43,18 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
-import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
+import static io.trino.operator.JoinOperatorType.innerJoin;
+import static io.trino.operator.OperatorFactories.spillingJoin;
 import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
-import static java.util.Objects.requireNonNull;
 
 public class HashJoinBenchmark
         extends AbstractOperatorBenchmark
 {
-    private final OperatorFactories operatorFactories;
     private DriverFactory probeDriverFactory;
 
     public HashJoinBenchmark(LocalQueryRunner localQueryRunner)
     {
-        this(localQueryRunner, new TrinoOperatorFactories());
-    }
-
-    public HashJoinBenchmark(LocalQueryRunner localQueryRunner, OperatorFactories operatorFactories)
-    {
         super(localQueryRunner, "hash_join", 4, 50);
-        this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
     }
 
     /*
@@ -110,7 +101,7 @@ public class HashJoinBenchmark
 
             List<Type> lineItemTypes = getColumnTypes("lineitem", "orderkey", "quantity");
             OperatorFactory lineItemTableScan = createTableScanOperator(0, new PlanNodeId("test"), "lineitem", "orderkey", "quantity");
-            OperatorFactory joinOperator = operatorFactories.spillingJoin(
+            OperatorFactory joinOperator = spillingJoin(
                     innerJoin(false, false),
                     1,
                     new PlanNodeId("test"),
