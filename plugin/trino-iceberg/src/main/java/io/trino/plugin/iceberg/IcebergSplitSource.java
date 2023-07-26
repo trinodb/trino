@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.cache.NonEvictableCache;
@@ -65,6 +66,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -125,6 +128,7 @@ public class IcebergSplitSource
     private final Domain pathDomain;
     private final Domain fileModifiedTimeDomain;
     private final OptionalLong limit;
+    private final ExecutorService splitEnumeratorPool;
 
     private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
     private CloseableIterable<FileScanTask> fileScanIterable;
@@ -174,6 +178,12 @@ public class IcebergSplitSource
                 tableHandle.getUnenforcedPredicate());
         this.limit = tableHandle.getLimit();
         this.fileModifiedTimeDomain = getFileModifiedTimePathDomain(tableHandle.getEnforcedPredicate());
+        this.splitEnumeratorPool = Executors.newSingleThreadExecutor(
+                new ThreadFactoryBuilder()
+                        .setDaemon(true)
+                        .setNameFormat(String.format("%s-%s", session.getQueryId(), IcebergSplitSource.class.getSimpleName()))
+                        .build());
+        closer.register(splitEnumeratorPool::shutdownNow);
     }
 
     @Override
@@ -232,6 +242,11 @@ public class IcebergSplitSource
             return completedFuture(NO_MORE_SPLITS_BATCH);
         }
 
+        return new CompletableFuture<ConnectorSplitBatch>().completeAsync(() -> doGetNextBatch(maxSize, dynamicFilterPredicate), splitEnumeratorPool);
+    }
+
+    private ConnectorSplitBatch doGetNextBatch(int maxSize, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
+    {
         List<ConnectorSplit> splits = new ArrayList<>(maxSize);
         while (splits.size() < maxSize && (fileTasksIterator.hasNext() || fileScanIterator.hasNext())) {
             if (!fileTasksIterator.hasNext()) {
@@ -269,7 +284,7 @@ public class IcebergSplitSource
             }
             splits.add(toIcebergSplit(fileTasksIterator.next()));
         }
-        return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
+        return new ConnectorSplitBatch(splits, isFinished());
     }
 
     private boolean pruneFileScanTask(FileScanTask fileScanTask, boolean fileHasNoDeletions, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
