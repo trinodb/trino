@@ -22,12 +22,10 @@ import io.trino.Session;
 import io.trino.operator.DriverContext;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.Operator;
-import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.TaskContext;
-import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.exchange.LocalPartitionGenerator;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.LookupSource;
@@ -72,7 +70,8 @@ import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
-import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
+import static io.trino.operator.JoinOperatorType.innerJoin;
+import static io.trino.operator.OperatorFactories.join;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -217,11 +216,6 @@ public class BenchmarkHashBuildAndJoinOperators
         @Setup
         public void setup()
         {
-            setup(new TrinoOperatorFactories());
-        }
-
-        public void setup(OperatorFactories operatorFactories)
-        {
             super.setup();
 
             switch (outputColumns) {
@@ -239,7 +233,7 @@ public class BenchmarkHashBuildAndJoinOperators
             }
 
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = getLookupSourceFactoryManager(this, outputChannels, partitionCount);
-            joinOperatorFactory = operatorFactories.join(
+            joinOperatorFactory = join(
                     innerJoin(false, false),
                     HASH_JOIN_OPERATOR_ID,
                     TEST_PLAN_NODE_ID,
