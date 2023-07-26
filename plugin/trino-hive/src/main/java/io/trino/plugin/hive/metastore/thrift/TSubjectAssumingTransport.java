@@ -13,32 +13,44 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
-import static io.trino.hdfs.authentication.UserGroupInformationUtils.executeActionInDoAs;
+import javax.security.auth.Subject;
+
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
+
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 // based on org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport
-public class TUgiAssumingTransport
+public class TSubjectAssumingTransport
         extends TFilterTransport
 {
-    private final UserGroupInformation ugi;
+    private final Subject subject;
 
-    public TUgiAssumingTransport(TTransport transport, UserGroupInformation ugi)
+    public TSubjectAssumingTransport(TTransport transport, Subject subject)
     {
         super(transport);
-        this.ugi = requireNonNull(ugi, "ugi is null");
+        this.subject = requireNonNull(subject, "ugi is null");
     }
 
     @Override
     public void open()
             throws TTransportException
     {
-        executeActionInDoAs(ugi, () -> {
-            transport.open();
-            return null;
-        });
+        try {
+            Subject.doAs(subject, (PrivilegedExceptionAction<?>) () -> {
+                transport.open();
+                return null;
+            });
+        }
+        catch (PrivilegedActionException e) {
+            throwIfInstanceOf(e.getCause(), TTransportException.class);
+            throwIfUnchecked(e.getCause());
+            throw new RuntimeException(e.getCause());
+        }
     }
 }

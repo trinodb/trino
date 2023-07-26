@@ -18,7 +18,7 @@ import com.google.inject.Inject;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
-import io.trino.hdfs.authentication.HadoopAuthentication;
+import io.trino.plugin.base.authentication.CachingKerberosAuthentication;
 import io.trino.plugin.hive.ForHiveMetastore;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
@@ -47,17 +47,17 @@ public class KerberosHiveMetastoreAuthentication
         implements HiveMetastoreAuthentication
 {
     private final String hiveMetastoreServicePrincipal;
-    private final HadoopAuthentication authentication;
+    private final CachingKerberosAuthentication authentication;
 
     @Inject
     public KerberosHiveMetastoreAuthentication(
             MetastoreKerberosConfig config,
-            @ForHiveMetastore HadoopAuthentication authentication)
+            @ForHiveMetastore CachingKerberosAuthentication authentication)
     {
         this(config.getHiveMetastoreServicePrincipal(), authentication);
     }
 
-    public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, HadoopAuthentication authentication)
+    public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, CachingKerberosAuthentication authentication)
     {
         this.hiveMetastoreServicePrincipal = requireNonNull(hiveMetastoreServicePrincipal, "hiveMetastoreServicePrincipal is null");
         this.authentication = requireNonNull(authentication, "authentication is null");
@@ -99,7 +99,7 @@ public class KerberosHiveMetastoreAuthentication
                         rawTransport);
             }
 
-            return new TUgiAssumingTransport(saslTransport, authentication.getUserGroupInformation());
+            return new TSubjectAssumingTransport(saslTransport, authentication.getSubject());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
