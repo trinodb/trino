@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.type.Category;
 import io.trino.plugin.hive.type.MapTypeInfo;
@@ -146,6 +147,15 @@ public enum HiveStorageFormat
     public DataSize getEstimatedWriterMemoryUsage()
     {
         return estimatedWriterMemoryUsage;
+    }
+
+    public boolean isSplittable(String path)
+    {
+        // Only uncompressed text input format is splittable
+        return switch (this) {
+            case ORC, PARQUET, AVRO, RCBINARY, RCTEXT, SEQUENCEFILE -> true;
+            case JSON, OPENX_JSON, TEXTFILE, CSV, REGEX -> CompressionKind.forFile(path).isEmpty();
+        };
     }
 
     public void validateColumns(List<HiveColumnHandle> handles)
