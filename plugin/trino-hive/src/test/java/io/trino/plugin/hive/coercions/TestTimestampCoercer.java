@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.coercions;
 
-import io.airlift.slice.Slices;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -27,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
@@ -131,7 +131,7 @@ public class TestTimestampCoercer
 
     public static void assertLongTimestampToVarcharCoercions(TimestampType fromType, LongTimestamp valueToBeCoerced, VarcharType toType, String expectedValue)
     {
-        assertCoercions(fromType, valueToBeCoerced, toType, Slices.utf8Slice(expectedValue), NANOSECONDS);
+        assertCoercions(fromType, valueToBeCoerced, toType, utf8Slice(expectedValue), NANOSECONDS);
     }
 
     public static void assertCoercions(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue, HiveTimestampPrecision timestampPrecision)
