@@ -27,7 +27,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.trino.filesystem.Location;
 import io.trino.hadoop.TextLineLengthLimitExceededException;
-import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.orc.OrcWriterOptions;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
@@ -56,7 +55,6 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
@@ -85,8 +83,6 @@ import org.joda.time.format.DateTimePrinter;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.util.HexFormat;
 import java.util.List;
@@ -394,43 +390,6 @@ public final class HiveUtil
     public static long parseHiveTimestamp(String value)
     {
         return HIVE_TIMESTAMP_PARSER.parseMillis(value) * MICROSECONDS_PER_MILLISECOND;
-    }
-
-    public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, Path path)
-    {
-        // TODO move this to HiveStorageFormat when Hadoop library is removed
-        switch (inputFormat.getClass().getSimpleName()) {
-            case "OrcInputFormat", "MapredParquetInputFormat", "AvroContainerInputFormat", "RCFileInputFormat", "SequenceFileInputFormat" -> {
-                // These formats have splitting built into the format
-                return true;
-            }
-            case "TextInputFormat" -> {
-                // Only uncompressed text input format is splittable
-                return CompressionKind.forFile(path.getName()).isEmpty();
-            }
-        }
-
-        // use reflection to get isSplittable method on FileInputFormat
-        Method method = null;
-        for (Class<?> clazz = inputFormat.getClass(); clazz != null; clazz = clazz.getSuperclass()) {
-            try {
-                method = clazz.getDeclaredMethod("isSplitable", FileSystem.class, Path.class);
-                break;
-            }
-            catch (NoSuchMethodException ignored) {
-            }
-        }
-
-        if (method == null) {
-            return false;
-        }
-        try {
-            method.setAccessible(true);
-            return (boolean) method.invoke(inputFormat, fileSystem, path);
-        }
-        catch (InvocationTargetException | IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     public static StructObjectInspector getTableObjectInspector(Deserializer deserializer)

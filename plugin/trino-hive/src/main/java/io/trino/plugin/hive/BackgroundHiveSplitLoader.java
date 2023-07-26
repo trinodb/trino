@@ -37,6 +37,7 @@ import io.trino.plugin.hive.fs.HiveFileIterator;
 import io.trino.plugin.hive.fs.TrinoFileStatus;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.s3select.S3SelectPushdown;
 import io.trino.plugin.hive.util.AcidTables.AcidState;
@@ -114,9 +115,12 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.hive.HiveSessionProperties.isForceLocalScheduling;
 import static io.trino.plugin.hive.HiveSessionProperties.isValidateBucketing;
+import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
+import static io.trino.plugin.hive.HiveStorageFormat.getHiveStorageFormat;
 import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.FAIL;
 import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.IGNORED;
 import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
@@ -128,6 +132,7 @@ import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
 import static io.trino.plugin.hive.util.AcidTables.readAcidVersionFile;
 import static io.trino.plugin.hive.util.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
+import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
 import static io.trino.plugin.hive.util.HiveUtil.getHeaderCount;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormat;
@@ -448,6 +453,7 @@ public class BackgroundHiveSplitLoader
             if (tableBucketInfo.isPresent()) {
                 throw new TrinoException(NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
             }
+            HiveStorageFormat targetStorageFormat = getSymlinkStorageFormat(getDeserializerClassName(schema));
             InputFormat<?, ?> targetInputFormat = getInputFormat(configuration, schema, true);
             List<Path> targetPaths = hdfsEnvironment.doAs(
                     hdfsContext.getIdentity(),
@@ -458,7 +464,7 @@ public class BackgroundHiveSplitLoader
                     .collect(toImmutableSet());
             if (optimizeSymlinkListing && parents.size() == 1 && !recursiveDirWalkerEnabled) {
                 Optional<Iterator<InternalHiveSplit>> manifestFileIterator = buildManifestFileIterator(
-                        targetInputFormat,
+                        targetStorageFormat,
                         partitionName,
                         schema,
                         partitionKeys,
@@ -476,6 +482,7 @@ public class BackgroundHiveSplitLoader
             }
             return createHiveSymlinkSplits(
                     partitionName,
+                    targetStorageFormat,
                     targetInputFormat,
                     schema,
                     partitionKeys,
@@ -485,6 +492,11 @@ public class BackgroundHiveSplitLoader
                     partition.getTableToPartitionMapping(),
                     targetPaths);
         }
+
+        StorageFormat rawStorageFormat = partition.getPartition()
+                .map(Partition::getStorage).orElseGet(table::getStorage).getStorageFormat();
+        HiveStorageFormat storageFormat = getHiveStorageFormat(rawStorageFormat)
+                .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "Unsupported storage format: %s %s".formatted(hivePartition, rawStorageFormat)));
 
         Optional<BucketConversion> bucketConversion = Optional.empty();
         boolean bucketConversionRequiresWorkerParticipation = false;
@@ -514,7 +526,7 @@ public class BackgroundHiveSplitLoader
         InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                 fs,
                 partitionName,
-                inputFormat,
+                storageFormat,
                 schema,
                 partitionKeys,
                 effectivePredicate,
@@ -583,6 +595,7 @@ public class BackgroundHiveSplitLoader
 
     private ListenableFuture<Void> createHiveSymlinkSplits(
             String partitionName,
+            HiveStorageFormat storageFormat,
             InputFormat<?, ?> targetInputFormat,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
@@ -616,7 +629,7 @@ public class BackgroundHiveSplitLoader
             InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                     targetFilesystem,
                     partitionName,
-                    targetInputFormat,
+                    storageFormat,
                     schema,
                     partitionKeys,
                     effectivePredicate,
@@ -638,7 +651,7 @@ public class BackgroundHiveSplitLoader
 
     @VisibleForTesting
     Optional<Iterator<InternalHiveSplit>> buildManifestFileIterator(
-            InputFormat<?, ?> targetInputFormat,
+            HiveStorageFormat targetStorageFormat,
             String partitionName,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
@@ -677,7 +690,7 @@ public class BackgroundHiveSplitLoader
         InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                 targetFilesystem,
                 partitionName,
-                targetInputFormat,
+                targetStorageFormat,
                 schema,
                 partitionKeys,
                 effectivePredicate,
@@ -989,6 +1002,18 @@ public class BackgroundHiveSplitLoader
     {
         Matcher matcher = BUCKET_WITH_OPTIONAL_ATTEMPT_ID_PATTERN.matcher(bucketFilename);
         return matcher.matches() && matcher.group(2) != null;
+    }
+
+    private static HiveStorageFormat getSymlinkStorageFormat(String serde)
+    {
+        // LazySimpleSerDe is used by TEXTFILE and SEQUENCEFILE. Use TEXTFILE per Hive behavior.
+        if (serde.equals(TEXTFILE.getSerde())) {
+            return TEXTFILE;
+        }
+        return Arrays.stream(HiveStorageFormat.values())
+                .filter(format -> serde.equals(format.getSerde()))
+                .findFirst()
+                .orElseThrow(() -> new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unknown SerDe for SymlinkTextInputFormat: " + serde));
     }
 
     private static List<Path> getTargetPathsFromSymlink(FileSystem fileSystem, Path symlinkDir)

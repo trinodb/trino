@@ -20,6 +20,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HiveSplit;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.InternalHiveSplit;
 import io.trino.plugin.hive.InternalHiveSplit.InternalHiveBlock;
 import io.trino.plugin.hive.TableToPartitionMapping;
@@ -34,9 +35,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
-import org.apache.hadoop.mapred.InputFormat;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -51,14 +50,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveColumnHandle.isPathColumnHandle;
-import static io.trino.plugin.hive.util.HiveUtil.isSplittable;
 import static java.util.Objects.requireNonNull;
 
 public class InternalHiveSplitFactory
 {
     private final FileSystem fileSystem;
     private final String partitionName;
-    private final InputFormat<?, ?> inputFormat;
+    private final HiveStorageFormat storageFormat;
     private final Properties strippedSchema;
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
@@ -74,7 +72,7 @@ public class InternalHiveSplitFactory
     public InternalHiveSplitFactory(
             FileSystem fileSystem,
             String partitionName,
-            InputFormat<?, ?> inputFormat,
+            HiveStorageFormat storageFormat,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -89,7 +87,7 @@ public class InternalHiveSplitFactory
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
-        this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
+        this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
         this.strippedSchema = stripUnnecessaryProperties(requireNonNull(schema, "schema is null"));
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
         pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
@@ -122,7 +120,7 @@ public class InternalHiveSplitFactory
     {
         splittable = splittable &&
                 status.getLength() > minimumTargetSplitSizeInBytes &&
-                isSplittable(inputFormat, fileSystem, new Path(status.getPath()));
+                storageFormat.isSplittable(status.getPath());
         return createInternalHiveSplit(
                 status.getPath(),
                 status.getBlockLocations(),
