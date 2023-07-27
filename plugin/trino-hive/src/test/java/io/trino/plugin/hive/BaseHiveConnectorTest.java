@@ -8344,14 +8344,21 @@ public abstract class BaseHiveConnectorTest
         assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
     }
 
-    @Test
-    public void testTimestampWithTimeZone()
+    @Test(dataProvider = "timestampPrecision")
+    public void testTimestampWithTimeZone(HiveTimestampPrecision timestampPrecision)
     {
-        String catalog = getSession().getCatalog().orElseThrow();
+        Session session = withTimestampPrecision(getSession(), timestampPrecision);
+        String catalog = session.getCatalog().orElseThrow();
 
-        assertUpdate("CREATE TABLE test_timestamptz_base (t timestamp) WITH (format = 'PARQUET')");
-        assertUpdate("INSERT INTO test_timestamptz_base (t) VALUES" +
-                     "(timestamp '2022-07-26 12:13')", 1);
+        String fractionalPart = switch (timestampPrecision) {
+            case MILLISECONDS -> "123";
+            case MICROSECONDS -> "123456";
+            case NANOSECONDS -> "123456789";
+        };
+
+        assertUpdate(session, "CREATE TABLE test_timestamptz_base (t timestamp(" + timestampPrecision.getPrecision() + ")) WITH (format = 'PARQUET')");
+        assertUpdate(session, "INSERT INTO test_timestamptz_base (t) VALUES" +
+                     "(timestamp '2022-07-26 12:13:14." + fractionalPart + "')", 1);
 
         // Writing TIMESTAMP WITH LOCAL TIME ZONE is not supported, so we first create Parquet object by writing unzoned
         // timestamp (which is converted to UTC using default timezone) and then creating another table that reads from the same file.
@@ -8360,7 +8367,7 @@ public abstract class BaseHiveConnectorTest
         // TIMESTAMP WITH LOCAL TIME ZONE is not mapped to any Trino type, so we need to create the metastore entry manually
         HiveMetastore metastore = ((HiveConnector) getDistributedQueryRunner().getCoordinator().getConnector(catalog))
                 .getInjector().getInstance(HiveMetastoreFactory.class)
-                .createMetastore(Optional.of(getSession().getIdentity().toConnectorIdentity(catalog)));
+                .createMetastore(Optional.of(session.getIdentity().toConnectorIdentity(catalog)));
         metastore.createTable(
                 new Table(
                         "tpch",
@@ -8381,10 +8388,11 @@ public abstract class BaseHiveConnectorTest
                         OptionalLong.empty()),
                 PrincipalPrivileges.fromHivePrivilegeInfos(Collections.emptySet()));
 
-        assertThat(query("SELECT * FROM test_timestamptz"))
-                .matches("VALUES TIMESTAMP '2022-07-26 17:13:00.000 UTC'");
+        assertThat(query(session, "SELECT * FROM test_timestamptz"))
+                .matches("VALUES TIMESTAMP '2022-07-26 17:13:14." + fractionalPart + " UTC'");
 
         assertUpdate("DROP TABLE test_timestamptz");
+        assertUpdate("DROP TABLE test_timestamptz_base");
     }
 
     @Test(dataProvider = "legalUseColumnNamesProvider")
