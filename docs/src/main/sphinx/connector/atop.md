@@ -1,34 +1,30 @@
-==============
-Atop connector
-==============
+# Atop connector
 
-The Atop connector supports reading disk utilization statistics from the `Atop <https://www.atoptool.nl/>`_
+The Atop connector supports reading disk utilization statistics from the [Atop](https://www.atoptool.nl/)
 (Advanced System and Process Monitor) Linux server performance analysis tool.
 
-Requirements
-------------
+## Requirements
 
 In order to use this connector, the host on which the Trino worker is running
-needs to have the ``atop`` tool installed locally.
+needs to have the `atop` tool installed locally.
 
-Connector configuration
------------------------
+## Connector configuration
 
 The connector can read disk utilization statistics on the Trino cluster.
 Create a catalog properties file that specifies the Atop connector by
-setting the ``connector.name`` to ``atop``.
+setting the `connector.name` to `atop`.
 
-For example, create the file ``etc/catalog/example.properties`` with the
+For example, create the file `etc/catalog/example.properties` with the
 following connector properties as appropriate for your setup:
 
-.. code-block:: text
+```text
+connector.name=atop
+atop.executable-path=/usr/bin/atop
+```
 
-    connector.name=atop
-    atop.executable-path=/usr/bin/atop
+## Configuration properties
 
-Configuration properties
-------------------------
-
+```{eval-rst}
 .. list-table::
   :widths: 42, 18, 5, 35
   :header-rows: 1
@@ -62,27 +58,29 @@ Configuration properties
     - Yes
     - The time zone identifier in which the atop data is collected. Generally the timezone of the host.
       Sample time zone identifiers: ``Europe/Vienna``, ``+0100``, ``UTC``.
+```
 
-Usage
------
+## Usage
 
-The Atop connector provides a ``default`` schema.
+The Atop connector provides a `default` schema.
 
-The tables exposed by this connector can be retrieved by running ``SHOW TABLES``::
+The tables exposed by this connector can be retrieved by running `SHOW TABLES`:
 
-    SHOW TABLES FROM example.default;
+```
+SHOW TABLES FROM example.default;
+```
 
-.. code-block:: text
+```text
+  Table
+---------
+ disks
+ reboots
+(2 rows)
+```
 
-      Table
-    ---------
-     disks
-     reboots
-    (2 rows)
+The `disks` table offers disk utilization statistics recorded on the Trino node.
 
-
-The ``disks`` table offers disk utilization statistics recorded on the Trino node.
-
+```{eval-rst}
 .. list-table:: Disks columns
   :widths: 30, 30, 40
   :header-rows: 1
@@ -120,9 +118,11 @@ The ``disks`` table offers disk utilization statistics recorded on the Trino nod
   * - ``sectors_written``
     - ``BIGINT``
     - Number of sectors transferred for write
+```
 
-The ``reboots`` table offers information about the system reboots performed on the Trino node.
+The `reboots` table offers information about the system reboots performed on the Trino node.
 
+```{eval-rst}
 .. list-table:: Reboots columns
   :widths: 30, 30, 40
   :header-rows: 1
@@ -137,10 +137,10 @@ The ``reboots`` table offers information about the system reboots performed on t
     - ``TIMESTAMP(3) WITH TIME ZONE``
     - The boot/reboot timestamp
 
+```
 
-SQL support
------------
+## SQL support
 
-The connector provides :ref:`globally available <sql-globally-available>` and
-:ref:`read operation <sql-read-operations>` statements to access system and process monitor
+The connector provides {ref}`globally available <sql-globally-available>` and
+{ref}`read operation <sql-read-operations>` statements to access system and process monitor
 information on your Trino nodes.
