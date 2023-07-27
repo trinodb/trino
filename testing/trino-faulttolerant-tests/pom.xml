@@ -196,13 +196,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-iceberg</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- calcite-core and iceberg-data have conflicting versions of org.apache.commons:commons-lang3 -->
-                    <groupId>org.apache.commons</groupId>
-                    <artifactId>commons-lang3</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -210,13 +203,6 @@
             <artifactId>trino-iceberg</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- calcite-core and iceberg-data have conflicting versions of org.apache.commons:commons-lang3 -->
-                    <groupId>org.apache.commons</groupId>
-                    <artifactId>commons-lang3</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
