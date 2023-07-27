@@ -81,6 +81,7 @@ import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -310,6 +311,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return new ClassLoaderSafeIterator<>(delegate.streamTableColumns(session, prefix), classLoader);
+        }
+    }
+
+    @Override
+    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> tablesFilter)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return new ClassLoaderSafeIterator<>(delegate.streamTableColumns(session, prefix, tablesFilter), classLoader);
         }
     }
 

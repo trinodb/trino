@@ -118,6 +118,7 @@ import io.trino.type.BlockTypeOperators;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -560,39 +561,64 @@ public final class MetadataManager
     }
 
     @Override
-    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> tablesFilter)
     {
         requireNonNull(prefix, "prefix is null");
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
 
         // Track column metadata for every object name to resolve ties between table and view
-        Map<SchemaTableName, Optional<List<ColumnMetadata>>> tableColumns = new HashMap<>();
+        List<Map<SchemaTableName, Optional<List<ColumnMetadata>>>> tableColumnMaps = new ArrayList<>();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
 
             SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
+
+            boolean needsExplicitFiltering = false;
+            Map<SchemaTableName, Optional<List<ColumnMetadata>>> tableColumns = new HashMap<>();
             for (CatalogHandle catalogHandle : catalogMetadata.listCatalogHandles()) {
                 if (isExternalInformationSchema(catalogHandle, prefix.getSchemaName())) {
                     continue;
                 }
 
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
-
                 ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
 
                 // Collect column metadata from tables
-                metadata.streamTableColumns(connectorSession, tablePrefix)
-                        .forEachRemaining(columnsMetadata -> {
-                            if (!isExternalInformationSchema(catalogHandle, columnsMetadata.getTable().getSchemaName())) {
-                                tableColumns.put(columnsMetadata.getTable(), columnsMetadata.getColumns());
-                            }
-                        });
+                Iterator<TableColumnsMetadata> columnsIterator;
+                try {
+                    columnsIterator = metadata.streamTableColumns(connectorSession, tablePrefix, tablesFilter);
+                }
+                catch (TrinoException e) {
+                    if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
+                        columnsIterator = metadata.streamTableColumns(connectorSession, tablePrefix);
+                        needsExplicitFiltering = true;
+                    }
+                    else {
+                        throw e;
+                    }
+                }
 
-                // Collect column metadata from views. if table and view names overlap, the view wins
-                for (Entry<QualifiedObjectName, ViewInfo> entry : getViews(session, prefix).entrySet()) {
+                columnsIterator.forEachRemaining(columnsMetadata -> {
+                    if (!isExternalInformationSchema(catalogHandle, columnsMetadata.getTable().getSchemaName())) {
+                        tableColumns.put(columnsMetadata.getTable(), columnsMetadata.getColumns());
+                    }
+                });
+                if (needsExplicitFiltering) {
+                    tableColumns.keySet().retainAll(tablesFilter.apply(tableColumns.keySet()));
+                }
+
+                // Collect column metadata from views and materialized views.
+                // If table and view names overlap, the view wins.
+                // If view and materialized view names overlap, the materialized view wins.
+                Map<SchemaTableName, ViewInfo> views = new LinkedHashMap<>();
+                getViews(session, prefix).forEach((key, value) -> views.put(key.asSchemaTableName(), value));
+                getMaterializedViews(session, prefix).forEach((key, value) -> views.put(key.asSchemaTableName(), value));
+                views.keySet().retainAll(tablesFilter.apply(views.keySet()));
+
+                views.forEach((key, value) -> {
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                    for (ViewColumn column : entry.getValue().getColumns()) {
+                    for (ViewColumn column : value.getColumns()) {
                         try {
                             columns.add(ColumnMetadata.builder()
                                     .setName(column.getName())
@@ -601,32 +627,17 @@ public final class MetadataManager
                                     .build());
                         }
                         catch (TypeNotFoundException e) {
-                            throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
+                            throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), key));
                         }
                     }
-                    tableColumns.put(entry.getKey().asSchemaTableName(), Optional.of(columns.build()));
-                }
-
-                // if view and materialized view names overlap, the materialized view wins
-                for (Entry<QualifiedObjectName, ViewInfo> entry : getMaterializedViews(session, prefix).entrySet()) {
-                    ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                    for (ViewColumn column : entry.getValue().getColumns()) {
-                        try {
-                            columns.add(ColumnMetadata.builder()
-                                    .setName(column.getName())
-                                    .setType(typeManager.getType(column.getType()))
-                                    .setComment(column.getComment())
-                                    .build());
-                        }
-                        catch (TypeNotFoundException e) {
-                            throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.getType(), column.getName(), entry.getKey()));
-                        }
-                    }
-                    tableColumns.put(entry.getKey().asSchemaTableName(), Optional.of(columns.build()));
-                }
+                    tableColumns.put(key, Optional.of(columns.build()));
+                });
             }
+            tableColumnMaps.add(tableColumns);
         }
-        return tableColumns.entrySet().stream()
+
+        return tableColumnMaps.stream()
+                .flatMap(map -> map.entrySet().stream())
                 .map(entry -> new TableColumnsMetadata(entry.getKey(), entry.getValue()))
                 .collect(toImmutableList());
     }

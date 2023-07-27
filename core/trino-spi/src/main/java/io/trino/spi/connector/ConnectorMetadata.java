@@ -315,6 +315,15 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Gets the metadata for all columns that match the specified table prefix. Redirected table names are included, but the column metadata for them is not. Additional
+     * <code>tableFilter</code> parameter can be used to prune tables from column search.
+     */
+    default Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> tablesFilter)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support filtering column tables");
+    }
+
+    /**
      * Gets comments for all relations (tables, views, materialized views), possibly filtered by schemaName.
      * (e.g. for all relations that would be returned by {@link #listTables(ConnectorSession, Optional)}).
      * Redirected table names are included, but the comment for them is not.

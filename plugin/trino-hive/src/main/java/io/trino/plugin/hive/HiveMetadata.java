@@ -149,6 +149,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
@@ -834,12 +835,18 @@ public class HiveMetadata
     }
 
     @Override
-    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> tablesFilter)
     {
         requireNonNull(prefix, "prefix is null");
-        return listTables(session, prefix).stream()
+        return tablesFilter.apply(ImmutableSet.copyOf(listTables(session, prefix))).stream()
                 .flatMap(tableName -> streamTableColumns(session, tableName))
                 .iterator();
+    }
+
+    @Override
+    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return streamTableColumns(session, prefix, UnaryOperator.identity());
     }
 
     private Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTableName tableName)

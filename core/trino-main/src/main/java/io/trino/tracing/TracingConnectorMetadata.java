@@ -308,6 +308,14 @@ public class TracingConnectorMetadata
         }
     }
 
+    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> tablesFilter)
+    {
+        Span span = startSpan("streamTableColumns", prefix);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.streamTableColumns(session, prefix, tablesFilter);
+        }
+    }
+
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {

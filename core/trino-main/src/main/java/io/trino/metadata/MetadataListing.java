@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import io.trino.Session;
 import io.trino.security.AccessControl;
+import io.trino.security.SecurityContext;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
@@ -32,6 +33,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.function.UnaryOperator;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -243,23 +245,17 @@ public final class MetadataListing
 
     private static Map<SchemaTableName, List<ColumnMetadata>> doListTableColumns(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
-        List<TableColumnsMetadata> catalogColumns = metadata.listTableColumns(session, prefix);
+        SecurityContext securityContext = session.toSecurityContext();
+        UnaryOperator<Set<SchemaTableName>> tablesFilter = tables -> accessControl.filterTables(securityContext, prefix.getCatalogName(), tables);
+
+        List<TableColumnsMetadata> catalogColumns = metadata.listTableColumns(session, prefix, tablesFilter);
 
         Map<SchemaTableName, Optional<List<ColumnMetadata>>> tableColumns = catalogColumns.stream()
                 .collect(toImmutableMap(TableColumnsMetadata::getTable, TableColumnsMetadata::getColumns));
 
-        Set<SchemaTableName> allowedTables = accessControl.filterTables(
-                session.toSecurityContext(),
-                prefix.getCatalogName(),
-                tableColumns.keySet());
-
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> result = ImmutableMap.builder();
 
         tableColumns.forEach((table, columnsOptional) -> {
-            if (!allowedTables.contains(table)) {
-                return;
-            }
-
             QualifiedObjectName originalTableName = new QualifiedObjectName(prefix.getCatalogName(), table.getSchemaName(), table.getTableName());
             List<ColumnMetadata> columns;
             Optional<QualifiedObjectName> targetTableName = Optional.empty();
