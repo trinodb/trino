@@ -39,7 +39,7 @@ import static java.lang.String.format;
 public final class ReservedIdentifiers
 {
     private static final Pattern IDENTIFIER = Pattern.compile("'([A-Z_]+)'");
-    private static final Pattern TABLE_ROW = Pattern.compile("\\| `([A-Z_]+).*");
+    private static final Pattern TABLE_ROW = Pattern.compile("\\| `([A-Z_]+)`.*");
     private static final String TABLE_START = "| ------------------- |";
     private static final String TABLE_ROW_START = "|";
 
