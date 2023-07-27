@@ -160,7 +160,7 @@
         <dep.aws-sdk-v2.version>2.20.93</dep.aws-sdk-v2.version>
         <dep.jsonwebtoken.version>0.11.5</dep.jsonwebtoken.version>
         <dep.oracle.version>21.9.0.0</dep.oracle.version>
-        <dep.drift.version>1.20</dep.drift.version>
+        <dep.drift.version>1.21</dep.drift.version>
         <dep.tempto.version>200</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
 
