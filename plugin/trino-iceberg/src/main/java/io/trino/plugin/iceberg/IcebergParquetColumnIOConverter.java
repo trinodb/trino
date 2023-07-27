@@ -35,8 +35,6 @@ import static io.trino.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static io.trino.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnById;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
-import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
 public final class IcebergParquetColumnIOConverter
@@ -50,8 +48,8 @@ public final class IcebergParquetColumnIOConverter
             return Optional.empty();
         }
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
-        int repetitionLevel = columnRepetitionLevel(columnIO);
-        int definitionLevel = columnDefinitionLevel(columnIO);
+        int repetitionLevel = columnIO.getRepetitionLevel();
+        int definitionLevel = columnIO.getDefinitionLevel();
         Type type = context.getType();
         if (type instanceof RowType rowType) {
             List<ColumnIdentity> subColumns = context.getColumnIdentity().getChildren();
