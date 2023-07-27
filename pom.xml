@@ -682,7 +682,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.35</version>
+                <version>1.36</version>
                 <exclusions>
                     <exclusion>
                         <groupId>io.airlift</groupId>
