@@ -422,10 +422,19 @@ properties:
     - Nessie API endpoint URI (required).
       Example: ``https://localhost:19120/api/v1``
   * - ``iceberg.nessie-catalog.ref``
-    - The branch/tag to use for Nessie, defaults to ``main``.
+    - The branch/tag to use for Nessie. Defaults to ``main``.
   * - ``iceberg.nessie-catalog.default-warehouse-dir``
     - Default warehouse directory for schemas created without an explicit
       ``location`` property. Example: ``/tmp``
+  * - ``iceberg.nessie-catalog.read-timeout``
+    - The read timeout :ref:`duration <prop-type-duration>` for requests
+      to the Nessie server. Defaults to ``25s``.
+  * - ``iceberg.nessie-catalog.connection-timeout``
+    - The connection timeout :ref:`duration <prop-type-duration>` for
+      connection requests to the Nessie server. Defaults to ``5s``.
+  * - ``iceberg.nessie-catalog.enable-compression``
+    - Configure whether compression should be enabled or not for
+      requests to the Nessie server. Defaults to ``true``.
 ```
 
 ```text
