@@ -1,63 +1,63 @@
-================
-System connector
-================
+# System connector
 
 The System connector provides information and metrics about the currently
 running Trino cluster. It makes this available via normal SQL queries.
 
-Configuration
--------------
+## Configuration
 
 The System connector doesn't need to be configured: it is automatically
-available via a catalog named ``system``.
+available via a catalog named `system`.
 
-Using the System connector
---------------------------
+## Using the System connector
 
-List the available system schemas::
+List the available system schemas:
 
-    SHOW SCHEMAS FROM system;
+```
+SHOW SCHEMAS FROM system;
+```
 
-List the tables in one of the schemas::
+List the tables in one of the schemas:
 
-    SHOW TABLES FROM system.runtime;
+```
+SHOW TABLES FROM system.runtime;
+```
 
-Query one of the tables::
+Query one of the tables:
 
-    SELECT * FROM system.runtime.nodes;
+```
+SELECT * FROM system.runtime.nodes;
+```
 
-Kill a running query::
+Kill a running query:
 
-    CALL system.runtime.kill_query(query_id => '20151207_215727_00146_tx3nr', message => 'Using too many resources');
+```
+CALL system.runtime.kill_query(query_id => '20151207_215727_00146_tx3nr', message => 'Using too many resources');
+```
 
-System connector tables
------------------------
+## System connector tables
 
-``metadata.catalogs``
-^^^^^^^^^^^^^^^^^^^^^
+### `metadata.catalogs`
 
 The catalogs table contains the list of available catalogs.
 
-``metadata.schema_properties``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### `metadata.schema_properties`
 
 The schema properties table contains the list of available properties
 that can be set when creating a new schema.
 
-``metadata.table_properties``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### `metadata.table_properties`
 
 The table properties table contains the list of available properties
 that can be set when creating a new table.
 
-.. _system-metadata-materialized-views:
+(system-metadata-materialized-views)=
 
-``metadata.materialized_views``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### `metadata.materialized_views`
 
 The materialized views table contains the following information about all
-:ref:`materialized views <sql-materialized-view-management>`:
+{ref}`materialized views <sql-materialized-view-management>`:
 
+```{eval-rst}
 .. list-table:: Metadata for materialized views
   :widths: 30, 70
   :header-rows: 1
@@ -89,39 +89,35 @@ The materialized views table contains the following information about all
     - User supplied text about the materialized view.
   * - ``definition``
     - SQL query that defines the data provided by the materialized view.
+```
 
-``metadata.materialized_view_properties``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### `metadata.materialized_view_properties`
 
 The materialized view properties table contains the list of available properties
 that can be set when creating a new materialized view.
 
-``metadata.table_comments``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### `metadata.table_comments`
 
 The table comments table contains the list of table comment.
 
-``runtime.nodes``
-^^^^^^^^^^^^^^^^^
+### `runtime.nodes`
 
 The nodes table contains the list of visible nodes in the Trino
 cluster along with their status.
 
-.. _optimizer-rule-stats:
+(optimizer-rule-stats)=
 
-``runtime.optimizer_rule_stats``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### `runtime.optimizer_rule_stats`
 
-The ``optimizer_rule_stats`` table contains the statistics for optimizer
+The `optimizer_rule_stats` table contains the statistics for optimizer
 rule invocations during the query planning phase. The statistics are
 aggregated over all queries since the server start-up. The table contains
 information about invocation frequency, failure rates and performance for
 optimizer rules. For example, you can look at the multiplication of columns
-``invocations`` and ``average_time`` to get an idea about which rules
+`invocations` and `average_time` to get an idea about which rules
 generally impact query planning times the most.
 
-``runtime.queries``
-^^^^^^^^^^^^^^^^^^^
+### `runtime.queries`
 
 The queries table contains information about currently and recently
 running queries on the Trino cluster. From this table you can find out
@@ -129,41 +125,38 @@ the original query SQL text, the identity of the user who ran the query,
 and performance information about the query, including how long the query
 was queued and analyzed.
 
-``runtime.tasks``
-^^^^^^^^^^^^^^^^^
+### `runtime.tasks`
 
 The tasks table contains information about the tasks involved in a
 Trino query, including where they were executed, and how many rows
 and bytes each task processed.
 
-``runtime.transactions``
-^^^^^^^^^^^^^^^^^^^^^^^^
+### `runtime.transactions`
 
 The transactions table contains the list of currently open transactions
 and related metadata. This includes information such as the create time,
 idle time, initialization parameters, and accessed catalogs.
 
-System connector procedures
----------------------------
+## System connector procedures
 
+```{eval-rst}
 .. function:: runtime.kill_query(query_id, message)
 
     Kill the query identified by ``query_id``. The query failure message
     includes the specified ``message``. ``message`` is optional.
+```
 
-.. _system-type-mapping:
+(system-type-mapping)=
 
-Type mapping
-------------
+## Type mapping
 
 Trino supports all data types used within the System schemas so no mapping
 is required.
 
-.. _system-sql-support:
+(system-sql-support)=
 
-SQL support
------------
+## SQL support
 
-The connector provides :ref:`globally available <sql-globally-available>` and
-:ref:`read operation <sql-read-operations>` statements to access Trino system
+The connector provides {ref}`globally available <sql-globally-available>` and
+{ref}`read operation <sql-read-operations>` statements to access Trino system
 data and metadata.
