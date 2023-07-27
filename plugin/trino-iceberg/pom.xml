@@ -135,11 +135,6 @@
             <artifactId>trino-hive</artifactId>
             <exclusions>
                 <exclusion>
-                    <!-- calcite-core and Iceberg have conflicting versions of org.apache.commons:commons-lang3 -->
-                    <groupId>com.linkedin.calcite</groupId>
-                    <artifactId>calcite-core</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>io.airlift</groupId>
                     <artifactId>http-client</artifactId>
                 </exclusion>
@@ -437,12 +432,6 @@
             <artifactId>trino-hive</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.linkedin.calcite</groupId>
-                    <artifactId>calcite-core</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
