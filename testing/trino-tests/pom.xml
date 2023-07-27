@@ -205,13 +205,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- calcite-core and Iceberg have conflicting versions of org.apache.commons:commons-lang3 -->
-                    <groupId>com.linkedin.calcite</groupId>
-                    <artifactId>calcite-core</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -219,13 +212,6 @@
             <artifactId>trino-hive</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- calcite-core and Iceberg have conflicting versions of org.apache.commons:commons-lang3 -->
-                    <groupId>com.linkedin.calcite</groupId>
-                    <artifactId>calcite-core</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>

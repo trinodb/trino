@@ -72,27 +72,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.linkedin.calcite</groupId>
-            <artifactId>calcite-core</artifactId>
-            <classifier>shaded</classifier>
-        </dependency>
-
-        <dependency>
-            <groupId>com.linkedin.coral</groupId>
-            <artifactId>coral-common</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.linkedin.coral</groupId>
-            <artifactId>coral-hive</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.linkedin.coral</groupId>
-            <artifactId>coral-trino</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
@@ -200,6 +179,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-plugin-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino.coral</groupId>
+            <artifactId>coral</artifactId>
         </dependency>
 
         <dependency>

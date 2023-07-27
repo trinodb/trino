@@ -167,7 +167,6 @@
         <dep.errorprone.version>2.20.0</dep.errorprone.version>
         <dep.testcontainers.version>1.18.3</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
-        <dep.coral.version>2.0.153</dep.coral.version>
         <dep.confluent.version>7.3.1</dep.confluent.version>
         <dep.kafka-clients.version>3.3.2</dep.kafka-clients.version>
         <dep.casandra.version>4.14.0</dep.casandra.version>
@@ -509,65 +508,6 @@
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
                 <version>2.2.220</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.linkedin.calcite</groupId>
-                <artifactId>calcite-core</artifactId>
-                <version>1.21.0.259</version>
-                <classifier>shaded</classifier>
-                <exclusions>
-                    <exclusion>
-                        <!-- Exclude everything because shaded version of calcite-core still pulls in all the original dependencies -->
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.linkedin.coral</groupId>
-                <artifactId>coral-common</artifactId>
-                <version>${dep.coral.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.hadoop</groupId>
-                        <artifactId>hadoop-common</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.hive</groupId>
-                        <artifactId>hive-metastore</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.linkedin.coral</groupId>
-                <artifactId>coral-hive</artifactId>
-                <version>${dep.coral.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.linkedin.coral</groupId>
-                <artifactId>coral-trino</artifactId>
-                <version>${dep.coral.version}</version>
-                <exclusions>
-                    <!--
-                        The `trino-parser` library is being used internally within the `coral-trino` library for
-                        parsing Trino SQL statements. This functionality is irrelevant in the context of
-                        using Coral for Hive view translations within Trino.
-                        This dependency is excluded because `trino-parser` does not guarantee API or behavioral
-                        backwards compatibility.
-                        Trino cannot provide the version on which `coral-trino` library depends on, because the
-                        current version of `trino-parser` is used in tests of this module.
-                        The dependency is therefore intentionally excluded to avoid breaking in an unexpected way,
-                        or silent correctness issues.
-                    -->
-                    <exclusion>
-                        <groupId>io.trino</groupId>
-                        <artifactId>trino-parser</artifactId>
-                    </exclusion>
-                </exclusions>
             </dependency>
 
             <dependency>
@@ -1421,6 +1361,12 @@
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
                 <version>0.25</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino.coral</groupId>
+                <artifactId>coral</artifactId>
+                <version>2.0.153-1</version>
             </dependency>
 
             <dependency>
