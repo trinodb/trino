@@ -152,6 +152,11 @@ public final class RowBlock
         return rowIsNull != null;
     }
 
+    boolean[] getRawRowIsNull()
+    {
+        return rowIsNull;
+    }
+
     @Override
     public int getPositionCount()
     {
