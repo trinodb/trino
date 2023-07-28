@@ -15,20 +15,23 @@ package io.trino.client;
 
 import java.util.List;
 
-/**
- * QueryData implementations are shared between the client and the server.
- * Implementing class is responsible for transferring result data over the wire (through @JsonProperty)
- * and deserializing incoming result data (through @JsonCreator) accordingly.
- * {@link JsonInlineQueryData} is an exception to the above as it is entirely handled by the {@link QueryDataJsonSerializationModule}.
- */
-public interface QueryData
+@QueryDataFormat(formatName = "no-data")
+public class NoQueryData
+        implements QueryData
 {
-    Iterable<List<Object>> getData();
+    public static final QueryData NO_DATA = new NoQueryData();
 
-    boolean isPresent();
+    private NoQueryData() {}
 
-    default boolean isEmpty()
+    @Override
+    public Iterable<List<Object>> getData()
     {
-        return !isPresent();
+        throw new UnsupportedOperationException("NoQueryData.getData() called");
+    }
+
+    @Override
+    public boolean isPresent()
+    {
+        return false;
     }
 }

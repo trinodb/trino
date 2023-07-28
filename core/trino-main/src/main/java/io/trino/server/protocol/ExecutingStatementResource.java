@@ -23,11 +23,13 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.ProtocolHeaders;
+import io.trino.client.QueryDataFormats;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.QueryManager;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.server.ForStatementResource;
 import io.trino.server.ServerConfig;
+import io.trino.server.protocol.data.QueryDataProducerFactory;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -42,6 +44,7 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
@@ -50,6 +53,7 @@ import jakarta.ws.rs.core.UriInfo;
 import java.net.URLEncoder;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -79,6 +83,7 @@ public class ExecutingStatementResource
     private static final DataSize MAX_TARGET_RESULT_SIZE = DataSize.of(128, MEGABYTE);
 
     private final QueryManager queryManager;
+    private final QueryDataProducerFactory queryDataProducerFactory;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -94,6 +99,7 @@ public class ExecutingStatementResource
     @Inject
     public ExecutingStatementResource(
             QueryManager queryManager,
+            QueryDataProducerFactory queryDataProducerFactory,
             DirectExchangeClientSupplier directExchangeClientSupplier,
             ExchangeManagerRegistry exchangeManagerRegistry,
             BlockEncodingSerde blockEncodingSerde,
@@ -104,6 +110,7 @@ public class ExecutingStatementResource
             ServerConfig serverConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.queryDataProducerFactory = requireNonNull(queryDataProducerFactory, "queryDataProducerFactory is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
@@ -161,13 +168,14 @@ public class ExecutingStatementResource
             @QueryParam("maxWait") Duration maxWait,
             @QueryParam("targetResultSize") DataSize targetResultSize,
             @Context UriInfo uriInfo,
+            @Context HttpHeaders httpHeaders,
             @Suspended AsyncResponse asyncResponse)
     {
-        Query query = getQuery(queryId, slug, token);
+        Query query = getQuery(queryId, slug, token, httpHeaders);
         asyncQueryResults(query, token, maxWait, targetResultSize, uriInfo, asyncResponse);
     }
 
-    protected Query getQuery(QueryId queryId, String slug, long token)
+    protected Query getQuery(QueryId queryId, String slug, long token, HttpHeaders httpHeaders)
     {
         Query query = queries.get(queryId);
         if (query != null) {
@@ -191,10 +199,12 @@ public class ExecutingStatementResource
             throw queryNotFound();
         }
 
+        Set<String> supportedDataFormats = QueryDataFormats.fromHeaderValue(httpHeaders.getHeaderString(session.getProtocolHeaders().requestSupportedQueryDataFormats()));
         query = queries.computeIfAbsent(queryId, id -> Query.create(
                 session,
                 querySlug,
                 queryManager,
+                queryDataProducerFactory.create(session, queryId, supportedDataFormats),
                 queryInfoUrlFactory.getQueryInfoUrl(queryId),
                 directExchangeClientSupplier,
                 exchangeManagerRegistry,
@@ -317,9 +327,10 @@ public class ExecutingStatementResource
             @PathParam("queryId") QueryId queryId,
             @PathParam("stage") int stage,
             @PathParam("slug") String slug,
-            @PathParam("token") long token)
+            @PathParam("token") long token,
+            @Context HttpHeaders httpHeaders)
     {
-        Query query = getQuery(queryId, slug, token);
+        Query query = getQuery(queryId, slug, token, httpHeaders);
         query.partialCancel(stage);
     }
 

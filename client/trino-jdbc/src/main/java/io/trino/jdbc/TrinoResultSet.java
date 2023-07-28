@@ -19,6 +19,7 @@ import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.client.Column;
+import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
 
@@ -272,7 +273,7 @@ public class TrinoResultSet
                 QueryStatusInfo results = client.currentStatusInfo();
                 progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
                 warningsManager.addWarnings(results.getWarnings());
-                Iterable<List<Object>> data = client.currentData().getData();
+                QueryData data = client.currentData();
 
                 try {
                     client.advance();
@@ -281,8 +282,8 @@ public class TrinoResultSet
                     throw e;
                 }
 
-                if (data != null) {
-                    return data;
+                if (data.isPresent()) {
+                    return data.getData();
                 }
             }
 

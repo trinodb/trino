@@ -38,6 +38,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -50,6 +51,7 @@ import static java.util.Objects.requireNonNull;
 
 public class JsonArrayResultsIterator
         extends AbstractIterator<List<Object>>
+        implements Iterable<List<Object>>
 {
     private final Deque<Page> queue;
     private final ConnectorSession session;
@@ -207,5 +209,11 @@ public class JsonArrayResultsIterator
                 column.getPosition() + 1);
 
         exceptionConsumer.accept(new TrinoException(SERIALIZATION_ERROR, message, cause));
+    }
+
+    @Override
+    public Iterator<List<Object>> iterator()
+    {
+        return new JsonArrayResultsIterator(session, pages, columns, supportsParametricDateTime, exceptionConsumer);
     }
 }

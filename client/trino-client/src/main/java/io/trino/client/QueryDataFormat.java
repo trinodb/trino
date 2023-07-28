@@ -13,22 +13,15 @@
  */
 package io.trino.client;
 
-import java.util.List;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-/**
- * QueryData implementations are shared between the client and the server.
- * Implementing class is responsible for transferring result data over the wire (through @JsonProperty)
- * and deserializing incoming result data (through @JsonCreator) accordingly.
- * {@link JsonInlineQueryData} is an exception to the above as it is entirely handled by the {@link QueryDataJsonSerializationModule}.
- */
-public interface QueryData
+import static java.lang.annotation.ElementType.TYPE;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(TYPE)
+public @interface QueryDataFormat
 {
-    Iterable<List<Object>> getData();
-
-    boolean isPresent();
-
-    default boolean isEmpty()
-    {
-        return !isPresent();
-    }
+    String formatName();
 }

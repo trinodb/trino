@@ -87,7 +87,7 @@ public class TableNameCompleter
         try (StatementClient client = queryRunner.startInternalQuery(query)) {
             while (client.isRunning() && !Thread.currentThread().isInterrupted()) {
                 QueryData results = client.currentData();
-                if (results.getData() != null) {
+                if (results.isPresent()) {
                     for (List<Object> row : results.getData()) {
                         cache.add((String) row.get(0));
                     }
