@@ -24,6 +24,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.Multibinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.AllowHiveTableRename;
@@ -35,6 +36,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Predicate;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
@@ -49,8 +51,9 @@ public class GlueMetastoreModule
     protected void setup(Binder binder)
     {
         GlueHiveMetastoreConfig glueConfig = buildConfigObject(GlueHiveMetastoreConfig.class);
-        glueConfig.getGlueProxyApiId().ifPresent(glueProxyApiId -> binder
-                .bind(Key.get(RequestHandler2.class, ForGlueHiveMetastore.class))
+        Multibinder<RequestHandler2> requestHandlers = newSetBinder(binder, RequestHandler2.class, ForGlueHiveMetastore.class);
+        glueConfig.getCatalogId().ifPresent(catalogId -> requestHandlers.addBinding().toInstance(new GlueCatalogIdRequestHandler(catalogId)));
+        glueConfig.getGlueProxyApiId().ifPresent(glueProxyApiId -> requestHandlers.addBinding()
                 .toInstance(new ProxyApiRequestHandler(glueProxyApiId)));
         configBinder(binder).bindConfig(HiveConfig.class);
         binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
