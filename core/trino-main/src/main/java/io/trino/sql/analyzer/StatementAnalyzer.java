@@ -4328,8 +4328,12 @@ class StatementAnalyzer
                             .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, allColumns, "Unable to resolve reference %s", prefix));
                     if (identifierChainBasis.getBasisType() == TABLE) {
                         RelationType relationType = identifierChainBasis.getRelationType().orElseThrow();
-                        List<Field> fields = filterInaccessibleFields(relationType.resolveVisibleFieldsWithRelationPrefix(Optional.of(prefix)));
+                        List<Field> requestedFields = relationType.resolveVisibleFieldsWithRelationPrefix(Optional.of(prefix));
+                        List<Field> fields = filterInaccessibleFields(requestedFields);
                         if (fields.isEmpty()) {
+                            if (!requestedFields.isEmpty()) {
+                                throw semanticException(TABLE_NOT_FOUND, allColumns, "Relation not found or not allowed");
+                            }
                             throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed from relation that has no columns");
                         }
                         boolean local = scope.isLocalScope(identifierChainBasis.getScope().orElseThrow());
@@ -4354,10 +4358,14 @@ class StatementAnalyzer
                     throw semanticException(NOT_SUPPORTED, allColumns, "Column aliases not supported");
                 }
 
-                List<Field> fields = filterInaccessibleFields((List<Field>) scope.getRelationType().getVisibleFields());
+                List<Field> requestedFields = (List<Field>) scope.getRelationType().getVisibleFields();
+                List<Field> fields = filterInaccessibleFields(requestedFields);
                 if (fields.isEmpty()) {
                     if (node.getFrom().isEmpty()) {
                         throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed in queries without FROM clause");
+                    }
+                    if (!requestedFields.isEmpty()) {
+                        throw semanticException(TABLE_NOT_FOUND, allColumns, "Relation not found or not allowed");
                     }
                     throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed from relation that has no columns");
                 }
