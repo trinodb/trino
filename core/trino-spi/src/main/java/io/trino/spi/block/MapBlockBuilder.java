@@ -23,6 +23,7 @@ import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.BlockUtil.appendRawBlockRange;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
@@ -133,6 +134,64 @@ public class MapBlockBuilder
     }
 
     @Override
+    public void append(ValueBlock block, int position)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Current entry must be closed before a null can be written");
+        }
+
+        MapBlock mapBlock = (MapBlock) block;
+        if (block.isNull(position)) {
+            entryAdded(true);
+            return;
+        }
+
+        int offsetBase = mapBlock.getOffsetBase();
+        int[] offsets = mapBlock.getOffsets();
+        int startOffset = offsets[offsetBase + position];
+        int length = offsets[offsetBase + position + 1] - startOffset;
+
+        appendRawBlockRange(mapBlock.getRawKeyBlock(), startOffset, length, keyBlockBuilder);
+        appendRawBlockRange(mapBlock.getRawValueBlock(), startOffset, length, valueBlockBuilder);
+        entryAdded(false);
+    }
+
+    @Override
+    public void appendRange(ValueBlock block, int offset, int length)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Current entry must be closed before a null can be written");
+        }
+
+        // this could be optimized to append all array elements using a single append range call
+        for (int i = 0; i < length; i++) {
+            append(block, offset + i);
+        }
+    }
+
+    @Override
+    public void appendRepeated(ValueBlock block, int position, int count)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Current entry must be closed before a null can be written");
+        }
+        for (int i = 0; i < count; i++) {
+            append(block, position);
+        }
+    }
+
+    @Override
+    public void appendPositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        if (currentEntryOpened) {
+            throw new IllegalStateException("Current entry must be closed before a null can be written");
+        }
+        for (int i = 0; i < length; i++) {
+            append(block, positions[offset + i]);
+        }
+    }
+
+    @Override
     public BlockBuilder appendNull()
     {
         if (currentEntryOpened) {
@@ -167,6 +226,29 @@ public class MapBlockBuilder
     @Override
     public Block build()
     {
+        if (positionCount > 1 && hasNullValue) {
+            boolean hasNonNull = false;
+            for (int i = 0; i < positionCount; i++) {
+                hasNonNull |= !mapIsNull[i];
+            }
+            if (!hasNonNull) {
+                Block emptyKeyBlock = mapType.getKeyType().createBlockBuilder(null, 0).build();
+                Block emptyValueBlock = mapType.getValueType().createBlockBuilder(null, 0).build();
+                int[] emptyOffsets = {0, 0};
+                boolean[] nulls = {true};
+                return RunLengthEncodedBlock.create(
+                        createMapBlockInternal(
+                                mapType,
+                                0,
+                                1,
+                                Optional.of(nulls),
+                                emptyOffsets,
+                                emptyKeyBlock,
+                                emptyValueBlock,
+                                MapHashTables.create(hashBuildMode, mapType, 0, emptyKeyBlock, emptyOffsets, nulls)),
+                        positionCount);
+            }
+        }
         return buildValueBlock();
     }
 

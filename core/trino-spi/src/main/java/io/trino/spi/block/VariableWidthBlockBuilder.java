@@ -19,16 +19,14 @@ import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static io.trino.spi.block.BlockUtil.calculateBlockResetBytes;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
-import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 
 public class VariableWidthBlockBuilder
         implements BlockBuilder
@@ -79,7 +77,7 @@ public class VariableWidthBlockBuilder
     @Override
     public long getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE + sizeOf(bytes) + arraysRetainedSizeInBytes;
+        long size = INSTANCE_SIZE + arraysRetainedSizeInBytes;
         if (blockBuilderStatus != null) {
             size += BlockBuilderStatus.INSTANCE_SIZE;
         }
@@ -108,6 +106,227 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
+    public void append(ValueBlock block, int position)
+    {
+        ensureCapacity(positionCount + 1);
+
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+        int bytesWritten = 0;
+        if (variableWidthBlock.isNull(position)) {
+            valueIsNull[positionCount] = true;
+            hasNullValue = true;
+        }
+        else {
+            int rawArrayBase = variableWidthBlock.getRawArrayBase();
+            int[] rawOffsets = variableWidthBlock.getRawOffsets();
+            int startValueOffset = rawOffsets[rawArrayBase + position];
+            int endValueOffset = rawOffsets[rawArrayBase + position + 1];
+            int length = endValueOffset - startValueOffset;
+            ensureFreeSpace(length);
+
+            Slice rawSlice = variableWidthBlock.getRawSlice();
+            byte[] rawByteArray = rawSlice.byteArray();
+            int byteArrayOffset = rawSlice.byteArrayOffset();
+
+            System.arraycopy(rawByteArray, byteArrayOffset + startValueOffset, bytes, offsets[positionCount], length);
+            bytesWritten = length;
+            hasNonNullValue = true;
+        }
+        offsets[positionCount + 1] = offsets[positionCount] + bytesWritten;
+        positionCount++;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(SIZE_IN_BYTES_PER_POSITION + bytesWritten);
+        }
+    }
+
+    @Override
+    public void appendRepeated(ValueBlock block, int position, int count)
+    {
+        if (count == 0) {
+            return;
+        }
+        if (count == 1) {
+            append(block, position);
+            return;
+        }
+
+        ensureCapacity(positionCount + count);
+
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+        int bytesWritten = 0;
+        if (variableWidthBlock.isNull(position)) {
+            Arrays.fill(valueIsNull, positionCount, positionCount + count, true);
+            Arrays.fill(offsets, positionCount + 1, positionCount + count + 1, offsets[positionCount]);
+            hasNullValue = true;
+        }
+        else {
+            int rawArrayBase = variableWidthBlock.getRawArrayBase();
+            int[] rawOffsets = variableWidthBlock.getRawOffsets();
+            int startValueOffset = rawOffsets[rawArrayBase + position];
+            int endValueOffset = rawOffsets[rawArrayBase + position + 1];
+            int length = endValueOffset - startValueOffset;
+
+            if (length > 0) {
+                bytesWritten = toIntExact((long) length * count);
+                ensureFreeSpace(bytesWritten);
+
+                // copy in the value
+                Slice rawSlice = variableWidthBlock.getRawSlice();
+                byte[] rawByteArray = rawSlice.byteArray();
+                int byteArrayOffset = rawSlice.byteArrayOffset();
+
+                int currentOffset = offsets[positionCount];
+                System.arraycopy(rawByteArray, byteArrayOffset + startValueOffset, bytes, currentOffset, length);
+
+                // repeatedly duplicate the written vales, doubling the number of values copied each time
+                int duplicatedBytes = length;
+                while (duplicatedBytes * 2 <= bytesWritten) {
+                    System.arraycopy(bytes, currentOffset, bytes, currentOffset + duplicatedBytes, duplicatedBytes);
+                    duplicatedBytes = duplicatedBytes * 2;
+                }
+                // copy the remaining values
+                System.arraycopy(bytes, currentOffset, bytes, currentOffset + duplicatedBytes, bytesWritten - duplicatedBytes);
+
+                // set the offsets
+                int previousOffset = currentOffset;
+                for (int i = 0; i < count; i++) {
+                    previousOffset += length;
+                    offsets[positionCount + i + 1] = previousOffset;
+                }
+            }
+            else {
+                // zero length array
+                Arrays.fill(offsets, positionCount + 1, positionCount + count + 1, offsets[positionCount]);
+            }
+
+            hasNonNullValue = true;
+        }
+        positionCount += count;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(count * SIZE_IN_BYTES_PER_POSITION + bytesWritten);
+        }
+    }
+
+    @Override
+    public void appendRange(ValueBlock block, int offset, int length)
+    {
+        if (length == 0) {
+            return;
+        }
+        if (length == 1) {
+            append(block, offset);
+            return;
+        }
+
+        ensureCapacity(positionCount + length);
+
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+        int rawArrayBase = variableWidthBlock.getRawArrayBase();
+        int[] rawOffsets = variableWidthBlock.getRawOffsets();
+        int startValueOffset = rawOffsets[rawArrayBase + offset];
+        int totalSize = rawOffsets[rawArrayBase + offset + length] - startValueOffset;
+        // grow the buffer for the new data
+        ensureFreeSpace(totalSize);
+
+        Slice sourceSlice = variableWidthBlock.getRawSlice();
+        System.arraycopy(sourceSlice.byteArray(), sourceSlice.byteArrayOffset() + startValueOffset, bytes, offsets[positionCount], totalSize);
+
+        // update offsets for copied data
+        int offsetDelta = offsets[positionCount] - rawOffsets[rawArrayBase + offset];
+        for (int i = 0; i < length; i++) {
+            offsets[positionCount + i + 1] = rawOffsets[rawArrayBase + offset + i + 1] + offsetDelta;
+        }
+
+        // update nulls
+        boolean[] rawValueIsNull = variableWidthBlock.getRawValueIsNull();
+        if (rawValueIsNull != null) {
+            for (int i = 0; i < length; i++) {
+                if (rawValueIsNull[rawArrayBase + offset + i]) {
+                    valueIsNull[positionCount + i] = true;
+                    hasNullValue = true;
+                }
+                else {
+                    hasNonNullValue = true;
+                }
+            }
+        }
+        else {
+            hasNonNullValue = true;
+        }
+        positionCount += length;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(length * SIZE_IN_BYTES_PER_POSITION);
+        }
+    }
+
+    @Override
+    public void appendPositions(ValueBlock block, int[] positions, int offset, int length)
+    {
+        if (length == 0) {
+            return;
+        }
+        if (length == 1) {
+            append(block, positions[offset]);
+            return;
+        }
+
+        ensureCapacity(positionCount + length);
+
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+        int rawArrayBase = variableWidthBlock.getRawArrayBase();
+        int[] rawOffsets = variableWidthBlock.getRawOffsets();
+
+        // update the offsets and compute the total size
+        int initialOffset = offsets[positionCount];
+        int totalSize = 0;
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
+            totalSize += rawOffsets[rawArrayBase + position + 1] - rawOffsets[rawArrayBase + position];
+            offsets[positionCount + i + 1] = initialOffset + totalSize;
+        }
+        // grow the buffer for the new data
+        ensureFreeSpace(totalSize);
+
+        // copy values to buffer
+        Slice rawSlice = variableWidthBlock.getRawSlice();
+        byte[] sourceBytes = rawSlice.byteArray();
+        int sourceBytesOffset = rawSlice.byteArrayOffset();
+        for (int i = 0; i < length; i++) {
+            int position = positions[offset + i];
+            int sourceStart = rawOffsets[rawArrayBase + position];
+            int sourceLength = rawOffsets[rawArrayBase + position + 1] - sourceStart;
+            System.arraycopy(sourceBytes, sourceBytesOffset + sourceStart, bytes, offsets[positionCount + i], sourceLength);
+            totalSize += sourceLength;
+        }
+
+        // update nulls
+        boolean[] rawValueIsNull = variableWidthBlock.getRawValueIsNull();
+        if (rawValueIsNull != null) {
+            for (int i = 0; i < length; i++) {
+                int rawPosition = positions[offset + i] + rawArrayBase;
+                if (rawValueIsNull[rawPosition]) {
+                    valueIsNull[positionCount + i] = true;
+                    hasNullValue = true;
+                }
+                else {
+                    hasNonNullValue = true;
+                }
+            }
+        }
+        else {
+            hasNonNullValue = true;
+        }
+        positionCount += length;
+
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(length * SIZE_IN_BYTES_PER_POSITION + totalSize);
+        }
+    }
+
+    @Override
     public BlockBuilder appendNull()
     {
         hasNullValue = true;
@@ -117,44 +336,17 @@ public class VariableWidthBlockBuilder
 
     private void entryAdded(int bytesWritten, boolean isNull)
     {
-        if (valueIsNull.length <= positionCount) {
-            growCapacity();
-        }
+        ensureCapacity(positionCount + 1);
 
         valueIsNull[positionCount] = isNull;
         offsets[positionCount + 1] = offsets[positionCount] + bytesWritten;
 
         positionCount++;
         hasNonNullValue |= !isNull;
+
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(SIZE_OF_BYTE + SIZE_OF_INT + bytesWritten);
+            blockBuilderStatus.addBytes(SIZE_IN_BYTES_PER_POSITION + bytesWritten);
         }
-    }
-
-    private void growCapacity()
-    {
-        int newSize = calculateNewArraySize(valueIsNull.length, initialEntryCount);
-        valueIsNull = Arrays.copyOf(valueIsNull, newSize);
-        offsets = Arrays.copyOf(offsets, newSize + 1);
-        updateRetainedSize();
-    }
-
-    private void ensureFreeSpace(int extraBytesCapacity)
-    {
-        int requiredSize = offsets[positionCount] + extraBytesCapacity;
-        if (bytes.length < requiredSize) {
-            int newBytesLength = max(bytes.length, initialSliceOutputSize);
-            if (requiredSize > newBytesLength) {
-                newBytesLength = max(requiredSize, calculateNewArraySize(newBytesLength));
-            }
-            bytes = Arrays.copyOf(bytes, newBytesLength);
-            updateRetainedSize();
-        }
-    }
-
-    private void updateRetainedSize()
-    {
-        arraysRetainedSizeInBytes = sizeOf(valueIsNull) + sizeOf(offsets);
     }
 
     @Override
@@ -182,6 +374,35 @@ public class VariableWidthBlockBuilder
     private int getOffset(int position)
     {
         return offsets[position];
+    }
+
+    private void ensureCapacity(int capacity)
+    {
+        if (valueIsNull.length >= capacity) {
+            return;
+        }
+
+        int newSize = calculateNewArraySize(capacity, initialEntryCount);
+        valueIsNull = Arrays.copyOf(valueIsNull, newSize);
+        offsets = Arrays.copyOf(offsets, newSize + 1);
+        updateRetainedSize();
+    }
+
+    private void ensureFreeSpace(int extraBytesCapacity)
+    {
+        int requiredSize = offsets[positionCount] + extraBytesCapacity;
+        if (bytes.length >= requiredSize) {
+            return;
+        }
+
+        int newSize = calculateNewArraySize(requiredSize, initialSliceOutputSize);
+        bytes = Arrays.copyOf(bytes, newSize);
+        updateRetainedSize();
+    }
+
+    private void updateRetainedSize()
+    {
+        arraysRetainedSizeInBytes = sizeOf(valueIsNull) + sizeOf(offsets) + sizeOf(bytes);
     }
 
     @Override

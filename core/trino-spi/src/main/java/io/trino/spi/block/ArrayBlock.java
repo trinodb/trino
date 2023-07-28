@@ -177,6 +177,11 @@ public final class ArrayBlock
         return offsets;
     }
 
+    boolean[] getRawValueIsNull()
+    {
+        return valueIsNull;
+    }
+
     int getOffsetBase()
     {
         return arrayOffset;

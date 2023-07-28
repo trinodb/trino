@@ -283,13 +283,18 @@ public final class LongArrayBlock
         return sb.toString();
     }
 
+    int getRawValuesOffset()
+    {
+        return arrayOffset;
+    }
+
     long[] getRawValues()
     {
         return values;
     }
 
-    int getRawValuesOffset()
+    boolean[] getRawValueIsNull()
     {
-        return arrayOffset;
+        return valueIsNull;
     }
 }

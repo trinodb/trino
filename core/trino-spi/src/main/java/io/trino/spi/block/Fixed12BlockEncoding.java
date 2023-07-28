@@ -40,7 +40,7 @@ public class Fixed12BlockEncoding
         encodeNullsAsBits(sliceOutput, fixed12Block);
 
         if (!fixed12Block.mayHaveNull()) {
-            sliceOutput.writeInts(fixed12Block.getRawValues(), fixed12Block.getPositionOffset() * 3, fixed12Block.getPositionCount() * 3);
+            sliceOutput.writeInts(fixed12Block.getRawValues(), fixed12Block.getRawOffset() * 3, fixed12Block.getPositionCount() * 3);
         }
         else {
             int[] valuesWithoutNull = new int[positionCount * 3];
