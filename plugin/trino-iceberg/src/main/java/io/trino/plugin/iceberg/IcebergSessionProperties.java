@@ -90,6 +90,7 @@ public final class IcebergSessionProperties
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "remove_orphan_files_min_retention";
     private static final String MERGE_MANIFESTS_ON_WRITE = "merge_manifests_on_write";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
+    private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -307,6 +308,11 @@ public final class IcebergSessionProperties
                         "Enable sorted writing to tables with a specified sort order",
                         icebergConfig.isSortedWritingEnabled(),
                         false))
+                .add(booleanProperty(
+                        QUERY_PARTITION_FILTER_REQUIRED,
+                        "Require filter on partition column",
+                        icebergConfig.isQueryPartitionFilterRequired(),
+                        false))
                 .build();
     }
 
@@ -501,5 +507,10 @@ public final class IcebergSessionProperties
     public static boolean isSortedWritingEnabled(ConnectorSession session)
     {
         return session.getProperty(SORTED_WRITING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
+    {
+        return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
     }
 }
