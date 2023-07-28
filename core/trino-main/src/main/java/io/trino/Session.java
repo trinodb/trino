@@ -90,6 +90,7 @@ public final class Session
     private final Map<String, String> preparedStatements;
     private final ProtocolHeaders protocolHeaders;
     private final Optional<Slice> exchangeEncryptionKey;
+    private final Optional<String> queryDataEncoding;
 
     public Session(
             QueryId queryId,
@@ -117,7 +118,8 @@ public final class Session
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
             ProtocolHeaders protocolHeaders,
-            Optional<Slice> exchangeEncryptionKey)
+            Optional<Slice> exchangeEncryptionKey,
+            Optional<String> queryDataEncoding)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.querySpan = requireNonNull(querySpan, "querySpan is null");
@@ -144,6 +146,7 @@ public final class Session
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
         this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
         this.exchangeEncryptionKey = requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
+        this.queryDataEncoding = requireNonNull(queryDataEncoding, "queryDataEncoding is null");
 
         requireNonNull(catalogProperties, "catalogProperties is null");
         ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
@@ -383,7 +386,8 @@ public final class Session
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders,
-                exchangeEncryptionKey);
+                exchangeEncryptionKey,
+                queryDataEncoding);
     }
 
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
@@ -432,7 +436,8 @@ public final class Session
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders,
-                exchangeEncryptionKey);
+                exchangeEncryptionKey,
+                queryDataEncoding);
     }
 
     public Session withExchangeEncryption(Slice encryptionKey)
@@ -464,7 +469,8 @@ public final class Session
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders,
-                Optional.of(encryptionKey));
+                Optional.of(encryptionKey),
+                queryDataEncoding);
     }
 
     public ConnectorSession toConnectorSession()
@@ -517,7 +523,8 @@ public final class Session
                 catalogProperties,
                 identity.getCatalogRoles(),
                 preparedStatements,
-                protocolHeaders.getProtocolName());
+                protocolHeaders.getProtocolName(),
+                queryDataEncoding);
     }
 
     @Override
@@ -627,6 +634,11 @@ public final class Session
         return new SecurityContext(getRequiredTransactionId(), getIdentity(), queryId, start);
     }
 
+    public Optional<String> getQueryDataEncoding()
+    {
+        return queryDataEncoding;
+    }
+
     public static class SessionBuilder
     {
         private QueryId queryId;
@@ -647,6 +659,7 @@ public final class Session
         private String clientInfo;
         private Set<String> clientTags = ImmutableSet.of();
         private Set<String> clientCapabilities = ImmutableSet.of();
+        private Optional<String> queryDataEncoding = Optional.empty();
         private ResourceEstimates resourceEstimates;
         private Instant start = Instant.now();
         private final Map<String, String> systemProperties = new HashMap<>();
@@ -929,6 +942,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setQueryDataEncoding(Optional<String> value)
+        {
+            this.queryDataEncoding = value;
+            return this;
+        }
+
         public Session build()
         {
             return new Session(
@@ -957,7 +976,8 @@ public final class Session
                     sessionPropertyManager,
                     preparedStatements,
                     protocolHeaders,
-                    Optional.empty());
+                    Optional.empty(),
+                    queryDataEncoding);
         }
     }
 

@@ -17,8 +17,13 @@ import jakarta.annotation.Nullable;
 
 import java.util.List;
 
-public interface QueryData
+@FunctionalInterface
+public interface QueryDataDecoder
 {
-    @Nullable
-    Iterable<List<Object>> getData();
+    @Nullable Iterable<List<Object>> decode(@Nullable QueryData data, List<Column> columns);
+
+    default QueryDataEncodings consumes()
+    {
+        return null;
+    }
 }

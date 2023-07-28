@@ -122,6 +122,7 @@ public class HttpRequestSessionContextFactory
         Optional<String> timeZoneId = Optional.ofNullable(headers.getFirst(protocolHeaders.requestTimeZone()));
         Optional<String> language = Optional.ofNullable(headers.getFirst(protocolHeaders.requestLanguage()));
         Optional<String> clientInfo = Optional.ofNullable(headers.getFirst(protocolHeaders.requestClientInfo()));
+        Optional<String> queryDataEncoding = Optional.ofNullable(headers.getFirst(protocolHeaders.requestQueryDataEncoding()));
         Set<String> clientTags = parseClientTags(protocolHeaders, headers);
         Set<String> clientCapabilities = parseClientCapabilities(protocolHeaders, headers);
         ResourceEstimates resourceEstimates = parseResourceEstimate(protocolHeaders, headers);
@@ -187,7 +188,8 @@ public class HttpRequestSessionContextFactory
                 preparedStatements,
                 transactionId,
                 clientTransactionSupport,
-                clientInfo);
+                clientInfo,
+                queryDataEncoding);
     }
 
     public Identity extractAuthorizedIdentity(HttpServletRequest servletRequest, HttpHeaders httpHeaders)

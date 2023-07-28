@@ -66,6 +66,7 @@ public final class TestingSessionContext
                 session.getPreparedStatements(),
                 session.getTransactionId(),
                 session.isClientTransactionSupport(),
-                session.getClientInfo());
+                session.getClientInfo(),
+                session.getQueryDataEncoding());
     }
 }

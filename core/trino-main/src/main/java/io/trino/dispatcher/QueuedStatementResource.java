@@ -25,6 +25,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.client.LegacyQueryData;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
@@ -282,7 +283,7 @@ public class QueuedStatementResource
                 null,
                 nextUri,
                 null,
-                null,
+                LegacyQueryData.create(null),
                 StatementStats.builder()
                         .setState(state.toString())
                         .setQueued(state == QUEUED)

@@ -13,12 +13,9 @@
  */
 package io.trino.client;
 
-import jakarta.annotation.Nullable;
-
-import java.util.List;
-
-public interface QueryData
+public enum QueryDataReference
 {
-    @Nullable
-    Iterable<List<Object>> getData();
+    INLINE,
+    EXTERNAL,
+    /**/;
 }

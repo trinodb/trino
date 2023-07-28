@@ -11,14 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.client;
+package io.trino.server.protocol;
 
-import jakarta.annotation.Nullable;
+import io.trino.Session;
+import io.trino.spi.QueryId;
 
-import java.util.List;
-
-public interface QueryData
+/**
+ * QueryDataProducerFactory is used to negotiate the {@link QueryDataProducer} between the server implementation and the client
+ */
+public interface QueryDataProducerFactory
 {
-    @Nullable
-    Iterable<List<Object>> getData();
+    QueryDataProducer create(Session session, QueryId queryId);
 }

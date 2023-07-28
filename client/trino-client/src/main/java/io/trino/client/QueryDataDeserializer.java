@@ -15,10 +15,13 @@ package io.trino.client;
 
 import jakarta.annotation.Nullable;
 
+import java.io.InputStream;
 import java.util.List;
 
-public interface QueryData
+public interface QueryDataDeserializer
 {
     @Nullable
-    Iterable<List<Object>> getData();
+    Iterable<List<Object>> deserialize(InputStream inputStream, List<Column> columns);
+
+    QueryDataSerialization getSerialization();
 }

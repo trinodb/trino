@@ -11,14 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.client;
+package io.trino.server.protocol;
 
+import io.trino.Session;
+import io.trino.client.EncodedQueryData;
+import io.trino.client.QueryDataEncodings;
 import jakarta.annotation.Nullable;
 
-import java.util.List;
+import java.util.function.Consumer;
 
-public interface QueryData
+public interface QueryDataEncoder
 {
     @Nullable
-    Iterable<List<Object>> getData();
+    EncodedQueryData encode(Session session, QueryResultRows resultRows, boolean endOfData, Consumer<Throwable> throwableConsumer);
+
+    QueryDataEncodings produces();
 }

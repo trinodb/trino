@@ -16,10 +16,11 @@ package io.trino.server.protocol;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
+import io.trino.Session;
+import io.trino.client.ClientCapabilities;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -38,6 +39,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -50,9 +52,10 @@ import static java.util.Objects.requireNonNull;
 
 public class JsonArrayResultsIterator
         extends AbstractIterator<List<Object>>
+        implements Iterable<List<Object>>
 {
     private final Deque<Page> queue;
-    private final ConnectorSession session;
+    private final Session session;
     private final ImmutableList<Page> pages;
     private final List<ColumnAndType> columns;
     private final boolean supportsParametricDateTime;
@@ -62,13 +65,13 @@ public class JsonArrayResultsIterator
     private int rowPosition = -1;
     private int inPageIndex = -1;
 
-    public JsonArrayResultsIterator(ConnectorSession session, List<Page> pages, List<ColumnAndType> columns, boolean supportsParametricDateTime, Consumer<Throwable> exceptionConsumer)
+    private JsonArrayResultsIterator(Session session, List<Page> pages, List<ColumnAndType> columns, Consumer<Throwable> exceptionConsumer)
     {
         this.pages = ImmutableList.copyOf(pages);
         this.queue = new ArrayDeque<>(pages);
         this.session = requireNonNull(session, "session is null");
         this.columns = requireNonNull(columns, "columns is null");
-        this.supportsParametricDateTime = supportsParametricDateTime;
+        this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
         this.exceptionConsumer = requireNonNull(exceptionConsumer, "exceptionConsumer is null");
         this.currentPage = queue.pollFirst();
     }
@@ -115,7 +118,7 @@ public class JsonArrayResultsIterator
             Block block = currentPage.getBlock(channel);
 
             try {
-                Object value = type.getObjectValue(session, block, inPageIndex);
+                Object value = type.getObjectValue(session.toConnectorSession(), block, inPageIndex);
                 if (!supportsParametricDateTime) {
                     value = getLegacyValue(value, type);
                 }
@@ -207,5 +210,20 @@ public class JsonArrayResultsIterator
                 column.getPosition() + 1);
 
         exceptionConsumer.accept(new TrinoException(SERIALIZATION_ERROR, message, cause));
+    }
+
+    @Override
+    public Iterator<List<Object>> iterator()
+    {
+        return new JsonArrayResultsIterator(session, pages, columns, exceptionConsumer);
+    }
+
+    public static Iterable<List<Object>> toIterableList(Session session, QueryResultRows rows, Consumer<Throwable> serializationExceptionHandler)
+    {
+        return new JsonArrayResultsIterator(
+                session,
+                rows.getPages(),
+                rows.getColumnsAndTypes().orElseThrow(),
+                serializationExceptionHandler);
     }
 }

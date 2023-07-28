@@ -11,14 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.client;
+package io.trino.server.protocol;
 
+import io.trino.Session;
+import io.trino.client.QueryData;
 import jakarta.annotation.Nullable;
 
-import java.util.List;
+import java.util.function.Consumer;
 
-public interface QueryData
+/**
+ * QueryDataProducer is responsible for serializing result data according to a given format and returning it as {@link io.trino.client.QueryResults#data data field}.
+ */
+public sealed interface QueryDataProducer
+        permits LegacyQueryDataProducer, EncodedQueryDataProducer
 {
-    @Nullable
-    Iterable<List<Object>> getData();
+    @Nullable QueryData produce(Session session, QueryResultRows rows, boolean completed, Consumer<Throwable> serializationExceptionHandler);
 }

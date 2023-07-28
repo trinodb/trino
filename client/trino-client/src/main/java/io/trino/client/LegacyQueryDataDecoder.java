@@ -17,8 +17,20 @@ import jakarta.annotation.Nullable;
 
 import java.util.List;
 
-public interface QueryData
+import static com.google.common.base.Verify.verify;
+import static io.trino.client.FixJsonDataUtils.fixData;
+
+public class LegacyQueryDataDecoder
+        implements QueryDataDecoder
 {
-    @Nullable
-    Iterable<List<Object>> getData();
+    @Override
+    public Iterable<List<Object>> decode(@Nullable QueryData queryData, List<Column> columns)
+    {
+        if (queryData == null) {
+            return null;
+        }
+
+        verify(queryData instanceof LegacyQueryData, "LegacyQueryData was expected but got %s", queryData.getClass());
+        return fixData(columns, queryData.getData());
+    }
 }
