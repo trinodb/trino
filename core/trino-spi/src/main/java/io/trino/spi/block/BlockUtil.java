@@ -357,4 +357,21 @@ final class BlockUtil
 
         return buffer;
     }
+
+    static void appendRawBlockRange(Block rawBlock, int offset, int length, BlockBuilder blockBuilder)
+    {
+        rawBlock = rawBlock.getLoadedBlock();
+        if (rawBlock instanceof RunLengthEncodedBlock rleBlock) {
+            blockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
+        }
+        else if (rawBlock instanceof DictionaryBlock dictionaryBlock) {
+            blockBuilder.appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), offset, length);
+        }
+        else if (rawBlock instanceof ValueBlock valueBlock) {
+            blockBuilder.appendRange(valueBlock, offset, length);
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported block type " + rawBlock.getClass().getSimpleName());
+        }
+    }
 }
