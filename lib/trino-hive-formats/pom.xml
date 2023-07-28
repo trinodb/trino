@@ -112,9 +112,23 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- TODO: remove after making Avro use Aircompressor -->
+        <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hadoop-toolkit</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- TODO: remove after making Avro use Aircompressor -->
+        <dependency>
+            <groupId>org.xerial.snappy</groupId>
+            <artifactId>snappy-java</artifactId>
             <scope>runtime</scope>
         </dependency>
 
