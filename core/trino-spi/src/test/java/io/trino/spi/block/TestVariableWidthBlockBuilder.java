@@ -13,8 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.junit.jupiter.api.Test;
 
@@ -28,7 +26,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestVariableWidthBlockBuilder
 {
     private static final int BLOCK_BUILDER_INSTANCE_SIZE = instanceSize(VariableWidthBlockBuilder.class);
-    private static final int SLICE_INSTANCE_SIZE = instanceSize(DynamicSliceOutput.class) + instanceSize(Slice.class);
     private static final int VARCHAR_VALUE_SIZE = 7;
     private static final int VARCHAR_ENTRY_SIZE = SIZE_OF_INT + VARCHAR_VALUE_SIZE;
     private static final int EXPECTED_ENTRY_COUNT = 3;
@@ -52,9 +49,9 @@ public class TestVariableWidthBlockBuilder
         // force to initialize capacity
         blockBuilder.writeEntry(Slices.wrappedBuffer((byte) 1));
 
-        long actualArrayBytes = sizeOf(new int[(int) ceil(resetSkew * (entries + 1))]) + sizeOf(new boolean[(int) ceil(resetSkew * entries)]);
-        long actualSliceBytes = SLICE_INSTANCE_SIZE + sizeOf(new byte[(int) ceil(resetSkew * entries)]);
-        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(BLOCK_BUILDER_INSTANCE_SIZE + actualSliceBytes + actualArrayBytes);
+        long actualArraySize = sizeOf(new int[(int) ceil(resetSkew * (entries + 1))]) + sizeOf(new boolean[(int) ceil(resetSkew * entries)]);
+        long actualBytesSize = sizeOf(new byte[(int) ceil(resetSkew * entries)]);
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(BLOCK_BUILDER_INSTANCE_SIZE + actualBytesSize + actualArraySize);
     }
 
     private void testIsFull(PageBuilderStatus pageBuilderStatus)
