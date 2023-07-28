@@ -648,16 +648,16 @@ Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE',
 ```
 
 Similarly if semantic issues are detected, such as an invalid object name
-`nations` instead of `nation`, the error message returns useful
+`invaildtable` instead of `nation`, the error message returns useful
 information:
 
 ```
-EXPLAIN(TYPE VALIDATE) SELECT * FROM tpch.tiny.nations;
+EXPLAIN(TYPE VALIDATE) SELECT * FROM tpch.tiny.invalidtable;
 ```
 
 ```text
-Query 20220929_235059_00003_vjwxj failed: line 1:15: Table 'tpch.tiny.nations' does not exist
-SELECT * FROM tpch.tiny.nations
+Query 20220929_235059_00003_vjwxj failed: line 1:15: Table 'tpch.tiny.invalidtable' does not exist
+SELECT * FROM tpch.tiny.invalidtable
 ```
 
 ### EXPLAIN (TYPE IO)
