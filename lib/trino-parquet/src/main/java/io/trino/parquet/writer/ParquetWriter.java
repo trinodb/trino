@@ -69,7 +69,6 @@ import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport.WRITER_TIMEZONE;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 
 public class ParquetWriter
@@ -349,7 +348,7 @@ public class ParquetWriter
         fileMetaData.setSchema(MessageTypeConverter.toParquetSchema(messageType));
         // Added based on org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport
         parquetTimeZone.ifPresent(dateTimeZone -> fileMetaData.setKey_value_metadata(
-                ImmutableList.of(new KeyValue(WRITER_TIMEZONE).setValue(dateTimeZone.getID()))));
+                ImmutableList.of(new KeyValue("writer.time.zone").setValue(dateTimeZone.getID()))));
         long totalRows = rowGroups.stream().mapToLong(RowGroup::getNum_rows).sum();
         fileMetaData.setNum_rows(totalRows);
         fileMetaData.setRow_groups(ImmutableList.copyOf(rowGroups));
