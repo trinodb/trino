@@ -13,9 +13,8 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
@@ -27,21 +26,23 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static io.trino.spi.block.BlockUtil.calculateBlockResetBytes;
+import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 public class VariableWidthBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(VariableWidthBlockBuilder.class);
-    private static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
+    private static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[]{0, 0}, new boolean[]{true});
+    private static final int SIZE_IN_BYTES_PER_POSITION = Integer.BYTES + Byte.BYTES;
 
     private final BlockBuilderStatus blockBuilderStatus;
 
-    private boolean initialized;
     private final int initialEntryCount;
     private final int initialSliceOutputSize;
 
-    private SliceOutput sliceOutput = new DynamicSliceOutput(0);
+    private byte[] bytes = new byte[0];
 
     private boolean hasNullValue;
     private boolean hasNonNullValue;
@@ -49,7 +50,7 @@ public class VariableWidthBlockBuilder
     private boolean[] valueIsNull = new boolean[0];
     private int[] offsets = new int[1];
 
-    private int positions;
+    private int positionCount;
 
     private long arraysRetainedSizeInBytes;
 
@@ -60,26 +61,25 @@ public class VariableWidthBlockBuilder
         initialEntryCount = expectedEntries;
         initialSliceOutputSize = min(expectedBytes, MAX_ARRAY_SIZE);
 
-        updateArraysDataSize();
+        updateRetainedSize();
     }
 
     @Override
     public int getPositionCount()
     {
-        return positions;
+        return positionCount;
     }
 
     @Override
     public long getSizeInBytes()
     {
-        long arraysSizeInBytes = (Integer.BYTES + Byte.BYTES) * (long) positions;
-        return sliceOutput.size() + arraysSizeInBytes;
+        return offsets[positionCount] + SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        long size = INSTANCE_SIZE + sliceOutput.getRetainedSize() + arraysRetainedSizeInBytes;
+        long size = INSTANCE_SIZE + sizeOf(bytes) + arraysRetainedSizeInBytes;
         if (blockBuilderStatus != null) {
             size += BlockBuilderStatus.INSTANCE_SIZE;
         }
@@ -93,22 +93,16 @@ public class VariableWidthBlockBuilder
 
     public VariableWidthBlockBuilder writeEntry(Slice source, int sourceIndex, int length)
     {
-        if (!initialized) {
-            initializeCapacity();
-        }
-
-        sliceOutput.writeBytes(source, sourceIndex, length);
+        ensureFreeSpace(length);
+        source.getBytes(sourceIndex, bytes, offsets[positionCount], length);
         entryAdded(length, false);
         return this;
     }
 
     public VariableWidthBlockBuilder writeEntry(byte[] source, int sourceIndex, int length)
     {
-        if (!initialized) {
-            initializeCapacity();
-        }
-
-        sliceOutput.writeBytes(source, sourceIndex, length);
+        ensureFreeSpace(length);
+        System.arraycopy(source, sourceIndex, bytes, offsets[positionCount], length);
         entryAdded(length, false);
         return this;
     }
@@ -123,17 +117,14 @@ public class VariableWidthBlockBuilder
 
     private void entryAdded(int bytesWritten, boolean isNull)
     {
-        if (!initialized) {
-            initializeCapacity();
-        }
-        if (valueIsNull.length <= positions) {
+        if (valueIsNull.length <= positionCount) {
             growCapacity();
         }
 
-        valueIsNull[positions] = isNull;
-        offsets[positions + 1] = sliceOutput.size();
+        valueIsNull[positionCount] = isNull;
+        offsets[positionCount + 1] = offsets[positionCount] + bytesWritten;
 
-        positions++;
+        positionCount++;
         hasNonNullValue |= !isNull;
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(SIZE_OF_BYTE + SIZE_OF_INT + bytesWritten);
@@ -142,25 +133,26 @@ public class VariableWidthBlockBuilder
 
     private void growCapacity()
     {
-        int newSize = BlockUtil.calculateNewArraySize(valueIsNull.length);
+        int newSize = calculateNewArraySize(valueIsNull.length, initialEntryCount);
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
         offsets = Arrays.copyOf(offsets, newSize + 1);
-        updateArraysDataSize();
+        updateRetainedSize();
     }
 
-    private void initializeCapacity()
+    private void ensureFreeSpace(int extraBytesCapacity)
     {
-        if (positions != 0) {
-            throw new IllegalStateException(getClass().getSimpleName() + " was used before initialization");
+        int requiredSize = offsets[positionCount] + extraBytesCapacity;
+        if (bytes.length < requiredSize) {
+            int newBytesLength = max(bytes.length, initialSliceOutputSize);
+            if (requiredSize > newBytesLength) {
+                newBytesLength = max(requiredSize, calculateNewArraySize(newBytesLength));
+            }
+            bytes = Arrays.copyOf(bytes, newBytesLength);
+            updateRetainedSize();
         }
-        initialized = true;
-        valueIsNull = new boolean[initialEntryCount];
-        offsets = new int[initialEntryCount + 1];
-        sliceOutput = new DynamicSliceOutput(initialSliceOutputSize);
-        updateArraysDataSize();
     }
 
-    private void updateArraysDataSize()
+    private void updateRetainedSize()
     {
         arraysRetainedSizeInBytes = sizeOf(valueIsNull) + sizeOf(offsets);
     }
@@ -169,7 +161,7 @@ public class VariableWidthBlockBuilder
     public Block build()
     {
         if (!hasNonNullValue) {
-            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positions);
+            return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
         return buildValueBlock();
     }
@@ -177,13 +169,13 @@ public class VariableWidthBlockBuilder
     @Override
     public VariableWidthBlock buildValueBlock()
     {
-        return new VariableWidthBlock(0, positions, sliceOutput.slice(), offsets, hasNullValue ? valueIsNull : null);
+        return new VariableWidthBlock(0, positionCount, Slices.wrappedBuffer(bytes, 0, offsets[positionCount]), offsets, hasNullValue ? valueIsNull : null);
     }
 
     @Override
     public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
-        int currentSizeInBytes = positions == 0 ? positions : (getOffset(positions) - getOffset(0));
+        int currentSizeInBytes = positionCount == 0 ? positionCount : (getOffset(positionCount) - getOffset(0));
         return new VariableWidthBlockBuilder(blockBuilderStatus, expectedEntries, calculateBlockResetBytes(currentSizeInBytes));
     }
 
@@ -196,8 +188,8 @@ public class VariableWidthBlockBuilder
     public String toString()
     {
         StringBuilder sb = new StringBuilder("VariableWidthBlockBuilder{");
-        sb.append("positionCount=").append(positions);
-        sb.append(", size=").append(sliceOutput.size());
+        sb.append("positionCount=").append(positionCount);
+        sb.append(", size=").append(offsets[positionCount]);
         sb.append('}');
         return sb.toString();
     }
