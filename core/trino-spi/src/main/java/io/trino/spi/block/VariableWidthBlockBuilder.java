@@ -113,25 +113,6 @@ public class VariableWidthBlockBuilder
         return this;
     }
 
-    public <E extends Throwable> void buildEntry(VariableWidthEntryBuilder<E> builder)
-            throws E
-    {
-        if (!initialized) {
-            initializeCapacity();
-        }
-
-        int start = sliceOutput.size();
-        builder.build(sliceOutput);
-        int length = sliceOutput.size() - start;
-        entryAdded(length, false);
-    }
-
-    public interface VariableWidthEntryBuilder<E extends Throwable>
-    {
-        void build(SliceOutput output)
-                throws E;
-    }
-
     @Override
     public BlockBuilder appendNull()
     {

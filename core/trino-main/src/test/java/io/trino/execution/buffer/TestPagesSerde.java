@@ -18,6 +18,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.spi.Page;
@@ -26,7 +27,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.VariableWidthBlock;
-import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemGenerator;
@@ -288,14 +288,13 @@ public class TestPagesSerde
 
     private static Page createTestPage(int numberOfEntries)
     {
-        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 1000);
-        blockBuilder.buildEntry(value -> {
-            value.writeInt(numberOfEntries);
-            for (int i = 0; i < numberOfEntries; i++) {
-                value.writeLong(i);
-            }
-        });
-        return new Page(blockBuilder.build());
+        Slice slice = Slices.allocate(Integer.BYTES + numberOfEntries * Long.BYTES);
+        SliceOutput out = slice.getOutput();
+        out.writeInt(numberOfEntries);
+        for (int i = 0; i < numberOfEntries; i++) {
+            out.writeLong(i);
+        }
+        return new Page(new VariableWidthBlock(1, slice, new int[] {0, slice.length()}, Optional.empty()));
     }
 
     private static class RolloverBlockSerde
@@ -305,15 +304,15 @@ public class TestPagesSerde
         public Block readBlock(SliceInput input)
         {
             int numberOfEntries = input.readInt();
-            VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 1000);
-            blockBuilder.buildEntry(value -> {
-                value.writeInt(numberOfEntries);
-                for (int i = 0; i < numberOfEntries; ++i) {
-                    // read 8 bytes at a time
-                    value.writeLong(input.readLong());
-                }
-            });
-            return blockBuilder.build();
+
+            Slice slice = Slices.allocate(Integer.BYTES + numberOfEntries * Long.BYTES);
+            SliceOutput out = slice.getOutput();
+            out.writeInt(numberOfEntries);
+            for (int i = 0; i < numberOfEntries; ++i) {
+                // read 8 bytes at a time
+                out.writeLong(input.readLong());
+            }
+            return new VariableWidthBlock(1, slice, new int[] {0, slice.length()}, Optional.empty());
         }
 
         @Override
