@@ -144,6 +144,8 @@ public class TestIcebergSplitSource
                 nationTable.location(),
                 nationTable.properties(),
                 false,
+                Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty());
 
         try (IcebergSplitSource splitSource = new IcebergSplitSource(
