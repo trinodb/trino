@@ -83,7 +83,7 @@ public class ElasticsearchLoader
                 types.set(getTypes(statusInfo.getColumns()));
             }
 
-            if (data.getData() == null) {
+            if (data.isEmpty()) {
                 return;
             }
             checkState(types.get() != null, "Type information is missing");

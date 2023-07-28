@@ -102,7 +102,7 @@ public class RedisLoader
                 types.set(getTypes(statusInfo.getColumns()));
             }
 
-            if (data.getData() != null) {
+            if (data.isPresent()) {
                 checkState(types.get() != null, "Data without types received!");
                 List<Column> columns = statusInfo.getColumns();
                 for (List<Object> fields : data.getData()) {

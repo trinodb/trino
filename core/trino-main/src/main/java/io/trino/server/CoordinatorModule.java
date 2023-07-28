@@ -91,6 +91,7 @@ import io.trino.operator.ForScheduler;
 import io.trino.operator.OperatorStats;
 import io.trino.server.protocol.ExecutingStatementResource;
 import io.trino.server.protocol.QueryInfoUrlFactory;
+import io.trino.server.protocol.data.QueryDataFormatsModule;
 import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
@@ -142,6 +143,7 @@ public class CoordinatorModule
     protected void setup(Binder binder)
     {
         install(new WebUiModule());
+        install(new QueryDataFormatsModule());
 
         // coordinator announcement
         discoveryBinder(binder).bindHttpAnnouncement("trino-coordinator");

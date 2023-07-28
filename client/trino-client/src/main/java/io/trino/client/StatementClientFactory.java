@@ -32,4 +32,9 @@ public final class StatementClientFactory
     {
         return new StatementClientV1((Call.Factory) httpClient, session, query, clientCapabilities);
     }
+
+    public static StatementClient newStatementClient(Call.Factory httpCallFactory, QueryDataFormatResolver handlerResolver, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
+    {
+        return new StatementClientV1(httpCallFactory, handlerResolver, session, query, clientCapabilities);
+    }
 }

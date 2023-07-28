@@ -52,6 +52,7 @@ public final class ProtocolHeaders
     private final String responseDeallocatedPrepare;
     private final String responseStartedTransactionId;
     private final String responseClearTransactionId;
+    private final String supportedQueryDataFormats;
 
     public static ProtocolHeaders createProtocolHeaders(String name)
     {
@@ -95,6 +96,7 @@ public final class ProtocolHeaders
         responseDeallocatedPrepare = prefix + "Deallocated-Prepare";
         responseStartedTransactionId = prefix + "Started-Transaction-Id";
         responseClearTransactionId = prefix + "Clear-Transaction-Id";
+        supportedQueryDataFormats = prefix + "Query-Data-Formats";
     }
 
     public String getProtocolName()
@@ -235,6 +237,11 @@ public final class ProtocolHeaders
     public String responseClearTransactionId()
     {
         return responseClearTransactionId;
+    }
+
+    public String supportedQueryDataFormats()
+    {
+        return supportedQueryDataFormats;
     }
 
     public static ProtocolHeaders detectProtocol(Optional<String> alternateHeaderName, Set<String> headerNames)

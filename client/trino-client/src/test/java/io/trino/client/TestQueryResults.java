@@ -13,18 +13,19 @@
  */
 package io.trino.client;
 
-import io.airlift.json.JsonCodec;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.testng.annotations.Test;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.client.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryResults
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class, new QueryDataJsonSerializationModule(QueryDataFormatResolver.defaultResolver()));
 
     @Test
     public void testCompatibility()
+            throws JsonProcessingException
     {
         String goldenValue = "{\n" +
                 "  \"id\" : \"20160128_214710_00012_rk68b\",\n" +

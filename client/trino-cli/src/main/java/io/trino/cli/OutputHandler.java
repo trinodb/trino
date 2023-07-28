@@ -14,6 +14,7 @@
 package io.trino.cli;
 
 import io.airlift.units.Duration;
+import io.trino.client.QueryData;
 import io.trino.client.StatementClient;
 
 import java.io.Closeable;
@@ -64,9 +65,9 @@ public final class OutputHandler
         BlockingQueue<List<?>> rowQueue = new ArrayBlockingQueue<>(MAX_QUEUED_ROWS);
         CompletableFuture<Void> readerFuture = CompletableFuture.runAsync(() -> {
             while (client.isRunning()) {
-                Iterable<List<Object>> data = client.currentData().getData();
-                if (data != null) {
-                    for (List<Object> row : data) {
+                QueryData data = client.currentData();
+                if (data.isPresent()) {
+                    for (List<Object> row : data.getData()) {
                         putOrThrow(rowQueue, row);
                     }
                 }

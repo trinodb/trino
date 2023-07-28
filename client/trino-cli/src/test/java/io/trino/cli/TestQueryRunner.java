@@ -13,12 +13,19 @@
  */
 package io.trino.cli;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
+import io.trino.client.JsonInlineQueryData;
+import io.trino.client.QueryDataFormatResolver;
+import io.trino.client.QueryDataJsonSerializationModule;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
 import io.trino.client.uri.PropertyName;
@@ -43,7 +50,6 @@ import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.HttpHeaders.LOCATION;
 import static com.google.common.net.HttpHeaders.SET_COOKIE;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.cli.ClientOptions.OutputFormat.CSV;
 import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.ClientStandardTypes.BIGINT;
@@ -55,7 +61,19 @@ import static org.testng.Assert.assertNull;
 @Test(singleThreaded = true)
 public class TestQueryRunner
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .disable(MapperFeature.AUTO_DETECT_CREATORS)
+            .disable(MapperFeature.AUTO_DETECT_FIELDS)
+            .disable(MapperFeature.AUTO_DETECT_SETTERS)
+            .disable(MapperFeature.AUTO_DETECT_GETTERS)
+            .disable(MapperFeature.AUTO_DETECT_IS_GETTERS)
+            .disable(MapperFeature.USE_GETTERS_AS_SETTERS)
+            .disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS)
+            .disable(MapperFeature.INFER_PROPERTY_MUTATORS)
+            .disable(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS)
+            .registerModule(new Jdk8Module())
+            .registerModule(new QueryDataJsonSerializationModule(QueryDataFormatResolver.defaultResolver()));
 
     private MockWebServer server;
 
@@ -138,7 +156,7 @@ public class TestQueryRunner
                 null,
                 null,
                 ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT))),
-                ImmutableList.of(ImmutableList.of(123)),
+                JsonInlineQueryData.create(ImmutableList.of(ImmutableList.of(123)), true),
                 StatementStats.builder()
                         .setState("FINISHED")
                         .setProgressPercentage(OptionalDouble.empty())
@@ -149,7 +167,12 @@ public class TestQueryRunner
                 ImmutableList.of(),
                 null,
                 null);
-        return QUERY_RESULTS_CODEC.toJson(queryResults);
+        try {
+            return MAPPER.writeValueAsString(queryResults);
+        }
+        catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     static QueryRunner createQueryRunner(TrinoUri uri, ClientSession clientSession)
