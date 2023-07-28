@@ -256,13 +256,19 @@ public final class Int128ArrayBlock
         return sb.toString();
     }
 
+    int getRawOffset()
+    {
+        return positionOffset;
+    }
+
+    @Nullable
+    boolean[] getRawValueIsNull()
+    {
+        return valueIsNull;
+    }
+
     long[] getRawValues()
     {
         return values;
-    }
-
-    int getPositionOffset()
-    {
-        return positionOffset;
     }
 }
