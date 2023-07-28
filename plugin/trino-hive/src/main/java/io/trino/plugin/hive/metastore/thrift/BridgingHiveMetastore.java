@@ -348,12 +348,13 @@ public class BridgingHiveMetastore
         Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(table.getDatabaseName(), table.getTableName(), partitionNames).stream()
                 .map(partition -> fromMetastoreApiPartition(table, partition))
                 .collect(Collectors.toMap(Partition::getValues, identity()));
-        ImmutableMap.Builder<String, Optional<Partition>> resultBuilder = ImmutableMap.builder();
+
+        ImmutableMap.Builder<String, Optional<Partition>> partitionNameToPartitionMap = ImmutableMap.builder();
         for (Map.Entry<String, List<String>> entry : partitionNameToPartitionValuesMap.entrySet()) {
             Partition partition = partitionValuesToPartitionMap.get(entry.getValue());
-            resultBuilder.put(entry.getKey(), Optional.ofNullable(partition));
+            partitionNameToPartitionMap.put(entry.getKey(), Optional.ofNullable(partition));
         }
-        return resultBuilder.buildOrThrow();
+        return partitionNameToPartitionMap.buildOrThrow();
     }
 
     private static Partition fromMetastoreApiPartition(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)

@@ -97,6 +97,15 @@ public class HiveHudiPartitionInfo
     }
 
     @Override
+    public List<HivePartitionKey> getHivePartitionKeysFromPartition(Optional<Partition> partition)
+    {
+        if(hivePartitionKeys == null) {
+            loadPartitionInfo(partition);
+        }
+        return hivePartitionKeys;
+    }
+
+    @Override
     public boolean doesMatchPredicates()
     {
         return partitionMatchesPredicates(table.getSchemaTableName(), hivePartitionName, partitionColumnHandles, constraintSummary);

@@ -49,6 +49,8 @@ public class HudiSessionProperties
     private static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     private static final String STANDARD_SPLIT_WEIGHT_SIZE = "standard_split_weight_size";
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
+    private static final String PARTITION_INFO_LOADER_PARALLELISM = "partition_info_loader_parallelism";
+    private static final String SPLIT_LOADER_PARALLELISM = "split_loader_parallelism";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -111,6 +113,16 @@ public class HudiSessionProperties
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be > 0 and <= 1.0: %s", MINIMUM_ASSIGNED_SPLIT_WEIGHT, value));
                             }
                         },
+                        false),
+                integerProperty(
+                        PARTITION_INFO_LOADER_PARALLELISM,
+                        "hudi partition info generator parallelism.",
+                        hudiConfig.getPartitionLoaderParallelism(),
+                        false),
+                integerProperty(
+                        SPLIT_LOADER_PARALLELISM,
+                        "hudi split generator parallelism.",
+                        hudiConfig.getSplitLoaderParallelism(),
                         false));
     }
 
@@ -164,5 +176,15 @@ public class HudiSessionProperties
     public static double getMinimumAssignedSplitWeight(ConnectorSession session)
     {
         return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
+    }
+
+    public static int getPartitionInfoLoaderParallelism(ConnectorSession session)
+    {
+        return session.getProperty(PARTITION_INFO_LOADER_PARALLELISM, Integer.class);
+    }
+
+    public static int getSplitLoaderParallelism(ConnectorSession session)
+    {
+        return session.getProperty(SPLIT_LOADER_PARALLELISM, Integer.class);
     }
 }

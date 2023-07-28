@@ -36,6 +36,7 @@ import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -50,6 +51,8 @@ public class HudiSplitManager
     private final BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider;
     private final HdfsEnvironment hdfsEnvironment;
     private final ExecutorService executor;
+    private final ScheduledExecutorService partitionLoaderExecutor;
+    private final ExecutorService splitLoaderExecutor;
     private final int maxSplitsPerSecond;
     private final int maxOutstandingSplits;
 
@@ -59,12 +62,16 @@ public class HudiSplitManager
             BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider,
             HdfsEnvironment hdfsEnvironment,
             @ForHudiSplitManager ExecutorService executor,
+            @ForHudiPartitionLoader ScheduledExecutorService partitionLoaderExecutor,
+            @ForHudiSplitLoader ExecutorService splitLoaderExecutor,
             HudiConfig hudiConfig)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.executor = requireNonNull(executor, "executor is null");
+        this.partitionLoaderExecutor = requireNonNull(partitionLoaderExecutor, "partitionLoaderExecutor is null");
+        this.splitLoaderExecutor = requireNonNull(splitLoaderExecutor, "splitLoaderExecutor is null");
         this.maxSplitsPerSecond = requireNonNull(hudiConfig, "hudiConfig is null").getMaxSplitsPerSecond();
         this.maxOutstandingSplits = hudiConfig.getMaxOutstandingSplits();
     }
@@ -100,6 +107,8 @@ public class HudiSplitManager
                 hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(table.getStorage().getLocation())),
                 partitionColumnHandles,
                 executor,
+                partitionLoaderExecutor,
+                splitLoaderExecutor,
                 maxSplitsPerSecond,
                 maxOutstandingSplits,
                 hdfsEnvironment);

@@ -30,6 +30,8 @@ public interface HudiPartitionInfo
 
     List<HivePartitionKey> getHivePartitionKeys();
 
+    List<HivePartitionKey> getHivePartitionKeysFromPartition(Optional<Partition> partition);
+
     boolean doesMatchPredicates();
 
     String getComparingKey();
