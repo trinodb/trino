@@ -1,9 +1,9 @@
-General configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### General configuration properties
 
 The following table describes general catalog configuration properties for the
 connector:
 
+```{eval-rst}
 .. list-table::
   :widths: 30, 40, 30
   :header-rows: 1
@@ -51,3 +51,4 @@ connector:
       JDBC query. Using a large timeout can potentially result in more detailed
       dynamic filters. However, it can also increase latency for some queries.
     - ``20s``
+```
