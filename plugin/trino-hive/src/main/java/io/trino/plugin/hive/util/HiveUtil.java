@@ -48,7 +48,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
-import org.apache.hadoop.mapred.TextInputFormat;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Days;
 import org.joda.time.LocalDateTime;
@@ -59,7 +58,6 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
 
-import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.HexFormat;
 import java.util.List;
@@ -150,7 +148,6 @@ public final class HiveUtil
     private static final LocalDateTime EPOCH_DAY = new LocalDateTime(1970, 1, 1, 0, 0);
     private static final DateTimeFormatter HIVE_DATE_PARSER;
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
-    private static final Field COMPRESSION_CODECS_FIELD;
 
     private static final String BIG_DECIMAL_POSTFIX = "BD";
 
@@ -179,14 +176,6 @@ public final class HiveUtil
         DateTimePrinter timestampWithoutTimeZonePrinter = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS").getPrinter();
         HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
         HIVE_DATE_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
-
-        try {
-            COMPRESSION_CODECS_FIELD = TextInputFormat.class.getDeclaredField("compressionCodecs");
-            COMPRESSION_CODECS_FIELD.setAccessible(true);
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
     }
 
     private HiveUtil()
