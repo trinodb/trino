@@ -14,10 +14,13 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
+import io.trino.client.JsonCodec;
+import io.trino.client.JsonQueryResults;
+import io.trino.client.QueryResultSetFormatResolver;
 import io.trino.client.QueryResults;
+import io.trino.client.ResultSetJsonModule;
 import io.trino.client.StatementStats;
 import io.trino.spi.type.StandardTypes;
 import okhttp3.mockwebserver.MockResponse;
@@ -39,8 +42,8 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
+import static io.trino.client.JsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -49,7 +52,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestProgressMonitor
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class, new ResultSetJsonModule(QueryResultSetFormatResolver.defaultResolver()));
 
     private MockWebServer server;
 
@@ -85,20 +88,26 @@ public class TestProgressMonitor
     {
         String queryId = "20160128_214710_00012_rk68b";
 
-        QueryResults queryResults = new QueryResults(
-                queryId,
-                server.url("/query.html?" + queryId).uri(),
-                partialCancelId == null ? null : server.url(format("/v1/statement/partialCancel/%s.%s", queryId, partialCancelId)).uri(),
-                nextUriId == null ? null : server.url(format("/v1/statement/%s/%s", queryId, nextUriId)).uri(),
-                responseColumns,
-                data,
-                new StatementStats(state, state.equals("QUEUED"), true, OptionalDouble.of(0), OptionalDouble.of(0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
-                null,
-                ImmutableList.of(),
-                null,
-                null);
+        QueryResults emptyResults = QueryResults.builder()
+                .withQueryId(queryId)
+                .withInfoUri(server.url("/query.html?" + queryId).uri())
+                .withPartialCancelUri(partialCancelId == null ? null : server.url(format("/v1/statement/partialCancel/%s.%s", queryId, partialCancelId)).uri())
+                .withNextUri(nextUriId == null ? null : server.url(format("/v1/statement/%s/%s", queryId, nextUriId)).uri())
+                .withColumns(responseColumns)
+                .withStats(StatementStats.builder()
+                        .setState(state)
+                        .setScheduled(true)
+                        .setRootStage(null)
+                        .setProgressPercentage(OptionalDouble.of(0.0))
+                        .setRunningPercentage(OptionalDouble.of(0.0))
+                        .setPhysicalWrittenBytes(0)
+                        .build())
+                .buildEmpty();
 
-        return QUERY_RESULTS_CODEC.toJson(queryResults);
+        if (data == null) {
+            return QUERY_RESULTS_CODEC.toJson(emptyResults);
+        }
+        return QUERY_RESULTS_CODEC.toJson(new JsonQueryResults(emptyResults, data));
     }
 
     @Test

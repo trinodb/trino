@@ -13,7 +13,6 @@
  */
 package io.trino.dispatcher;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -279,25 +278,21 @@ public class QueuedStatementResource
             Duration queuedTime)
     {
         QueryState state = queryError.map(error -> FAILED).orElse(QUEUED);
-        return new QueryResults(
-                queryId.toString(),
-                getQueryInfoUri(queryInfoUrl, queryId, uriInfo),
-                null,
-                nextUri,
-                null,
-                null,
-                StatementStats.builder()
+
+        return QueryResults.builder()
+                .withQueryId(queryId.toString())
+                .withInfoUri(getQueryInfoUri(queryInfoUrl, queryId, uriInfo))
+                .withNextUri(nextUri)
+                .withStats(StatementStats.builder()
                         .setState(state.toString())
                         .setQueued(state == QUEUED)
                         .setProgressPercentage(OptionalDouble.empty())
                         .setRunningPercentage(OptionalDouble.empty())
                         .setElapsedTimeMillis(elapsedTime.toMillis())
                         .setQueuedTimeMillis(queuedTime.toMillis())
-                        .build(),
-                queryError.orElse(null),
-                ImmutableList.of(),
-                null,
-                null);
+                        .build())
+                .withError(queryError.orElse(null))
+                .buildEmpty();
     }
 
     private static WebApplicationException badRequest(Status status, String message)

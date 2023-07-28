@@ -28,6 +28,7 @@ import io.trino.execution.QueryManager;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.server.ForStatementResource;
 import io.trino.server.ServerConfig;
+import io.trino.server.protocol.resultset.ResultSetProducerFactory;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -79,6 +80,7 @@ public class ExecutingStatementResource
     private static final DataSize MAX_TARGET_RESULT_SIZE = DataSize.of(128, MEGABYTE);
 
     private final QueryManager queryManager;
+    private final ResultSetProducerFactory resultSetProducerFactory;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -94,6 +96,7 @@ public class ExecutingStatementResource
     @Inject
     public ExecutingStatementResource(
             QueryManager queryManager,
+            ResultSetProducerFactory resultSetProducerFactory,
             DirectExchangeClientSupplier directExchangeClientSupplier,
             ExchangeManagerRegistry exchangeManagerRegistry,
             BlockEncodingSerde blockEncodingSerde,
@@ -104,6 +107,7 @@ public class ExecutingStatementResource
             ServerConfig serverConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.resultSetProducerFactory = requireNonNull(resultSetProducerFactory, "resultSetProducerFactory is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
@@ -195,6 +199,7 @@ public class ExecutingStatementResource
                 session,
                 querySlug,
                 queryManager,
+                resultSetProducerFactory.create(session),
                 queryInfoUrlFactory.getQueryInfoUrl(queryId),
                 directExchangeClientSupplier,
                 exchangeManagerRegistry,

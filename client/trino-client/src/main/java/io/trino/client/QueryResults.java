@@ -22,15 +22,18 @@ import jakarta.annotation.Nullable;
 import java.net.URI;
 import java.util.List;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.unmodifiableIterable;
-import static io.trino.client.FixJsonDataUtils.fixData;
+import static io.trino.client.QueryResultSetFormatResolver.formatNameForClass;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * QueryResults implementations are shared between the client and the server.
+ * Implementing class is responsible for transferring result data over the wire (through @JsonProperty)
+ * and deserializing incoming result data (through @JsonCreator) according to the QueryData interface.
+ */
 @Immutable
-public class QueryResults
+public abstract class QueryResults
         implements QueryStatusInfo, QueryData
 {
     private final String id;
@@ -38,12 +41,26 @@ public class QueryResults
     private final URI partialCancelUri;
     private final URI nextUri;
     private final List<Column> columns;
-    private final Iterable<List<Object>> data;
     private final StatementStats stats;
     private final QueryError error;
     private final List<Warning> warnings;
     private final String updateType;
     private final Long updateCount;
+
+    public QueryResults(QueryResults from)
+    {
+        this(
+                from.id,
+                from.infoUri,
+                from.partialCancelUri,
+                from.nextUri,
+                from.columns,
+                from.stats,
+                from.error,
+                from.warnings,
+                from.updateType,
+                from.updateCount);
+    }
 
     @JsonCreator
     public QueryResults(
@@ -52,50 +69,20 @@ public class QueryResults
             @JsonProperty("partialCancelUri") URI partialCancelUri,
             @JsonProperty("nextUri") URI nextUri,
             @JsonProperty("columns") List<Column> columns,
-            @JsonProperty("data") List<List<Object>> data,
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error,
             @JsonProperty("warnings") List<Warning> warnings,
             @JsonProperty("updateType") String updateType,
             @JsonProperty("updateCount") Long updateCount)
     {
-        this(
-                id,
-                infoUri,
-                partialCancelUri,
-                nextUri,
-                columns,
-                fixData(columns, data),
-                stats,
-                error,
-                firstNonNull(warnings, ImmutableList.of()),
-                updateType,
-                updateCount);
-    }
-
-    public QueryResults(
-            String id,
-            URI infoUri,
-            URI partialCancelUri,
-            URI nextUri,
-            List<Column> columns,
-            Iterable<List<Object>> data,
-            StatementStats stats,
-            QueryError error,
-            List<Warning> warnings,
-            String updateType,
-            Long updateCount)
-    {
         this.id = requireNonNull(id, "id is null");
         this.infoUri = requireNonNull(infoUri, "infoUri is null");
         this.partialCancelUri = partialCancelUri;
         this.nextUri = nextUri;
         this.columns = (columns != null) ? ImmutableList.copyOf(columns) : null;
-        this.data = (data != null) ? unmodifiableIterable(data) : null;
-        checkArgument(data == null || columns != null, "data present without columns");
         this.stats = requireNonNull(stats, "stats is null");
         this.error = error;
-        this.warnings = ImmutableList.copyOf(requireNonNull(warnings, "warnings is null"));
+        this.warnings = warnings != null ? ImmutableList.copyOf(requireNonNull(warnings, "warnings is null")) : ImmutableList.of();
         this.updateType = updateType;
         this.updateCount = updateCount;
     }
@@ -136,14 +123,6 @@ public class QueryResults
     public List<Column> getColumns()
     {
         return columns;
-    }
-
-    @Nullable
-    @JsonProperty
-    @Override
-    public Iterable<List<Object>> getData()
-    {
-        return data;
     }
 
     @JsonProperty
@@ -193,11 +172,131 @@ public class QueryResults
                 .add("partialCancelUri", partialCancelUri)
                 .add("nextUri", nextUri)
                 .add("columns", columns)
-                .add("hasData", data != null)
                 .add("stats", stats)
                 .add("error", error)
                 .add("updateType", updateType)
                 .add("updateCount", updateCount)
+                .add("hasData", hasData())
+                .add("dataFormat", formatNameForClass(this.getClass()))
                 .toString();
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        protected String id;
+        protected URI infoUri;
+        protected URI partialCancelUri;
+        protected URI nextUri;
+        protected List<Column> columns;
+        protected StatementStats stats;
+        protected QueryError error;
+        protected List<Warning> warnings = ImmutableList.of();
+        protected String updateType;
+        protected Long updateCount;
+
+        public Builder withQueryId(String id)
+        {
+            this.id = id;
+            return this;
+        }
+
+        public Builder withInfoUri(URI infoUri)
+        {
+            this.infoUri = infoUri;
+            return this;
+        }
+
+        public Builder withPartialCancelUri(URI partialCancelUri)
+        {
+            this.partialCancelUri = partialCancelUri;
+            return this;
+        }
+
+        public Builder withNextUri(URI nextUri)
+        {
+            this.nextUri = nextUri;
+            return this;
+        }
+
+        public Builder withColumns(List<Column> columns)
+        {
+            this.columns = columns;
+            return this;
+        }
+
+        public Builder withStats(StatementStats stats)
+        {
+            this.stats = stats;
+            return this;
+        }
+
+        public Builder withError(QueryError error)
+        {
+            this.error = error;
+            return this;
+        }
+
+        public Builder withWarnings(List<Warning> warnings)
+        {
+            this.warnings = warnings;
+            return this;
+        }
+
+        public Builder withUpdateType(String updateType)
+        {
+            this.updateType = updateType;
+            return this;
+        }
+
+        public Builder withUpdateCount(Long updateCount)
+        {
+            this.updateCount = updateCount;
+            return this;
+        }
+
+        public QueryResults buildEmpty()
+        {
+            return new EmptyQueryResults(id, infoUri, partialCancelUri, nextUri, columns, stats, error, warnings, updateType, updateCount);
+        }
+    }
+
+    /**
+     * This class contains all of the basic fields from QueryResults but carries no result rows.
+     */
+    @QueryResultsFormat(formatName = "json")
+    private static class EmptyQueryResults
+            extends QueryResults
+    {
+        public EmptyQueryResults(
+                String id,
+                URI infoUri,
+                URI partialCancelUri,
+                URI nextUri,
+                List<Column> columns,
+                StatementStats stats,
+                QueryError error,
+                List<Warning> warnings,
+                String updateType,
+                Long updateCount)
+        {
+            super(id, infoUri, partialCancelUri, nextUri, columns, stats, error, warnings, updateType, updateCount);
+        }
+
+        @Override
+        public Iterable<List<Object>> getData()
+        {
+            return emptyList();
+        }
+
+        @Override
+        public boolean hasData()
+        {
+            return false;
+        }
     }
 }

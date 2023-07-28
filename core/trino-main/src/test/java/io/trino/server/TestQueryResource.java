@@ -13,16 +13,21 @@
  */
 package io.trino.server;
 
+import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.TypeLiteral;
+import io.airlift.bootstrap.Bootstrap;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.JsonModule;
 import io.trino.client.QueryResults;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.server.protocol.resultset.ResultSetModule;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import org.testng.annotations.AfterMethod;
@@ -40,7 +45,7 @@ import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.Request.Builder.preparePut;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.execution.QueryState.FAILED;
@@ -66,6 +71,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestQueryResource
 {
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = queryResultsCodec();
     private static final JsonCodec<List<BasicQueryInfo>> BASIC_QUERY_INFO_CODEC = tracingJsonCodecFactory().listJsonCodec(BasicQueryInfo.class);
 
     private HttpClient client;
@@ -100,7 +106,7 @@ public class TestQueryResource
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .build();
 
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         URI uri = queryResults.getNextUri();
         while (uri != null) {
             QueryResults attempt1 = client.execute(
@@ -108,14 +114,14 @@ public class TestQueryResource
                             .setHeader(TRINO_HEADERS.requestUser(), "user")
                             .setUri(uri)
                             .build(),
-                    createJsonResponseHandler(jsonCodec(QueryResults.class)));
+                    createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
 
             QueryResults attempt2 = client.execute(
                     prepareGet()
                             .setHeader(TRINO_HEADERS.requestUser(), "user")
                             .setUri(uri)
                             .build(),
-                    createJsonResponseHandler(jsonCodec(QueryResults.class)));
+                    createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
 
             assertThat(attempt2.getData()).isEqualTo(attempt1.getData());
 
@@ -252,13 +258,13 @@ public class TestQueryResource
                 .setUri(uri)
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .build();
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         while (queryResults.getNextUri() != null) {
             request = prepareGet()
                     .setHeader(TRINO_HEADERS.requestUser(), "user")
                     .setUri(queryResults.getNextUri())
                     .build();
-            queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+            queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         }
         return queryResults.getId();
     }
@@ -271,13 +277,13 @@ public class TestQueryResource
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .setHeader(TRINO_HEADERS.requestUser(), "user")
                 .build();
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         while (queryResults.getNextUri() != null && !queryResults.getStats().getState().equals(RUNNING.toString())) {
             request = prepareGet()
                     .setHeader(TRINO_HEADERS.requestUser(), "user")
                     .setUri(queryResults.getNextUri())
                     .build();
-            queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+            queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         }
         return queryResults.getId();
     }
@@ -356,5 +362,15 @@ public class TestQueryResource
                 .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                 .build();
         return client.execute(request, createStatusResponseHandler()).getStatusCode();
+    }
+
+    public static JsonCodec<QueryResults> queryResultsCodec()
+    {
+        Injector injector = new Bootstrap(
+                new JsonModule(),
+                new ResultSetModule(), binder -> jsonCodecBinder(binder).bindJsonCodec(QueryResults.class)
+        ).initialize();
+
+        return injector.getInstance(Key.get(new TypeLiteral<>(){}));
     }
 }

@@ -16,6 +16,7 @@ package io.trino.client;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import io.trino.client.ClientTypeSignatureParameter.ParameterKind;
+import jakarta.annotation.Nonnull;
 
 import java.util.ArrayList;
 import java.util.Base64;
@@ -59,9 +60,9 @@ final class FixJsonDataUtils
 
     public static Iterable<List<Object>> fixData(List<Column> columns, List<List<Object>> data)
     {
-        if (data == null) {
-            return null;
-        }
+        requireNonNull(columns, "columns is null");
+        requireNonNull(data, "data is null");
+
         ColumnTypeHandler[] typeHandlers = createTypeHandlers(columns);
         ImmutableList.Builder<List<Object>> rows = ImmutableList.builderWithExpectedSize(data.size());
         for (List<Object> row : data) {
@@ -82,9 +83,8 @@ final class FixJsonDataUtils
         return rows.build();
     }
 
-    private static ColumnTypeHandler[] createTypeHandlers(List<Column> columns)
+    private static ColumnTypeHandler[] createTypeHandlers(@Nonnull List<Column> columns)
     {
-        requireNonNull(columns, "columns is null");
         ColumnTypeHandler[] typeHandlers = new ColumnTypeHandler[columns.size()];
         int index = 0;
         for (Column column : columns) {

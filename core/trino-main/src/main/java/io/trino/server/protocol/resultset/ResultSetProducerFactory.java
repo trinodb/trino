@@ -11,13 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.client;
+package io.trino.server.protocol.resultset;
 
-import java.util.List;
+import io.trino.Session;
 
-public interface QueryData
+public interface ResultSetProducerFactory
 {
-    Iterable<List<Object>> getData();
-
-    boolean hasData();
+    ResultSetProducer create(Session session);
 }

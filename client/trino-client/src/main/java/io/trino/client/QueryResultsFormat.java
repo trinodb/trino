@@ -13,11 +13,15 @@
  */
 package io.trino.client;
 
-import java.util.List;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-public interface QueryData
+import static java.lang.annotation.ElementType.TYPE;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(TYPE)
+public @interface QueryResultsFormat
 {
-    Iterable<List<Object>> getData();
-
-    boolean hasData();
+    String formatName();
 }

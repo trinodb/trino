@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
+import io.trino.client.JsonQueryResults;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
 import io.trino.client.uri.PropertyName;
@@ -132,23 +133,16 @@ public class TestQueryRunner
 
     static String createResults(MockWebServer server)
     {
-        QueryResults queryResults = new QueryResults(
-                "20160128_214710_00012_rk68b",
-                server.url("/query.html?20160128_214710_00012_rk68b").uri(),
-                null,
-                null,
-                ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT))),
-                ImmutableList.of(ImmutableList.of(123)),
-                StatementStats.builder()
+        QueryResults queryResults = new JsonQueryResults(QueryResults.builder()
+                .withQueryId("20160128_214710_00012_rk68b")
+                .withInfoUri(server.url("/query.html?20160128_214710_00012_rk68b").uri())
+                .withColumns(ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT))))
+                .withStats(StatementStats.builder()
                         .setState("FINISHED")
                         .setProgressPercentage(OptionalDouble.empty())
                         .setRunningPercentage(OptionalDouble.empty())
-                        .build(),
-                //new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
-                null,
-                ImmutableList.of(),
-                null,
-                null);
+                        .build())
+                .buildEmpty(), ImmutableList.of(ImmutableList.of(123)));
         return QUERY_RESULTS_CODEC.toJson(queryResults);
     }
 

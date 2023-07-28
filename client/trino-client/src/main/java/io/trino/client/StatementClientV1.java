@@ -65,7 +65,6 @@ class StatementClientV1
         implements StatementClient
 {
     private static final MediaType MEDIA_TYPE_TEXT = MediaType.parse("text/plain; charset=utf-8");
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private static final Splitter COLLECTION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
     private static final String USER_AGENT_VALUE = StatementClientV1.class.getSimpleName() +
@@ -91,10 +90,11 @@ class StatementClientV1
     private final Optional<String> user;
     private final String clientCapabilities;
     private final boolean compressionDisabled;
+    private final JsonCodec<QueryResults> jsonCodec;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
-    public StatementClientV1(Call.Factory httpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
+    public StatementClientV1(Call.Factory httpCallFactory, QueryResultSetFormatResolver handlerResolver, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
         requireNonNull(httpCallFactory, "httpCallFactory is null");
         requireNonNull(session, "session is null");
@@ -112,17 +112,23 @@ class StatementClientV1
                 .map(Enum::name)
                 .collect(toImmutableSet())));
         this.compressionDisabled = session.isCompressionDisabled();
+        this.jsonCodec = jsonCodec(QueryResults.class, new ResultSetJsonModule(handlerResolver));
 
         Request request = buildQueryRequest(session, query);
 
         // Always materialize the first response to avoid losing the response body if the initial response parsing fails
-        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, OptionalLong.empty());
+        JsonResponse<QueryResults> response = JsonResponse.execute(jsonCodec, httpCallFactory, request, OptionalLong.empty());
         if ((response.getStatusCode() != HTTP_OK) || !response.hasValue()) {
             state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
             throw requestFailedException("starting query", request, response);
         }
 
         processResponse(response.getHeaders(), response.getValue());
+    }
+
+    public StatementClientV1(Call.Factory httpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
+    {
+        this(httpCallFactory, QueryResultSetFormatResolver.defaultResolver(), session, query, clientCapabilities);
     }
 
     private Request buildQueryRequest(ClientSession session, String query)
@@ -374,7 +380,7 @@ class StatementClientV1
 
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
+                response = JsonResponse.execute(jsonCodec, httpCallFactory, request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
             }
             catch (RuntimeException e) {
                 cause = e;

@@ -18,6 +18,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 
@@ -49,6 +50,11 @@ public class JsonCodec<T>
     public static <T> JsonCodec<T> jsonCodec(Class<T> type)
     {
         return new JsonCodec<>(OBJECT_MAPPER_SUPPLIER.get(), type);
+    }
+
+    public static <T> JsonCodec<T> jsonCodec(Class<T> type, Module... extraModules)
+    {
+        return new JsonCodec<>(OBJECT_MAPPER_SUPPLIER.get().registerModules(extraModules), type);
     }
 
     private final ObjectMapper mapper;
@@ -84,12 +90,22 @@ public class JsonCodec<T>
     }
 
     public T fromJson(InputStream inputStream)
-            throws IOException, JsonProcessingException
+            throws IOException
     {
         try (JsonParser parser = mapper.createParser(inputStream)) {
             T value = mapper.readerFor(javaType).readValue(parser);
             checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
             return value;
+        }
+    }
+
+    public String toJson(T instance)
+    {
+        try {
+            return mapper.writerFor(javaType).writeValueAsString(instance);
+        }
+        catch (IOException exception) {
+            throw new IllegalArgumentException(String.format("%s could not be converted to JSON", instance.getClass().getName()), exception);
         }
     }
 }
