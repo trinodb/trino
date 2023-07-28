@@ -19,6 +19,8 @@ import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.instrumentation.awssdk.v1_11.AwsSdkTelemetry;
 
 import java.util.Set;
 
@@ -38,11 +40,16 @@ public class HiveGlueClientProvider
             @ForGlueHiveMetastore GlueMetastoreStats stats,
             AWSCredentialsProvider credentialsProvider,
             @ForGlueHiveMetastore Set<RequestHandler2> requestHandlers,
+            OpenTelemetry openTelemetry,
             GlueHiveMetastoreConfig glueConfig)
     {
         this.stats = requireNonNull(stats, "stats is null");
         this.credentialsProvider = requireNonNull(credentialsProvider, "credentialsProvider is null");
         this.requestHandlers = ImmutableSet.<RequestHandler2>builder()
+                .add(AwsSdkTelemetry.builder(requireNonNull(openTelemetry, "openTelemetry is null"))
+                        .setCaptureExperimentalSpanAttributes(true)
+                        .build()
+                        .newRequestHandler())
                 .addAll(requireNonNull(requestHandlers, "requestHandlers is null"))
                 .build();
         this.glueConfig = glueConfig;
