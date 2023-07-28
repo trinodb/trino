@@ -23,6 +23,7 @@
           TODO (https://github.com/trinodb/trino/issues/11294) remove when we upgrade to surefire with https://issues.apache.org/jira/browse/SUREFIRE-1967
           -->
         <air.test.parallel>instances</air.test.parallel>
+        <surefireEnablePreview>--enable-preview</surefireEnablePreview>
     </properties>
 
     <dependencies>

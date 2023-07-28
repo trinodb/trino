@@ -757,16 +757,21 @@ public class ExpressionInterpreter
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
                         handle = handle.bindTo(connectorSession);
                     }
-                    try {
-                        yield handle.invokeWithArguments(value);
-                    }
-                    catch (Throwable throwable) {
-                        throwIfInstanceOf(throwable, RuntimeException.class);
-                        throwIfInstanceOf(throwable, Error.class);
-                        throw new RuntimeException(throwable.getMessage(), throwable);
-                    }
+                    yield invoke(handle, value);
                 }
             };
+        }
+
+        private Object invoke(MethodHandle handle, Object value)
+        {
+            try {
+                return handle.invokeWithArguments(value);
+            }
+            catch (Throwable throwable) {
+                throwIfInstanceOf(throwable, RuntimeException.class);
+                throwIfInstanceOf(throwable, Error.class);
+                throw new RuntimeException(throwable.getMessage(), throwable);
+            }
         }
 
         @Override
