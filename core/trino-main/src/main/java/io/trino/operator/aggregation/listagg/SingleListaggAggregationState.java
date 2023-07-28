@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation.listagg;
 
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.block.VariableWidthBlockBuilder;
@@ -25,6 +26,8 @@ import static java.lang.Math.toIntExact;
 public class SingleListaggAggregationState
         extends AbstractListaggAggregationState
 {
+    private final DynamicSliceOutput out = new DynamicSliceOutput(0);
+
     private SqlRow tempSerializedState;
 
     public SingleListaggAggregationState()
@@ -46,7 +49,9 @@ public class SingleListaggAggregationState
             blockBuilder.appendNull();
             return;
         }
-        blockBuilder.buildEntry(this::writeNotGrouped);
+        out.reset();
+        writeNotGrouped(out);
+        blockBuilder.writeEntry(out.slice());
     }
 
     private void writeNotGrouped(SliceOutput out)

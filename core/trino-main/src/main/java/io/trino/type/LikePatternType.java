@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
@@ -55,7 +56,7 @@ public class LikePatternType
         int valuePosition = block.getUnderlyingValuePosition(position);
         Slice slice = valueBlock.getSlice(valuePosition);
 
-        // layout is: <pattern length> <pattern> <hasEscape> <escape>?
+        // layout is: <patternLength> <pattern> <hasEscape> <escape>?
         int length = slice.getInt(0);
         String pattern = slice.toString(4, length, UTF_8);
 
@@ -73,18 +74,25 @@ public class LikePatternType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         LikePattern likePattern = (LikePattern) value;
-        ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueWriter -> {
-            Slice pattern = utf8Slice(likePattern.getPattern());
-            int length = pattern.length();
-            valueWriter.writeInt(length);
-            valueWriter.writeBytes(pattern, 0, length);
-            if (likePattern.getEscape().isEmpty()) {
-                valueWriter.writeByte(0);
-            }
-            else {
-                valueWriter.writeByte(1);
-                valueWriter.writeInt(likePattern.getEscape().get());
-            }
-        });
+        Slice pattern = utf8Slice(likePattern.getPattern());
+
+        Slice slice = Slices.allocate(
+                Integer.BYTES +
+                pattern.length() +
+                Byte.BYTES +
+                (likePattern.getEscape().isPresent() ? Integer.BYTES : 0));
+
+        // layout is: <pattern_length> <pattern> <hasEscape> <escape>?
+        slice.setInt(0, pattern.length());
+        slice.setBytes(4, pattern);
+        if (likePattern.getEscape().isEmpty()) {
+            slice.setByte(4 + pattern.length(), (byte) 0);
+        }
+        else {
+            slice.setByte(4 + pattern.length(), (byte) 1);
+            slice.setInt(4 + pattern.length() + 1, likePattern.getEscape().get());
+        }
+
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(slice);
     }
 }

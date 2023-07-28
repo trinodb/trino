@@ -212,6 +212,14 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>interface io.trino.spi.block.VariableWidthBlockBuilder.VariableWidthEntryBuilder&lt;E extends java.lang.Throwable&gt;</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method &lt;E extends java.lang.Throwable&gt; void io.trino.spi.block.VariableWidthBlockBuilder::buildEntry(io.trino.spi.block.VariableWidthBlockBuilder.VariableWidthEntryBuilder&lt;E&gt;) throws E</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
