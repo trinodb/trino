@@ -1,8 +1,7 @@
-Join pushdown
-"""""""""""""
+#### Join pushdown
 
-The ``join-pushdown.enabled`` catalog configuration property or
-``join_pushdown_enabled`` :ref:`catalog session property
+The `join-pushdown.enabled` catalog configuration property or
+`join_pushdown_enabled` {ref}`catalog session property
 <session-properties-definition>` control whether the connector pushes
-down join operations. The property defaults to ``false``, and enabling join
+down join operations. The property defaults to `false`, and enabling join
 pushdowns may negatively impact performance for some queries.
