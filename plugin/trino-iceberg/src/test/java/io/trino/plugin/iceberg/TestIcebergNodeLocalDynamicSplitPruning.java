@@ -186,6 +186,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         tablePath,
                         ImmutableMap.of(),
                         false,
+                        Optional.empty(),
+                        ImmutableSet.of(),
                         Optional.empty()),
                 transaction);
 

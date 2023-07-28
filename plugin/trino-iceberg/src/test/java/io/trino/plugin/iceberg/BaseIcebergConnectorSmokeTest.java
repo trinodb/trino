@@ -643,6 +643,24 @@ public abstract class BaseIcebergConnectorSmokeTest
         }
     }
 
+    @Test
+    public void testPartitionFilterRequired()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "query_partition_filter_required", "true")
+                .build();
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        String query = "SELECT id FROM " + tableName + " WHERE a = 'a'";
+        String failureMessage = "Filter required for tpch.*\\." + tableName + " on at least one of the partition columns: ds";
+        assertQueryFails(session, query, failureMessage);
+        assertQueryFails(session, "EXPLAIN " + query, failureMessage);
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
     protected abstract boolean isFileSorted(Location path, String sortColumnName);
 
     @Test

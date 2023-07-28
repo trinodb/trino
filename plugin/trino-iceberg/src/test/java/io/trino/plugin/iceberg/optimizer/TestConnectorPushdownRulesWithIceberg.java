@@ -170,6 +170,8 @@ public class TestConnectorPushdownRulesWithIceberg
                 "",
                 ImmutableMap.of(),
                 false,
+                Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty());
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
 
@@ -252,6 +254,8 @@ public class TestConnectorPushdownRulesWithIceberg
                 "",
                 ImmutableMap.of(),
                 false,
+                Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty());
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
 
@@ -301,6 +305,8 @@ public class TestConnectorPushdownRulesWithIceberg
                 "",
                 ImmutableMap.of(),
                 false,
+                Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty());
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
 
@@ -361,6 +367,8 @@ public class TestConnectorPushdownRulesWithIceberg
                 "",
                 ImmutableMap.of(),
                 false,
+                Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty());
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
 

@@ -156,6 +156,10 @@ implementation is used:
   * - ``iceberg.register-table-procedure.enabled``
     - Enable to allow user to call ``register_table`` procedure.
     - ``false``
+  * - ``iceberg.query-partition-filter-required``
+    - Set to ``true`` to force a query to use a partition filter. 
+      You can use the ``query_partition_filter_required`` catalog session property for temporary, catalog specific use. 
+    - ``false``
 ```
 
 ## Type mapping
