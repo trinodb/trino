@@ -56,7 +56,6 @@ import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -138,6 +137,7 @@ import static io.trino.plugin.hive.util.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT
 import static io.trino.plugin.hive.util.HiveClassNames.HUDI_PARQUET_REALTIME_INPUT_FORMAT;
 import static io.trino.plugin.hive.util.HiveClassNames.HUDI_REALTIME_INPUT_FORMAT;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.SerdeConstants.COLLECTION_DELIM;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
@@ -366,7 +366,7 @@ public final class HiveUtil
         // legacy names for Parquet
         if ("parquet.hive.DeprecatedParquetInputFormat".equals(inputFormatName) ||
                 "parquet.hive.MapredParquetInputFormat".equals(inputFormatName)) {
-            return MapredParquetInputFormat.class;
+            inputFormatName = MAPRED_PARQUET_INPUT_FORMAT_CLASS;
         }
 
         Class<?> clazz = conf.getClassByName(inputFormatName);
