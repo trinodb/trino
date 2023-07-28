@@ -163,6 +163,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
@@ -220,6 +221,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectExtended
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isQueryPartitionFilterRequired;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
@@ -261,6 +263,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN;
@@ -435,6 +438,8 @@ public class IcebergMetadata
                 table.location(),
                 table.properties(),
                 false,
+                Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty());
     }
 
@@ -673,6 +678,41 @@ public class IcebergMetadata
                 .setType(column.getType())
                 .setComment(column.getComment())
                 .build();
+    }
+
+    @Override
+    public void validateScan(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) handle;
+        if (isQueryPartitionFilterRequired(session) && table.getEnforcedPredicate().isAll() && table.getAnalyzeColumns().isEmpty()) {
+            Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+            Optional<PartitionSpec> partitionSpec = table.getPartitionSpecJson()
+                    .map(partitionSpecJson -> PartitionSpecParser.fromJson(schema, partitionSpecJson));
+            if (partitionSpec.isEmpty() || partitionSpec.get().isUnpartitioned()) {
+                return;
+            }
+            Set<Integer> columnsWithPredicates = new HashSet<>();
+            table.getConstraintColumns().stream()
+                    .map(IcebergColumnHandle::getId)
+                    .forEach(columnsWithPredicates::add);
+            table.getUnenforcedPredicate().getDomains().ifPresent(domain -> domain.keySet().stream()
+                    .map(IcebergColumnHandle::getId)
+                    .forEach(columnsWithPredicates::add));
+            Set<Integer> partitionColumns = partitionSpec.get().fields().stream()
+                    .filter(field -> !field.transform().isVoid())
+                    .map(PartitionField::sourceId)
+                    .collect(toImmutableSet());
+            if (Collections.disjoint(columnsWithPredicates, partitionColumns)) {
+                String partitionColumnNames = partitionSpec.get().fields().stream()
+                        .filter(field -> !field.transform().isVoid())
+                        .map(PartitionField::sourceId)
+                        .map(id -> schema.idToName().get(id))
+                        .collect(joining(", "));
+                throw new TrinoException(
+                        QUERY_REJECTED,
+                        format("Filter required for %s on at least one of the partition columns: %s", table.getSchemaTableName(), partitionColumnNames));
+            }
+        }
     }
 
     @Override
@@ -2034,7 +2074,7 @@ public class IcebergMetadata
                 });
 
         return new ConnectorAnalyzeMetadata(
-                tableHandle,
+                handle.withAnalyzeColumns(analyzeColumnNames.or(() -> Optional.of(ImmutableSet.of()))),
                 getStatisticsCollectionMetadata(
                         tableMetadata,
                         analyzeColumnNames,
@@ -2417,7 +2457,9 @@ public class IcebergMetadata
                 table.getTableLocation(),
                 table.getStorageProperties(),
                 table.isRecordScannedFiles(),
-                table.getMaxScannedFileSize());
+                table.getMaxScannedFileSize(),
+                table.getConstraintColumns(),
+                table.getAnalyzeColumns());
 
         return Optional.of(new LimitApplicationResult<>(table, false, false));
     }
@@ -2428,7 +2470,7 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) handle;
         ConstraintExtractor.ExtractionResult extractionResult = extractTupleDomain(constraint);
         TupleDomain<IcebergColumnHandle> predicate = extractionResult.tupleDomain();
-        if (predicate.isAll()) {
+        if (predicate.isAll() && constraint.getPredicateColumns().isEmpty()) {
             return Optional.empty();
         }
         if (table.getLimit().isPresent()) {
@@ -2488,8 +2530,16 @@ public class IcebergMetadata
             remainingConstraint = TupleDomain.withColumnDomains(newUnenforced).intersect(TupleDomain.withColumnDomains(unsupported));
         }
 
+        Set<IcebergColumnHandle> newConstraintColumns = constraint.getPredicateColumns()
+                .map(columnHandles -> columnHandles.stream()
+                        .map(columnHandle -> (IcebergColumnHandle) columnHandle)
+                        .collect(toImmutableSet()))
+                .orElse(ImmutableSet.of());
+
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())
-                && newUnenforcedConstraint.equals(table.getUnenforcedPredicate())) {
+                && newUnenforcedConstraint.equals(table.getUnenforcedPredicate())
+                && newConstraintColumns.equals(table.getConstraintColumns())
+                && constraint.getPredicateColumns().isEmpty()) {
             return Optional.empty();
         }
 
@@ -2511,7 +2561,9 @@ public class IcebergMetadata
                         table.getTableLocation(),
                         table.getStorageProperties(),
                         table.isRecordScannedFiles(),
-                        table.getMaxScannedFileSize()),
+                        table.getMaxScannedFileSize(),
+                        Sets.union(table.getConstraintColumns(), newConstraintColumns),
+                        table.getAnalyzeColumns()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 extractionResult.remainingExpression(),
                 false));
@@ -2659,7 +2711,9 @@ public class IcebergMetadata
                         originalHandle.getTableLocation(),
                         originalHandle.getStorageProperties(),
                         originalHandle.isRecordScannedFiles(),
-                        originalHandle.getMaxScannedFileSize()),
+                        originalHandle.getMaxScannedFileSize(),
+                        originalHandle.getConstraintColumns(),
+                        originalHandle.getAnalyzeColumns()),
                 handle -> {
                     Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
                     return TableStatisticsReader.getTableStatistics(typeManager, session, handle, icebergTable);

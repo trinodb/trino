@@ -6978,6 +6978,222 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @Test
+    public void testIdentityPartitionFilterMissing()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertQueryFails(session, "SELECT id FROM " + tableName + " WHERE ds IS NOT null OR true", "Filter required for tpch\\." + tableName + " on at least one of the partition columns: ds");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testBucketPartitionFilterMissing()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['bucket(ds, 16)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertQueryFails(session, "SELECT id FROM " + tableName + " WHERE ds IS NOT null OR true", "Filter required for tpch\\." + tableName + " on at least one of the partition columns: ds");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testIdentityPartitionFilterIncluded()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        String query = "SELECT id FROM " + tableName + " WHERE ds = 'a'";
+        assertQuery(session, query, "VALUES 1");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testBucketPartitionFilterIncluded()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['bucket(ds, 16)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a'), (2, 'b', 'b')", 2);
+        String query = "SELECT id FROM " + tableName + " WHERE ds = 'a'";
+        assertQuery(session, query, "VALUES 1");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMultiPartitionedTableFilterIncluded()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['id', 'bucket(ds, 16)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a'), (2, 'b', 'b')", 2);
+        // include predicate only on 'id', not on 'ds'
+        String query = "SELECT id, ds FROM " + tableName + " WHERE id = 2";
+        assertQuery(session, query, "VALUES (2, 'b')");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testIdentityPartitionIsNotNullFilter()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertQuery(session, "SELECT id FROM " + tableName + " WHERE ds IS NOT null", "VALUES 1");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testJoinPartitionFilterIncluded()
+    {
+        String tableName1 = "test_partition_" + randomNameSuffix();
+        String tableName2 = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName1 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName1 + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertUpdate(session, "CREATE TABLE " + tableName2 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName2 + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertQuery(session, "SELECT a.id, b.id FROM " + tableName1 + " a JOIN " + tableName2 + " b ON (a.ds = b.ds) WHERE a.ds = 'a'", "VALUES (1, 1)");
+        assertUpdate(session, "DROP TABLE " + tableName1);
+        assertUpdate(session, "DROP TABLE " + tableName2);
+    }
+
+    @Test
+    public void testJoinWithMissingPartitionFilter()
+    {
+        String tableName1 = "test_partition_" + randomNameSuffix();
+        String tableName2 = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName1 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName1 + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertUpdate(session, "CREATE TABLE " + tableName2 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName2 + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertQueryFails(session, "SELECT a.id, b.id FROM " + tableName1 + " a JOIN " + tableName2 + " b ON (a.id = b.id) WHERE a.ds = 'a'", "Filter required for tpch\\." + tableName2 + " on at least one of the partition columns: ds");
+        assertUpdate(session, "DROP TABLE " + tableName1);
+        assertUpdate(session, "DROP TABLE " + tableName2);
+    }
+
+    @Test
+    public void testJoinWithPartitionFilterOnPartitionedTable()
+    {
+        String tableName1 = "test_partition_" + randomNameSuffix();
+        String tableName2 = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName1 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName1 + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertUpdate(session, "CREATE TABLE " + tableName2 + " (id integer, a varchar, b varchar, ds varchar)");
+        assertUpdate(session, "INSERT INTO " + tableName2 + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertQuery(session, "SELECT a.id, b.id FROM " + tableName1 + " a JOIN " + tableName2 + " b ON (a.id = b.id) WHERE a.ds = 'a'", "VALUES (1, 1)");
+        assertUpdate(session, "DROP TABLE " + tableName1);
+        assertUpdate(session, "DROP TABLE " + tableName2);
+    }
+
+    @Test
+    public void testPartitionPredicateWithCasting()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, '1', '1')", 1);
+        String query = "SELECT id FROM " + tableName + " WHERE cast(ds as integer) = 1";
+        assertQuery(session, query, "VALUES 1");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNestedQueryWithInnerPartitionPredicate()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, '1', '1')", 1);
+        String query = "SELECT id FROM (SELECT * FROM " + tableName + " WHERE cast(ds as integer) = 1) WHERE cast(a as integer) = 1";
+        assertQuery(session, query, "VALUES 1");
+        assertUpdate(session, "DROP TABLE " + tableName + "");
+    }
+
+    @Test
+    public void testPredicateOnNonPartitionColumn()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, '1', '1')", 1);
+        String query = "SELECT id FROM " + tableName + " WHERE cast(b as integer) = 1";
+        assertQueryFails(session, query, "Filter required for tpch\\." + tableName + " on at least one of the partition columns: ds");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNonSelectStatementsWithPartitionFilterRequired()
+    {
+        String tableName1 = "test_partition_" + randomNameSuffix();
+        String tableName2 = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName1 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "CREATE TABLE " + tableName2 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName1 + " (id, a, ds) VALUES (1, '1', '1'), (2, '2', '2')", 2);
+        assertUpdate(session, "INSERT INTO " + tableName2 + " (id, a, ds) VALUES (1, '1', '1'), (3, '3', '3')", 2);
+
+        // These non-SELECT statements fail without a partition filter
+        String errorMessage = "Filter required for tpch\\." + tableName1 + " on at least one of the partition columns: ds";
+        assertQueryFails(session, "ALTER TABLE " + tableName1 + " EXECUTE optimize", errorMessage);
+        assertQueryFails(session, "UPDATE " + tableName1 + " SET a = 'New'", errorMessage);
+        assertQueryFails(session, "MERGE INTO " + tableName1 + " AS a USING " + tableName2 + " AS b ON (a.ds = b.ds) WHEN MATCHED THEN UPDATE SET a = 'New'", errorMessage);
+        assertQueryFails(session, "DELETE FROM " + tableName1 + " WHERE a = '1'", errorMessage);
+
+        // Adding partition filters to each solves the problem
+        assertQuerySucceeds(session, "ALTER TABLE " + tableName1 + " EXECUTE optimize WHERE ds in ('2', '4')");
+        assertQuerySucceeds(session, "UPDATE " + tableName1 + " SET a = 'New' WHERE ds = '2'");
+        assertQuerySucceeds(session, "MERGE INTO " + tableName1 + " AS a USING (SELECT * FROM " + tableName2 + " WHERE ds = '1') AS b ON (a.ds = b.ds) WHEN MATCHED THEN UPDATE SET a = 'New'");
+        assertQuerySucceeds(session, "DELETE FROM " + tableName1 + " WHERE ds = '1'");
+
+        // Analyze should always succeed, since currently it cannot take a partition argument like Hive
+        assertQuerySucceeds(session, "ANALYZE " + tableName1);
+        assertQuerySucceeds(session, "ANALYZE " + tableName2 + " WITH (columns = ARRAY['id', 'a'])");
+
+        assertUpdate(session, "DROP TABLE " + tableName1);
+        assertUpdate(session, "DROP TABLE " + tableName2);
+    }
+
+    private static Session withPartitionFilterRequired(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty("iceberg", "query_partition_filter_required", "true")
+                .build();
+    }
+
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
