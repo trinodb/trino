@@ -25,8 +25,11 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.instrumentation.awssdk.v1_11.AwsSdkTelemetry;
 import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -89,6 +92,17 @@ public class GlueMetastoreModule
                 .setDefault()
                 .to(statisticsPrividerFactoryClass)
                 .in(Scopes.SINGLETON);
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    @ForGlueHiveMetastore
+    public RequestHandler2 createRequestHandler(OpenTelemetry openTelemetry)
+    {
+        return AwsSdkTelemetry.builder(openTelemetry)
+                .setCaptureExperimentalSpanAttributes(true)
+                .build()
+                .newRequestHandler();
     }
 
     @Provides
