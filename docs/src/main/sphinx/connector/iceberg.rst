@@ -1277,6 +1277,7 @@ The Iceberg connector supports setting comments on the following objects:
 - tables
 - views
 - table columns
+- materialized view columns
 
 The ``COMMENT`` option is supported on both the table and the table columns for
 the :doc:`/sql/create-table` operation.
