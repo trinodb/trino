@@ -415,6 +415,12 @@ public class TrinoRestCatalog
         throw new TrinoException(NOT_SUPPORTED, "updateViewColumnComment is not supported for Iceberg REST catalog");
     }
 
+    @Override
+    public void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "updateMaterializedViewColumnComment is not supported for Iceberg REST catalog");
+    }
+
     private SessionCatalog.SessionContext convert(ConnectorSession session)
     {
         return switch (sessionType) {

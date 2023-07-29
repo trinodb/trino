@@ -1003,6 +1003,46 @@ public class TrinoGlueCatalog
     }
 
     @Override
+    public void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        ConnectorMaterializedViewDefinition definition = doGetMaterializedView(session, viewName)
+                .orElseThrow(() -> new ViewNotFoundException(viewName));
+        ConnectorMaterializedViewDefinition newDefinition = new ConnectorMaterializedViewDefinition(
+                definition.getOriginalSql(),
+                definition.getStorageTable(),
+                definition.getCatalog(),
+                definition.getSchema(),
+                definition.getColumns().stream()
+                        .map(currentViewColumn -> Objects.equals(columnName, currentViewColumn.getName()) ? new ConnectorMaterializedViewDefinition.Column(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
+                        .collect(toImmutableList()),
+                definition.getGracePeriod(),
+                definition.getComment(),
+                definition.getOwner(),
+                definition.getProperties());
+
+        updateMaterializedView(session, viewName, newDefinition);
+    }
+
+    private void updateMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition newDefinition)
+    {
+        TableInput materializedViewTableInput = getMaterializedViewTableInput(
+                viewName.getTableName(),
+                encodeMaterializedViewData(fromConnectorMaterializedViewDefinition(newDefinition)),
+                session.getUser(),
+                createMaterializedViewProperties(session, newDefinition.getStorageTable().orElseThrow().getSchemaTableName()));
+
+        try {
+            stats.getUpdateTable().call(() ->
+                    glueClient.updateTable(new UpdateTableRequest()
+                            .withDatabaseName(viewName.getSchemaName())
+                            .withTableInput(materializedViewTableInput)));
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
+        }
+    }
+
+    @Override
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         com.amazonaws.services.glue.model.Table view = getTable(session, viewName)
