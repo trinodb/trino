@@ -1492,6 +1492,12 @@ public class HiveMetadata
         replaceView(session, viewName, view, newDefinition);
     }
 
+    @Override
+    public void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        hiveMaterializedViewMetadata.setMaterializedViewColumnComment(session, viewName, columnName, comment);
+    }
+
     private Table getView(SchemaTableName viewName)
     {
         Table view = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())

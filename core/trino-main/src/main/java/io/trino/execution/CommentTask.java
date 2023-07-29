@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
@@ -140,18 +141,14 @@ public class CommentTask
 
         QualifiedObjectName originalObjectName = createQualifiedObjectName(session, statement, prefix);
         if (metadata.isView(session, originalObjectName)) {
-            String columnName = statement.getName().getSuffix();
             ViewDefinition viewDefinition = metadata.getView(session, originalObjectName).get();
-            ViewColumn viewColumn = viewDefinition.getColumns().stream()
-                    .filter(column -> column.getName().equals(columnName))
-                    .findAny()
-                    .orElseThrow(() -> semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: %s", columnName));
-
-            accessControl.checkCanSetColumnComment(session.toSecurityContext(), originalObjectName);
+            ViewColumn viewColumn = findAndCheckViewColumn(statement, session, viewDefinition, originalObjectName);
             metadata.setViewColumnComment(session, originalObjectName, viewColumn.getName(), statement.getComment());
         }
         else if (metadata.isMaterializedView(session, originalObjectName)) {
-            throw semanticException(TABLE_NOT_FOUND, statement, "Setting comments on the columns of materialized views is unsupported");
+            MaterializedViewDefinition materializedViewDefinition = metadata.getMaterializedView(session, originalObjectName).get();
+            ViewColumn viewColumn = findAndCheckViewColumn(statement, session, materializedViewDefinition, originalObjectName);
+            metadata.setMaterializedViewColumnComment(session, originalObjectName, viewColumn.getName(), statement.getComment());
         }
         else {
             RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalObjectName);
@@ -170,5 +167,16 @@ public class CommentTask
 
             metadata.setColumnComment(session, tableHandle, columnHandles.get(columnName), statement.getComment());
         }
+    }
+
+    private ViewColumn findAndCheckViewColumn(Comment statement, Session session, ViewDefinition viewDefinition, QualifiedObjectName originalObjectName)
+    {
+        String columnName = statement.getName().getSuffix();
+        ViewColumn viewColumn = viewDefinition.getColumns().stream()
+                .filter(column -> column.getName().equals(columnName))
+                .findAny()
+                .orElseThrow(() -> semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: %s", columnName));
+        accessControl.checkCanSetColumnComment(session.toSecurityContext(), originalObjectName);
+        return viewColumn;
     }
 }
