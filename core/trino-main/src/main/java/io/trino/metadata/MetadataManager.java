@@ -609,7 +609,11 @@ public final class MetadataManager
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
                     for (ViewColumn column : entry.getValue().getColumns()) {
                         try {
-                            columns.add(new ColumnMetadata(column.getName(), typeManager.getType(column.getType())));
+                            columns.add(ColumnMetadata.builder()
+                                    .setName(column.getName())
+                                    .setType(typeManager.getType(column.getType()))
+                                    .setComment(column.getComment())
+                                    .build());
                         }
                         catch (TypeNotFoundException e) {
                             throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.getType(), column.getName(), entry.getKey()));
@@ -734,6 +738,15 @@ public final class MetadataManager
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
         metadata.setViewColumnComment(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName(), columnName, comment);
+    }
+
+    @Override
+    public void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+        metadata.setMaterializedViewColumnComment(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName(), columnName, comment);
     }
 
     @Override

@@ -577,6 +577,26 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
+        {
+            MaterializedViewDefinition view = materializedViews.get(viewName.asSchemaTableName());
+            materializedViews.put(
+                    viewName.asSchemaTableName(),
+                    new MaterializedViewDefinition(
+                            view.getOriginalSql(),
+                            view.getCatalog(),
+                            view.getSchema(),
+                            view.getColumns().stream()
+                                    .map(currentViewColumn -> columnName.equals(currentViewColumn.getName()) ? new ViewColumn(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
+                                    .collect(toImmutableList()),
+                            view.getGracePeriod(),
+                            view.getComment(),
+                            view.getRunAsIdentity().get(),
+                            view.getStorageTable(),
+                            view.getProperties()));
+        }
+
+        @Override
         public void renameMaterializedView(Session session, QualifiedObjectName source, QualifiedObjectName target)
         {
             SchemaTableName oldViewName = source.asSchemaTableName();

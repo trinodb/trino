@@ -611,6 +611,15 @@ public class TestAccessControl
     }
 
     @Test
+    public void testCommentColumnMaterializedView()
+    {
+        String viewName = "comment_materialized_view" + randomNameSuffix();
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM orders");
+        assertAccessDenied("COMMENT ON COLUMN " + viewName + ".orderkey IS 'new order key comment'", "Cannot comment column to .*", privilege(viewName, COMMENT_COLUMN));
+        assertUpdate(getSession(), "COMMENT ON COLUMN " + viewName + ".orderkey IS 'new comment'");
+    }
+
+    @Test
     public void testSetColumnType()
     {
         String tableName = "test_set_colun_type" + randomNameSuffix();
