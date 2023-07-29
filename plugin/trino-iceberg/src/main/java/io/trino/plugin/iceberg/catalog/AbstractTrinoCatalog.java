@@ -346,7 +346,7 @@ public abstract class AbstractTrinoCatalog
                 definition.getCatalog(),
                 definition.getSchema(),
                 definition.getColumns().stream()
-                        .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType()))
+                        .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType(), column.getComment()))
                         .collect(toImmutableList()),
                 definition.getGracePeriod(),
                 definition.getComment(),

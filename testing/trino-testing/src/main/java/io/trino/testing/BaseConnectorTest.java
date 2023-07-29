@@ -114,6 +114,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW_COLUMN;
@@ -1582,6 +1583,48 @@ public abstract class BaseConnectorTest
                         "AND schema_name = CURRENT_SCHEMA " +
                         "AND name = '" + materializedViewName + "'");
         return Optional.ofNullable(lastFreshTime);
+    }
+
+    @Test
+    public void testColumnCommentMaterializedView()
+    {
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN)) {
+            if (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
+                String viewName = "test_materialized_view_" + randomNameSuffix();
+                assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+                assertQueryFails("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'", "This connector does not support setting materialized view column comments");
+                assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+                return;
+            }
+            throw new SkipException("Skipping as connector does not support MATERIALIZED VIEW COLUMN COMMENT");
+        }
+
+        String viewName = "test_materialized_view_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".name IS 'new comment'");
+            assertThat(getColumnComment(viewName, "name")).isEqualTo("new comment");
+
+            // comment deleted
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".name IS NULL");
+            assertThat(getColumnComment(viewName, "name")).isEqualTo(null);
+
+            // comment set to non-empty value before verifying setting empty comment
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".name IS 'updated comment'");
+            assertThat(getColumnComment(viewName, "name")).isEqualTo("updated comment");
+
+            // refresh materialized view
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 25);
+            assertThat(getColumnComment(viewName, "name")).isEqualTo("updated comment");
+
+            // comment set to empty
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".name IS ''");
+            assertThat(getColumnComment(viewName, "name")).isEmpty();
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+        }
     }
 
     @Test
