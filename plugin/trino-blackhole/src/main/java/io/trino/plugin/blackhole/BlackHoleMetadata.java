@@ -455,4 +455,24 @@ public class BlackHoleMetadata
     {
         return ImmutableList.copyOf(materializedViews.keySet());
     }
+
+    @Override
+    public void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        ConnectorMaterializedViewDefinition view = getMaterializedView(session, viewName).orElseThrow(() -> new ViewNotFoundException(viewName));
+        materializedViews.put(viewName, new ConnectorMaterializedViewDefinition(
+                view.getOriginalSql(),
+                view.getStorageTable(),
+                view.getCatalog(),
+                view.getSchema(),
+                view.getColumns().stream()
+                        .map(currentViewColumn -> Objects.equals(columnName, currentViewColumn.getName())
+                                ? new ConnectorMaterializedViewDefinition.Column(currentViewColumn.getName(), currentViewColumn.getType(), comment)
+                                : currentViewColumn)
+                        .collect(toImmutableList()),
+                view.getGracePeriod(),
+                view.getComment(),
+                view.getOwner(),
+                view.getProperties()));
+    }
 }
