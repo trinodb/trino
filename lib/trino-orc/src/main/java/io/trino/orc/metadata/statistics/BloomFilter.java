@@ -14,9 +14,10 @@
 package io.trino.orc.metadata.statistics;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.airlift.slice.ByteArrays;
 import io.airlift.slice.Slice;
 import io.airlift.slice.UnsafeSlice;
+
+import java.lang.invoke.VarHandle;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -24,6 +25,8 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Double.doubleToLongBits;
+import static java.lang.invoke.MethodHandles.byteArrayViewVarHandle;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
 /**
  * BloomFilter is a probabilistic data structure for set membership check. BloomFilters are
@@ -49,6 +52,8 @@ public class BloomFilter
         implements StatisticsHasher.Hashable
 {
     private static final int INSTANCE_SIZE = instanceSize(BloomFilter.class) + instanceSize(BitSet.class);
+
+    private static final VarHandle LONG_ARRAY_HANDLE = byteArrayViewVarHandle(long[].class, LITTLE_ENDIAN);
 
     // from 64-bit linear congruential generator
     private static final long NULL_HASHCODE = 2862933555777941757L;
@@ -344,7 +349,7 @@ public class BloomFilter
             // body
             int current = 0;
             while (current < fastLimit) {
-                long k = ByteArrays.getLong(data, current);
+                long k = (long) LONG_ARRAY_HANDLE.get(data, current);
                 current += SIZE_OF_LONG;
 
                 // mix functions
