@@ -13,8 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
@@ -304,8 +302,8 @@ public class Fixed12BlockBuilder
         return sb.toString();
     }
 
-    Slice getValuesSlice()
+    int[] getRawValues()
     {
-        return Slices.wrappedIntArray(values, 0, positionCount * 3);
+        return values;
     }
 }

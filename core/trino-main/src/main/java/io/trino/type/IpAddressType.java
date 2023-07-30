@@ -156,9 +156,10 @@ public class IpAddressType
     @Override
     public final Slice getSlice(Block block, int position)
     {
-        return Slices.wrappedLongArray(
-                block.getLong(position, 0),
-                block.getLong(position, SIZE_OF_LONG));
+        Slice value = Slices.allocate(INT128_BYTES);
+        value.setLong(0, block.getLong(position, 0));
+        value.setLong(SIZE_OF_LONG, block.getLong(position, SIZE_OF_LONG));
+        return value;
     }
 
     @ScalarOperator(EQUAL)

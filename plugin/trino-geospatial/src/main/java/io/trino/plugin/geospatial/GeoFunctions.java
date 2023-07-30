@@ -91,7 +91,7 @@ import static com.esri.core.geometry.NonSimpleResult.Reason.OGCPolylineSelfTange
 import static com.esri.core.geometry.ogc.OGCGeometry.createFromEsriGeometry;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.airlift.slice.Slices.wrappedHeapBuffer;
 import static io.trino.geospatial.GeometryType.GEOMETRY_COLLECTION;
 import static io.trino.geospatial.GeometryType.LINE_STRING;
 import static io.trino.geospatial.GeometryType.MULTI_LINE_STRING;
@@ -387,7 +387,7 @@ public final class GeoFunctions
     @SqlType(VARBINARY)
     public static Slice stAsBinary(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        return wrappedBuffer(deserialize(input).asBinary());
+        return wrappedHeapBuffer(deserialize(input).asBinary());
     }
 
     @SqlNullable
