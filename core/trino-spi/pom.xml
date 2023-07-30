@@ -237,6 +237,78 @@
                                     <old>method void io.trino.spi.security.SystemAccessControl::checkCanShowRoleAuthorizationDescriptors(io.trino.spi.security.SystemSecurityContext)</old>
                                 </item>
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method void io.trino.spi.block.VariableWidthBlockBuilder::writeEntry(io.airlift.slice.Slice)</old>
+                                    <new>method io.trino.spi.block.VariableWidthBlockBuilder io.trino.spi.block.VariableWidthBlockBuilder::writeEntry(io.airlift.slice.Slice)</new>
+                                    <justification>Safe to change void return to match other method of same name with different signature</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method java.lang.Object io.airlift.slice.Slice::getBase()</old>
+                                    <new>method byte[] io.airlift.slice.Slice::getBase()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
+                                    <new>method void io.airlift.slice.SliceInput::readDoubles(double[])</new>
+                                </item>
+                                <item>
+                                    <code>java.method.abstractMethodAdded</code>
+                                    <new>method void io.airlift.slice.SliceInput::readDoubles(double[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
+                                    <new>method void io.airlift.slice.SliceInput::readFloats(float[])</new>
+                                </item>
+                                <item>
+                                    <code>java.method.abstractMethodAdded</code>
+                                    <new>method void io.airlift.slice.SliceInput::readFloats(float[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
+                                    <new>method void io.airlift.slice.SliceInput::readInts(int[])</new>
+                                </item>
+                                <item>
+                                    <code>java.method.abstractMethodAdded</code>
+                                    <new>method void io.airlift.slice.SliceInput::readInts(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
+                                    <new>method void io.airlift.slice.SliceInput::readLongs(long[])</new>
+                                </item>
+                                <item>
+                                    <code>java.method.abstractMethodAdded</code>
+                                    <new>method void io.airlift.slice.SliceInput::readLongs(long[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
+                                    <new>method void io.airlift.slice.SliceInput::readShorts(short[])</new>
+                                </item>
+                                <item>
+                                    <code>java.method.abstractMethodAdded</code>
+                                    <new>method void io.airlift.slice.SliceInput::readShorts(short[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.abstractMethodAdded</code>
+                                    <new>method void io.airlift.slice.SliceOutput::writeDoubles(double[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.abstractMethodAdded</code>
+                                    <new>method void io.airlift.slice.SliceOutput::writeFloats(float[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.abstractMethodAdded</code>
+                                    <new>method void io.airlift.slice.SliceOutput::writeInts(int[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.abstractMethodAdded</code>
+                                    <new>method void io.airlift.slice.SliceOutput::writeLongs(long[], int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.abstractMethodAdded</code>
+                                    <new>method void io.airlift.slice.SliceOutput::writeShorts(short[], int, int)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -179,7 +179,7 @@ public class TestPositionsAppender
                         {TestType.DOUBLE, createDoublesBlock(0D), createDoublesBlock(1D)},
                         {TestType.SMALLINT, createSmallintsBlock(0), createSmallintsBlock(1)},
                         {TestType.TINYINT, createTinyintsBlock(0), createTinyintsBlock(1)},
-                        {TestType.VARBINARY, createSlicesBlock(Slices.wrappedLongArray(0)), createSlicesBlock(Slices.wrappedLongArray(1))},
+                        {TestType.VARBINARY, createSlicesBlock(Slices.allocate(Long.BYTES)), createSlicesBlock(Slices.allocate(Long.BYTES).getOutput().appendLong(1).slice())},
                         {TestType.LONG_DECIMAL, createLongDecimalsBlock("0"), createLongDecimalsBlock("1")},
                         {TestType.ARRAY_BIGINT, createArrayBigintBlock(ImmutableList.of(ImmutableList.of(0L))), createArrayBigintBlock(ImmutableList.of(ImmutableList.of(1L)))},
                         {TestType.LONG_TIMESTAMP, createLongTimestampBlock(createTimestampType(9), new LongTimestamp(0, 0)),

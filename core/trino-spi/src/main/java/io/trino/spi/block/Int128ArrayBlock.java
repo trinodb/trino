@@ -13,8 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
@@ -233,8 +231,13 @@ public class Int128ArrayBlock
         return sb.toString();
     }
 
-    Slice getValuesSlice()
+    long[] getRawValues()
     {
-        return Slices.wrappedLongArray(values, positionOffset * 2, positionCount * 2);
+        return values;
+    }
+
+    int getPositionOffset()
+    {
+        return positionOffset;
     }
 }

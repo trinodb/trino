@@ -13,10 +13,8 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -41,7 +39,15 @@ public class Int128ArrayBlockEncoding
         encodeNullsAsBits(sliceOutput, block);
 
         if (!block.mayHaveNull()) {
-            sliceOutput.writeBytes(getValuesSlice(block));
+            if (block instanceof Int128ArrayBlock valueBlock) {
+                sliceOutput.writeLongs(valueBlock.getRawValues(), valueBlock.getPositionOffset() * 2, valueBlock.getPositionCount() * 2);
+            }
+            else if (block instanceof Int128ArrayBlockBuilder blockBuilder) {
+                sliceOutput.writeLongs(blockBuilder.getRawValues(), 0, blockBuilder.getPositionCount() * 2);
+            }
+            else {
+                throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
+            }
         }
         else {
             long[] valuesWithoutNull = new long[positionCount * 2];
@@ -55,7 +61,7 @@ public class Int128ArrayBlockEncoding
             }
 
             sliceOutput.writeInt(nonNullPositionCount / 2);
-            sliceOutput.writeBytes(Slices.wrappedLongArray(valuesWithoutNull, 0, nonNullPositionCount));
+            sliceOutput.writeLongs(valuesWithoutNull, 0, nonNullPositionCount);
         }
     }
 
@@ -68,11 +74,11 @@ public class Int128ArrayBlockEncoding
 
         long[] values = new long[positionCount * 2];
         if (valueIsNull == null) {
-            sliceInput.readBytes(Slices.wrappedLongArray(values));
+            sliceInput.readLongs(values);
         }
         else {
             int nonNullPositionCount = sliceInput.readInt();
-            sliceInput.readBytes(Slices.wrappedLongArray(values, 0, nonNullPositionCount * 2));
+            sliceInput.readLongs(values, 0, nonNullPositionCount * 2);
             int position = 2 * (nonNullPositionCount - 1);
             for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
                 System.arraycopy(values, position, values, 2 * i, 2);
@@ -83,17 +89,5 @@ public class Int128ArrayBlockEncoding
         }
 
         return new Int128ArrayBlock(0, positionCount, valueIsNull, values);
-    }
-
-    private Slice getValuesSlice(Block block)
-    {
-        if (block instanceof Int128ArrayBlock) {
-            return ((Int128ArrayBlock) block).getValuesSlice();
-        }
-        if (block instanceof Int128ArrayBlockBuilder) {
-            return ((Int128ArrayBlockBuilder) block).getValuesSlice();
-        }
-
-        throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
     }
 }

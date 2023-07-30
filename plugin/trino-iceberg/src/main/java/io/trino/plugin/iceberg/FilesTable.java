@@ -288,7 +288,7 @@ public class FilesTable
             if (value == null) {
                 return null;
             }
-            return Slices.wrappedBuffer(value);
+            return Slices.wrappedHeapBuffer(value);
         }
     }
 
