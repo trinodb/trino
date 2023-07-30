@@ -13,13 +13,11 @@
  */
 package io.trino.parquet.reader.decoders;
 
-import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 
 import java.util.Arrays;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetReaderUtils.toByteExact;
 import static io.trino.parquet.ParquetReaderUtils.toShortExact;
 import static io.trino.parquet.reader.decoders.ByteBitUnpackers.getByteBitUnpacker;
@@ -29,8 +27,6 @@ import static io.trino.parquet.reader.decoders.ShortBitUnpackers.getShortBitUnpa
 
 public final class DeltaPackingUtils
 {
-    private static final int SHORTS_IN_LONG = Long.BYTES / Short.BYTES;
-
     private DeltaPackingUtils() {}
 
     public static void unpackDelta(byte[] output, int outputOffset, int length, SimpleSliceInputStream input, long minDelta, byte bitWidth)
@@ -128,10 +124,10 @@ public final class DeltaPackingUtils
     private static void unpackEmpty(short[] output, int outputOffset, int length, short delta)
     {
         if (delta == 0) { // Common case
-            fillArray4(output, outputOffset, length / 4, output[outputOffset - 1]);
+            Arrays.fill(output, outputOffset, outputOffset + length, output[outputOffset - 1]);
         }
         else {
-            fillArray4(output, outputOffset, length / 4, delta);
+            Arrays.fill(output, outputOffset, outputOffset + length, delta);
             for (int i = outputOffset; i < outputOffset + length; i += 32) {
                 output[i] += output[i - 1];
                 output[i + 1] += output[i];
@@ -299,31 +295,6 @@ public final class DeltaPackingUtils
         int lengthInBytes = length * Long.BYTES;
         Slices.wrappedBuffer(output, outputOffset, lengthInBytes)
                 .fill(baseValue);
-    }
-
-    /**
-     * Fill short array with a value. Fills 4 values at a time
-     *
-     * @param length Number of LONG values to write i.e. number of shorts / 4
-     */
-    private static void fillArray4(short[] output, int outputOffset, int length, short baseValue)
-    {
-        Slice buffer = Slices.wrappedShortArray(output, outputOffset, length * SHORTS_IN_LONG);
-        checkArgument(output.length - outputOffset >= length * SHORTS_IN_LONG, "Trying to write values out of array bounds");
-        long value = fillLong(baseValue);
-        for (int i = 0; i < length * Long.BYTES; i += Long.BYTES) {
-            buffer.setLong(i, value);
-        }
-    }
-
-    /**
-     * @return long value made out of the argument concatenated 4 times
-     */
-    private static long fillLong(short baseValue)
-    {
-        long value = ((long) (baseValue & 0xFFFF) << 16) | (baseValue & 0xFFFF);
-        value = (value << 32) | value;
-        return value;
     }
 
     private static void inPlacePrefixSum(byte[] output, int outputOffset, int length, short minDelta)

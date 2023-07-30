@@ -148,6 +148,8 @@
 
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
 
+        <dep.slice.version>0.46</dep.slice.version>
+
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.13.0</dep.antlr.version>

@@ -150,16 +150,18 @@ public class UuidType
     @Override
     public final Slice getSlice(Block block, int position)
     {
-        return Slices.wrappedLongArray(
-                block.getLong(position, 0),
-                block.getLong(position, SIZE_OF_LONG));
+        Slice value = Slices.allocate(INT128_BYTES);
+        value.setLong(0, block.getLong(position, 0));
+        value.setLong(SIZE_OF_LONG, block.getLong(position, SIZE_OF_LONG));
+        return value;
     }
 
     public static Slice javaUuidToTrinoUuid(UUID uuid)
     {
-        return Slices.wrappedLongArray(
-                reverseBytes(uuid.getMostSignificantBits()),
-                reverseBytes(uuid.getLeastSignificantBits()));
+        Slice value = Slices.allocate(INT128_BYTES);
+        value.setLong(0, reverseBytes(uuid.getMostSignificantBits()));
+        value.setLong(SIZE_OF_LONG, reverseBytes(uuid.getLeastSignificantBits()));
+        return value;
     }
 
     public static UUID trinoUuidToJavaUuid(Slice uuid)

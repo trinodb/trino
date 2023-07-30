@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.common.primitives.Shorts;
 import io.airlift.slice.Slice;
 import io.airlift.slice.UnsafeSlice;
 
@@ -81,6 +82,24 @@ public final class SimpleSliceInputStream
     {
         slice.getBytes(offset, output, outputOffset, length);
         offset += length;
+    }
+
+    public void readShorts(short[] output, int outputOffset, int length)
+    {
+        slice.getShorts(offset, output, outputOffset, length);
+        offset += length * Shorts.BYTES;
+    }
+
+    public void readInts(int[] output, int outputOffset, int length)
+    {
+        slice.getInts(offset, output, outputOffset, length);
+        offset += length * Integer.BYTES;
+    }
+
+    public void readLongs(long[] output, int outputOffset, int length)
+    {
+        slice.getLongs(offset, output, outputOffset, length);
+        offset += length * Long.BYTES;
     }
 
     public void readBytes(Slice destination, int destinationIndex, int length)
