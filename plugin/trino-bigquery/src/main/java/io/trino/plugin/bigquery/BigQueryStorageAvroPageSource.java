@@ -226,7 +226,7 @@ public class BigQueryStorageAvroPageSource
         }
         else if (type instanceof VarbinaryType) {
             if (value instanceof ByteBuffer) {
-                type.writeSlice(output, Slices.wrappedBuffer((ByteBuffer) value));
+                type.writeSlice(output, Slices.wrappedHeapBuffer((ByteBuffer) value));
             }
             else {
                 output.appendNull();

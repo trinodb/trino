@@ -61,7 +61,7 @@ public final class VarbinaryFunctions
     public static Slice toBase64(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         if (slice.hasByteArray()) {
-            return Slices.wrappedBuffer(Base64.getEncoder().encode(slice.toByteBuffer()));
+            return Slices.wrappedHeapBuffer(Base64.getEncoder().encode(slice.toByteBuffer()));
         }
         return Slices.wrappedBuffer(Base64.getEncoder().encode(slice.getBytes()));
     }
@@ -74,7 +74,7 @@ public final class VarbinaryFunctions
     {
         try {
             if (slice.hasByteArray()) {
-                return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.toByteBuffer()));
+                return Slices.wrappedHeapBuffer(Base64.getDecoder().decode(slice.toByteBuffer()));
             }
             return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.getBytes()));
         }
@@ -90,7 +90,7 @@ public final class VarbinaryFunctions
     {
         try {
             if (slice.hasByteArray()) {
-                return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.toByteBuffer()));
+                return Slices.wrappedHeapBuffer(Base64.getDecoder().decode(slice.toByteBuffer()));
             }
             return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.getBytes()));
         }
@@ -105,7 +105,7 @@ public final class VarbinaryFunctions
     public static Slice toBase64Url(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         if (slice.hasByteArray()) {
-            return Slices.wrappedBuffer(Base64.getUrlEncoder().encode(slice.toByteBuffer()));
+            return Slices.wrappedHeapBuffer(Base64.getUrlEncoder().encode(slice.toByteBuffer()));
         }
         return Slices.wrappedBuffer(Base64.getUrlEncoder().encode(slice.getBytes()));
     }
@@ -118,7 +118,7 @@ public final class VarbinaryFunctions
     {
         try {
             if (slice.hasByteArray()) {
-                return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.toByteBuffer()));
+                return Slices.wrappedHeapBuffer(Base64.getUrlDecoder().decode(slice.toByteBuffer()));
             }
             return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.getBytes()));
         }
@@ -134,7 +134,7 @@ public final class VarbinaryFunctions
     {
         try {
             if (slice.hasByteArray()) {
-                return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.toByteBuffer()));
+                return Slices.wrappedHeapBuffer(Base64.getUrlDecoder().decode(slice.toByteBuffer()));
             }
             return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.getBytes()));
         }

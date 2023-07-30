@@ -78,6 +78,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.airlift.slice.Slices.wrappedHeapBuffer;
 import static io.trino.plugin.cassandra.CassandraType.Kind.DATE;
 import static io.trino.plugin.cassandra.CassandraType.Kind.TIME;
 import static io.trino.plugin.cassandra.CassandraType.Kind.TIMESTAMP;
@@ -273,7 +274,7 @@ public class CassandraTypeManager
                 return NullableValue.of(trinoType, utf8Slice(row.getBigInteger(position).toString()));
             case BLOB:
             case CUSTOM:
-                return NullableValue.of(trinoType, wrappedBuffer(row.getBytesUnsafe(position)));
+                return NullableValue.of(trinoType, wrappedHeapBuffer(row.getBytesUnsafe(position)));
             case SET:
                 return NullableValue.of(trinoType, utf8Slice(buildArrayValueFromSetType(row, position, dataTypeSupplier.get())));
             case LIST:
