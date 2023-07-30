@@ -173,7 +173,6 @@ public class S3SelectTestHelper
                 hivePartitionManager,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 new HdfsNamenodeStats(),
-                hdfsEnvironment,
                 new BoundedExecutor(executorService, this.hiveConfig.getMaxSplitIteratorThreads()),
                 new CounterStat(),
                 this.hiveConfig.getMaxOutstandingSplits(),

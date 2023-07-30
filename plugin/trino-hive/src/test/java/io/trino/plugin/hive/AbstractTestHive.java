@@ -908,7 +908,6 @@ public abstract class AbstractTestHive
                 partitionManager,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 new HdfsNamenodeStats(),
-                hdfsEnvironment,
                 executor,
                 new CounterStat(),
                 100,

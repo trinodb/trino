@@ -22,6 +22,7 @@ import com.google.common.collect.ListMultimap;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
@@ -37,6 +38,7 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
+import io.trino.plugin.hive.util.InternalHiveSplitFactory;
 import io.trino.plugin.hive.util.ValidWriteIdList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -482,14 +484,12 @@ public class TestBackgroundHiveSplitLoader
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 SESSION,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                hdfsEnvironment,
                 new HdfsNamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
                 executor,
                 threads,
                 false,
                 false,
-                true,
                 Optional.empty(),
                 Optional.empty(),
                 100);
@@ -796,37 +796,42 @@ public class TestBackgroundHiveSplitLoader
 
     @Test
     public void testBuildManifestFileIterator()
-            throws Exception
     {
         CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), DataSize.ofBytes(0), ImmutableList.of());
         Properties schema = new Properties();
         schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
         schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
 
-        Path firstFilePath = new Path("hdfs://VOL1:9000/db_name/table_name/file1");
-        Path secondFilePath = new Path("hdfs://VOL1:9000/db_name/table_name/file2");
-        List<Path> paths = ImmutableList.of(firstFilePath, secondFilePath);
-        List<LocatedFileStatus> files = paths.stream()
+        Location firstFilePath = Location.of("hdfs://VOL1:9000/db_name/table_name/file1");
+        Location secondFilePath = Location.of("hdfs://VOL1:9000/db_name/table_name/file2");
+        List<Location> locations = ImmutableList.of(firstFilePath, secondFilePath);
+        List<LocatedFileStatus> files = locations.stream()
                 .map(TestBackgroundHiveSplitLoader::locatedFileStatus)
                 .collect(toImmutableList());
 
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                files,
-                directoryLister);
-        Optional<Iterator<InternalHiveSplit>> splitIterator = backgroundHiveSplitLoader.buildManifestFileIterator(
-                AVRO,
+        InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                 "partition",
+                AVRO,
                 schema,
                 ImmutableList.of(),
                 TupleDomain.all(),
                 () -> true,
-                false,
                 TableToPartitionMapping.empty(),
-                new Path("hdfs://VOL1:9000/db_name/table_name"),
-                paths,
+                Optional.empty(),
+                Optional.empty(),
+                DataSize.of(512, MEGABYTE),
+                false,
+                false,
+                Optional.empty());
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                files,
+                directoryLister);
+        Iterator<InternalHiveSplit> splitIterator = backgroundHiveSplitLoader.buildManifestFileIterator(
+                splitFactory,
+                Location.of("hdfs://VOL1:9000/db_name/table_name"),
+                locations,
                 true);
-        assertTrue(splitIterator.isPresent());
-        List<InternalHiveSplit> splits = ImmutableList.copyOf(splitIterator.get());
+        List<InternalHiveSplit> splits = ImmutableList.copyOf(splitIterator);
         assertEquals(splits.size(), 2);
         assertEquals(splits.get(0).getPath(), firstFilePath.toString());
         assertEquals(splits.get(1).getPath(), secondFilePath.toString());
@@ -834,36 +839,46 @@ public class TestBackgroundHiveSplitLoader
 
     @Test
     public void testBuildManifestFileIteratorNestedDirectory()
-            throws Exception
     {
         CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(100, KILOBYTE), ImmutableList.of());
         Properties schema = new Properties();
         schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
         schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
 
-        Path filePath = new Path("hdfs://VOL1:9000/db_name/table_name/file1");
-        Path directoryPath = new Path("hdfs://VOL1:9000/db_name/table_name/dir/file2");
-        List<Path> paths = ImmutableList.of(filePath, directoryPath);
+        Location filePath = Location.of("hdfs://VOL1:9000/db_name/table_name/file1");
+        Location directoryPath = Location.of("hdfs://VOL1:9000/db_name/table_name/dir/file2");
+        List<Location> locations = ImmutableList.of(filePath, directoryPath);
         List<LocatedFileStatus> files = ImmutableList.of(
                 locatedFileStatus(filePath),
                 locatedFileStatus(directoryPath));
 
-        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                files,
-                directoryLister);
-        Optional<Iterator<InternalHiveSplit>> splitIterator = backgroundHiveSplitLoader.buildManifestFileIterator(
-                AVRO,
+        InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                 "partition",
+                AVRO,
                 schema,
                 ImmutableList.of(),
                 TupleDomain.all(),
                 () -> true,
-                false,
                 TableToPartitionMapping.empty(),
-                new Path("hdfs://VOL1:9000/db_name/table_name"),
-                paths,
+                Optional.empty(),
+                Optional.empty(),
+                DataSize.of(512, MEGABYTE),
+                false,
+                false,
+                Optional.empty());
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                files,
+                directoryLister);
+        Iterator<InternalHiveSplit> splitIterator = backgroundHiveSplitLoader.buildManifestFileIterator(
+                splitFactory,
+                Location.of("hdfs://VOL1:9000/db_name/table_name"),
+                locations,
                 false);
-        assertTrue(splitIterator.isEmpty());
+        List<InternalHiveSplit> splits = ImmutableList.copyOf(splitIterator);
+        assertEquals(splits.size(), 2);
+        assertEquals(splits.get(0).getPath(), filePath.toString());
+        assertEquals(splits.get(1).getPath(), directoryPath.toString());
     }
 
     @Test
@@ -1104,14 +1119,12 @@ public class TestBackgroundHiveSplitLoader
                 createBucketSplitInfo(bucketHandle, hiveBucketFilter),
                 SESSION,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                hdfsEnvironment,
                 new HdfsNamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
                 executor,
                 2,
                 false,
                 false,
-                true,
                 validWriteIds,
                 Optional.empty(),
                 100);
@@ -1149,14 +1162,12 @@ public class TestBackgroundHiveSplitLoader
                 Optional.empty(),
                 connectorSession,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                hdfsEnvironment,
                 new HdfsNamenodeStats(),
                 directoryLister,
                 executor,
                 2,
                 false,
                 false,
-                true,
                 Optional.empty(),
                 Optional.empty(),
                 maxPartitions);
@@ -1178,14 +1189,12 @@ public class TestBackgroundHiveSplitLoader
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                hdfsEnvironment,
                 new HdfsNamenodeStats(),
                 new CachingDirectoryLister(new HiveConfig()),
                 executor,
                 2,
                 false,
                 false,
-                true,
                 Optional.empty(),
                 Optional.empty(),
                 100);
@@ -1295,6 +1304,11 @@ public class TestBackgroundHiveSplitLoader
                 .setParameters(tableParameters)
                 .setPartitionColumns(partitionColumns)
                 .build();
+    }
+
+    private static LocatedFileStatus locatedFileStatus(Location location)
+    {
+        return locatedFileStatus(new Path(location.toString()), 10);
     }
 
     private static LocatedFileStatus locatedFileStatus(Path path)
