@@ -432,9 +432,10 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public StageInfo getStageInfo()
         {
-            SubPlan plan = requireNonNull(this.plan.get(), "plan is null");
             Map<PlanFragmentId, StageInfo> stageInfos = stages.values().stream()
                     .collect(toImmutableMap(stage -> stage.getFragment().getId(), SqlStage::getStageInfo));
+            // make sure that plan is not staler than stageInfos since `getStageInfo` is called asynchronously
+            SubPlan plan = requireNonNull(this.plan.get(), "plan is null");
             Set<PlanFragmentId> reportedFragments = new HashSet<>();
             StageInfo stageInfo = getStageInfo(plan, stageInfos, reportedFragments);
             // TODO Some stages may no longer be present in the plan when adaptive re-planning is implemented
