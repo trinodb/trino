@@ -13,7 +13,6 @@
  */
 package io.trino.parquet.reader.decoders;
 
-import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 
 public final class IntBitUnpackers
@@ -1364,7 +1363,7 @@ public final class IntBitUnpackers
         @Override
         public void unpack(int[] output, int outputOffset, SimpleSliceInputStream input, int length)
         {
-            input.readBytes(Slices.wrappedIntArray(output, outputOffset, length), 0, length * Integer.BYTES);
+            input.readInts(output, outputOffset, length);
         }
     }
 }

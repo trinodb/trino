@@ -206,7 +206,7 @@ public final class TypeHelper
             return row.getBoolean(field);
         }
         if (type instanceof VarbinaryType) {
-            return Slices.wrappedBuffer(row.getBinary(field));
+            return Slices.wrappedHeapBuffer(row.getBinary(field));
         }
         if (type instanceof DecimalType) {
             return Decimals.encodeScaledValue(row.getDecimal(field), ((DecimalType) type).getScale());
@@ -265,7 +265,7 @@ public final class TypeHelper
             return Slices.utf8Slice(row.getString(field));
         }
         if (type instanceof VarbinaryType) {
-            return Slices.wrappedBuffer(row.getBinary(field));
+            return Slices.wrappedHeapBuffer(row.getBinary(field));
         }
         throw new IllegalStateException("getSlice not implemented for " + type);
     }

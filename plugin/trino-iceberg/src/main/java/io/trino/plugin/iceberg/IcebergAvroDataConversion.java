@@ -283,7 +283,7 @@ public final class IcebergAvroDataConversion
             if (icebergType.typeId().equals(FIXED)) {
                 VARBINARY.writeSlice(builder, Slices.wrappedBuffer((byte[]) object));
             }
-            VARBINARY.writeSlice(builder, Slices.wrappedBuffer((ByteBuffer) object));
+            VARBINARY.writeSlice(builder, Slices.wrappedHeapBuffer((ByteBuffer) object));
             return;
         }
         if (type.equals(DATE)) {

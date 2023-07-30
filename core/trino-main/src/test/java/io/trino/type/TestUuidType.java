@@ -58,13 +58,16 @@ public class TestUuidType
     protected Object getGreaterValue(Object value)
     {
         Slice slice = (Slice) value;
-        return Slices.wrappedLongArray(slice.getLong(0), reverseBytes(reverseBytes(slice.getLong(SIZE_OF_LONG)) + 1));
+        Slice greater = Slices.allocate(2 * SIZE_OF_LONG);
+        greater.setLong(0, slice.getLong(0));
+        greater.setLong(SIZE_OF_LONG, reverseBytes(reverseBytes(slice.getLong(SIZE_OF_LONG)) + 1));
+        return greater;
     }
 
     @Override
     protected Object getNonNullValue()
     {
-        return Slices.wrappedLongArray(0, 0);
+        return Slices.allocate(2 * SIZE_OF_LONG);
     }
 
     @Test
