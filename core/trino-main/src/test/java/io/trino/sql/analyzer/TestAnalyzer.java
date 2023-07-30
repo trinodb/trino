@@ -4033,6 +4033,12 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testNullAggregationFilter()
+    {
+        analyze("SELECT a, count(*) FILTER (WHERE NULL) FROM t1 GROUP BY a");
+    }
+
+    @Test
     public void testInvalidAggregationFilter()
     {
         assertFails("SELECT sum(x) FILTER (WHERE x > 1) OVER (PARTITION BY x) FROM (VALUES (1), (2), (2), (4)) t (x)")
@@ -4044,6 +4050,12 @@ public class TestAnalyzer
         assertFails("SELECT abs(x) FILTER (where y = 1) FROM (VALUES (1, 1, 1)) t(x, y, z) GROUP BY z")
                 .hasErrorCode(FUNCTION_NOT_AGGREGATE)
                 .hasMessage("line 1:8: Filter is only valid for aggregation functions");
+        assertFails("SELECT count(*) FILTER (WHERE 0) FROM t1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:31: Filter expression must evaluate to a boolean: actual type integer");
+        assertFails("SELECT a, count(*) FILTER (WHERE 0) FROM t1 GROUP BY a")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:34: Filter expression must evaluate to a boolean: actual type integer");
     }
 
     @Test
