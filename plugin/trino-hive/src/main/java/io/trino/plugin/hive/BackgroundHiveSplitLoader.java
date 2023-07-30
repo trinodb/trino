@@ -18,17 +18,17 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.Streams;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
@@ -54,24 +54,10 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.FileSplit;
-import org.apache.hadoop.mapred.InputFormat;
-import org.apache.hadoop.mapred.InputSplit;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.JobConfigurable;
-import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.hadoop.mapreduce.MRConfig;
-import org.apache.hadoop.util.StringUtils;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.security.Principal;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
@@ -79,10 +65,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -98,13 +84,10 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -129,7 +112,6 @@ import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
 import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
 import static io.trino.plugin.hive.util.AcidTables.readAcidVersionFile;
 import static io.trino.plugin.hive.util.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveReaderUtil.getInputFormat;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
@@ -141,10 +123,10 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Integer.parseInt;
 import static java.lang.Math.max;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.hadoop.fs.Path.getPathWithoutSchemeAndAuthority;
 
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
@@ -162,23 +144,18 @@ public class BackgroundHiveSplitLoader
 
     private static final ListenableFuture<Void> COMPLETED_FUTURE = immediateVoidFuture();
 
-    private static final String FILE_INPUT_FORMAT_INPUT_DIR = "mapreduce.input.fileinputformat.inputdir";
-
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
     private final TypeManager typeManager;
     private final Optional<BucketSplitInfo> tableBucketInfo;
-    private final HdfsEnvironment hdfsEnvironment;
-    private final HdfsContext hdfsContext;
     private final HdfsNamenodeStats hdfsNamenodeStats;
     private final DirectoryLister directoryLister;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final int loaderConcurrency;
     private final boolean recursiveDirWalkerEnabled;
     private final boolean ignoreAbsentPartitions;
-    private final boolean optimizeSymlinkListing;
     private final Executor executor;
     private final ConnectorSession session;
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
@@ -220,14 +197,12 @@ public class BackgroundHiveSplitLoader
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
             TrinoFileSystemFactory fileSystemFactory,
-            HdfsEnvironment hdfsEnvironment,
             HdfsNamenodeStats hdfsNamenodeStats,
             DirectoryLister directoryLister,
             Executor executor,
             int loaderConcurrency,
             boolean recursiveDirWalkerEnabled,
             boolean ignoreAbsentPartitions,
-            boolean optimizeSymlinkListing,
             Optional<ValidWriteIdList> validWriteIds,
             Optional<Long> maxSplitFileSize,
             int maxPartitions)
@@ -242,18 +217,15 @@ public class BackgroundHiveSplitLoader
         checkArgument(loaderConcurrency > 0, "loaderConcurrency must be > 0, found: %s", loaderConcurrency);
         this.session = session;
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.hdfsEnvironment = hdfsEnvironment;
         this.hdfsNamenodeStats = hdfsNamenodeStats;
         this.directoryLister = directoryLister;
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
-        this.optimizeSymlinkListing = optimizeSymlinkListing;
         requireNonNull(executor, "executor is null");
         // direct executor is not supported in this implementation due to locking specifics
         checkExecutorIsNotDirectExecutor(executor);
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
-        this.hdfsContext = new HdfsContext(session);
         this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
         this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
         this.maxPartitions = maxPartitions;
@@ -434,15 +406,13 @@ public class BackgroundHiveSplitLoader
             return COMPLETED_FUTURE;
         }
 
-        Path path = new Path(getPartitionLocation(table, partition.getPartition()));
-        Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
-        FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
+        Location location = Location.of(getPartitionLocation(table, partition.getPartition()));
 
-        boolean s3SelectPushdownEnabled = S3SelectPushdown.shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
+        boolean s3SelectPushdownEnabled = S3SelectPushdown.shouldEnablePushdownForTable(session, table, location.toString(), partition.getPartition());
 
         // S3 Select pushdown works at the granularity of individual S3 objects for compressed files
         // and finer granularity for uncompressed files using scan range feature.
-        boolean shouldEnableSplits = S3SelectPushdown.isSplittable(s3SelectPushdownEnabled, schema, path.toString());
+        boolean shouldEnableSplits = S3SelectPushdown.isSplittable(s3SelectPushdownEnabled, schema, location.toString());
 
         // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
         boolean splittable = shouldEnableSplits && getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
@@ -452,43 +422,28 @@ public class BackgroundHiveSplitLoader
                 throw new TrinoException(NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
             }
             HiveStorageFormat targetStorageFormat = getSymlinkStorageFormat(getDeserializerClassName(schema));
-            InputFormat<?, ?> targetInputFormat = getInputFormat(configuration, schema);
-            List<Path> targetPaths = hdfsEnvironment.doAs(
-                    hdfsContext.getIdentity(),
-                    () -> getTargetPathsFromSymlink(fs, path));
-            Set<Path> parents = targetPaths.stream()
-                    .map(Path::getParent)
-                    .distinct()
-                    .collect(toImmutableSet());
-            if (optimizeSymlinkListing && parents.size() == 1 && !recursiveDirWalkerEnabled) {
-                Optional<Iterator<InternalHiveSplit>> manifestFileIterator = buildManifestFileIterator(
-                        targetStorageFormat,
-                        partitionName,
-                        schema,
-                        partitionKeys,
-                        effectivePredicate,
-                        partitionMatchSupplier,
-                        s3SelectPushdownEnabled,
-                        partition.getTableToPartitionMapping(),
-                        getOnlyElement(parents),
-                        targetPaths,
-                        splittable);
-                if (manifestFileIterator.isPresent()) {
-                    fileIterators.addLast(manifestFileIterator.get());
-                    return COMPLETED_FUTURE;
-                }
-            }
-            return createHiveSymlinkSplits(
+            ListMultimap<Location, Location> targets = getTargetLocationsByParentFromSymlink(location);
+
+            InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                     partitionName,
                     targetStorageFormat,
-                    targetInputFormat,
                     schema,
                     partitionKeys,
                     effectivePredicate,
                     partitionMatchSupplier,
-                    s3SelectPushdownEnabled,
                     partition.getTableToPartitionMapping(),
-                    targetPaths);
+                    Optional.empty(),
+                    Optional.empty(),
+                    getMaxInitialSplitSize(session),
+                    isForceLocalScheduling(session),
+                    s3SelectPushdownEnabled,
+                    maxSplitFileSize);
+
+            for (Entry<Location, List<Location>> entry : Multimaps.asMap(targets).entrySet()) {
+                fileIterators.addLast(buildManifestFileIterator(splitFactory, entry.getKey(), entry.getValue(), splittable));
+            }
+
+            return COMPLETED_FUTURE;
         }
 
         StorageFormat rawStorageFormat = partition.getPartition()
@@ -522,7 +477,6 @@ public class BackgroundHiveSplitLoader
         }
 
         InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
-                fs,
                 partitionName,
                 storageFormat,
                 schema,
@@ -538,19 +492,17 @@ public class BackgroundHiveSplitLoader
                 maxSplitFileSize);
 
         if (isTransactionalTable(table.getParameters())) {
-            return getTransactionalSplits(Location.of(path.toString()), splittable, bucketConversion, splitFactory);
+            return getTransactionalSplits(location, splittable, bucketConversion, splitFactory);
         }
 
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
-        Location location = Location.of(path.toString());
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
             List<TrinoFileStatus> files = listBucketFiles(trinoFileSystem, location, splitFactory.getPartitionName());
             return hiveSplitSource.addToQueue(getBucketedSplits(files, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, Optional.empty()));
         }
 
-        Iterator<InternalHiveSplit> splitIterator = createInternalHiveSplitIterator(trinoFileSystem, location, splitFactory, splittable, Optional.empty());
-        fileIterators.addLast(splitIterator);
+        fileIterators.addLast(createInternalHiveSplitIterator(trinoFileSystem, location, splitFactory, splittable, Optional.empty()));
 
         return COMPLETED_FUTURE;
     }
@@ -571,117 +523,23 @@ public class BackgroundHiveSplitLoader
         }
     }
 
-    private ListenableFuture<Void> createHiveSymlinkSplits(
-            String partitionName,
-            HiveStorageFormat storageFormat,
-            InputFormat<?, ?> targetInputFormat,
-            Properties schema,
-            List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
-            BooleanSupplier partitionMatchSupplier,
-            boolean s3SelectPushdownEnabled,
-            TableToPartitionMapping tableToPartitionMapping,
-            List<Path> targetPaths)
-            throws IOException
-    {
-        ListenableFuture<Void> lastResult = COMPLETED_FUTURE;
-        for (Path targetPath : targetPaths) {
-            // the splits must be generated using the file system for the target path
-            // get the configuration for the target path -- it may be a different hdfs instance
-            FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
-            JobConf targetJob = toJobConf(targetFilesystem.getConf());
-            targetJob.setInputFormat(TextInputFormat.class);
-            Optional<Principal> principal = hdfsContext.getIdentity().getPrincipal();
-            if (principal.isPresent()) {
-                targetJob.set(MRConfig.FRAMEWORK_NAME, MRConfig.CLASSIC_FRAMEWORK_NAME);
-                targetJob.set(MRConfig.MASTER_USER_NAME, principal.get().getName());
-            }
-            if (targetInputFormat instanceof JobConfigurable) {
-                ((JobConfigurable) targetInputFormat).configure(targetJob);
-            }
-            targetJob.set(FILE_INPUT_FORMAT_INPUT_DIR, StringUtils.escapeString(targetPath.toString()));
-            InputSplit[] targetSplits = hdfsEnvironment.doAs(
-                    hdfsContext.getIdentity(),
-                    () -> targetInputFormat.getSplits(targetJob, 0));
-
-            InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
-                    targetFilesystem,
-                    partitionName,
-                    storageFormat,
-                    schema,
-                    partitionKeys,
-                    effectivePredicate,
-                    partitionMatchSupplier,
-                    tableToPartitionMapping,
-                    Optional.empty(),
-                    Optional.empty(),
-                    getMaxInitialSplitSize(session),
-                    isForceLocalScheduling(session),
-                    s3SelectPushdownEnabled,
-                    maxSplitFileSize);
-            lastResult = addSplitsToSource(targetSplits, splitFactory);
-            if (stopped) {
-                return COMPLETED_FUTURE;
-            }
-        }
-        return lastResult;
-    }
-
     @VisibleForTesting
-    Optional<Iterator<InternalHiveSplit>> buildManifestFileIterator(
-            HiveStorageFormat targetStorageFormat,
-            String partitionName,
-            Properties schema,
-            List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
-            BooleanSupplier partitionMatchSupplier,
-            boolean s3SelectPushdownEnabled,
-            TableToPartitionMapping tableToPartitionMapping,
-            Path parent,
-            List<Path> paths,
-            boolean splittable)
-            throws IOException
+    Iterator<InternalHiveSplit> buildManifestFileIterator(InternalHiveSplitFactory splitFactory, Location location, List<Location> paths, boolean splittable)
     {
-        FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, parent);
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
-        Location location = Location.of(parent.toString());
 
-        Map<Path, TrinoFileStatus> fileStatuses = new HashMap<>();
-        HiveFileIterator fileStatusIterator = new HiveFileIterator(table, location, trinoFileSystem, directoryLister, hdfsNamenodeStats, IGNORED);
+        Map<String, TrinoFileStatus> fileStatuses = new HashMap<>();
+        Iterator<TrinoFileStatus> fileStatusIterator = new HiveFileIterator(table, location, trinoFileSystem, directoryLister, hdfsNamenodeStats, RECURSE);
         if (!fileStatusIterator.hasNext()) {
             checkPartitionLocationExists(trinoFileSystem, location);
         }
-        fileStatusIterator.forEachRemaining(status -> fileStatuses.put(getPathWithoutSchemeAndAuthority(new Path(status.getPath())), status));
+        fileStatusIterator.forEachRemaining(status -> fileStatuses.put(Location.of(status.getPath()).path(), status));
 
-        List<TrinoFileStatus> locatedFileStatuses = new ArrayList<>();
-        for (Path path : paths) {
-            TrinoFileStatus status = fileStatuses.get(getPathWithoutSchemeAndAuthority(path));
-            // This check will catch all directories in the manifest since HiveFileIterator will not return any directories.
-            // Some files may not be listed by HiveFileIterator - if those are included in the manifest this check will fail as well.
-            if (status == null) {
-                return Optional.empty();
-            }
+        List<TrinoFileStatus> locatedFileStatuses = paths.stream()
+                .map(path -> fileStatuses.get(path.path()))
+                .toList();
 
-            locatedFileStatuses.add(status);
-        }
-
-        InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
-                targetFilesystem,
-                partitionName,
-                targetStorageFormat,
-                schema,
-                partitionKeys,
-                effectivePredicate,
-                partitionMatchSupplier,
-                tableToPartitionMapping,
-                Optional.empty(),
-                Optional.empty(),
-                getMaxInitialSplitSize(session),
-                isForceLocalScheduling(session),
-                s3SelectPushdownEnabled,
-                maxSplitFileSize);
-
-        return Optional.of(createInternalHiveSplitIterator(splitFactory, splittable, Optional.empty(), locatedFileStatuses.stream()));
+        return createInternalHiveSplitIterator(splitFactory, splittable, Optional.empty(), locatedFileStatuses.stream());
     }
 
     private ListenableFuture<Void> getTransactionalSplits(Location path, boolean splittable, Optional<BucketConversion> bucketConversion, InternalHiveSplitFactory splitFactory)
@@ -783,22 +641,6 @@ public class BackgroundHiveSplitLoader
     private static Optional<AcidInfo> acidInfoForOriginalFiles(boolean fullAcid, AcidInfo.Builder builder, Location location)
     {
         return fullAcid ? Optional.of(builder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(location))) : Optional.empty();
-    }
-
-    private ListenableFuture<Void> addSplitsToSource(InputSplit[] targetSplits, InternalHiveSplitFactory splitFactory)
-            throws IOException
-    {
-        ListenableFuture<Void> lastResult = COMPLETED_FUTURE;
-        for (InputSplit inputSplit : targetSplits) {
-            Optional<InternalHiveSplit> internalHiveSplit = splitFactory.createInternalHiveSplit((FileSplit) inputSplit);
-            if (internalHiveSplit.isPresent()) {
-                lastResult = hiveSplitSource.addToQueue(internalHiveSplit.get());
-            }
-            if (stopped) {
-                return COMPLETED_FUTURE;
-            }
-        }
-        return lastResult;
     }
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(TrinoFileSystem fileSystem, Location location, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<AcidInfo> acidInfo)
@@ -986,23 +828,28 @@ public class BackgroundHiveSplitLoader
                 .orElseThrow(() -> new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unknown SerDe for SymlinkTextInputFormat: " + serde));
     }
 
-    private static List<Path> getTargetPathsFromSymlink(FileSystem fileSystem, Path symlinkDir)
+    private ListMultimap<Location, Location> getTargetLocationsByParentFromSymlink(Location symlinkDir)
     {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            FileStatus[] symlinks = fileSystem.listStatus(symlinkDir, path ->
-                    !path.getName().startsWith("_") && !path.getName().startsWith("."));
-            List<Path> targets = new ArrayList<>();
+            ListMultimap<Location, Location> targets = ArrayListMultimap.create();
+            FileIterator iterator = fileSystem.listFiles(symlinkDir);
+            while (iterator.hasNext()) {
+                Location location = iterator.next().location();
+                String name = location.fileName();
+                if (name.startsWith("_") || name.startsWith(".")) {
+                    continue;
+                }
 
-            for (FileStatus symlink : symlinks) {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(symlink.getPath()), StandardCharsets.UTF_8))) {
+                try (Reader reader = new InputStreamReader(fileSystem.newInputFile(location).newStream(), UTF_8)) {
                     CharStreams.readLines(reader).stream()
-                            .map(Path::new)
-                            .forEach(targets::add);
+                            .map(Location::of)
+                            .forEach(target -> targets.put(target.parentDirectory(), target));
                 }
             }
             return targets;
         }
-        catch (IOException e) {
+        catch (IOException | IllegalArgumentException e) {
             throw new TrinoException(HIVE_BAD_DATA, "Error parsing symlinks from: " + symlinkDir, e);
         }
     }

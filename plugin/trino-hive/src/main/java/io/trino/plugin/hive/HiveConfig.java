@@ -58,6 +58,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.assume-canonical-partition-keys",
         "hive.partition-use-column-names",
         "hive.allow-corrupt-writes-for-testing",
+        "hive.optimize-symlink-listing",
 })
 public class HiveConfig
 {
@@ -162,8 +163,6 @@ public class HiveConfig
     private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
 
     private HiveTimestampPrecision timestampPrecision = HiveTimestampPrecision.DEFAULT_PRECISION;
-
-    private boolean optimizeSymlinkListing = true;
 
     private Optional<String> icebergCatalogName = Optional.empty();
     private Optional<String> deltaLakeCatalogName = Optional.empty();
@@ -1183,19 +1182,6 @@ public class HiveConfig
     public HiveConfig setTimestampPrecision(HiveTimestampPrecision timestampPrecision)
     {
         this.timestampPrecision = timestampPrecision;
-        return this;
-    }
-
-    public boolean isOptimizeSymlinkListing()
-    {
-        return this.optimizeSymlinkListing;
-    }
-
-    @Config("hive.optimize-symlink-listing")
-    @ConfigDescription("Optimize listing for SymlinkTextFormat tables with files in a single directory")
-    public HiveConfig setOptimizeSymlinkListing(boolean optimizeSymlinkListing)
-    {
-        this.optimizeSymlinkListing = optimizeSymlinkListing;
         return this;
     }
 

@@ -114,7 +114,6 @@ public final class HiveSessionProperties
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TIMESTAMP_PRECISION = "timestamp_precision";
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
-    private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String HIVE_VIEWS_LEGACY_TRANSLATION = "hive_views_legacy_translation";
     private static final String ICEBERG_CATALOG_NAME = "iceberg_catalog_name";
     public static final String DELTA_LAKE_CATALOG_NAME = "delta_lake_catalog_name";
@@ -486,11 +485,6 @@ public final class HiveSessionProperties
                         hiveConfig.getDynamicFilteringWaitTimeout(),
                         false),
                 booleanProperty(
-                        OPTIMIZE_SYMLINK_LISTING,
-                        "Optimize listing for SymlinkTextFormat tables with files in a single directory",
-                        hiveConfig.isOptimizeSymlinkListing(),
-                        false),
-                booleanProperty(
                         HIVE_VIEWS_LEGACY_TRANSLATION,
                         "Use legacy Hive view translation mechanism",
                         hiveConfig.isLegacyHiveViewTranslation(),
@@ -833,11 +827,6 @@ public final class HiveSessionProperties
     public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
     {
         return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
-    }
-
-    public static boolean isOptimizeSymlinkListing(ConnectorSession session)
-    {
-        return session.getProperty(OPTIMIZE_SYMLINK_LISTING, Boolean.class);
     }
 
     public static boolean isHiveViewsLegacyTranslation(ConnectorSession session)

@@ -23,7 +23,6 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
@@ -75,7 +74,6 @@ import static io.trino.plugin.hive.HivePartition.UNPARTITIONED_ID;
 import static io.trino.plugin.hive.HiveSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isIgnoreAbsentPartitions;
-import static io.trino.plugin.hive.HiveSessionProperties.isOptimizeSymlinkListing;
 import static io.trino.plugin.hive.HiveSessionProperties.isPropagateTableScanSortingProperties;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
@@ -105,7 +103,6 @@ public class HiveSplitManager
     private final HivePartitionManager partitionManager;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsNamenodeStats hdfsNamenodeStats;
-    private final HdfsEnvironment hdfsEnvironment;
     private final Executor executor;
     private final int maxOutstandingSplits;
     private final DataSize maxOutstandingSplitsSize;
@@ -126,7 +123,6 @@ public class HiveSplitManager
             HivePartitionManager partitionManager,
             TrinoFileSystemFactory fileSystemFactory,
             HdfsNamenodeStats hdfsNamenodeStats,
-            HdfsEnvironment hdfsEnvironment,
             ExecutorService executorService,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager)
@@ -136,7 +132,6 @@ public class HiveSplitManager
                 partitionManager,
                 fileSystemFactory,
                 hdfsNamenodeStats,
-                hdfsEnvironment,
                 versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),
@@ -156,7 +151,6 @@ public class HiveSplitManager
             HivePartitionManager partitionManager,
             TrinoFileSystemFactory fileSystemFactory,
             HdfsNamenodeStats hdfsNamenodeStats,
-            HdfsEnvironment hdfsEnvironment,
             Executor executor,
             CounterStat highMemorySplitSourceCounter,
             int maxOutstandingSplits,
@@ -174,7 +168,6 @@ public class HiveSplitManager
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsNamenodeStats = requireNonNull(hdfsNamenodeStats, "hdfsNamenodeStats is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.executor = new ErrorCodedExecutor(executor);
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
@@ -259,14 +252,12 @@ public class HiveSplitManager
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
                 fileSystemFactory,
-                hdfsEnvironment,
                 hdfsNamenodeStats,
                 transactionalMetadata.getDirectoryLister(),
                 executor,
                 splitLoaderConcurrency,
                 recursiveDfsWalkerEnabled,
                 !hiveTable.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session),
-                isOptimizeSymlinkListing(session),
                 metastore.getValidWriteIds(session, hiveTable)
                         .map(value -> value.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())),
                 hiveTable.getMaxScannedFileSize(),

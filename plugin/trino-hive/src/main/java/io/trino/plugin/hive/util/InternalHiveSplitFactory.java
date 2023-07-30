@@ -33,11 +33,7 @@ import io.trino.plugin.hive.s3select.S3SelectPushdown;
 import io.trino.spi.HostAddress;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.mapred.FileSplit;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +50,6 @@ import static java.util.Objects.requireNonNull;
 
 public class InternalHiveSplitFactory
 {
-    private final FileSystem fileSystem;
     private final String partitionName;
     private final HiveStorageFormat storageFormat;
     private final Properties strippedSchema;
@@ -70,7 +65,6 @@ public class InternalHiveSplitFactory
     private final boolean s3SelectPushdownEnabled;
 
     public InternalHiveSplitFactory(
-            FileSystem fileSystem,
             String partitionName,
             HiveStorageFormat storageFormat,
             Properties schema,
@@ -85,7 +79,6 @@ public class InternalHiveSplitFactory
             boolean s3SelectPushdownEnabled,
             Optional<Long> maxSplitFileSize)
     {
-        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.storageFormat = requireNonNull(storageFormat, "storageFormat is null");
         this.strippedSchema = stripUnnecessaryProperties(requireNonNull(schema, "schema is null"));
@@ -132,23 +125,6 @@ public class InternalHiveSplitFactory
                 tableBucketNumber,
                 splittable,
                 acidInfo);
-    }
-
-    public Optional<InternalHiveSplit> createInternalHiveSplit(FileSplit split)
-            throws IOException
-    {
-        FileStatus file = fileSystem.getFileStatus(split.getPath());
-        return createInternalHiveSplit(
-                split.getPath().toString(),
-                BlockLocation.fromHiveBlockLocations(fileSystem.getFileBlockLocations(file, split.getStart(), split.getLength())),
-                split.getStart(),
-                split.getLength(),
-                file.getLen(),
-                file.getModificationTime(),
-                OptionalInt.empty(),
-                OptionalInt.empty(),
-                false,
-                Optional.empty());
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(
