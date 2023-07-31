@@ -29,7 +29,6 @@ import io.trino.plugin.hive.fs.TrinoFileStatus;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
-import io.trino.plugin.hive.s3select.S3SelectPushdown;
 import io.trino.spi.HostAddress;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -62,7 +61,6 @@ public class InternalHiveSplitFactory
     private final long minimumTargetSplitSizeInBytes;
     private final Optional<Long> maxSplitFileSize;
     private final boolean forceLocalScheduling;
-    private final boolean s3SelectPushdownEnabled;
 
     public InternalHiveSplitFactory(
             String partitionName,
@@ -76,7 +74,6 @@ public class InternalHiveSplitFactory
             Optional<HiveSplit.BucketValidation> bucketValidation,
             DataSize minimumTargetSplitSize,
             boolean forceLocalScheduling,
-            boolean s3SelectPushdownEnabled,
             Optional<Long> maxSplitFileSize)
     {
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
@@ -89,7 +86,6 @@ public class InternalHiveSplitFactory
         this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
         this.bucketValidation = requireNonNull(bucketValidation, "bucketValidation is null");
         this.forceLocalScheduling = forceLocalScheduling;
-        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.minimumTargetSplitSizeInBytes = minimumTargetSplitSize.toBytes();
         this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
         checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
@@ -199,7 +195,6 @@ public class InternalHiveSplitFactory
                 tableToPartitionMapping,
                 bucketConversion,
                 bucketValidation,
-                s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(strippedSchema, path),
                 acidInfo,
                 partitionMatchSupplier));
     }

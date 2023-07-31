@@ -54,7 +54,6 @@ public class InternalHiveSplit
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<BucketValidation> bucketValidation;
-    private final boolean s3SelectPushdownEnabled;
     private final Optional<AcidInfo> acidInfo;
     private final BooleanSupplier partitionMatchSupplier;
 
@@ -78,7 +77,6 @@ public class InternalHiveSplit
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             Optional<BucketValidation> bucketValidation,
-            boolean s3SelectPushdownEnabled,
             Optional<AcidInfo> acidInfo,
             BooleanSupplier partitionMatchSupplier)
     {
@@ -114,7 +112,6 @@ public class InternalHiveSplit
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.bucketValidation = bucketValidation;
-        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.acidInfo = acidInfo;
         this.partitionMatchSupplier = partitionMatchSupplier;
     }
@@ -142,11 +139,6 @@ public class InternalHiveSplit
     public long getFileModifiedTime()
     {
         return fileModifiedTime;
-    }
-
-    public boolean isS3SelectPushdownEnabled()
-    {
-        return s3SelectPushdownEnabled;
     }
 
     public Properties getSchema()
