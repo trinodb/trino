@@ -25,7 +25,9 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.math.DoubleMath.roundToLong;
 import static java.lang.Math.toIntExact;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.Objects.requireNonNull;
 
 public class DictionaryCompressionOptimizer
@@ -243,9 +245,9 @@ public class DictionaryCompressionOptimizer
         long totalDictionaryBytes = 0;
         long totalDictionaryIndexBytes = 0;
 
-        long totalDictionaryRawBytesPerRow = 0;
-        long totalDictionaryBytesPerNewRow = 0;
-        long totalDictionaryIndexBytesPerRow = 0;
+        double totalDictionaryRawBytesPerRow = 0;
+        double totalDictionaryBytesPerNewRow = 0;
+        double totalDictionaryIndexBytesPerRow = 0;
 
         for (DictionaryColumnManager column : allWriters) {
             if (!column.isDirectEncoded()) {
@@ -259,7 +261,7 @@ public class DictionaryCompressionOptimizer
             }
         }
 
-        long totalUncompressedBytesPerRow = totalNonDictionaryBytesPerRow + totalDictionaryRawBytesPerRow;
+        long totalUncompressedBytesPerRow = totalNonDictionaryBytesPerRow + roundToLong(totalDictionaryRawBytesPerRow, HALF_UP);
 
         DictionaryCompressionProjection maxProjectedCompression = null;
         for (DictionaryColumnManager column : directConversionCandidates) {

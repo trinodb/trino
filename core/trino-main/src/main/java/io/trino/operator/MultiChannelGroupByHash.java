@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Shorts;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -1007,10 +1008,10 @@ public class MultiChannelGroupByHash
             }
             else {
                 for (int position = 0; position < positionToCombinationIds.length; position++) {
-                    short combinationId = positionToCombinationIds[position];
+                    int combinationId = positionToCombinationIds[position];
                     combinationId *= dictionarySize;
                     combinationId += dictionaryBlock.getId(position);
-                    positionToCombinationIds[position] = combinationId;
+                    positionToCombinationIds[position] = Shorts.checkedCast(combinationId);
                 }
             }
         }
