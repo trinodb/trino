@@ -1057,7 +1057,7 @@ public class LongOutputStreamV2
                 int bitsToWrite = bitSize;
                 while (bitsToWrite > bitsLeft) {
                     // add the bits to the bottom of the current word
-                    current |= value >>> (bitsToWrite - bitsLeft);
+                    current = (byte) (current | value >>> (bitsToWrite - bitsLeft));
                     // subtract out the bits we just added
                     bitsToWrite -= bitsLeft;
                     // zero out the bits above bitsToWrite
@@ -1067,7 +1067,7 @@ public class LongOutputStreamV2
                     bitsLeft = 8;
                 }
                 bitsLeft -= bitsToWrite;
-                current |= value << bitsLeft;
+                current = (byte) (current | value << bitsLeft);
                 if (bitsLeft == 0) {
                     output.write(current);
                     current = 0;

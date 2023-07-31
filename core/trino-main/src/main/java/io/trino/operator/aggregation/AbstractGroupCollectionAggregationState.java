@@ -25,7 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.math.DoubleMath.roundToLong;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static java.math.RoundingMode.HALF_UP;
 
 /**
  * Instances of this state use a single PageBuilder for all groups.
@@ -125,7 +127,7 @@ public abstract class AbstractGroupCollectionAggregationState<T>
         int insertedPosition = currentPageBuilder.getPositionCount();
 
         if (totalPositions == capacity) {
-            capacity *= 1.5;
+            capacity = roundToLong(capacity * 1.5, HALF_UP);
             nextBlockIndex.ensureCapacity(capacity);
             nextPosition.ensureCapacity(capacity);
         }

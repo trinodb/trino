@@ -52,6 +52,7 @@ import static io.trino.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
@@ -60,7 +61,7 @@ import static org.testng.Assert.assertTrue;
 public class TestJmxSplitManager
 {
     private static final Duration JMX_STATS_DUMP = new Duration(100, TimeUnit.MILLISECONDS);
-    private static final long SLEEP_TIME = JMX_STATS_DUMP.toMillis() / 5;
+    private static final int SLEEP_TIME = toIntExact(JMX_STATS_DUMP.toMillis() / 5);
     private static final long TIMEOUT_TIME = JMX_STATS_DUMP.toMillis() * 40;
     private static final String TEST_BEANS = "java.lang:type=Runtime";
     private static final String CONNECTOR_ID = "test-id";
