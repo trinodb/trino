@@ -322,7 +322,7 @@ public class PageProcessor
         {
             Block[] blocks = new Block[projections.size()];
 
-            int pageSize = 0;
+            long pageSize = 0;
             SelectedPositions positionsBatch = selectedPositions.subRange(0, batchSize);
             for (int i = 0; i < projections.size(); i++) {
                 if (yieldSignal.isSet()) {
