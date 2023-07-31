@@ -111,13 +111,15 @@ public class StarburstSynapseModule
             IdentityCacheMapping identityCacheMapping)
     {
         if (connectionPoolingConfig.isConnectionPoolEnabled()) {
-            return new PoolingConnectionFactory(
-                    catalogName.toString(),
-                    SQLServerDriver.class,
-                    config,
-                    connectionPoolingConfig,
-                    credentialProvider,
-                    identityCacheMapping);
+            return new SqlServerConnectionFactory(
+                    new PoolingConnectionFactory(
+                            catalogName.toString(),
+                            SQLServerDriver.class,
+                            config,
+                            connectionPoolingConfig,
+                            credentialProvider,
+                            identityCacheMapping),
+                    sqlServerConfig.isSnapshotIsolationDisabled());
         }
         return new SqlServerConnectionFactory(
                 new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider),
