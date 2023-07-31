@@ -86,7 +86,7 @@ public class TestSynapseConnectorTest
                 Map.of(),
                 synapseServer,
                 CATALOG,
-                // Synapse tests are slow. Cache metadata to speed them up. Synapse without caching is exercised by TestSynapseConnectorSmokeTest.
+                // Synapse tests are slow. Cache metadata to speed them up. Synapse without caching is exercised by TestSynapsePoolConnectorSmokeTest.
                 Map.of("metadata.cache-ttl", "60m"),
                 REQUIRED_TPCH_TABLES);
     }

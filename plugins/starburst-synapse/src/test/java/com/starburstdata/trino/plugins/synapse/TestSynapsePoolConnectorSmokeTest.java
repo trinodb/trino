@@ -17,7 +17,7 @@ import java.util.Map;
 
 import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 
-public final class TestSynapseConnectorSmokeTest
+public final class TestSynapsePoolConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
     @Override
@@ -29,7 +29,7 @@ public final class TestSynapseConnectorSmokeTest
                 new SynapseServer(),
                 "sqlserver",
                 // No metadata cache enabled here.
-                Map.of(),
+                Map.of("connection-pool.enabled", "true"),
                 REQUIRED_TPCH_TABLES);
     }
 
