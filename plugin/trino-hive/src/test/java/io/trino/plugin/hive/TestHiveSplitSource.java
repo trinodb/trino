@@ -335,7 +335,6 @@ public class TestHiveSplitSource
                     TableToPartitionMapping.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    false,
                     Optional.empty(),
                     partitionMatchSupplier);
         }

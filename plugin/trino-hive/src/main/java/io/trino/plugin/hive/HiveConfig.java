@@ -59,6 +59,9 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.partition-use-column-names",
         "hive.allow-corrupt-writes-for-testing",
         "hive.optimize-symlink-listing",
+        "hive.s3select-pushdown.enabled",
+        "hive.s3select-pushdown.experimental-textfile-pushdown-enabled",
+        "hive.s3select-pushdown.max-connections",
 })
 public class HiveConfig
 {
@@ -133,10 +136,6 @@ public class HiveConfig
     private int partitionStatisticsSampleSize = 100;
     private boolean ignoreCorruptedStatistics;
     private boolean collectColumnStatisticsOnWrite = true;
-
-    private boolean s3SelectPushdownEnabled;
-    private boolean s3SelectExperimentalPushdownEnabled;
-    private int s3SelectPushdownMaxConnections = 500;
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
@@ -997,45 +996,6 @@ public class HiveConfig
     public HiveConfig setCollectColumnStatisticsOnWrite(boolean collectColumnStatisticsOnWrite)
     {
         this.collectColumnStatisticsOnWrite = collectColumnStatisticsOnWrite;
-        return this;
-    }
-
-    public boolean isS3SelectPushdownEnabled()
-    {
-        return s3SelectPushdownEnabled;
-    }
-
-    @Config("hive.s3select-pushdown.enabled")
-    @ConfigDescription("Enable query pushdown to JSON files using the AWS S3 Select service")
-    public HiveConfig setS3SelectPushdownEnabled(boolean s3SelectPushdownEnabled)
-    {
-        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
-        return this;
-    }
-
-    public boolean isS3SelectExperimentalPushdownEnabled()
-    {
-        return s3SelectExperimentalPushdownEnabled;
-    }
-
-    @Config("hive.s3select-pushdown.experimental-textfile-pushdown-enabled")
-    @ConfigDescription("Enable query pushdown to TEXTFILE tables using the AWS S3 Select service")
-    public HiveConfig setS3SelectExperimentalPushdownEnabled(boolean s3SelectExperimentalPushdownEnabled)
-    {
-        this.s3SelectExperimentalPushdownEnabled = s3SelectExperimentalPushdownEnabled;
-        return this;
-    }
-
-    @Min(1)
-    public int getS3SelectPushdownMaxConnections()
-    {
-        return s3SelectPushdownMaxConnections;
-    }
-
-    @Config("hive.s3select-pushdown.max-connections")
-    public HiveConfig setS3SelectPushdownMaxConnections(int s3SelectPushdownMaxConnections)
-    {
-        this.s3SelectPushdownMaxConnections = s3SelectPushdownMaxConnections;
         return this;
     }
 
