@@ -221,10 +221,6 @@
                                 <exclude>**/TestHive.java</exclude>
                                 <exclude>**/TestHiveThriftMetastoreWithS3.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3.java</exclude>
-                                <exclude>**/TestHiveFileSystemS3SelectPushdown.java</exclude>
-                                <exclude>**/TestHiveFileSystemS3SelectJsonPushdown.java</exclude>
-                                <exclude>**/TestHiveFileSystemS3SelectCsvPushdownWithSplits.java</exclude>
-                                <exclude>**/TestHiveFileSystemS3SelectJsonPushdownWithSplits.java</exclude>
                                 <exclude>**/TestHiveFileSystemWasb.java</exclude>
                                 <exclude>**/TestHiveFileSystemAbfsAccessKey.java</exclude>
                                 <exclude>**/TestHiveFileSystemAbfsOAuth.java</exclude>
@@ -263,25 +259,6 @@
                             <includes>
                                 <include>**/TestHiveThriftMetastoreWithS3.java</include>
                                 <include>**/TestHiveFileSystemS3.java</include>
-                                <include>**/TestHiveFileSystemS3SelectPushdown.java</include>
-                                <include>**/TestHiveFileSystemS3SelectCsvPushdownWithSplits.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>test-hive-hadoop2-s3-select-json</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
-                                <include>**/TestHiveFileSystemS3SelectJsonPushdown.java</include>
-                                <include>**/TestHiveFileSystemS3SelectJsonPushdownWithSplits.java</include>
                             </includes>
                         </configuration>
                     </plugin>

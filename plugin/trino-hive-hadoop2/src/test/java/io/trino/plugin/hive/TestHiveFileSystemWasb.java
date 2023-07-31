@@ -61,7 +61,7 @@ public class TestHiveFileSystemWasb
         this.accessKey = accessKey;
         this.testDirectory = testDirectory;
 
-        super.setup(host, port, databaseName, false, createHdfsConfiguration());
+        super.setup(host, port, databaseName, createHdfsConfiguration());
     }
 
     private HdfsConfiguration createHdfsConfiguration()

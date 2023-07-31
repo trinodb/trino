@@ -39,7 +39,6 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.s3select.S3SelectPushdown;
 import io.trino.plugin.hive.util.AcidTables.AcidState;
 import io.trino.plugin.hive.util.AcidTables.ParsedDelta;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
@@ -408,14 +407,8 @@ public class BackgroundHiveSplitLoader
 
         Location location = Location.of(getPartitionLocation(table, partition.getPartition()));
 
-        boolean s3SelectPushdownEnabled = S3SelectPushdown.shouldEnablePushdownForTable(session, table, location.toString(), partition.getPartition());
-
-        // S3 Select pushdown works at the granularity of individual S3 objects for compressed files
-        // and finer granularity for uncompressed files using scan range feature.
-        boolean shouldEnableSplits = S3SelectPushdown.isSplittable(s3SelectPushdownEnabled, schema, location.toString());
-
         // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
-        boolean splittable = shouldEnableSplits && getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
+        boolean splittable = getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
 
         if (SYMLINK_TEXT_INPUT_FORMAT_CLASS.equals(getInputFormatName(schema).orElse(null))) {
             if (tableBucketInfo.isPresent()) {
@@ -436,7 +429,6 @@ public class BackgroundHiveSplitLoader
                     Optional.empty(),
                     getMaxInitialSplitSize(session),
                     isForceLocalScheduling(session),
-                    s3SelectPushdownEnabled,
                     maxSplitFileSize);
 
             for (Entry<Location, List<Location>> entry : Multimaps.asMap(targets).entrySet()) {
@@ -488,7 +480,6 @@ public class BackgroundHiveSplitLoader
                 bucketValidation,
                 getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
-                s3SelectPushdownEnabled,
                 maxSplitFileSize);
 
         if (isTransactionalTable(table.getParameters())) {

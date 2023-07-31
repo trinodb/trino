@@ -83,7 +83,6 @@ public class HiveS3Module
         newSetBinder(binder, DynamicConfigurationProvider.class).addBinding()
                 .to(S3SecurityMappingConfigurationProvider.class).in(Scopes.SINGLETON);
 
-        checkArgument(!getProperty("hive.s3select-pushdown.enabled").map(Boolean::parseBoolean).orElse(false), "S3 security mapping is not compatible with S3 Select pushdown");
         checkArgument(!buildConfigObject(RubixEnabledConfig.class).isCacheEnabled(), "S3 security mapping is not compatible with Hive caching");
     }
 

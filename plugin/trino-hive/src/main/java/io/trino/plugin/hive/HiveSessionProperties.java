@@ -106,7 +106,6 @@ public final class HiveSessionProperties
     private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
     private static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
-    private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     private static final String DELEGATE_TRANSACTIONAL_MANAGED_TABLE_LOCATION_TO_METASTORE = "delegate_transactional_managed_table_location_to_metastore";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
@@ -432,11 +431,6 @@ public final class HiveSessionProperties
                         hiveConfig.isOptimizeMismatchedBucketCount(),
                         false),
                 booleanProperty(
-                        S3_SELECT_PUSHDOWN_ENABLED,
-                        "S3 Select pushdown enabled",
-                        hiveConfig.isS3SelectPushdownEnabled(),
-                        false),
-                booleanProperty(
                         DELEGATE_TRANSACTIONAL_MANAGED_TABLE_LOCATION_TO_METASTORE,
                         "When transactional managed table is created via Trino the location will not be set in request sent to HMS and location will be determined by metastore; if this property is set to true CREATE TABLE AS queries are not supported.",
                         hiveConfig.isDelegateTransactionalManagedTableLocationToMetastore(),
@@ -755,11 +749,6 @@ public final class HiveSessionProperties
     public static boolean isPropagateTableScanSortingProperties(ConnectorSession session)
     {
         return session.getProperty(PROPAGATE_TABLE_SCAN_SORTING_PROPERTIES, Boolean.class);
-    }
-
-    public static boolean isS3SelectPushdownEnabled(ConnectorSession session)
-    {
-        return session.getProperty(S3_SELECT_PUSHDOWN_ENABLED, Boolean.class);
     }
 
     public static boolean isStatisticsEnabled(ConnectorSession session)
