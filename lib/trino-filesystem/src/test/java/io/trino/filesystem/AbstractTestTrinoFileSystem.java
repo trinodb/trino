@@ -233,7 +233,7 @@ public abstract class AbstractTestTrinoFileSystem
 
                 // read int at a time
                 for (int intPosition = 0; intPosition < 4 * MEGABYTE; intPosition++) {
-                    assertThat(inputStream.getPosition()).isEqualTo(intPosition * 4);
+                    assertThat(inputStream.getPosition()).isEqualTo(intPosition * 4L);
 
                     int size = inputStream.readNBytes(bytes, 0, bytes.length);
                     assertThat(size).isEqualTo(4);

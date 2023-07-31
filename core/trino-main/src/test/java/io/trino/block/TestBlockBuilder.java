@@ -69,7 +69,7 @@ public class TestBlockBuilder
             arrayBlockBuilder.buildEntry(elementBuilder -> {
                 ArrayBlockBuilder nestedArrayBuilder = (ArrayBlockBuilder) elementBuilder;
                 nestedArrayBuilder.buildEntry(valueBuilder -> BIGINT.writeLong(valueBuilder, value));
-                nestedArrayBuilder.buildEntry(valueBuilder -> BIGINT.writeLong(valueBuilder, value * 2));
+                nestedArrayBuilder.buildEntry(valueBuilder -> BIGINT.writeLong(valueBuilder, value * 2L));
             });
             pageBuilder.declarePosition();
         }
