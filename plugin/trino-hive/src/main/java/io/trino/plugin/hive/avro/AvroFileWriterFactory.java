@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.avro;
 
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
@@ -94,9 +93,6 @@ public class AvroFileWriterFactory
         }
 
         AvroCompressionKind compressionKind = compressionCodec.getAvroCompressionKind().orElse(AvroCompressionKind.NULL);
-        if (!compressionKind.isSupportedLocally()) {
-            throw new VerifyException("Avro Compression codec %s is not supported in the environment".formatted(compressionKind));
-        }
 
         HiveTimestampPrecision hiveTimestampPrecision = getTimestampPrecision(session);
         // existing tables and partitions may have columns in a different order than the writer is providing, so build

@@ -43,6 +43,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarbinaryType;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
+import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
@@ -54,9 +55,10 @@ import org.apache.avro.util.RandomData;
 import org.apache.avro.util.Utf8;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -82,6 +84,10 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.floatToIntBits;
+import static org.apache.avro.file.CodecFactory.DEFAULT_DEFLATE_LEVEL;
+import static org.apache.avro.file.CodecFactory.DEFAULT_ZSTANDARD_BUFFERPOOL;
+import static org.apache.avro.file.CodecFactory.DEFAULT_ZSTANDARD_LEVEL;
+import static org.apache.avro.file.CodecFactory.nullCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -204,17 +210,15 @@ public abstract class TestAvroBase
         assertIsAllTypesPage(ALL_TYPES_PAGE);
     }
 
-    @Test
-    public void testSerdeCycles()
+    @ParameterizedTest
+    @EnumSource(AvroCompressionKind.class)
+    public void testSerdeCycles(AvroCompressionKind compressionKind)
             throws IOException, AvroTypeException
     {
-        for (AvroCompressionKind compressionKind : AvroCompressionKind.values()) {
-            if (compressionKind.isSupportedLocally()) {
-                testSerdeCycles(SIMPLE_RECORD_SCHEMA, compressionKind);
-
-                testSerdeCycles(
-                        new Schema.Parser().parse(
-                                """
+        testSerdeCycles(SIMPLE_RECORD_SCHEMA, compressionKind);
+        testSerdeCycles(
+                new Schema.Parser().parse(
+                        """
                                 {
                                    "type":"record",
                                    "name":"test",
@@ -245,33 +249,31 @@ public abstract class TestAvroBase
                                    ]
                                 }
                                 """.formatted(SIMPLE_RECORD_SCHEMA)),
-                        compressionKind);
+                compressionKind);
 
-                testSerdeCycles(
-                        SchemaBuilder.builder().record("level1")
+        testSerdeCycles(
+                SchemaBuilder.builder().record("level1")
+                        .fields()
+                        .name("level1Field1")
+                        .type(SchemaBuilder.record("level2")
                                 .fields()
-                                .name("level1Field1")
-                                .type(SchemaBuilder.record("level2")
+                                .name("level2Field1")
+                                .type(SchemaBuilder.record("level3")
                                         .fields()
-                                        .name("level2Field1")
-                                        .type(SchemaBuilder.record("level3")
-                                                .fields()
-                                                .name("level3Field1")
-                                                .type(ALL_TYPES_RECORD_SCHEMA)
-                                                .noDefault()
-                                                .endRecord())
+                                        .name("level3Field1")
+                                        .type(ALL_TYPES_RECORD_SCHEMA)
                                         .noDefault()
-                                        .name("level2Field2")
-                                        .type().optional().type(ALL_TYPES_RECORD_SCHEMA)
                                         .endRecord())
                                 .noDefault()
-                                .name("level1Field2")
-                                .type(ALL_TYPES_RECORD_SCHEMA)
-                                .noDefault()
-                                .endRecord(),
-                        compressionKind);
-            }
-        }
+                                .name("level2Field2")
+                                .type().optional().type(ALL_TYPES_RECORD_SCHEMA)
+                                .endRecord())
+                        .noDefault()
+                        .name("level1Field2")
+                        .type(ALL_TYPES_RECORD_SCHEMA)
+                        .noDefault()
+                        .endRecord(),
+                compressionKind);
     }
 
     @AfterAll
@@ -299,9 +301,10 @@ public abstract class TestAvroBase
             testRecordsExpected.add((GenericRecord) o);
         }
 
+        TrinoInputFile inputFile = createWrittenFileWithData(schema, testRecordsExpected.build(), temp1, getLegacyCodecFactory(compressionKind));
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         try (AvroFileReader fileReader = new AvroFileReader(
-                createWrittenFileWithData(schema, testRecordsExpected.build(), temp1),
+                inputFile,
                 schema,
                 new BaseAvroTypeBlockHandler())) {
             while (fileReader.hasNext()) {
@@ -322,6 +325,7 @@ public abstract class TestAvroBase
             }
         }
 
+        CodecFactory.addCodec(compressionKind.toString(), getLegacyCodecFactory(compressionKind));
         ImmutableList.Builder<GenericRecord> testRecordsActual = ImmutableList.builder();
         try (DataFileReader<GenericRecord> genericRecordDataFileReader = new DataFileReader<>(
                 new AvroFileReader.TrinoDataInputStreamAsAvroSeekableInput(new TrinoDataInputStream(trinoLocalFilesystem.newInputFile(temp2).newStream()), trinoLocalFilesystem.newInputFile(temp2).length()),
@@ -330,6 +334,7 @@ public abstract class TestAvroBase
                 testRecordsActual.add(genericRecordDataFileReader.next());
             }
         }
+        CodecFactory.addCodec(compressionKind.toString(), compressionKind.getTrinoCodecFactory());
         assertThat(testRecordsExpected.build().size()).isEqualTo(testRecordsActual.build().size());
         List<GenericRecord> expected = testRecordsExpected.build();
         List<GenericRecord> actual = testRecordsActual.build();
@@ -397,8 +402,14 @@ public abstract class TestAvroBase
     protected TrinoInputFile createWrittenFileWithData(Schema schema, List<GenericRecord> records, Location location)
             throws IOException
     {
+        return createWrittenFileWithData(schema, records, location, nullCodec());
+    }
+
+    protected TrinoInputFile createWrittenFileWithData(Schema schema, List<GenericRecord> records, Location location, CodecFactory codecFactory)
+            throws IOException
+    {
         try (DataFileWriter<GenericRecord> fileWriter = new DataFileWriter<>(new GenericDatumWriter<>())) {
-            fileWriter.create(schema, trinoLocalFilesystem.newOutputFile(location).create());
+            fileWriter.setCodec(codecFactory).create(schema, trinoLocalFilesystem.newOutputFile(location).create());
             for (GenericRecord genericRecord : records) {
                 fileWriter.append(genericRecord);
             }
@@ -466,5 +477,15 @@ public abstract class TestAvroBase
             }
         }
         return fieldAssembler.endRecord();
+    }
+
+    static CodecFactory getLegacyCodecFactory(AvroCompressionKind compressionKind)
+    {
+        return switch (compressionKind) {
+            case NULL -> CodecFactory.nullCodec();
+            case DEFLATE -> CodecFactory.deflateCodec(DEFAULT_DEFLATE_LEVEL);
+            case SNAPPY -> CodecFactory.snappyCodec();
+            case ZSTANDARD -> CodecFactory.zstandardCodec(DEFAULT_ZSTANDARD_LEVEL, DEFAULT_ZSTANDARD_BUFFERPOOL);
+        };
     }
 }
