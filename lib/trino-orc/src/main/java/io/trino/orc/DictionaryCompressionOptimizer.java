@@ -106,7 +106,7 @@ public class DictionaryCompressionOptimizer
         convertLowCompressionStreams(bufferedBytes);
     }
 
-    public void optimize(int bufferedBytes, int stripeRowCount)
+    public void optimize(long bufferedBytes, int stripeRowCount)
     {
         // recompute the dictionary memory usage
         dictionaryMemoryBytes = allWriters.stream()
@@ -131,7 +131,7 @@ public class DictionaryCompressionOptimizer
         }
 
         // calculate size of non-dictionary columns by removing the buffered size of dictionary columns
-        int nonDictionaryBufferedBytes = bufferedBytes;
+        long nonDictionaryBufferedBytes = bufferedBytes;
         for (DictionaryColumnManager dictionaryWriter : allWriters) {
             if (!dictionaryWriter.isDirectEncoded()) {
                 nonDictionaryBufferedBytes -= dictionaryWriter.getBufferedBytes();
@@ -176,7 +176,7 @@ public class DictionaryCompressionOptimizer
         }
     }
 
-    private int convertLowCompressionStreams(int bufferedBytes)
+    private long convertLowCompressionStreams(long bufferedBytes)
     {
         // convert all low compression column to direct
         for (DictionaryColumnManager dictionaryWriter : ImmutableList.copyOf(directConversionCandidates)) {
@@ -205,7 +205,7 @@ public class DictionaryCompressionOptimizer
         return directBytes;
     }
 
-    private double currentCompressionRatio(int totalNonDictionaryBytes)
+    private double currentCompressionRatio(long totalNonDictionaryBytes)
     {
         long uncompressedBytes = totalNonDictionaryBytes;
         long compressedBytes = totalNonDictionaryBytes;
@@ -229,11 +229,11 @@ public class DictionaryCompressionOptimizer
      * @param stripeRowCount current number of rows in the stripe
      * @return the column that would produce the best stripe compression ration if converted to direct
      */
-    private DictionaryCompressionProjection selectDictionaryColumnToConvert(int totalNonDictionaryBytes, int stripeRowCount)
+    private DictionaryCompressionProjection selectDictionaryColumnToConvert(long totalNonDictionaryBytes, int stripeRowCount)
     {
         checkState(!directConversionCandidates.isEmpty());
 
-        int totalNonDictionaryBytesPerRow = totalNonDictionaryBytes / stripeRowCount;
+        long totalNonDictionaryBytesPerRow = totalNonDictionaryBytes / stripeRowCount;
 
         // rawBytes = sum of the length of every row value (without dictionary encoding)
         // dictionaryBytes = sum of the length of every entry in the dictionary
@@ -294,7 +294,7 @@ public class DictionaryCompressionOptimizer
         return maxProjectedCompression;
     }
 
-    private int getMaxDirectBytes(int bufferedBytes)
+    private int getMaxDirectBytes(long bufferedBytes)
     {
         return toIntExact(Math.min(stripeMaxBytes, stripeMaxBytes - bufferedBytes + DIRECT_COLUMN_SIZE_RANGE.toBytes()));
     }
