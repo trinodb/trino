@@ -309,6 +309,43 @@
                                     <code>java.method.abstractMethodAdded</code>
                                     <new>method void io.airlift.slice.SliceOutput::writeShorts(short[], int, int)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method java.lang.Object io.airlift.slice.Slice::getBase()</old>
+                                    <new>method byte[] io.airlift.slice.Slice::getBase()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method byte io.airlift.slice.Slice::getByteUnchecked(int)</old>
+                                    <new>method byte io.airlift.slice.Slice::getByteUnchecked(int)</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method int io.airlift.slice.Slice::getIntUnchecked(int)</old>
+                                    <new>method int io.airlift.slice.Slice::getIntUnchecked(int)</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method long io.airlift.slice.Slice::getLongUnchecked(int)</old>
+                                    <new>method long io.airlift.slice.Slice::getLongUnchecked(int)</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method short io.airlift.slice.Slice::getShortUnchecked(int)</old>
+                                    <new>method short io.airlift.slice.Slice::getShortUnchecked(int)</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.airlift.slice.Slice::hasByteArray()</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

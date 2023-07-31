@@ -39,17 +39,9 @@ public class BinaryDictionary
     {
         content = new Binary[dictionaryPage.getDictionarySize()];
 
-        byte[] dictionaryBytes;
-        int offset;
         Slice dictionarySlice = dictionaryPage.getSlice();
-        if (dictionarySlice.hasByteArray()) {
-            dictionaryBytes = dictionarySlice.byteArray();
-            offset = dictionarySlice.byteArrayOffset();
-        }
-        else {
-            dictionaryBytes = dictionarySlice.getBytes();
-            offset = 0;
-        }
+        byte[] dictionaryBytes = dictionarySlice.byteArray();
+        int offset = dictionarySlice.byteArrayOffset();
 
         if (length == null) {
             for (int i = 0; i < content.length; i++) {
