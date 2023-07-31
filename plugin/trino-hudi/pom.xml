@@ -92,6 +92,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-hive-formats</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-memory-context</artifactId>
         </dependency>
 
@@ -180,12 +185,6 @@
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-core</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hive-formats</artifactId>
             <scope>runtime</scope>
         </dependency>
 

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.trino.hive.formats.avro.AvroCompressionKind;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveTransactionHandle;
@@ -53,6 +54,11 @@ public class HudiConnector
     private final Set<SystemTable> systemTables;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> tableProperties;
+
+    static {
+        // ensure static CodecFactory map is updated by loading CompressionKind class
+        AvroCompressionKind.values();
+    }
 
     public HudiConnector(
             Injector injector,
