@@ -40,8 +40,8 @@ public class LookupJoinPageBuilder
     private final IntArrayList probeIndexBuilder = new IntArrayList();
     private final PageBuilder buildPageBuilder;
     private final int buildOutputChannelCount;
-    private int estimatedProbeBlockBytes;
-    private int estimatedProbeRowSize = -1;
+    private long estimatedProbeBlockBytes;
+    private long estimatedProbeRowSize = -1;
     private int previousPosition = -1;
     private boolean isSequentialProbeIndices = true;
     private boolean repeatBuildRow;
@@ -242,13 +242,13 @@ public class LookupJoinPageBuilder
         }
     }
 
-    private int getEstimatedProbeRowSize(JoinProbe probe)
+    private long getEstimatedProbeRowSize(JoinProbe probe)
     {
         if (estimatedProbeRowSize != -1) {
             return estimatedProbeRowSize;
         }
 
-        int estimatedProbeRowSize = 0;
+        long estimatedProbeRowSize = 0;
         for (int index : probe.getOutputChannels()) {
             Block block = probe.getPage().getBlock(index);
             // Estimate the size of the probe row
