@@ -121,7 +121,6 @@ public abstract class AbstractFileFormat
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                false,
                 Optional.empty(),
                 SplitWeight.standard());
 

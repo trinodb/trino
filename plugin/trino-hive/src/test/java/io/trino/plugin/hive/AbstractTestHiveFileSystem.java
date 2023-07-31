@@ -185,7 +185,7 @@ public abstract class AbstractTestHiveFileSystem
 
     protected void onSetupComplete() {}
 
-    protected void setup(String host, int port, String databaseName, boolean s3SelectPushdownEnabled, HdfsConfiguration hdfsConfiguration)
+    protected void setup(String host, int port, String databaseName, HdfsConfiguration hdfsConfiguration)
     {
         database = databaseName;
         table = new SchemaTableName(database, "trino_test_external_fs");
@@ -197,8 +197,7 @@ public abstract class AbstractTestHiveFileSystem
         temporaryCreateTableWithExternalLocation = new SchemaTableName(database, "tmp_trino_test_create_external" + random);
 
         config = new HiveConfig()
-                .setWritesToNonManagedTablesEnabled(true)
-                .setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
+                .setWritesToNonManagedTablesEnabled(true);
 
         HivePartitionManager hivePartitionManager = new HivePartitionManager(config);
 

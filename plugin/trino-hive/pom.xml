@@ -38,11 +38,6 @@
 
         <dependency>
             <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-s3</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-sts</artifactId>
         </dependency>
 
@@ -284,6 +279,12 @@
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -532,7 +533,6 @@
                                 <exclude>**/TestHiveGlueMetastore.java</exclude>
                                 <exclude>**/TestHiveS3AndGlueMetastoreTest.java</exclude>
                                 <exclude>**/TestTrinoS3FileSystemAwsS3.java</exclude>
-                                <exclude>**/TestS3SelectQueries.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
                                 <exclude>**/TestParquetReader.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
@@ -590,7 +590,6 @@
                                 <include>**/TestHiveGlueMetastore.java</include>
                                 <include>**/TestHiveS3AndGlueMetastoreTest.java</include>
                                 <include>**/TestTrinoS3FileSystemAwsS3.java</include>
-                                <include>**/TestS3SelectQueries.java</include>
                             </includes>
                         </configuration>
                     </plugin>

@@ -913,7 +913,6 @@ public class TestHiveFileFormats
                 TESTING_TYPE_MANAGER,
                 Optional.empty(),
                 Optional.empty(),
-                false,
                 Optional.empty(),
                 false,
                 NO_ACID_TRANSACTION,

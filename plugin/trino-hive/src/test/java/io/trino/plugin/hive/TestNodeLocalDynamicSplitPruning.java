@@ -134,7 +134,6 @@ public class TestNodeLocalDynamicSplitPruning
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                false,
                 Optional.empty(),
                 SplitWeight.standard());
 

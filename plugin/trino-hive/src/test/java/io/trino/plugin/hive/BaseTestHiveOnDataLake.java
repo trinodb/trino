@@ -29,12 +29,8 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
-import io.trino.testing.sql.TestTable;
-import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -68,7 +64,6 @@ import static java.util.regex.Pattern.quote;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public abstract class BaseTestHiveOnDataLake
         extends AbstractTestQueryFramework
@@ -111,7 +106,6 @@ public abstract class BaseTestHiveOnDataLake
                                 .put("hive.s3.streaming.part-size", HIVE_S3_STREAMING_PART_SIZE.toString())
                                 // This is required to enable AWS Athena partition projection
                                 .put("hive.partition-projection-enabled", "true")
-                                .put("hive.s3select-pushdown.experimental-textfile-pushdown-enabled", "true")
                                 .buildOrThrow())
                 .build();
     }
@@ -1792,247 +1786,6 @@ public abstract class BaseTestHiveOnDataLake
         assertQuery("SELECT * FROM " + tableName, "VALUES ('a', 1), ('b',1)");
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test(dataProvider = "s3SelectFileFormats")
-    public void testS3SelectPushdown(String tableProperties)
-    {
-        if (true) {
-            throw new SkipException("S3 Select not yet supported");
-        }
-        Session usingAppendInserts = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
-                .build();
-        List<String> values = ImmutableList.of(
-                "1, true, 11, 111, 1111, 11111, 'one', DATE '2020-01-01'",
-                "2, true, 22, 222, 2222, 22222, 'two', DATE '2020-02-02'",
-                "3, NULL, NULL, NULL, NULL, NULL, NULL, NULL",
-                "4, false, 44, 444, 4444, 44444, 'four', DATE '2020-04-04'");
-        try (TestTable table = new TestTable(
-                sql -> getQueryRunner().execute(usingAppendInserts, sql),
-                "hive.%s.test_s3_select_pushdown".formatted(HIVE_TEST_SCHEMA),
-                "(id INT, bool_t BOOLEAN, tiny_t TINYINT, small_t SMALLINT, int_t INT, big_t BIGINT, string_t VARCHAR, date_t DATE) " +
-                        "WITH (" + tableProperties + ")", values)) {
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE bool_t = true", "VALUES 1, 2");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE bool_t = false", "VALUES 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE bool_t IS NULL", "VALUES 3");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE bool_t IS NOT NULL", "VALUES 1, 2, 4");
-
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t = 22", "VALUES 2");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t != 22", "VALUES 1, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t > 22", "VALUES 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t >= 22", "VALUES 2, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t = 22 OR tiny_t = 44", "VALUES 2, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t IS NULL OR tiny_t >= 22", "VALUES 2, 3, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t IS NULL", "VALUES 3");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t IS NOT NULL", "VALUES 1, 2, 4");
-
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t = 222", "VALUES 2");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t != 222", "VALUES 1, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t > 222", "VALUES 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t >= 222", "VALUES 2, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t = 222 OR small_t = 444", "VALUES 2, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t IS NULL OR small_t >= 222", "VALUES 2, 3, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t IS NULL", "VALUES 3");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t IS NOT NULL", "VALUES 1, 2, 4");
-
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t = 2222", "VALUES 2");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t != 2222", "VALUES 1, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t > 2222", "VALUES 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t >= 2222", "VALUES 2, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t = 2222 OR int_t = 4444", "VALUES 2, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t IS NULL OR int_t >= 2222", "VALUES 2, 3, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t IS NULL", "VALUES 3");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t IS NOT NULL", "VALUES 1, 2, 4");
-
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t = 22222", "VALUES 2");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t != 22222", "VALUES 1, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t > 22222", "VALUES 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t >= 22222", "VALUES 2, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t = 22222 OR big_t = 44444", "VALUES 2, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t IS NULL OR big_t >= 22222", "VALUES 2, 3, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t IS NULL", "VALUES 3");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t IS NOT NULL", "VALUES 1, 2, 4");
-
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t = 'two'", "VALUES 2");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t != 'two'", "VALUES 1, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t < 'two'", "VALUES 1, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t <= 'two'", "VALUES 1, 2, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t = 'two' OR string_t = 'four'", "VALUES 2, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t IS NULL OR string_t >= 'two'", "VALUES 2, 3");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t IS NULL", "VALUES 3");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t IS NOT NULL", "VALUES 1, 2, 4");
-
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t = DATE '2020-02-02'", "VALUES 2");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t != DATE '2020-02-02'", "VALUES 1, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t > DATE '2020-02-02'", "VALUES 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t <= DATE '2020-02-02'", "VALUES 1, 2");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t = DATE '2020-02-02' OR date_t = DATE '2020-04-04'", "VALUES 2, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t IS NULL OR date_t >= DATE '2020-02-02'", "VALUES 2, 3, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t IS NULL", "VALUES 3");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t IS NOT NULL", "VALUES 1, 2, 4");
-        }
-    }
-
-    @Test(dataProvider = "s3SelectFileFormats")
-    public void testS3SelectOnDecimalColumnIsDisabled(String tableProperties)
-    {
-        if (true) {
-            throw new SkipException("S3 Select not yet supported");
-        }
-        Session usingAppendInserts = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
-                .build();
-        List<String> values = ImmutableList.of("1, 1.1", "2, 2.2", "3, NULL", "4, 4.4");
-        try (TestTable table = new TestTable(
-                sql -> getQueryRunner().execute(usingAppendInserts, sql),
-                "hive.%s.test_s3_select_pushdown".formatted(HIVE_TEST_SCHEMA),
-                "(id INT, decimal_t DECIMAL(10, 5)) WITH (" + tableProperties + ")",
-                values)) {
-            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t = 2.2", "VALUES 2");
-            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t != 2.2", "VALUES 1, 4");
-            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t < 2.2", "VALUES 1");
-            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t <= 2.2", "VALUES 1, 2");
-            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t = 2.2 OR decimal_t = 4.4", "VALUES 2, 4");
-            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t IS NULL OR decimal_t >= 2.2", "VALUES 2, 3, 4");
-            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t IS NULL", "VALUES 3");
-            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t IS NOT NULL", "VALUES 1, 2, 4");
-        }
-    }
-
-    @Test
-    public void testJsonS3SelectPushdownWithSpecialCharacters()
-    {
-        Session usingAppendInserts = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
-                .build();
-
-        List<String> specialCharacterValues = ImmutableList.of(
-                "1, 'a,comma'",
-                "2, 'a|pipe'",
-                "3, 'an''escaped quote'",
-                "4, 'a\"double quote'");
-        try (TestTable table = new TestTable(
-                sql -> getQueryRunner().execute(usingAppendInserts, sql),
-                "hive.%s.test_s3_select_pushdown_special_characters".formatted(HIVE_TEST_SCHEMA),
-                "(id INT, string_t VARCHAR) WITH (format = 'JSON')",
-                specialCharacterValues)) {
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='a,comma'", "VALUES 1");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='a|pipe'", "VALUES 2");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='an''escaped quote'", "VALUES 3");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='a\"double quote'", "VALUES 4");
-        }
-    }
-
-    @Test
-    public void testS3SelectExperimentalPushdown()
-    {
-        if (true) {
-            throw new SkipException("S3 Select not yet supported");
-        }
-        // Demonstrate correctness issues which have resulted in pushdown for TEXTFILE
-        // using CSV support in S3 Select being put behind a separate "experimental" flag.
-        // TODO: https://github.com/trinodb/trino/issues/17775
-        Session usingAppendInserts = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
-                .build();
-        List<String> values = ImmutableList.of(
-                "1, true, 11",
-                "2, true, 22",
-                "3, NULL, NULL",
-                "4, false, 44");
-        Session withS3SelectPushdown = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "s3_select_pushdown_enabled", "true")
-                .build();
-
-        try (TestTable table = new TestTable(
-                sql -> getQueryRunner().execute(usingAppendInserts, sql),
-                "hive.%s.test_s3_select_pushdown_experimental_features".formatted(HIVE_TEST_SCHEMA),
-                "(id INT, bool_t BOOLEAN, int_t INT) WITH (format = 'TEXTFILE')",
-                values)) {
-            assertQuery("SELECT id FROM " + table.getName() + " WHERE int_t IS NULL", "VALUES 3");
-            assertThat(query(withS3SelectPushdown, "SELECT id FROM " + table.getName() + " WHERE int_t IS NULL")).returnsEmptyResult();
-
-            assertQueryFails(
-                    withS3SelectPushdown,
-                    "SELECT id FROM " + table.getName() + " WHERE bool_t = true",
-                    "S3 returned an error: Error casting:.*");
-        }
-
-        List<String> specialCharacterValues = ImmutableList.of(
-                "1, 'a,comma'",
-                "2, 'a|pipe'",
-                "3, 'an''escaped quote'",
-                "4, 'a~null encoding'");
-        try (TestTable table = new TestTable(
-                sql -> getQueryRunner().execute(usingAppendInserts, sql),
-                "hive.%s.test_s3_select_pushdown_special_characters".formatted(HIVE_TEST_SCHEMA),
-                "(id INT, string_t VARCHAR) WITH (format = 'TEXTFILE', textfile_field_separator=',', textfile_field_separator_escape='|', null_format='~')",
-                specialCharacterValues)) {
-            // These two should return a result, but incorrectly return nothing
-            String selectWithComma = "SELECT id FROM " + table.getName() + " WHERE string_t ='a,comma'";
-            assertQuery(selectWithComma, "VALUES 1");
-            assertThat(query(withS3SelectPushdown, selectWithComma)).returnsEmptyResult();
-
-            String selectWithPipe = "SELECT id FROM " + table.getName() + " WHERE string_t ='a|pipe'";
-            assertQuery(selectWithPipe, "VALUES 2");
-            assertThat(query(withS3SelectPushdown, selectWithPipe)).returnsEmptyResult();
-
-            // These two are actually correct
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='an''escaped quote'", "VALUES 3");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='a~null encoding'", "VALUES 4");
-        }
-    }
-
-    private void assertS3SelectQuery(@Language("SQL") String query, @Language("SQL") String expectedValues)
-    {
-        Session withS3SelectPushdown = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "s3_select_pushdown_enabled", "true")
-                .build();
-
-        MaterializedResult expectedResult = computeActual(expectedValues);
-        assertQueryStats(
-                withS3SelectPushdown,
-                query,
-                statsWithPushdown -> {
-                    long inputPositionsWithPushdown = statsWithPushdown.getPhysicalInputPositions();
-                    assertQueryStats(
-                            getSession(),
-                            query,
-                            statsWithoutPushdown -> assertThat(statsWithoutPushdown.getPhysicalInputPositions()).isGreaterThan(inputPositionsWithPushdown),
-                            results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
-                },
-                results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
-    }
-
-    private void assertNoS3SelectPushdown(@Language("SQL") String query, @Language("SQL") String expectedValues)
-    {
-        Session withS3SelectPushdown = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "s3_select_pushdown_enabled", "true")
-                .build();
-
-        MaterializedResult expectedResult = computeActual(expectedValues);
-        assertQueryStats(
-                withS3SelectPushdown,
-                query,
-                statsWithPushdown -> {
-                    long inputPositionsWithPushdown = statsWithPushdown.getPhysicalInputPositions();
-                    assertQueryStats(
-                            getSession(),
-                            query,
-                            statsWithoutPushdown -> assertThat(statsWithoutPushdown.getPhysicalInputPositions()).isEqualTo(inputPositionsWithPushdown),
-                            results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
-                },
-                results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
-    }
-
-    @DataProvider
-    public static Object[][] s3SelectFileFormats()
-    {
-        return new Object[][] {
-                {"format = 'JSON'"},
-                {"format = 'TEXTFILE', textfile_field_separator=',', textfile_field_separator_escape='|', null_format='~'"}
-        };
     }
 
     @Test
