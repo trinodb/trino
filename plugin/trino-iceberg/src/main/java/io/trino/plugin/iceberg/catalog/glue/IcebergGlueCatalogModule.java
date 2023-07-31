@@ -56,11 +56,10 @@ public class IcebergGlueCatalogModule
         binder.bind(TrinoCatalogFactory.class).to(TrinoGlueCatalogFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TrinoCatalogFactory.class).withGeneratedName();
 
-        Multibinder<RequestHandler2> requestHandlers = newSetBinder(binder, RequestHandler2.class, ForGlueHiveMetastore.class);
         install(conditionalModule(
                 IcebergGlueCatalogConfig.class,
                 IcebergGlueCatalogConfig::isSkipArchive,
-                config -> requestHandlers.addBinding().toInstance(new SkipArchiveRequestHandler())));
+                internalBinder -> newSetBinder(internalBinder, RequestHandler2.class, ForGlueHiveMetastore.class).addBinding().toInstance(new SkipArchiveRequestHandler())));
 
         // Required to inject HiveMetastoreFactory for migrate procedure
         binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);
