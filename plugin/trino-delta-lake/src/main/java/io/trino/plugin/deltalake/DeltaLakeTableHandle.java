@@ -148,6 +148,8 @@ public class DeltaLakeTableHandle
                 updatedColumns,
                 updateRowIdColumns,
                 analyzeHandle,
+                recordScannedFiles,
+                maxScannedFileSize,
                 readVersion);
     }
 
