@@ -77,13 +77,13 @@ public final class SqlVarbinary
         int lastLineBytes = bytes.length % 32;
 
         // 4 full words with 3 word separators and one line break per full line of output
-        long totalSize = fullLineCount * ((4 * OUTPUT_CHARS_PER_FULL_WORD) + (3 * WORD_SEPARATOR.length()) + 1);
+        long totalSize = (long) fullLineCount * ((4 * OUTPUT_CHARS_PER_FULL_WORD) + (3 * WORD_SEPARATOR.length()) + 1);
         if (lastLineBytes == 0) {
             totalSize--; // no final line separator
         }
         else {
             int lastLineWords = lastLineBytes / 8;
-            totalSize += (lastLineWords * (OUTPUT_CHARS_PER_FULL_WORD + WORD_SEPARATOR.length()));
+            totalSize += (long) lastLineWords * (OUTPUT_CHARS_PER_FULL_WORD + WORD_SEPARATOR.length());
             // whole words and separators on last line
             if (lastLineWords * 8 == lastLineBytes) {
                 totalSize -= WORD_SEPARATOR.length(); // last line ends on a word boundary, no separator

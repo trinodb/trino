@@ -117,8 +117,8 @@ public class TestLookupJoinPageBuilder
         assertTrue(output.getBlock(0) instanceof DictionaryBlock);
         assertEquals(output.getPositionCount(), entries / 2);
         for (int i = 0; i < entries / 2; i++) {
-            assertEquals(output.getBlock(0).getLong(i, 0), i * 2);
-            assertEquals(output.getBlock(1).getLong(i, 0), i * 2);
+            assertEquals(output.getBlock(0).getLong(i, 0), i * 2L);
+            assertEquals(output.getBlock(1).getLong(i, 0), i * 2L);
         }
         lookupJoinPageBuilder.reset();
 

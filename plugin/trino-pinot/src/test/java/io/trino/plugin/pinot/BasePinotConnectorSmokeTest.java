@@ -298,7 +298,7 @@ public abstract class BasePinotConnectorSmokeTest
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1; i++) {
             tooManyRowsRecordsBuilder.add(new ProducerRecord<>(TOO_MANY_ROWS_TABLE, "key" + i, new GenericRecordBuilder(tooManyRowsAvroSchema)
                     .set("string_col", "string_" + i)
-                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000).toEpochMilli())
+                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000L).toEpochMilli())
                     .build()));
         }
         kafka.sendMessages(tooManyRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
@@ -320,7 +320,7 @@ public abstract class BasePinotConnectorSmokeTest
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + 1; i++) {
             tooManyBrokerRowsRecordsBuilder.add(new ProducerRecord<>(TOO_MANY_BROKER_ROWS_TABLE, "key" + i, new GenericRecordBuilder(tooManyBrokerRowsAvroSchema)
                     .set("string_col", "string_" + i)
-                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000).toEpochMilli())
+                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000L).toEpochMilli())
                     .build()));
         }
         kafka.sendMessages(tooManyBrokerRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
@@ -390,7 +390,7 @@ public abstract class BasePinotConnectorSmokeTest
             jsonTableRecordsBuilder.add(new ProducerRecord<>(JSON_TYPE_TABLE, "key" + i, new GenericRecordBuilder(jsonTableAvroSchema)
                     .set("string_col", "string_" + i)
                     .set("json_col", "{ \"name\": \"user_" + i + "\", \"id\": " + i + "}")
-                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000).toEpochMilli())
+                    .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000L).toEpochMilli())
                     .build()));
         }
         kafka.sendMessages(jsonTableRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
@@ -465,7 +465,7 @@ public abstract class BasePinotConnectorSmokeTest
                 GenericRow row = new GenericRow();
                 row.putValue("stringCol", "string_" + i);
                 row.putValue("longCol", (long) i);
-                row.putValue("updatedAt", startInstant.plus(1, DAYS).plusMillis(1000 * (i - 4)).toEpochMilli());
+                row.putValue("updatedAt", startInstant.plus(1, DAYS).plusMillis(1000L * (i - 4)).toEpochMilli());
                 offlineRowsBuilder.add(row);
             }
             Path segmentPath = createSegment(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), getClass().getClassLoader().getResourceAsStream("hybrid_schema.json"), new GenericRowRecordReader(offlineRowsBuilder.build()), temporaryDirectory.toString(), 0);
@@ -478,7 +478,7 @@ public abstract class BasePinotConnectorSmokeTest
                 GenericRow row = new GenericRow();
                 row.putValue("stringCol", "string_" + i);
                 row.putValue("longCol", (long) i);
-                row.putValue("updatedAt", startInstant.minus(1, DAYS).plusMillis(1000 * (i - 7)).toEpochMilli());
+                row.putValue("updatedAt", startInstant.minus(1, DAYS).plusMillis(1000L * (i - 7)).toEpochMilli());
                 offlineRowsBuilder.add(row);
             }
             segmentPath = createSegment(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), getClass().getClassLoader().getResourceAsStream("hybrid_schema.json"), new GenericRowRecordReader(offlineRowsBuilder.build()), temporaryDirectory.toString(), 1);
@@ -1103,7 +1103,7 @@ public abstract class BasePinotConnectorSmokeTest
         long rowCount = (long) computeScalar("SELECT COUNT(*) FROM " + MIXED_CASE_COLUMN_NAMES_TABLE);
         List<String> rows = new ArrayList<>();
         for (int i = 0; i < rowCount; i++) {
-            rows.add(format("('string_%s', '%s', '%s')", i, i, initialUpdatedAt.plusMillis(i * 1000).getEpochSecond()));
+            rows.add(format("('string_%s', '%s', '%s')", i, i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
         }
         String mixedCaseColumnNamesTableValues = rows.stream().collect(joining(",", "VALUES ", ""));
 
@@ -1154,7 +1154,7 @@ public abstract class BasePinotConnectorSmokeTest
         long rowCount = (long) computeScalar("SELECT COUNT(*) FROM " + MIXED_CASE_TABLE_NAME);
         List<String> rows = new ArrayList<>();
         for (int i = 0; i < rowCount; i++) {
-            rows.add(format("('string_%s', '%s', '%s')", i, i, initialUpdatedAt.plusMillis(i * 1000).getEpochSecond()));
+            rows.add(format("('string_%s', '%s', '%s')", i, i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
         }
 
         String mixedCaseColumnNamesTableValues = rows.stream().collect(joining(",", "VALUES ", ""));
@@ -1284,7 +1284,7 @@ public abstract class BasePinotConnectorSmokeTest
         // ingest the row from kafka.
         List<String> tooManyRowsTableValues = new ArrayList<>();
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES + 1; i++) {
-            tooManyRowsTableValues.add(format("('string_%s', '%s')", i, initialUpdatedAt.plusMillis(i * 1000).getEpochSecond()));
+            tooManyRowsTableValues.add(format("('string_%s', '%s')", i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
         }
 
         // Explicit limit is necessary otherwise pinot returns 10 rows.
@@ -1314,7 +1314,7 @@ public abstract class BasePinotConnectorSmokeTest
 
         List<String> tooManyBrokerRowsTableValues = new ArrayList<>();
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES; i++) {
-            tooManyBrokerRowsTableValues.add(format("('string_%s', '%s')", i, initialUpdatedAt.plusMillis(i * 1000).getEpochSecond()));
+            tooManyBrokerRowsTableValues.add(format("('string_%s', '%s')", i, initialUpdatedAt.plusMillis(i * 1000L).getEpochSecond()));
         }
 
         // Explicit limit is necessary otherwise pinot returns 10 rows.
@@ -2777,7 +2777,7 @@ public abstract class BasePinotConnectorSmokeTest
         assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " ORDER BY ts DESC LIMIT 1")).matches("SELECT max(ts) FROM " + ALL_TYPES_TABLE);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneOffset.UTC);
         for (int i = 0, step = 1200; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES - 2; i++) {
-            String initialUpdatedAtStr = formatter.format(initialUpdatedAt.plusMillis(i * step));
+            String initialUpdatedAtStr = formatter.format(initialUpdatedAt.plusMillis((long) i * step));
             assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts >= TIMESTAMP '" + initialUpdatedAtStr + "' ORDER BY ts LIMIT 1"))
                     .matches("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts <= TIMESTAMP '" + initialUpdatedAtStr + "' ORDER BY ts DESC LIMIT 1");
             assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts = TIMESTAMP '" + initialUpdatedAtStr + "' LIMIT 1"))

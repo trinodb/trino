@@ -4346,7 +4346,7 @@ public abstract class AbstractTestHive
 
                 // statistics
                 HiveBasicStatistics tableStatistics = getBasicStatisticsForTable(transaction, tableName);
-                assertEquals(tableStatistics.getRowCount().orElse(0), CREATE_TABLE_DATA.getRowCount() * (i + 1));
+                assertEquals(tableStatistics.getRowCount().orElse(0), CREATE_TABLE_DATA.getRowCount() * (i + 1L));
                 assertEquals(tableStatistics.getFileCount().getAsLong(), i + 1L);
                 assertGreaterThan(tableStatistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
                 assertGreaterThan(tableStatistics.getOnDiskDataSizeInBytes().getAsLong(), 0L);
