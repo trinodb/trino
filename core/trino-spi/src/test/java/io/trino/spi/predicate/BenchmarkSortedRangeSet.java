@@ -239,7 +239,7 @@ public class BenchmarkSortedRangeSet
         {
             ranges = new ArrayList<>();
 
-            int factor = 0;
+            long factor = 0;
             for (int i = 0; i < 10_000; i++) {
                 long from = ThreadLocalRandom.current().nextLong(100) + factor * 100;
                 long to = ThreadLocalRandom.current().nextLong(100) + (factor + 1) * 100;

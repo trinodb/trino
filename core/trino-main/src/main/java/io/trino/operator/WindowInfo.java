@@ -101,7 +101,7 @@ public class WindowInfo
             long totalRowsCount = indexInfos.stream()
                     .mapToLong(IndexInfo::getTotalRowsCount)
                     .sum();
-            double averageIndexPositions = totalRowsCount / indexInfos.size();
+            double averageIndexPositions = (double) totalRowsCount / indexInfos.size();
             double squaredDifferencesPositionsOfIndex = indexInfos.stream()
                     .mapToDouble(index -> Math.pow(index.getTotalRowsCount() - averageIndexPositions, 2))
                     .sum();

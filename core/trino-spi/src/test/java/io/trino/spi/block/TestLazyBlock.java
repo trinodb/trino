@@ -94,7 +94,7 @@ public class TestLazyBlock
         assertEquals(actualNotifications, expectedNotifications);
 
         if (loadedBlock instanceof ArrayBlock) {
-            long expectedSize = (Integer.BYTES + Byte.BYTES) * loadedBlock.getPositionCount();
+            long expectedSize = (long) (Integer.BYTES + Byte.BYTES) * loadedBlock.getPositionCount();
             assertEquals(loadedBlock.getSizeInBytes(), expectedSize);
 
             Block elementsBlock = loadedBlock.getChildren().get(0);
@@ -107,7 +107,7 @@ public class TestLazyBlock
             return;
         }
         if (loadedBlock instanceof RowBlock) {
-            long expectedSize = (Integer.BYTES + Byte.BYTES) * loadedBlock.getPositionCount();
+            long expectedSize = (long) (Integer.BYTES + Byte.BYTES) * loadedBlock.getPositionCount();
             assertEquals(loadedBlock.getSizeInBytes(), expectedSize);
 
             for (Block fieldBlock : loadedBlock.getChildren()) {

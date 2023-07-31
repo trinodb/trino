@@ -1139,7 +1139,7 @@ public class TestHiveGlueMetastore
                                 OptionalLong.of(-1000 - i),
                                 OptionalLong.of(1000 + i),
                                 OptionalLong.of(i),
-                                OptionalLong.of(2 * i)));
+                                OptionalLong.of(2L * i)));
             }
 
             PartitionStatistics partitionStatistics = PartitionStatistics.builder()

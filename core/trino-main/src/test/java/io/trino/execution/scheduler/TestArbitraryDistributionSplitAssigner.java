@@ -55,7 +55,7 @@ public class TestArbitraryDistributionSplitAssigner
 {
     private static final int FUZZ_TESTING_INVOCATION_COUNT = 100;
 
-    private static final int STANDARD_SPLIT_SIZE_IN_BYTES = 1;
+    private static final long STANDARD_SPLIT_SIZE_IN_BYTES = 1;
 
     private static final PlanNodeId PARTITIONED_1 = new PlanNodeId("partitioned-1");
     private static final PlanNodeId PARTITIONED_2 = new PlanNodeId("partitioned-2");
