@@ -39,6 +39,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -151,7 +152,7 @@ final class LongTimestampWithTimeZoneType
         LongTimestampWithTimeZone timestampWithTimeZone = (LongTimestampWithTimeZone) value;
         long epochMillis = timestampWithTimeZone.getEpochMillis();
         int picosOfMilli = timestampWithTimeZone.getPicosOfMilli();
-        picosOfMilli -= rescale(1, 0, 12 - getPrecision());
+        picosOfMilli -= toIntExact(rescale(1, 0, 12 - getPrecision()));
         if (picosOfMilli < 0) {
             if (epochMillis == Long.MIN_VALUE) {
                 return Optional.empty();
@@ -169,7 +170,7 @@ final class LongTimestampWithTimeZoneType
         LongTimestampWithTimeZone timestampWithTimeZone = (LongTimestampWithTimeZone) value;
         long epochMillis = timestampWithTimeZone.getEpochMillis();
         int picosOfMilli = timestampWithTimeZone.getPicosOfMilli();
-        picosOfMilli += rescale(1, 0, 12 - getPrecision());
+        picosOfMilli += toIntExact(rescale(1, 0, 12 - getPrecision()));
         if (picosOfMilli >= PICOSECONDS_PER_MILLISECOND) {
             if (epochMillis == Long.MAX_VALUE) {
                 return Optional.empty();

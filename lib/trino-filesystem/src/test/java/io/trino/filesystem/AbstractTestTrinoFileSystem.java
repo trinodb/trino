@@ -274,7 +274,7 @@ public abstract class AbstractTestTrinoFileSystem
 
                 // skip 1MB at a time
                 inputStream.seek(0);
-                int expectedPosition = 0;
+                long expectedPosition = 0;
                 for (int i = 0; i < 15; i++) {
                     long skipSize = inputStream.skip(MEGABYTE);
                     assertThat(skipSize).isEqualTo(MEGABYTE);

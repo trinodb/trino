@@ -30,6 +30,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.math.DoubleMath.roundToLong;
+import static java.math.RoundingMode.HALF_UP;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -169,7 +171,7 @@ public class MultilevelSplitQueue
                 }
             }
 
-            targetScheduledTime /= levelTimeMultiplier;
+            targetScheduledTime = roundToLong(targetScheduledTime / levelTimeMultiplier, HALF_UP);
         }
 
         if (selectedLevel == -1) {
