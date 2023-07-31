@@ -149,7 +149,7 @@
 
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
 
-        <dep.slice.version>0.46</dep.slice.version>
+        <dep.slice.version>2.0</dep.slice.version>
 
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
@@ -571,12 +571,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.teradata</groupId>
-                <artifactId>re2j-td</artifactId>
-                <version>1.4</version>
-            </dependency>
-
-            <dependency>
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
                 <version>1.15</version>
@@ -809,6 +803,11 @@
                 <groupId>io.swagger</groupId>
                 <artifactId>swagger-core</artifactId>
                 <version>1.6.2</version>
+            </dependency>
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>re2j</artifactId>
+                <version>1.6</version>
             </dependency>
             <dependency>
                 <groupId>io.trino</groupId>

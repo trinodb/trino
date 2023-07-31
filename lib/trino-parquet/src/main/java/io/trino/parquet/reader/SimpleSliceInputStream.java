@@ -15,9 +15,7 @@ package io.trino.parquet.reader;
 
 import com.google.common.primitives.Shorts;
 import io.airlift.slice.Slice;
-import io.airlift.slice.UnsafeSlice;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static java.util.Objects.requireNonNull;
 
@@ -41,7 +39,6 @@ public final class SimpleSliceInputStream
     public SimpleSliceInputStream(Slice slice, int offset)
     {
         this.slice = requireNonNull(slice, "slice is null");
-        checkArgument(slice.length() == 0 || slice.hasByteArray(), "SimpleSliceInputStream supports only slices backed by byte array");
         this.offset = offset;
     }
 
@@ -154,7 +151,7 @@ public final class SimpleSliceInputStream
      */
     public int readIntUnsafe()
     {
-        int value = UnsafeSlice.getIntUnchecked(slice, offset);
+        int value = slice.getIntUnchecked(offset);
         offset += Integer.BYTES;
         return value;
     }
@@ -165,7 +162,7 @@ public final class SimpleSliceInputStream
      */
     public long readLongUnsafe()
     {
-        long value = UnsafeSlice.getLongUnchecked(slice, offset);
+        long value = slice.getLongUnchecked(offset);
         offset += Long.BYTES;
         return value;
     }
@@ -176,7 +173,7 @@ public final class SimpleSliceInputStream
      */
     public byte getByteUnsafe(int index)
     {
-        return UnsafeSlice.getByteUnchecked(slice, offset + index);
+        return slice.getByteUnchecked(offset + index);
     }
 
     /**
@@ -185,7 +182,7 @@ public final class SimpleSliceInputStream
      */
     public int getIntUnsafe(int index)
     {
-        return UnsafeSlice.getIntUnchecked(slice, offset + index);
+        return slice.getIntUnchecked(offset + index);
     }
 
     /**
@@ -194,6 +191,6 @@ public final class SimpleSliceInputStream
      */
     public long getLongUnsafe(int index)
     {
-        return UnsafeSlice.getLongUnchecked(slice, offset + index);
+        return slice.getLongUnchecked(offset + index);
     }
 }

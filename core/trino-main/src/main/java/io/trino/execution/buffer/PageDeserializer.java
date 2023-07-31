@@ -539,7 +539,6 @@ public class PageDeserializer
         public ReadBuffer(Slice slice)
         {
             requireNonNull(slice, "slice is null");
-            checkArgument(slice.hasByteArray(), "slice is expected to be based on a byte array");
             this.slice = slice;
             limit = slice.length();
         }
