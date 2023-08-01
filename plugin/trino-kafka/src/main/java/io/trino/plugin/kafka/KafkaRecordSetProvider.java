@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.decoder.DispatchingRowDecoderFactory;
 import io.trino.decoder.RowDecoder;
+import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -59,20 +60,24 @@ public class KafkaRecordSetProvider
                 .collect(toImmutableList());
 
         RowDecoder keyDecoder = decoderFactory.create(
-                kafkaSplit.getKeyDataFormat(),
-                getDecoderParameters(kafkaSplit.getKeyDataSchemaContents()),
-                kafkaColumns.stream()
-                        .filter(col -> !col.isInternal())
-                        .filter(KafkaColumnHandle::isKeyCodec)
-                        .collect(toImmutableSet()));
+                session,
+                new RowDecoderSpec(
+                        kafkaSplit.getKeyDataFormat(),
+                        getDecoderParameters(kafkaSplit.getKeyDataSchemaContents()),
+                        kafkaColumns.stream()
+                                .filter(col -> !col.isInternal())
+                                .filter(KafkaColumnHandle::isKeyCodec)
+                                .collect(toImmutableSet())));
 
         RowDecoder messageDecoder = decoderFactory.create(
-                kafkaSplit.getMessageDataFormat(),
-                getDecoderParameters(kafkaSplit.getMessageDataSchemaContents()),
-                kafkaColumns.stream()
-                        .filter(col -> !col.isInternal())
-                        .filter(col -> !col.isKeyCodec())
-                        .collect(toImmutableSet()));
+                session,
+                new RowDecoderSpec(
+                        kafkaSplit.getMessageDataFormat(),
+                        getDecoderParameters(kafkaSplit.getMessageDataSchemaContents()),
+                        kafkaColumns.stream()
+                                .filter(col -> !col.isInternal())
+                                .filter(col -> !col.isKeyCodec())
+                                .collect(toImmutableSet())));
 
         return new KafkaRecordSet(kafkaSplit, consumerFactory, session, kafkaColumns, keyDecoder, messageDecoder, kafkaInternalFieldManager);
     }
