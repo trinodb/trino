@@ -35,7 +35,6 @@ public class TestTaskManagerConfig
 {
     private static final int DEFAULT_PROCESSOR_COUNT = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32);
     private static final int DEFAULT_SCALE_WRITERS_MAX_WRITER_COUNT = min(getAvailablePhysicalProcessorCount(), 32) * 2;
-    private static final int DEFAULT_PARTITIONED_WRITER_COUNT = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32) * 2;
 
     @Test
     public void testDefaults()
@@ -66,7 +65,7 @@ public class TestTaskManagerConfig
                 .setScaleWritersEnabled(true)
                 .setScaleWritersMaxWriterCount(DEFAULT_SCALE_WRITERS_MAX_WRITER_COUNT)
                 .setWriterCount(1)
-                .setPartitionedWriterCount(DEFAULT_PARTITIONED_WRITER_COUNT)
+                .setPartitionedWriterCount(DEFAULT_PROCESSOR_COUNT)
                 .setTaskConcurrency(DEFAULT_PROCESSOR_COUNT)
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3)
@@ -85,7 +84,6 @@ public class TestTaskManagerConfig
     {
         int processorCount = DEFAULT_PROCESSOR_COUNT == 32 ? 16 : 32;
         int maxWriterCount = DEFAULT_SCALE_WRITERS_MAX_WRITER_COUNT == 32 ? 16 : 32;
-        int partitionedWriterCount = DEFAULT_PARTITIONED_WRITER_COUNT == 64 ? 32 : 64;
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("task.initial-splits-per-node", "1")
                 .put("task.split-concurrency-adjustment-interval", "1s")
@@ -112,7 +110,7 @@ public class TestTaskManagerConfig
                 .put("task.scale-writers.enabled", "false")
                 .put("task.scale-writers.max-writer-count", Integer.toString(maxWriterCount))
                 .put("task.writer-count", "4")
-                .put("task.partitioned-writer-count", Integer.toString(partitionedWriterCount))
+                .put("task.partitioned-writer-count", Integer.toString(processorCount))
                 .put("task.concurrency", Integer.toString(processorCount))
                 .put("task.http-response-threads", "4")
                 .put("task.http-timeout-threads", "10")
@@ -152,7 +150,7 @@ public class TestTaskManagerConfig
                 .setScaleWritersEnabled(false)
                 .setScaleWritersMaxWriterCount(maxWriterCount)
                 .setWriterCount(4)
-                .setPartitionedWriterCount(partitionedWriterCount)
+                .setPartitionedWriterCount(processorCount)
                 .setTaskConcurrency(processorCount)
                 .setHttpResponseThreads(4)
                 .setHttpTimeoutThreads(10)
