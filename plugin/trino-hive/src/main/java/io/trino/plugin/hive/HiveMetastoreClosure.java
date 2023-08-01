@@ -86,11 +86,6 @@ public class HiveMetastoreClosure
         return delegate.getSupportedColumnStatistics(type);
     }
 
-    public PartitionStatistics getTableStatistics(String databaseName, String tableName)
-    {
-        return getTableStatistics(databaseName, tableName, Optional.empty());
-    }
-
     public PartitionStatistics getTableStatistics(String databaseName, String tableName, Optional<Set<String>> columns)
     {
         Table table = getExistingTable(databaseName, tableName);
