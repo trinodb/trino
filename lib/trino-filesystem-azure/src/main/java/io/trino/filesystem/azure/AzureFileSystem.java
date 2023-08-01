@@ -299,6 +299,26 @@ public class AzureFileSystem
         }
     }
 
+    @Override
+    public void createDirectory(Location location)
+            throws IOException
+    {
+        AzureLocation azureLocation = new AzureLocation(location);
+        if (!isHierarchicalNamespaceEnabled(azureLocation)) {
+            return;
+        }
+        try {
+            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(azureLocation);
+            DataLakeDirectoryClient directoryClient = fileSystemClient.createDirectoryIfNotExists(azureLocation.path());
+            if (!directoryClient.getProperties().isDirectory()) {
+                throw new IOException("Location is not a directory: " + azureLocation);
+            }
+        }
+        catch (RuntimeException e) {
+            throw handleAzureException(e, "creating directory", azureLocation);
+        }
+    }
+
     private boolean isHierarchicalNamespaceEnabled(AzureLocation location)
             throws IOException
     {

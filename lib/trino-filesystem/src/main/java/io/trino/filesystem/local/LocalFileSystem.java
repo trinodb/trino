@@ -157,6 +157,19 @@ public class LocalFileSystem
         return Optional.of(Files.isDirectory(toDirectoryPath(location)));
     }
 
+    @Override
+    public void createDirectory(Location location)
+            throws IOException
+    {
+        validateLocalLocation(location);
+        try {
+            Files.createDirectories(toDirectoryPath(location));
+        }
+        catch (IOException e) {
+            throw new IOException("Failed to create directory: " + location, e);
+        }
+    }
+
     private Path toFilePath(Location location)
     {
         validateLocalLocation(location);
