@@ -35,6 +35,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -874,6 +875,39 @@ public abstract class AbstractTestTrinoFileSystem
                 getFileSystem().deleteFile(target);
                 assertThat(getFileSystem().newInputFile(target).exists()).as("target exists after delete").isFalse();
             }
+        }
+    }
+
+    @Test
+    public void testCreateDirectory()
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            getFileSystem().createDirectory(createLocation("level0/level1/level2"));
+
+            Optional<Boolean> expectedExists = isHierarchical() ? Optional.of(true) : Optional.empty();
+
+            assertThat(getFileSystem().directoryExists(createLocation("level0/level1/level2"))).isEqualTo(expectedExists);
+            assertThat(getFileSystem().directoryExists(createLocation("level0/level1"))).isEqualTo(expectedExists);
+            assertThat(getFileSystem().directoryExists(createLocation("level0"))).isEqualTo(expectedExists);
+
+            Location blob = createBlob(closer, "level0/level1/level2-file");
+
+            if (isHierarchical()) {
+                // creating a directory for an existing file location is an error
+                assertThatThrownBy(() -> getFileSystem().createDirectory(blob))
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining(blob.toString());
+            }
+            else {
+                getFileSystem().createDirectory(blob);
+            }
+            assertThat(readLocation(blob)).isEqualTo(TEST_BLOB_CONTENT_PREFIX + blob);
+
+            // create for existing directory does nothing
+            getFileSystem().createDirectory(createLocation("level0"));
+            getFileSystem().createDirectory(createLocation("level0/level1"));
+            getFileSystem().createDirectory(createLocation("level0/level1/level2"));
         }
     }
 

@@ -197,6 +197,13 @@ final class S3FileSystem
         return Optional.empty();
     }
 
+    @Override
+    public void createDirectory(Location location)
+    {
+        validateS3Location(location);
+        // S3 does not have directories
+    }
+
     @SuppressWarnings("ResultOfObjectAllocationIgnored")
     private static void validateS3Location(Location location)
     {
