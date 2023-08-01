@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.spi.connector.SchemaTableName;
@@ -62,6 +63,8 @@ public class DeltaLakeTableHandle
     // OPTIMIZE only. Coordinator-only
     private final boolean recordScannedFiles;
     private final Optional<DataSize> maxScannedFileSize;
+    // Used only for validation when config property delta.query-partition-filter-required is enabled.
+    private final Set<DeltaLakeColumnHandle> constraintColumns;
 
     @JsonCreator
     public DeltaLakeTableHandle(
@@ -87,6 +90,7 @@ public class DeltaLakeTableHandle
                 metadataEntry,
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
+                ImmutableSet.of(),
                 writeType,
                 projectedColumns,
                 updatedColumns,
@@ -105,6 +109,7 @@ public class DeltaLakeTableHandle
             MetadataEntry metadataEntry,
             TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
             TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
+            Set<DeltaLakeColumnHandle> constraintColumns,
             Optional<WriteType> writeType,
             Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
             Optional<List<DeltaLakeColumnHandle>> updatedColumns,
@@ -131,6 +136,7 @@ public class DeltaLakeTableHandle
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.readVersion = readVersion;
+        this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
     }
 
     public DeltaLakeTableHandle withProjectedColumns(Set<DeltaLakeColumnHandle> projectedColumns)
@@ -143,6 +149,7 @@ public class DeltaLakeTableHandle
                 metadataEntry,
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
+                constraintColumns,
                 writeType,
                 Optional.of(projectedColumns),
                 updatedColumns,
@@ -163,6 +170,7 @@ public class DeltaLakeTableHandle
                 metadataEntry,
                 enforcedPartitionConstraint,
                 nonPartitionConstraint,
+                constraintColumns,
                 writeType,
                 projectedColumns,
                 updatedColumns,
@@ -279,6 +287,12 @@ public class DeltaLakeTableHandle
     public Optional<DataSize> getMaxScannedFileSize()
     {
         return maxScannedFileSize;
+    }
+
+    @JsonIgnore
+    public Set<DeltaLakeColumnHandle> getConstraintColumns()
+    {
+        return constraintColumns;
     }
 
     @JsonProperty

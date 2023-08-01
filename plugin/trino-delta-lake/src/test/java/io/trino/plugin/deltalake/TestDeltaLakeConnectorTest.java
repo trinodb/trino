@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.Session;
@@ -31,6 +32,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -40,6 +42,7 @@ import org.testng.annotations.Test;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -1852,5 +1855,426 @@ public class TestDeltaLakeConnectorTest
         return getTableFiles(tableName).stream()
                 .filter(path -> path.contains("/" + CHANGE_DATA_FOLDER_NAME))
                 .collect(toImmutableSet());
+    }
+
+    @Test
+    public void testPartitionFilterQueryNotDemanded()
+    {
+        Map<String, String> catalogProperties = getSession().getCatalogProperties(getSession().getCatalog().orElseThrow());
+        assertThat(catalogProperties).doesNotContainKey("query_partition_filter_required");
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_not_demanded",
+                "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("'a', 'part_a'", "'b', 'part_b'"))) {
+            assertQuery("SELECT * FROM %s WHERE x='a'".formatted(table.getName()), "VALUES('a', 'part_a')");
+            assertQuery("SELECT * FROM %s WHERE part='part_a'".formatted(table.getName()), "VALUES('a', 'part_a')");
+        }
+    }
+
+    @Test
+    public void testQueryWithoutPartitionOnNonPartitionedTableNotDemanded()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_no_partition_table_",
+                "(x varchar, part varchar)",
+                ImmutableList.of("('a', 'part_a')", "('b', 'part_b')"))) {
+            assertQuery(session, "SELECT * FROM %s WHERE x='a'".formatted(table.getName()), "VALUES('a', 'part_a')");
+            assertQuery(session, "SELECT * FROM %s WHERE part='part_a'".formatted(table.getName()), "VALUES('a', 'part_a')");
+        }
+    }
+
+    @Test
+    public void testQueryWithoutPartitionFilterNotAllowed()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_no_partition_filter_",
+                "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("('a', 'part_a')", "('b', 'part_b')"))) {
+            assertQueryFails(
+                    session,
+                    "SELECT * FROM %s WHERE x='a'".formatted(table.getName()),
+                    "Filter required on .*" + table.getName() + " for at least one partition column:.*");
+        }
+    }
+
+    @Test
+    public void testPartitionFilterRemovedByPlanner()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_removed_",
+                "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("('a', 'part_a')", "('b', 'part_b')"))) {
+            assertQueryFails(
+                    session,
+                    "SELECT x FROM " + table.getName() + " WHERE part IS NOT NULL OR TRUE",
+                    "Filter required on .*" + table.getName() + " for at least one partition column:.*");
+        }
+    }
+
+    @Test
+    public void testPartitionFilterIncluded()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_included",
+                "(x varchar, part integer) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("('a', 1)", "('a', 2)", "('a', 3)", "('a', 4)", "('b', 1)", "('b', 2)", "('b', 3)", "('b', 4)"))) {
+            assertQuery(session, "SELECT * FROM " + table.getName() + " WHERE part = 1", "VALUES ('a', 1), ('b', 1)");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part < 2", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE Part < 2", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE PART < 2", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE parT < 2", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part % 2 = 0", "VALUES 4");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part - 2 = 0", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part * 4 = 4", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part % 2 > 0", "VALUES 4");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part % 2 = 1 and part IS NOT NULL", "VALUES 4");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part IS NULL", "VALUES 0");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part = 1 OR x = 'a' ", "VALUES 5");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part = 1 AND  x = 'a' ", "VALUES 1");
+            assertQuery(session, "SELECT count(*) FROM " + table.getName() + " WHERE part IS NOT NULL", "VALUES 8");
+            assertQuery(session, "SELECT x, count(*) AS COUNT FROM " + table.getName() + " WHERE part > 2 GROUP BY x ", "VALUES ('a', 2), ('b', 2)");
+            assertQueryFails(session, "SELECT count(*) FROM " + table.getName() + " WHERE x= 'a'", "Filter required on .*" + table.getName() + " for at least one partition column:.*");
+        }
+    }
+
+    @Test
+    public void testRequiredPartitionFilterOnJoin()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+
+        try (TestTable leftTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_left_",
+                "(x varchar, part varchar)",
+                ImmutableList.of("('a', 'part_a')"));
+                    TestTable rightTable = new TestTable(
+                            new TrinoSqlExecutor(getQueryRunner(), session),
+                           "test_partition_right_",
+                            "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                            ImmutableList.of("('a', 'part_a')"))) {
+            assertQueryFails(
+                    session,
+                    "SELECT a.x, b.x from %s a JOIN %s b on (a.x = b.x) where a.x = 'a'".formatted(leftTable.getName(), rightTable.getName()),
+                    "Filter required on .*" + rightTable.getName() + " for at least one partition column:.*");
+            assertQuery(
+                    session,
+                    "SELECT a.x, b.x from %s a JOIN %s b on (a.part = b.part) where a.part = 'part_a'".formatted(leftTable.getName(), rightTable.getName()),
+                    "VALUES ('a', 'a')");
+        }
+    }
+
+    @Test
+    public void testRequiredPartitionFilterOnJoinBothTablePartitioned()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+
+        try (TestTable leftTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_inferred_left_",
+                "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("('a', 'part_a')"));
+                    TestTable rightTable = new TestTable(
+                            new TrinoSqlExecutor(getQueryRunner(), session),
+                            "test_partition_inferred_right_",
+                            "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                            ImmutableList.of("('a', 'part_a')"))) {
+            assertQueryFails(
+                    session,
+                    "SELECT a.x, b.x from %s a JOIN %s b on (a.x = b.x) where a.x = 'a'".formatted(leftTable.getName(), rightTable.getName()),
+                    "Filter required on .*" + leftTable.getName() + " for at least one partition column:.*");
+            assertQuery(
+                    session,
+                    "SELECT a.x, b.x from %s a JOIN %s b on (a.part = b.part) where a.part = 'part_a'".formatted(leftTable.getName(), rightTable.getName()),
+                    "VALUES ('a', 'a')");
+        }
+    }
+
+    @Test
+    public void testComplexPartitionPredicateWithCasting()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_predicate",
+                "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("('a', '1')", "('b', '2')"))) {
+            assertQuery(session, "SELECT * FROM " + table.getName() + " WHERE CAST (part AS integer) = 1", "VALUES ('a', 1)");
+        }
+    }
+
+    @Test
+    public void testPartitionPredicateInOuterQuery()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_predicate",
+                "(x integer, part integer) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("(1, 11)", "(2, 22)"))) {
+            assertQuery(session, "SELECT * FROM (SELECT * FROM " + table.getName() + " WHERE x = 1) WHERE part = 11", "VALUES (1, 11)");
+        }
+    }
+
+    @Test
+    public void testPartitionPredicateInInnerQuery()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_predicate",
+                "(x integer, part integer) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("(1, 11)", "(2, 22)"))) {
+            assertQuery(session, "SELECT * FROM (SELECT * FROM " + table.getName() + " WHERE part = 11) WHERE x = 1", "VALUES (1, 11)");
+        }
+    }
+
+    @Test
+    public void testPartitionPredicateFilterAndAnalyzeOnPartitionedTable()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_predicate_analyze_",
+                "(x integer, part integer) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("(1, 11)", "(2, 22)"))) {
+            String expectedMessageRegExp = "ANALYZE statement can not be performed on partitioned tables because filtering is required on at least one partition." +
+                                           " However, the partition filtering check can be disabled with the catalog session property 'query_partition_filter_required'.";
+            assertQueryFails(session, "ANALYZE " + table.getName(), expectedMessageRegExp);
+            assertQueryFails(session, "EXPLAIN ANALYZE " + table.getName(), expectedMessageRegExp);
+        }
+    }
+
+    @Test
+    public void testPartitionPredicateFilterAndAnalyzeOnNonPartitionedTable()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable nonPartitioned = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_predicate_analyze_nonpartitioned",
+                "(a integer, b integer) ",
+                ImmutableList.of("(1, 11)", "(2, 22)"))) {
+            assertUpdate(session, "ANALYZE " + nonPartitioned.getName());
+            computeActual(session, "EXPLAIN ANALYZE " + nonPartitioned.getName());
+        }
+    }
+
+    @Test
+    public void testPartitionFilterMultiplePartition()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_multiple_partition_",
+                "(x varchar, part1 integer, part2 integer) WITH (partitioned_by = ARRAY['part1', 'part2'])",
+                ImmutableList.of("('a', 1, 1)", "('a', 1, 2)", "('a', 2, 1)", "('a', 2, 2)", "('b', 1, 1)", "('b', 1, 2)", "('b', 2, 1)", "('b', 2, 2)"))) {
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part1 = 1".formatted(table.getName()), "VALUES 4");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part2 = 1".formatted(table.getName()), "VALUES 4");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part1 = 1 AND part2 = 2".formatted(table.getName()), "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part2 IS NOT NULL".formatted(table.getName()), "VALUES 8");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part2 IS NULL".formatted(table.getName()), "VALUES 0");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part2 < 0".formatted(table.getName()), "VALUES 0");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part1 = 1 OR part2 > 1".formatted(table.getName()), "VALUES 6");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part1 = 1 AND part2 > 1".formatted(table.getName()), "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part1 IS NOT NULL OR part2 > 1".formatted(table.getName()), "VALUES 8");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE part1 IS NOT NULL AND part2 > 1".formatted(table.getName()), "VALUES 4");
+            assertQuery(session, "SELECT count(*) FROM %s WHERE x = 'a' AND part2 = 2".formatted(table.getName()), "VALUES 2");
+            assertQuery(session, "SELECT x, PART1 * 10 + PART2 AS Y FROM %s WHERE x = 'a' AND part2 = 2".formatted(table.getName()), "VALUES ('a', 12), ('a', 22)");
+            assertQuery(session, "SELECT x, CAST (PART1 AS varchar) || CAST (PART2 AS varchar) FROM %s WHERE x = 'a' AND part2 = 2".formatted(table.getName()), "VALUES ('a', '12'), ('a', '22')");
+            assertQuery(session, "SELECT x, MAX(PART1) FROM %s WHERE part2 = 2 GROUP BY X".formatted(table.getName()), "VALUES ('a', 2), ('b', 2)");
+            assertQuery(session, "SELECT x, reduce_agg(part1, 0, (a, b) -> a + b, (a, b) -> a + b) FROM " + table.getName() + " WHERE part2 > 1 GROUP BY X", "VALUES ('a', 3), ('b', 3)");
+            String expectedMessageRegExp = "Filter required on .*" + table.getName() + " for at least one partition column:.*";
+            assertQueryFails(session, "SELECT X, CAST (PART1 AS varchar) || CAST (PART2 AS varchar) FROM %s WHERE x = 'a'".formatted(table.getName()), expectedMessageRegExp);
+            assertQueryFails(session, "SELECT count(*) FROM %s WHERE x='a'".formatted(table.getName()), expectedMessageRegExp);
+        }
+    }
+
+    @Test
+    public void testPartitionFilterRequiredAndOptimize()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_optimize",
+                "(part integer, name varchar(50)) WITH (partitioned_by = ARRAY['part'])",
+                ImmutableList.of("(1, 'Bob')", "(2, 'Alice')"))) {
+            assertUpdate(session, "ALTER TABLE " + table.getName() + " ADD COLUMN last_name varchar(50)");
+            assertUpdate(session, "INSERT INTO " + table.getName() + " SELECT 3, 'John', 'Doe'", 1);
+
+            assertQuery(session,
+                    "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
+                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
+
+            Set<String> beforeActiveFiles = getActiveFiles(table.getName());
+            assertQueryFails(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE", "Filter required on .*" + table.getName() + " for at least one partition column:.*");
+            computeActual(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE WHERE part=1");
+
+            assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
+            assertQuery(session,
+                    "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
+                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
+        }
+    }
+
+    @Test
+    public void testPartitionFilterEnabledAndOptimizeForNonPartitionedTable()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_nonpartitioned_optimize",
+                "(part integer, name varchar(50))",
+                ImmutableList.of("(1, 'Bob')", "(2, 'Alice')"))) {
+            assertUpdate(session, "ALTER TABLE " + table.getName() + " ADD COLUMN last_name varchar(50)");
+            assertUpdate(session, "INSERT INTO " + table.getName() + " SELECT 3, 'John', 'Doe'", 1);
+
+            assertQuery(session,
+                    "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
+                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
+
+            Set<String> beforeActiveFiles = getActiveFiles(table.getName());
+            computeActual(session, "ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE (file_size_threshold => '10kB')");
+
+            assertThat(beforeActiveFiles).isNotEqualTo(getActiveFiles(table.getName()));
+            assertQuery(session,
+                    "SELECT part, name, last_name  FROM " + table.getName() + " WHERE part < 4",
+                    "VALUES (1, 'Bob', NULL), (2, 'Alice', NULL), (3, 'John', 'Doe')");
+        }
+    }
+
+    @Test
+    public void testPartitionFilterRequiredAndWriteOperation()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_table_changes",
+                "(x integer, part integer) WITH (partitioned_by = ARRAY['part'], change_data_feed_enabled = true)",
+                ImmutableList.of("(1, 11)", "(2, 22)", "(3, 33)"))) {
+            @Language("RegExp")
+            String expectedMessageRegExp = "Filter required on test_schema\\." + table.getName() + " for at least one partition column: part";
+
+            assertQueryFails(session, "UPDATE " + table.getName() + " SET x = 10 WHERE x = 1", expectedMessageRegExp);
+            assertUpdate(session, "UPDATE " + table.getName() + " SET x = 20 WHERE part = 22", 1);
+
+            assertQueryFails(session, "MERGE INTO " + table.getName() + " t " +
+                                      "USING (SELECT * FROM (VALUES (3, 99), (4,44))) AS s(x, part) " +
+                                      "ON t.x = s.x " +
+                                      "WHEN MATCHED THEN DELETE ", expectedMessageRegExp);
+            assertUpdate(session, "MERGE INTO " + table.getName() + " t " +
+                                  "USING (SELECT * FROM (VALUES (2, 22), (4 , 44))) AS s(x, part) " +
+                                  "ON (t.part = s.part) " +
+                                  "WHEN MATCHED THEN UPDATE " +
+                                  " SET x = t.x + s.x, part = t.part ", 1);
+
+            assertQueryFails(session, "MERGE INTO " + table.getName() + " t " +
+                                      "USING (SELECT * FROM (VALUES (4,44))) AS s(x, part) " +
+                                      "ON t.x = s.x " +
+                                      "WHEN NOT MATCHED THEN INSERT (x, part) VALUES(s.x, s.part) ", expectedMessageRegExp);
+            assertUpdate(session, "MERGE INTO " + table.getName() + " t " +
+                                  "USING (SELECT * FROM (VALUES (4, 44))) AS s(x, part) " +
+                                  "ON (t.part = s.part) " +
+                                  "WHEN NOT MATCHED THEN INSERT (x, part) VALUES(s.x, s.part) ", 1);
+
+            assertQueryFails(session, "DELETE FROM " + table.getName() + " WHERE x = 3", expectedMessageRegExp);
+            assertUpdate(session, "DELETE FROM " + table.getName() + " WHERE part = 33 and x = 3", 1);
+        }
+    }
+
+    @Test
+    public void testPartitionFilterRequiredAndTableChanges()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_table_changes",
+                "(x integer, part integer) WITH (partitioned_by = ARRAY['part'], change_data_feed_enabled = true)",
+                ImmutableList.of("(1, 11)", "(2, 22)", "(3, 33)"))) {
+            @Language("RegExp")
+            String expectedMessageRegExp = "Filter required on test_schema\\." + table.getName() + " for at least one partition column: part";
+
+            assertQueryFails(session, "UPDATE " + table.getName() + " SET x = 10 WHERE x = 1", expectedMessageRegExp);
+            assertUpdate(session, "UPDATE " + table.getName() + " SET x = 20 WHERE part = 22", 1);
+            // TODO (https://github.com/trinodb/trino/issues/18498) Check for partition filter for table_changes when the following issue will be completed https://github.com/trinodb/trino/pull/17928
+            assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + table.getName() + "'))",
+                    """
+                            VALUES
+                                (1,   11,  'insert',           BIGINT '1'),
+                                (2,   22,  'insert',           BIGINT '2'),
+                                (3,   33,  'insert',           BIGINT '3'),
+                                (2,   22,  'update_preimage',  BIGINT '4'),
+                                (20,  22,  'update_postimage', BIGINT '4')
+                            """);
+
+            assertQueryFails(session, "DELETE FROM " + table.getName() + " WHERE x = 3", expectedMessageRegExp);
+            assertUpdate(session, "DELETE FROM " + table.getName() + " WHERE part = 33 and x = 3", 1);
+            assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + table.getName() + "', 4))",
+                    """
+                            VALUES
+                                (3, 33, 'delete', BIGINT '5')
+                            """);
+
+            assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + table.getName() + "')) ORDER BY _commit_version, _change_type, part",
+                    """
+                            VALUES
+                                (1,   11,  'insert',           BIGINT '1'),
+                                (2,   22,  'insert',           BIGINT '2'),
+                                (3,   33,  'insert',           BIGINT '3'),
+                                (2,   22,  'update_preimage',  BIGINT '4'),
+                                (20,  22,  'update_postimage', BIGINT '4'),
+                                (3,   33,  'delete',           BIGINT '5')
+                            """);
+        }
+    }
+
+    @Test
+    public void testPartitionFilterRequiredAndHistoryTable()
+    {
+        Session session = sessionWithPartitionFilterRequirement();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partition_filter_table_changes",
+                "(x integer, part integer) WITH (partitioned_by = ARRAY['part'], change_data_feed_enabled = true)",
+                ImmutableList.of("(1, 11)", "(2, 22)", "(3, 33)"))) {
+            @Language("RegExp")
+            String expectedMessageRegExp = "Filter required on test_schema\\." + table.getName() + " for at least one partition column: part";
+
+            assertQuery("SELECT version, operation, read_version FROM \"" + table.getName() + "$history\"",
+                    """
+                            VALUES
+                                (0, 'CREATE TABLE', 0),
+                                (1, 'WRITE', 0),
+                                (2, 'WRITE', 1),
+                                (3, 'WRITE', 2)
+                            """);
+
+            assertQueryFails(session, "UPDATE " + table.getName() + " SET x = 10 WHERE x = 1", expectedMessageRegExp);
+            assertUpdate(session, "UPDATE " + table.getName() + " SET x = 20 WHERE part = 22", 1);
+
+            assertQuery("SELECT version, operation, read_version FROM \"" + table.getName() + "$history\"",
+                    """
+                            VALUES
+                                (0, 'CREATE TABLE', 0),
+                                (1, 'WRITE', 0),
+                                (2, 'WRITE', 1),
+                                (3, 'WRITE', 2),
+                                (4, 'MERGE', 3)
+                            """);
+        }
+    }
+
+    private Session sessionWithPartitionFilterRequirement()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
+                .build();
     }
 }

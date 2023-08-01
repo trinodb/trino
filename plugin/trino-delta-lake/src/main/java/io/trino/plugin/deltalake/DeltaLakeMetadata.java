@@ -195,6 +195,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isCollectExte
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isLegacyCreateTableWithExistingLocationEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isProjectionPushdownEnabled;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isQueryPartitionFilterRequired;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isTableStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
@@ -256,6 +257,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -2516,6 +2518,13 @@ public class DeltaLakeMetadata
 
         ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> enforceableDomains = ImmutableMap.builder();
         ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> unenforceableDomains = ImmutableMap.builder();
+        ImmutableSet.Builder<DeltaLakeColumnHandle> constraintColumns = ImmutableSet.builder();
+        // We need additional field to track partition columns used in queries as enforceDomains seem to be not catching
+        // cases when partition columns is used within complex filter as 'partitionColumn % 2 = 0'
+        constraint.getPredicateColumns().stream()
+                .flatMap(Collection::stream)
+                .map(DeltaLakeColumnHandle.class::cast)
+                .forEach(constraintColumns::add);
         for (Entry<ColumnHandle, Domain> domainEntry : constraintDomains.entrySet()) {
             DeltaLakeColumnHandle column = (DeltaLakeColumnHandle) domainEntry.getKey();
             if (!partitionColumns.contains(column)) {
@@ -2524,6 +2533,7 @@ public class DeltaLakeMetadata
             else {
                 enforceableDomains.put(column, domainEntry.getValue());
             }
+            constraintColumns.add(column);
         }
 
         TupleDomain<DeltaLakeColumnHandle> newEnforcedConstraint = TupleDomain.withColumnDomains(enforceableDomains.buildOrThrow());
@@ -2541,15 +2551,19 @@ public class DeltaLakeMetadata
                 tableHandle.getNonPartitionConstraint()
                         .intersect(newUnenforcedConstraint)
                         .simplify(domainCompactionThreshold),
+                Sets.union(tableHandle.getConstraintColumns(), constraintColumns.build()),
                 tableHandle.getWriteType(),
                 tableHandle.getProjectedColumns(),
                 tableHandle.getUpdatedColumns(),
                 tableHandle.getUpdateRowIdColumns(),
                 Optional.empty(),
+                false,
+                Optional.empty(),
                 tableHandle.getReadVersion());
 
         if (tableHandle.getEnforcedPartitionConstraint().equals(newHandle.getEnforcedPartitionConstraint()) &&
-                tableHandle.getNonPartitionConstraint().equals(newHandle.getNonPartitionConstraint())) {
+                tableHandle.getNonPartitionConstraint().equals(newHandle.getNonPartitionConstraint()) &&
+                tableHandle.getConstraintColumns().equals(newHandle.getConstraintColumns())) {
             return Optional.empty();
         }
 
@@ -2733,6 +2747,32 @@ public class DeltaLakeMetadata
         }
 
         return Optional.empty();
+    }
+
+    @Override
+    public void validateScan(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        DeltaLakeTableHandle deltaLakeTableHandle = (DeltaLakeTableHandle) handle;
+
+        if (isQueryPartitionFilterRequired(session)) {
+            List<String> partitionColumns = deltaLakeTableHandle.getMetadataEntry().getCanonicalPartitionColumns();
+            if (!partitionColumns.isEmpty()) {
+                if (deltaLakeTableHandle.getAnalyzeHandle().isPresent()) {
+                    throw new TrinoException(
+                            QUERY_REJECTED,
+                            "ANALYZE statement can not be performed on partitioned tables because filtering is required on at least one partition. However, the partition filtering check can be disabled with the catalog session property 'query_partition_filter_required'.");
+                }
+                Set<String> referencedColumns =
+                        deltaLakeTableHandle.getConstraintColumns().stream()
+                                .map(DeltaLakeColumnHandle::getBaseColumnName)
+                                .collect(toImmutableSet());
+                if (Collections.disjoint(referencedColumns, partitionColumns)) {
+                    throw new TrinoException(
+                            QUERY_REJECTED,
+                            format("Filter required on %s for at least one partition column: %s", deltaLakeTableHandle.getSchemaTableName(), String.join(", ", partitionColumns)));
+                }
+            }
+        }
     }
 
     @Override
