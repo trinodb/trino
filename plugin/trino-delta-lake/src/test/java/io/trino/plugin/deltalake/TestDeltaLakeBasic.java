@@ -420,6 +420,41 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    /**
+     * @see deltalake.case_sensitive
+     */
+    @Test
+    public void testStatisticsWithColumnCaseSensitivity()
+            throws Exception
+    {
+        String tableName = "test_column_case_sensitivity_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/case_sensitive").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (10, 1), (20, 1), (null, 1)", 3);
+
+        List<DeltaLakeTransactionLogEntry> transactionLog = getEntriesFromJson(1, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
+        assertThat(transactionLog).hasSize(2);
+        AddFileEntry addFileEntry = transactionLog.get(1).getAdd();
+        DeltaLakeFileStatistics stats = addFileEntry.getStats().orElseThrow();
+        assertThat(stats.getMinValues().orElseThrow().get("UPPER_CASE")).isEqualTo(10);
+        assertThat(stats.getMaxValues().orElseThrow().get("UPPER_CASE")).isEqualTo(20);
+        assertThat(stats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
+
+        assertUpdate("UPDATE " + tableName + " SET upper_case = 30", 3);
+
+        List<DeltaLakeTransactionLogEntry> transactionLogAfterUpdate = getEntriesFromJson(1, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
+        assertThat(transactionLogAfterUpdate).hasSize(2);
+        AddFileEntry updateAddFileEntry = transactionLogAfterUpdate.get(1).getAdd();
+        DeltaLakeFileStatistics updateStats = updateAddFileEntry.getStats().orElseThrow();
+        assertThat(updateStats.getMinValues().orElseThrow().get("UPPER_CASE")).isEqualTo(10);
+        assertThat(updateStats.getMaxValues().orElseThrow().get("UPPER_CASE")).isEqualTo(20);
+        assertThat(updateStats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
+    }
+
     @DataProvider
     public Object[][] columnMappingModeDataProvider()
     {

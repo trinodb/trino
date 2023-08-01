@@ -69,6 +69,7 @@ import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.UnaryOperator.identity;
@@ -186,8 +187,9 @@ public class DeltaLakeWriter
             throws IOException
     {
         TrinoInputFile inputFile = fileSystem.newInputFile(rootTableLocation.appendPath(relativeFilePath));
-        Map<String, Type> dataColumnTypes = columnHandles.stream()
-                .collect(toImmutableMap(DeltaLakeColumnHandle::getBasePhysicalColumnName, DeltaLakeColumnHandle::getBasePhysicalType));
+        Map</* lowercase */ String, Type> dataColumnTypes = columnHandles.stream()
+                // Lowercase because the subsequent logic expects lowercase
+                .collect(toImmutableMap(column -> column.getBasePhysicalColumnName().toLowerCase(ENGLISH), DeltaLakeColumnHandle::getBasePhysicalType));
         return new DataFileInfo(
                 relativeFilePath,
                 getWrittenBytes(),
@@ -197,7 +199,7 @@ public class DeltaLakeWriter
                 readStatistics(inputFile, dataColumnTypes, rowCount));
     }
 
-    private static DeltaLakeJsonFileStatistics readStatistics(TrinoInputFile inputFile, Map<String, Type> typeForColumn, long rowCount)
+    private static DeltaLakeJsonFileStatistics readStatistics(TrinoInputFile inputFile, Map</* lowercase */ String, Type> typeForColumn, long rowCount)
             throws IOException
     {
         try (TrinoParquetDataSource trinoParquetDataSource = new TrinoParquetDataSource(
@@ -222,7 +224,7 @@ public class DeltaLakeWriter
     }
 
     @VisibleForTesting
-    static DeltaLakeJsonFileStatistics mergeStats(Multimap<String, ColumnChunkMetaData> metadataForColumn, Map<String, Type> typeForColumn, long rowCount)
+    static DeltaLakeJsonFileStatistics mergeStats(Multimap<String, ColumnChunkMetaData> metadataForColumn, Map</* lowercase */ String, Type> typeForColumn, long rowCount)
     {
         Map<String, Optional<Statistics<?>>> statsForColumn = metadataForColumn.keySet().stream()
                 .collect(toImmutableMap(identity(), key -> mergeMetadataList(metadataForColumn.get(key))));

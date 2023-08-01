@@ -138,16 +138,16 @@ public final class DeltaLakeSchemaSupport
 
     public static List<DeltaLakeColumnHandle> extractPartitionColumns(MetadataEntry metadataEntry, TypeManager typeManager)
     {
-        return extractPartitionColumns(extractSchema(metadataEntry, typeManager), metadataEntry.getCanonicalPartitionColumns());
+        return extractPartitionColumns(extractSchema(metadataEntry, typeManager), metadataEntry.getOriginalPartitionColumns());
     }
 
-    public static List<DeltaLakeColumnHandle> extractPartitionColumns(List<DeltaLakeColumnMetadata> schema, List<String> canonicalPartitionColumns)
+    public static List<DeltaLakeColumnHandle> extractPartitionColumns(List<DeltaLakeColumnMetadata> schema, List<String> originalPartitionColumns)
     {
-        if (canonicalPartitionColumns.isEmpty()) {
+        if (originalPartitionColumns.isEmpty()) {
             return ImmutableList.of();
         }
         return schema.stream()
-                .filter(entry -> canonicalPartitionColumns.contains(entry.getName()))
+                .filter(entry -> originalPartitionColumns.contains(entry.getName()))
                 .map(entry -> new DeltaLakeColumnHandle(entry.getName(), entry.getType(), OptionalInt.empty(), entry.getPhysicalName(), entry.getPhysicalColumnType(), PARTITION_KEY, Optional.empty()))
                 .collect(toImmutableList());
     }
@@ -420,7 +420,7 @@ public final class DeltaLakeSchemaSupport
                 .setNullable(nullable)
                 .setComment(Optional.ofNullable(getComment(node)))
                 .build();
-        return new DeltaLakeColumnMetadata(columnMetadata, fieldId, physicalName, physicalColumnType);
+        return new DeltaLakeColumnMetadata(columnMetadata, fieldName, fieldId, physicalName, physicalColumnType);
     }
 
     public static Map<String, Object> getColumnTypes(MetadataEntry metadataEntry)
