@@ -16,6 +16,8 @@ package io.trino.decoder.util;
 import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.testing.TestingConnectorSession;
 
 import java.util.Map;
 
@@ -25,6 +27,8 @@ import static org.testng.Assert.assertTrue;
 
 public final class DecoderTestUtil
 {
+    public static final ConnectorSession TESTING_SESSION = TestingConnectorSession.builder().build();
+
     private DecoderTestUtil() {}
 
     public static void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Slice value)

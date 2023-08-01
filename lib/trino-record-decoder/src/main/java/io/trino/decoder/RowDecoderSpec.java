@@ -13,9 +13,17 @@
  */
 package io.trino.decoder;
 
-import io.trino.spi.connector.ConnectorSession;
+import java.util.Map;
+import java.util.Set;
 
-public interface RowDecoderFactory
+import static java.util.Objects.requireNonNull;
+
+public record RowDecoderSpec(String dataFormat, Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
 {
-    RowDecoder create(ConnectorSession session, RowDecoderSpec rowDecoderSpec);
+    public RowDecoderSpec
+    {
+        requireNonNull(dataFormat, "dataFormat is null");
+        requireNonNull(decoderParams, "decoderParams is null");
+        requireNonNull(columns, "columns is null");
+    }
 }

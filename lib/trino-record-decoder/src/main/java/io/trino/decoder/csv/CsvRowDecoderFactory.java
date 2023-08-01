@@ -13,19 +13,17 @@
  */
 package io.trino.decoder.csv;
 
-import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderFactory;
-
-import java.util.Map;
-import java.util.Set;
+import io.trino.decoder.RowDecoderSpec;
+import io.trino.spi.connector.ConnectorSession;
 
 public class CsvRowDecoderFactory
         implements RowDecoderFactory
 {
     @Override
-    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
+    public RowDecoder create(ConnectorSession session, RowDecoderSpec rowDecoderSpec)
     {
-        return new CsvRowDecoder(columns);
+        return new CsvRowDecoder(rowDecoderSpec.columns());
     }
 }
