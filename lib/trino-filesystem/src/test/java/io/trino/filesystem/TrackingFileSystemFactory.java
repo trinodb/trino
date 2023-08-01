@@ -170,6 +170,13 @@ public class TrackingFileSystemFactory
         {
             return delegate.directoryExists(location);
         }
+
+        @Override
+        public void createDirectory(Location location)
+                throws IOException
+        {
+            delegate.createDirectory(location);
+        }
     }
 
     private static class TrackingInputFile

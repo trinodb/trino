@@ -169,4 +169,16 @@ public interface TrinoFileSystem
      */
     Optional<Boolean> directoryExists(Location location)
             throws IOException;
+
+    /**
+     * Creates the specified directory and any parent directories that do not exist.
+     * For hierarchical file systems, if the location already exists but is not a
+     * directory, or if the directory cannot be created, an exception is raised.
+     * This method does nothing for non-hierarchical file systems or if the directory
+     * already exists.
+     *
+     * @throws IllegalArgumentException if location is not valid for this file system
+     */
+    void createDirectory(Location location)
+            throws IOException;
 }

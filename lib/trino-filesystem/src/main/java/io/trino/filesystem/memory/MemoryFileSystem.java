@@ -165,6 +165,14 @@ public class MemoryFileSystem
         return Optional.empty();
     }
 
+    @Override
+    public void createDirectory(Location location)
+            throws IOException
+    {
+        validateMemoryLocation(location);
+        // memory file system does not have directories
+    }
+
     private static String toBlobKey(Location location)
     {
         validateMemoryLocation(location);
