@@ -44,12 +44,14 @@ public class RewriteLikeAndEscapeWithCaseSensitivity
 {
     private static final Capture<ConnectorExpression> LIKE_VALUE = newCapture();
     private static final Capture<ConnectorExpression> LIKE_PATTERN = newCapture();
+    private static final Capture<ConnectorExpression> ESCAPE_PATTERN = newCapture();
     private static final Pattern<Call> PATTERN = call()
             .with(functionName().equalTo(LIKE_FUNCTION_NAME))
             .with(type().equalTo(BOOLEAN))
             .with(argumentCount().matching(count -> count == 2 || count == 3))
             .with(argument(0).matching(expression().capturedAs(LIKE_VALUE).with(type().matching(VarcharType.class::isInstance))))
-            .with(argument(1).matching(expression().capturedAs(LIKE_PATTERN).with(type().matching(VarcharType.class::isInstance))));
+            .with(argument(1).matching(expression().capturedAs(LIKE_PATTERN).with(type().matching(VarcharType.class::isInstance))))
+            .with(argument(2).matching(expression().capturedAs(ESCAPE_PATTERN).with(type().matching(VarcharType.class::isInstance))));
 
     @Override
     public Pattern<Call> getPattern()
@@ -81,11 +83,7 @@ public class RewriteLikeAndEscapeWithCaseSensitivity
         }
         parameters.addAll(pattern.get().parameters());
         if (expression.getArguments().size() == 3) {
-            ConnectorExpression escapeExpression = expression.getArguments().get(2);
-            if (!(escapeExpression.getType() instanceof VarcharType)) {
-                return Optional.empty();
-            }
-            Optional<ParameterizedExpression> escape = context.defaultRewrite(escapeExpression);
+            Optional<ParameterizedExpression> escape = context.defaultRewrite(captures.get(ESCAPE_PATTERN));
             if (escape.isEmpty()) {
                 return Optional.empty();
             }

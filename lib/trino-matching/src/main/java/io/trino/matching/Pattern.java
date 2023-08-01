@@ -91,6 +91,11 @@ public abstract class Pattern<T>
 
     public abstract <C> Stream<Match> accept(Object object, Captures captures, C context);
 
+    public <C> Stream<Match> accept(Object object, Match match, C context)
+    {
+        return accept(object, match.captures(), context);
+    }
+
     public abstract void accept(PatternVisitor patternVisitor);
 
     public <C> boolean matches(Object object, C context)
@@ -114,7 +119,7 @@ public abstract class Pattern<T>
     {
         if (previous.isPresent()) {
             return previous.get().match(object, captures, context)
-                    .flatMap(match -> accept(object, match.captures(), context));
+                    .flatMap(match -> accept(object, match, context));
         }
         return accept(object, captures, context);
     }

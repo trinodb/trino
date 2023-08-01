@@ -58,6 +58,19 @@ public class WithPattern<T>
     }
 
     @Override
+    public <C> Stream<Match> accept(Object object, Match match, C context)
+    {
+        //TODO remove cast
+        BiFunction<? super T, C, Optional<?>> property = (BiFunction<? super T, C, Optional<?>>) propertyPattern.getProperty().getFunction();
+        Optional<?> propertyValue = property.apply((T) object, context);
+        if (propertyValue.isEmpty()) {
+            return Stream.of(match);
+        }
+        return propertyValue.map(value -> propertyPattern.getPattern().match(value, match.captures(), context))
+                .orElseGet(Stream::of);
+    }
+
+    @Override
     public void accept(PatternVisitor patternVisitor)
     {
         patternVisitor.visitWith(this);
