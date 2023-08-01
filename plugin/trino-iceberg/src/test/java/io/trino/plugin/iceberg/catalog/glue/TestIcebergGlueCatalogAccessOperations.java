@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg.catalog.glue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import com.google.common.collect.Sets;
 import com.google.inject.Binder;
 import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
@@ -40,17 +39,15 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.nio.file.Files;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verifyNotNull;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.FILES;
@@ -66,15 +63,12 @@ import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_TABLE
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.UPDATE_TABLE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
-import static java.lang.String.join;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.fail;
 
 /*
  * The test currently uses AWS Default Credential Provider Chain,
@@ -471,26 +465,7 @@ public class TestIcebergGlueCatalogAccessOperations
         deltas.entrySet().stream().filter(entry -> entry.getValue() > 0).forEach(entry -> builder.setCount(entry.getKey(), entry.getValue()));
         Multiset<GlueMetastoreMethod> actualInvocations = builder.build();
 
-        if (expectedInvocations.equals(actualInvocations)) {
-            return;
-        }
-
-        List<String> mismatchReport = Sets.union(expectedInvocations.elementSet(), actualInvocations.elementSet()).stream()
-                .filter(key -> expectedInvocations.count(key) != actualInvocations.count(key))
-                .flatMap(key -> {
-                    int expectedCount = expectedInvocations.count(key);
-                    int actualCount = actualInvocations.count(key);
-                    if (actualCount < expectedCount) {
-                        return Stream.of(format("%s more occurrences of %s", expectedCount - actualCount, key));
-                    }
-                    if (actualCount > expectedCount) {
-                        return Stream.of(format("%s fewer occurrences of %s", actualCount - expectedCount, key));
-                    }
-                    return Stream.of();
-                })
-                .collect(toImmutableList());
-
-        fail("Expected: \n\t\t" + join(",\n\t\t", mismatchReport));
+        assertMultisetsEqual(actualInvocations, expectedInvocations);
     }
 
     private static Session withStatsOnWrite(Session session, boolean enabled)
