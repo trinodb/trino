@@ -463,13 +463,13 @@ public class GlueHiveMetastore
     @Override
     public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
-        return getAllViews(databaseName, table -> parameterValue.equals(getTableParameters(table).get(parameterKey)));
+        return getTableNames(databaseName, table -> parameterValue.equals(getTableParameters(table).get(parameterKey)));
     }
 
     @Override
     public List<String> getAllViews(String databaseName)
     {
-        return getAllViews(databaseName, table -> true);
+        return getTableNames(databaseName, VIEWS_FILTER);
     }
 
     @Override
@@ -478,10 +478,10 @@ public class GlueHiveMetastore
         return Optional.empty();
     }
 
-    private List<String> getAllViews(String databaseName, Predicate<com.amazonaws.services.glue.model.Table> additionalFilter)
+    private List<String> getTableNames(String databaseName, Predicate<com.amazonaws.services.glue.model.Table> filter)
     {
         try {
-            List<String> views = getPaginatedResults(
+            List<String> tableNames = getPaginatedResults(
                     glueClient::getTables,
                     new GetTablesRequest()
                             .withDatabaseName(databaseName),
@@ -490,10 +490,10 @@ public class GlueHiveMetastore
                     stats.getGetTables())
                     .map(GetTablesResult::getTableList)
                     .flatMap(List::stream)
-                    .filter(VIEWS_FILTER.and(additionalFilter))
+                    .filter(filter)
                     .map(com.amazonaws.services.glue.model.Table::getName)
                     .collect(toImmutableList());
-            return views;
+            return tableNames;
         }
         catch (EntityNotFoundException | AccessDeniedException e) {
             // database does not exist or permission denied
