@@ -500,10 +500,10 @@ public final class BingTileFunctions
         checkArgument(leftUpperTile.getZoomLevel() > zoomLevel);
 
         int divisor = 1 << (leftUpperTile.getZoomLevel() - zoomLevel);
-        int minX = (int) Math.floor(leftUpperTile.getX() / divisor);
-        int maxX = (int) Math.floor(rightLowerTile.getX() / divisor);
-        int minY = (int) Math.floor(leftUpperTile.getY() / divisor);
-        int maxY = (int) Math.floor(rightLowerTile.getY() / divisor);
+        int minX = leftUpperTile.getX() / divisor;
+        int maxX = rightLowerTile.getX() / divisor;
+        int minY = leftUpperTile.getY() / divisor;
+        int maxY = rightLowerTile.getY() / divisor;
 
         BingTile[] tiles = new BingTile[(maxX - minX + 1) * (maxY - minY + 1)];
         int index = 0;
