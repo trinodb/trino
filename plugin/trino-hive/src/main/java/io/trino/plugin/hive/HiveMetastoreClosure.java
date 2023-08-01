@@ -152,11 +152,6 @@ public class HiveMetastoreClosure
         return delegate.getAllTables();
     }
 
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
-    {
-        return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
-    }
-
     public List<String> getAllViews(String databaseName)
     {
         return delegate.getAllViews(databaseName);
