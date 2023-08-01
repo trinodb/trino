@@ -193,11 +193,11 @@ class HdfsFileSystem
             try (TimeStat.BlockTimer ignored = stats.getListFilesCalls().time()) {
                 return new HdfsFileIterator(location, directory, fileSystem.listFiles(directory, true));
             }
+            catch (FileNotFoundException e) {
+                return FileIterator.empty();
+            }
             catch (IOException e) {
                 stats.getListFilesCalls().recordException(e);
-                if (e instanceof FileNotFoundException) {
-                    return FileIterator.empty();
-                }
                 throw e;
             }
         });
