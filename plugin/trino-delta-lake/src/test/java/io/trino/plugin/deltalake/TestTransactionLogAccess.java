@@ -172,7 +172,7 @@ public class TestTransactionLogAccess
         assertEquals(metadataEntry.getCreatedTime(), 1579190100722L);
         assertEquals(metadataEntry.getId(), "b6aeffad-da73-4dde-b68e-937e468b1fdf");
         assertThat(metadataEntry.getOriginalPartitionColumns()).containsOnly("age");
-        assertThat(metadataEntry.getCanonicalPartitionColumns()).containsOnly("age");
+        assertThat(metadataEntry.getLowercasePartitionColumns()).containsOnly("age");
 
         MetadataEntry.Format format = metadataEntry.getFormat();
         assertEquals(format.getOptions().keySet().size(), 0);
@@ -188,7 +188,7 @@ public class TestTransactionLogAccess
         setupTransactionLogAccess("uppercase_columns");
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
         assertThat(metadataEntry.getOriginalPartitionColumns()).containsOnly("ALA");
-        assertThat(metadataEntry.getCanonicalPartitionColumns()).containsOnly("ala");
+        assertThat(metadataEntry.getLowercasePartitionColumns()).containsOnly("ala");
         assertEquals(tableSnapshot.getCachedMetadata(), Optional.of(metadataEntry));
     }
 
@@ -239,7 +239,7 @@ public class TestTransactionLogAccess
                 .containsEntry("ALA", "1");
         assertThat(addFileEntry.getCanonicalPartitionValues())
                 .hasSize(1)
-                .containsEntry("ala", Optional.of("1"));
+                .containsEntry("ALA", Optional.of("1"));
     }
 
     @Test

@@ -67,7 +67,6 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ex
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -172,11 +171,11 @@ public class DeltaLakeSplitManager
                 nonPartitionConstraint.getDomains().orElseThrow().keySet().stream(),
                 columnsCoveredByDynamicFilter.stream()
                         .map(DeltaLakeColumnHandle.class::cast))
-                .map(column -> column.getBaseColumnName().toLowerCase(ENGLISH)) // TODO is DeltaLakeColumnHandle.name normalized?
+                .map(DeltaLakeColumnHandle::getBaseColumnName)
                 .collect(toImmutableSet());
         List<DeltaLakeColumnMetadata> schema = extractSchema(tableHandle.getMetadataEntry(), typeManager);
         List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
-                .filter(column -> predicatedColumnNames.contains(column.getName())) // DeltaLakeColumnMetadata.name is lowercase
+                .filter(column -> predicatedColumnNames.contains(column.getName()))
                 .collect(toImmutableList());
         return validDataFiles.stream()
                 .flatMap(addAction -> {
@@ -207,7 +206,7 @@ public class DeltaLakeSplitManager
                     TupleDomain<DeltaLakeColumnHandle> statisticsPredicate = createStatisticsPredicate(
                             addAction,
                             predicatedColumns,
-                            tableHandle.getMetadataEntry().getCanonicalPartitionColumns());
+                            tableHandle.getMetadataEntry().getLowercasePartitionColumns());
                     if (!nonPartitionConstraint.overlaps(statisticsPredicate)) {
                         return Stream.empty();
                     }

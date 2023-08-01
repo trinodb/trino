@@ -62,7 +62,6 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressio
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.canonicalizeColumnName;
 import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -146,21 +145,18 @@ public abstract class AbstractDeltaLakePageSink
         ImmutableList.Builder<Type> dataColumnTypes = ImmutableList.builder();
         ImmutableList.Builder<String> dataColumnNames = ImmutableList.builder();
 
-        Map<String, String> canonicalToOriginalPartitionColumns = new HashMap<>();
-        Map<String, Integer> canonicalToOriginalPartitionPositions = new HashMap<>();
+        Map<String, Integer> toOriginalPartitionPositions = new HashMap<>();
         int partitionColumnPosition = 0;
         for (String partitionColumnName : originalPartitionColumns) {
-            String canonicalizeColumnName = canonicalizeColumnName(partitionColumnName);
-            canonicalToOriginalPartitionColumns.put(canonicalizeColumnName, partitionColumnName);
-            canonicalToOriginalPartitionPositions.put(canonicalizeColumnName, partitionColumnPosition++);
+            toOriginalPartitionPositions.put(partitionColumnName, partitionColumnPosition++);
         }
         for (int inputIndex = 0; inputIndex < inputColumns.size(); inputIndex++) {
             DeltaLakeColumnHandle column = inputColumns.get(inputIndex);
             switch (column.getColumnType()) {
                 case PARTITION_KEY:
-                    int partitionPosition = canonicalToOriginalPartitionPositions.get(column.getColumnName());
+                    int partitionPosition = toOriginalPartitionPositions.get(column.getColumnName());
                     partitionColumnInputIndex[partitionPosition] = inputIndex;
-                    originalPartitionColumnNames[partitionPosition] = canonicalToOriginalPartitionColumns.get(column.getColumnName());
+                    originalPartitionColumnNames[partitionPosition] = column.getColumnName();
                     partitionColumnTypes[partitionPosition] = column.getBaseType();
                     break;
                 case REGULAR:
