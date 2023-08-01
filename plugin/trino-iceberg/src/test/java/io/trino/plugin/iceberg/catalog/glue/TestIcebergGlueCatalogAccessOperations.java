@@ -21,6 +21,7 @@ import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
+import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.TableType;
@@ -32,6 +33,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -39,11 +41,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
@@ -60,6 +64,7 @@ import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_DATABASE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_TABLE;
+import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_TABLES;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.UPDATE_TABLE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -79,6 +84,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestIcebergGlueCatalogAccessOperations
         extends AbstractTestQueryFramework
 {
+    private static final Logger log = Logger.get(TestIcebergGlueCatalogAccessOperations.class);
+
+    private static final int MAX_PREFIXES_COUNT = 5;
     private final String testSchema = "test_schema_" + randomNameSuffix();
     private final Session testSession = testSessionBuilder()
             .setCatalog("iceberg")
@@ -92,7 +100,9 @@ public class TestIcebergGlueCatalogAccessOperations
             throws Exception
     {
         File tmp = Files.createTempDirectory("test_iceberg").toFile();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSession).build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSession)
+                .addCoordinatorProperty("optimizer.max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
+                .build();
 
         AtomicReference<GlueMetastoreStats> glueStatsReference = new AtomicReference<>();
         queryRunner.installPlugin(new TestingIcebergPlugin(
@@ -443,6 +453,63 @@ public class TestIcebergGlueCatalogAccessOperations
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_select_snapshots");
         }
+    }
+
+    @Test
+    public void testInformationSchemaColumns()
+    {
+        String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        try {
+            Session session = Session.builder(getSession())
+                    .setSchema(schemaName)
+                    .build();
+            int tablesCreated = 0;
+            try {
+                // Do not use @DataProvider to save test setup time which may be considerable
+                for (int tables : List.of(2, MAX_PREFIXES_COUNT, MAX_PREFIXES_COUNT + 2)) {
+                    log.info("testInformationSchemaColumns: Testing with %s tables", tables);
+                    checkState(tablesCreated < tables);
+
+                    for (int i = tablesCreated; i < tables; i++) {
+                        tablesCreated++;
+                        assertUpdate(session, "CREATE TABLE test_select_i_s_columns" + i + "(id varchar, age integer)");
+                        // Produce multiple snapshots and metadata files
+                        assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('abc', 11)", 1);
+                        assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('xyz', 12)", 1);
+
+                        assertUpdate(session, "CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
+                    }
+
+                    assertGlueMetastoreApiInvocations(
+                            session,
+                            "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
+                            ImmutableMultiset.builder()
+                                    .addCopies(GET_TABLES, 7)
+                                    .addCopies(GET_TABLE, tables * 2)
+                                    .build());
+                }
+            }
+            finally {
+                for (int i = 0; i < tablesCreated; i++) {
+                    assertUpdate(session, "DROP TABLE IF EXISTS test_select_i_s_columns" + i);
+                    assertUpdate(session, "DROP TABLE IF EXISTS test_other_select_i_s_columns" + i);
+                }
+            }
+        }
+        finally {
+            assertUpdate("DROP SCHEMA " + schemaName);
+        }
+    }
+
+    @DataProvider
+    public Object[][] metadataQueriesTestTableCountDataProvider()
+    {
+        return new Object[][] {
+                {2},
+                {MAX_PREFIXES_COUNT},
+                {MAX_PREFIXES_COUNT + 2},
+        };
     }
 
     private void assertGlueMetastoreApiInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
