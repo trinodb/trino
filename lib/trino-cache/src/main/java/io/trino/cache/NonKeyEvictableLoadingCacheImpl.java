@@ -48,6 +48,7 @@ class NonKeyEvictableLoadingCacheImpl<K, V>
     }
 
     @Override
+    @SuppressWarnings("deprecation") // we're implementing a deprecated API method
     public void unsafeInvalidate(Object key)
     {
         super.invalidate(key);
