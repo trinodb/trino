@@ -273,7 +273,7 @@ public class TestAccessControl
         assertAccessDenied("SELECT count(*) FROM mock.default.test_view_invoker", "Cannot select from columns.*", privilege("test_view_invoker", SELECT_COLUMN));
         assertAccessAllowed("SELECT count(*) FROM mock.default.test_view_definer");
         assertAccessDenied("SELECT count(*) FROM mock.default.test_view_definer", "Cannot select from columns.*", privilege("test_view_definer", SELECT_COLUMN));
-        
+
         assertAccessDenied(
                 "SELECT orders.custkey, lineitem.quantity FROM orders JOIN lineitem USING (orderkey)",
                 "Cannot select from columns \\[orderkey, custkey] in table .*",
