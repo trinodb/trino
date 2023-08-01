@@ -67,7 +67,6 @@ import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECK
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.multiplyExact;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -396,7 +395,7 @@ public class CheckpointWriter
                             .collect(toMap(
                                     Map.Entry::getKey,
                                     entry -> {
-                                        Type type = fieldTypes.get(entry.getKey().toLowerCase(ENGLISH));
+                                        Type type = fieldTypes.get(entry.getKey());
                                         Object value = entry.getValue();
                                         if (isJson) {
                                             return jsonValueToTrinoValue(type, value);

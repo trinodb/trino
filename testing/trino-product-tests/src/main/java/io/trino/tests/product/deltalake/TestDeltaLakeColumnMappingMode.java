@@ -404,6 +404,11 @@ public class TestDeltaLakeColumnMappingMode
                     .containsOnly(ImmutableList.of(
                             row("mixed_case", null, null, 0.0, null, "0", "9"),
                             row(null, null, null, null, 2.0, null, null)));
+
+            // Verify column comments
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".mixed_case IS 'test column comment'");
+            assertEquals(getColumnCommentOnTrino("default", tableName, "mixed_case"), "test column comment");
+            assertEquals(getColumnCommentOnDelta("default", tableName, "mixed_case"), "test column comment");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -687,6 +692,35 @@ public class TestDeltaLakeColumnMappingMode
             // 5 comes from 1 (a_number) + 1 (a_array) + 1 (a_map) + 2 (column & field of a_row)
             assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
                     .isEqualTo("5");
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testTrinoColumnMappingModeAddColumnWithExistingNonLowerCaseColumn(String mode)
+    {
+        String tableName = "test_dl_column_mapping_mode_add_column_existing_non_lowercase_" + randomNameSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                " (UPPER_CASE INT)" +
+                " USING delta" +
+                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                " TBLPROPERTIES (" +
+                " 'delta.columnMapping.mode' = '" + mode + "'" +
+                ")");
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES 1");
+
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col VARCHAR");
+
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, null));
+            assertThat(getColumnNamesOnDelta("default", tableName))
+                    .containsExactly("UPPER_CASE", "new_col");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
