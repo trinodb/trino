@@ -27,6 +27,7 @@ import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -227,6 +228,36 @@ class HdfsFileSystem
                 stats.getListFilesCalls().recordException(e);
                 throw e;
             }
+        });
+    }
+
+    @Override
+    public void createDirectory(Location location)
+            throws IOException
+    {
+        stats.getCreateDirectoryCalls().newCall();
+        Path directory = hadoopPath(location);
+        FileSystem fileSystem = environment.getFileSystem(context, directory);
+
+        environment.doAs(context.getIdentity(), () -> {
+            if (!hierarchical(fileSystem, location)) {
+                return null;
+            }
+            Optional<FsPermission> permission = environment.getNewDirectoryPermissions();
+            try (TimeStat.BlockTimer ignored = stats.getCreateDirectoryCalls().time()) {
+                if (!fileSystem.mkdirs(directory, permission.orElse(null))) {
+                    throw new IOException("Failed to create directory: " + location);
+                }
+                // explicitly set permission since the default umask overrides it on creation
+                if (permission.isPresent()) {
+                    fileSystem.setPermission(directory, permission.get());
+                }
+            }
+            catch (IOException e) {
+                stats.getCreateDirectoryCalls().recordException(e);
+                throw e;
+            }
+            return null;
         });
     }
 

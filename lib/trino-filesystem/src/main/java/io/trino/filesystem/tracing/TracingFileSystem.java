@@ -117,4 +117,14 @@ final class TracingFileSystem
                 .startSpan();
         return withTracing(span, () -> delegate.directoryExists(location));
     }
+
+    @Override
+    public void createDirectory(Location location)
+            throws IOException
+    {
+        Span span = tracer.spanBuilder("FileSystem.createDirectory")
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
+                .startSpan();
+        withTracing(span, () -> delegate.createDirectory(location));
+    }
 }
