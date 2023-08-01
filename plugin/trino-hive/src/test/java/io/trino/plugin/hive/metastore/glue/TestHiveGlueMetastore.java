@@ -1179,7 +1179,7 @@ public class TestHiveGlueMetastore
 
             doCreateEmptyTable(tableName, ORC, columns);
 
-            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName(), Optional.empty()))
                     .isEqualTo(ZERO_TABLE_STATISTICS);
             testUpdateTableStatistics(tableName, ZERO_TABLE_STATISTICS, partitionStatistics);
         }
@@ -1218,26 +1218,26 @@ public class TestHiveGlueMetastore
                         return partitionStatistics;
                     });
 
-            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName(), Optional.empty()))
                     .isEqualTo(partitionStatistics);
 
             metastore.renameColumn(tableName.getSchemaName(), tableName.getTableName(), "column1", "column4");
-            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName(), Optional.empty()))
                     .isEqualTo(new PartitionStatistics(
                             HIVE_BASIC_STATISTICS,
                             Map.of("column2", INTEGER_COLUMN_STATISTICS)));
 
             metastore.dropColumn(tableName.getSchemaName(), tableName.getTableName(), "column2");
-            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName(), Optional.empty()))
                     .isEqualTo(new PartitionStatistics(HIVE_BASIC_STATISTICS, Map.of()));
 
             metastore.addColumn(tableName.getSchemaName(), tableName.getTableName(), "column5", HiveType.HIVE_INT, "comment");
-            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName(), Optional.empty()))
                     .isEqualTo(new PartitionStatistics(HIVE_BASIC_STATISTICS, Map.of()));
 
             // TODO: column1 stats should be removed on column delete. However this is tricky since stats can be stored in multiple partitions.
             metastore.renameColumn(tableName.getSchemaName(), tableName.getTableName(), "column4", "column1");
-            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName(), Optional.empty()))
                     .isEqualTo(new PartitionStatistics(
                             HIVE_BASIC_STATISTICS,
                             Map.of("column1", INTEGER_COLUMN_STATISTICS)));
@@ -1273,21 +1273,21 @@ public class TestHiveGlueMetastore
 
             assertThat(metastoreClient.getStats().getBatchUpdatePartition().getTime().getAllTime().getCount()).isEqualTo(countBefore + 1);
             PartitionStatistics tableStatistics = new PartitionStatistics(createEmptyStatistics(), Map.of());
-            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName(), Optional.empty()))
                     .isEqualTo(tableStatistics);
             assertThat(metastore.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), Set.of("ds=2016-01-01")))
                     .isEqualTo(Map.of("ds=2016-01-01", partitionStatistics));
 
             // renaming table column does not rename partition columns
             metastore.renameColumn(tableName.getSchemaName(), tableName.getTableName(), "column1", "column4");
-            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName(), Optional.empty()))
                     .isEqualTo(tableStatistics);
             assertThat(metastore.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), Set.of("ds=2016-01-01")))
                     .isEqualTo(Map.of("ds=2016-01-01", partitionStatistics));
 
             // dropping table column does not drop partition columns
             metastore.dropColumn(tableName.getSchemaName(), tableName.getTableName(), "column2");
-            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName(), Optional.empty()))
                     .isEqualTo(tableStatistics);
             assertThat(metastore.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), Set.of("ds=2016-01-01")))
                     .isEqualTo(Map.of("ds=2016-01-01", partitionStatistics));
@@ -1334,7 +1334,7 @@ public class TestHiveGlueMetastore
                     .withDatabaseName(tableName.getSchemaName())
                     .withTableInput(tableInput));
 
-            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
+            assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName(), Optional.empty()))
                     .isEqualTo(partitionStatistics);
         }
         finally {
