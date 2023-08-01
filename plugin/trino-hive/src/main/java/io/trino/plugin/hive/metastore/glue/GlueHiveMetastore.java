@@ -461,7 +461,7 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
         return getAllViews(databaseName, table -> parameterValue.equals(getTableParameters(table).get(parameterKey)));
     }
