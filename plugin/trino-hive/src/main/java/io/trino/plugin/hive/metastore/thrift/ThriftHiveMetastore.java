@@ -22,8 +22,9 @@ import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.thrift.metastore.AlreadyExistsException;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
 import io.trino.hive.thrift.metastore.ConfigValSecurityException;
@@ -81,7 +82,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.fs.Path;
 import org.apache.thrift.TException;
 
 import java.io.IOException;
@@ -150,7 +150,7 @@ public class ThriftHiveMetastore
     private static final CharMatcher DOT_MATCHER = CharMatcher.is('.');
 
     private final Optional<ConnectorIdentity> identity;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final IdentityAwareMetastoreClientFactory metastoreClientFactory;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
@@ -167,7 +167,7 @@ public class ThriftHiveMetastore
 
     public ThriftHiveMetastore(
             Optional<ConnectorIdentity> identity,
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             IdentityAwareMetastoreClientFactory metastoreClientFactory,
             double backoffScaleFactor,
             Duration minBackoffDelay,
@@ -183,7 +183,7 @@ public class ThriftHiveMetastore
             ExecutorService writeStatisticsExecutor)
     {
         this.identity = requireNonNull(identity, "identity is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.metastoreClientFactory = requireNonNull(metastoreClientFactory, "metastoreClientFactory is null");
         this.backoffScaleFactor = backoffScaleFactor;
         this.minBackoffDelay = requireNonNull(minBackoffDelay, "minBackoffDelay is null");
@@ -1066,7 +1066,7 @@ public class ThriftHiveMetastore
                             client.dropTable(databaseName, tableName, deleteData);
                             String tableLocation = table.getSd().getLocation();
                             if (deleteFilesOnDrop && deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
-                                deleteDirRecursive(new Path(tableLocation));
+                                deleteDirRecursive(Location.of(tableLocation));
                             }
                         }
                         return null;
@@ -1083,12 +1083,12 @@ public class ThriftHiveMetastore
         }
     }
 
-    private void deleteDirRecursive(Path path)
+    private void deleteDirRecursive(Location path)
     {
         try {
-            HdfsContext context = new HdfsContext(identity.orElseGet(() ->
-                    ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER)));
-            hdfsEnvironment.getFileSystem(context, path).delete(path, true);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(
+                    identity.orElseGet(() -> ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER)));
+            fileSystem.deleteDirectory(path);
         }
         catch (IOException | RuntimeException e) {
             // don't fail if unable to delete path
@@ -1284,7 +1284,7 @@ public class ThriftHiveMetastore
                             client.dropPartition(databaseName, tableName, parts, deleteData);
                             String partitionLocation = partition.getSd().getLocation();
                             if (deleteFilesOnDrop && deleteData && !isNullOrEmpty(partitionLocation) && isManagedTable(client.getTable(databaseName, tableName))) {
-                                deleteDirRecursive(new Path(partitionLocation));
+                                deleteDirRecursive(Location.of(partitionLocation));
                             }
                         }
                         return null;
