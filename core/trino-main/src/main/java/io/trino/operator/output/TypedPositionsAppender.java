@@ -33,6 +33,11 @@ class TypedPositionsAppender
         this.blockBuilder = type.createBlockBuilder(null, expectedPositions);
     }
 
+    public TypedPositionsAppender(BlockBuilder blockBuilder)
+    {
+        this.blockBuilder = blockBuilder;
+    }
+
     @Override
     public void append(IntArrayList positions, ValueBlock block)
     {
