@@ -43,10 +43,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
@@ -459,11 +459,8 @@ public class TestIcebergGlueCatalogAccessOperations
         Map<GlueMetastoreMethod, Integer> countsAfter = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
 
-        Map<GlueMetastoreMethod, Integer> deltas = Arrays.stream(GlueMetastoreMethod.values())
-                .collect(Collectors.toMap(Function.identity(), method -> requireNonNull(countsAfter.get(method)) - requireNonNull(countsBefore.get(method))));
-        ImmutableMultiset.Builder<GlueMetastoreMethod> builder = ImmutableMultiset.builder();
-        deltas.entrySet().stream().filter(entry -> entry.getValue() > 0).forEach(entry -> builder.setCount(entry.getKey(), entry.getValue()));
-        Multiset<GlueMetastoreMethod> actualInvocations = builder.build();
+        Multiset<GlueMetastoreMethod> actualInvocations = Arrays.stream(GlueMetastoreMethod.values())
+                .collect(toImmutableMultiset(Function.identity(), method -> requireNonNull(countsAfter.get(method)) - requireNonNull(countsBefore.get(method))));
 
         assertMultisetsEqual(actualInvocations, expectedInvocations);
     }
