@@ -318,7 +318,8 @@ public class TracingConnectorMetadata
     @Override
     public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
-        Span span = startSpan("dropSchema", schemaName);
+        Span span = startSpan("dropSchema", schemaName)
+                .setAttribute(TrinoAttributes.CASCADE, cascade);
         try (var ignored = scopedSpan(span)) {
             delegate.dropSchema(session, schemaName, cascade);
         }
