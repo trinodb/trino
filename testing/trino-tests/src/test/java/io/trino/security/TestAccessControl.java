@@ -257,11 +257,23 @@ public class TestAccessControl
         assertAccessDenied("SELECT 1 FROM mock.default.test_materialized_view", "Cannot select from columns.*", privilege("test_materialized_view", SELECT_COLUMN));
         assertAccessAllowed("SELECT * FROM mock.default.test_materialized_view");
         assertAccessDenied("SELECT * FROM mock.default.test_materialized_view", "Cannot select from columns.*", privilege("test_materialized_view", SELECT_COLUMN));
-        // with current implementation this next block of checks is redundant, but it is not obvious unless details of how
+        assertAccessAllowed("SELECT 1 FROM mock.default.test_view_definer");
+        assertAccessDenied("SELECT 1 FROM mock.default.test_view_definer", "Cannot select from columns.*", privilege("test_view_definer", SELECT_COLUMN));
+        assertAccessAllowed("SELECT * FROM mock.default.test_view_definer");
+        assertAccessDenied("SELECT * FROM mock.default.test_view_definer", "Cannot select from columns.*", privilege("test_view_definer", SELECT_COLUMN));
+        assertAccessAllowed("SELECT 1 FROM mock.default.test_view_invoker");
+        assertAccessDenied("SELECT 1 FROM mock.default.test_view_invoker", "Cannot select from columns.*", privilege("test_view_invoker", SELECT_COLUMN));
+        assertAccessAllowed("SELECT * FROM mock.default.test_view_invoker");
+        assertAccessDenied("SELECT * FROM mock.default.test_view_invoker", "Cannot select from columns.*", privilege("test_view_invoker", SELECT_COLUMN));
+        // with current implementation this next block of checks is redundant to `SELECT 1 FROM ..`, but it is not obvious unless details of how
         // semantics analyzer works are known
         assertAccessAllowed("SELECT count(*) FROM mock.default.test_materialized_view");
         assertAccessDenied("SELECT count(*) FROM mock.default.test_materialized_view", "Cannot select from columns.*", privilege("test_materialized_view", SELECT_COLUMN));
-
+        assertAccessAllowed("SELECT count(*) FROM mock.default.test_view_invoker");
+        assertAccessDenied("SELECT count(*) FROM mock.default.test_view_invoker", "Cannot select from columns.*", privilege("test_view_invoker", SELECT_COLUMN));
+        assertAccessAllowed("SELECT count(*) FROM mock.default.test_view_definer");
+        assertAccessDenied("SELECT count(*) FROM mock.default.test_view_definer", "Cannot select from columns.*", privilege("test_view_definer", SELECT_COLUMN));
+        
         assertAccessDenied(
                 "SELECT orders.custkey, lineitem.quantity FROM orders JOIN lineitem USING (orderkey)",
                 "Cannot select from columns \\[orderkey, custkey] in table .*",
