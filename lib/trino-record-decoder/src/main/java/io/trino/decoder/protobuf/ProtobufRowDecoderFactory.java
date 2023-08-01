@@ -14,15 +14,14 @@
 package io.trino.decoder.protobuf;
 
 import com.google.inject.Inject;
-import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderFactory;
+import io.trino.decoder.RowDecoderSpec;
 import io.trino.decoder.protobuf.DynamicMessageProvider.Factory;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
 
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,11 +43,11 @@ public class ProtobufRowDecoderFactory
     }
 
     @Override
-    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
+    public RowDecoder create(ConnectorSession session, RowDecoderSpec rowDecoderSpec)
     {
         return new ProtobufRowDecoder(
-                dynamicMessageProviderFactory.create(Optional.ofNullable(decoderParams.get("dataSchema"))),
-                columns,
+                dynamicMessageProviderFactory.create(Optional.ofNullable(rowDecoderSpec.decoderParams().get("dataSchema"))),
+                rowDecoderSpec.columns(),
                 typeManager,
                 descriptorProvider);
     }
