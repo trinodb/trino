@@ -430,28 +430,7 @@ public class GlueHiveMetastore
     @Override
     public List<String> getAllTables(String databaseName)
     {
-        try {
-            List<String> tableNames = getPaginatedResults(
-                    glueClient::getTables,
-                    new GetTablesRequest()
-                            .withDatabaseName(databaseName),
-                    GetTablesRequest::setNextToken,
-                    GetTablesResult::getNextToken,
-                    stats.getGetTables())
-                    .map(GetTablesResult::getTableList)
-                    .flatMap(List::stream)
-                    .filter(tableFilter)
-                    .map(com.amazonaws.services.glue.model.Table::getName)
-                    .collect(toImmutableList());
-            return tableNames;
-        }
-        catch (EntityNotFoundException | AccessDeniedException e) {
-            // database does not exist or permission denied
-            return ImmutableList.of();
-        }
-        catch (AmazonServiceException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
+        return getTableNames(databaseName, tableFilter);
     }
 
     @Override
