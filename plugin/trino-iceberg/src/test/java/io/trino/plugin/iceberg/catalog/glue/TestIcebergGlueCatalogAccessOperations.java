@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
@@ -23,6 +24,8 @@ import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.filesystem.TrackingFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.TableType;
 import io.trino.plugin.iceberg.TestingIcebergPlugin;
@@ -51,6 +54,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
@@ -66,13 +72,17 @@ import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_DATAB
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_TABLE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_TABLES;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.UPDATE_TABLE;
+import static io.trino.plugin.iceberg.catalog.glue.TestIcebergGlueCatalogAccessOperations.FileType.METADATA_JSON;
+import static io.trino.plugin.iceberg.catalog.glue.TestIcebergGlueCatalogAccessOperations.FileType.fromFilePath;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /*
@@ -94,6 +104,7 @@ public class TestIcebergGlueCatalogAccessOperations
             .build();
 
     private GlueMetastoreStats glueStats;
+    private TrackingFileSystemFactory trackingFileSystemFactory;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -104,10 +115,12 @@ public class TestIcebergGlueCatalogAccessOperations
                 .addCoordinatorProperty("optimizer.max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
 
+        trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
+
         AtomicReference<GlueMetastoreStats> glueStatsReference = new AtomicReference<>();
         queryRunner.installPlugin(new TestingIcebergPlugin(
                 Optional.empty(),
-                Optional.empty(),
+                Optional.of(trackingFileSystemFactory),
                 new StealStatsModule(glueStatsReference)));
         queryRunner.createCatalog("iceberg", "iceberg",
                 ImmutableMap.of(
@@ -481,12 +494,15 @@ public class TestIcebergGlueCatalogAccessOperations
                         assertUpdate(session, "CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
                     }
 
-                    assertGlueMetastoreApiInvocations(
+                    assertInvocations(
                             session,
                             "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
-                            ImmutableMultiset.builder()
+                            ImmutableMultiset.<GlueMetastoreMethod>builder()
                                     .addCopies(GET_TABLES, 7)
                                     .addCopies(GET_TABLE, tables * 2)
+                                    .build(),
+                            ImmutableMultiset.<FileOperation>builder()
+                                    .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), tables * 2)
                                     .build());
                 }
             }
@@ -519,17 +535,55 @@ public class TestIcebergGlueCatalogAccessOperations
 
     private void assertGlueMetastoreApiInvocations(Session session, @Language("SQL") String query, Multiset<?> expectedInvocations)
     {
+        assertInvocations(
+                session,
+                query,
+                expectedInvocations.stream()
+                        .map(GlueMetastoreMethod.class::cast)
+                        .collect(toImmutableMultiset()),
+                Optional.empty());
+    }
+
+    private void assertInvocations(
+            Session session,
+            @Language("SQL") String query,
+            Multiset<GlueMetastoreMethod> expectedGlueInvocations,
+            Multiset<FileOperation> expectedFileOperations)
+    {
+        assertInvocations(session, query, expectedGlueInvocations, Optional.of(expectedFileOperations));
+    }
+
+    private void assertInvocations(
+            Session session,
+            @Language("SQL") String query,
+            Multiset<GlueMetastoreMethod> expectedGlueInvocations,
+            Optional<Multiset<FileOperation>> expectedFileOperations)
+    {
         Map<GlueMetastoreMethod, Integer> countsBefore = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
+        trackingFileSystemFactory.reset();
 
         getQueryRunner().execute(session, query);
+
         Map<GlueMetastoreMethod, Integer> countsAfter = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
+        Multiset<FileOperation> fileOperations = getFileOperations();
 
-        Multiset<GlueMetastoreMethod> actualInvocations = Arrays.stream(GlueMetastoreMethod.values())
+        Multiset<GlueMetastoreMethod> actualGlueInvocations = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMultiset(Function.identity(), method -> requireNonNull(countsAfter.get(method)) - requireNonNull(countsBefore.get(method))));
 
-        assertMultisetsEqual(actualInvocations, expectedInvocations);
+        assertMultisetsEqual(actualGlueInvocations, expectedGlueInvocations);
+        expectedFileOperations.ifPresent(expected -> assertMultisetsEqual(fileOperations, expected));
+    }
+
+    private Multiset<FileOperation> getFileOperations()
+    {
+        return trackingFileSystemFactory.getOperationCounts()
+                .entrySet().stream()
+                .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(
+                        fromFilePath(entry.getKey().getLocation().toString()),
+                        entry.getKey().getOperationType())).stream())
+                .collect(toCollection(HashMultiset::create));
     }
 
     private static Session withStatsOnWrite(Session session, boolean enabled)
@@ -581,6 +635,45 @@ public class TestIcebergGlueCatalogAccessOperations
             if (!glueStatsReference.compareAndSet(null, ((TrinoGlueCatalogFactory) factory).getStats())) {
                 throw new RuntimeException("glueStatsReference already set");
             }
+        }
+    }
+
+    private record FileOperation(FileType fileType, TrackingFileSystemFactory.OperationType operationType)
+    {
+        public FileOperation
+        {
+            requireNonNull(fileType, "fileType is null");
+            requireNonNull(operationType, "operationType is null");
+        }
+    }
+
+    enum FileType
+    {
+        METADATA_JSON,
+        SNAPSHOT,
+        MANIFEST,
+        STATS,
+        DATA,
+        /**/;
+
+        public static FileType fromFilePath(String path)
+        {
+            if (path.endsWith("metadata.json")) {
+                return METADATA_JSON;
+            }
+            if (path.contains("/snap-")) {
+                return SNAPSHOT;
+            }
+            if (path.endsWith("-m0.avro")) {
+                return MANIFEST;
+            }
+            if (path.endsWith(".stats")) {
+                return STATS;
+            }
+            if (path.contains("/data/") && (path.endsWith(".orc") || path.endsWith(".parquet"))) {
+                return DATA;
+            }
+            throw new IllegalArgumentException("File not recognized: " + path);
         }
     }
 }
