@@ -1158,3 +1158,8 @@ connector.
     * - ``delta.projection-pushdown-enabled``
       - Read only projected fields from row columns while performing ``SELECT`` queries
       - ``true``
+    * - ``delta.query-partition-filter-required``
+      - Set to ``true`` to force a query to use a partition filter. You can use
+        the ``query_partition_filter_required`` catalog session property for
+        temporary, catalog specific use.
+      - ``false``

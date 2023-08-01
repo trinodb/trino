@@ -68,7 +68,8 @@ public class TestDeltaLakeConfig
                 .setUniqueTableLocation(true)
                 .setLegacyCreateTableWithExistingLocationEnabled(false)
                 .setRegisterTableProcedureEnabled(false)
-                .setProjectionPushdownEnabled(true));
+                .setProjectionPushdownEnabled(true)
+                .setQueryPartitionFilterRequired(false));
     }
 
     @Test
@@ -105,6 +106,7 @@ public class TestDeltaLakeConfig
                 .put("delta.legacy-create-table-with-existing-location.enabled", "true")
                 .put("delta.register-table-procedure.enabled", "true")
                 .put("delta.projection-pushdown-enabled", "false")
+                .put("delta.query-partition-filter-required", "true")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -137,7 +139,8 @@ public class TestDeltaLakeConfig
                 .setUniqueTableLocation(false)
                 .setLegacyCreateTableWithExistingLocationEnabled(true)
                 .setRegisterTableProcedureEnabled(true)
-                .setProjectionPushdownEnabled(false);
+                .setProjectionPushdownEnabled(false)
+                .setQueryPartitionFilterRequired(true);
 
         assertFullMapping(properties, expected);
     }

@@ -39,6 +39,7 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.minio.MinioClient;
+import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -2131,6 +2132,23 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertQuery("SELECT nested2.child2, nested1.child3 FROM " + tableName, "VALUES (true, 100), (false, 200), (NULL, 400), (true, NULL)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testPartitionFilterIncluded()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
+                .build();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_no_partition_filter",
+                "(x varchar, part varchar) WITH (PARTITIONED_BY = ARRAY['part'])",
+                ImmutableList.of("'a', 'part_a'", "'b', 'part_b'"))) {
+            assertQueryFails(session, "SELECT * FROM %s WHERE x='a'".formatted(table.getName()), "Filter required on .*" + table.getName() + " for at least one partition column:.*");
+            assertQuery(session, "SELECT * FROM %s WHERE part='part_a'".formatted(table.getName()), "VALUES ('a', 'part_a')");
+        }
     }
 
     private Set<String> getActiveFiles(String tableName)
