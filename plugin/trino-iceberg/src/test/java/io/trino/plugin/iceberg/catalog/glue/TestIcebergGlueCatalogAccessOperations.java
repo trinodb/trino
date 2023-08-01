@@ -460,7 +460,7 @@ public class TestIcebergGlueCatalogAccessOperations
                 .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
 
         Map<GlueMetastoreMethod, Integer> deltas = Arrays.stream(GlueMetastoreMethod.values())
-                .collect(Collectors.toMap(Function.identity(), method -> countsAfter.get(method) - countsBefore.get(method)));
+                .collect(Collectors.toMap(Function.identity(), method -> requireNonNull(countsAfter.get(method)) - requireNonNull(countsBefore.get(method))));
         ImmutableMultiset.Builder<GlueMetastoreMethod> builder = ImmutableMultiset.builder();
         deltas.entrySet().stream().filter(entry -> entry.getValue() > 0).forEach(entry -> builder.setCount(entry.getKey(), entry.getValue()));
         Multiset<GlueMetastoreMethod> actualInvocations = builder.build();
