@@ -47,6 +47,7 @@ public class TestLocations
 
     @ParameterizedTest
     @MethodSource("locations")
+    @SuppressWarnings("deprecation") // we're testing a deprecated method
     public void testAppendPath(String location, String path, String expected)
     {
         assertThat(appendPath(location, path)).isEqualTo(expected);
@@ -61,6 +62,7 @@ public class TestLocations
 
     @ParameterizedTest
     @MethodSource("invalidLocations")
+    @SuppressWarnings("deprecation") // we're testing a deprecated method
     public void testInvalidLocationInAppendPath(String location, String exceptionMessageRegexp)
     {
         assertThatThrownBy(() -> appendPath(location, "test"))
