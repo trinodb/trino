@@ -51,7 +51,7 @@ public class TestDynamicRowFilteringWithHivePlugin
                         .setOwnerType(Optional.of(PrincipalType.ROLE))
                         .build());
 
-        queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), new TestingHiveDynamicRowFilteringExtension(), Optional.empty()));
+        queryRunner.installPlugin(new TestingHivePlugin(Optional.of(metastore), Optional.empty(), new TestingHiveDynamicRowFilteringExtension(), Optional.empty()));
         queryRunner.createCatalog("test", "hive");
         queryRunner.execute("CREATE SCHEMA test.tpch");
         queryRunner.installPlugin(new TpchPlugin());
