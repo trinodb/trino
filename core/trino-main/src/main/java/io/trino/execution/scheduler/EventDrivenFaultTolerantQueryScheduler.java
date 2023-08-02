@@ -100,6 +100,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -836,22 +837,29 @@ public class EventDrivenFaultTolerantQueryScheduler
                 }
 
                 // calculate (estimated) input data size to determine if we want to change number of partitions at runtime
-                long totalBytes = 0;
-                for (RemoteSourceNode remoteSourceNode : fragment.getRemoteSourceNodes()) {
-                    if (remoteSourceNode.getExchangeType() != REPLICATE) {
-                        for (PlanFragmentId sourceFragmentId : remoteSourceNode.getSourceFragmentIds()) {
-                            StageId sourceStageId = getStageId(sourceFragmentId);
-                            OutputDataSizeEstimate outputDataSizeEstimate = isReadyForExecutionResult.getSourceOutputSizeEstimates().get(sourceStageId);
-                            verify(outputDataSizeEstimate != null, "outputDataSizeEstimate not found for source stage %s", sourceStageId);
-                            totalBytes += outputDataSizeEstimate.getTotalSizeInBytes();
-                        }
-                    }
-                }
+                List<Long> partitionedInputBytes = fragment.getRemoteSourceNodes().stream()
+                        .filter(remoteSourceNode -> remoteSourceNode.getExchangeType() != REPLICATE)
+                        .map(remoteSourceNode -> remoteSourceNode.getSourceFragmentIds().stream()
+                                .mapToLong(sourceFragmentId -> {
+                                    StageId sourceStageId = getStageId(sourceFragmentId);
+                                    OutputDataSizeEstimate outputDataSizeEstimate = isReadyForExecutionResult.getSourceOutputSizeEstimates().get(sourceStageId);
+                                    verify(outputDataSizeEstimate != null, "outputDataSizeEstimate not found for source stage %s", sourceStageId);
+                                    return outputDataSizeEstimate.getTotalSizeInBytes();
+                                })
+                                .sum())
+                        .collect(toImmutableList());
+                // Currently the memory estimation is simplified:
+                // if it's an aggregation, then we use the total input bytes as the memory consumption
+                // if it involves multiple joins, conservatively we assume the smallest remote source will be streamed through
+                // and use the sum of input bytes of other remote sources as the memory consumption
+                // TODO: more accurate memory estimation based on context (https://github.com/trinodb/trino/issues/18698)
+                long estimatedMemoryConsumptionInBytes = (partitionedInputBytes.size() == 1) ? partitionedInputBytes.get(0) :
+                        partitionedInputBytes.stream().mapToLong(Long::longValue).sum() - Collections.min(partitionedInputBytes);
 
                 int partitionCount = fragment.getPartitionCount().orElse(maxPartitionCount);
-                if (totalBytes > runtimeAdaptivePartitioningMaxTaskSizeInBytes * partitionCount) {
-                    log.info("Stage %s has an estimated total input size of %s, changing partition count from %s to %s",
-                            stageId, succinctBytes(totalBytes), partitionCount, runtimeAdaptivePartitioningPartitionCount);
+                if (estimatedMemoryConsumptionInBytes > runtimeAdaptivePartitioningMaxTaskSizeInBytes * partitionCount) {
+                    log.info("Stage %s has an estimated memory consumption of %s, changing partition count from %s to %s",
+                            stageId, succinctBytes(estimatedMemoryConsumptionInBytes), partitionCount, runtimeAdaptivePartitioningPartitionCount);
                     runtimeAdaptivePartitioningApplied = true;
                     PlanFragmentIdAllocator planFragmentIdAllocator = new PlanFragmentIdAllocator(getMaxPlanFragmentId(planInTopologicalOrder) + 1);
                     PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator(getMaxPlanId(planInTopologicalOrder) + 1);
