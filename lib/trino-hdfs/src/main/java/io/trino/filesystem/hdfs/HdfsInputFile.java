@@ -40,18 +40,18 @@ class HdfsInputFile
     private final HdfsEnvironment environment;
     private final HdfsContext context;
     private final Path file;
+    private final CallStats openFileCallStat;
     private Long length;
     private FileStatus status;
-    private CallStats openFileCallStat;
 
     public HdfsInputFile(Location location, Long length, HdfsEnvironment environment, HdfsContext context, CallStats openFileCallStat)
     {
         this.location = requireNonNull(location, "location is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.context = requireNonNull(context, "context is null");
+        this.openFileCallStat = requireNonNull(openFileCallStat, "openFileCallStat is null");
         this.file = hadoopPath(location);
         this.length = length;
-        this.openFileCallStat = requireNonNull(openFileCallStat, "openFileCallStat is null");
         checkArgument(length == null || length >= 0, "length is negative");
     }
 
