@@ -123,7 +123,7 @@ public final class GlueIcebergUtil
                     glueTypeString.length() > GLUE_COLUMN_TYPE_LENGTH_LIMIT) {
                 return Optional.empty();
             }
-            String trinoTypeName = TypeConverter.toTrinoType(icebergColumn.type(), typeManager).getTypeId().getId();
+            String trinoTypeId = TypeConverter.toTrinoType(icebergColumn.type(), typeManager).getTypeId().getId();
             Column column = new Column()
                     .withName(icebergColumn.name())
                     .withType(glueTypeString)
@@ -133,12 +133,12 @@ public final class GlueIcebergUtil
             if (icebergColumn.isRequired()) {
                 parameters.put(COLUMN_TRINO_NOT_NULL_PROPERTY, "true");
             }
-            if (firstColumn || !glueTypeString.equals(trinoTypeName)) {
-                if (trinoTypeName.length() > GLUE_COLUMN_PARAMETER_LENGTH_LIMIT) {
+            if (firstColumn || !glueTypeString.equals(trinoTypeId)) {
+                if (trinoTypeId.length() > GLUE_COLUMN_PARAMETER_LENGTH_LIMIT) {
                     return Optional.empty();
                 }
                 // Store type parameter for some (first) column so that we can later detect whether column parameters weren't erased by something.
-                parameters.put(COLUMN_TRINO_TYPE_ID_PROPERTY, trinoTypeName);
+                parameters.put(COLUMN_TRINO_TYPE_ID_PROPERTY, trinoTypeId);
             }
             column.setParameters(parameters.buildOrThrow());
             glueColumns.add(column);
