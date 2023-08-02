@@ -93,11 +93,11 @@ public class TrinoConnection
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
     private final AtomicLong nextStatementId = new AtomicLong(1);
+    private final AtomicReference<Optional<String>> sessionUser = new AtomicReference<>();
 
     private final URI jdbcUri;
     private final URI httpUri;
     private final Optional<String> user;
-    private final Optional<String> sessionUser;
     private final boolean compressionDisabled;
     private final boolean assumeLiteralNamesInMetadataCallsForNonConformingClients;
     private final boolean assumeLiteralUnderscoreInMetadataCallsForNonConformingClients;
@@ -120,7 +120,7 @@ public class TrinoConnection
         uri.getSchema().ifPresent(schema::set);
         uri.getCatalog().ifPresent(catalog::set);
         this.user = uri.getUser();
-        this.sessionUser = uri.getSessionUser();
+        this.sessionUser.set(uri.getSessionUser());
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.source = uri.getSource();
         this.extraCredentials = uri.getExtraCredentials();
@@ -636,6 +636,17 @@ public class TrinoConnection
         sessionProperties.put(name, value);
     }
 
+    public void setSessionUser(String sessionUser)
+    {
+        requireNonNull(sessionUser, "sessionUser is null");
+        this.sessionUser.set(Optional.of(sessionUser));
+    }
+
+    public void clearSessionUser()
+    {
+        this.sessionUser.set(Optional.empty());
+    }
+
     @VisibleForTesting
     Map<String, ClientSelectedRole> getRoles()
     {
@@ -734,7 +745,7 @@ public class TrinoConnection
         ClientSession session = ClientSession.builder()
                 .server(httpUri)
                 .principal(user)
-                .user(sessionUser)
+                .user(sessionUser.get())
                 .source(source)
                 .traceToken(Optional.ofNullable(clientInfo.get(TRACE_TOKEN)))
                 .clientTags(ImmutableSet.copyOf(clientTags))
