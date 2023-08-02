@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.containers;
+package io.trino.testing.containers;
 
 import io.airlift.log.Logger;
 import org.testcontainers.containers.output.BaseConsumer;
@@ -20,7 +20,7 @@ import org.testcontainers.containers.output.OutputFrame;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.output.OutputFrame.OutputType.END;
 
-final class PrintingLogConsumer
+public final class PrintingLogConsumer
         extends BaseConsumer<PrintingLogConsumer>
 {
     private static final Logger log = Logger.get(PrintingLogConsumer.class);
