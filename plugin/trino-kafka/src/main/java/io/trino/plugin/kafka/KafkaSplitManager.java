@@ -81,8 +81,8 @@ public class KafkaSplitManager
             partitionEndOffsets = kafkaFilteringResult.getPartitionEndOffsets();
 
             ImmutableList.Builder<KafkaSplit> splits = ImmutableList.builder();
-            Optional<String> keyDataSchemaContents = contentSchemaProvider.readKeyContentSchema(kafkaTableHandle);
-            Optional<String> messageDataSchemaContents = contentSchemaProvider.readValueContentSchema(kafkaTableHandle);
+            Optional<String> keyDataSchemaContents = contentSchemaProvider.getKey(kafkaTableHandle);
+            Optional<String> messageDataSchemaContents = contentSchemaProvider.getMessage(kafkaTableHandle);
 
             for (PartitionInfo partitionInfo : partitionInfos) {
                 TopicPartition topicPartition = toTopicPartition(partitionInfo);

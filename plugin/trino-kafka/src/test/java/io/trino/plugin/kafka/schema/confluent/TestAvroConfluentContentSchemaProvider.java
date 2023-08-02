@@ -48,10 +48,10 @@ public class TestAvroConfluentContentSchemaProvider
         mockSchemaRegistryClient.register(SUBJECT_NAME, schema);
         AvroConfluentContentSchemaProvider avroConfluentSchemaProvider = new AvroConfluentContentSchemaProvider(mockSchemaRegistryClient);
         KafkaTableHandle tableHandle = new KafkaTableHandle("default", TOPIC, TOPIC, AvroRowDecoderFactory.NAME, AvroRowDecoderFactory.NAME, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(SUBJECT_NAME), ImmutableList.of(), TupleDomain.all());
-        assertEquals(avroConfluentSchemaProvider.readValueContentSchema(tableHandle), Optional.of(schema).map(Schema::toString));
-        assertEquals(avroConfluentSchemaProvider.readKeyContentSchema(tableHandle), Optional.empty());
+        assertEquals(avroConfluentSchemaProvider.getMessage(tableHandle), Optional.of(schema).map(Schema::toString));
+        assertEquals(avroConfluentSchemaProvider.getKey(tableHandle), Optional.empty());
         KafkaTableHandle invalidTableHandle = new KafkaTableHandle("default", TOPIC, TOPIC, AvroRowDecoderFactory.NAME, AvroRowDecoderFactory.NAME, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("another-schema"), ImmutableList.of(), TupleDomain.all());
-        assertThatThrownBy(() -> avroConfluentSchemaProvider.readValueContentSchema(invalidTableHandle))
+        assertThatThrownBy(() -> avroConfluentSchemaProvider.getMessage(invalidTableHandle))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Could not resolve schema for the 'another-schema' subject");
     }
