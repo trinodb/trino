@@ -36,7 +36,6 @@ public class TestFeaturesConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(FeaturesConfig.class)
-                .setLegacyCatalogRoles(false)
                 .setRedistributeWrites(true)
                 .setScaleWriters(true)
                 .setWriterScalingMinDataProcessed(DataSize.of(120, MEGABYTE))
