@@ -134,7 +134,8 @@ public class TestAccessControl
                             .in(Scopes.SINGLETON);
                 })
                 .setNodeCount(1)
-                .setSystemAccessControl(new ForwardingSystemAccessControl() {
+                .setSystemAccessControl(new ForwardingSystemAccessControl()
+                {
                     @Override
                     protected SystemAccessControl delegate()
                     {
@@ -177,7 +178,8 @@ public class TestAccessControl
                             new SchemaTableName("default", "test_view_definer"), definitionRunAsDefiner,
                             new SchemaTableName("default", "test_view_invoker"), definitionRunAsInvoker);
                 })
-                .withGetMaterializedViews(new BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>>() {
+                .withGetMaterializedViews(new BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>>()
+                {
                     @Override
                     public Map<SchemaTableName, ConnectorMaterializedViewDefinition> apply(ConnectorSession session, SchemaTablePrefix schemaTablePrefix)
                     {
