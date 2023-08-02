@@ -1687,6 +1687,30 @@ public class Analysis
         {
             return frameInherited;
         }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ResolvedWindow that = (ResolvedWindow) o;
+            return partitionByInherited == that.partitionByInherited &&
+                    orderByInherited == that.orderByInherited &&
+                    frameInherited == that.frameInherited &&
+                    partitionBy.equals(that.partitionBy) &&
+                    orderBy.equals(that.orderBy) &&
+                    frame.equals(that.frame);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(partitionBy, orderBy, frame, partitionByInherited, orderByInherited, frameInherited);
+        }
     }
 
     public static class MergeAnalysis
