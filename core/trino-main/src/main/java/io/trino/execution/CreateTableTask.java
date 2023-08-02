@@ -207,11 +207,11 @@ public class CreateTableTask
                 }
 
                 RedirectionAwareTableHandle redirection = plannerContext.getMetadata().getRedirectionAwareTableHandle(session, originalLikeTableName);
-                TableHandle likeTable = redirection.getTableHandle()
+                TableHandle likeTable = redirection.tableHandle()
                         .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "LIKE table '%s' does not exist", originalLikeTableName));
 
                 LikeClause.PropertiesOption propertiesOption = likeClause.getPropertiesOption().orElse(EXCLUDING);
-                QualifiedObjectName likeTableName = redirection.getRedirectedTableName().orElse(originalLikeTableName);
+                QualifiedObjectName likeTableName = redirection.redirectedTableName().orElse(originalLikeTableName);
                 if (propertiesOption == INCLUDING && !catalogName.equals(likeTableName.getCatalogName())) {
                     if (!originalLikeTableName.equals(likeTableName)) {
                         throw semanticException(

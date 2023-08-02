@@ -84,7 +84,7 @@ public class SetColumnTypeTask
         Session session = stateMachine.getSession();
         QualifiedObjectName qualifiedObjectName = createQualifiedObjectName(session, statement, statement.getTableName());
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, qualifiedObjectName);
-        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+        if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             String exceptionMessage = format("Table '%s' does not exist", qualifiedObjectName);
             if (metadata.getMaterializedView(session, qualifiedObjectName).isPresent()) {
                 exceptionMessage += ", but a materialized view with that name exists.";
@@ -98,9 +98,9 @@ public class SetColumnTypeTask
             return immediateVoidFuture();
         }
 
-        accessControl.checkCanAlterColumn(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(qualifiedObjectName));
+        accessControl.checkCanAlterColumn(session.toSecurityContext(), redirectionAwareTableHandle.redirectedTableName().orElse(qualifiedObjectName));
 
-        TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
+        TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         String columnName = statement.getColumnName().getParts().get(0).toLowerCase(ENGLISH);
         ColumnHandle column = columnHandles.get(columnName);

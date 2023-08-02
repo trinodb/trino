@@ -76,16 +76,16 @@ public class DropTableTask
         }
 
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
-        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+        if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             if (!statement.isExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", originalTableName);
             }
             return immediateVoidFuture();
         }
-        QualifiedObjectName tableName = redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName);
+        QualifiedObjectName tableName = redirectionAwareTableHandle.redirectedTableName().orElse(originalTableName);
         accessControl.checkCanDropTable(session.toSecurityContext(), tableName);
 
-        metadata.dropTable(session, redirectionAwareTableHandle.getTableHandle().get(), tableName.asCatalogSchemaTableName());
+        metadata.dropTable(session, redirectionAwareTableHandle.tableHandle().get(), tableName.asCatalogSchemaTableName());
 
         return immediateVoidFuture();
     }

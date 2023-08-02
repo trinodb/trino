@@ -543,8 +543,8 @@ class StatementAnalyzer
 
             // verify the insert destination columns match the query
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable);
-            Optional<TableHandle> targetTableHandle = redirection.getTableHandle();
-            targetTable = redirection.getRedirectedTableName().orElse(targetTable);
+            Optional<TableHandle> targetTableHandle = redirection.tableHandle();
+            targetTable = redirection.redirectedTableName().orElse(targetTable);
             if (targetTableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, insert, "Table '%s' does not exist", targetTable);
             }
@@ -787,8 +787,8 @@ class StatementAnalyzer
             }
 
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
-            QualifiedObjectName tableName = redirection.getRedirectedTableName().orElse(originalName);
-            TableHandle handle = redirection.getTableHandle()
+            QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
+            TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
@@ -1192,8 +1192,8 @@ class StatementAnalyzer
             }
 
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
-            QualifiedObjectName tableName = redirection.getRedirectedTableName().orElse(originalName);
-            TableHandle tableHandle = redirection.getTableHandle()
+            QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
+            TableHandle tableHandle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             accessControl.checkCanExecuteTableProcedure(
@@ -2217,8 +2217,8 @@ class StatementAnalyzer
 
             // This can only be a table
             RedirectionAwareTableHandle redirection = getTableHandle(table, name, scope);
-            Optional<TableHandle> tableHandle = redirection.getTableHandle();
-            QualifiedObjectName targetTableName = redirection.getRedirectedTableName().orElse(name);
+            Optional<TableHandle> tableHandle = redirection.tableHandle();
+            QualifiedObjectName targetTableName = redirection.redirectedTableName().orElse(name);
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName);
 
             if (tableHandle.isEmpty()) {
@@ -2303,7 +2303,7 @@ class StatementAnalyzer
 
         private void checkStorageTableNotRedirected(QualifiedObjectName source)
         {
-            metadata.getRedirectionAwareTableHandle(session, source).getRedirectedTableName().ifPresent(name -> {
+            metadata.getRedirectionAwareTableHandle(session, source).redirectedTableName().ifPresent(name -> {
                 throw new TrinoException(NOT_SUPPORTED, format("Redirection of materialized view storage table '%s' to '%s' is not supported", source, name));
             });
         }
@@ -3252,8 +3252,8 @@ class StatementAnalyzer
             }
 
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
-            QualifiedObjectName tableName = redirection.getRedirectedTableName().orElse(originalName);
-            TableHandle handle = redirection.getTableHandle()
+            QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
+            TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             TableSchema tableSchema = metadata.getTableSchema(session, handle);
@@ -3304,7 +3304,7 @@ class StatementAnalyzer
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.UPDATE);
             update.getWhere().ifPresent(where -> analyzeWhere(update, tableScope, where));
             analyzeCheckConstraints(table, tableName, tableScope, tableSchema.getTableSchema().getCheckConstraints());
-            analysis.registerTable(table, redirection.getTableHandle(), tableName, session.getIdentity().getUser(), tableScope);
+            analysis.registerTable(table, redirection.tableHandle(), tableName, session.getIdentity().getUser(), tableScope);
 
             ImmutableList.Builder<ExpressionAnalysis> analysesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
@@ -3368,8 +3368,8 @@ class StatementAnalyzer
             }
 
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
-            QualifiedObjectName tableName = redirection.getRedirectedTableName().orElse(originalTableName);
-            TableHandle targetTableHandle = redirection.getTableHandle()
+            QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalTableName);
+            TableHandle targetTableHandle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             StatementAnalyzer analyzer = statementAnalyzerFactory
