@@ -561,6 +561,18 @@ public class TestAccessControl
     }
 
     @Test
+    public void testMetadataFilterColumns()
+    {
+        getQueryRunner().getAccessControl().deny(privilege("nation.regionkey", SELECT_COLUMN));
+
+        assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_catalog = CURRENT_CATALOG AND table_schema = CURRENT_SCHEMA and table_name = 'nation'"))
+                .matches("VALUES VARCHAR 'nationkey', 'name', 'comment'");
+
+        assertThat(query("SELECT column_name FROM system.jdbc.columns WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA and table_name = 'nation'"))
+                .matches("VALUES VARCHAR 'nationkey', 'name', 'comment'");
+    }
+
+    @Test
     public void testCommentView()
     {
         String viewName = "comment_view" + randomNameSuffix();
