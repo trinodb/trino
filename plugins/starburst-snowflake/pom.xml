@@ -464,6 +464,25 @@
                                     <resource>mozilla/public-suffix-list.txt</resource>
                                 </resources>
                             </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>org.apache.parquet</groupId>
+                                        <artifactId>parquet-avro</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.parquet</groupId>
+                                        <artifactId>parquet-column</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.parquet</groupId>
+                                        <artifactId>parquet-hadoop</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <packages>
+                                    <pacakge>shaded.parquet.it.unimi.dsi.fastutil</pacakge>
+                                </packages>
+                            </exception>
                         </exceptions>
                     </configuration>
                 </plugin>
