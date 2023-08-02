@@ -275,14 +275,14 @@ public final class MetadataListing
                     // For redirected tables, column listing requires special handling, because the column metadata is unavailable
                     // at the source table, and needs to be fetched from the target table.
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
-                    targetTableName = redirection.getRedirectedTableName();
+                    targetTableName = redirection.redirectedTableName();
 
                     // The target table name should be non-empty. If it is empty, it means that there is an
                     // inconsistency in the connector's implementation of ConnectorMetadata#streamTableColumns and
                     // ConnectorMetadata#redirectTable.
                     if (targetTableName.isPresent()) {
                         redirectionSucceeded = true;
-                        targetTableHandle = redirection.getTableHandle().orElseThrow();
+                        targetTableHandle = redirection.tableHandle().orElseThrow();
                     }
                 }
                 catch (TrinoException e) {

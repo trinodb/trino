@@ -104,12 +104,12 @@ public class CommentTask
         }
 
         RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalTableName);
-        if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+        if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", originalTableName);
         }
 
-        accessControl.checkCanSetTableComment(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
-        TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
+        accessControl.checkCanSetTableComment(session.toSecurityContext(), redirectionAwareTableHandle.redirectedTableName().orElse(originalTableName));
+        TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
         metadata.setTableComment(session, tableHandle, statement.getComment());
     }
 
@@ -152,10 +152,10 @@ public class CommentTask
         }
         else {
             RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, originalObjectName);
-            if (redirectionAwareTableHandle.getTableHandle().isEmpty()) {
+            if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", originalObjectName);
             }
-            TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
+            TableHandle tableHandle = redirectionAwareTableHandle.tableHandle().get();
 
             String columnName = statement.getName().getSuffix();
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
@@ -163,7 +163,7 @@ public class CommentTask
                 throw semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: %s", columnName);
             }
 
-            accessControl.checkCanSetColumnComment(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalObjectName));
+            accessControl.checkCanSetColumnComment(session.toSecurityContext(), redirectionAwareTableHandle.redirectedTableName().orElse(originalObjectName));
 
             metadata.setColumnComment(session, tableHandle, columnHandles.get(columnName), statement.getComment());
         }
