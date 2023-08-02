@@ -608,6 +608,16 @@ public class TestFilterStatsCalculator
                                 .highValue(100.0)
                                 .nullsFraction(0.0));
 
+        // Expression as value. CAST from DOUBLE to DECIMAL(7,2)
+        // Produces row count estimate without updating symbol stats
+        assertExpression("CAST(x AS DECIMAL(7,2)) BETWEEN CAST(DECIMAL '-2.50' AS DECIMAL(7, 2)) AND CAST(DECIMAL '2.50' AS DECIMAL(7, 2))")
+                .outputRowsCount(219.726563)
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(xStats.getDistinctValuesCount())
+                                .lowValue(xStats.getLowValue())
+                                .highValue(xStats.getHighValue())
+                                .nullsFraction(xStats.getNullsFraction()));
+
         assertExpression("'a' IN ('a', 'b')").equalTo(standardInputStatistics);
         assertExpression("'a' IN ('a', 'b', NULL)").equalTo(standardInputStatistics);
         assertExpression("'a' IN ('b', 'c')").outputRowsCount(0);
