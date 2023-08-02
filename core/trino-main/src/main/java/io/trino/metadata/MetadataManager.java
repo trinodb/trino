@@ -544,7 +544,7 @@ public final class MetadataManager
 
         // TODO: consider a better way to resolve relation names: https://github.com/trinodb/trino/issues/9400
         try {
-            return Optional.of(getRedirectionAwareTableHandle(session, name).getTableHandle().isPresent());
+            return Optional.of(getRedirectionAwareTableHandle(session, name).tableHandle().isPresent());
         }
         catch (TrinoException e) {
             // ignore redirection errors for consistency with listing

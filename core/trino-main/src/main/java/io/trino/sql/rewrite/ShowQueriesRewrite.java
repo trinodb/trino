@@ -307,11 +307,11 @@ public final class ShowQueriesRewrite
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
                 if (!metadata.isView(session, qualifiedTableName)) {
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, qualifiedTableName);
-                    if (redirection.getTableHandle().isEmpty()) {
+                    if (redirection.tableHandle().isEmpty()) {
                         throw semanticException(TABLE_NOT_FOUND, showGrants, "Table '%s' does not exist", tableName);
                     }
-                    if (redirection.getRedirectedTableName().isPresent()) {
-                        throw semanticException(NOT_SUPPORTED, showGrants, "Table %s is redirected to %s and SHOW GRANTS is not supported with table redirections", tableName.get(), redirection.getRedirectedTableName().get());
+                    if (redirection.redirectedTableName().isPresent()) {
+                        throw semanticException(NOT_SUPPORTED, showGrants, "Table %s is redirected to %s and SHOW GRANTS is not supported with table redirections", tableName.get(), redirection.redirectedTableName().get());
                     }
                 }
 
@@ -483,11 +483,11 @@ public final class ShowQueriesRewrite
                 // Check for table if view is not present
                 if (!isView) {
                     RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, tableName);
-                    tableHandle = redirection.getTableHandle();
+                    tableHandle = redirection.tableHandle();
                     if (tableHandle.isEmpty()) {
                         throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
                     }
-                    targetTableName = redirection.getRedirectedTableName().orElse(tableName);
+                    targetTableName = redirection.redirectedTableName().orElse(tableName);
                 }
             }
 
@@ -658,10 +658,10 @@ public final class ShowQueriesRewrite
                 }
 
                 RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, objectName);
-                TableHandle tableHandle = redirection.getTableHandle()
+                TableHandle tableHandle = redirection.tableHandle()
                         .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", objectName));
 
-                QualifiedObjectName targetTableName = redirection.getRedirectedTableName().orElse(objectName);
+                QualifiedObjectName targetTableName = redirection.redirectedTableName().orElse(objectName);
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), targetTableName);
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle).getMetadata();
 
