@@ -948,8 +948,12 @@ public class EventDrivenFaultTolerantQueryScheduler
             boolean nonSpeculativeTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
                     .anyMatch(task -> !task.isSpeculative() && !task.getNodeLease().getNode().isDone());
 
-            // do not start a speculative stage if there is non-speculative work still to be done.
-            boolean canScheduleSpeculative = !nonSpeculativeTasksInQueue && !nonSpeculativeTasksWaitingForNode;
+            // Do not start a speculative stage if there is non-speculative work still to be done.
+            // Do not start a speculative stage after partition count has been changed at runtime, as when we estimate
+            // by progress, repartition tasks will produce very uneven output for different output partitions, which
+            // will result in very bad task bin-packing results; also the fact that runtime adaptive partitioning
+            // happened already suggests that there is plenty work ahead.
+            boolean canScheduleSpeculative = !nonSpeculativeTasksInQueue && !nonSpeculativeTasksWaitingForNode && !runtimeAdaptivePartitioningApplied;
             boolean speculative = false;
             int finishedSourcesCount = 0;
             int estimatedByProgressSourcesCount = 0;
