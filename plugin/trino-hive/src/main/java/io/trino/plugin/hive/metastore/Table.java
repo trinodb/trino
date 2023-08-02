@@ -327,6 +327,17 @@ public class Table
             return this;
         }
 
+        public Builder setParameter(String key, Optional<String> value)
+        {
+            if (value.isEmpty()) {
+                this.parameters.remove(key);
+            }
+            else {
+                this.parameters.put(key, value.get());
+            }
+            return this;
+        }
+
         public Builder setViewOriginalText(Optional<String> viewOriginalText)
         {
             this.viewOriginalText = viewOriginalText;

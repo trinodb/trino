@@ -31,6 +31,7 @@ import org.apache.iceberg.io.FileIO;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
@@ -85,6 +86,7 @@ public class HiveMetastoreTableOperations
                     .withStorage(storage -> storage.setLocation(metadata.location()))
                     .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
                     .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
+                    .setParameter(TABLE_COMMENT, Optional.ofNullable(metadata.properties().get(TABLE_COMMENT)))
                     .build();
 
             // todo privileges should not be replaced for an alter
