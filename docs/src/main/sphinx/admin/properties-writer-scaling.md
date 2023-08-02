@@ -15,10 +15,10 @@ the needs of the query.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
+- **Session property:** `scale_writers`
 
 Enable writer scaling by dynamically increasing the number of writer tasks on
-the cluster. This can be specified on a per-query basis using the `scale_writers`
-session property.
+the cluster.
 
 (prop-task-scale-writers)=
 
@@ -26,13 +26,13 @@ session property.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
+- **Session property:** `task_scale_writers_enabled`
 
 Enable scaling the number of concurrent writers within a task. The maximum writer
 count per task for scaling is `task.scale-writers.max-writer-count`. Additional
 writers are added only when the average amount of uncompressed data processed per writer
 is above the minimum threshold of `writer-scaling-min-data-processed` and query is bottlenecked on
-writing. This can be specified on a per-query basis using the `task_scale_writers_enabled`
-session property.
+writing.
 
 (prop-task-scale-writers-max-writer-count)=
 
@@ -41,31 +41,22 @@ session property.
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** The number of physical CPUs of the node with a maximum of 32
 
-Maximum number of concurrent writers per task upto which the task can be scaled when
-`task.scale-writers.enabled` is set. Increasing this value may improve the
-performance of writes when the query is bottlenecked on writing. Setting this too high
-may cause the cluster to become overloaded due to excessive resource utilization.
+Maximum number of concurrent writers per task up to which the task can be scaled
+when `task.scale-writers.enabled` is set. Increasing this value may improve the
+performance of writes when the query is bottlenecked on writing. Setting this
+too high may cause the cluster to become overloaded due to excessive resource
+utilization.
 
 ## `writer-min-size`
 
-- **Type:** {ref}`prop-type-data-size`
-- **Default value:** `32MB`
+Deprecated and replaced by {ref}`writer-scaling-min-data-processed`.
 
-The minimum amount of data that must be written by a writer task before
-another writer is eligible to be added. Each writer task may have multiple
-writers, controlled by `task.writer-count`, thus this value is effectively
-divided by the number of writers per task. This can be specified on a
-per-query basis using the `writer_min_size` session property.
-
-:::{warning}
-This property is deprecated now. Please use `writer-scaling-min-data-processed`.
-:::
-
+(writer-scaling-min-data-processed)=
 ## `writer-scaling-min-data-processed`
 
 - **Type:** {ref}`prop-type-data-size`
 - **Default value:** `100MB`
+- **Session property:** `writer_scaling_min_data_processed`
 
 The minimum amount of uncompressed data that must be processed by a writer
-before another writer can be added. This can be specified on a
-per-query basis using the `writer_scaling_min_data_processed` session property.
+before another writer can be added.
