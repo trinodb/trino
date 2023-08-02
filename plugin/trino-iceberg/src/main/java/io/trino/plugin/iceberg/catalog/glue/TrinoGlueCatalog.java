@@ -431,9 +431,9 @@ public class TrinoGlueCatalog
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(glueColumns.size());
         for (Column glueColumn : glueColumns) {
             Map<String, String> columnParameters = getColumnParameters(glueColumn);
-            String trinoTypeName = columnParameters.getOrDefault(COLUMN_TRINO_TYPE_ID_PROPERTY, glueColumn.getType());
+            String trinoTypeId = columnParameters.getOrDefault(COLUMN_TRINO_TYPE_ID_PROPERTY, glueColumn.getType());
             boolean notNull = parseBoolean(columnParameters.getOrDefault(COLUMN_TRINO_NOT_NULL_PROPERTY, "false"));
-            Type type = typeManager.getType(TypeId.of(trinoTypeName));
+            Type type = typeManager.getType(TypeId.of(trinoTypeId));
             columns.add(ColumnMetadata.builder()
                     .setName(glueColumn.getName())
                     .setType(type)
