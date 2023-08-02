@@ -19,7 +19,7 @@ import java.util.Optional;
 
 public interface ContentSchemaProvider
 {
-    Optional<String> readKeyContentSchema(KafkaTableHandle tableHandle);
+    Optional<String> getKey(KafkaTableHandle tableHandle);
 
-    Optional<String> readValueContentSchema(KafkaTableHandle tableHandle);
+    Optional<String> getMessage(KafkaTableHandle tableHandle);
 }

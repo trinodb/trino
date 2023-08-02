@@ -21,13 +21,13 @@ public abstract class AbstractContentSchemaProvider
         implements ContentSchemaProvider
 {
     @Override
-    public final Optional<String> readKeyContentSchema(KafkaTableHandle tableHandle)
+    public final Optional<String> getKey(KafkaTableHandle tableHandle)
     {
         return readSchema(tableHandle.getKeyDataSchemaLocation(), tableHandle.getKeySubject());
     }
 
     @Override
-    public final Optional<String> readValueContentSchema(KafkaTableHandle tableHandle)
+    public final Optional<String> getMessage(KafkaTableHandle tableHandle)
     {
         return readSchema(tableHandle.getMessageDataSchemaLocation(), tableHandle.getMessageSubject());
     }
