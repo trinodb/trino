@@ -43,6 +43,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
+import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 
 @NotThreadSafe
@@ -94,24 +95,18 @@ public abstract class AbstractMetastoreTableOperations
         verify(version.isEmpty(), "commitNewTable called on a table which already exists");
         String newMetadataLocation = writeNewMetadata(metadata, 0);
 
-        Table.Builder builder = Table.builder()
+        Table table = Table.builder()
                 .setDatabaseName(database)
                 .setTableName(tableName)
                 .setOwner(owner)
                 // Table needs to be EXTERNAL, otherwise table rename in HMS would rename table directory and break table contents.
                 .setTableType(EXTERNAL_TABLE.name())
-                .setDataColumns(toHiveColumns(metadata.schema().columns()))
-                .withStorage(storage -> storage.setLocation(metadata.location()))
                 .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))
                 // This is a must-have property for the EXTERNAL_TABLE table type
                 .setParameter("EXTERNAL", "TRUE")
                 .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
-                .setParameter(METADATA_LOCATION_PROP, newMetadataLocation);
-        String tableComment = metadata.properties().get(TABLE_COMMENT);
-        if (tableComment != null) {
-            builder.setParameter(TABLE_COMMENT, tableComment);
-        }
-        Table table = builder.build();
+                .apply(builder -> updateMetastoreTable(builder, metadata, newMetadataLocation, Optional.empty()))
+                .build();
 
         PrincipalPrivileges privileges = owner.map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
         try {
@@ -123,6 +118,16 @@ public abstract class AbstractMetastoreTableOperations
             fileIo.deleteFile(newMetadataLocation);
             throw e;
         }
+    }
+
+    protected Table.Builder updateMetastoreTable(Table.Builder builder, TableMetadata metadata, String metadataLocation, Optional<String> previousMetadataLocation)
+    {
+        return builder
+                .setDataColumns(toHiveColumns(metadata.schema().columns()))
+                .withStorage(storage -> storage.setLocation(metadata.location()))
+                .setParameter(METADATA_LOCATION_PROP, metadataLocation)
+                .setParameter(PREVIOUS_METADATA_LOCATION_PROP, previousMetadataLocation)
+                .setParameter(TABLE_COMMENT, Optional.ofNullable(metadata.properties().get(TABLE_COMMENT)));
     }
 
     protected Table getTable()
