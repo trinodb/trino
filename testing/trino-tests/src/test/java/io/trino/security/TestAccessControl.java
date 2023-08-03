@@ -580,8 +580,7 @@ public class TestAccessControl
         String viewName = "comment_view" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " COMMENT 'old comment' AS SELECT * FROM orders");
         assertAccessDenied("COMMENT ON VIEW " + viewName + " IS 'new comment'", "Cannot comment view to .*", privilege(viewName, COMMENT_VIEW));
-        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "COMMENT ON VIEW " + viewName + " IS 'new comment'"))
-                .hasMessageContaining("This connector does not support setting view comments");
+        assertAccessAllowed("COMMENT ON VIEW " + viewName + " IS 'new comment'");
     }
 
     @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")

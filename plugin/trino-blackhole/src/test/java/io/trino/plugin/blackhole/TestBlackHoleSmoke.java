@@ -177,6 +177,38 @@ public class TestBlackHoleSmoke
     }
 
     @Test
+    public void testCommentOnView()
+    {
+        String viewName = "test_comment_on_view_" + randomNameSuffix();
+        queryRunner.execute("CREATE VIEW " + viewName + " AS SELECT * FROM tpch.tiny.nation");
+
+        // comment set
+        queryRunner.execute("COMMENT ON VIEW " + viewName + " IS 'new comment'");
+        assertThat(getTableComment(viewName)).isEqualTo("new comment");
+
+        // comment deleted
+        queryRunner.execute("COMMENT ON VIEW " + viewName + " IS NULL");
+        assertThat(getTableComment(viewName)).isEqualTo(null);
+
+        // comment set to non-empty value before verifying setting empty comment
+        queryRunner.execute("COMMENT ON VIEW " + viewName + " IS 'updated comment'");
+        assertThat(getTableComment(viewName)).isEqualTo("updated comment");
+
+        // comment set to empty
+        queryRunner.execute("COMMENT ON VIEW " + viewName + " IS ''");
+        assertThat(getTableComment(viewName)).isEqualTo("");
+
+        queryRunner.execute("DROP VIEW " + viewName);
+    }
+
+    private String getTableComment(String tableName)
+    {
+        return (String) queryRunner.execute("SELECT comment FROM system.metadata.table_comments " +
+                "WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND table_name = '" + tableName + "'")
+                .getOnlyValue();
+    }
+
+    @Test
     public void testMaterializedView()
     {
         String viewName = "test_materialized_view_" + randomNameSuffix();
