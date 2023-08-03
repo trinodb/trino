@@ -78,6 +78,7 @@ import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -170,6 +171,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -694,6 +696,16 @@ public class IcebergMetadata
                 })
                 .flatMap(List::stream)
                 .iterator();
+    }
+
+    @Override
+    public Iterator<RelationCommentMetadata> streamRelationComments(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        return catalog.streamRelationComments(session, schemaName, relationFilter, tableName -> redirectTable(session, tableName).isPresent())
+                .orElseGet(() -> {
+                    // Catalog does not support streamRelationComments
+                    return ConnectorMetadata.super.streamRelationComments(session, schemaName, relationFilter);
+                });
     }
 
     @Override
