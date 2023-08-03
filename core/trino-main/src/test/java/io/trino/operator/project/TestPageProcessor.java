@@ -277,7 +277,7 @@ public class TestPageProcessor
 
         // process large page which will reduce batch size
         Slice[] slices = new Slice[(int) (MAX_BATCH_SIZE * 2.5)];
-        Arrays.fill(slices, Slices.allocate(1024));
+        Arrays.fill(slices, Slices.allocate(4096));
         Page inputPage = new Page(createSlicesBlock(slices));
 
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, new DriverYieldSignal(), inputPage);
@@ -319,7 +319,7 @@ public class TestPageProcessor
 
         // process large page which will reduce batch size
         Slice[] slices = new Slice[(int) (MAX_BATCH_SIZE * 2.5)];
-        Arrays.fill(slices, Slices.allocate(1024));
+        Arrays.fill(slices, Slices.allocate(4096));
         Page inputPage = new Page(createSlicesBlock(slices));
 
         Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, inputPage);
@@ -359,9 +359,9 @@ public class TestPageProcessor
                 ImmutableList.of(new InputPageProjection(0, VARCHAR), new InputPageProjection(1, VARCHAR)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
-        // create 2 columns X 800 rows of strings with each string's size = 10KB
-        // this can force previouslyComputedResults to be saved given the page is 16MB in size
-        String value = join("", nCopies(10_000, "a"));
+        // create 2 columns X 800 rows of strings with each string's size = 30KB
+        // this can force previouslyComputedResults to be saved given the page is 48MB in size
+        String value = join("", nCopies(30_000, "a"));
         List<String> values = nCopies(800, value);
         Page inputPage = new Page(createStringsBlock(values), createStringsBlock(values));
 
