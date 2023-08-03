@@ -496,6 +496,7 @@ public class OperatorStats
         ImmutableList.Builder<OperatorInfo> operatorInfos = ImmutableList.builder();
         for (OperatorStats operator : operators) {
             checkArgument(operator.getOperatorId() == operatorId, "Expected operatorId to be %s but was %s", operatorId, operator.getOperatorId());
+            checkArgument(operator.getAlternativeId() == alternativeId, "Expected alternativeId to be %s but was %s", alternativeId, operator.getAlternativeId());
             checkArgument(operator.getOperatorType().equals(operatorType), "Expected operatorType to be %s but was %s", operatorType, operator.getOperatorType());
 
             totalDrivers += operator.totalDrivers;

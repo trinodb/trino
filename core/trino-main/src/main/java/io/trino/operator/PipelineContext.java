@@ -101,7 +101,7 @@ public class PipelineContext
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
-    private final ConcurrentMap<Integer, OperatorStats> operatorSummaries = new ConcurrentHashMap<>();
+    private final ConcurrentMap<AlternativeOperatorId, OperatorStats> operatorSummaries = new ConcurrentHashMap<>();
 
     private final MemoryTrackingContext pipelineMemoryContext;
 
@@ -205,7 +205,7 @@ public class PipelineContext
         // merge the operator stats into the operator summary
         List<OperatorStats> operators = driverStats.getOperatorStats();
         for (OperatorStats operator : operators) {
-            operatorSummaries.merge(operator.getOperatorId(), operator, OperatorStats::add);
+            operatorSummaries.merge(new AlternativeOperatorId(operator.getOperatorId(), operator.getAlternativeId()), operator, OperatorStats::add);
         }
 
         physicalInputDataSize.update(driverStats.getPhysicalInputDataSize().toBytes());
@@ -400,9 +400,9 @@ public class PipelineContext
         boolean hasUnfinishedDrivers = false;
         boolean unfinishedDriversFullyBlocked = true;
 
-        TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
+        TreeMap<AlternativeOperatorId, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
         // Expect the same number of operators as existing summaries, with one operator per driver context in the resulting multimap
-        ListMultimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create(operatorSummaries.size(), driverContexts.size());
+        ListMultimap<AlternativeOperatorId, OperatorStats> runningOperators = ArrayListMultimap.create(operatorSummaries.size(), driverContexts.size());
         ImmutableList.Builder<DriverStats> drivers = ImmutableList.builderWithExpectedSize(driverContexts.size());
         for (DriverContext driverContext : driverContexts) {
             DriverStats driverStats = driverContext.getDriverStats();
@@ -423,7 +423,7 @@ public class PipelineContext
             totalBlockedTime += driverStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
             for (OperatorStats operatorStats : driverStats.getOperatorStats()) {
-                runningOperators.put(operatorStats.getOperatorId(), operatorStats);
+                runningOperators.put(new AlternativeOperatorId(operatorStats.getOperatorId(), operatorStats.getAlternativeId()), operatorStats);
             }
 
             physicalInputDataSize += driverStats.getPhysicalInputDataSize().toBytes();
@@ -450,7 +450,7 @@ public class PipelineContext
         }
 
         // Computes the combined stats from existing completed operators and those still running
-        BiFunction<Integer, OperatorStats, OperatorStats> combineOperatorStats = (operatorId, current) -> {
+        BiFunction<AlternativeOperatorId, OperatorStats, OperatorStats> combineOperatorStats = (operatorId, current) -> {
             List<OperatorStats> runningStats = runningOperators.get(operatorId);
             if (runningStats.isEmpty()) {
                 return current;
@@ -466,7 +466,7 @@ public class PipelineContext
                 return combined;
             }
         };
-        for (Integer operatorId : runningOperators.keySet()) {
+        for (AlternativeOperatorId operatorId : runningOperators.keySet()) {
             operatorSummaries.compute(operatorId, combineOperatorStats);
         }
 
@@ -653,6 +653,22 @@ public class PipelineContext
                 runningPartitionedSplitsWeight = 0;
             }
             return new PipelineStatus(queuedDrivers, runningDrivers, blockedDrivers, queuedPartitionedSplits, queuedPartitionedSplitsWeight, runningPartitionedSplits, runningPartitionedSplitsWeight);
+        }
+    }
+
+    private record AlternativeOperatorId(int operatorId, int alternativeId)
+            implements Comparable<AlternativeOperatorId>
+    {
+        AlternativeOperatorId {}
+
+        @Override
+        public int compareTo(AlternativeOperatorId o)
+        {
+            if (alternativeId != o.alternativeId) {
+                return alternativeId - o.alternativeId;
+            }
+
+            return operatorId - o.operatorId;
         }
     }
 }

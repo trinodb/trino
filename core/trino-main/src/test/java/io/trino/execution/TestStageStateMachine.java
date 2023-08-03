@@ -15,9 +15,18 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.scheduler.SplitSchedulerStats;
+import io.trino.operator.DriverContext;
+import io.trino.operator.OperatorStats;
+import io.trino.operator.PipelineContext;
+import io.trino.operator.TaskStats;
+import io.trino.operator.TestingOperatorContext;
+import io.trino.spi.QueryId;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
@@ -27,26 +36,32 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.StringLiteral;
+import org.joda.time.DateTime;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
+import java.net.URI;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
@@ -64,7 +79,7 @@ public class TestStageStateMachine
         FAILED_CAUSE.setStackTrace(new StackTraceElement[0]);
     }
 
-    private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+    private ScheduledExecutorService executor = Executors.newScheduledThreadPool(0, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     @AfterAll
     public void tearDown()
@@ -190,6 +205,138 @@ public class TestStageStateMachine
 
         assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
         assertFinalState(stateMachine, StageState.FAILED);
+    }
+
+    @Test
+    public void testAlternativeOperatorsNotMerged()
+    {
+        StageStateMachine stateMachine = createStageStateMachine();
+        PipelineContext pipeline0Context = TestingOperatorContext.createDriverContext(executor).getPipelineContext();
+        DriverContext alternative0DriverContext = pipeline0Context.addDriverContext();
+        alternative0DriverContext.setAlternativePlanContext((transaction, session, columns, dynamicFilter) -> null, 0);
+        alternative0DriverContext.addOperatorContext(0, new PlanNodeId("0"), "operator");
+        DriverContext alternative1DriverContext = pipeline0Context.addDriverContext();
+        alternative1DriverContext.setAlternativePlanContext((transaction, session, columns, dynamicFilter) -> null, 1);
+        alternative1DriverContext.addOperatorContext(0, new PlanNodeId("0"), "operator");
+        pipeline0Context.driverFinished(alternative0DriverContext);
+        pipeline0Context.driverFinished(alternative1DriverContext);
+
+        PipelineContext pipeline1Context = TestingOperatorContext.createDriverContext(executor).getPipelineContext();
+        DriverContext alternative10DriverContext = pipeline1Context.addDriverContext();
+        alternative10DriverContext.setAlternativePlanContext((transaction, session, columns, dynamicFilter) -> null, 0);
+        alternative10DriverContext.addOperatorContext(0, new PlanNodeId("0"), "operator");
+        DriverContext alternative11DriverContext = pipeline1Context.addDriverContext();
+        alternative11DriverContext.setAlternativePlanContext((transaction, session, columns, dynamicFilter) -> null, 1);
+        alternative11DriverContext.addOperatorContext(0, new PlanNodeId("0"), "operator");
+        pipeline1Context.driverFinished(alternative10DriverContext);
+        pipeline1Context.driverFinished(alternative11DriverContext);
+
+        StageId stageId = new StageId(new QueryId("0"), 0);
+        List<TaskInfo> taskInfoList = ImmutableList.of(
+                TaskInfo.createInitialTask(
+                        new TaskId(stageId, 0, 0),
+                        URI.create(""),
+                        "0",
+                        false,
+                        Optional.empty(),
+                        taskStats(ImmutableList.of(pipeline0Context, pipeline1Context))));
+        StageInfo stageInfo = stateMachine.getStageInfo(() -> taskInfoList);
+
+        List<OperatorStats> operatorSummaries = stageInfo.getStageStats().getOperatorSummaries();
+        assertEquals(2, operatorSummaries.size());
+        assertEquals(operatorSummaries.get(0).getOperatorId(), 0);
+        assertEquals(operatorSummaries.get(1).getOperatorId(), 0);
+        assertNotEquals(operatorSummaries.get(0).getAlternativeId(), operatorSummaries.get(1).getAlternativeId());
+    }
+
+    @Test
+    public void testOperatorsMerged()
+    {
+        StageStateMachine stateMachine = createStageStateMachine();
+        PipelineContext pipeline0Context = TestingOperatorContext.createDriverContext(executor).getPipelineContext();
+        DriverContext alternative0DriverContext = pipeline0Context.addDriverContext();
+        alternative0DriverContext.setAlternativePlanContext((transaction, session, columns, dynamicFilter) -> null, 2);
+        alternative0DriverContext.addOperatorContext(0, new PlanNodeId("0"), "operator");
+        DriverContext alternative1DriverContext = pipeline0Context.addDriverContext();
+        alternative1DriverContext.setAlternativePlanContext((transaction, session, columns, dynamicFilter) -> null, 2);
+        alternative1DriverContext.addOperatorContext(0, new PlanNodeId("0"), "operator");
+        pipeline0Context.driverFinished(alternative0DriverContext);
+        pipeline0Context.driverFinished(alternative1DriverContext);
+
+        PipelineContext pipeline1Context = TestingOperatorContext.createDriverContext(executor).getPipelineContext();
+        DriverContext alternative10DriverContext = pipeline1Context.addDriverContext();
+        alternative10DriverContext.setAlternativePlanContext((transaction, session, columns, dynamicFilter) -> null, 2);
+        alternative10DriverContext.addOperatorContext(0, new PlanNodeId("0"), "operator");
+        DriverContext alternative11DriverContext = pipeline1Context.addDriverContext();
+        alternative11DriverContext.setAlternativePlanContext((transaction, session, columns, dynamicFilter) -> null, 2);
+        alternative11DriverContext.addOperatorContext(0, new PlanNodeId("0"), "operator");
+        pipeline1Context.driverFinished(alternative10DriverContext);
+        pipeline1Context.driverFinished(alternative11DriverContext);
+
+        StageId stageId = new StageId(new QueryId("0"), 0);
+        List<TaskInfo> taskInfoList = ImmutableList.of(
+                TaskInfo.createInitialTask(
+                        new TaskId(stageId, 0, 0),
+                        URI.create(""),
+                        "0",
+                        false,
+                        Optional.empty(),
+                        taskStats(ImmutableList.of(pipeline0Context, pipeline1Context))));
+        StageInfo stageInfo = stateMachine.getStageInfo(() -> taskInfoList);
+
+        List<OperatorStats> operatorSummaries = stageInfo.getStageStats().getOperatorSummaries();
+        assertEquals(1, operatorSummaries.size());
+        assertEquals(operatorSummaries.get(0).getOperatorId(), 0);
+        assertEquals(operatorSummaries.get(0).getAlternativeId(), 2);
+    }
+
+    private static TaskStats taskStats(List<PipelineContext> pipelineContexts)
+    {
+        return new TaskStats(DateTime.now(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                0,
+                0,
+                0,
+                0L,
+                0,
+                0,
+                0L,
+                0,
+                0,
+                0.0,
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                Duration.ZERO,
+                new Duration(0, MILLISECONDS),
+                Duration.ZERO,
+                false,
+                ImmutableSet.of(),
+                DataSize.ofBytes(0),
+                0,
+                new Duration(0, MILLISECONDS),
+                DataSize.ofBytes(0),
+                0,
+                DataSize.ofBytes(0),
+                0,
+                DataSize.ofBytes(0),
+                0,
+                new Duration(0, MILLISECONDS),
+                DataSize.ofBytes(0),
+                0,
+                new Duration(0, MILLISECONDS),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                Optional.empty(),
+                0,
+                new Duration(0, MILLISECONDS),
+                pipelineContexts.stream().map(PipelineContext::getPipelineStats).collect(toImmutableList()));
     }
 
     private static void assertFinalState(StageStateMachine stateMachine, StageState expectedState)
