@@ -13,9 +13,19 @@
  */
 package io.trino.plugin.kafka.encoder;
 
-import io.trino.spi.connector.ConnectorSession;
+import java.util.List;
+import java.util.Optional;
 
-public interface RowEncoderFactory
+import static java.util.Objects.requireNonNull;
+
+public record RowEncoderSpec(String dataFormat, Optional<String> dataSchema, List<EncoderColumnHandle> columnHandles, String topic, KafkaFieldType kafkaFieldType)
 {
-    RowEncoder create(ConnectorSession session, RowEncoderSpec rowEncoderSpec);
+    public RowEncoderSpec
+    {
+        requireNonNull(dataFormat, "dataFormat is null");
+        requireNonNull(dataSchema, "dataSchema is null");
+        requireNonNull(columnHandles, "columnHandles is null");
+        requireNonNull(topic, "topic is null");
+        requireNonNull(kafkaFieldType, "kafkaFieldType is null");
+    }
 }
