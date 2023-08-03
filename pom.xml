@@ -2475,6 +2475,7 @@
                                     -Xep:MutablePublicArray:ERROR \
                                     -Xep:NarrowingCompoundAssignment:ERROR \
                                     -Xep:NullOptional:ERROR \
+                                    -Xep:NullableOptional:ERROR \
                                     -Xep:ObjectToString:ERROR \
                                     -Xep:OptionalNotPresent:ERROR \
                                     -Xep:OrphanedFormatString:ERROR \
