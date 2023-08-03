@@ -52,8 +52,8 @@ import static java.util.Objects.requireNonNull;
 public class PageProcessor
 {
     public static final int MAX_BATCH_SIZE = 8 * 1024;
-    static final int MAX_PAGE_SIZE_IN_BYTES = 4 * 1024 * 1024;
-    static final int MIN_PAGE_SIZE_IN_BYTES = 1024 * 1024;
+    static final int MAX_PAGE_SIZE_IN_BYTES = 16 * 1024 * 1024;
+    static final int MIN_PAGE_SIZE_IN_BYTES = 4 * 1024 * 1024;
 
     private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
