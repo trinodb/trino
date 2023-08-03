@@ -50,6 +50,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableC
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertyOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1385,16 +1386,16 @@ public class TestDeltaLakeColumnMappingMode
 
             // Column mapping mode 'none' is tested in TestDeltaLakeDatabricksChangeDataFeedCompatibility
             assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + targetTableName + " SET regionkey = 10"))
-                    .hasMessageContaining("Unsupported column mapping mode for tables with change data feed enabled: " + mode);
+                    .hasMessageContaining("Unsupported column mapping mode for tables with change data feed enabled: " + mode.toUpperCase(ENGLISH));
             assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + targetTableName))
-                    .hasMessageContaining("Unsupported column mapping mode for tables with change data feed enabled: " + mode);
+                    .hasMessageContaining("Unsupported column mapping mode for tables with change data feed enabled: " + mode.toUpperCase(ENGLISH));
             assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + targetTableName + " cdf USING delta.default." + sourceTableName + " n " +
                     "ON (cdf.nationkey = n.nationkey) " +
                     "WHEN MATCHED " +
                     "THEN UPDATE SET nationkey = (cdf.nationkey + n.nationkey + n.regionkey) " +
                     "WHEN NOT MATCHED " +
                     "THEN INSERT (nationkey, name, regionkey) VALUES (n.nationkey, n.name, n.regionkey)"))
-                    .hasMessageContaining("Unsupported column mapping mode for tables with change data feed enabled: " + mode);
+                    .hasMessageContaining("Unsupported column mapping mode for tables with change data feed enabled: " + mode.toUpperCase(ENGLISH));
 
             assertThat(onDelta().executeQuery("SELECT nationkey, name, regionkey, _change_type, _commit_version " +
                     "FROM table_changes('default." + targetTableName + "', 0)"))
