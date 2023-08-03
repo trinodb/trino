@@ -26,6 +26,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
 
@@ -53,6 +54,7 @@ class HdfsInputFile
         this.file = hadoopPath(location);
         this.length = length;
         checkArgument(length == null || length >= 0, "length is negative");
+        location.verifyValidFileLocation();
     }
 
     @Override
@@ -66,7 +68,7 @@ class HdfsInputFile
     public TrinoInputStream newStream()
             throws IOException
     {
-        return new HdfsTrinoInputStream(openFile());
+        return new HdfsTrinoInputStream(location, openFile());
     }
 
     @Override
@@ -117,7 +119,10 @@ class HdfsInputFile
             }
             catch (IOException e) {
                 openFileCallStat.recordException(e);
-                throw e;
+                if (e instanceof FileNotFoundException) {
+                    throw new FileNotFoundException(location.toString());
+                }
+                throw new IOException("Open file %s failed: %s".formatted(location, e.getMessage()), e);
             }
         });
     }
@@ -127,7 +132,15 @@ class HdfsInputFile
     {
         if (status == null) {
             FileSystem fileSystem = environment.getFileSystem(context, file);
-            status = environment.doAs(context.getIdentity(), () -> fileSystem.getFileStatus(file));
+            try {
+                status = environment.doAs(context.getIdentity(), () -> fileSystem.getFileStatus(file));
+            }
+            catch (FileNotFoundException e) {
+                throw new FileNotFoundException(toString());
+            }
+            catch (IOException e) {
+                throw new IOException("Get status for file %s failed: %s".formatted(location, e.getMessage()), e);
+            }
         }
         return status;
     }
