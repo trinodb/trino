@@ -11,19 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.kafka.encoder.raw;
+package io.trino.plugin.kafka.encoder;
 
-import io.trino.plugin.kafka.encoder.RowEncoder;
-import io.trino.plugin.kafka.encoder.RowEncoderFactory;
-import io.trino.plugin.kafka.encoder.RowEncoderSpec;
-import io.trino.spi.connector.ConnectorSession;
-
-public class RawRowEncoderFactory
-        implements RowEncoderFactory
+public enum KafkaFieldType
 {
-    @Override
-    public RowEncoder create(ConnectorSession session, RowEncoderSpec rowEncoderSpec)
-    {
-        return new RawRowEncoder(session, rowEncoderSpec.columnHandles());
-    }
+    KEY,
+    MESSAGE,
 }
