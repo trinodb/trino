@@ -46,6 +46,7 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TrinoViewUtil;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
+import io.trino.plugin.hive.ViewReaderUtil;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
@@ -58,6 +59,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -80,22 +82,30 @@ import org.apache.iceberg.io.FileIO;
 
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.TrinoViewUtil.createViewProperties;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
@@ -112,6 +122,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
+import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
@@ -119,6 +130,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_NOT_NULL_PROPERTY
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_TYPE_ID_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_METADATA_INFO_VALID_FOR;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
+import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
@@ -142,6 +154,8 @@ public class TrinoGlueCatalog
 {
     private static final Logger LOG = Logger.get(TrinoGlueCatalog.class);
 
+    private static final int PER_QUERY_CACHE_SIZE = 1000;
+
     private final String trinoVersion;
     private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
@@ -152,7 +166,7 @@ public class TrinoGlueCatalog
 
     private final Cache<SchemaTableName, com.amazonaws.services.glue.model.Table> glueTableCache = EvictableCacheBuilder.newBuilder()
             // Even though this is query-scoped, this still needs to be bounded. information_schema queries can access large number of tables.
-            .maximumSize(Math.max(1000, IcebergMetadata.GET_METADATA_BATCH_SIZE))
+            .maximumSize(Math.max(PER_QUERY_CACHE_SIZE, IcebergMetadata.GET_METADATA_BATCH_SIZE))
             .build();
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
     private final Map<SchemaTableName, ConnectorViewDefinition> viewCache = new ConcurrentHashMap<>();
@@ -350,6 +364,107 @@ public class TrinoGlueCatalog
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
         }
         return tables.build();
+    }
+
+    @Override
+    public Optional<Iterator<RelationCommentMetadata>> streamRelationComments(
+            ConnectorSession session,
+            Optional<String> namespace,
+            UnaryOperator<Set<SchemaTableName>> relationFilter,
+            Predicate<SchemaTableName> isRedirected)
+    {
+        if (!cacheTableMetadata) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<RelationCommentMetadata> unfilteredResult = ImmutableList.builder();
+        ImmutableList.Builder<RelationCommentMetadata> filteredResult = ImmutableList.builder();
+        Map<SchemaTableName, com.amazonaws.services.glue.model.Table> unprocessed = new HashMap<>();
+
+        listNamespaces(session, namespace).stream()
+                .flatMap(glueNamespace -> getPaginatedResults(
+                        glueClient::getTables,
+                        new GetTablesRequest().withDatabaseName(glueNamespace),
+                        GetTablesRequest::setNextToken,
+                        GetTablesResult::getNextToken,
+                        stats.getGetTables())
+                        .map(GetTablesResult::getTableList)
+                        .flatMap(List::stream)
+                        .map(table -> Map.entry(new SchemaTableName(glueNamespace, table.getName()), table)))
+                .forEach(entry -> {
+                    SchemaTableName name = entry.getKey();
+                    com.amazonaws.services.glue.model.Table table = entry.getValue();
+                    String tableType = getTableType(table);
+                    Map<String, String> tableParameters = getTableParameters(table);
+                    if (isTrinoMaterializedView(tableType, tableParameters)) {
+                        Optional<String> comment = decodeMaterializedViewData(table.getViewOriginalText()).getComment();
+                        unfilteredResult.add(RelationCommentMetadata.forTable(name, comment));
+                    }
+                    else if (isPrestoView(tableParameters)) {
+                        Optional<String> comment = ViewReaderUtil.PrestoViewReader.decodeViewData(table.getViewOriginalText()).getComment();
+                        unfilteredResult.add(RelationCommentMetadata.forTable(name, comment));
+                    }
+                    else if (isRedirected.test(name)) {
+                        unfilteredResult.add(RelationCommentMetadata.forRedirectedTable(name));
+                    }
+                    else if (!isIcebergTable(tableParameters)) {
+                        // This can be e.g. Hive, Delta table, a Hive view, etc. Would be returned by listTables, so do not skip it
+                        unfilteredResult.add(RelationCommentMetadata.forTable(name, Optional.empty()));
+                    }
+                    else {
+                        String metadataLocation = tableParameters.get(METADATA_LOCATION_PROP);
+                        String metadataValidForMetadata = tableParameters.get(TRINO_TABLE_METADATA_INFO_VALID_FOR);
+                        if (metadataValidForMetadata != null && metadataValidForMetadata.equals(metadataLocation)) {
+                            Optional<String> comment = Optional.ofNullable(tableParameters.get(TABLE_COMMENT));
+                            unfilteredResult.add(RelationCommentMetadata.forTable(name, comment));
+                        }
+                        else {
+                            unprocessed.put(name, table);
+                            if (unprocessed.size() >= PER_QUERY_CACHE_SIZE) {
+                                getCommentsFromIcebergMetadata(session, unprocessed, relationFilter, filteredResult::add);
+                                unprocessed.clear();
+                            }
+                        }
+                    }
+                });
+
+        if (!unprocessed.isEmpty()) {
+            getCommentsFromIcebergMetadata(session, unprocessed, relationFilter, filteredResult::add);
+        }
+
+        List<RelationCommentMetadata> unfilteredResultList = unfilteredResult.build();
+        Set<SchemaTableName> availableNames = relationFilter.apply(unfilteredResultList.stream()
+                .map(RelationCommentMetadata::name)
+                .collect(toImmutableSet()));
+
+        return Optional.of(Stream.concat(
+                        unfilteredResultList.stream()
+                                .filter(commentMetadata -> availableNames.contains(commentMetadata.name())),
+                        filteredResult.build().stream())
+                .iterator());
+    }
+
+    private void getCommentsFromIcebergMetadata(
+            ConnectorSession session,
+            Map<SchemaTableName, com.amazonaws.services.glue.model.Table> glueTables, // only Iceberg tables
+            UnaryOperator<Set<SchemaTableName>> relationFilter,
+            Consumer<RelationCommentMetadata> resultsCollector)
+    {
+        for (SchemaTableName tableName : relationFilter.apply(glueTables.keySet())) {
+            com.amazonaws.services.glue.model.Table table = glueTables.get(tableName);
+            // potentially racy with invalidation, but TrinoGlueCatalog is session-scoped
+            uncheckedCacheGet(glueTableCache, tableName, () -> table);
+            Optional<String> comment;
+            try {
+                comment = getTableComment(loadTable(session, tableName));
+            }
+            catch (RuntimeException e) {
+                // Table may be concurrently deleted
+                LOG.warn(e, "Failed to get metadata for table: %s", tableName);
+                return;
+            }
+            resultsCollector.accept(RelationCommentMetadata.forTable(tableName, comment));
+        }
     }
 
     @Override

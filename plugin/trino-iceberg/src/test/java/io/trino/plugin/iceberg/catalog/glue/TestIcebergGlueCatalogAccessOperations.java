@@ -546,12 +546,9 @@ public class TestIcebergGlueCatalogAccessOperations
                             session,
                             "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments%'",
                             ImmutableMultiset.<GlueMetastoreMethod>builder()
-                                    .addCopies(GET_TABLES, 3)
-                                    .addCopies(GET_TABLE, tables * 2)
+                                    .addCopies(GET_TABLES, 1)
                                     .build(),
-                            ImmutableMultiset.<FileOperation>builder()
-                                    .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), tables * 2)
-                                    .build());
+                            ImmutableMultiset.of());
                 }
 
                 // Pointed lookup
