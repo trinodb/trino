@@ -14,11 +14,6 @@ In such cases, writes behave in the same way, but reads
 always return the specified number of some constant rows.
 You shouldn't rely on the content of such rows.
 
-:::{warning}
-This connector does not work properly with multiple coordinators,
-since each coordinator has different metadata.
-:::
-
 ## Configuration
 
 Create `etc/catalog/example.properties` to mount the `blackhole` connector
@@ -121,13 +116,20 @@ additional features:
 - {doc}`/sql/merge`
 - {doc}`/sql/create-table`
 - {doc}`/sql/create-table-as`
+- {doc}`/sql/show-create-table`
 - {doc}`/sql/drop-table`
 - {doc}`/sql/comment`
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
+- {doc}`/sql/create-view`
+- {doc}`/sql/show-create-view`
+- {doc}`/sql/drop-view`
+- {doc}`/sql/create-materialized-view`
+- {doc}`/sql/show-create-materialized-view`
+- {doc}`/sql/drop-materialized-view`
 
 :::{note}
 The connector discards all written data. While read operations are supported,
-they will return rows with all NULL values, with the number of rows controlled
+they return rows with all NULL values, with the number of rows controlled
 via table properties.
 :::
