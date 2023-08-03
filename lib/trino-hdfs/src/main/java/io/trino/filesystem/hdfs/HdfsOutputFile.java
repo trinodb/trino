@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
 import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
@@ -47,6 +48,7 @@ class HdfsOutputFile
         this.environment = requireNonNull(environment, "environment is null");
         this.context = requireNonNull(context, "context is null");
         this.createFileCallStat = requireNonNull(createFileCallStat, "createFileCallStat is null");
+        location.verifyValidFileLocation();
     }
 
     @Override
@@ -76,9 +78,13 @@ class HdfsOutputFile
             }
             return create(() -> fileSystem.create(file, overwrite));
         }
+        catch (org.apache.hadoop.fs.FileAlreadyExistsException e) {
+            createFileCallStat.recordException(e);
+            throw new FileAlreadyExistsException(toString());
+        }
         catch (IOException e) {
             createFileCallStat.recordException(e);
-            throw e;
+            throw new IOException("Creation of file %s failed: %s".formatted(file, e.getMessage()), e);
         }
     }
 
@@ -86,7 +92,7 @@ class HdfsOutputFile
             throws IOException
     {
         FSDataOutputStream out = environment.doAs(context.getIdentity(), action);
-        return new HdfsOutputStream(out, environment, context);
+        return new HdfsOutputStream(location, out, environment, context);
     }
 
     @Override

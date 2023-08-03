@@ -74,6 +74,16 @@ public abstract class AbstractTestTrinoFileSystem
         return true;
     }
 
+    protected boolean normalizesListFilesResult()
+    {
+        return false;
+    }
+
+    protected boolean seekPastEndOfFileFails()
+    {
+        return true;
+    }
+
     protected Location createLocation(String path)
     {
         if (path.isEmpty()) {
@@ -326,12 +336,21 @@ public abstract class AbstractTestTrinoFileSystem
                 inputStream.seek(currentPosition);
                 assertThat(inputStream.read()).isGreaterThanOrEqualTo(0);
                 currentPosition++;
-                assertThatThrownBy(() -> inputStream.seek(fileSize + 100))
-                        .isInstanceOf(IOException.class)
-                        .hasMessageContaining(tempBlob.location().toString());
-                assertThat(inputStream.getPosition()).isEqualTo(currentPosition);
-                assertThat(inputStream.read()).isGreaterThanOrEqualTo(0);
-                assertThat(inputStream.getPosition()).isEqualTo(currentPosition + 1);
+                if (seekPastEndOfFileFails()) {
+                    assertThatThrownBy(() -> inputStream.seek(fileSize + 100))
+                            .isInstanceOf(IOException.class)
+                            .hasMessageContaining(tempBlob.location().toString());
+                    assertThat(inputStream.getPosition()).isEqualTo(currentPosition);
+                    assertThat(inputStream.read()).isGreaterThanOrEqualTo(0);
+                    assertThat(inputStream.getPosition()).isEqualTo(currentPosition + 1);
+                }
+                else {
+                    inputStream.seek(fileSize + 100);
+                    assertThat(inputStream.getPosition()).isEqualTo(fileSize + 100);
+                    assertThat(inputStream.read()).isEqualTo(-1);
+                    assertThat(inputStream.readNBytes(50)).isEmpty();
+                    assertThat(inputStream.getPosition()).isEqualTo(fileSize + 100);
+                }
 
                 // verify all the methods throw after close
                 inputStream.close();
@@ -553,7 +572,9 @@ public abstract class AbstractTestTrinoFileSystem
             assertThat(inputFile.length()).isEqualTo(TEST_BLOB_CONTENT_PREFIX.length() + tempBlob.location().toString().length());
             assertThat(tempBlob.read()).isEqualTo(TEST_BLOB_CONTENT_PREFIX + tempBlob.location().toString());
 
-            assertThat(listPath("test/..")).containsExactly(tempBlob.location());
+            if (!normalizesListFilesResult()) {
+                assertThat(listPath("test/..")).containsExactly(tempBlob.location());
+            }
 
             if (supportsRenameFile()) {
                 getFileSystem().renameFile(tempBlob.location(), createLocation("file"));
@@ -711,6 +732,9 @@ public abstract class AbstractTestTrinoFileSystem
                     .hasMessageContaining(sourceBlob.location().toString())
                     .hasMessageContaining(targetBlob.location().toString());
 
+            // create target directory first
+            getFileSystem().createDirectory(targetBlob.location().parentDirectory());
+
             // rename
             sourceBlob.createOrOverwrite("data");
             getFileSystem().renameFile(sourceBlob.location(), targetBlob.location());
@@ -792,7 +816,7 @@ public abstract class AbstractTestTrinoFileSystem
                 assertThat(listPath("level0-file0")).isEmpty();
             }
 
-            if (!hierarchicalNamingConstraints) {
+            if (!hierarchicalNamingConstraints && !normalizesListFilesResult()) {
                 // this lists a path in a directory with an empty name
                 assertThat(listPath("/")).isEmpty();
             }
