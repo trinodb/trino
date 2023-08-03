@@ -36,7 +36,6 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -512,16 +511,6 @@ public class TestIcebergGlueCatalogAccessOperations
         finally {
             assertUpdate("DROP SCHEMA " + schemaName);
         }
-    }
-
-    @DataProvider
-    public Object[][] metadataQueriesTestTableCountDataProvider()
-    {
-        return new Object[][] {
-                {2},
-                {MAX_PREFIXES_COUNT},
-                {MAX_PREFIXES_COUNT + 2},
-        };
     }
 
     private void assertGlueMetastoreApiInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
