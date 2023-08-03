@@ -463,7 +463,6 @@ public class IcebergSplitSource
                 task.start(),
                 task.length(),
                 task.file().fileSizeInBytes(),
-                task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),

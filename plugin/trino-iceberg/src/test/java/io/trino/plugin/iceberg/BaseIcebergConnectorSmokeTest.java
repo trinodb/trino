@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.concurrent.MoreFutures;
+import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -31,12 +31,15 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
@@ -47,6 +50,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -124,28 +128,38 @@ public abstract class BaseIcebergConnectorSmokeTest
         int threads = 4;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
+        List<String> rows = ImmutableList.of("(1, 0, 0, 0)", "(0, 1, 0, 0)", "(0, 0, 1, 0)", "(0, 0, 0, 1)");
+
+        String[] expectedErrors = new String[]{"Failed to commit Iceberg update to table:", "Failed to replace table due to concurrent updates:"};
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_concurrent_delete",
                 "(col0 INTEGER, col1 INTEGER, col2 INTEGER, col3 INTEGER)")) {
             String tableName = table.getName();
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, 0, 0, 0)", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 0, 0, 0)", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, 1, 0, 0)", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, 0, 1, 0)", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (0, 0, 0, 1)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES " + String.join(", ", rows), 4);
 
-            List<Future<Void>> futures = IntStream.range(0, threads)
+            List<Future<Boolean>> futures = IntStream.range(0, threads)
                     .mapToObj(threadNumber -> executor.submit(() -> {
                         barrier.await(10, SECONDS);
                         String columnName = "col" + threadNumber;
-                        getQueryRunner().execute(format("DELETE FROM %s WHERE %s = 1", tableName, columnName));
-                        return (Void) null;
+                        try {
+                            getQueryRunner().execute(format("DELETE FROM %s WHERE %s = 1", tableName, columnName));
+                            return true;
+                        }
+                        catch (Exception e) {
+                            assertThat(e.getMessage()).containsAnyOf(expectedErrors);
+                            return false;
+                        }
                     }))
                     .collect(toImmutableList());
 
-            futures.forEach(MoreFutures::getFutureValue);
-            assertThat(query("SELECT max(col0), max(col1), max(col2), max(col3) FROM " + tableName)).matches("VALUES (0, 0, 0, 0)");
+            Stream<Optional<String>> expectedRows = Streams.mapWithIndex(futures.stream(), (future, index) -> {
+                boolean deleteSuccessful = tryGetFutureValue(future, 10, SECONDS).orElseThrow();
+                return deleteSuccessful ? Optional.empty() : Optional.of(rows.get((int) index));
+            });
+            String expectedValues = expectedRows.filter(Optional::isPresent).map(Optional::get).collect(joining(", "));
+            assertThat(expectedValues).isNotEmpty().as("Expected at least one delete operation to pass");
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES " + expectedValues);
         }
         finally {
             executor.shutdownNow();
