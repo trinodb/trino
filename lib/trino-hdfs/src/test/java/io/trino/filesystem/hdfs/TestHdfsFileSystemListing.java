@@ -40,7 +40,7 @@ import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestHdfsFileSystem
+public class TestHdfsFileSystemListing
 {
     @Test
     public void testListing()
