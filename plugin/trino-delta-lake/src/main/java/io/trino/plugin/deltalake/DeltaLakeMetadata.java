@@ -1223,7 +1223,7 @@ public class DeltaLakeMetadata
         checkSupportedWriterVersion(session, handle);
         ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
         if (columnMappingMode != ID && columnMappingMode != NAME && columnMappingMode != NONE) {
-            throw new TrinoException(NOT_SUPPORTED, "Setting a table comment with column mapping %s is not supported".formatted(columnMappingMode.name().toLowerCase(ENGLISH)));
+            throw new TrinoException(NOT_SUPPORTED, "Setting a table comment with column mapping %s is not supported".formatted(columnMappingMode));
         }
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
@@ -1259,7 +1259,7 @@ public class DeltaLakeMetadata
         checkSupportedWriterVersion(session, deltaLakeTableHandle);
         ColumnMappingMode columnMappingMode = getColumnMappingMode(deltaLakeTableHandle.getMetadataEntry());
         if (columnMappingMode != ID && columnMappingMode != NAME && columnMappingMode != NONE) {
-            throw new TrinoException(NOT_SUPPORTED, "Setting a column comment with column mapping %s is not supported".formatted(columnMappingMode.name().toLowerCase(ENGLISH)));
+            throw new TrinoException(NOT_SUPPORTED, "Setting a column comment with column mapping %s is not supported".formatted(columnMappingMode));
         }
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, deltaLakeTableHandle);
@@ -1809,7 +1809,7 @@ public class DeltaLakeMetadata
         ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
         if (changeDataFeedEnabled(handle.getMetadataEntry()) && columnMappingMode != NONE) {
             // TODO https://github.com/trinodb/trino/issues/16967 Support CDF for tables with 'id' and 'name' column mapping
-            throw new TrinoException(NOT_SUPPORTED, "Unsupported column mapping mode for tables with change data feed enabled: " + columnMappingMode.name().toLowerCase(ENGLISH));
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported column mapping mode for tables with change data feed enabled: " + columnMappingMode);
         }
         checkWriteSupported(session, handle);
 
@@ -2129,7 +2129,7 @@ public class DeltaLakeMetadata
         checkUnsupportedGeneratedColumns(handle.getMetadataEntry());
         ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
         if (!(columnMappingMode == NONE || columnMappingMode == ColumnMappingMode.NAME || columnMappingMode == ColumnMappingMode.ID)) {
-            throw new TrinoException(NOT_SUPPORTED, "Writing with column mapping %s is not supported".formatted(columnMappingMode.name().toLowerCase(ENGLISH)));
+            throw new TrinoException(NOT_SUPPORTED, "Writing with column mapping %s is not supported".formatted(columnMappingMode));
         }
         // TODO: Check writer-features
     }
@@ -2681,7 +2681,7 @@ public class DeltaLakeMetadata
         Type columnType = switch (columnMappingMode) {
             case ID, NAME -> column.getBasePhysicalType();
             case NONE -> column.getBaseType();
-            default -> throw new TrinoException(NOT_SUPPORTED, "Projecting columns with column mapping %s is not supported".formatted(columnMappingMode.name().toLowerCase(ENGLISH)));
+            default -> throw new TrinoException(NOT_SUPPORTED, "Projecting columns with column mapping %s is not supported".formatted(columnMappingMode));
         };
 
         for (int index : dereferenceIndices.build()) {
