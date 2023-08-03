@@ -13,39 +13,36 @@
  */
 package io.trino.connector.system;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
-import io.trino.metadata.ViewInfo;
+import io.trino.metadata.RedirectionAwareTableHandle;
+import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.InMemoryRecordSet.Builder;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
-import static com.google.common.collect.Sets.union;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
-import static io.trino.metadata.MetadataListing.getMaterializedViews;
-import static io.trino.metadata.MetadataListing.getViews;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
-import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -100,60 +97,83 @@ public class TableCommentSystemTable
         for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
-            Set<SchemaTableName> names = ImmutableSet.of();
-            Map<SchemaTableName, ViewInfo> views = ImmutableMap.of();
-            Map<SchemaTableName, ViewInfo> materializedViews = ImmutableMap.of();
-            try {
-                materializedViews = getMaterializedViews(session, metadata, accessControl, prefix);
-                views = getViews(session, metadata, accessControl, prefix);
-                // Some connectors like blackhole, accumulo and raptor don't return views in listTables
-                // Materialized views are consistently returned in listTables by the relevant connectors
-                names = union(listTables(session, metadata, accessControl, prefix), views.keySet());
-            }
-            catch (TrinoException e) {
-                // listTables throws an exception if cannot connect the database
-                LOG.warn(e, "Failed to get tables for catalog: %s", catalog);
-            }
-
-            for (SchemaTableName name : names) {
-                Optional<String> comment = Optional.empty();
+            if (prefix.getTableName().isPresent()) {
+                QualifiedObjectName relationName = new QualifiedObjectName(catalog, prefix.getSchemaName().orElseThrow(), prefix.getTableName().get());
+                RelationComment relationComment;
                 try {
-                    comment = getComment(session, prefix, name, views, materializedViews);
+                    relationComment = getRelationComment(session, relationName);
                 }
                 catch (RuntimeException e) {
-                    // getTableHandle may throw an exception (e.g. Cassandra connector doesn't allow case insensitive column names)
-                    LOG.warn(e, "Failed to get metadata for table: %s", name);
+                    LOG.warn(e, "Failed to get comment for relation: %s", relationName);
+                    relationComment = new RelationComment(false, Optional.empty());
                 }
-                table.addRow(prefix.getCatalogName(), name.getSchemaName(), name.getTableName(), comment.orElse(null));
+                if (relationComment.found()) {
+                    SchemaTableName schemaTableName = relationName.asSchemaTableName();
+                    // Consulting accessControl first would be simpler but some AccessControl implementations may have issues when asked for a relation that does not exist.
+                    if (accessControl.filterTables(session.toSecurityContext(), catalog, ImmutableSet.of(schemaTableName)).contains(schemaTableName)) {
+                        table.addRow(catalog, schemaTableName.getSchemaName(), schemaTableName.getTableName(), relationComment.comment().orElse(null));
+                    }
+                }
+            }
+            else {
+                List<RelationCommentMetadata> relationComments = metadata.listRelationComments(
+                        session,
+                        prefix.getCatalogName(),
+                        prefix.getSchemaName(),
+                        relationNames -> accessControl.filterTables(session.toSecurityContext(), catalog, relationNames));
+
+                for (RelationCommentMetadata commentMetadata : relationComments) {
+                    SchemaTableName name = commentMetadata.name();
+                    if (!commentMetadata.tableRedirected()) {
+                        table.addRow(catalog, name.getSchemaName(), name.getTableName(), commentMetadata.comment().orElse(null));
+                    }
+                    else {
+                        try {
+                            // TODO (https://github.com/trinodb/trino/issues/18514) this should consult accessControl on redirected name. Leaving for now as-is.
+                            metadata.getRedirectionAwareTableHandle(session, new QualifiedObjectName(catalog, name.getSchemaName(), name.getTableName()))
+                                    .tableHandle().ifPresent(tableHandle -> {
+                                        Optional<String> comment = metadata.getTableMetadata(session, tableHandle).getMetadata().getComment();
+                                        table.addRow(catalog, name.getSchemaName(), name.getTableName(), comment.orElse(null));
+                                    });
+                        }
+                        catch (RuntimeException e) {
+                            LOG.warn(e, "Failed to get metadata for table: %s", name);
+                        }
+                    }
+                }
             }
         }
 
         return table.build().cursor();
     }
 
-    private Optional<String> getComment(
-            Session session,
-            QualifiedTablePrefix prefix,
-            SchemaTableName name,
-            Map<SchemaTableName, ViewInfo> views,
-            Map<SchemaTableName, ViewInfo> materializedViews)
+    private RelationComment getRelationComment(Session session, QualifiedObjectName relationName)
     {
-        ViewInfo materializedViewDefinition = materializedViews.get(name);
-        if (materializedViewDefinition != null) {
-            return materializedViewDefinition.getComment();
+        Optional<MaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, relationName);
+        if (materializedView.isPresent()) {
+            return new RelationComment(true, materializedView.get().getComment());
         }
-        ViewInfo viewInfo = views.get(name);
-        if (viewInfo != null) {
-            return viewInfo.getComment();
+
+        Optional<ViewDefinition> view = metadata.getView(session, relationName);
+        if (view.isPresent()) {
+            return new RelationComment(true, view.get().getComment());
         }
-        QualifiedObjectName tableName = new QualifiedObjectName(prefix.getCatalogName(), name.getSchemaName(), name.getTableName());
-        return metadata.getRedirectionAwareTableHandle(session, tableName).tableHandle()
-                .map(handle -> metadata.getTableMetadata(session, handle))
-                .map(metadata -> metadata.getMetadata().getComment())
-                .orElseGet(() -> {
-                    // A previously listed table might have been dropped concurrently
-                    LOG.warn("Failed to get metadata for table: %s", name);
-                    return Optional.empty();
-                });
+
+        RedirectionAwareTableHandle redirectionAware = metadata.getRedirectionAwareTableHandle(session, relationName);
+        if (redirectionAware.tableHandle().isPresent()) {
+            // TODO (https://github.com/trinodb/trino/issues/18514) this should consult accessControl on redirected name. Leaving for now as-is.
+            return new RelationComment(true, metadata.getTableMetadata(session, redirectionAware.tableHandle().get()).getMetadata().getComment());
+        }
+
+        return new RelationComment(false, Optional.empty());
+    }
+
+    private record RelationComment(boolean found, Optional<String> comment)
+    {
+        RelationComment
+        {
+            requireNonNull(comment, "comment is null");
+            checkArgument(found || comment.isEmpty(), "Unexpected comment for a relation that is not found");
+        }
     }
 }

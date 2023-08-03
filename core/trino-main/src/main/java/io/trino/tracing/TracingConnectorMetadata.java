@@ -49,6 +49,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
@@ -88,6 +89,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.UnaryOperator;
 
 import static io.airlift.tracing.Tracing.attribute;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
@@ -294,6 +296,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("streamTableColumns", prefix);
         try (var ignored = scopedSpan(span)) {
             return delegate.streamTableColumns(session, prefix);
+        }
+    }
+
+    @Override
+    public Iterator<RelationCommentMetadata> streamRelationComments(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        Span span = startSpan("streamRelationComments", schemaName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.streamRelationComments(session, schemaName, relationFilter);
         }
     }
 
