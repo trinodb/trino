@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Booleans;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
@@ -28,6 +30,9 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import org.apache.parquet.format.CompressionCodec;
+import org.apache.parquet.hadoop.metadata.BlockMetaData;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.io.MessageColumnIO;
 import org.joda.time.DateTimeZone;
 
 import java.io.ByteArrayOutputStream;
@@ -38,13 +43,19 @@ import java.util.Optional;
 import java.util.Random;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.parquet.ParquetTypeUtils.constructField;
+import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
+import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.block.MapBlock.fromKeyValueBlock;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.toIntExact;
+import static java.util.Collections.nCopies;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class ParquetTestUtils
 {
@@ -76,6 +87,48 @@ public class ParquetTestUtils
         }
         writer.close();
         return Slices.wrappedBuffer(outputStream.toByteArray());
+    }
+
+    public static ParquetReader createParquetReader(
+            ParquetDataSource input,
+            ParquetMetadata parquetMetadata,
+            AggregatedMemoryContext memoryContext,
+            List<Type> types,
+            List<String> columnNames)
+            throws IOException
+    {
+        org.apache.parquet.hadoop.metadata.FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
+        MessageColumnIO messageColumnIO = getColumnIO(fileMetaData.getSchema(), fileMetaData.getSchema());
+        ImmutableList.Builder<Field> columnFields = ImmutableList.builder();
+        for (int i = 0; i < types.size(); i++) {
+            columnFields.add(constructField(
+                    types.get(i),
+                    lookupColumnByName(messageColumnIO, columnNames.get(i)))
+                    .orElseThrow());
+        }
+        long nextStart = 0;
+        ImmutableList.Builder<Long> blockStartsBuilder = ImmutableList.builder();
+        for (BlockMetaData block : parquetMetadata.getBlocks()) {
+            blockStartsBuilder.add(nextStart);
+            nextStart += block.getRowCount();
+        }
+        List<Long> blockStarts = blockStartsBuilder.build();
+        return new ParquetReader(
+                Optional.ofNullable(fileMetaData.getCreatedBy()),
+                columnFields.build(),
+                parquetMetadata.getBlocks(),
+                blockStarts,
+                input,
+                UTC,
+                memoryContext,
+                new ParquetReaderOptions(),
+                exception -> {
+                    throwIfUnchecked(exception);
+                    return new RuntimeException(exception);
+                },
+                Optional.empty(),
+                nCopies(blockStarts.size(), Optional.empty()),
+                Optional.empty());
     }
 
     public static List<io.trino.spi.Page> generateInputPages(List<Type> types, int positionsPerPage, int pageCount)
