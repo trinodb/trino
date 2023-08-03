@@ -133,8 +133,7 @@ public interface ConnectorMetadata
     /**
      * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
      * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
-     *
-     * <p/>
+     * <p>
      * If connector does not support execution with retries, the method should throw:
      * <pre>
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
@@ -596,8 +595,7 @@ public interface ConnectorMetadata
 
     /**
      * Begin the atomic creation of a table with data.
-     *
-     * <p/>
+     * <p>
      * If connector does not support execution with retries, the method should throw:
      * <pre>
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
@@ -630,8 +628,7 @@ public interface ConnectorMetadata
 
     /**
      * Begin insert query.
-     *
-     * <p/>
+     * <p>
      * If connector does not support execution with retries, the method should throw:
      * <pre>
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
@@ -677,8 +674,7 @@ public interface ConnectorMetadata
 
     /**
      * Begin materialized view query.
-     *
-     * <p/>
+     * <p>
      * If connector does not support execution with retries, the method should throw:
      * <pre>
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
