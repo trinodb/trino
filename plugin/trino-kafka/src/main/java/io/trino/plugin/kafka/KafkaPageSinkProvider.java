@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.plugin.kafka.encoder.DispatchingRowEncoderFactory;
 import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
+import io.trino.plugin.kafka.encoder.KafkaFieldType;
 import io.trino.plugin.kafka.encoder.RowEncoder;
+import io.trino.plugin.kafka.encoder.RowEncoderSpec;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -30,9 +32,12 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SCHEMA_ERROR;
+import static io.trino.plugin.kafka.encoder.KafkaFieldType.KEY;
+import static io.trino.plugin.kafka.encoder.KafkaFieldType.MESSAGE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -77,15 +82,11 @@ public class KafkaPageSinkProvider
 
         RowEncoder keyEncoder = encoderFactory.create(
                 session,
-                handle.getKeyDataFormat(),
-                getDataSchema(handle.getKeyDataSchemaLocation()),
-                keyColumns.build());
+                toRowEncoderSpec(handle, keyColumns.build(), KEY));
 
         RowEncoder messageEncoder = encoderFactory.create(
                 session,
-                handle.getMessageDataFormat(),
-                getDataSchema(handle.getMessageDataSchemaLocation()),
-                messageColumns.build());
+                toRowEncoderSpec(handle, messageColumns.build(), MESSAGE));
 
         return new KafkaPageSink(
                 handle.getTopicName(),
@@ -94,6 +95,14 @@ public class KafkaPageSinkProvider
                 messageEncoder,
                 producerFactory,
                 session);
+    }
+
+    private static RowEncoderSpec toRowEncoderSpec(KafkaTableHandle handle, List<EncoderColumnHandle> columns, KafkaFieldType kafkaFieldType)
+    {
+        return switch (kafkaFieldType) {
+            case KEY -> new RowEncoderSpec(handle.getKeyDataFormat(), getDataSchema(handle.getKeyDataSchemaLocation()), columns, handle.getTopicName(), kafkaFieldType);
+            case MESSAGE -> new RowEncoderSpec(handle.getMessageDataFormat(), getDataSchema(handle.getMessageDataSchemaLocation()), columns, handle.getTopicName(), kafkaFieldType);
+        };
     }
 
     private static Optional<String> getDataSchema(Optional<String> dataSchemaLocation)
