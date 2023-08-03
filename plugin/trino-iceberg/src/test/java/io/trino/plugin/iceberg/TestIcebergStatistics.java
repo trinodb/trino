@@ -154,9 +154,9 @@ public class TestIcebergStatistics
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('name', 1314.0, 25, 0, null, null, null),
-                          ('info', 4417.0, null, 0, null, null, null),
-                          (null, null, null, null, 25, null, null)""");
+                          ('name', 1908.0, 25, 0, null, null, null),
+                          ('info', null, null, null, null, null, null),
+                          (null, null, null, null, 50, null, null)""");
 
         assertUpdate("ANALYZE " + tableName);
         assertQuery(
@@ -165,9 +165,9 @@ public class TestIcebergStatistics
                         VALUES
                           ('nationkey', null, 25, 0, null, '0', '24'),
                           ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('name', 1314.0, 25, 0, null, null, null),
-                          ('info', 4417.0, 25, 0, null, null, null),
-                          (null, null, null, null, 25, null, null)""");
+                          ('name', 1908.0, 25, 0, null, null, null),
+                          ('info', 4417.0, 25, 0.1, null, null, null),
+                          (null, null, null, null, 50, null, null)"""); // Row count statistics do not yet account for position deletes
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -999,11 +999,11 @@ public class TestIcebergStatistics
                 .projected("column_name", "distinct_values_count", "row_count")
                 .skippingTypesCheck()
                 .containsAll("VALUES " +
-                        "('nationkey', DOUBLE '0.0', null), " +
-                        "('name', DOUBLE '0.0', null), " +
-                        "('regionkey', DOUBLE '0.0', null), " +
-                        "('comment', DOUBLE '0.0', null), " +
-                        "(null, null, DOUBLE '0.0')");
+                        "('nationkey', DOUBLE '25', null), " +
+                        "('name', DOUBLE '25', null), " +
+                        "('regionkey', DOUBLE '5', null), " +
+                        "('comment', DOUBLE '25', null), " +
+                        "(null, null, DOUBLE '25')");
     }
 
     private long getCurrentSnapshotId(String tableName)

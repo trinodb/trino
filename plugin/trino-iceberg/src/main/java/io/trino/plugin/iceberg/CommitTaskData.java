@@ -19,7 +19,6 @@ import org.apache.iceberg.FileContent;
 
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class CommitTaskData
@@ -32,8 +31,6 @@ public class CommitTaskData
     private final Optional<String> partitionDataJson;
     private final FileContent content;
     private final Optional<String> referencedDataFile;
-    private final Optional<Long> fileRecordCount;
-    private final Optional<Long> deletedRowCount;
 
     @JsonCreator
     public CommitTaskData(
@@ -44,9 +41,7 @@ public class CommitTaskData
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
             @JsonProperty("partitionDataJson") Optional<String> partitionDataJson,
             @JsonProperty("content") FileContent content,
-            @JsonProperty("referencedDataFile") Optional<String> referencedDataFile,
-            @JsonProperty("fileRecordCount") Optional<Long> fileRecordCount,
-            @JsonProperty("deletedRowCount") Optional<Long> deletedRowCount)
+            @JsonProperty("referencedDataFile") Optional<String> referencedDataFile)
     {
         this.path = requireNonNull(path, "path is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
@@ -56,12 +51,6 @@ public class CommitTaskData
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
         this.content = requireNonNull(content, "content is null");
         this.referencedDataFile = requireNonNull(referencedDataFile, "referencedDataFile is null");
-        this.fileRecordCount = requireNonNull(fileRecordCount, "fileRecordCount is null");
-        fileRecordCount.ifPresent(rowCount -> checkArgument(rowCount >= 0, "fileRecordCount cannot be negative"));
-        this.deletedRowCount = requireNonNull(deletedRowCount, "deletedRowCount is null");
-        deletedRowCount.ifPresent(rowCount -> checkArgument(rowCount >= 0, "deletedRowCount cannot be negative"));
-        checkArgument(fileRecordCount.isPresent() == deletedRowCount.isPresent(), "fileRecordCount and deletedRowCount must be specified together");
-        checkArgument(fileSizeInBytes >= 0, "fileSizeInBytes is negative");
     }
 
     @JsonProperty
@@ -110,17 +99,5 @@ public class CommitTaskData
     public Optional<String> getReferencedDataFile()
     {
         return referencedDataFile;
-    }
-
-    @JsonProperty
-    public Optional<Long> getFileRecordCount()
-    {
-        return fileRecordCount;
-    }
-
-    @JsonProperty
-    public Optional<Long> getDeletedRowCount()
-    {
-        return deletedRowCount;
     }
 }
