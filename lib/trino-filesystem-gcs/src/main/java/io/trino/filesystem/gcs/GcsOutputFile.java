@@ -18,6 +18,7 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobTargetOption;
+import com.google.cloud.storage.StorageException;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
@@ -25,6 +26,7 @@ import io.trino.memory.context.AggregatedMemoryContext;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.nio.file.FileAlreadyExistsException;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -79,6 +81,13 @@ public class GcsOutputFile
         }
         catch (FileAlreadyExistsException e) {
             throw e;
+        }
+        catch (StorageException e) {
+            // When the file corresponding to `location` already exists, the operation will fail with the exception message `412 Precondition Failed`
+            if (e.getCode() == HttpURLConnection.HTTP_PRECON_FAILED) {
+                throw new FileAlreadyExistsException(location.toString());
+            }
+            throw handleGcsException(e, "writing file", location);
         }
         catch (RuntimeException e) {
             throw handleGcsException(e, "writing file", location);
