@@ -283,7 +283,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>2.11.0</version>
+                <version>3.0.1</version>
             </dependency>
 
             <dependency>
