@@ -42,6 +42,7 @@ import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -133,6 +134,16 @@ public class TestMemoryConnectorTest
         assertThatThrownBy(() -> assertUpdate(createTableSql))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("line 1:1: Destination table 'memory.default.nation' already exists");
+    }
+
+    @Override
+    public void testInsertTableNameInExplain()
+    {
+        // TODO Add table name to MemoryInsertTableHandle
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_explain", "(col INTEGER)")) {
+            assertThat((String) computeScalar("EXPLAIN INSERT INTO " + table.getName() + " VALUES 1"))
+                    .doesNotContain(table.getName());
+        }
     }
 
     @Test
@@ -494,6 +505,15 @@ public class TestMemoryConnectorTest
         assertThat(computeScalar("SELECT count(*) FROM test_empty")).isEqualTo(0L);
         assertUpdate("INSERT INTO test_empty SELECT nationkey FROM tpch.tiny.nation", 25L);
         assertThat(computeScalar("SELECT count(*) FROM test_empty")).isEqualTo(25L);
+    }
+
+    @Override
+    public void testCreateTableAsSelectTableNameInExplain()
+    {
+        // TODO Add table name to MemoryOutputTableHandle
+        String tableName = "test_name_explain" + randomNameSuffix();
+        assertThat((String) computeScalar("EXPLAIN CREATE TABLE " + tableName + " AS SELECT 1 col"))
+                .doesNotContain(tableName);
     }
 
     @Test

@@ -1064,6 +1064,53 @@ public class TestKuduConnectorTest
     }
 
     @Override
+    public void testDeleteTableNameInExplain()
+    {
+        String tableName = "test_delete" + randomNameSuffix();
+        assertUpdate(createTableForWrites("CREATE TABLE " + tableName + " (a int, b int)"));
+
+        assertExplain("EXPLAIN DELETE FROM " + tableName, "(?i)" + tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    public void testInsertTableNameInExplain()
+    {
+        String tableName = "test_insert" + randomNameSuffix();
+        assertUpdate(createTableForWrites("CREATE TABLE " + tableName + " (a int, b int)"));
+
+        assertExplain("EXPLAIN INSERT INTO " + tableName + " VALUES (1, 2)", "(?i)" + tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    public void testMergeTableNameInExplain()
+    {
+        String tableName = "test_merge" + randomNameSuffix();
+        assertUpdate(createTableForWrites("CREATE TABLE " + tableName + " (a int, b int)"));
+
+        assertExplain(
+                "EXPLAIN MERGE INTO " + tableName + " t USING (VALUES(1)) AS s(a) ON (t.a = s.a) " +
+                        "WHEN MATCHED THEN DELETE",
+                "(?i)" + tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    public void testUpdateTableNameInExplain()
+    {
+        String tableName = "test_update" + randomNameSuffix();
+        assertUpdate(createTableForWrites("CREATE TABLE " + tableName + " (a int, b int)"));
+
+        assertExplain("EXPLAIN UPDATE " + tableName + " SET a = 1", "(?i)" + tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.of(256);

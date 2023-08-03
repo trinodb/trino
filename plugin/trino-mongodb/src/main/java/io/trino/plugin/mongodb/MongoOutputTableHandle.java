@@ -75,4 +75,10 @@ public class MongoOutputTableHandle
     {
         return pageSinkIdColumnName;
     }
+
+    @Override
+    public String toString()
+    {
+        return remoteTableName.toString();
+    }
 }

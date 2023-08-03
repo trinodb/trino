@@ -341,6 +341,13 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Override
+    public void testUpdateTableNameInExplain()
+    {
+        assertThatThrownBy(super::testUpdateTableNameInExplain)
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+    }
+
+    @Override
     public void testUpdateRowConcurrently()
             throws Exception
     {

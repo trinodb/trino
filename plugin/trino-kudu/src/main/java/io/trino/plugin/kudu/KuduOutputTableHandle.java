@@ -85,6 +85,12 @@ public class KuduOutputTableHandle
         return originalColumnTypes;
     }
 
+    @Override
+    public String toString()
+    {
+        return schemaTableName.toString();
+    }
+
     public KuduTable getTable(KuduClientSession session)
     {
         if (table == null) {

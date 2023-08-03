@@ -57,4 +57,10 @@ public class MockConnectorInsertTableHandle
     {
         return Objects.hash(tableName);
     }
+
+    @Override
+    public String toString()
+    {
+        return tableName.toString();
+    }
 }

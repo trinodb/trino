@@ -488,6 +488,14 @@ public class TestKafkaConnectorTest
                 .containsExactlyInAnyOrder("Hello", "hello测试􏿿world编码");
     }
 
+    @Override // Override because Kafka connector doesn't support creating tables
+    public void testInsertTableNameInExplain()
+    {
+        assertExplain(
+                "EXPLAIN INSERT INTO " + TABLE_INSERT_CUSTOMER + " VALUES (NULL, NULL, NULL)",
+                ".*schemaName=write_test, tableName=test_insert_customer.*");
+    }
+
     @Override
     public void testInsertRowConcurrently()
     {

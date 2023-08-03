@@ -3784,6 +3784,15 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateTableAsSelectTableNameInExplain()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        String tableName = "test_name_explain" + randomNameSuffix();
+        assertExplain("EXPLAIN CREATE TABLE " + tableName + " AS SELECT 1 col", "(?i)" + tableName);
+    }
+
+    @Test
     public void testRenameTable()
             throws Exception
     {
@@ -4406,6 +4415,16 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testInsertTableNameInExplain()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_INSERT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_explain", "(col INTEGER)")) {
+            assertExplain("EXPLAIN INSERT INTO " + table.getName() + " VALUES 1", "(?i)" + table.getName());
+        }
+    }
+
+    @Test
     public void testDelete()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DELETE));
@@ -4580,6 +4599,16 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testDeleteTableNameInExplain()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_name_", "(col INTEGER)")) {
+            assertExplain("EXPLAIN DELETE FROM " + table.getName(), "(?i)" + table.getName());
+        }
+    }
+
+    @Test
     public void verifySupportsDeleteDeclaration()
     {
         if (hasBehavior(SUPPORTS_DELETE)) {
@@ -4650,6 +4679,16 @@ public abstract class BaseConnectorTest
             assertThat(query("SELECT * FROM " + tableName))
                     .skippingTypesCheck()
                     .matches("SELECT CASE regionkey WHEN 2 THEN 2*(nationkey+100) WHEN 3 THEN 2*nationkey ELSE nationkey END nationkey, name, regionkey, comment FROM tpch.tiny.nation");
+        }
+    }
+
+    @Test
+    public void testUpdateTableNameInExplain()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_UPDATE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_name_", "(col INTEGER)")) {
+            assertExplain("EXPLAIN UPDATE " + table.getName() + " SET col = 1", "(?i)" + table.getName());
         }
     }
 
@@ -6201,6 +6240,19 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT * FROM " + targetTable, "VALUES (0, 42, 100)");
 
         assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
+    public void testMergeTableNameInExplain()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_merge_name_", "(a INTEGER)")) {
+            assertExplain(
+                    "EXPLAIN MERGE INTO " + table.getName() + " t USING (VALUES(1)) AS s(a) ON (t.a = s.a) " +
+                    "WHEN MATCHED THEN DELETE",
+                    "(?i)" + table.getName());
+        }
     }
 
     private void verifyUnsupportedTypeException(Throwable exception, String trinoTypeName)

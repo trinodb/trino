@@ -80,6 +80,12 @@ public class KuduInsertTableHandle
         return generateUUID;
     }
 
+    @Override
+    public String toString()
+    {
+        return schemaTableName.toString();
+    }
+
     public KuduTable getTable(KuduClientSession session)
     {
         if (table == null) {
