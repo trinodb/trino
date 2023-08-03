@@ -177,6 +177,17 @@ public class TestBlackHoleSmoke
     }
 
     @Test
+    public void testCreateViewWithComment()
+    {
+        String viewName = "test_crerate_view_with_comment_" + randomNameSuffix();
+        queryRunner.execute("CREATE VIEW " + viewName + " COMMENT 'test comment' AS SELECT * FROM tpch.tiny.nation");
+
+        assertThat(getTableComment(viewName)).isEqualTo("test comment");
+
+        queryRunner.execute("DROP VIEW " + viewName);
+    }
+
+    @Test
     public void testCommentOnView()
     {
         String viewName = "test_comment_on_view_" + randomNameSuffix();
