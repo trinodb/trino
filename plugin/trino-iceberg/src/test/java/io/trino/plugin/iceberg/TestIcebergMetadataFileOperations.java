@@ -506,6 +506,42 @@ public class TestIcebergMetadataFileOperations
         }
     }
 
+    @Test(dataProvider = "metadataQueriesTestTableCountDataProvider")
+    public void testSystemMetadataTableComments(int tables)
+    {
+        String schemaName = "test_s_m_table_comments" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        Session session = Session.builder(getSession())
+                .setSchema(schemaName)
+                .build();
+
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "CREATE TABLE test_select_s_m_t_comments" + i + "(id varchar, age integer)");
+            // Produce multiple snapshots and metadata files
+            assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('abc', 11)", 1);
+            assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('xyz', 12)", 1);
+
+            assertUpdate(session, "CREATE TABLE test_other_select_s_m_t_comments" + i + "(id varchar, age integer)"); // won't match the filter
+        }
+
+        // Bulk retrieval
+        assertFileSystemAccesses(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments%'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), tables * 2)
+                        .build());
+
+        // Pointed lookup
+        assertFileSystemAccesses(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name = 'test_select_s_m_t_comments0'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .build());
+
+        for (int i = 0; i < tables; i++) {
+            assertUpdate(session, "DROP TABLE test_select_s_m_t_comments" + i);
+            assertUpdate(session, "DROP TABLE test_other_select_s_m_t_comments" + i);
+        }
+    }
+
     @DataProvider
     public Object[][] metadataQueriesTestTableCountDataProvider()
     {

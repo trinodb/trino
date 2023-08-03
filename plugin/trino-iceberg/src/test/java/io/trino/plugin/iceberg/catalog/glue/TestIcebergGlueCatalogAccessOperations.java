@@ -53,6 +53,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
@@ -70,6 +71,7 @@ import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_DATAB
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_TABLE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_TABLES;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.UPDATE_TABLE;
+import static io.trino.plugin.iceberg.catalog.glue.TestIcebergGlueCatalogAccessOperations.FileType.METADATA_JSON;
 import static io.trino.plugin.iceberg.catalog.glue.TestIcebergGlueCatalogAccessOperations.FileType.fromFilePath;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -505,6 +507,68 @@ public class TestIcebergGlueCatalogAccessOperations
                 for (int i = 0; i < tablesCreated; i++) {
                     assertUpdate(session, "DROP TABLE IF EXISTS test_select_i_s_columns" + i);
                     assertUpdate(session, "DROP TABLE IF EXISTS test_other_select_i_s_columns" + i);
+                }
+            }
+        }
+        finally {
+            assertUpdate("DROP SCHEMA " + schemaName);
+        }
+    }
+
+    @Test
+    public void testSystemMetadataTableComments()
+    {
+        String schemaName = "test_s_m_table_comments" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        try {
+            Session session = Session.builder(getSession())
+                    .setSchema(schemaName)
+                    .build();
+            int tablesCreated = 0;
+            try {
+                // Do not use @DataProvider to save test setup time which may be considerable
+                for (int tables : List.of(2, MAX_PREFIXES_COUNT, MAX_PREFIXES_COUNT + 2)) {
+                    log.info("testSystemMetadataTableComments: Testing with %s tables", tables);
+                    checkState(tablesCreated < tables);
+
+                    for (int i = tablesCreated; i < tables; i++) {
+                        tablesCreated++;
+                        assertUpdate(session, "CREATE TABLE test_select_s_m_t_comments" + i + "(id varchar, age integer)");
+                        // Produce multiple snapshots and metadata files
+                        assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('abc', 11)", 1);
+                        assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('xyz', 12)", 1);
+
+                        assertUpdate(session, "CREATE TABLE test_other_select_s_m_t_comments" + i + "(id varchar, age integer)"); // won't match the filter
+                    }
+
+                    // Bulk retrieval
+                    assertInvocations(
+                            session,
+                            "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments%'",
+                            ImmutableMultiset.<GlueMetastoreMethod>builder()
+                                    .addCopies(GET_TABLES, 3)
+                                    .addCopies(GET_TABLE, tables * 2)
+                                    .build(),
+                            ImmutableMultiset.<FileOperation>builder()
+                                    .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), tables * 2)
+                                    .build());
+                }
+
+                // Pointed lookup
+                assertInvocations(
+                        session,
+                        "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name = 'test_select_s_m_t_comments0'",
+                        ImmutableMultiset.<GlueMetastoreMethod>builder()
+                                .addCopies(GET_TABLE, 1)
+                                .build(),
+                        ImmutableMultiset.<FileOperation>builder()
+                                .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                                .build());
+            }
+            finally {
+                for (int i = 0; i < tablesCreated; i++) {
+                    assertUpdate(session, "DROP TABLE IF EXISTS test_select_s_m_t_comments" + i);
+                    assertUpdate(session, "DROP TABLE IF EXISTS test_other_select_s_m_t_comments" + i);
                 }
             }
         }
