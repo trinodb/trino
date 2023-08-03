@@ -63,9 +63,11 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
@@ -97,6 +99,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 import static io.airlift.tracing.Tracing.attribute;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
@@ -329,6 +332,15 @@ public class TracingMetadata
         Span span = startSpan("listTableColumns", prefix);
         try (var ignored = scopedSpan(span)) {
             return delegate.listTableColumns(session, prefix);
+        }
+    }
+
+    @Override
+    public List<RelationCommentMetadata> listRelationComments(Session session, String catalogName, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        Span span = startSpan("listRelationComments", new QualifiedTablePrefix(catalogName, schemaName, Optional.empty()));
+        try (var ignored = scopedSpan(span)) {
+            return delegate.listRelationComments(session, catalogName, schemaName, relationFilter);
         }
     }
 
