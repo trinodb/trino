@@ -610,12 +610,6 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>parameternames</artifactId>
-                <version>1.4</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
                 <artifactId>units</artifactId>
                 <version>1.9</version>
             </dependency>
