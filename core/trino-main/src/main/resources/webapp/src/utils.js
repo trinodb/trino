@@ -258,6 +258,7 @@ export function getChildren(nodeInfo: any)
             return [nodeInfo.probeSource, nodeInfo.indexSource];
         case 'union':
         case 'exchange':
+        case 'chooseAlternative':
             return nodeInfo.sources;
         case 'remoteSource':
         case 'tablescan':
