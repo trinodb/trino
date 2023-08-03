@@ -75,4 +75,10 @@ public class MongoInsertTableHandle
     {
         return pageSinkIdColumnName;
     }
+
+    @Override
+    public String toString()
+    {
+        return remoteTableName.toString();
+    }
 }

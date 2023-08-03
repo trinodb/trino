@@ -229,6 +229,16 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate("DROP TABLE table_already_exists");
     }
 
+    @Override
+    public void testInsertTableNameInExplain()
+    {
+        // TODO Add table name to RaptorInsertTableHandle
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_explain", "(col INTEGER)")) {
+            assertThat((String) computeScalar("EXPLAIN INSERT INTO " + table.getName() + " VALUES 1"))
+                    .doesNotContain(table.getName());
+        }
+    }
+
     @Test
     public void testInsertSelectDecimal()
     {

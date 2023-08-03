@@ -83,4 +83,10 @@ public class BigQueryInsertTableHandle
     {
         return pageSinkIdColumnName;
     }
+
+    @Override
+    public String toString()
+    {
+        return remoteTableName.toString();
+    }
 }
