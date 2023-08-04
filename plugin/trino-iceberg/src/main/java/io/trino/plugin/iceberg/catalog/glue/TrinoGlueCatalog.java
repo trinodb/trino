@@ -559,10 +559,7 @@ public class TrinoGlueCatalog
                     metadataLocation,
                     tableParameters,
                     cacheTableMetadata);
-            CreateTableRequest createTableRequest = new CreateTableRequest()
-                    .withDatabaseName(to.getSchemaName())
-                    .withTableInput(tableInput);
-            stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
+            createTable(to.getSchemaName(), tableInput);
             newTableCreated = true;
             deleteTable(from.getSchemaName(), from.getTableName());
         }
@@ -736,10 +733,7 @@ public class TrinoGlueCatalog
         }
 
         try {
-            stats.getCreateTable().call(() ->
-                    glueClient.createTable(new CreateTableRequest()
-                            .withDatabaseName(schemaViewName.getSchemaName())
-                            .withTableInput(viewTableInput)));
+            createTable(schemaViewName.getSchemaName(), viewTableInput);
         }
         catch (AlreadyExistsException e) {
             throw new ViewAlreadyExistsException(schemaViewName);
@@ -759,10 +753,7 @@ public class TrinoGlueCatalog
                     existingView.getViewOriginalText(),
                     existingView.getOwner(),
                     createViewProperties(session, trinoVersion, TRINO_CREATED_BY_VALUE));
-            CreateTableRequest createTableRequest = new CreateTableRequest()
-                    .withDatabaseName(target.getSchemaName())
-                    .withTableInput(viewTableInput);
-            stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
+            createTable(target.getSchemaName(), viewTableInput);
             newTableCreated = true;
             deleteTable(source.getSchemaName(), source.getTableName());
         }
@@ -1148,10 +1139,7 @@ public class TrinoGlueCatalog
                 throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + source);
             }
             TableInput tableInput = getMaterializedViewTableInput(target.getTableName(), glueTable.getViewOriginalText(), glueTable.getOwner(), tableParameters);
-            CreateTableRequest createTableRequest = new CreateTableRequest()
-                    .withDatabaseName(target.getSchemaName())
-                    .withTableInput(tableInput);
-            stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
+            createTable(target.getSchemaName(), tableInput);
             newTableCreated = true;
             deleteTable(source.getSchemaName(), source.getTableName());
         }
