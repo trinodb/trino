@@ -48,7 +48,8 @@ import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static java.util.Objects.requireNonNull;
 
-final class S3FileSystem
+// public because it is used in SEP
+public final class S3FileSystem
         implements TrinoFileSystem
 {
     private final S3Client client;

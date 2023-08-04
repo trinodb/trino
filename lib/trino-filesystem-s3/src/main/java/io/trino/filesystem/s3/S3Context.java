@@ -19,7 +19,8 @@ import software.amazon.awssdk.services.s3.model.RequestPayer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId)
+// public because it is used in SEP
+public record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId)
 {
     private static final int MIN_PART_SIZE = 5 * 1024 * 1024; // S3 requirement
 
