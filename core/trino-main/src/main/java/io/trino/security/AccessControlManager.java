@@ -275,6 +275,10 @@ public class AccessControlManager
     @Override
     public Collection<Identity> filterQueriesOwnedBy(Identity identity, Collection<Identity> queryOwners)
     {
+        if (queryOwners.isEmpty()) {
+            // Do not call plugin-provided implementation unnecessarily.
+            return ImmutableSet.of();
+        }
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
             queryOwners = systemAccessControl.filterViewQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwners);
         }
@@ -313,6 +317,11 @@ public class AccessControlManager
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(catalogs, "catalogs is null");
+
+        if (catalogs.isEmpty()) {
+            // Do not call plugin-provided implementation unnecessarily.
+            return ImmutableSet.of();
+        }
 
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
             catalogs = systemAccessControl.filterCatalogs(securityContext.toSystemSecurityContext(), catalogs);
@@ -391,6 +400,11 @@ public class AccessControlManager
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(schemaNames, "schemaNames is null");
+
+        if (schemaNames.isEmpty()) {
+            // Do not call plugin-provided implementation unnecessarily.
+            return ImmutableSet.of();
+        }
 
         if (filterCatalogs(securityContext, ImmutableSet.of(catalogName)).isEmpty()) {
             return ImmutableSet.of();
@@ -546,6 +560,11 @@ public class AccessControlManager
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(tableNames, "tableNames is null");
 
+        if (tableNames.isEmpty()) {
+            // Do not call plugin-provided implementation unnecessarily.
+            return ImmutableSet.of();
+        }
+
         if (filterCatalogs(securityContext, ImmutableSet.of(catalogName)).isEmpty()) {
             return ImmutableSet.of();
         }
@@ -579,6 +598,11 @@ public class AccessControlManager
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(table, "tableName is null");
+
+        if (columns.isEmpty()) {
+            // Do not call plugin-provided implementation unnecessarily.
+            return ImmutableSet.of();
+        }
 
         if (filterTables(securityContext, table.getCatalogName(), ImmutableSet.of(table.getSchemaTableName())).isEmpty()) {
             return ImmutableSet.of();
