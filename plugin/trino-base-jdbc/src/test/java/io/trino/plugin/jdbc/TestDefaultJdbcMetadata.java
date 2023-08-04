@@ -400,7 +400,7 @@ public class TestDefaultJdbcMetadata
 
     private JdbcTableHandle applyFilter(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
-        Optional<ConstraintApplicationResult<ConnectorTableHandle>> filterResult = metadata.applyFilter(
+        Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> filterResult = metadata.applyFilter(
                 session,
                 tableHandle,
                 constraint);

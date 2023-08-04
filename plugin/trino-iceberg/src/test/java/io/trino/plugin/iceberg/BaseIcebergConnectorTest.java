@@ -3923,7 +3923,7 @@ public abstract class BaseIcebergConnectorTest
                     filter.entrySet().stream()
                             .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue)));
 
-            Optional<ConstraintApplicationResult<TableHandle>> result = metadata.applyFilter(session, table, new Constraint(domains));
+            Optional<ConstraintApplicationResult<TableHandle, ColumnHandle>> result = metadata.applyFilter(session, table, new Constraint(domains));
 
             assertEquals((expectedUnenforcedPredicate == null && expectedEnforcedPredicate == null), result.isEmpty());
 

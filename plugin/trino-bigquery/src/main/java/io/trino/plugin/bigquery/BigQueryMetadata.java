@@ -771,7 +771,7 @@ public class BigQueryMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> applyFilter(
             ConnectorSession session,
             ConnectorTableHandle handle,
             Constraint constraint)

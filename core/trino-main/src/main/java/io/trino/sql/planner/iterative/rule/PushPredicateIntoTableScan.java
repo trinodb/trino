@@ -244,7 +244,7 @@ public class PushPredicateIntoTableScan
             return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
         }
 
-        Optional<ConstraintApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyFilter(session, node.getTable(), constraint);
+        Optional<ConstraintApplicationResult<TableHandle, ColumnHandle>> result = plannerContext.getMetadata().applyFilter(session, node.getTable(), constraint);
 
         if (result.isEmpty()) {
             return Optional.empty();

@@ -229,6 +229,66 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.ConstraintApplicationResult&lt;T&gt;::&lt;init&gt;(T, ===io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;===, boolean)</old>
+                                    <new>parameter void io.trino.spi.connector.ConstraintApplicationResult&lt;T, G&gt;::&lt;init&gt;(T, ===io.trino.spi.predicate.TupleDomain&lt;G&gt;===, boolean)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>This is needed to make ConstraintApplicationResult not depend on ColumnHandle</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.ConstraintApplicationResult&lt;T&gt;::&lt;init&gt;(T, ===io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;===, io.trino.spi.expression.ConnectorExpression, boolean)</old>
+                                    <new>parameter void io.trino.spi.connector.ConstraintApplicationResult&lt;T, G&gt;::&lt;init&gt;(T, ===io.trino.spi.predicate.TupleDomain&lt;G&gt;===, io.trino.spi.expression.ConnectorExpression, boolean)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>This is needed to make ConstraintApplicationResult not depend on ColumnHandle</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt; io.trino.spi.connector.ConstraintApplicationResult&lt;T&gt;::getRemainingFilter()</old>
+                                    <new>method io.trino.spi.predicate.TupleDomain&lt;G&gt; io.trino.spi.connector.ConstraintApplicationResult&lt;T, G&gt;::getRemainingFilter()</new>
+                                    <justification>This is needed to make ConstraintApplicationResult not depend on ColumnHandle</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method &lt;U&gt; io.trino.spi.connector.ConstraintApplicationResult&lt;U&gt; io.trino.spi.connector.ConstraintApplicationResult&lt;T&gt;::transform(java.util.function.Function&lt;T, U&gt;)</old>
+                                    <new>method &lt;U&gt; io.trino.spi.connector.ConstraintApplicationResult&lt;U, G&gt; io.trino.spi.connector.ConstraintApplicationResult&lt;T, G&gt;::transform(java.util.function.Function&lt;T, U&gt;)</new>
+                                    <justification>This is needed to make ConstraintApplicationResult not depend on ColumnHandle</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.Optional&lt;io.trino.spi.connector.ConstraintApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyFilter(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.Constraint)</old>
+                                    <new>method &lt;T&gt; java.util.Optional&lt;io.trino.spi.connector.ConstraintApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle, T&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyFilter(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.Constraint)</new>
+                                    <justification>This is needed to make ConstraintApplicationResult not depend on ColumnHandle</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.generics.elementNowParameterized</code>
+                                    <old>method java.util.Optional&lt;io.trino.spi.connector.ConstraintApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyFilter(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.Constraint)</old>
+                                    <new>method &lt;T&gt; java.util.Optional&lt;io.trino.spi.connector.ConstraintApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle, T&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyFilter(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.Constraint)</new>
+                                    <justification>This is needed to make ConstraintApplicationResult not depend on ColumnHandle</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.generics.formalTypeParameterAdded</code>
+                                    <old>method java.util.Optional&lt;io.trino.spi.connector.ConstraintApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyFilter(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.Constraint)</old>
+                                    <new>method &lt;T&gt; java.util.Optional&lt;io.trino.spi.connector.ConstraintApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle, T&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyFilter(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.Constraint)</new>
+                                    <typeParameter>T</typeParameter>
+                                    <justification>This is needed to make ConstraintApplicationResult not depend on ColumnHandle</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.generics.formalTypeParameterAdded</code>
+                                    <old>class io.trino.spi.connector.ConstraintApplicationResult&lt;T&gt;</old>
+                                    <new>class io.trino.spi.connector.ConstraintApplicationResult&lt;T, G&gt;</new>
+                                    <typeParameter>G</typeParameter>
+                                    <justification>This is needed to make ConstraintApplicationResult not depend on ColumnHandle</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -885,7 +885,7 @@ public class TracingMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint)
+    public Optional<ConstraintApplicationResult<TableHandle, ColumnHandle>> applyFilter(Session session, TableHandle table, Constraint constraint)
     {
         Span span = startSpan("applyFilter", table);
         try (var ignored = scopedSpan(span)) {

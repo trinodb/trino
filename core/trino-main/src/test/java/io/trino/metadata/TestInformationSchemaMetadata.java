@@ -222,7 +222,7 @@ public class TestInformationSchemaMetadata
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
                 metadata.getTableHandle(session, new SchemaTableName("information_schema", "schemata"));
-        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(session, tableHandle, constraint);
+        Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> result = metadata.applyFilter(session, tableHandle, constraint);
         assertFalse(result.isPresent());
     }
 

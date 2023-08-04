@@ -173,7 +173,7 @@ public class TestTpchMetadata
     private void testTableStats(String schema, TpchTable<?> table, Constraint constraint, double expectedRowCount)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
-        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = tpchMetadata.applyFilter(session, tableHandle, constraint);
+        Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> result = tpchMetadata.applyFilter(session, tableHandle, constraint);
         if (result.isPresent()) {
             tableHandle = (TpchTableHandle) result.get().getHandle();
         }
@@ -278,7 +278,7 @@ public class TestTpchMetadata
     private void testColumnStats(String schema, TpchTable<?> table, TpchColumn<?> column, Constraint constraint, ColumnStatistics expected)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
-        Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = tpchMetadata.applyFilter(session, tableHandle, constraint);
+        Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> result = tpchMetadata.applyFilter(session, tableHandle, constraint);
         if (result.isPresent()) {
             tableHandle = (TpchTableHandle) result.get().getHandle();
         }
@@ -301,7 +301,7 @@ public class TestTpchMetadata
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName("sf1", ORDERS.getTableName()));
 
         TupleDomain<ColumnHandle> domain;
-        ConstraintApplicationResult<ConnectorTableHandle> result;
+        ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle> result;
 
         domain = fixedValueTupleDomain(tpchMetadata, ORDER_STATUS, utf8Slice("P"));
         result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, ORDER_STATUS), Set.of(tpchMetadata.toColumnHandle(ORDER_STATUS)))).get();
@@ -328,7 +328,7 @@ public class TestTpchMetadata
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName("sf1", PART.getTableName()));
 
         TupleDomain<ColumnHandle> domain;
-        ConstraintApplicationResult<ConnectorTableHandle> result;
+        ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle> result;
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("SMALL BRUSHED COPPER"));
         result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(

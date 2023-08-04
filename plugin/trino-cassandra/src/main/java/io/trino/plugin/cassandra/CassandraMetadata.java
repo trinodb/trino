@@ -227,7 +227,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle connectorTableHandle, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle connectorTableHandle, Constraint constraint)
     {
         CassandraTableHandle tableHandle = (CassandraTableHandle) connectorTableHandle;
         if (tableHandle.isSynthetic()) {

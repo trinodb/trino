@@ -270,7 +270,7 @@ public class PinotMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         PinotTableHandle handle = (PinotTableHandle) table;
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();

@@ -21,10 +21,10 @@ import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
-public class ConstraintApplicationResult<T>
+public class ConstraintApplicationResult<T, G>
 {
     private final T handle;
-    private final TupleDomain<ColumnHandle> remainingFilter;
+    private final TupleDomain<G> remainingFilter;
     private final Optional<ConnectorExpression> remainingExpression;
     private final boolean precalculateStatistics;
 
@@ -32,7 +32,7 @@ public class ConstraintApplicationResult<T>
      * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
      * as the connector may be unable to provide good table statistics for {@code handle}.
      */
-    public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, boolean precalculateStatistics)
+    public ConstraintApplicationResult(T handle, TupleDomain<G> remainingFilter, boolean precalculateStatistics)
     {
         this(handle, remainingFilter, Optional.empty(), precalculateStatistics);
     }
@@ -42,7 +42,7 @@ public class ConstraintApplicationResult<T>
      * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
      * as the connector may be unable to provide good table statistics for {@code handle}.
      */
-    public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, ConnectorExpression remainingExpression, boolean precalculateStatistics)
+    public ConstraintApplicationResult(T handle, TupleDomain<G> remainingFilter, ConnectorExpression remainingExpression, boolean precalculateStatistics)
     {
         this(handle, remainingFilter, Optional.of(remainingExpression), precalculateStatistics);
     }
@@ -53,7 +53,7 @@ public class ConstraintApplicationResult<T>
      * @param precalculateStatistics Indicates whether engine should consider calculating statistics based on the plan before pushdown,
      * as the connector may be unable to provide good table statistics for {@code handle}.
      */
-    private ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, Optional<ConnectorExpression> remainingExpression, boolean precalculateStatistics)
+    private ConstraintApplicationResult(T handle, TupleDomain<G> remainingFilter, Optional<ConnectorExpression> remainingExpression, boolean precalculateStatistics)
     {
         this.handle = requireNonNull(handle, "handle is null");
         this.remainingFilter = requireNonNull(remainingFilter, "remainingFilter is null");
@@ -66,7 +66,7 @@ public class ConstraintApplicationResult<T>
         return handle;
     }
 
-    public TupleDomain<ColumnHandle> getRemainingFilter()
+    public TupleDomain<G> getRemainingFilter()
     {
         return remainingFilter;
     }
@@ -81,7 +81,7 @@ public class ConstraintApplicationResult<T>
         return precalculateStatistics;
     }
 
-    public <U> ConstraintApplicationResult<U> transform(Function<T, U> transformHandle)
+    public <U> ConstraintApplicationResult<U, G> transform(Function<T, U> transformHandle)
     {
         return new ConstraintApplicationResult<>(transformHandle.apply(handle), remainingFilter, remainingExpression, precalculateStatistics);
     }

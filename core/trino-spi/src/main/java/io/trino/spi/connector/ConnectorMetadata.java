@@ -1088,7 +1088,7 @@ public interface ConnectorMetadata
      *
      * @param constraint constraint to be applied to the table. {@link Constraint#getSummary()} is guaranteed not to be {@link TupleDomain#isNone() none}.
      */
-    default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    default <T> Optional<ConstraintApplicationResult<ConnectorTableHandle, T>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         // applyFilter is expected not to be invoked with a "false" constraint
         if (constraint.getSummary().isNone()) {
