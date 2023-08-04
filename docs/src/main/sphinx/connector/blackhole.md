@@ -122,6 +122,7 @@ additional features:
 - {doc}`/sql/create-table`
 - {doc}`/sql/create-table-as`
 - {doc}`/sql/drop-table`
+- {doc}`/sql/comment`
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
 
