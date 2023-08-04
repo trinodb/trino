@@ -16,7 +16,7 @@ package io.trino.plugin.accumulo.model;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.apache.accumulo.core.data.Range;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.stream.Collectors;
