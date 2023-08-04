@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
+import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
@@ -251,7 +251,7 @@ public abstract class AbstractTestAggregations
         assertQuery(query);
         assertQuery(
                 Session.builder(getSession())
-                        .setSystemProperty(USE_MARK_DISTINCT, "false")
+                        .setSystemProperty(MARK_DISTINCT_STRATEGY, "none")
                         .build(),
                 query);
     }

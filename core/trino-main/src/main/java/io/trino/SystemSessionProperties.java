@@ -119,7 +119,6 @@ public final class SystemSessionProperties
     public static final String USE_PARTIAL_TOPN = "use_partial_topn";
     public static final String USE_PARTIAL_DISTINCT_LIMIT = "use_partial_distinct_limit";
     public static final String MAX_RECURSION_DEPTH = "max_recursion_depth";
-    public static final String USE_MARK_DISTINCT = "use_mark_distinct";
     public static final String MARK_DISTINCT_STRATEGY = "mark_distinct_strategy";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_RANKING = "optimize_top_n_ranking";
@@ -573,11 +572,6 @@ public final class SystemSessionProperties
                         false,
                         value -> validateIntegerValue(value, MAX_RECURSION_DEPTH, 1, false),
                         object -> object),
-                booleanProperty(
-                        USE_MARK_DISTINCT,
-                        "Implement DISTINCT aggregations using MarkDistinct",
-                        optimizerConfig.isUseMarkDistinct(),
-                        false),
                 enumProperty(
                         MARK_DISTINCT_STRATEGY,
                         "",
@@ -1362,19 +1356,7 @@ public final class SystemSessionProperties
 
     public static MarkDistinctStrategy markDistinctStrategy(Session session)
     {
-        MarkDistinctStrategy markDistinctStrategy = session.getSystemProperty(MARK_DISTINCT_STRATEGY, MarkDistinctStrategy.class);
-        if (markDistinctStrategy != null) {
-            // mark_distinct_strategy is set, so it takes precedence over use_mark_distinct
-            return markDistinctStrategy;
-        }
-
-        Boolean useMarkDistinct = session.getSystemProperty(USE_MARK_DISTINCT, Boolean.class);
-        if (useMarkDistinct == null) {
-            // both mark_distinct_strategy and use_mark_distinct have default null values, use AUTOMATIC
-            return MarkDistinctStrategy.AUTOMATIC;
-        }
-        // use_mark_distinct is set but mark_distinct_strategy is not, map use_mark_distinct to mark_distinct_strategy
-        return useMarkDistinct ? MarkDistinctStrategy.AUTOMATIC : MarkDistinctStrategy.NONE;
+        return session.getSystemProperty(MARK_DISTINCT_STRATEGY, MarkDistinctStrategy.class);
     }
 
     public static boolean preferPartialAggregation(Session session)
