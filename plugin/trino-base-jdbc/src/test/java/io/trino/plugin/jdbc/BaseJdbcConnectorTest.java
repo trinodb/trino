@@ -59,7 +59,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
+import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_ENABLED;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
@@ -458,7 +458,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         Session withMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "always")
                 .build();
         // distinct aggregation
         assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
@@ -494,7 +494,7 @@ public abstract class BaseJdbcConnectorTest
                 node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
 
         Session withoutMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(MARK_DISTINCT_STRATEGY, "none")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "none")
                 .build();
         // distinct aggregation
         assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();

@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy;
+import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -33,10 +33,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.SystemSessionProperties.markDistinctStrategy;
+import static io.trino.SystemSessionProperties.distinctAggregationsStrategy;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy.AUTOMATIC;
-import static io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy.NONE;
+import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.AUTOMATIC;
+import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.NONE;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
@@ -118,12 +118,12 @@ public class MultipleDistinctAggregationToMarkDistinct
     @Override
     public Result apply(AggregationNode parent, Captures captures, Context context)
     {
-        MarkDistinctStrategy markDistinctStrategy = markDistinctStrategy(context.getSession());
-        if (markDistinctStrategy.equals(NONE)) {
+        DistinctAggregationsStrategy distinctAggregationsStrategy = distinctAggregationsStrategy(context.getSession());
+        if (distinctAggregationsStrategy.equals(NONE)) {
             return Result.empty();
         }
 
-        if (markDistinctStrategy.equals(AUTOMATIC) && !distinctAggregationController.shouldAddMarkDistinct(parent, context)) {
+        if (distinctAggregationsStrategy.equals(AUTOMATIC) && !distinctAggregationController.shouldAddMarkDistinct(parent, context)) {
             return Result.empty();
         }
 

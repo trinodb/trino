@@ -27,9 +27,9 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.planner.OptimizerConfig;
+import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
-import io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy;
 
 import java.util.List;
 import java.util.Optional;
@@ -120,7 +120,7 @@ public final class SystemSessionProperties
     public static final String GATHER_PARTIAL_TOPN = "gather_partial_topn";
     public static final String USE_PARTIAL_DISTINCT_LIMIT = "use_partial_distinct_limit";
     public static final String MAX_RECURSION_DEPTH = "max_recursion_depth";
-    public static final String MARK_DISTINCT_STRATEGY = "mark_distinct_strategy";
+    public static final String DISTINCT_AGGREGATIONS_STRATEGY = "distinct_aggregations_strategy";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_RANKING = "optimize_top_n_ranking";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
@@ -586,10 +586,10 @@ public final class SystemSessionProperties
                         value -> validateIntegerValue(value, MAX_RECURSION_DEPTH, 1, false),
                         object -> object),
                 enumProperty(
-                        MARK_DISTINCT_STRATEGY,
+                        DISTINCT_AGGREGATIONS_STRATEGY,
                         "",
-                        MarkDistinctStrategy.class,
-                        optimizerConfig.getMarkDistinctStrategy(),
+                        DistinctAggregationsStrategy.class,
+                        optimizerConfig.getDistinctAggregationsStrategy(),
                         false),
                 booleanProperty(
                         PREFER_PARTIAL_AGGREGATION,
@@ -1403,9 +1403,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
     }
 
-    public static MarkDistinctStrategy markDistinctStrategy(Session session)
+    public static DistinctAggregationsStrategy distinctAggregationsStrategy(Session session)
     {
-        return session.getSystemProperty(MARK_DISTINCT_STRATEGY, MarkDistinctStrategy.class);
+        return session.getSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, DistinctAggregationsStrategy.class);
     }
 
     public static boolean preferPartialAggregation(Session session)

@@ -28,9 +28,9 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.ALWAYS;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
-import static io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy.ALWAYS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -71,7 +71,7 @@ public class TestOptimizerConfig
                 .setPushAggregationThroughOuterJoin(true)
                 .setPushPartialAggregationThroughJoin(true)
                 .setPreAggregateCaseAggregationsEnabled(true)
-                .setMarkDistinctStrategy(OptimizerConfig.MarkDistinctStrategy.AUTOMATIC)
+                .setDistinctAggregationsStrategy(OptimizerConfig.DistinctAggregationsStrategy.AUTOMATIC)
                 .setPreferPartialAggregation(true)
                 .setOptimizeTopNRanking(true)
                 .setDistributedSortEnabled(true)
@@ -134,7 +134,7 @@ public class TestOptimizerConfig
                 .put("optimizer.pre-aggregate-case-aggregations.enabled", "false")
                 .put("optimizer.enable-intermediate-aggregations", "true")
                 .put("optimizer.force-single-node-output", "true")
-                .put("optimizer.mark-distinct-strategy", "always")
+                .put("optimizer.distinct-aggregations-strategy", "always")
                 .put("optimizer.prefer-partial-aggregation", "false")
                 .put("optimizer.optimize-top-n-ranking", "false")
                 .put("optimizer.skip-redundant-sort", "false")
@@ -188,7 +188,7 @@ public class TestOptimizerConfig
                 .setPushPartialAggregationThroughJoin(false)
                 .setPreAggregateCaseAggregationsEnabled(false)
                 .setEnableIntermediateAggregations(true)
-                .setMarkDistinctStrategy(ALWAYS)
+                .setDistinctAggregationsStrategy(ALWAYS)
                 .setPreferPartialAggregation(false)
                 .setOptimizeTopNRanking(false)
                 .setDistributedSortEnabled(false)

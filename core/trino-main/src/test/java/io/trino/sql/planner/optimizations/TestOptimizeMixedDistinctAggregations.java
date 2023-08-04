@@ -57,7 +57,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         super(ImmutableMap.of(
                 SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true",
-                SystemSessionProperties.MARK_DISTINCT_STRATEGY, "always"));
+                SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY, "always"));
     }
 
     @Test
