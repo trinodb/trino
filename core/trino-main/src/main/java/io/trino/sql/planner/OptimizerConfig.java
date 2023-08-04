@@ -71,7 +71,6 @@ public class OptimizerConfig
     private boolean enableIntermediateAggregations;
     private boolean pushPartialAggregationThroughJoin = true;
     private boolean preAggregateCaseAggregationsEnabled = true;
-    private boolean optimizeMixedDistinctAggregations;
     private boolean enableForcedExchangeBelowGroupId = true;
     private boolean useHighestCardinalityColumnForForcedExchangeBelowGroupId = true;
     private boolean optimizeTopNRanking = true;
@@ -123,6 +122,7 @@ public class OptimizerConfig
     {
         SINGLE_STEP,
         MARK_DISTINCT,
+        PRE_AGGREGATE,
         AUTOMATIC,
     }
 
@@ -408,18 +408,6 @@ public class OptimizerConfig
     public OptimizerConfig setIterativeOptimizerTimeout(Duration timeout)
     {
         this.iterativeOptimizerTimeout = timeout;
-        return this;
-    }
-
-    public boolean isOptimizeMixedDistinctAggregations()
-    {
-        return optimizeMixedDistinctAggregations;
-    }
-
-    @Config("optimizer.optimize-mixed-distinct-aggregations")
-    public OptimizerConfig setOptimizeMixedDistinctAggregations(boolean value)
-    {
-        this.optimizeMixedDistinctAggregations = value;
         return this;
     }
 

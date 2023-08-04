@@ -103,7 +103,6 @@ public final class SystemSessionProperties
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
-    public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
     public static final String USE_HIGHEST_CARDINALITY_COLUMN_FOR_REPARTITIONING_BELOW_GROUP_ID = "use_highest_cardinality_column_for_repartitioning_below_group_id";
@@ -493,11 +492,6 @@ public final class SystemSessionProperties
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
                         "How much memory should be allocated per aggregation operator in unspilling process",
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
-                        false),
-                booleanProperty(
-                        OPTIMIZE_DISTINCT_AGGREGATIONS,
-                        "Optimize mixed non-distinct and distinct aggregations",
-                        optimizerConfig.isOptimizeMixedDistinctAggregations(),
                         false),
                 durationProperty(
                         ITERATIVE_OPTIMIZER_TIMEOUT,
@@ -1341,11 +1335,6 @@ public final class SystemSessionProperties
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
         checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return memoryLimitForMerge;
-    }
-
-    public static boolean isOptimizeDistinctAggregationEnabled(Session session)
-    {
-        return session.getSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, Boolean.class);
     }
 
     public static Duration getOptimizerTimeout(Session session)

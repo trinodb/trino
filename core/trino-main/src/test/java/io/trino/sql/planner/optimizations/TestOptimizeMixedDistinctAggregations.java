@@ -16,7 +16,6 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.SystemSessionProperties;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -37,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anySymbol;
@@ -55,9 +55,7 @@ public class TestOptimizeMixedDistinctAggregations
 {
     public TestOptimizeMixedDistinctAggregations()
     {
-        super(ImmutableMap.of(
-                SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true",
-                SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct"));
+        super(ImmutableMap.of(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate"));
     }
 
     @Test

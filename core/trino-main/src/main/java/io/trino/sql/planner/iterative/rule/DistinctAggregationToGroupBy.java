@@ -47,12 +47,13 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
+import static io.trino.SystemSessionProperties.distinctAggregationsStrategy;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.PRE_AGGREGATE;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -153,7 +154,7 @@ public class DistinctAggregationToGroupBy
     @Override
     public boolean isEnabled(Session session)
     {
-        return isOptimizeDistinctAggregationEnabled(session);
+        return distinctAggregationsStrategy(session).equals(PRE_AGGREGATE);
     }
 
     @Override
