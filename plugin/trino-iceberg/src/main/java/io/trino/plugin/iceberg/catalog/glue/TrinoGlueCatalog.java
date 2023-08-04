@@ -583,13 +583,9 @@ public class TrinoGlueCatalog
     {
         com.amazonaws.services.glue.model.Table table;
         try {
-            table = stats.getGetTable().call(() ->
-                    glueClient.getTable(new GetTableRequest()
-                                    .withDatabaseName(schemaTableName.getSchemaName())
-                                    .withName(schemaTableName.getTableName()))
-                            .getTable());
+            table = getTable(schemaTableName, false);
         }
-        catch (EntityNotFoundException e) {
+        catch (TableNotFoundException e) {
             return Optional.empty();
         }
 
