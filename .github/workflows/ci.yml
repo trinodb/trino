@@ -894,7 +894,6 @@ jobs:
             # suite-4 does not exist
             - suite-5
             - suite-azure
-            - suite-delta-lake-databricks73
             - suite-delta-lake-databricks91
             - suite-delta-lake-databricks104
             - suite-delta-lake-databricks113
@@ -928,11 +927,6 @@ jobs:
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.GCP_CREDENTIALS_KEY != '' }}
 
-            - suite: suite-delta-lake-databricks73
-              config: hdp3
-            - suite: suite-delta-lake-databricks73
-              ignore exclusion if: >-
-                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks91
               config: hdp3
             - suite: suite-delta-lake-databricks91
@@ -1045,7 +1039,6 @@ jobs:
           AWS_REGION:
           TRINO_AWS_ACCESS_KEY_ID:
           TRINO_AWS_SECRET_ACCESS_KEY:
-          DATABRICKS_73_JDBC_URL:
           DATABRICKS_91_JDBC_URL:
           DATABRICKS_104_JDBC_URL:
           DATABRICKS_113_JDBC_URL:
@@ -1112,7 +1105,6 @@ jobs:
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           TRINO_AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           TRINO_AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          DATABRICKS_73_JDBC_URL: ${{ secrets.DATABRICKS_73_JDBC_URL }}
           DATABRICKS_91_JDBC_URL: ${{ secrets.DATABRICKS_91_JDBC_URL }}
           DATABRICKS_104_JDBC_URL: ${{ secrets.DATABRICKS_104_JDBC_URL }}
           DATABRICKS_113_JDBC_URL: ${{ secrets.DATABRICKS_113_JDBC_URL }}
