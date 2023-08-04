@@ -50,11 +50,13 @@ public class TranslatingPageSource
     private final ConnectorPageSource delegate;
     private final List<HiveColumnHandle> columns;
     private final TranslateToLong timestampWithTimeZoneTranslation;
+    private final boolean isOptimizedParquetReaderEnabled;
 
-    public TranslatingPageSource(ConnectorPageSource delegate, List<HiveColumnHandle> columns)
+    public TranslatingPageSource(ConnectorPageSource delegate, List<HiveColumnHandle> columns, boolean isOptimizedParquetReaderEnabled)
     {
         this.delegate = requireNonNull(delegate, "delegate was null");
         this.columns = requireNonNull(columns, "columns was null");
+        this.isOptimizedParquetReaderEnabled = isOptimizedParquetReaderEnabled;
         timestampWithTimeZoneTranslation = new TimestampWithTimeZoneTranslation();
     }
 
@@ -81,7 +83,7 @@ public class TranslatingPageSource
                                 originalBlock,
                                 timestampWithTimeZoneTranslation));
             }
-            else if (type instanceof TimeType) {
+            else if (type instanceof TimeType && !isOptimizedParquetReaderEnabled) {
                 translatedBlocks[index] = new LazyBlock(
                         originalBlock.getPositionCount(),
                         new TranslateToLongBlockLoader(

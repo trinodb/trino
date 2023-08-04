@@ -53,6 +53,7 @@ import static com.starburstdata.trino.plugins.snowflake.distributed.HiveUtils.ge
 import static com.starburstdata.trino.plugins.snowflake.distributed.HiveUtils.getHiveColumnHandles;
 import static com.starburstdata.trino.plugins.snowflake.distributed.HiveUtils.validateStageType;
 import static com.starburstdata.trino.plugins.snowflake.distributed.SnowflakeDistributedSessionProperties.getParquetMaxReadBlockSize;
+import static com.starburstdata.trino.plugins.snowflake.distributed.SnowflakeDistributedSessionProperties.isParquetOptimizedReaderEnabled;
 import static com.starburstdata.trino.plugins.snowflake.distributed.SnowflakeDistributedSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.dynamicFilteringEnabled;
@@ -141,6 +142,7 @@ public class SnowflakePageSourceProvider
             }
         }
 
+        boolean isOptimizedParquetReaderEnabled = isParquetOptimizedReaderEnabled(session);
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 fileSystemFactory.create(session).newInputFile(Location.of(snowflakeSplit.getPath()), unpaddedFileSize),
                 snowflakeSplit.getStart(),
@@ -153,13 +155,13 @@ public class SnowflakePageSourceProvider
                 parquetReaderConfig.toParquetReaderOptions()
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                         .withUseColumnIndex(isParquetUseColumnIndex(session))
-                        .withBatchColumnReaders(false),
+                        .withBatchColumnReaders(isOptimizedParquetReaderEnabled),
                 Optional.empty(),
                 100);
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 
-        return new TranslatingPageSource(pageSource.get(), hiveColumns);
+        return new TranslatingPageSource(pageSource.get(), hiveColumns, isOptimizedParquetReaderEnabled);
     }
 
     // for more information see https://en.wikipedia.org/wiki/Padding_(cryptography)#PKCS%235_and_PKCS%237

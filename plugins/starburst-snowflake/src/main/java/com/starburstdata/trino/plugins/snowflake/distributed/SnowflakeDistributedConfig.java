@@ -31,6 +31,7 @@ public class SnowflakeDistributedConfig
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
     private DataSize parquetMaxReadBlockSize = DataSize.of(16, MEGABYTE);
     private boolean useColumnIndex = true;
+    private boolean optimizedReaderEnabled = true;
     private DataSize exportFileMaxSize = DataSize.of(5, GIGABYTE);
     private int maxExportRetries = 3;
     private boolean retryCanceledQueries;
@@ -102,6 +103,19 @@ public class SnowflakeDistributedConfig
     public boolean isUseColumnIndex()
     {
         return useColumnIndex;
+    }
+
+    @Config("snowflake.parquet.optimized-reader.enabled")
+    @ConfigDescription("Use optimized Parquet reader")
+    public SnowflakeDistributedConfig setOptimizedReaderEnabled(boolean optimizedReaderEnabled)
+    {
+        this.optimizedReaderEnabled = optimizedReaderEnabled;
+        return this;
+    }
+
+    public boolean isOptimizedReaderEnabled()
+    {
+        return optimizedReaderEnabled;
     }
 
     @MinDataSize(value = "1MB", message = "The export file max size must at least 1MB")
