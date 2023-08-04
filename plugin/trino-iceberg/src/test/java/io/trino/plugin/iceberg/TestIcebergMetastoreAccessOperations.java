@@ -67,7 +67,7 @@ public class TestIcebergMetastoreAccessOperations
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
-                .addCoordinatorProperty("optimizer.max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
+                .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();

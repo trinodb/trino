@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigHidden;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
@@ -237,7 +238,8 @@ public class OptimizerConfig
         return maxPrefetchedInformationSchemaPrefixes;
     }
 
-    @Config("optimizer.max-prefetched-information-schema-prefixes")
+    @Config("optimizer.experimental-max-prefetched-information-schema-prefixes")
+    @ConfigHidden
     @ConfigDescription("Experimental: maximum number of internal \"prefixes\" to be prefetched when optimizing information_schema queries")
     public OptimizerConfig setMaxPrefetchedInformationSchemaPrefixes(int maxPrefetchedInformationSchemaPrefixes)
     {
