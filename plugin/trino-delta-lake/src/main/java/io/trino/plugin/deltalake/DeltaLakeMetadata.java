@@ -2508,7 +2508,7 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint<ColumnHandle> constraint)
     {
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) handle;
         SchemaTableName tableName = tableHandle.getSchemaTableName();

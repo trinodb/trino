@@ -158,7 +158,7 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint)
     {
         if (isTableHandleForProcedure(table)) {
             return Optional.empty();

@@ -146,7 +146,7 @@ public class ColumnJdbcTable
     }
 
     @Override
-    public TupleDomain<ColumnHandle> applyFilter(ConnectorSession connectorSession, Constraint constraint)
+    public TupleDomain<ColumnHandle> applyFilter(ConnectorSession connectorSession, Constraint<ColumnHandle> constraint)
     {
         TupleDomain<ColumnHandle> tupleDomain = constraint.getSummary();
         if (tupleDomain.isNone() || constraint.predicate().isEmpty()) {

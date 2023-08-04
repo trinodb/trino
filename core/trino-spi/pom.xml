@@ -289,6 +289,146 @@
                                     <typeParameter>G</typeParameter>
                                     <justification>This is needed to make ConstraintApplicationResult not depend on ColumnHandle</justification>
                                 </item>
+
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;===)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;T&gt;===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;===, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;T&gt;===, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, T&gt;)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.expression.ConnectorExpression, ===java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;===)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;T&gt;, io.trino.spi.expression.ConnectorExpression, ===java.util.Map&lt;java.lang.String, T&gt;===)</new>
+                                    <parameterIndex>2</parameterIndex>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;===, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;T&gt;===, java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;T&gt;)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, ===java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;===, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;T&gt;, ===java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;===, java.util.Set&lt;T&gt;)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, ===java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;===)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;T&gt;, java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;, ===java.util.Set&lt;T&gt;===)</new>
+                                    <parameterIndex>2</parameterIndex>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;===, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(===io.trino.spi.predicate.TupleDomain&lt;T&gt;===, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, T&gt;, java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;T&gt;)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.expression.ConnectorExpression, ===java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;===, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;T&gt;, io.trino.spi.expression.ConnectorExpression, ===java.util.Map&lt;java.lang.String, T&gt;===, java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;, java.util.Set&lt;T&gt;)</new>
+                                    <parameterIndex>2</parameterIndex>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;, ===java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;===, java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;T&gt;, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, T&gt;, ===java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;===, java.util.Set&lt;T&gt;)</new>
+                                    <parameterIndex>3</parameterIndex>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.connector.Constraint::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt;, java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;, ===java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;===)</old>
+                                    <new>parameter void io.trino.spi.connector.Constraint&lt;T&gt;::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;T&gt;, io.trino.spi.expression.ConnectorExpression, java.util.Map&lt;java.lang.String, T&gt;, java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;, ===java.util.Set&lt;T&gt;===)</new>
+                                    <parameterIndex>4</parameterIndex>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.Map&lt;java.lang.String, io.trino.spi.connector.ColumnHandle&gt; io.trino.spi.connector.Constraint::getAssignments()</old>
+                                    <new>method java.util.Map&lt;java.lang.String, T&gt; io.trino.spi.connector.Constraint&lt;T&gt;::getAssignments()</new>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.Optional&lt;java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;&gt; io.trino.spi.connector.Constraint::getPredicateColumns()</old>
+                                    <new>method java.util.Optional&lt;java.util.Set&lt;T&gt;&gt; io.trino.spi.connector.Constraint&lt;T&gt;::getPredicateColumns()</new>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt; io.trino.spi.connector.Constraint::getSummary()</old>
+                                    <new>method io.trino.spi.predicate.TupleDomain&lt;T&gt; io.trino.spi.connector.Constraint&lt;T&gt;::getSummary()</new>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.Optional&lt;java.util.function.Predicate&lt;java.util.Map&lt;io.trino.spi.connector.ColumnHandle, io.trino.spi.predicate.NullableValue&gt;&gt;&gt; io.trino.spi.connector.Constraint::predicate()</old>
+                                    <new>method java.util.Optional&lt;java.util.function.Predicate&lt;java.util.Map&lt;T, io.trino.spi.predicate.NullableValue&gt;&gt;&gt; io.trino.spi.connector.Constraint&lt;T&gt;::predicate()</new>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.generics.elementNowParameterized</code>
+                                    <old>class io.trino.spi.connector.Constraint</old>
+                                    <new>class io.trino.spi.connector.Constraint&lt;T&gt;</new>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.generics.formalTypeParameterAdded</code>
+                                    <old>class io.trino.spi.connector.Constraint</old>
+                                    <new>class io.trino.spi.connector.Constraint&lt;T&gt;</new>
+                                    <typeParameter>T</typeParameter>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter java.util.Optional&lt;io.trino.spi.connector.ConstraintApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyFilter(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, ===io.trino.spi.connector.Constraint===)</old>
+                                    <new>parameter java.util.Optional&lt;io.trino.spi.connector.ConstraintApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ColumnHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyFilter(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, ===io.trino.spi.connector.Constraint&lt;io.trino.spi.connector.ColumnHandle&gt;===)</new>
+                                    <parameterIndex>2</parameterIndex>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.Optional&lt;io.trino.spi.connector.ConstraintApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyFilter(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.Constraint)</old>
+                                    <new>method java.util.Optional&lt;io.trino.spi.connector.ConstraintApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ColumnHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyFilter(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.Constraint&lt;io.trino.spi.connector.ColumnHandle&gt;)</new>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

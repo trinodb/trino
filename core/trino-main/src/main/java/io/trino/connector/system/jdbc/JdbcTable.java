@@ -38,7 +38,7 @@ public abstract class JdbcTable
      * and without column handles it's currently not possible to express Constraint or ConstraintApplicationResult.
      * TODO provide equivalent API in the SystemTable interface
      */
-    public TupleDomain<ColumnHandle> applyFilter(ConnectorSession session, Constraint constraint)
+    public TupleDomain<ColumnHandle> applyFilter(ConnectorSession session, Constraint<ColumnHandle> constraint)
     {
         return constraint.getSummary();
     }

@@ -144,7 +144,7 @@ public class DeltaLakeSplitManager
             ConnectorSession session,
             Optional<DataSize> maxScannedFileSize,
             Set<ColumnHandle> columnsCoveredByDynamicFilter,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         TableSnapshot tableSnapshot;
         try {

@@ -422,7 +422,7 @@ public class IcebergSplitSource
     static boolean partitionMatchesConstraint(
             Set<IcebergColumnHandle> identityPartitionColumns,
             Supplier<Map<ColumnHandle, NullableValue>> partitionValues,
-            Constraint constraint)
+            Constraint<ColumnHandle> constraint)
     {
         // We use Constraint just to pass functional predicate here from DistributedExecutionPlanner
         verify(constraint.getSummary().isAll());

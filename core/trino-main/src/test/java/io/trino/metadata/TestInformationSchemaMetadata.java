@@ -115,7 +115,7 @@ public class TestInformationSchemaMetadata
         ImmutableMap.Builder<ColumnHandle, Domain> domains = ImmutableMap.builder();
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
         domains.put(new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")));
-        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
+        Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
@@ -132,7 +132,7 @@ public class TestInformationSchemaMetadata
     public void testInformationSchemaPredicatePushdownWithConstraintPredicate()
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
-        Constraint constraint = new Constraint(TupleDomain.all(), TestInformationSchemaMetadata::testConstraint, testConstraintColumns());
+        Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.all(), TestInformationSchemaMetadata::testConstraint, testConstraintColumns());
 
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
@@ -154,7 +154,7 @@ public class TestInformationSchemaMetadata
         // predicate without schema predicates should cause schemas to be enumerated when table predicates are present
         ImmutableMap.Builder<ColumnHandle, Domain> domains = ImmutableMap.builder();
         domains.put(new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")));
-        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
+        Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
@@ -178,7 +178,7 @@ public class TestInformationSchemaMetadata
         // predicate without table name predicates should not cause table level prefixes to be evaluated
         ImmutableMap.Builder<ColumnHandle, Domain> domains = ImmutableMap.builder();
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
-        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
+        Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
@@ -197,7 +197,7 @@ public class TestInformationSchemaMetadata
         TransactionId transactionId = transactionManager.beginTransaction(false);
 
         // predicate on non columns enumerating table should not cause tables to be enumerated
-        Constraint constraint = new Constraint(TupleDomain.all(), TestInformationSchemaMetadata::testConstraint, testConstraintColumns());
+        Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.all(), TestInformationSchemaMetadata::testConstraint, testConstraintColumns());
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
@@ -217,7 +217,7 @@ public class TestInformationSchemaMetadata
 
         // Predicate pushdown shouldn't work for catalog-wise tables because the table prefixes for them are always
         // ImmutableSet.of(new QualifiedTablePrefix(catalogName));
-        Constraint constraint = new Constraint(TupleDomain.all());
+        Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.all());
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
@@ -237,7 +237,7 @@ public class TestInformationSchemaMetadata
         ConnectorTableHandle tableHandle = metadata.getTableHandle(session, new SchemaTableName("information_schema", "tables"));
 
         // Empty schema name
-        InformationSchemaTableHandle filtered = metadata.applyFilter(session, tableHandle, new Constraint(TupleDomain.withColumnDomains(
+        InformationSchemaTableHandle filtered = metadata.applyFilter(session, tableHandle, new Constraint<>(TupleDomain.withColumnDomains(
                         ImmutableMap.of(tableSchemaColumn, Domain.singleValue(VARCHAR, Slices.utf8Slice(""))))))
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
@@ -247,7 +247,7 @@ public class TestInformationSchemaMetadata
         assertEquals(filtered.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "")));
 
         // Empty table name
-        filtered = metadata.applyFilter(session, tableHandle, new Constraint(TupleDomain.withColumnDomains(
+        filtered = metadata.applyFilter(session, tableHandle, new Constraint<>(TupleDomain.withColumnDomains(
                         ImmutableMap.of(tableNameColumn, Domain.singleValue(VARCHAR, Slices.utf8Slice(""))))))
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)

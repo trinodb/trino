@@ -5283,7 +5283,7 @@ public abstract class AbstractTestHive
         return handle;
     }
 
-    private HiveTableHandle applyFilter(ConnectorMetadata metadata, ConnectorTableHandle tableHandle, Constraint constraint)
+    private HiveTableHandle applyFilter(ConnectorMetadata metadata, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
         return metadata.applyFilter(newSession(), tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)

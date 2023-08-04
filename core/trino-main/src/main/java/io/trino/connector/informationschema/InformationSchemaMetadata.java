@@ -184,7 +184,7 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint<ColumnHandle> constraint)
     {
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 

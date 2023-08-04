@@ -166,7 +166,7 @@ public class SystemTablesMetadata
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), false));
     }
 
-    private Constraint effectiveConstraint(TupleDomain<ColumnHandle> oldDomain, Constraint newConstraint, TupleDomain<ColumnHandle> effectiveDomain)
+    private Constraint<ColumnHandle> effectiveConstraint(TupleDomain<ColumnHandle> oldDomain, Constraint<ColumnHandle> newConstraint, TupleDomain<ColumnHandle> effectiveDomain)
     {
         if (effectiveDomain.isNone() || newConstraint.predicate().isEmpty()) {
             return new Constraint(effectiveDomain);

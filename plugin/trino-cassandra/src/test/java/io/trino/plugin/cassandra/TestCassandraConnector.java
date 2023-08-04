@@ -188,7 +188,8 @@ public class TestCassandraConnector
 
         ConnectorTransactionHandle transaction = CassandraTransactionHandle.INSTANCE;
 
-        tableHandle = metadata.applyFilter(SESSION, tableHandle, Constraint.alwaysTrue()).get().getHandle();
+        Constraint<ColumnHandle> constraint = Constraint.alwaysTrue();
+        tableHandle = metadata.applyFilter(SESSION, tableHandle, constraint).get().getHandle();
 
         List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction, SESSION, tableHandle, DynamicFilter.EMPTY, Constraint.alwaysTrue()));
 
@@ -312,7 +313,8 @@ public class TestCassandraConnector
 
         ConnectorTransactionHandle transaction = CassandraTransactionHandle.INSTANCE;
 
-        tableHandle = metadata.applyFilter(SESSION, tableHandle, Constraint.alwaysTrue()).get().getHandle();
+        Constraint<ColumnHandle> constraint = Constraint.alwaysTrue();
+        tableHandle = metadata.applyFilter(SESSION, tableHandle, constraint).get().getHandle();
 
         List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction, SESSION, tableHandle, DynamicFilter.EMPTY, Constraint.alwaysTrue()));
 
