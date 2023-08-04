@@ -657,6 +657,14 @@ public class TrinoGlueCatalog
                         .withTableInput(tableInput)));
     }
 
+    private void updateTable(String schemaName, TableInput tableInput)
+    {
+        stats.getUpdateTable().call(() ->
+                glueClient.updateTable(new UpdateTableRequest()
+                        .withDatabaseName(schemaName)
+                        .withTableInput(tableInput)));
+    }
+
     private void deleteTable(String schema, String table)
     {
         stats.getDeleteTable().call(() ->
@@ -725,10 +733,7 @@ public class TrinoGlueCatalog
                 throw new ViewAlreadyExistsException(schemaViewName);
             }
 
-            stats.getUpdateTable().call(() ->
-                    glueClient.updateTable(new UpdateTableRequest()
-                            .withDatabaseName(schemaViewName.getSchemaName())
-                            .withTableInput(viewTableInput)));
+            updateTable(schemaViewName.getSchemaName(), viewTableInput);
             return;
         }
 
@@ -896,10 +901,7 @@ public class TrinoGlueCatalog
                 createViewProperties(session, trinoVersion, TRINO_CREATED_BY_VALUE));
 
         try {
-            stats.getUpdateTable().call(() ->
-                    glueClient.updateTable(new UpdateTableRequest()
-                            .withDatabaseName(viewName.getSchemaName())
-                            .withTableInput(viewTableInput)));
+            updateTable(viewName.getSchemaName(), viewTableInput);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
@@ -970,10 +972,7 @@ public class TrinoGlueCatalog
 
         if (existing.isPresent()) {
             try {
-                stats.getUpdateTable().call(() ->
-                        glueClient.updateTable(new UpdateTableRequest()
-                                .withDatabaseName(viewName.getSchemaName())
-                                .withTableInput(materializedViewTableInput)));
+                updateTable(viewName.getSchemaName(), materializedViewTableInput);
             }
             catch (RuntimeException e) {
                 try {
@@ -1024,10 +1023,7 @@ public class TrinoGlueCatalog
                 createMaterializedViewProperties(session, newDefinition.getStorageTable().orElseThrow().getSchemaTableName()));
 
         try {
-            stats.getUpdateTable().call(() ->
-                    glueClient.updateTable(new UpdateTableRequest()
-                            .withDatabaseName(viewName.getSchemaName())
-                            .withTableInput(materializedViewTableInput)));
+            updateTable(viewName.getSchemaName(), materializedViewTableInput);
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
