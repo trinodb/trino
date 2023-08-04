@@ -30,7 +30,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-@DefunctConfig({"adaptive-partial-aggregation.min-rows", "preferred-write-partitioning-min-number-of-partitions"})
+@DefunctConfig({"adaptive-partial-aggregation.min-rows", "preferred-write-partitioning-min-number-of-partitions", "optimizer.use-mark-distinct"})
 public class OptimizerConfig
 {
     private double cpuCostWeight = 75;
@@ -65,10 +65,7 @@ public class OptimizerConfig
     private boolean optimizeHashGeneration = true;
     private boolean pushTableWriteThroughUnion = true;
     private boolean dictionaryAggregation;
-    @Nullable
-    private Boolean useMarkDistinct;
-    @Nullable
-    private MarkDistinctStrategy markDistinctStrategy;
+    private MarkDistinctStrategy markDistinctStrategy = MarkDistinctStrategy.AUTOMATIC;
     private boolean preferPartialAggregation = true;
     private boolean pushAggregationThroughOuterJoin = true;
     private boolean enableIntermediateAggregations;
@@ -472,21 +469,6 @@ public class OptimizerConfig
     public OptimizerConfig setOptimizeMetadataQueries(boolean optimizeMetadataQueries)
     {
         this.optimizeMetadataQueries = optimizeMetadataQueries;
-        return this;
-    }
-
-    @Deprecated
-    @Nullable
-    public Boolean isUseMarkDistinct()
-    {
-        return useMarkDistinct;
-    }
-
-    @Deprecated
-    @LegacyConfig(value = "optimizer.use-mark-distinct", replacedBy = "optimizer.mark-distinct-strategy")
-    public OptimizerConfig setUseMarkDistinct(Boolean value)
-    {
-        this.useMarkDistinct = value;
         return this;
     }
 

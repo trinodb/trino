@@ -52,11 +52,6 @@ aggregations or for mix of distinct and non-distinct aggregations.
 `AUTOMATIC` limits the use of `MarkDistinct` only for cases with limited
 concurrency (global or small cardinality aggregations), where direct distinct
 aggregation implementation cannot utilize CPU efficiently.
-`optimizer.mark-distinct-strategy` overrides, if set, the deprecated
-`optimizer.use-mark-distinct`. If `optimizer.mark-distinct-strategy` is not
-set, but `optimizer.use-mark-distinct` is then `optimizer.use-mark-distinct`
-is mapped to `optimizer.mark-distinct-strategy` with value `true` mapped to
-`AUTOMATIC` and value `false` mapped to `NONE`.
 
 ## `optimizer.push-aggregation-through-outer-join`
 
