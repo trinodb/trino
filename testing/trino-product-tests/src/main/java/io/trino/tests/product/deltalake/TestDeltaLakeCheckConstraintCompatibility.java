@@ -22,7 +22,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -36,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestDeltaLakeCheckConstraintCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS}, dataProvider = "checkConstraints")
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "checkConstraints")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCheckConstraintInsertCompatibility(String columnDefinition, String checkConstraint, String validInput, Row insertedValue, String invalidInput)
     {
@@ -104,7 +103,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         };
     }
 
-    // TODO: Add DELTA_LAKE_DATABRICKS and DELTA_LAKE_EXCLUDE_73 groups once flakiness on Databricks is resolved
+    // TODO: Add DELTA_LAKE_DATABRICKS groups once flakiness on Databricks is resolved
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testCheckConstraintUpdateCompatibility()
     {
@@ -137,7 +136,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    // TODO: Add DELTA_LAKE_DATABRICKS and DELTA_LAKE_EXCLUDE_73 groups once flakiness on Databricks is resolved
+    // TODO: Add DELTA_LAKE_DATABRICKS groups once flakiness on Databricks is resolved
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testCheckConstraintMergeCompatibility()
     {
@@ -200,7 +199,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCheckConstraintUnknownCondition()
     {
@@ -227,7 +226,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCheckConstraintAcrossColumns()
     {
@@ -255,7 +254,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testMetadataOperationsRetainCheckConstraint()
     {
@@ -274,7 +273,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testUnsupportedCheckConstraintExpression()
     {
