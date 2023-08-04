@@ -583,72 +583,73 @@ public class TrinoGlueCatalog
 
     private Optional<com.amazonaws.services.glue.model.Table> getTableAndCacheMetadata(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        com.amazonaws.services.glue.model.Table table;
         try {
-            com.amazonaws.services.glue.model.Table table = stats.getGetTable().call(() ->
+            table = stats.getGetTable().call(() ->
                     glueClient.getTable(new GetTableRequest()
                                     .withDatabaseName(schemaTableName.getSchemaName())
                                     .withName(schemaTableName.getTableName()))
                             .getTable());
-
-            Map<String, String> parameters = getTableParameters(table);
-            if (isIcebergTable(parameters) && !tableMetadataCache.containsKey(schemaTableName)) {
-                if (viewCache.containsKey(schemaTableName) || materializedViewCache.containsKey(schemaTableName)) {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Glue table cache inconsistency. Table cannot also be a view/materialized view");
-                }
-
-                String metadataLocation = parameters.get(METADATA_LOCATION_PROP);
-                try {
-                    // Cache the TableMetadata while we have the Table retrieved anyway
-                    TableOperations operations = tableOperationsProvider.createTableOperations(
-                            this,
-                            session,
-                            schemaTableName.getSchemaName(),
-                            schemaTableName.getTableName(),
-                            Optional.empty(),
-                            Optional.empty());
-                    FileIO io = operations.io();
-                    tableMetadataCache.put(schemaTableName, TableMetadataParser.read(io, io.newInputFile(metadataLocation)));
-                }
-                catch (RuntimeException e) {
-                    LOG.warn(e, "Failed to cache table metadata from table at %s", metadataLocation);
-                }
-            }
-            else if (isTrinoMaterializedView(getTableType(table), parameters)) {
-                if (viewCache.containsKey(schemaTableName) || tableMetadataCache.containsKey(schemaTableName)) {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Glue table cache inconsistency. Materialized View cannot also be a table or view");
-                }
-
-                try {
-                    createMaterializedViewDefinition(session, schemaTableName, table)
-                            .ifPresent(materializedView -> materializedViewCache.put(schemaTableName, materializedView));
-                }
-                catch (RuntimeException e) {
-                    LOG.warn(e, "Failed to cache materialized view from %s", schemaTableName);
-                }
-            }
-            else if (isPrestoView(parameters) && !viewCache.containsKey(schemaTableName)) {
-                if (materializedViewCache.containsKey(schemaTableName) || tableMetadataCache.containsKey(schemaTableName)) {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Glue table cache inconsistency. View cannot also be a materialized view or table");
-                }
-
-                try {
-                    TrinoViewUtil.getView(schemaTableName,
-                                    Optional.ofNullable(table.getViewOriginalText()),
-                                    getTableType(table),
-                                    parameters,
-                                    Optional.ofNullable(table.getOwner()))
-                            .ifPresent(viewDefinition -> viewCache.put(schemaTableName, viewDefinition));
-                }
-                catch (RuntimeException e) {
-                    LOG.warn(e, "Failed to cache view from %s", schemaTableName);
-                }
-            }
-
-            return Optional.of(table);
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
         }
+
+        Map<String, String> parameters = getTableParameters(table);
+        if (isIcebergTable(parameters) && !tableMetadataCache.containsKey(schemaTableName)) {
+            if (viewCache.containsKey(schemaTableName) || materializedViewCache.containsKey(schemaTableName)) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Glue table cache inconsistency. Table cannot also be a view/materialized view");
+            }
+
+            String metadataLocation = parameters.get(METADATA_LOCATION_PROP);
+            try {
+                // Cache the TableMetadata while we have the Table retrieved anyway
+                TableOperations operations = tableOperationsProvider.createTableOperations(
+                        this,
+                        session,
+                        schemaTableName.getSchemaName(),
+                        schemaTableName.getTableName(),
+                        Optional.empty(),
+                        Optional.empty());
+                FileIO io = operations.io();
+                tableMetadataCache.put(schemaTableName, TableMetadataParser.read(io, io.newInputFile(metadataLocation)));
+            }
+            catch (RuntimeException e) {
+                LOG.warn(e, "Failed to cache table metadata from table at %s", metadataLocation);
+            }
+        }
+        else if (isTrinoMaterializedView(getTableType(table), parameters)) {
+            if (viewCache.containsKey(schemaTableName) || tableMetadataCache.containsKey(schemaTableName)) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Glue table cache inconsistency. Materialized View cannot also be a table or view");
+            }
+
+            try {
+                createMaterializedViewDefinition(session, schemaTableName, table)
+                        .ifPresent(materializedView -> materializedViewCache.put(schemaTableName, materializedView));
+            }
+            catch (RuntimeException e) {
+                LOG.warn(e, "Failed to cache materialized view from %s", schemaTableName);
+            }
+        }
+        else if (isPrestoView(parameters) && !viewCache.containsKey(schemaTableName)) {
+            if (materializedViewCache.containsKey(schemaTableName) || tableMetadataCache.containsKey(schemaTableName)) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Glue table cache inconsistency. View cannot also be a materialized view or table");
+            }
+
+            try {
+                TrinoViewUtil.getView(schemaTableName,
+                                Optional.ofNullable(table.getViewOriginalText()),
+                                getTableType(table),
+                                parameters,
+                                Optional.ofNullable(table.getOwner()))
+                        .ifPresent(viewDefinition -> viewCache.put(schemaTableName, viewDefinition));
+            }
+            catch (RuntimeException e) {
+                LOG.warn(e, "Failed to cache view from %s", schemaTableName);
+            }
+        }
+
+        return Optional.of(table);
     }
 
     private void createTable(String schemaName, TableInput tableInput)
