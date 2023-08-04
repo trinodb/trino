@@ -305,7 +305,8 @@ public class TestDeltaLakeWriteDatabricksCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testInsertingIntoDatabricksTableWithAddedNotNullConstraint()
     {
         String tableName = "test_databricks_table_altered_after_initial_write_" + randomNameSuffix();
