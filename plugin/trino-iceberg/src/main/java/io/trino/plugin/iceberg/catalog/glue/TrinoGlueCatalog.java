@@ -234,6 +234,7 @@ public class TrinoGlueCatalog
     public void dropNamespace(ConnectorSession session, String namespace)
     {
         try {
+            glueTableCache.invalidateAll();
             stats.getDeleteDatabase().call(() ->
                     glueClient.deleteDatabase(new DeleteDatabaseRequest().withName(namespace)));
         }
@@ -651,6 +652,7 @@ public class TrinoGlueCatalog
 
     private void createTable(String schemaName, TableInput tableInput)
     {
+        glueTableCache.invalidateAll();
         stats.getCreateTable().call(() ->
                 glueClient.createTable(new CreateTableRequest()
                         .withDatabaseName(schemaName)
@@ -659,6 +661,7 @@ public class TrinoGlueCatalog
 
     private void updateTable(String schemaName, TableInput tableInput)
     {
+        glueTableCache.invalidateAll();
         stats.getUpdateTable().call(() ->
                 glueClient.updateTable(new UpdateTableRequest()
                         .withDatabaseName(schemaName)
@@ -667,6 +670,7 @@ public class TrinoGlueCatalog
 
     private void deleteTable(String schema, String table)
     {
+        glueTableCache.invalidateAll();
         stats.getDeleteTable().call(() ->
                 glueClient.deleteTable(new DeleteTableRequest()
                         .withDatabaseName(schema)
