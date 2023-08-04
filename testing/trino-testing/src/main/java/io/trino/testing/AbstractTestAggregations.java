@@ -251,7 +251,7 @@ public abstract class AbstractTestAggregations
         assertQuery(query);
         assertQuery(
                 Session.builder(getSession())
-                        .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "none")
+                        .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
                         .build(),
                 query);
     }

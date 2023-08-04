@@ -121,8 +121,8 @@ public class OptimizerConfig
 
     public enum DistinctAggregationsStrategy
     {
-        NONE,
-        ALWAYS,
+        SINGLE_STEP,
+        MARK_DISTINCT,
         AUTOMATIC,
     }
 

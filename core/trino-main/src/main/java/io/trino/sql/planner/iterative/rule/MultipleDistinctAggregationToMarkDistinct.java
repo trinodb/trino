@@ -36,7 +36,7 @@ import java.util.Set;
 import static io.trino.SystemSessionProperties.distinctAggregationsStrategy;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.AUTOMATIC;
-import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.NONE;
+import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.MARK_DISTINCT;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
@@ -119,11 +119,8 @@ public class MultipleDistinctAggregationToMarkDistinct
     public Result apply(AggregationNode parent, Captures captures, Context context)
     {
         DistinctAggregationsStrategy distinctAggregationsStrategy = distinctAggregationsStrategy(context.getSession());
-        if (distinctAggregationsStrategy.equals(NONE)) {
-            return Result.empty();
-        }
-
-        if (distinctAggregationsStrategy.equals(AUTOMATIC) && !distinctAggregationController.shouldAddMarkDistinct(parent, context)) {
+        if (!(distinctAggregationsStrategy.equals(MARK_DISTINCT) ||
+                (distinctAggregationsStrategy.equals(AUTOMATIC) && distinctAggregationController.shouldAddMarkDistinct(parent, context)))) {
             return Result.empty();
         }
 

@@ -26,7 +26,7 @@ public class TestDistinctAggregationsNoMarkDistinct
     public void init()
     {
         assertions = new QueryAssertions(testSessionBuilder()
-                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "none")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
                 .build());
     }
 }
