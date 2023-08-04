@@ -111,7 +111,7 @@ public class TestIcebergGlueCatalogAccessOperations
     {
         File tmp = Files.createTempDirectory("test_iceberg").toFile();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSession)
-                .addCoordinatorProperty("optimizer.max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
+                .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
 
         trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));

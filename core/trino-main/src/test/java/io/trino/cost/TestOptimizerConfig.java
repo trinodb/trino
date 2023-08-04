@@ -113,7 +113,7 @@ public class TestOptimizerConfig
                 .put("optimizer.join-multi-clause-independence-factor", "0.75")
                 .put("optimizer.join-reordering-strategy", "NONE")
                 .put("optimizer.max-reordered-joins", "5")
-                .put("optimizer.max-prefetched-information-schema-prefixes", "10")
+                .put("optimizer.experimental-max-prefetched-information-schema-prefixes", "10")
                 .put("iterative-optimizer-timeout", "10s")
                 .put("enable-forced-exchange-below-group-id", "false")
                 .put("colocated-joins-enabled", "false")

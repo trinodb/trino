@@ -75,7 +75,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                                 .build())
                 // metadata queries do not use workers
                 .setNodeCount(1)
-                .addCoordinatorProperty("optimizer.max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
+                .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
 
         mockMetastore = new MockHiveMetastore();
