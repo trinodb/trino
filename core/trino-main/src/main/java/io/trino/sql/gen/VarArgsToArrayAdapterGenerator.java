@@ -40,6 +40,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Failures.checkCondition;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
@@ -108,8 +109,8 @@ public final class VarArgsToArrayAdapterGenerator
         checkArgument(methodType.returnType() == returnType, "returnType does not match");
         checkArgument(methodType.parameterList().equals(ImmutableList.of(Object.class, javaArrayType)), "parameter types do not match");
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition classDefinition = new ClassDefinition(a(PUBLIC, FINAL), makeClassName("VarArgsToListAdapter"), type(Object.class));
+        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        ClassDefinition classDefinition = new ClassDefinition(a(PUBLIC, FINAL), makeClassName(lookup(), "VarArgsToListAdapter"), type(Object.class));
         classDefinition.declareDefaultConstructor(a(PRIVATE));
 
         // generate userState constructor
@@ -146,7 +147,7 @@ public final class VarArgsToArrayAdapterGenerator
                         .ret());
 
         // define class
-        Class<?> generatedClass = defineClass(classDefinition, Object.class, callSiteBinder.getBindings(), VarArgsToArrayAdapterGenerator.class.getClassLoader());
+        Class<?> generatedClass = defineClass(lookup(), classDefinition, Object.class, callSiteBinder.getBindingList());
         return new MethodHandleAndConstructor(
                 Reflection.methodHandle(
                         generatedClass,

@@ -93,6 +93,7 @@ import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class PageFunctionCompiler
@@ -183,14 +184,14 @@ public class PageFunctionCompiler
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(projection);
         boolean isExpressionDeterministic = isDeterministic(result.getRewrittenExpression());
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
+        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
 
         // generate Work
         ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(result.getRewrittenExpression(), callSiteBinder, classNameSuffix);
 
         Class<?> pageProjectionWorkClass;
         try {
-            pageProjectionWorkClass = defineClass(pageProjectionWorkDefinition, Work.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+            pageProjectionWorkClass = defineClass(lookup(), pageProjectionWorkDefinition, Work.class, callSiteBinder.getBindingList());
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
@@ -210,7 +211,7 @@ public class PageFunctionCompiler
 
     private static ParameterizedType generateProjectionWorkClassName(Optional<String> classNameSuffix)
     {
-        return makeClassName("PageProjectionWork", classNameSuffix);
+        return makeClassName(lookup(), "PageProjectionWork", classNameSuffix);
     }
 
     private ClassDefinition definePageProjectWorkClass(RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
@@ -373,12 +374,12 @@ public class PageFunctionCompiler
 
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter);
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
+        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
         ClassDefinition classDefinition = defineFilterClass(result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder, classNameSuffix);
 
         Class<? extends PageFilter> functionClass;
         try {
-            functionClass = defineClass(classDefinition, PageFilter.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+            functionClass = defineClass(lookup(), classDefinition, PageFilter.class, callSiteBinder.getBindingList());
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
@@ -400,7 +401,7 @@ public class PageFunctionCompiler
 
     private static ParameterizedType generateFilterClassName(Optional<String> classNameSuffix)
     {
-        return makeClassName(PageFilter.class.getSimpleName(), classNameSuffix);
+        return makeClassName(lookup(), PageFilter.class.getSimpleName(), classNameSuffix);
     }
 
     private ClassDefinition defineFilterClass(RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)

@@ -338,13 +338,13 @@ public final class LambdaBytecodeGenerator
     {
         ClassDefinition lambdaProviderClassDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName("LambdaProvider"),
+                makeClassName(lookup(), "LambdaProvider"),
                 type(Object.class),
                 type(Supplier.class, Object.class));
 
         FieldDefinition sessionField = lambdaProviderClassDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
+        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(lambdaProviderClassDefinition, callSiteBinder);
 
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(
@@ -401,7 +401,7 @@ public final class LambdaBytecodeGenerator
         constructorBody.ret();
 
         //noinspection unchecked
-        return (Class<? extends Supplier<Object>>) defineClass(lambdaProviderClassDefinition, Supplier.class, callSiteBinder.getBindings(), LambdaBytecodeGenerator.class.getClassLoader());
+        return (Class<? extends Supplier<Object>>) defineClass(lookup(), lambdaProviderClassDefinition, Supplier.class, callSiteBinder.getBindingList());
     }
 
     private static Method getSingleApplyMethod(Class<?> lambdaFunctionInterface)

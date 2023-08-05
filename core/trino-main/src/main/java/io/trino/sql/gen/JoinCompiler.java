@@ -97,6 +97,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
@@ -212,11 +213,11 @@ public class JoinCompiler
 
     private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<Integer> sortChannel)
     {
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
+        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
 
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName("PagesHashStrategy"),
+                makeClassName(lookup(), "PagesHashStrategy"),
                 type(Object.class),
                 type(PagesHashStrategy.class));
 
@@ -255,7 +256,7 @@ public class JoinCompiler
         generateCompareSortChannelPositionsMethod(classDefinition, callSiteBinder, types, channelFields, sortChannel);
         generateIsSortChannelPositionNull(classDefinition, channelFields, sortChannel);
 
-        return defineClass(classDefinition, PagesHashStrategy.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+        return defineClass(lookup(), classDefinition, PagesHashStrategy.class, callSiteBinder.getBindingList());
     }
 
     private static void generateConstructor(

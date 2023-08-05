@@ -52,7 +52,12 @@ public final class CompilerUtils
 
     public static ParameterizedType makeClassName(Lookup lookup, String baseName)
     {
-        String className = baseName + "" + Instant.now().atZone(UTC).format(TIMESTAMP_FORMAT);
+        return makeClassName(lookup, baseName, Optional.empty());
+    }
+
+    public static ParameterizedType makeClassName(Lookup lookup, String baseName, Optional<String> suffix)
+    {
+        String className = baseName + "_" + suffix.orElseGet(() -> Instant.now().atZone(UTC).format(TIMESTAMP_FORMAT));
         String packageName = lookup.lookupClass().getPackage().getName();
         return typeFromJavaClassName(packageName + "." + toJavaIdentifierString(className));
     }
