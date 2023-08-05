@@ -1231,11 +1231,7 @@ public class ExpressionAnalyzer
             if (node.getFilter().isPresent()) {
                 Expression expression = node.getFilter().get();
                 Type type = process(expression, context);
-                if (!type.equals(BOOLEAN)) {
-                    if (!type.equals(UNKNOWN)) {
-                        throw semanticException(TYPE_MISMATCH, expression, "Filter expression must evaluate to a boolean: actual type %s", type);
-                    }
-                }
+                coerceType(expression, type, BOOLEAN, "Filter expression");
             }
 
             List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
