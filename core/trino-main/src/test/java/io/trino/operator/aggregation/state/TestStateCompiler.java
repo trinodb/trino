@@ -15,6 +15,7 @@ package io.trino.operator.aggregation.state;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.trino.array.BlockBigArray;
 import io.trino.array.BooleanBigArray;
@@ -24,6 +25,8 @@ import io.trino.array.IntBigArray;
 import io.trino.array.LongBigArray;
 import io.trino.array.ReferenceCountMap;
 import io.trino.array.SliceBigArray;
+import io.trino.operator.aggregation.LongLongState;
+import io.trino.server.PluginManager;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
@@ -32,8 +35,11 @@ import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.sql.gen.IsolatedClass;
 import io.trino.util.Reflection;
 import org.testng.annotations.Test;
 
@@ -54,6 +60,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -104,6 +111,36 @@ public class TestStateCompiler
         assertEquals(BIGINT.getLong(block, 0), state.getValue());
         serializer.deserialize(block, 0, deserializedState);
         assertEquals(deserializedState.getValue(), state.getValue());
+    }
+
+    @Test
+    public void testAccumulatorCompilerForTypeSpecificObjectParameterSeparateClassLoader()
+    {
+        TimestampType parameterType = TimestampType.TIMESTAMP_NANOS;
+        assertThat(parameterType.getJavaType()).isEqualTo(LongTimestamp.class);
+
+        ClassLoader pluginClassLoader = PluginManager.createClassLoader("test", ImmutableList.of());
+        DynamicClassLoader classLoader = new DynamicClassLoader(pluginClassLoader);
+        Class<? extends AccumulatorState> stateInterface = IsolatedClass.isolateClass(classLoader, AccumulatorState.class, LongLongState.class);
+
+        assertThat(StateCompiler.getMetadataAnnotation(stateInterface)).isNull();
+        AccumulatorStateSerializer<? extends AccumulatorState> serializer = StateCompiler.generateStateSerializer(stateInterface);
+        assertThat(serializer.getSerializedType()).isEqualTo(RowType.anonymousRow(BIGINT, BOOLEAN, BIGINT, BOOLEAN));
+        AccumulatorStateFactory<? extends AccumulatorState> factory = StateCompiler.generateStateFactory(stateInterface);
+        AccumulatorState singleState = factory.createSingleState();
+        assertThat(singleState.getEstimatedSize()).isEqualTo(32);
+        assertThat(singleState.copy()).isNotSameAs(singleState);
+
+        AccumulatorState groupedState = factory.createGroupedState();
+        assertThat(groupedState.getEstimatedSize()).isBetween(32L * 1024, 36L * 1024);
+        assertThat(groupedState).isInstanceOf(GroupedAccumulatorState.class);
+        GroupedAccumulatorState groupedAccumulatorState = (GroupedAccumulatorState) groupedState;
+        groupedAccumulatorState.ensureCapacity(4);
+        groupedAccumulatorState.setGroupId(2);
+
+        // test with a class that has custom value field in the class loader
+        Class<? extends AccumulatorState> customState = IsolatedClass.isolateClass(classLoader, AccumulatorState.class, ComplexState.class, CustomValue.class);
+        StateCompiler.generateStateFactory(customState);
     }
 
     @Test
