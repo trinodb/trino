@@ -210,8 +210,7 @@ public class InCodeGenerator
                 switchBuilder.defaultCase(jump(defaultLabel));
                 switchBlock = new BytecodeBlock()
                         .comment("lookupSwitch(hashCode(<stackValue>))")
-                        .getVariable(value)
-                        .append(generatorContext.getCallSiteBinder().invoke(hashCodeMethodHandle, resolvedHashCodeFunction.getSignature().getName()))
+                        .append(generatorContext.getCallSiteBinder().invoke(hashCodeMethodHandle, resolvedHashCodeFunction.getSignature().getName(), value))
                         .invokeStatic(Long.class, "hashCode", int.class, long.class)
                         .putVariable(expression)
                         .append(switchBuilder.build());

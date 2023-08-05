@@ -668,24 +668,32 @@ public final class AccumulatorCompiler
 
         BytecodeBlock loopBody = new BytecodeBlock();
 
-        loopBody.comment("combine(state_0, state_1, ... scratchState_0, scratchState_1, ... lambda_0, lambda_1, ...)");
-        for (FieldDefinition stateField : stateFields) {
-            if (grouped) {
+        if (grouped) {
+            loopBody.comment("set groupId in each state");
+            for (FieldDefinition stateField : stateFields) {
                 Variable groupIds = scope.getVariable("groupIds");
                 loopBody.append(thisVariable.getField(stateField).invoke("setGroupId", void.class, groupIds.getElement(position).cast(long.class)));
             }
-            loopBody.append(thisVariable.getField(stateField));
         }
+        loopBody.comment("deserialize states");
         for (int i = 0; i < stateCount; i++) {
             FieldDefinition stateSerializerField = stateFieldAndDescriptors.get(i).getStateSerializerField();
             loopBody.append(thisVariable.getField(stateSerializerField).invoke("deserialize", void.class, block.get(i), position, scratchStates.get(i).cast(AccumulatorState.class)));
-            loopBody.append(scratchStates.get(i));
+        }
+
+        loopBody.comment("combine(state_0, state_1, ... scratchState_0, scratchState_1, ... lambda_0, lambda_1, ...)");
+        ImmutableList.Builder<BytecodeExpression> combineParameters = ImmutableList.builder();
+        for (FieldDefinition stateField : stateFields) {
+            combineParameters.add(thisVariable.getField(stateField));
+        }
+        for (int i = 0; i < stateCount; i++) {
+            combineParameters.add(scratchStates.get(i));
         }
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
-            loopBody.append(scope.getThis().getField(lambdaProviderField)
+            combineParameters.add(scope.getThis().getField(lambdaProviderField)
                     .invoke("get", Object.class));
         }
-        loopBody.append(callSiteBinder.invoke(combineFunction.get(), "combine"));
+        loopBody.append(callSiteBinder.invoke(combineFunction.get(), "combine", combineParameters.build()));
 
         body.append(generateBlockNonNullPositionForLoop(scope, position, loopBody))
                 .ret();
@@ -862,9 +870,10 @@ public final class AccumulatorCompiler
         }
 
         body.comment("output(state_0, state_1, ..., out)");
-        states.forEach(body::append);
-        body.append(out);
-        body.append(callSiteBinder.invoke(outputFunction, "output"));
+        ImmutableList.Builder<BytecodeExpression> outputParameters = ImmutableList.builder();
+        outputParameters.addAll(states);
+        outputParameters.add(out);
+        body.append(callSiteBinder.invoke(outputFunction, "output", outputParameters.build()));
 
         body.ret();
     }
@@ -893,9 +902,10 @@ public final class AccumulatorCompiler
         }
 
         body.comment("output(state_0, state_1, ..., out)");
-        states.forEach(body::append);
-        body.append(out);
-        body.append(callSiteBinder.invoke(outputFunction, "output"));
+        ImmutableList.Builder<BytecodeExpression> outputParameters = ImmutableList.builder();
+        outputParameters.addAll(states);
+        outputParameters.add(out);
+        body.append(callSiteBinder.invoke(outputFunction, "output", outputParameters.build()));
 
         body.ret();
     }
