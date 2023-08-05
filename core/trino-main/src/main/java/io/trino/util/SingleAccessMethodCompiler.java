@@ -13,12 +13,16 @@
  */
 package io.trino.util;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
+import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -32,7 +36,6 @@ import static io.airlift.bytecode.Access.SYNTHETIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.invoke.MethodType.methodType;
 
@@ -43,9 +46,11 @@ public final class SingleAccessMethodCompiler
     // Note: this currently only handles interfaces, and has no mechanism to declare generic types.
     public static <T> T compileSingleAccessMethod(String suggestedClassName, Class<T> interfaceType, MethodHandle methodHandle)
     {
+        Lookup lookup = MethodHandles.lookup();
+
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL, SYNTHETIC),
-                makeClassName(suggestedClassName),
+                makeClassName(lookup, suggestedClassName),
                 type(Object.class),
                 type(interfaceType));
 
@@ -55,7 +60,7 @@ public final class SingleAccessMethodCompiler
         Class<?>[] parameterTypes = method.getParameterTypes();
         MethodHandle adaptedMethodHandle = methodHandle.asType(methodType(method.getReturnType(), parameterTypes));
 
-        List<io.airlift.bytecode.Parameter> parameters = new ArrayList<>();
+        List<Parameter> parameters = new ArrayList<>();
         for (int i = 0; i < parameterTypes.length; i++) {
             parameters.add(arg("arg" + i, parameterTypes[i]));
         }
@@ -66,7 +71,7 @@ public final class SingleAccessMethodCompiler
                 type(method.getReturnType()),
                 parameters);
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
+        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
         BytecodeExpression invocation = callSiteBinder.invoke(
                 adaptedMethodHandle,
                 method.getName(),
@@ -77,8 +82,7 @@ public final class SingleAccessMethodCompiler
         methodDefinition.getBody().append(invocation);
         // note this will not work if interface class is not visible from this class loader,
         // but we must use this class loader to ensure the bootstrap method is visible
-        ClassLoader classLoader = SingleAccessMethodCompiler.class.getClassLoader();
-        Class<? extends T> newClass = defineClass(classDefinition, interfaceType, callSiteBinder.getBindings(), classLoader);
+        Class<? extends T> newClass = CompilerUtils.defineClass(lookup, classDefinition, interfaceType, ImmutableList.copyOf(callSiteBinder.getBindingList()));
         try {
             return newClass
                     .getDeclaredConstructor()
