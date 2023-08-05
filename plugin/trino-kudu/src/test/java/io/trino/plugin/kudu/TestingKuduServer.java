@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.kudu;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import io.trino.testing.ResourcePresence;
@@ -28,7 +27,6 @@ import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Enumeration;
-import java.util.List;
 
 import static java.lang.String.format;
 
@@ -41,7 +39,6 @@ public class TestingKuduServer
 
     private static final Integer KUDU_MASTER_PORT = 7051;
     private static final Integer KUDU_TSERVER_PORT = 7050;
-    private static final Integer NUMBER_OF_REPLICA = 3;
 
     private static final String TOXIPROXY_IMAGE = "ghcr.io/shopify/toxiproxy:2.4.0";
     private static final String TOXIPROXY_NETWORK_ALIAS = "toxiproxy";
@@ -49,7 +46,7 @@ public class TestingKuduServer
     private final Network network;
     private final ToxiproxyContainer toxiProxy;
     private final GenericContainer<?> master;
-    private final List<GenericContainer<?>> tServers;
+    private final GenericContainer<?> tabletServer;
 
     private boolean stopped;
 
@@ -67,7 +64,6 @@ public class TestingKuduServer
     public TestingKuduServer(String kuduVersion)
     {
         network = Network.newNetwork();
-        ImmutableList.Builder<GenericContainer<?>> tServersBuilder = ImmutableList.builder();
 
         String hostIP = getHostIPAddress();
 
@@ -75,6 +71,7 @@ public class TestingKuduServer
         this.master = new GenericContainer<>(format("%s:%s", KUDU_IMAGE, kuduVersion))
                 .withExposedPorts(KUDU_MASTER_PORT)
                 .withCommand("master")
+                .withEnv("MASTER_ARGS", "--default_num_replicas=1")
                 .withNetwork(network)
                 .withNetworkAliases(masterContainerAlias);
 
@@ -83,24 +80,19 @@ public class TestingKuduServer
                 .withNetworkAliases(TOXIPROXY_NETWORK_ALIAS);
         toxiProxy.start();
 
-        for (int instance = 0; instance < NUMBER_OF_REPLICA; instance++) {
-            String instanceName = "kudu-tserver-" + instance;
-            ToxiproxyContainer.ContainerProxy proxy = toxiProxy.getProxy(instanceName, KUDU_TSERVER_PORT);
-            GenericContainer<?> tableServer = new GenericContainer<>(format("%s:%s", KUDU_IMAGE, kuduVersion))
-                    .withExposedPorts(KUDU_TSERVER_PORT)
-                    .withCommand("tserver")
-                    .withEnv("KUDU_MASTERS", format("%s:%s", masterContainerAlias, KUDU_MASTER_PORT))
-                    .withEnv("TSERVER_ARGS", format("--fs_wal_dir=/var/lib/kudu/tserver --logtostderr --use_hybrid_clock=false --rpc_bind_addresses=%s:%s --rpc_advertised_addresses=%s:%s", instanceName, KUDU_TSERVER_PORT, hostIP, proxy.getProxyPort()))
-                    .withNetwork(network)
-                    .withNetworkAliases(instanceName)
-                    .dependsOn(master);
+        String instanceName = "kudu-tserver";
+        ToxiproxyContainer.ContainerProxy proxy = toxiProxy.getProxy(instanceName, KUDU_TSERVER_PORT);
+        tabletServer = new GenericContainer<>(format("%s:%s", KUDU_IMAGE, kuduVersion))
+                .withExposedPorts(KUDU_TSERVER_PORT)
+                .withCommand("tserver")
+                .withEnv("KUDU_MASTERS", format("%s:%s", masterContainerAlias, KUDU_MASTER_PORT))
+                .withEnv("TSERVER_ARGS", format("--fs_wal_dir=/var/lib/kudu/tserver --logtostderr --use_hybrid_clock=false --rpc_bind_addresses=%s:%s --rpc_advertised_addresses=%s:%s", instanceName, KUDU_TSERVER_PORT, hostIP, proxy.getProxyPort()))
+                .withNetwork(network)
+                .withNetworkAliases(instanceName)
+                .dependsOn(master);
 
-            tServersBuilder.add(tableServer);
-        }
-        this.tServers = tServersBuilder.build();
         master.start();
-
-        tServers.forEach(GenericContainer::start);
+        tabletServer.start();
     }
 
     public HostAndPort getMasterAddress()
@@ -116,7 +108,7 @@ public class TestingKuduServer
     {
         try (Closer closer = Closer.create()) {
             closer.register(master::stop);
-            tServers.forEach(tabletServer -> closer.register(tabletServer::stop));
+            closer.register(tabletServer::stop);
             closer.register(toxiProxy::stop);
             closer.register(network::close);
         }
