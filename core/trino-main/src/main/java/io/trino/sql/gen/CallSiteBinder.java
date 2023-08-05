@@ -15,32 +15,47 @@ package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.expression.BytecodeExpression;
+import io.trino.annotation.UsedByGeneratedCode;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantDynamic;
 
 public final class CallSiteBinder
 {
+    private static final Method BOOTSTRAP_METHOD;
+
+    static {
+        try {
+            BOOTSTRAP_METHOD = CallSiteBinder.class.getMethod("bootstrap", Lookup.class, String.class, Class.class, int.class);
+        }
+        catch (NoSuchMethodException e) {
+            throw new AssertionError(e);
+        }
+    }
+
     private int nextId;
 
     private final Map<Long, MethodHandle> bindings = new HashMap<>();
 
     public BytecodeExpression loadConstant(Object constant, Class<?> type)
     {
-        long binding = bind(MethodHandles.constant(type, constant));
-        return invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(binding),
+        int binding = bind(constant, type);
+        return constantDynamic(
                 "constant_" + binding,
-                type);
+                type,
+                BOOTSTRAP_METHOD,
+                ImmutableList.of(binding));
     }
 
     public BytecodeExpression invoke(MethodHandle method, String name, BytecodeExpression... parameters)
@@ -50,25 +65,26 @@ public final class CallSiteBinder
 
     public BytecodeExpression invoke(MethodHandle method, String name, List<? extends BytecodeExpression> parameters)
     {
-        // ensure that name doesn't have a special characters
-        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(bind(method)), sanitizeName(name), method.type(), parameters);
+        checkArgument(
+                method.type().parameterCount() == parameters.size(),
+                "Method requires %s parameters, but only %s supplied",
+                method.type().parameterCount(),
+                parameters.size());
+
+        return loadConstant(method, MethodHandle.class).invoke("invoke", method.type().returnType(), parameters);
     }
 
-    private long bind(MethodHandle method)
+    private int bind(Object constant, Class<?> type)
     {
-        long bindingId = nextId++;
-        bindings.put(bindingId, method);
+        int bindingId = nextId++;
+        // DynamicClassLoader only supports MethodHandles, so wrapper constants in a method handle
+        bindings.put((long) bindingId, MethodHandles.constant(type, constant));
         return bindingId;
     }
 
     public Map<Long, MethodHandle> getBindings()
     {
         return ImmutableMap.copyOf(bindings);
-    }
-
-    private static String sanitizeName(String name)
-    {
-        return name.replaceAll("[^A-Za-z0-9_$]", "_");
     }
 
     @Override
@@ -78,5 +94,23 @@ public final class CallSiteBinder
                 .add("nextId", nextId)
                 .add("bindings", bindings)
                 .toString();
+    }
+
+    @UsedByGeneratedCode
+    public static Object bootstrap(MethodHandles.Lookup callerLookup, String name, Class<?> type, int bindingId)
+    {
+        ClassLoader classLoader = callerLookup.lookupClass().getClassLoader();
+        checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());
+
+        DynamicClassLoader dynamicClassLoader = (DynamicClassLoader) classLoader;
+        MethodHandle target = dynamicClassLoader.getCallSiteBindings().get((long) bindingId);
+        checkArgument(target != null, "Binding %s for constant %s with type %s not found", bindingId, name, type);
+
+        try {
+            return target.invoke();
+        }
+        catch (Throwable e) {
+            throw new RuntimeException("Error loading value for constant %s with type %s not found".formatted(name, type));
+        }
     }
 }

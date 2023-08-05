@@ -256,6 +256,8 @@ public final class BytecodeUtils
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
         List<Class<?>> stackTypes = new ArrayList<>();
+        block.append(binder.loadConstant(implementation.getMethodHandle(), MethodHandle.class));
+        stackTypes.add(MethodHandle.class);
         boolean instanceIsBound = false;
         while (currentParameterIndex < methodType.parameterArray().length) {
             Class<?> type = methodType.parameterArray()[currentParameterIndex];
@@ -319,7 +321,7 @@ public final class BytecodeUtils
             }
             currentParameterIndex++;
         }
-        block.append(binder.invoke(implementation.getMethodHandle(), functionName));
+        block.invokeVirtual(MethodHandle.class, "invokeExact", methodType.returnType(), methodType.parameterList());
 
         if (functionNullability.isReturnNullable()) {
             block.append(unboxPrimitiveIfNecessary(scope, returnType));
