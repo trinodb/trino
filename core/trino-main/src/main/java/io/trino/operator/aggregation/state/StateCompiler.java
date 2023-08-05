@@ -55,6 +55,7 @@ import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
 
 import java.lang.annotation.Annotation;
+import java.lang.invoke.MethodHandle;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -109,6 +110,8 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 
 public final class StateCompiler
@@ -705,11 +708,12 @@ public final class StateCompiler
             Class<T> clazz,
             Class<? extends T> singleStateClass,
             Class<? extends T> groupedStateClass,
-            DynamicClassLoader classLoader)
+            ClassLoader classLoader)
     {
+        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(clazz.getSimpleName() + "Factory"),
+                makeClassName(lookup(), clazz.getSimpleName() + "Factory"),
                 type(Object.class),
                 type(AccumulatorStateFactory.class));
 
@@ -719,23 +723,27 @@ public final class StateCompiler
         // Generate single state creation method
         definition.declareMethod(a(PUBLIC), "createSingleState", type(AccumulatorState.class))
                 .getBody()
-                .newObject(singleStateClass)
-                .dup()
-                .invokeConstructor(singleStateClass)
-                .retObject();
+                .append(callSiteBinder.invoke(lookupConstructor(singleStateClass), "createSingleState").ret());
 
         // Generate grouped state creation method
         definition.declareMethod(a(PUBLIC), "createGroupedState", type(AccumulatorState.class))
                 .getBody()
-                .newObject(groupedStateClass)
-                .dup()
-                .invokeConstructor(groupedStateClass)
-                .retObject();
+                .append(callSiteBinder.invoke(lookupConstructor(groupedStateClass), "groupedConstructor").ret());
 
-        Class<?> factoryClass = defineClass(definition, AccumulatorStateFactory.class, classLoader);
+        Class<?> factoryClass = defineClass(lookup(), definition, AccumulatorStateFactory.class, callSiteBinder.getBindingList());
         try {
             //noinspection unchecked
             return (AccumulatorStateFactory<T>) factoryClass.getConstructor().newInstance();
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static <T extends AccumulatorState> MethodHandle lookupConstructor(Class<? extends T> stateClass)
+    {
+        try {
+            return lookup().in(stateClass).findConstructor(stateClass, methodType(void.class)).asType(methodType(AccumulatorState.class));
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
