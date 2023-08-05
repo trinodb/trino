@@ -67,8 +67,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -163,7 +163,7 @@ public class RowToRowCast
         List<Type> toTypes = toType.getTypeParameters();
         List<Type> fromTypes = fromType.getTypeParameters();
 
-        CallSiteBinder binder = new CallSiteBinder(false);
+        CallSiteBinder binder = new CallSiteBinder();
 
         // Embed the hash code of input and output types into the generated class name instead of the raw type names,
         // which ensures the class name does not hit the length limitation or invalid characters.
@@ -171,7 +171,7 @@ public class RowToRowCast
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup(), Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(hashSuffix))),
+                makeHiddenClassName(lookup(), Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(hashSuffix))),
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 
@@ -233,7 +233,7 @@ public class RowToRowCast
                 .cast(Block.class)
                 .ret());
 
-        return defineClass(lookup(), definition, Object.class, binder.getBindingList());
+        return defineHiddenClass(lookup(), definition, Object.class, binder.getBindings());
     }
 
     private static MethodHandle getNullSafeWrite(Type type)

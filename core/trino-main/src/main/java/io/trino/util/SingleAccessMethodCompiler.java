@@ -36,7 +36,8 @@ import static io.airlift.bytecode.Access.SYNTHETIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static java.lang.invoke.MethodType.methodType;
 
 public final class SingleAccessMethodCompiler
@@ -50,7 +51,7 @@ public final class SingleAccessMethodCompiler
 
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL, SYNTHETIC),
-                makeClassName(lookup, suggestedClassName),
+                makeHiddenClassName(lookup, suggestedClassName),
                 type(Object.class),
                 type(interfaceType));
 
@@ -71,7 +72,7 @@ public final class SingleAccessMethodCompiler
                 type(method.getReturnType()),
                 parameters);
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         BytecodeExpression invocation = callSiteBinder.invoke(
                 adaptedMethodHandle,
                 method.getName(),
@@ -82,7 +83,7 @@ public final class SingleAccessMethodCompiler
         methodDefinition.getBody().append(invocation);
         // note this will not work if interface class is not visible from this class loader,
         // but we must use this class loader to ensure the bootstrap method is visible
-        Class<? extends T> newClass = CompilerUtils.defineClass(lookup, classDefinition, interfaceType, ImmutableList.copyOf(callSiteBinder.getBindingList()));
+        Class<? extends T> newClass = defineHiddenClass(lookup, classDefinition, interfaceType, ImmutableList.copyOf(callSiteBinder.getBindings()));
         try {
             return newClass
                     .getDeclaredConstructor()

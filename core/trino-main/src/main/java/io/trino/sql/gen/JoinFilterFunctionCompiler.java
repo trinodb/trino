@@ -60,8 +60,8 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
@@ -103,11 +103,11 @@ public class JoinFilterFunctionCompiler
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup(), "JoinFilterFunction"),
+                makeHiddenClassName(lookup(), "JoinFilterFunction"),
                 type(Object.class),
                 type(InternalJoinFilterFunction.class));
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         new JoinFilterFunctionCompiler(functionManager).generateMethods(classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
 
@@ -122,7 +122,7 @@ public class JoinFilterFunctionCompiler
                         .add("leftBlocksSize", leftBlocksSize)
                         .toString());
 
-        return defineClass(lookup(), classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getBindingList());
+        return defineHiddenClass(lookup(), classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getBindings());
     }
 
     private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, int leftBlocksSize)

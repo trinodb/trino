@@ -20,6 +20,7 @@ import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Variable;
+import io.trino.util.CompilerUtils;
 import io.trino.util.Reflection;
 
 import java.lang.invoke.MethodHandle;
@@ -38,8 +39,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -59,9 +59,9 @@ public final class VarArgsToMapAdapterGenerator
     public static MethodHandle generateVarArgsToMapAdapter(Class<?> returnType, List<Class<?>> javaTypes, List<String> names, Function<Map<String, Object>, Object> function)
     {
         checkCondition(javaTypes.size() <= 254, NOT_SUPPORTED, "Too many arguments for vararg function");
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        ClassDefinition classDefinition = new ClassDefinition(a(PUBLIC, FINAL), makeClassName(lookup(), "VarArgsToMapAdapter"), type(Object.class));
+        ClassDefinition classDefinition = new ClassDefinition(a(PUBLIC, FINAL), CompilerUtils.makeHiddenClassName(lookup(), "VarArgsToMapAdapter"), type(Object.class));
 
         ImmutableList.Builder<Parameter> parameterListBuilder = ImmutableList.builder();
         for (int i = 0; i < javaTypes.size(); i++) {
@@ -87,7 +87,7 @@ public final class VarArgsToMapAdapterGenerator
                         .cast(returnType)
                         .ret());
 
-        Class<?> generatedClass = defineClass(lookup(), classDefinition, Object.class, callSiteBinder.getBindingList());
+        Class<?> generatedClass = defineHiddenClass(lookup(), classDefinition, Object.class, callSiteBinder.getBindings());
         return Reflection.methodHandle(generatedClass, "varArgsToMap", javaTypes.toArray(new Class<?>[javaTypes.size()]));
     }
 }

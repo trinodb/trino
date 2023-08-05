@@ -73,6 +73,7 @@ import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public final class AccumulatorCompiler
@@ -208,7 +209,7 @@ public final class AccumulatorCompiler
             generatePrepareFinal(definition);
         }
 
-        Class<? extends T> accumulatorClass = defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), AccumulatorCompiler.class.getClassLoader());
+        Class<? extends T> accumulatorClass = defineClass(lookup(), definition, accumulatorInterface, callSiteBinder.getBindings());
         try {
             return accumulatorClass.getConstructor(List.class);
         }
@@ -290,7 +291,7 @@ public final class AccumulatorCompiler
         generateEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
         generateGetEstimatedSize(definition, stateFields);
 
-        Class<? extends WindowAccumulator> windowAccumulatorClass = defineClass(definition, WindowAccumulator.class, callSiteBinder.getBindings(), AccumulatorCompiler.class.getClassLoader());
+        Class<? extends WindowAccumulator> windowAccumulatorClass = defineClass(lookup(), definition, WindowAccumulator.class, callSiteBinder.getBindings());
         try {
             return windowAccumulatorClass.getConstructor(List.class);
         }

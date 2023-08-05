@@ -48,8 +48,8 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.relational.Expressions.constant;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
@@ -149,11 +149,11 @@ public class ExpressionCompiler
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup(), superType.getSimpleName()),
+                makeHiddenClassName(lookup(), superType.getSimpleName()),
                 type(Object.class),
                 type(superType));
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         bodyCompiler.generateMethods(classDefinition, callSiteBinder, filter, projections);
 
         //
@@ -167,7 +167,7 @@ public class ExpressionCompiler
                         .add("projections", projections)
                         .toString());
 
-        return defineClass(lookup(), classDefinition, superType, callSiteBinder.getBindingList());
+        return defineHiddenClass(lookup(), classDefinition, superType, callSiteBinder.getBindings());
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)

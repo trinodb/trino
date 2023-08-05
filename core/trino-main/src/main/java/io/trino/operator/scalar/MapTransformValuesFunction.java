@@ -75,8 +75,8 @@ import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -129,10 +129,10 @@ public final class MapTransformValuesFunction
 
     private static MethodHandle generateTransform(Type keyType, Type valueType, Type transformedValueType)
     {
-        CallSiteBinder binder = new CallSiteBinder(false);
+        CallSiteBinder binder = new CallSiteBinder();
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup(), "MapTransformValue"),
+                makeHiddenClassName(lookup(), "MapTransformValue"),
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 
@@ -158,7 +158,7 @@ public final class MapTransformValuesFunction
         BytecodeExpression entryCount = divide(block.invoke("getPositionCount", int.class), constantInt(2));
         body.append(mapValueBuilder.invoke("build", Block.class, entryCount, mapEntryBuilder).ret());
 
-        Class<?> generatedClass = defineClass(lookup(), definition, Object.class, binder.getBindingList());
+        Class<?> generatedClass = defineHiddenClass(lookup(), definition, Object.class, binder.getBindings());
         return methodHandle(generatedClass, "transform", Object.class, Block.class, BinaryFunctionInterface.class);
     }
 

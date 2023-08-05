@@ -53,6 +53,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
+import io.trino.util.CompilerUtils;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
@@ -142,11 +143,11 @@ public final class StateCompiler
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup(), clazz.getSimpleName() + "Serializer"),
+                CompilerUtils.makeHiddenClassName(lookup(), clazz.getSimpleName() + "Serializer"),
                 type(Object.class),
                 type(AccumulatorStateSerializer.class));
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         // Generate constructor
         definition.declareDefaultConstructor(a(PUBLIC));
@@ -156,7 +157,7 @@ public final class StateCompiler
         generateSerialize(definition, callSiteBinder, clazz, fields);
         generateDeserialize(definition, callSiteBinder, clazz, fields);
 
-        Class<?> serializerClass = defineClass(lookup(), definition, AccumulatorStateSerializer.class, callSiteBinder.getBindingList());
+        Class<?> serializerClass = CompilerUtils.defineHiddenClass(lookup(), definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings());
         try {
             //noinspection unchecked
             return (AccumulatorStateSerializer<T>) serializerClass.getConstructor().newInstance();
@@ -358,25 +359,25 @@ public final class StateCompiler
 
     private static Class<? extends InOut> generateInOutSingleStateClass(Type type)
     {
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         Lookup lookup = lookup();
         ClassDefinition singleStateClassDefinition = generateInOutSingleStateClass(type, callSiteBinder, lookup);
-        return defineClass(lookup, singleStateClassDefinition, InOut.class, callSiteBinder.getBindingList());
+        return CompilerUtils.defineHiddenClass(lookup, singleStateClassDefinition, InOut.class, callSiteBinder.getBindings());
     }
 
     private static Class<? extends InOut> generateInOutGroupedStateClass(Type type)
     {
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         Lookup lookup = lookup();
         ClassDefinition groupedStateClassDefinition = generateInOutGroupedStateClass(type, callSiteBinder, lookup);
-        return defineClass(lookup, groupedStateClassDefinition, InOut.class, callSiteBinder.getBindingList());
+        return CompilerUtils.defineHiddenClass(lookup, groupedStateClassDefinition, InOut.class, callSiteBinder.getBindings());
     }
 
     private static ClassDefinition generateInOutSingleStateClass(Type type, CallSiteBinder callSiteBinder, Lookup lookup)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup, "SingleInOut"),
+                CompilerUtils.makeHiddenClassName(lookup, "SingleInOut"),
                 type(Object.class),
                 type(InOut.class),
                 type(InternalDataAccessor.class));
@@ -435,7 +436,7 @@ public final class StateCompiler
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup, "GroupedInOut"), // todo add type
+                CompilerUtils.makeHiddenClassName(lookup, "GroupedInOut"), // todo add type
                 type(Object.class),
                 type(InOut.class),
                 type(GroupedAccumulatorState.class),
@@ -721,7 +722,7 @@ public final class StateCompiler
                 .getBody()
                 .append(invokeStatic(MethodHandles.class, "lookup", Lookup.class).ret());
 
-        Class<?> lookupClass = defineClass(lookupDefinition, Object.class, ImmutableMap.of(), clazz.getClassLoader());
+        Class<?> lookupClass = defineClass(lookup().in(clazz), lookupDefinition, Object.class);
         try {
             return (Lookup) privateLookupIn(lookupClass, lookup()).findStatic(lookupClass, "lookup", methodType(Lookup.class)).invoke();
         }
@@ -736,10 +737,10 @@ public final class StateCompiler
             Class<? extends T> singleStateClass,
             Class<? extends T> groupedStateClass)
     {
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup(), clazz.getSimpleName() + "Factory"),
+                CompilerUtils.makeHiddenClassName(lookup(), clazz.getSimpleName() + "Factory"),
                 type(Object.class),
                 type(AccumulatorStateFactory.class));
 
@@ -756,7 +757,7 @@ public final class StateCompiler
                 .getBody()
                 .append(callSiteBinder.invoke(lookupConstructor(groupedStateClass), "groupedConstructor").ret());
 
-        Class<?> factoryClass = defineClass(lookup(), definition, AccumulatorStateFactory.class, callSiteBinder.getBindingList());
+        Class<?> factoryClass = CompilerUtils.defineHiddenClass(lookup(), definition, AccumulatorStateFactory.class, callSiteBinder.getBindings());
         try {
             //noinspection unchecked
             return (AccumulatorStateFactory<T>) factoryClass.getConstructor().newInstance();
@@ -780,7 +781,7 @@ public final class StateCompiler
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup, "Single" + clazz.getSimpleName()),
+                CompilerUtils.makeHiddenClassName(lookup, "Single" + clazz.getSimpleName()),
                 type(Object.class),
                 type(clazz));
 
@@ -811,7 +812,7 @@ public final class StateCompiler
 
         generateCopy(definition, fields, fieldDefinitions);
 
-        return defineClass(lookup, definition, clazz);
+        return CompilerUtils.defineHiddenClass(lookup, definition, clazz);
     }
 
     private static void generateCopy(ClassDefinition definition, List<StateField> fields, List<FieldDefinition> fieldDefinitions)
@@ -882,11 +883,11 @@ public final class StateCompiler
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup, "Grouped" + clazz.getSimpleName()),
+                CompilerUtils.makeHiddenClassName(lookup, "Grouped" + clazz.getSimpleName()),
                 type(Object.class),
                 type(GroupedAccumulatorState.class),
                 type(clazz));
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         FieldDefinition instanceSize = generateInstanceSize(definition);
 
@@ -924,7 +925,7 @@ public final class StateCompiler
         ensureCapacity.getBody().ret();
         getEstimatedSize.getBody().append(size.ret());
 
-        return defineClass(lookup, definition, clazz, callSiteBinder.getBindingList());
+        return CompilerUtils.defineHiddenClass(lookup, definition, clazz, callSiteBinder.getBindings());
     }
 
     private static FieldDefinition generateField(ClassDefinition definition, MethodDefinition constructor, StateField stateField)

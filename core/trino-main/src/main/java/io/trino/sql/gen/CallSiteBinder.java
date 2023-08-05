@@ -14,7 +14,6 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.annotation.UsedByGeneratedCode;
@@ -24,54 +23,38 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantDynamic;
+import static java.util.Objects.requireNonNull;
 
 public final class CallSiteBinder
 {
-    private static final Method CONSTANT_BOOTSTRAP_METHOD;
-    private static final Method LEGACY_BOOTSTRAP_METHOD;
+    private static final Method BOOTSTRAP_METHOD;
 
     static {
         try {
-            CONSTANT_BOOTSTRAP_METHOD = MethodHandles.class.getMethod("classDataAt", Lookup.class, String.class, Class.class, int.class);
-            LEGACY_BOOTSTRAP_METHOD = CallSiteBinder.class.getMethod("legacyBootstrap", Lookup.class, String.class, Class.class, int.class);
+            BOOTSTRAP_METHOD = CallSiteBinder.class.getMethod("bootstrap", Lookup.class, String.class, Class.class, int.class);
         }
         catch (NoSuchMethodException e) {
             throw new AssertionError(e);
         }
     }
 
-    private final boolean legacy;
     private int nextId;
 
-    private final List<Object> bindingList = new ArrayList<>();
-    private final Map<Long, MethodHandle> bindings = new HashMap<>();
-
-    public CallSiteBinder()
-    {
-        this(true);
-    }
-
-    public CallSiteBinder(boolean legacy)
-    {
-        this.legacy = legacy;
-    }
+    private final List<Object> bindings = new ArrayList<>();
 
     public BytecodeExpression loadConstant(Object constant, Class<?> type)
     {
-        int binding = bind(constant, type);
+        int binding = bind(constant);
         return constantDynamic(
-                legacy ? "constant_" + binding : "_",
+                "_",
                 type,
-                legacy ? LEGACY_BOOTSTRAP_METHOD : CONSTANT_BOOTSTRAP_METHOD,
+                BOOTSTRAP_METHOD,
                 ImmutableList.of(binding));
     }
 
@@ -91,29 +74,21 @@ public final class CallSiteBinder
         return loadConstant(method, MethodHandle.class).invoke("invoke", method.type().returnType(), parameters);
     }
 
-    private int bind(Object constant, Class<?> type)
+    private int bind(Object constant)
     {
+        requireNonNull(constant, "constant is null");
+
         int bindingId = nextId++;
 
-        verify(bindingId == bindingList.size());
-        bindingList.add(constant);
-
-        // DynamicClassLoader only supports MethodHandles, so wrapper constants in a method handle
-        bindings.put((long) bindingId, MethodHandles.constant(type, constant));
+        verify(bindingId == bindings.size());
+        bindings.add(constant);
 
         return bindingId;
     }
 
-    public Map<Long, MethodHandle> getBindings()
+    public List<Object> getBindings()
     {
-        checkState(legacy, "getBindings is only allowed in legacy mode");
-        return ImmutableMap.copyOf(bindings);
-    }
-
-    public List<Object> getBindingList()
-    {
-        checkState(!legacy, "getBindings is only allowed in non-legacy mode");
-        return ImmutableList.copyOf(bindingList);
+        return ImmutableList.copyOf(bindings);
     }
 
     @Override
@@ -126,8 +101,17 @@ public final class CallSiteBinder
     }
 
     @UsedByGeneratedCode
-    public static Object legacyBootstrap(MethodHandles.Lookup callerLookup, String name, Class<?> type, int bindingId)
+    public static Object bootstrap(MethodHandles.Lookup callerLookup, String name, Class<?> type, int bindingId)
     {
+        try {
+            Object data = MethodHandles.classDataAt(callerLookup, name, type, bindingId);
+            if (data != null) {
+                return data;
+            }
+        }
+        catch (IllegalAccessException ignored) {
+        }
+
         ClassLoader classLoader = callerLookup.lookupClass().getClassLoader();
         checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());
 

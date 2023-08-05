@@ -61,8 +61,8 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
@@ -138,18 +138,18 @@ public class OrderingCompiler
             List<Integer> sortChannels,
             List<SortOrder> sortOrders)
     {
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup(), "PagesIndexComparator"),
+                makeHiddenClassName(lookup(), "PagesIndexComparator"),
                 type(Object.class),
                 type(PagesIndexComparator.class));
 
         classDefinition.declareDefaultConstructor(a(PUBLIC));
         generatePageIndexCompareTo(classDefinition, callSiteBinder, sortTypes, sortChannels, sortOrders);
 
-        return defineClass(lookup(), classDefinition, PagesIndexComparator.class, callSiteBinder.getBindingList());
+        return defineHiddenClass(lookup(), classDefinition, PagesIndexComparator.class, callSiteBinder.getBindings());
     }
 
     private void generatePageIndexCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
@@ -276,11 +276,11 @@ public class OrderingCompiler
 
     private Class<? extends PageWithPositionComparator> generatePageWithPositionComparatorClass(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup(), "PageWithPositionComparator"),
+                makeHiddenClassName(lookup(), "PageWithPositionComparator"),
                 type(Object.class),
                 type(PageWithPositionComparator.class));
 
@@ -288,7 +288,7 @@ public class OrderingCompiler
 
         generateMergeSortCompareTo(classDefinition, callSiteBinder, sortTypes, sortChannels, sortOrders);
 
-        return defineClass(lookup(), classDefinition, PageWithPositionComparator.class, callSiteBinder.getBindingList());
+        return defineHiddenClass(lookup(), classDefinition, PageWithPositionComparator.class, callSiteBinder.getBindings());
     }
 
     private void generateMergeSortCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> types, List<Integer> sortChannels, List<SortOrder> sortOrders)

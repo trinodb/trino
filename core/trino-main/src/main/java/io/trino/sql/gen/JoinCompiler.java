@@ -95,8 +95,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
@@ -213,11 +213,11 @@ public class JoinCompiler
 
     private Class<? extends PagesHashStrategy> internalCompileHashStrategy(List<Type> types, List<Integer> outputChannels, List<Integer> joinChannels, Optional<Integer> sortChannel)
     {
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup(), "PagesHashStrategy"),
+                makeHiddenClassName(lookup(), "PagesHashStrategy"),
                 type(Object.class),
                 type(PagesHashStrategy.class));
 
@@ -256,7 +256,7 @@ public class JoinCompiler
         generateCompareSortChannelPositionsMethod(classDefinition, callSiteBinder, types, channelFields, sortChannel);
         generateIsSortChannelPositionNull(classDefinition, channelFields, sortChannel);
 
-        return defineClass(lookup(), classDefinition, PagesHashStrategy.class, callSiteBinder.getBindingList());
+        return defineHiddenClass(lookup(), classDefinition, PagesHashStrategy.class, callSiteBinder.getBindings());
     }
 
     private static void generateConstructor(

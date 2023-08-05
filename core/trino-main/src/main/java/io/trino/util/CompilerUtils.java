@@ -13,17 +13,19 @@
  */
 package io.trino.util;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.ParameterizedType;
 import io.airlift.log.Logger;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -42,20 +44,12 @@ public final class CompilerUtils
 
     private CompilerUtils() {}
 
-    public static ParameterizedType makeClassName(String baseName, Optional<String> suffix)
+    public static ParameterizedType makeHiddenClassName(Lookup lookup, String baseName)
     {
-        String className = baseName
-                + "_" + suffix.orElseGet(() -> Instant.now().atZone(UTC).format(TIMESTAMP_FORMAT))
-                + "_" + CLASS_ID.incrementAndGet();
-        return typeFromJavaClassName("io.trino.$gen." + toJavaIdentifierString(className));
+        return makeHiddenClassName(lookup, baseName, Optional.empty());
     }
 
-    public static ParameterizedType makeClassName(Lookup lookup, String baseName)
-    {
-        return makeClassName(lookup, baseName, Optional.empty());
-    }
-
-    public static ParameterizedType makeClassName(Lookup lookup, String baseName, Optional<String> suffix)
+    public static ParameterizedType makeHiddenClassName(Lookup lookup, String baseName, Optional<String> suffix)
     {
         String className = baseName + "_" + suffix.orElseGet(() -> Instant.now().atZone(UTC).format(TIMESTAMP_FORMAT));
         String packageName = lookup.lookupClass().getPackage().getName();
@@ -64,27 +58,36 @@ public final class CompilerUtils
 
     public static ParameterizedType makeClassName(String baseName)
     {
-        return makeClassName(baseName, Optional.empty());
-    }
-
-    public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, Map<Long, MethodHandle> callSiteBindings, ClassLoader parentClassLoader)
-    {
-        return defineClass(classDefinition, superType, new DynamicClassLoader(parentClassLoader, callSiteBindings));
-    }
-
-    public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
-    {
-        log.debug("Defining class: %s", classDefinition.getName());
-        return classGenerator(classLoader).defineClass(classDefinition, superType);
+        String className = baseName
+                + "_" + Optional.<String>empty().orElseGet(() -> Instant.now().atZone(UTC).format(TIMESTAMP_FORMAT))
+                + "_" + CLASS_ID.incrementAndGet();
+        return typeFromJavaClassName("io.trino.$gen." + toJavaIdentifierString(className));
     }
 
     public static <T> Class<? extends T> defineClass(Lookup lookup, ClassDefinition classDefinition, Class<T> superType)
+    {
+        return defineClass(lookup, classDefinition, superType, ImmutableList.of());
+    }
+
+    public static <T> Class<? extends T> defineClass(Lookup lookup, ClassDefinition classDefinition, Class<T> superType, List<Object> constants)
+    {
+        log.debug("Defining class: %s", classDefinition.getName());
+        ImmutableMap.Builder<Long, MethodHandle> bindings = ImmutableMap.builder();
+        for (int i = 0; i < constants.size(); i++) {
+            // DynamicClassLoader only supports MethodHandles, so wrapper constants in a method handle
+            bindings.put((long) i, MethodHandles.constant(Object.class, constants.get(i)));
+        }
+        DynamicClassLoader classLoader = new DynamicClassLoader(lookup.lookupClass().getClassLoader(), bindings.buildOrThrow());
+        return classGenerator(classLoader).defineClass(classDefinition, superType);
+    }
+
+    public static <T> Class<? extends T> defineHiddenClass(Lookup lookup, ClassDefinition classDefinition, Class<T> superType)
     {
         log.debug("Defining hidden class: %s", classDefinition.getName());
         return hiddenClassGenerator(lookup).defineHiddenClass(classDefinition, superType, Optional.empty());
     }
 
-    public static <T> Class<? extends T> defineClass(Lookup lookup, ClassDefinition classDefinition, Class<T> superType, List<Object> constants)
+    public static <T> Class<? extends T> defineHiddenClass(Lookup lookup, ClassDefinition classDefinition, Class<T> superType, List<Object> constants)
     {
         log.debug("Defining hidden class: %s", classDefinition.getName());
         return hiddenClassGenerator(lookup).defineHiddenClass(classDefinition, superType, Optional.of(constants));

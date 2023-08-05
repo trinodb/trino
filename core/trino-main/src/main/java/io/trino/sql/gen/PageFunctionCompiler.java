@@ -24,7 +24,6 @@ import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
-import io.airlift.bytecode.ParameterizedType;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
@@ -90,8 +89,8 @@ import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
@@ -184,14 +183,14 @@ public class PageFunctionCompiler
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(projection);
         boolean isExpressionDeterministic = isDeterministic(result.getRewrittenExpression());
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         // generate Work
         ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(result.getRewrittenExpression(), callSiteBinder, classNameSuffix);
 
         Class<?> pageProjectionWorkClass;
         try {
-            pageProjectionWorkClass = defineClass(lookup(), pageProjectionWorkDefinition, Work.class, callSiteBinder.getBindingList());
+            pageProjectionWorkClass = defineHiddenClass(lookup(), pageProjectionWorkDefinition, Work.class, callSiteBinder.getBindings());
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
@@ -209,16 +208,11 @@ public class PageFunctionCompiler
                 pageProjectionConstructor);
     }
 
-    private static ParameterizedType generateProjectionWorkClassName(Optional<String> classNameSuffix)
-    {
-        return makeClassName(lookup(), "PageProjectionWork", classNameSuffix);
-    }
-
     private ClassDefinition definePageProjectWorkClass(RowExpression projection, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                generateProjectionWorkClassName(classNameSuffix),
+                makeHiddenClassName(lookup(), "PageProjectionWork", classNameSuffix),
                 type(Object.class),
                 type(Work.class));
 
@@ -374,12 +368,12 @@ public class PageFunctionCompiler
 
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(filter);
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         ClassDefinition classDefinition = defineFilterClass(result.getRewrittenExpression(), result.getInputChannels(), callSiteBinder, classNameSuffix);
 
         Class<? extends PageFilter> functionClass;
         try {
-            functionClass = defineClass(lookup(), classDefinition, PageFilter.class, callSiteBinder.getBindingList());
+            functionClass = defineHiddenClass(lookup(), classDefinition, PageFilter.class, callSiteBinder.getBindings());
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
@@ -399,16 +393,11 @@ public class PageFunctionCompiler
         };
     }
 
-    private static ParameterizedType generateFilterClassName(Optional<String> classNameSuffix)
-    {
-        return makeClassName(lookup(), PageFilter.class.getSimpleName(), classNameSuffix);
-    }
-
     private ClassDefinition defineFilterClass(RowExpression filter, InputChannels inputChannels, CallSiteBinder callSiteBinder, Optional<String> classNameSuffix)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                generateFilterClassName(classNameSuffix),
+                makeHiddenClassName(lookup(), PageFilter.class.getSimpleName(), classNameSuffix),
                 type(Object.class),
                 type(PageFilter.class));
 

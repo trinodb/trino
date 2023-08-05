@@ -13,7 +13,6 @@
  */
 package io.trino.version;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
@@ -36,6 +35,7 @@ import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class EmbedVersion
@@ -69,7 +69,7 @@ public class EmbedVersion
         implementRunnable(classDefinition);
         implementCallable(classDefinition);
 
-        return defineClass(classDefinition, Runnable.class, ImmutableMap.of(), EmbedVersion.class.getClassLoader());
+        return defineClass(lookup(), classDefinition, Runnable.class);
     }
 
     private static void implementRunnable(ClassDefinition classDefinition)

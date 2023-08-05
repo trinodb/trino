@@ -75,7 +75,9 @@ import static io.trino.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
 import static io.trino.sql.gen.LambdaCapture.LAMBDA_CAPTURE_METHOD;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
 import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.invoke.MethodHandles.explicitCastArguments;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -133,7 +135,7 @@ public final class LambdaBytecodeGenerator
         constructorBody.ret();
 
         // define the new class
-        Class<?> lambdaClass = defineClass(classDefinition, Object.class, callSiteBinder.getBindings(), LambdaBytecodeGenerator.class.getClassLoader());
+        Class<?> lambdaClass = defineClass(lookup(), classDefinition, Object.class, callSiteBinder.getBindings());
 
         // create a cached instance of the new class in the callers cached instance binder
         MethodHandle constructor;
@@ -338,13 +340,13 @@ public final class LambdaBytecodeGenerator
     {
         ClassDefinition lambdaProviderClassDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup(), "LambdaProvider"),
+                makeHiddenClassName(lookup(), "LambdaProvider"),
                 type(Object.class),
                 type(Supplier.class, Object.class));
 
         FieldDefinition sessionField = lambdaProviderClassDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(lambdaProviderClassDefinition, callSiteBinder);
 
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(
@@ -401,7 +403,7 @@ public final class LambdaBytecodeGenerator
         constructorBody.ret();
 
         //noinspection unchecked
-        return (Class<? extends Supplier<Object>>) defineClass(lookup(), lambdaProviderClassDefinition, Supplier.class, callSiteBinder.getBindingList());
+        return (Class<? extends Supplier<Object>>) defineHiddenClass(lookup(), lambdaProviderClassDefinition, Supplier.class, callSiteBinder.getBindings());
     }
 
     private static Method getSingleApplyMethod(Class<?> lambdaFunctionInterface)

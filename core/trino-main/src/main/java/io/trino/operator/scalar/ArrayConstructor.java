@@ -54,8 +54,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.CompilerUtils.defineHiddenClass;
+import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Collections.nCopies;
@@ -117,7 +117,7 @@ public final class ArrayConstructor
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(lookup(), Joiner.on("").join(stackTypeNames) + "ArrayConstructor"),
+                makeHiddenClassName(lookup(), Joiner.on("").join(stackTypeNames) + "ArrayConstructor"),
                 type(Object.class));
 
         // Generate constructor
@@ -135,7 +135,7 @@ public final class ArrayConstructor
         BytecodeBlock body = method.getBody();
 
         Variable blockBuilderVariable = scope.declareVariable(BlockBuilder.class, "blockBuilder");
-        CallSiteBinder binder = new CallSiteBinder(false);
+        CallSiteBinder binder = new CallSiteBinder();
 
         BytecodeExpression createBlockBuilder = blockBuilderVariable.set(
                 constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(stackTypes.size())));
@@ -152,6 +152,6 @@ public final class ArrayConstructor
 
         body.append(blockBuilderVariable.invoke("build", Block.class).ret());
 
-        return defineClass(lookup(), definition, Object.class, binder.getBindingList());
+        return defineHiddenClass(lookup(), definition, Object.class, binder.getBindings());
     }
 }
