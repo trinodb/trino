@@ -13,8 +13,6 @@
  */
 package io.trino.sql.gen;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
@@ -46,7 +44,6 @@ import io.trino.sql.relational.VariableReferenceExpression;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
@@ -57,7 +54,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
-import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static io.trino.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
 import static java.lang.String.format;
 
 public class CursorProcessorCompiler
@@ -77,12 +74,12 @@ public class CursorProcessorCompiler
 
         generateProcessMethod(classDefinition, projections.size());
 
-        Map<LambdaDefinitionExpression, CompiledLambda> filterCompiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
+        Map<LambdaDefinitionExpression, CompiledLambda> filterCompiledLambdaMap = generateMethodsForLambda(filter, cachedInstanceBinder, functionManager);
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filterCompiledLambdaMap, filter);
 
         for (int i = 0; i < projections.size(); i++) {
             String methodName = "project_" + i;
-            Map<LambdaDefinitionExpression, CompiledLambda> projectCompiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projections.get(i), methodName);
+            Map<LambdaDefinitionExpression, CompiledLambda> projectCompiledLambdaMap = generateMethodsForLambda(projections.get(i), cachedInstanceBinder, functionManager);
             generateProjectMethod(classDefinition, callSiteBinder, cachedInstanceBinder, projectCompiledLambdaMap, methodName, projections.get(i));
         }
 
@@ -188,35 +185,6 @@ public class CursorProcessorCompiler
                             type(BlockBuilder.class));
         }
         return ifStatement;
-    }
-
-    private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
-            ClassDefinition containerClassDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            RowExpression projection,
-            String methodPrefix)
-    {
-        Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(projection));
-
-        ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
-
-        int counter = 0;
-        for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
-            String methodName = methodPrefix + "_lambda_" + counter;
-            CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
-                    lambdaExpression,
-                    methodName,
-                    containerClassDefinition,
-                    compiledLambdaMap.buildOrThrow(),
-                    callSiteBinder,
-                    cachedInstanceBinder,
-                    functionManager);
-            compiledLambdaMap.put(lambdaExpression, compiledLambda);
-            counter++;
-        }
-
-        return compiledLambdaMap.buildOrThrow();
     }
 
     private void generateFilterMethod(
