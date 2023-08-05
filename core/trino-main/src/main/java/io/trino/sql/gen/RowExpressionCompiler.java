@@ -40,7 +40,6 @@ import static io.airlift.bytecode.instruction.Constant.loadBoolean;
 import static io.airlift.bytecode.instruction.Constant.loadDouble;
 import static io.airlift.bytecode.instruction.Constant.loadLong;
 import static io.airlift.bytecode.instruction.Constant.loadString;
-import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.LambdaBytecodeGenerator.generateLambda;
 
 public class RowExpressionCompiler
@@ -181,12 +180,10 @@ public class RowExpressionCompiler
             }
 
             // bind constant object directly into the call-site using invoke dynamic
-            Binding binding = callSiteBinder.bind(value, constant.getType().getJavaType());
-
             return new BytecodeBlock()
                     .setDescription("constant " + constant.getType())
                     .comment(constant.toString())
-                    .append(loadConstant(binding));
+                    .append(callSiteBinder.loadConstant(value, constant.getType().getJavaType()));
         }
 
         @Override

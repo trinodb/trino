@@ -25,7 +25,6 @@ import java.util.Map;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.a;
-import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static java.util.Objects.requireNonNull;
 
 public final class CachedInstanceBinder
@@ -57,9 +56,8 @@ public final class CachedInstanceBinder
     public void generateInitializations(Variable thisVariable, BytecodeBlock block)
     {
         for (Map.Entry<FieldDefinition, MethodHandle> entry : initializers.entrySet()) {
-            Binding binding = callSiteBinder.bind(entry.getValue());
             block.append(thisVariable)
-                    .append(invoke(binding, "instanceFieldConstructor"))
+                    .append(callSiteBinder.invoke(entry.getValue(), "instanceFieldConstructor"))
                     .putField(entry.getKey());
         }
     }

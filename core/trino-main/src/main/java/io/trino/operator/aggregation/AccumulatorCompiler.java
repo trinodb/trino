@@ -42,7 +42,6 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.function.WindowIndex;
-import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.CompilerOperations;
 
@@ -68,13 +67,9 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static io.trino.sql.gen.BytecodeUtils.invoke;
-import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
@@ -432,12 +427,9 @@ public final class AccumulatorCompiler
 
         Variable position = scope.declareVariable(int.class, "position");
 
-        Binding binding = callSiteBinder.bind(inputFunction);
-        BytecodeExpression invokeInputFunction = invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(binding.getBindingId()),
+        BytecodeExpression invokeInputFunction = callSiteBinder.invoke(
+                inputFunction,
                 generatedFunctionName,
-                binding.getType(),
                 getInvokeFunctionOnWindowIndexParameters(
                         scope,
                         argumentNullable.size(),
@@ -609,7 +601,7 @@ public final class AccumulatorCompiler
                     .invoke("get", Object.class));
         }
 
-        block.append(invoke(callSiteBinder.bind(inputFunction), "input", parameters));
+        block.append(callSiteBinder.invoke(inputFunction, "input", parameters));
         return block;
     }
 
@@ -693,7 +685,7 @@ public final class AccumulatorCompiler
             loopBody.append(scope.getThis().getField(lambdaProviderField)
                     .invoke("get", Object.class));
         }
-        loopBody.append(invoke(callSiteBinder.bind(combineFunction.get()), "combine"));
+        loopBody.append(callSiteBinder.invoke(combineFunction.get(), "combine"));
 
         body.append(generateBlockNonNullPositionForLoop(scope, position, loopBody))
                 .ret();
@@ -872,7 +864,7 @@ public final class AccumulatorCompiler
         body.comment("output(state_0, state_1, ..., out)");
         states.forEach(body::append);
         body.append(out);
-        body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
+        body.append(callSiteBinder.invoke(outputFunction, "output"));
 
         body.ret();
     }
@@ -903,7 +895,7 @@ public final class AccumulatorCompiler
         body.comment("output(state_0, state_1, ..., out)");
         states.forEach(body::append);
         body.append(out);
-        body.append(invoke(callSiteBinder.bind(outputFunction), "output"));
+        body.append(callSiteBinder.invoke(outputFunction, "output"));
 
         body.ret();
     }
@@ -956,12 +948,12 @@ public final class AccumulatorCompiler
             AccumulatorStateDescriptor<?> accumulatorStateDescriptor = fieldAndDescriptor.getAccumulatorStateDescriptor();
             body.append(thisVariable.setField(
                     fieldAndDescriptor.getStateSerializerField(),
-                    loadConstant(callSiteBinder, accumulatorStateDescriptor.getSerializer(), AccumulatorStateSerializer.class)));
+                    callSiteBinder.loadConstant(accumulatorStateDescriptor.getSerializer(), AccumulatorStateSerializer.class)));
             body.append(generateRequireNotNull(thisVariable, fieldAndDescriptor.getStateSerializerField()));
 
             body.append(thisVariable.setField(
                     fieldAndDescriptor.getStateFactoryField(),
-                    loadConstant(callSiteBinder, accumulatorStateDescriptor.getFactory(), AccumulatorStateFactory.class)));
+                    callSiteBinder.loadConstant(accumulatorStateDescriptor.getFactory(), AccumulatorStateFactory.class)));
             body.append(generateRequireNotNull(thisVariable, fieldAndDescriptor.getStateFactoryField()));
 
             // create the state object

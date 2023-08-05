@@ -13,14 +13,19 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.bytecode.expression.BytecodeExpression;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
+import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 
 public final class CallSiteBinder
 {
@@ -28,23 +33,42 @@ public final class CallSiteBinder
 
     private final Map<Long, MethodHandle> bindings = new HashMap<>();
 
-    public Binding bind(MethodHandle method)
+    public BytecodeExpression loadConstant(Object constant, Class<?> type)
     {
-        long bindingId = nextId++;
-        Binding binding = new Binding(bindingId, method.type());
-
-        bindings.put(bindingId, method);
-        return binding;
+        long binding = bind(MethodHandles.constant(type, constant));
+        return invokeDynamic(
+                BOOTSTRAP_METHOD,
+                ImmutableList.of(binding),
+                "constant_" + binding,
+                type);
     }
 
-    public Binding bind(Object constant, Class<?> type)
+    public BytecodeExpression invoke(MethodHandle method, String name, BytecodeExpression... parameters)
     {
-        return bind(MethodHandles.constant(type, constant));
+        return invoke(method, name, ImmutableList.copyOf(parameters));
+    }
+
+    public BytecodeExpression invoke(MethodHandle method, String name, List<? extends BytecodeExpression> parameters)
+    {
+        // ensure that name doesn't have a special characters
+        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(bind(method)), sanitizeName(name), method.type(), parameters);
+    }
+
+    private long bind(MethodHandle method)
+    {
+        long bindingId = nextId++;
+        bindings.put(bindingId, method);
+        return bindingId;
     }
 
     public Map<Long, MethodHandle> getBindings()
     {
         return ImmutableMap.copyOf(bindings);
+    }
+
+    private static String sanitizeName(String name)
+    {
+        return name.replaceAll("[^A-Za-z0-9_$]", "_");
     }
 
     @Override

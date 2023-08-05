@@ -56,13 +56,11 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
@@ -222,11 +220,9 @@ public class OrderingCompiler
                     .invoke("get", Object.class, rightBlockIndex)
                     .cast(Block.class);
 
-            block.append(invokeDynamic(
-                    BOOTSTRAP_METHOD,
-                    ImmutableList.of(callSiteBinder.bind(compareBlockValue).getBindingId()),
+            block.append(callSiteBinder.invoke(
+                    compareBlockValue,
                     "compareBlockValue",
-                    compareBlockValue.type(),
                     leftBlock,
                     leftBlockPosition,
                     rightBlock,
@@ -317,11 +313,9 @@ public class OrderingCompiler
             BytecodeExpression rightBlock = rightPage
                     .invoke("getBlock", Block.class, constantInt(sortChannel));
 
-            block.append(invokeDynamic(
-                    BOOTSTRAP_METHOD,
-                    ImmutableList.of(callSiteBinder.bind(compareBlockValue).getBindingId()),
+            block.append(callSiteBinder.invoke(
+                    compareBlockValue,
                     "compareBlockValue",
-                    compareBlockValue.type(),
                     leftBlock,
                     leftPosition,
                     rightBlock,

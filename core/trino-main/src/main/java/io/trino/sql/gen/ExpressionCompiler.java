@@ -47,7 +47,6 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
@@ -175,7 +174,7 @@ public class ExpressionCompiler
         // bind constant via invokedynamic to avoid constant pool issues due to large strings
         classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
                 .getBody()
-                .append(invoke(callSiteBinder.bind(string, String.class), "toString"))
+                .append(callSiteBinder.loadConstant(string, String.class))
                 .retObject();
     }
 

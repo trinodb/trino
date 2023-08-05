@@ -13,7 +13,6 @@
  */
 package io.trino.util;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.expression.BytecodeExpression;
@@ -33,8 +32,6 @@ import static io.airlift.bytecode.Access.SYNTHETIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.invoke.MethodType.methodType;
@@ -70,11 +67,9 @@ public final class SingleAccessMethodCompiler
                 parameters);
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
-        BytecodeExpression invocation = invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(adaptedMethodHandle).getBindingId()),
+        BytecodeExpression invocation = callSiteBinder.invoke(
+                adaptedMethodHandle,
                 method.getName(),
-                method.getReturnType(),
                 parameters);
         if (method.getReturnType() != void.class) {
             invocation = invocation.ret();

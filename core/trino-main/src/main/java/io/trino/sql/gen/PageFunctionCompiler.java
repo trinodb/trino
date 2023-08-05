@@ -91,7 +91,6 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
-import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
 import static io.trino.util.CompilerUtils.defineClass;
@@ -432,7 +431,7 @@ public class PageFunctionCompiler
         // getInputChannels
         classDefinition.declareMethod(a(PUBLIC), "getInputChannels", type(InputChannels.class))
                 .getBody()
-                .append(invoke(callSiteBinder.bind(inputChannels, InputChannels.class), "getInputChannels"))
+                .append(callSiteBinder.loadConstant(inputChannels, InputChannels.class))
                 .retObject();
 
         // toString
@@ -443,7 +442,7 @@ public class PageFunctionCompiler
         classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
                 .getBody()
                 // bind constant via invokedynamic to avoid constant pool issues due to large strings
-                .append(invoke(callSiteBinder.bind(toStringResult, String.class), "toString"))
+                .append(callSiteBinder.loadConstant(toStringResult, String.class))
                 .retObject();
 
         // constructor

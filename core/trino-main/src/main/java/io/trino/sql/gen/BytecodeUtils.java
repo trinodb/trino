@@ -22,14 +22,12 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
-import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention;
@@ -40,7 +38,6 @@ import io.trino.sql.gen.InputReferenceCompiler.InputReferenceNode;
 import io.trino.type.FunctionType;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,7 +52,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.OpCode.NOP;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
@@ -63,7 +59,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static java.lang.String.format;
 
 public final class BytecodeUtils
@@ -138,21 +133,6 @@ public final class BytecodeUtils
             return block.invokeVirtual(Boolean.class, "booleanValue", boolean.class);
         }
         throw new UnsupportedOperationException("not yet implemented: " + unboxedType);
-    }
-
-    public static BytecodeExpression loadConstant(CallSiteBinder callSiteBinder, Object constant, Class<?> type)
-    {
-        Binding binding = callSiteBinder.bind(MethodHandles.constant(type, constant));
-        return loadConstant(binding);
-    }
-
-    public static BytecodeExpression loadConstant(Binding binding)
-    {
-        return invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(binding.getBindingId()),
-                "constant_" + binding.getBindingId(),
-                binding.getType().returnType());
     }
 
     public static BytecodeNode generateInvocation(
@@ -255,8 +235,6 @@ public final class BytecodeUtils
                 true);
         ScalarFunctionImplementation implementation = functionImplementationProvider.apply(invocationConvention);
 
-        Binding binding = binder.bind(implementation.getMethodHandle());
-
         LabelNode end = new LabelNode("end");
         BytecodeBlock block = new BytecodeBlock()
                 .setDescription("invoke " + functionName);
@@ -273,7 +251,7 @@ public final class BytecodeUtils
         // Index of function argument types
         int lambdaArgumentIndex = 0;
 
-        MethodType methodType = binding.getType();
+        MethodType methodType = implementation.getMethodHandle().type();
         Class<?> returnType = methodType.returnType();
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
@@ -341,7 +319,7 @@ public final class BytecodeUtils
             }
             currentParameterIndex++;
         }
-        block.append(invoke(binding, functionName));
+        block.append(binder.invoke(implementation.getMethodHandle(), functionName));
 
         if (functionNullability.isReturnNullable()) {
             block.append(unboxPrimitiveIfNecessary(scope, returnType));
@@ -432,22 +410,6 @@ public final class BytecodeUtils
                 .ifFalse(notNull);
     }
 
-    public static BytecodeExpression invoke(Binding binding, String name, BytecodeExpression... parameters)
-    {
-        return invoke(binding, name, ImmutableList.copyOf(parameters));
-    }
-
-    public static BytecodeExpression invoke(Binding binding, String name, List<BytecodeExpression> parameters)
-    {
-        // ensure that name doesn't have a special characters
-        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType(), parameters);
-    }
-
-    public static BytecodeExpression invoke(Binding binding, BoundSignature signature)
-    {
-        return invoke(binding, signature.getName());
-    }
-
     /**
      * Replace characters that are not safe to use in a JVM identifier.
      */
@@ -486,7 +448,7 @@ public final class BytecodeUtils
                                 .comment("%s.%s(output, %s)", type.getTypeSignature(), methodName, valueJavaType.getSimpleName())
                                 .putVariable(tempValue)
                                 .putVariable(tempOutput)
-                                .append(loadConstant(callSiteBinder.bind(type, Type.class)))
+                                .append(callSiteBinder.loadConstant(type, Type.class))
                                 .getVariable(tempOutput)
                                 .getVariable(tempValue)
                                 .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));

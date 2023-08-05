@@ -82,7 +82,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
@@ -95,7 +94,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
@@ -525,7 +523,7 @@ public class JoinCompiler
         return new IfStatement()
                 .condition(blockRef.invoke("isNull", boolean.class, blockPosition))
                 .ifTrue(constantLong(0L))
-                .ifFalse(invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(callSiteBinder.bind(hashCodeOperator).getBindingId()), "hash", hashCodeOperator.type(), blockRef, blockPosition));
+                .ifFalse(callSiteBinder.invoke(hashCodeOperator, "hash", blockRef, blockPosition));
     }
 
     private void generateRowEqualsRowMethod(
@@ -790,11 +788,9 @@ public class JoinCompiler
             BytecodeExpression rightBlockPosition)
     {
         MethodHandle distinctFromOperator = typeOperators.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
-        return invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(distinctFromOperator).getBindingId()),
+        return callSiteBinder.invoke(
+                distinctFromOperator,
                 "distinctFrom",
-                distinctFromOperator.type(),
                 leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
     }
 
@@ -948,11 +944,9 @@ public class JoinCompiler
 
         // choice of placing unordered values first or last does not matter for this code
         MethodHandle comparisonOperator = typeOperators.getComparisonUnorderedLastOperator(types.get(index), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
-        BytecodeNode comparison = invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(comparisonOperator).getBindingId()),
+        BytecodeNode comparison = callSiteBinder.invoke(
+                comparisonOperator,
                 "comparison",
-                long.class,
                 leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)
                 .cast(int.class)
                 .ret();
@@ -1032,11 +1026,9 @@ public class JoinCompiler
             BytecodeExpression rightBlockPosition)
     {
         MethodHandle equalOperator = typeOperators.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
-        return invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(callSiteBinder.bind(equalOperator).getBindingId()),
+        return callSiteBinder.invoke(
+                equalOperator,
                 "equal",
-                equalOperator.type(),
                 leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
     }
 

@@ -39,7 +39,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Failures.checkCondition;
@@ -83,7 +82,7 @@ public final class VarArgsToMapAdapterGenerator
             body.append(map.invoke("put", Object.class, constantString(names.get(i)).cast(Object.class), parameterList.get(i).cast(Object.class)));
         }
         body.append(
-                loadConstant(callSiteBinder, function, Function.class)
+                callSiteBinder.loadConstant(function, Function.class)
                         .invoke("apply", Object.class, map.cast(Object.class))
                         .cast(returnType)
                         .ret());

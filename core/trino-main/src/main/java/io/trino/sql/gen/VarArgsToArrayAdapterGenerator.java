@@ -37,7 +37,6 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Failures.checkCondition;
@@ -121,7 +120,7 @@ public final class VarArgsToArrayAdapterGenerator
                 .append(
                         newInstance(
                                 VarArgsToArrayAdapterState.class,
-                                loadConstant(callSiteBinder, userStateFactory, MethodHandle.class).invoke("invokeExact", Object.class),
+                                callSiteBinder.loadConstant(userStateFactory, MethodHandle.class).invoke("invokeExact", Object.class),
                                 newArray(type(javaArrayType), argsLength).cast(Object.class)).ret());
 
         // generate adapter method
@@ -142,7 +141,7 @@ public final class VarArgsToArrayAdapterGenerator
         }
 
         body.append(
-                loadConstant(callSiteBinder, function, MethodHandle.class)
+                callSiteBinder.loadConstant(function, MethodHandle.class)
                         .invoke("invokeExact", returnType, userState, args)
                         .ret());
 

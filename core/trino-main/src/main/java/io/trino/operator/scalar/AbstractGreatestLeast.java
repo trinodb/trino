@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.DynamicClassLoader;
@@ -49,7 +48,6 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
-import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -58,7 +56,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Failures.checkCondition;
@@ -159,11 +156,9 @@ public abstract class AbstractGreatestLeast
         compareMethod = compareMethod.asType(methodType(boolean.class, compareMethod.type().wrap().parameterList()));
         for (int i = 0; i < javaTypes.size(); i++) {
             Parameter parameter = parameters.get(i);
-            BytecodeExpression invokeCompare = invokeDynamic(
-                    BOOTSTRAP_METHOD,
-                    ImmutableList.of(binder.bind(compareMethod).getBindingId()),
+            BytecodeExpression invokeCompare = binder.invoke(
+                    compareMethod,
                     "compare",
-                    boolean.class,
                     parameter,
                     value);
             body.append(new IfStatement()

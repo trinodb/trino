@@ -23,6 +23,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.SwitchStatement.SwitchBuilder;
+import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
@@ -51,8 +52,6 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
-import static io.trino.sql.gen.BytecodeUtils.invoke;
-import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.util.FastutilSetHelper.toFastutilHashSet;
 import static java.lang.Math.toIntExact;
 
@@ -209,20 +208,17 @@ public class InCodeGenerator
                     switchBuilder.addCase(bucket.getKey(), caseBlock);
                 }
                 switchBuilder.defaultCase(jump(defaultLabel));
-                Binding hashCodeBinding = generatorContext
-                        .getCallSiteBinder()
-                        .bind(hashCodeMethodHandle);
                 switchBlock = new BytecodeBlock()
                         .comment("lookupSwitch(hashCode(<stackValue>))")
                         .getVariable(value)
-                        .append(invoke(hashCodeBinding, resolvedHashCodeFunction.getSignature()))
+                        .append(generatorContext.getCallSiteBinder().invoke(hashCodeMethodHandle, resolvedHashCodeFunction.getSignature().getName()))
                         .invokeStatic(Long.class, "hashCode", int.class, long.class)
                         .putVariable(expression)
                         .append(switchBuilder.build());
                 break;
             case SET_CONTAINS:
                 Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, hashCodeMethodHandle, equalsMethodHandle);
-                Binding constant = generatorContext.getCallSiteBinder().bind(constantValuesSet, constantValuesSet.getClass());
+                BytecodeExpression constant = generatorContext.getCallSiteBinder().loadConstant(constantValuesSet, constantValuesSet.getClass());
 
                 switchBlock = new BytecodeBlock()
                         .comment("inListSet.contains(<stackValue>)")
@@ -231,7 +227,7 @@ public class InCodeGenerator
                                         .comment("value")
                                         .getVariable(value)
                                         .comment("set")
-                                        .append(loadConstant(constant))
+                                        .append(constant)
                                         // TODO: use invokeVirtual on the set instead. This requires swapping the two elements in the stack
                                         .invokeStatic(FastutilSetHelper.class, "in", boolean.class, javaType.isPrimitive() ? javaType : Object.class, constantValuesSet.getClass()))
                                 .ifTrue(jump(match)));
