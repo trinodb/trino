@@ -16,7 +16,6 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
@@ -88,8 +87,6 @@ public final class AccumulatorCompiler
         // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
         implementation = normalizeAggregationMethods(implementation);
 
-        DynamicClassLoader classLoader = new DynamicClassLoader(AccumulatorCompiler.class.getClassLoader());
-
         List<Boolean> argumentNullable = functionNullability.getArgumentNullable()
                 .subList(0, functionNullability.getArgumentNullable().size() - implementation.getLambdaInterfaces().size());
 
@@ -97,15 +94,13 @@ public final class AccumulatorCompiler
                 boundSignature,
                 Accumulator.class,
                 implementation,
-                argumentNullable,
-                classLoader);
+                argumentNullable);
 
         Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor = generateAccumulatorClass(
                 boundSignature,
                 GroupedAccumulator.class,
                 implementation,
-                argumentNullable,
-                classLoader);
+                argumentNullable);
 
         List<Integer> nonNullArguments = new ArrayList<>();
         for (int argumentIndex = 0; argumentIndex < argumentNullable.size(); argumentIndex++) {
@@ -126,8 +121,7 @@ public final class AccumulatorCompiler
             BoundSignature boundSignature,
             Class<T> accumulatorInterface,
             AggregationImplementation implementation,
-            List<Boolean> argumentNullable,
-            DynamicClassLoader classLoader)
+            List<Boolean> argumentNullable)
     {
         boolean grouped = accumulatorInterface == GroupedAccumulator.class;
 
@@ -137,6 +131,7 @@ public final class AccumulatorCompiler
                 type(Object.class),
                 type(accumulatorInterface));
 
+        // Accumulator class has a copy method which must reference the class for construction
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         List<AccumulatorStateDescriptor<?>> stateDescriptors = implementation.getAccumulatorStateDescriptors();
@@ -213,7 +208,7 @@ public final class AccumulatorCompiler
             generatePrepareFinal(definition);
         }
 
-        Class<? extends T> accumulatorClass = defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), classLoader);
+        Class<? extends T> accumulatorClass = defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), AccumulatorCompiler.class.getClassLoader());
         try {
             return accumulatorClass.getConstructor(List.class);
         }
@@ -230,8 +225,6 @@ public final class AccumulatorCompiler
         // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
         implementation = normalizeAggregationMethods(implementation);
 
-        DynamicClassLoader classLoader = new DynamicClassLoader(AccumulatorCompiler.class.getClassLoader());
-
         List<Boolean> argumentNullable = functionNullability.getArgumentNullable()
                 .subList(0, functionNullability.getArgumentNullable().size() - implementation.getLambdaInterfaces().size());
 
@@ -241,6 +234,7 @@ public final class AccumulatorCompiler
                 type(Object.class),
                 type(WindowAccumulator.class));
 
+        // Accumulator class has a copy method which must reference the class for construction
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         List<AccumulatorStateDescriptor<?>> stateDescriptors = implementation.getAccumulatorStateDescriptors();
@@ -296,7 +290,7 @@ public final class AccumulatorCompiler
         generateEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
         generateGetEstimatedSize(definition, stateFields);
 
-        Class<? extends WindowAccumulator> windowAccumulatorClass = defineClass(definition, WindowAccumulator.class, callSiteBinder.getBindings(), classLoader);
+        Class<? extends WindowAccumulator> windowAccumulatorClass = defineClass(definition, WindowAccumulator.class, callSiteBinder.getBindings(), AccumulatorCompiler.class.getClassLoader());
         try {
             return windowAccumulatorClass.getConstructor(List.class);
         }
