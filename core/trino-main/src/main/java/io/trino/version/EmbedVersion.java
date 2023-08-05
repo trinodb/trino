@@ -14,12 +14,12 @@
 package io.trino.version;
 
 import com.google.inject.Inject;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.trino.client.NodeVersion;
 import io.trino.spi.VersionEmbedder;
+import io.trino.sql.gen.ClassBuilder;
 
 import java.lang.invoke.MethodHandle;
 import java.util.concurrent.Callable;
@@ -31,8 +31,6 @@ import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -59,25 +57,26 @@ public class EmbedVersion
 
     private static Class<?> createClass(String baseClassName)
     {
-        ClassDefinition classDefinition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createStandardClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                makeClassName(baseClassName),
+                baseClassName,
                 type(Object.class),
                 type(Runnable.class),
                 type(Callable.class));
 
-        implementRunnable(classDefinition);
-        implementCallable(classDefinition);
+        implementRunnable(classBuilder);
+        implementCallable(classBuilder);
 
-        return defineClass(lookup(), classDefinition, Runnable.class);
+        return classBuilder.defineClass(Runnable.class);
     }
 
-    private static void implementRunnable(ClassDefinition classDefinition)
+    private static void implementRunnable(ClassBuilder classBuilder)
     {
-        FieldDefinition field = classDefinition.declareField(a(PRIVATE), "runnable", Runnable.class);
+        FieldDefinition field = classBuilder.declareField(a(PRIVATE), "runnable", Runnable.class);
 
         Parameter parameter = arg("runnable", type(Runnable.class));
-        MethodDefinition constructor = classDefinition.declareConstructor(a(PUBLIC), parameter);
+        MethodDefinition constructor = classBuilder.declareConstructor(a(PUBLIC), parameter);
         constructor.getBody()
                 .comment("super();")
                 .append(constructor.getThis())
@@ -87,7 +86,7 @@ public class EmbedVersion
                 .putField(field)
                 .ret();
 
-        MethodDefinition run = classDefinition.declareMethod(a(PUBLIC), "run", type(void.class));
+        MethodDefinition run = classBuilder.declareMethod(a(PUBLIC), "run", type(void.class));
         run.getBody()
                 .comment("runnable.run();")
                 .append(run.getThis())
@@ -96,12 +95,12 @@ public class EmbedVersion
                 .ret();
     }
 
-    private static void implementCallable(ClassDefinition classDefinition)
+    private static void implementCallable(ClassBuilder classBuilder)
     {
-        FieldDefinition field = classDefinition.declareField(a(PRIVATE), "callable", Callable.class);
+        FieldDefinition field = classBuilder.declareField(a(PRIVATE), "callable", Callable.class);
 
         Parameter parameter = arg("callable", type(Callable.class));
-        MethodDefinition constructor = classDefinition.declareConstructor(a(PUBLIC), parameter);
+        MethodDefinition constructor = classBuilder.declareConstructor(a(PUBLIC), parameter);
         constructor.getBody()
                 .comment("super();")
                 .append(constructor.getThis())
@@ -111,7 +110,7 @@ public class EmbedVersion
                 .putField(field)
                 .ret();
 
-        MethodDefinition run = classDefinition.declareMethod(a(PUBLIC), "call", type(Object.class));
+        MethodDefinition run = classBuilder.declareMethod(a(PUBLIC), "call", type(Object.class));
         run.getBody()
                 .comment("callable.call();")
                 .append(run.getThis())

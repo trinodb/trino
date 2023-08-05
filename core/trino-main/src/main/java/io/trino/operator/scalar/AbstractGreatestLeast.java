@@ -14,7 +14,6 @@
 package io.trino.operator.scalar;
 
 import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -30,7 +29,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.ClassBuilder;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -55,8 +54,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.util.CompilerUtils.defineHiddenClass;
-import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.MinMaxCompare.getMinMaxCompare;
 import static io.trino.util.MinMaxCompare.getMinMaxCompareFunctionDependencies;
@@ -124,18 +121,19 @@ public abstract class AbstractGreatestLeast
                 .map(Class::getSimpleName)
                 .collect(joining());
 
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                makeHiddenClassName(lookup(), javaTypeName + "$" + signature.getName()),
+                javaTypeName + "$" + signature.getName(),
                 type(Object.class));
 
-        definition.declareDefaultConstructor(a(PRIVATE));
+        classBuilder.declareDefaultConstructor(a(PRIVATE));
 
         List<Parameter> parameters = IntStream.range(0, javaTypes.size())
                 .mapToObj(i -> arg("arg" + i, javaTypes.get(i)))
                 .collect(toImmutableList());
 
-        MethodDefinition method = definition.declareMethod(
+        MethodDefinition method = classBuilder.declareMethod(
                 a(PUBLIC, STATIC),
                 signature.getName(),
                 type(wrap(javaTypes.get(0))),
@@ -143,8 +141,6 @@ public abstract class AbstractGreatestLeast
 
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
-
-        CallSiteBinder binder = new CallSiteBinder();
 
         Variable value = scope.declareVariable(wrap(javaTypes.get(0)), "value");
 
@@ -156,7 +152,7 @@ public abstract class AbstractGreatestLeast
         compareMethod = compareMethod.asType(methodType(boolean.class, compareMethod.type().wrap().parameterList()));
         for (int i = 0; i < javaTypes.size(); i++) {
             Parameter parameter = parameters.get(i);
-            BytecodeExpression invokeCompare = binder.invoke(
+            BytecodeExpression invokeCompare = classBuilder.invoke(
                     compareMethod,
                     "compare",
                     parameter,
@@ -175,6 +171,6 @@ public abstract class AbstractGreatestLeast
 
         body.append(value.ret());
 
-        return defineHiddenClass(lookup(), definition, Object.class, binder.getBindings());
+        return classBuilder.defineClass();
     }
 }

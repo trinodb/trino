@@ -13,12 +13,11 @@
  */
 package io.trino.sql.gen;
 
-import io.airlift.bytecode.ClassDefinition;
 import io.trino.sql.relational.RowExpression;
 
 import java.util.List;
 
 public interface BodyCompiler
 {
-    void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections);
+    void generateMethods(ClassBuilder classBuilder, RowExpression filter, List<RowExpression> projections);
 }

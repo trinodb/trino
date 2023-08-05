@@ -28,12 +28,12 @@ import static java.util.Objects.requireNonNull;
 public class SqlTypeBytecodeExpression
         extends BytecodeExpression
 {
-    public static SqlTypeBytecodeExpression constantType(CallSiteBinder callSiteBinder, Type type)
+    public static SqlTypeBytecodeExpression constantType(ClassBuilder classBuilder, Type type)
     {
-        requireNonNull(callSiteBinder, "callSiteBinder is null");
+        requireNonNull(classBuilder, "classBuilder is null");
         requireNonNull(type, "type is null");
 
-        BytecodeExpression loadConstant = callSiteBinder.loadConstant(type, Type.class);
+        BytecodeExpression loadConstant = classBuilder.loadConstant(type, Type.class);
         return new SqlTypeBytecodeExpression(type, loadConstant);
     }
 

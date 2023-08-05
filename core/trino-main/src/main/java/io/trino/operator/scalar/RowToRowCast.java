@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -42,7 +41,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.ClassBuilder;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -67,8 +66,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineHiddenClass;
-import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -163,22 +160,21 @@ public class RowToRowCast
         List<Type> toTypes = toType.getTypeParameters();
         List<Type> fromTypes = fromType.getTypeParameters();
 
-        CallSiteBinder binder = new CallSiteBinder();
-
         // Embed the hash code of input and output types into the generated class name instead of the raw type names,
         // which ensures the class name does not hit the length limitation or invalid characters.
         byte[] hashSuffix = Hashing.goodFastHash(128).hashBytes((fromType + "$" + toType).getBytes(UTF_8)).asBytes();
 
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                makeHiddenClassName(lookup(), Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(hashSuffix))),
+                Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(hashSuffix)),
                 type(Object.class));
-        definition.declareDefaultConstructor(a(PRIVATE));
+        classBuilder.declareDefaultConstructor(a(PRIVATE));
 
         Parameter session = arg("session", ConnectorSession.class);
         Parameter row = arg("row", Block.class);
 
-        MethodDefinition method = definition.declareMethod(
+        MethodDefinition method = classBuilder.declareMethod(
                 a(PUBLIC, STATIC),
                 "castRow",
                 type(Block.class),
@@ -196,7 +192,7 @@ public class RowToRowCast
             Type fromElementType = fromTypes.get(i);
             Type toElementType = toTypes.get(i);
 
-            body.append(fieldBuilder.set(constantType(binder, toElementType).invoke(
+            body.append(fieldBuilder.set(constantType(classBuilder, toElementType).invoke(
                     "createBlockBuilder",
                     BlockBuilder.class,
                     constantNull(BlockBuilderStatus.class),
@@ -209,7 +205,7 @@ public class RowToRowCast
                 MethodHandle castMethod = getNullSafeCast(functionDependencies, fromElementType, toElementType);
                 MethodHandle writeMethod = getNullSafeWrite(toElementType);
                 MethodHandle castAndWrite = collectArguments(writeMethod, 1, castMethod);
-                body.append(binder.invoke(
+                body.append(classBuilder.invoke(
                         castAndWrite,
                         "castAndWriteField",
                         fieldBuilder,
@@ -228,12 +224,12 @@ public class RowToRowCast
                 invokeStatic(Optional.class, "empty", Optional.class),
                 fieldBlocks);
 
-        body.append(constantType(binder, toType)
+        body.append(constantType(classBuilder, toType)
                 .invoke("getObject", Object.class, rowBlock, constantInt(0))
                 .cast(Block.class)
                 .ret());
 
-        return defineHiddenClass(lookup(), definition, Object.class, binder.getBindings());
+        return classBuilder.defineClass();
     }
 
     private static MethodHandle getNullSafeWrite(Type type)

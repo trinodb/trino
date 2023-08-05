@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
@@ -28,6 +27,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthBlockEncoding;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.sql.gen.ClassBuilder;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
@@ -53,8 +53,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
-import static io.trino.util.CompilerUtils.defineHiddenClass;
-import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public final class AggregationMaskCompiler
@@ -63,15 +61,16 @@ public final class AggregationMaskCompiler
 
     public static Constructor<? extends AggregationMaskBuilder> generateAggregationMaskBuilder(int... nonNullArgumentChannels)
     {
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                makeClassName(AggregationMaskBuilder.class.getSimpleName()),
+                AggregationMaskBuilder.class.getSimpleName(),
                 type(Object.class),
                 type(AggregationMaskBuilder.class));
 
-        FieldDefinition selectedPositionsField = definition.declareField(a(PRIVATE), "selectedPositions", int[].class);
+        FieldDefinition selectedPositionsField = classBuilder.declareField(a(PRIVATE), "selectedPositions", int[].class);
 
-        MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
+        MethodDefinition constructor = classBuilder.declareConstructor(a(PUBLIC));
         constructor.getBody().comment("super();")
                 .append(constructor.getThis())
                 .invokeConstructor(Object.class)
@@ -80,7 +79,7 @@ public final class AggregationMaskCompiler
 
         Parameter argumentsParameter = arg("arguments", type(Page.class));
         Parameter maskBlockParameter = arg("optionalMaskBlock", type(Optional.class, Block.class));
-        MethodDefinition method = definition.declareMethod(
+        MethodDefinition method = classBuilder.declareMethod(
                 a(PUBLIC),
                 "buildAggregationMask",
                 type(AggregationMask.class),
@@ -173,7 +172,7 @@ public final class AggregationMaskCompiler
                 selectedPositionsIndex)
                 .ret());
 
-        Class<? extends AggregationMaskBuilder> builderClass = defineHiddenClass(lookup(), definition, AggregationMaskBuilder.class);
+        Class<? extends AggregationMaskBuilder> builderClass = classBuilder.defineClass(AggregationMaskBuilder.class);
         try {
             return builderClass.getConstructor();
         }

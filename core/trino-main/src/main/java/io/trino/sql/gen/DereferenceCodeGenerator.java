@@ -49,8 +49,6 @@ public class DereferenceCodeGenerator
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext generator)
     {
-        CallSiteBinder callSiteBinder = generator.getCallSiteBinder();
-
         BytecodeBlock block = new BytecodeBlock().comment("DEREFERENCE").setDescription("DEREFERENCE");
         Variable wasNull = generator.wasNull();
         Variable rowBlock = generator.getScope().createTempVariable(Block.class);
@@ -84,7 +82,7 @@ public class DereferenceCodeGenerator
                 .putVariable(wasNull, true)
                 .pushJavaDefault(javaType);
 
-        BytecodeExpression value = constantType(callSiteBinder, returnType).getValue(rowBlock, constantInt(index));
+        BytecodeExpression value = constantType(generator.getClassBuilder(), returnType).getValue(rowBlock, constantInt(index));
 
         ifFieldIsNull.ifFalse()
                 .comment("otherwise call type.getTYPE(rowBlock, index)")

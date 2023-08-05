@@ -45,21 +45,21 @@ class InputReferenceCompiler
 {
     private final BiFunction<Scope, Integer, BytecodeExpression> blockResolver;
     private final BiFunction<Scope, Integer, BytecodeExpression> positionResolver;
-    private final CallSiteBinder callSiteBinder;
+    private final ClassBuilder classBuilder;
 
     public InputReferenceCompiler(
             BiFunction<Scope, Integer, BytecodeExpression> blockResolver,
             BiFunction<Scope, Integer, BytecodeExpression> positionResolver,
-            CallSiteBinder callSiteBinder)
+            ClassBuilder classBuilder)
     {
         this.blockResolver = requireNonNull(blockResolver, "blockResolver is null");
         this.positionResolver = requireNonNull(positionResolver, "positionResolver is null");
-        this.callSiteBinder = requireNonNull(callSiteBinder, "callSiteBinder is null");
+        this.classBuilder = requireNonNull(classBuilder, "classBuilder is null");
     }
 
-    public static BytecodeNode generateInputReference(CallSiteBinder callSiteBinder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
+    public static BytecodeNode generateInputReference(ClassBuilder classBuilder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
     {
-        return new InputReferenceNode(callSiteBinder, scope, type, block, position);
+        return new InputReferenceNode(classBuilder, scope, type, block, position);
     }
 
     @Override
@@ -71,7 +71,7 @@ class InputReferenceCompiler
         BytecodeExpression block = blockResolver.apply(scope, field);
         BytecodeExpression position = positionResolver.apply(scope, field);
 
-        return generateInputReference(callSiteBinder, scope, type, block, position);
+        return generateInputReference(classBuilder, scope, type, block, position);
     }
 
     @Override
@@ -111,7 +111,7 @@ class InputReferenceCompiler
         private final BytecodeExpression block;
         private final BytecodeExpression position;
 
-        private InputReferenceNode(CallSiteBinder callSiteBinder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
+        private InputReferenceNode(ClassBuilder classBuilder, Scope scope, Type type, BytecodeExpression block, BytecodeExpression position)
         {
             // Generate body based on block and position
             Variable wasNullVariable = scope.getVariable("wasNull");
@@ -128,7 +128,7 @@ class InputReferenceCompiler
                     .pushJavaDefault(callType);
 
             String methodName = "get" + Primitives.wrap(callType).getSimpleName();
-            BytecodeExpression value = constantType(callSiteBinder, type).invoke(methodName, callType, block, position);
+            BytecodeExpression value = constantType(classBuilder, type).invoke(methodName, callType, block, position);
             if (callType != type.getJavaType()) {
                 value = value.cast(type.getJavaType());
             }

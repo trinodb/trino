@@ -13,16 +13,12 @@
  */
 package io.trino.util;
 
-import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.ClassBuilder;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -36,8 +32,7 @@ import static io.airlift.bytecode.Access.SYNTHETIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.trino.util.CompilerUtils.defineHiddenClass;
-import static io.trino.util.CompilerUtils.makeHiddenClassName;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
 
 public final class SingleAccessMethodCompiler
@@ -47,15 +42,14 @@ public final class SingleAccessMethodCompiler
     // Note: this currently only handles interfaces, and has no mechanism to declare generic types.
     public static <T> T compileSingleAccessMethod(String suggestedClassName, Class<T> interfaceType, MethodHandle methodHandle)
     {
-        Lookup lookup = MethodHandles.lookup();
-
-        ClassDefinition classDefinition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL, SYNTHETIC),
-                makeHiddenClassName(lookup, suggestedClassName),
+                suggestedClassName,
                 type(Object.class),
                 type(interfaceType));
 
-        classDefinition.declareDefaultConstructor(a(PUBLIC));
+        classBuilder.declareDefaultConstructor(a(PUBLIC));
 
         Method method = getSingleAbstractMethod(interfaceType);
         Class<?>[] parameterTypes = method.getParameterTypes();
@@ -66,14 +60,13 @@ public final class SingleAccessMethodCompiler
             parameters.add(arg("arg" + i, parameterTypes[i]));
         }
 
-        MethodDefinition methodDefinition = classDefinition.declareMethod(
+        MethodDefinition methodDefinition = classBuilder.declareMethod(
                 a(PUBLIC),
                 method.getName(),
                 type(method.getReturnType()),
                 parameters);
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-        BytecodeExpression invocation = callSiteBinder.invoke(
+        BytecodeExpression invocation = classBuilder.invoke(
                 adaptedMethodHandle,
                 method.getName(),
                 parameters);
@@ -83,7 +76,7 @@ public final class SingleAccessMethodCompiler
         methodDefinition.getBody().append(invocation);
         // note this will not work if interface class is not visible from this class loader,
         // but we must use this class loader to ensure the bootstrap method is visible
-        Class<? extends T> newClass = defineHiddenClass(lookup, classDefinition, interfaceType, ImmutableList.copyOf(callSiteBinder.getBindings()));
+        Class<? extends T> newClass = classBuilder.defineClass(interfaceType);
         try {
             return newClass
                     .getDeclaredConstructor()

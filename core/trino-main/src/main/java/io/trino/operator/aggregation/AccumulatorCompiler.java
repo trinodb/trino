@@ -15,7 +15,6 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
@@ -41,7 +40,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.function.WindowIndex;
-import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.ClassBuilder;
 import io.trino.sql.gen.CompilerOperations;
 
 import java.lang.invoke.MethodHandle;
@@ -70,8 +69,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
@@ -126,23 +123,21 @@ public final class AccumulatorCompiler
     {
         boolean grouped = accumulatorInterface == GroupedAccumulator.class;
 
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createStandardClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                makeClassName(boundSignature.getName() + accumulatorInterface.getSimpleName()),
+                boundSignature.getName() + accumulatorInterface.getSimpleName(),
                 type(Object.class),
                 type(accumulatorInterface));
-
-        // Accumulator class has a copy method which must reference the class for construction
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         List<AccumulatorStateDescriptor<?>> stateDescriptors = implementation.getAccumulatorStateDescriptors();
         List<StateFieldAndDescriptor> stateFieldAndDescriptors = new ArrayList<>();
         for (int i = 0; i < stateDescriptors.size(); i++) {
             stateFieldAndDescriptors.add(new StateFieldAndDescriptor(
                     stateDescriptors.get(i),
-                    definition.declareField(a(PRIVATE, FINAL), "stateSerializer_" + i, AccumulatorStateSerializer.class),
-                    definition.declareField(a(PRIVATE, FINAL), "stateFactory_" + i, AccumulatorStateFactory.class),
-                    definition.declareField(a(PRIVATE, FINAL), "state_" + i, grouped ? GroupedAccumulatorState.class : AccumulatorState.class)));
+                    classBuilder.declareField(a(PRIVATE, FINAL), "stateSerializer_" + i, AccumulatorStateSerializer.class),
+                    classBuilder.declareField(a(PRIVATE, FINAL), "stateFactory_" + i, AccumulatorStateFactory.class),
+                    classBuilder.declareField(a(PRIVATE, FINAL), "state_" + i, grouped ? GroupedAccumulatorState.class : AccumulatorState.class)));
         }
         List<FieldDefinition> stateFields = stateFieldAndDescriptors.stream()
                 .map(StateFieldAndDescriptor::getStateField)
@@ -151,65 +146,62 @@ public final class AccumulatorCompiler
         int lambdaCount = implementation.getLambdaInterfaces().size();
         List<FieldDefinition> lambdaProviderFields = new ArrayList<>(lambdaCount);
         for (int i = 0; i < lambdaCount; i++) {
-            lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, Supplier.class));
+            lambdaProviderFields.add(classBuilder.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, Supplier.class));
         }
 
         // Generate constructors
         generateConstructor(
-                definition,
+                classBuilder,
                 stateFieldAndDescriptors,
                 lambdaProviderFields,
-                callSiteBinder,
                 grouped);
         generateCopyConstructor(
-                definition,
+                classBuilder,
                 stateFieldAndDescriptors,
                 lambdaProviderFields);
 
         // Generate methods
-        generateCopy(definition, Accumulator.class);
+        generateCopy(classBuilder, Accumulator.class);
 
         generateAddInput(
-                definition,
+                classBuilder,
                 stateFields,
                 argumentNullable,
                 lambdaProviderFields,
                 implementation.getInputFunction(),
-                callSiteBinder,
                 grouped);
-        generateGetEstimatedSize(definition, stateFields);
+        generateGetEstimatedSize(classBuilder, stateFields);
 
         if (grouped) {
-            generateSetGroupCount(definition, stateFields);
+            generateSetGroupCount(classBuilder, stateFields);
         }
 
         generateAddIntermediateAsCombine(
-                definition,
+                classBuilder,
                 stateFieldAndDescriptors,
                 lambdaProviderFields,
                 implementation.getCombineFunction(),
-                callSiteBinder,
                 grouped);
 
         if (grouped) {
-            generateGroupedEvaluateIntermediate(definition, stateFieldAndDescriptors, true);
+            generateGroupedEvaluateIntermediate(classBuilder, stateFieldAndDescriptors, true);
         }
         else {
-            generateEvaluateIntermediate(definition, stateFieldAndDescriptors, true);
+            generateEvaluateIntermediate(classBuilder, stateFieldAndDescriptors, true);
         }
 
         if (grouped) {
-            generateGroupedEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
+            generateGroupedEvaluateFinal(classBuilder, stateFields, implementation.getOutputFunction());
         }
         else {
-            generateEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
+            generateEvaluateFinal(classBuilder, stateFields, implementation.getOutputFunction());
         }
 
         if (grouped) {
-            generatePrepareFinal(definition);
+            generatePrepareFinal(classBuilder);
         }
 
-        Class<? extends T> accumulatorClass = defineClass(lookup(), definition, accumulatorInterface, callSiteBinder.getBindings());
+        Class<? extends T> accumulatorClass = classBuilder.defineClass(accumulatorInterface);
         try {
             return accumulatorClass.getConstructor(List.class);
         }
@@ -229,23 +221,21 @@ public final class AccumulatorCompiler
         List<Boolean> argumentNullable = functionNullability.getArgumentNullable()
                 .subList(0, functionNullability.getArgumentNullable().size() - implementation.getLambdaInterfaces().size());
 
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createStandardClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                makeClassName(boundSignature.getName() + WindowAccumulator.class.getSimpleName()),
+                boundSignature.getName() + WindowAccumulator.class.getSimpleName(),
                 type(Object.class),
                 type(WindowAccumulator.class));
-
-        // Accumulator class has a copy method which must reference the class for construction
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
         List<AccumulatorStateDescriptor<?>> stateDescriptors = implementation.getAccumulatorStateDescriptors();
         List<StateFieldAndDescriptor> stateFieldAndDescriptors = new ArrayList<>();
         for (int i = 0; i < stateDescriptors.size(); i++) {
             stateFieldAndDescriptors.add(new StateFieldAndDescriptor(
                     stateDescriptors.get(i),
-                    definition.declareField(a(PRIVATE, FINAL), "stateSerializer_" + i, AccumulatorStateSerializer.class),
-                    definition.declareField(a(PRIVATE, FINAL), "stateFactory_" + i, AccumulatorStateFactory.class),
-                    definition.declareField(a(PRIVATE, FINAL), "state_" + i, AccumulatorState.class)));
+                    classBuilder.declareField(a(PRIVATE, FINAL), "stateSerializer_" + i, AccumulatorStateSerializer.class),
+                    classBuilder.declareField(a(PRIVATE, FINAL), "stateFactory_" + i, AccumulatorStateFactory.class),
+                    classBuilder.declareField(a(PRIVATE, FINAL), "state_" + i, AccumulatorState.class)));
         }
         List<FieldDefinition> stateFields = stateFieldAndDescriptors.stream()
                 .map(StateFieldAndDescriptor::getStateField)
@@ -254,44 +244,41 @@ public final class AccumulatorCompiler
         int lambdaCount = implementation.getLambdaInterfaces().size();
         List<FieldDefinition> lambdaProviderFields = new ArrayList<>(lambdaCount);
         for (int i = 0; i < lambdaCount; i++) {
-            lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, Supplier.class));
+            lambdaProviderFields.add(classBuilder.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, Supplier.class));
         }
 
         // Generate constructor
         generateWindowAccumulatorConstructor(
-                definition,
+                classBuilder,
                 stateFieldAndDescriptors,
-                lambdaProviderFields,
-                callSiteBinder);
+                lambdaProviderFields);
         generateCopyConstructor(
-                definition,
+                classBuilder,
                 stateFieldAndDescriptors,
                 lambdaProviderFields);
 
         // Generate methods
-        generateCopy(definition, WindowAccumulator.class);
+        generateCopy(classBuilder, WindowAccumulator.class);
         generateAddOrRemoveInputWindowIndex(
-                definition,
+                classBuilder,
                 stateFields,
                 argumentNullable,
                 lambdaProviderFields,
                 implementation.getInputFunction(),
-                "addInput",
-                callSiteBinder);
+                "addInput");
         implementation.getRemoveInputFunction().ifPresent(
                 removeInputFunction -> generateAddOrRemoveInputWindowIndex(
-                        definition,
+                        classBuilder,
                         stateFields,
                         argumentNullable,
                         lambdaProviderFields,
                         removeInputFunction,
-                        "removeInput",
-                        callSiteBinder));
+                        "removeInput"));
 
-        generateEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
-        generateGetEstimatedSize(definition, stateFields);
+        generateEvaluateFinal(classBuilder, stateFields, implementation.getOutputFunction());
+        generateGetEstimatedSize(classBuilder, stateFields);
 
-        Class<? extends WindowAccumulator> windowAccumulatorClass = defineClass(lookup(), definition, WindowAccumulator.class, callSiteBinder.getBindings());
+        Class<? extends WindowAccumulator> windowAccumulatorClass = classBuilder.defineClass(WindowAccumulator.class);
         try {
             return windowAccumulatorClass.getConstructor(List.class);
         }
@@ -301,13 +288,12 @@ public final class AccumulatorCompiler
     }
 
     private static void generateWindowAccumulatorConstructor(
-            ClassDefinition definition,
+            ClassBuilder classBuilder,
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
-            List<FieldDefinition> lambdaProviderFields,
-            CallSiteBinder callSiteBinder)
+            List<FieldDefinition> lambdaProviderFields)
     {
         Parameter lambdaProviders = arg("lambdaProviders", type(List.class, Supplier.class));
-        MethodDefinition method = definition.declareConstructor(
+        MethodDefinition method = classBuilder.declareConstructor(
                 a(PUBLIC),
                 lambdaProviders);
 
@@ -317,14 +303,14 @@ public final class AccumulatorCompiler
         body.comment("super();")
                 .append(thisVariable)
                 .invokeConstructor(Object.class);
-        initializeStateFields(method, stateFieldAndDescriptors, callSiteBinder, false);
+        initializeStateFields(method, stateFieldAndDescriptors, classBuilder, false);
         initializeLambdaProviderFields(method, lambdaProviderFields, lambdaProviders);
         body.ret();
     }
 
-    private static void generateGetEstimatedSize(ClassDefinition definition, List<FieldDefinition> stateFields)
+    private static void generateGetEstimatedSize(ClassBuilder classBuilder, List<FieldDefinition> stateFields)
     {
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
+        MethodDefinition method = classBuilder.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
         Variable estimatedSize = method.getScope().declareVariable(long.class, "estimatedSize");
         method.getBody().append(estimatedSize.set(constantLong(0L)));
 
@@ -338,11 +324,11 @@ public final class AccumulatorCompiler
         method.getBody().append(estimatedSize.ret());
     }
 
-    private static void generateSetGroupCount(ClassDefinition definition, List<FieldDefinition> stateFields)
+    private static void generateSetGroupCount(ClassBuilder classBuilder, List<FieldDefinition> stateFields)
     {
         Parameter groupCount = arg("groupCount", long.class);
 
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "setGroupCount", type(void.class), groupCount);
+        MethodDefinition method = classBuilder.declareMethod(a(PUBLIC), "setGroupCount", type(void.class), groupCount);
         BytecodeBlock body = method.getBody();
         for (FieldDefinition stateField : stateFields) {
             BytecodeExpression state = method.getScope().getThis().getField(stateField);
@@ -352,12 +338,11 @@ public final class AccumulatorCompiler
     }
 
     private static void generateAddInput(
-            ClassDefinition definition,
+            ClassBuilder classBuilder,
             List<FieldDefinition> stateField,
             List<Boolean> argumentNullable,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
-            CallSiteBinder callSiteBinder,
             boolean grouped)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
@@ -369,7 +354,7 @@ public final class AccumulatorCompiler
         Parameter mask = arg("mask", AggregationMask.class);
         parameters.add(mask);
 
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), parameters.build());
+        MethodDefinition method = classBuilder.declareMethod(a(PUBLIC), "addInput", type(void.class), parameters.build());
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
@@ -391,7 +376,7 @@ public final class AccumulatorCompiler
                 parameterVariables,
                 lambdaProviderFields,
                 mask,
-                callSiteBinder,
+                classBuilder,
                 grouped);
 
         body.append(block);
@@ -399,13 +384,12 @@ public final class AccumulatorCompiler
     }
 
     private static void generateAddOrRemoveInputWindowIndex(
-            ClassDefinition definition,
+            ClassBuilder classBuilder,
             List<FieldDefinition> stateField,
             List<Boolean> argumentNullable,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
-            String generatedFunctionName,
-            CallSiteBinder callSiteBinder)
+            String generatedFunctionName)
     {
         // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
 
@@ -413,7 +397,7 @@ public final class AccumulatorCompiler
         Parameter startPosition = arg("startPosition", int.class);
         Parameter endPosition = arg("endPosition", int.class);
 
-        MethodDefinition method = definition.declareMethod(
+        MethodDefinition method = classBuilder.declareMethod(
                 a(PUBLIC),
                 generatedFunctionName,
                 type(void.class),
@@ -422,7 +406,7 @@ public final class AccumulatorCompiler
 
         Variable position = scope.declareVariable(int.class, "position");
 
-        BytecodeExpression invokeInputFunction = callSiteBinder.invoke(
+        BytecodeExpression invokeInputFunction = classBuilder.invoke(
                 inputFunction,
                 generatedFunctionName,
                 getInvokeFunctionOnWindowIndexParameters(
@@ -500,7 +484,7 @@ public final class AccumulatorCompiler
             List<Variable> parameterVariables,
             List<FieldDefinition> lambdaProviderFields,
             Variable mask,
-            CallSiteBinder callSiteBinder,
+            ClassBuilder classBuilder,
             boolean grouped)
     {
         // For-loop over rows
@@ -527,7 +511,7 @@ public final class AccumulatorCompiler
                         parameterVariables,
                         lambdaProviderFields,
                         inputFunction,
-                        callSiteBinder,
+                        classBuilder,
                         grouped));
 
         ForLoop selectedPositionsLoop = new ForLoop()
@@ -546,7 +530,7 @@ public final class AccumulatorCompiler
                                 parameterVariables,
                                 lambdaProviderFields,
                                 inputFunction,
-                                callSiteBinder,
+                                classBuilder,
                                 grouped)));
 
         block.append(new IfStatement()
@@ -564,7 +548,7 @@ public final class AccumulatorCompiler
             List<Variable> parameterVariables,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
-            CallSiteBinder callSiteBinder,
+            ClassBuilder classBuilder,
             boolean grouped)
     {
         BytecodeBlock block = new BytecodeBlock();
@@ -596,19 +580,18 @@ public final class AccumulatorCompiler
                     .invoke("get", Object.class));
         }
 
-        block.append(callSiteBinder.invoke(inputFunction, "input", parameters));
+        block.append(classBuilder.invoke(inputFunction, "input", parameters));
         return block;
     }
 
     private static void generateAddIntermediateAsCombine(
-            ClassDefinition definition,
+            ClassBuilder classBuilder,
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
             List<FieldDefinition> lambdaProviderFields,
             Optional<MethodHandle> combineFunction,
-            CallSiteBinder callSiteBinder,
             boolean grouped)
     {
-        MethodDefinition method = declareAddIntermediate(definition, grouped);
+        MethodDefinition method = declareAddIntermediate(classBuilder, grouped);
         if (combineFunction.isEmpty()) {
             method.getBody()
                     .append(newInstance(UnsupportedOperationException.class, constantString("Aggregation is not decomposable")))
@@ -688,7 +671,7 @@ public final class AccumulatorCompiler
             combineParameters.add(scope.getThis().getField(lambdaProviderField)
                     .invoke("get", Object.class));
         }
-        loopBody.append(callSiteBinder.invoke(combineFunction.get(), "combine", combineParameters.build()));
+        loopBody.append(classBuilder.invoke(combineFunction.get(), "combine", combineParameters.build()));
 
         body.append(generateBlockNonNullPositionForLoop(scope, position, loopBody))
                 .ret();
@@ -703,7 +686,7 @@ public final class AccumulatorCompiler
         }
     }
 
-    private static MethodDefinition declareAddIntermediate(ClassDefinition definition, boolean grouped)
+    private static MethodDefinition declareAddIntermediate(ClassBuilder classBuilder, boolean grouped)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         if (grouped) {
@@ -711,7 +694,7 @@ public final class AccumulatorCompiler
         }
         parameters.add(arg("block", Block.class));
 
-        return definition.declareMethod(
+        return classBuilder.declareMethod(
                 a(PUBLIC),
                 "addIntermediate",
                 type(void.class),
@@ -749,11 +732,11 @@ public final class AccumulatorCompiler
         return block;
     }
 
-    private static void generateGroupedEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, boolean decomposable)
+    private static void generateGroupedEvaluateIntermediate(ClassBuilder classBuilder, List<StateFieldAndDescriptor> stateFieldAndDescriptors, boolean decomposable)
     {
         Parameter groupId = arg("groupId", int.class);
         Parameter out = arg("out", BlockBuilder.class);
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "evaluateIntermediate", type(void.class), groupId, out);
+        MethodDefinition method = classBuilder.declareMethod(a(PUBLIC), "evaluateIntermediate", type(void.class), groupId, out);
 
         if (!decomposable) {
             method.getBody()
@@ -779,15 +762,15 @@ public final class AccumulatorCompiler
                 body.append(state.invoke("setGroupId", void.class, groupId.cast(long.class)));
             }
 
-            generateSerializeState(definition, stateFieldAndDescriptors, out, thisVariable, body);
+            generateSerializeState(classBuilder, stateFieldAndDescriptors, out, thisVariable, body);
             body.ret();
         }
     }
 
-    private static void generateEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, boolean decomposable)
+    private static void generateEvaluateIntermediate(ClassBuilder classBuilder, List<StateFieldAndDescriptor> stateFieldAndDescriptors, boolean decomposable)
     {
         Parameter out = arg("out", BlockBuilder.class);
-        MethodDefinition method = definition.declareMethod(
+        MethodDefinition method = classBuilder.declareMethod(
                 a(PUBLIC),
                 "evaluateIntermediate",
                 type(void.class),
@@ -811,23 +794,23 @@ public final class AccumulatorCompiler
                     .ret();
         }
         else {
-            generateSerializeState(definition, stateFieldAndDescriptors, out, thisVariable, body);
+            generateSerializeState(classBuilder, stateFieldAndDescriptors, out, thisVariable, body);
             body.ret();
         }
     }
 
-    private static void generateSerializeState(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, Parameter out, Variable thisVariable, BytecodeBlock body)
+    private static void generateSerializeState(ClassBuilder classBuilder, List<StateFieldAndDescriptor> stateFieldAndDescriptors, Parameter out, Variable thisVariable, BytecodeBlock body)
     {
-        MethodDefinition serializeState = generateSerializeStateMethod(definition, stateFieldAndDescriptors);
+        MethodDefinition serializeState = generateSerializeStateMethod(classBuilder, stateFieldAndDescriptors);
 
         BytecodeExpression rowEntryBuilder = generateMetafactory(RowValueBuilder.class, serializeState, ImmutableList.of(thisVariable));
         body.append(out.cast(RowBlockBuilder.class).invoke("buildEntry", void.class, rowEntryBuilder));
     }
 
-    private static MethodDefinition generateSerializeStateMethod(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors)
+    private static MethodDefinition generateSerializeStateMethod(ClassBuilder classBuilder, List<StateFieldAndDescriptor> stateFieldAndDescriptors)
     {
         Parameter fieldBuilders = arg("fieldBuilders", type(List.class, BlockBuilder.class));
-        MethodDefinition method = definition.declareMethod(a(PRIVATE), "serializeState", type(void.class), fieldBuilders);
+        MethodDefinition method = classBuilder.declareMethod(a(PRIVATE), "serializeState", type(void.class), fieldBuilders);
 
         Variable thisVariable = method.getThis();
         BytecodeBlock body = method.getBody();
@@ -844,14 +827,13 @@ public final class AccumulatorCompiler
     }
 
     private static void generateGroupedEvaluateFinal(
-            ClassDefinition definition,
+            ClassBuilder classBuilder,
             List<FieldDefinition> stateFields,
-            MethodHandle outputFunction,
-            CallSiteBinder callSiteBinder)
+            MethodHandle outputFunction)
     {
         Parameter groupId = arg("groupId", int.class);
         Parameter out = arg("out", BlockBuilder.class);
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "evaluateFinal", type(void.class), groupId, out);
+        MethodDefinition method = classBuilder.declareMethod(a(PUBLIC), "evaluateFinal", type(void.class), groupId, out);
 
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
@@ -868,19 +850,18 @@ public final class AccumulatorCompiler
         ImmutableList.Builder<BytecodeExpression> outputParameters = ImmutableList.builder();
         outputParameters.addAll(states);
         outputParameters.add(out);
-        body.append(callSiteBinder.invoke(outputFunction, "output", outputParameters.build()));
+        body.append(classBuilder.invoke(outputFunction, "output", outputParameters.build()));
 
         body.ret();
     }
 
     private static void generateEvaluateFinal(
-            ClassDefinition definition,
+            ClassBuilder classBuilder,
             List<FieldDefinition> stateFields,
-            MethodHandle outputFunction,
-            CallSiteBinder callSiteBinder)
+            MethodHandle outputFunction)
     {
         Parameter out = arg("out", BlockBuilder.class);
-        MethodDefinition method = definition.declareMethod(
+        MethodDefinition method = classBuilder.declareMethod(
                 a(PUBLIC),
                 "evaluateFinal",
                 type(void.class),
@@ -900,14 +881,14 @@ public final class AccumulatorCompiler
         ImmutableList.Builder<BytecodeExpression> outputParameters = ImmutableList.builder();
         outputParameters.addAll(states);
         outputParameters.add(out);
-        body.append(callSiteBinder.invoke(outputFunction, "output", outputParameters.build()));
+        body.append(classBuilder.invoke(outputFunction, "output", outputParameters.build()));
 
         body.ret();
     }
 
-    private static void generatePrepareFinal(ClassDefinition definition)
+    private static void generatePrepareFinal(ClassBuilder classBuilder)
     {
-        MethodDefinition method = definition.declareMethod(
+        MethodDefinition method = classBuilder.declareMethod(
                 a(PUBLIC),
                 "prepareFinal",
                 type(void.class));
@@ -915,14 +896,13 @@ public final class AccumulatorCompiler
     }
 
     private static void generateConstructor(
-            ClassDefinition definition,
+            ClassBuilder classBuilder,
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
             List<FieldDefinition> lambdaProviderFields,
-            CallSiteBinder callSiteBinder,
             boolean grouped)
     {
         Parameter lambdaProviders = arg("lambdaProviders", type(List.class, Supplier.class));
-        MethodDefinition method = definition.declareConstructor(
+        MethodDefinition method = classBuilder.declareConstructor(
                 a(PUBLIC),
                 lambdaProviders);
 
@@ -934,7 +914,7 @@ public final class AccumulatorCompiler
                 .invokeConstructor(Object.class);
 
         body.append(generateRequireNotNull(lambdaProviders));
-        initializeStateFields(method, stateFieldAndDescriptors, callSiteBinder, grouped);
+        initializeStateFields(method, stateFieldAndDescriptors, classBuilder, grouped);
         initializeLambdaProviderFields(method, lambdaProviderFields, lambdaProviders);
 
         body.ret();
@@ -943,7 +923,7 @@ public final class AccumulatorCompiler
     private static void initializeStateFields(
             MethodDefinition method,
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
-            CallSiteBinder callSiteBinder,
+            ClassBuilder classBuilder,
             boolean grouped)
     {
         BytecodeBlock body = method.getBody();
@@ -953,12 +933,12 @@ public final class AccumulatorCompiler
             AccumulatorStateDescriptor<?> accumulatorStateDescriptor = fieldAndDescriptor.getAccumulatorStateDescriptor();
             body.append(thisVariable.setField(
                     fieldAndDescriptor.getStateSerializerField(),
-                    callSiteBinder.loadConstant(accumulatorStateDescriptor.getSerializer(), AccumulatorStateSerializer.class)));
+                    classBuilder.loadConstant(accumulatorStateDescriptor.getSerializer(), AccumulatorStateSerializer.class)));
             body.append(generateRequireNotNull(thisVariable, fieldAndDescriptor.getStateSerializerField()));
 
             body.append(thisVariable.setField(
                     fieldAndDescriptor.getStateFactoryField(),
-                    callSiteBinder.loadConstant(accumulatorStateDescriptor.getFactory(), AccumulatorStateFactory.class)));
+                    classBuilder.loadConstant(accumulatorStateDescriptor.getFactory(), AccumulatorStateFactory.class)));
             body.append(generateRequireNotNull(thisVariable, fieldAndDescriptor.getStateFactoryField()));
 
             // create the state object
@@ -985,12 +965,12 @@ public final class AccumulatorCompiler
     }
 
     private static void generateCopyConstructor(
-            ClassDefinition definition,
+            ClassBuilder classBuilder,
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
             List<FieldDefinition> lambdaProviderFields)
     {
-        Parameter source = arg("source", definition.getType());
-        MethodDefinition method = definition.declareConstructor(
+        Parameter source = arg("source", classBuilder.getType());
+        MethodDefinition method = classBuilder.declareConstructor(
                 a(PUBLIC),
                 source);
 
@@ -1025,11 +1005,11 @@ public final class AccumulatorCompiler
         body.ret();
     }
 
-    private static void generateCopy(ClassDefinition definition, Class<?> returnType)
+    private static void generateCopy(ClassBuilder classBuilder, Class<?> returnType)
     {
-        MethodDefinition copy = definition.declareMethod(a(PUBLIC), "copy", type(returnType));
+        MethodDefinition copy = classBuilder.declareMethod(a(PUBLIC), "copy", type(returnType));
         copy.getBody()
-                .append(newInstance(definition.getType(), copy.getScope().getThis()).ret());
+                .append(newInstance(classBuilder.getType(), copy.getScope().getThis()).ret());
     }
 
     private static BytecodeExpression generateRequireNotNull(Variable variable)

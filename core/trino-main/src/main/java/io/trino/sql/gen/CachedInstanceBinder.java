@@ -14,7 +14,6 @@
 package io.trino.sql.gen;
 
 import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.Variable;
 
@@ -29,25 +28,23 @@ import static java.util.Objects.requireNonNull;
 
 public final class CachedInstanceBinder
 {
-    private final ClassDefinition classDefinition;
-    private final CallSiteBinder callSiteBinder;
+    private final ClassBuilder classBuilder;
     private final Map<FieldDefinition, MethodHandle> initializers = new HashMap<>();
     private int nextId;
 
-    public CachedInstanceBinder(ClassDefinition classDefinition, CallSiteBinder callSiteBinder)
+    public CachedInstanceBinder(ClassBuilder classBuilder)
     {
-        this.classDefinition = requireNonNull(classDefinition, "classDefinition is null");
-        this.callSiteBinder = requireNonNull(callSiteBinder, "callSiteBinder is null");
+        this.classBuilder = requireNonNull(classBuilder, "classBuilder is null");
     }
 
-    public CallSiteBinder getCallSiteBinder()
+    public ClassBuilder getClassBuilder()
     {
-        return callSiteBinder;
+        return classBuilder;
     }
 
     public FieldDefinition getCachedInstance(MethodHandle methodHandle)
     {
-        FieldDefinition field = classDefinition.declareField(a(PRIVATE, FINAL), "__cachedInstance" + nextId, methodHandle.type().returnType());
+        FieldDefinition field = classBuilder.declareField(a(PRIVATE, FINAL), "__cachedInstance" + nextId, methodHandle.type().returnType());
         initializers.put(field, methodHandle);
         nextId++;
         return field;
@@ -57,7 +54,7 @@ public final class CachedInstanceBinder
     {
         for (Map.Entry<FieldDefinition, MethodHandle> entry : initializers.entrySet()) {
             block.append(thisVariable)
-                    .append(callSiteBinder.invoke(entry.getValue(), "instanceFieldConstructor"))
+                    .append(classBuilder.invoke(entry.getValue(), "instanceFieldConstructor"))
                     .putField(entry.getKey());
         }
     }

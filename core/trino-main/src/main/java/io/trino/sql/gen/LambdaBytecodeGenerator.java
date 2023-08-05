@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
@@ -74,10 +73,6 @@ import static io.trino.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static io.trino.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
 import static io.trino.sql.gen.LambdaCapture.LAMBDA_CAPTURE_METHOD;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.defineHiddenClass;
-import static io.trino.util.CompilerUtils.makeClassName;
-import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.invoke.MethodHandles.explicitCastArguments;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -102,30 +97,29 @@ public final class LambdaBytecodeGenerator
 
         // Lambda functions are generated into a new non-hidden class, because lambda metafactory
         // currently requires direct method handles on non-hidden classes
-        ClassDefinition classDefinition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createStandardClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                makeClassName("LambdaMethods"),
+                "LambdaMethods",
                 type(Object.class));
 
         // Private method to fetch a full access Lookup for this generated class
         // This is required because this class is in a separate classloader and thus a different unnamed module
         // and there does not seem any other way to get a full access method handle across class loaders
-        classDefinition.declareMethod(a(PRIVATE, STATIC), "lookup", type(Lookup.class))
+        classBuilder.declareMethod(a(PRIVATE, STATIC), "lookup", type(Lookup.class))
                 .getBody()
                 .append(invokeStatic(MethodHandles.class, "lookup", Lookup.class).ret());
 
         // generate the lambda methods inside the new class
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-        CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
+        CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classBuilder);
         Map<LambdaDefinitionExpression, CompiledLambda> generatedMethods = generateMethodsForLambdaInternal(
-                classDefinition,
-                callSiteBinder,
+                classBuilder,
                 cachedInstanceBinder,
                 expression,
                 functionManager);
 
         // create constructor which initializes the fields inside the cached instance binder
-        MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));
+        MethodDefinition constructorDefinition = classBuilder.declareConstructor(a(PUBLIC));
         BytecodeBlock constructorBody = constructorDefinition.getBody();
         Variable thisVariable = constructorDefinition.getThis();
         constructorBody.comment("super();")
@@ -135,7 +129,7 @@ public final class LambdaBytecodeGenerator
         constructorBody.ret();
 
         // define the new class
-        Class<?> lambdaClass = defineClass(lookup(), classDefinition, Object.class, callSiteBinder.getBindings());
+        Class<?> lambdaClass = classBuilder.defineClass();
 
         // create a cached instance of the new class in the callers cached instance binder
         MethodHandle constructor;
@@ -155,8 +149,7 @@ public final class LambdaBytecodeGenerator
     }
 
     private static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambdaInternal(
-            ClassDefinition containerClassDefinition,
-            CallSiteBinder callSiteBinder,
+            ClassBuilder classBuilder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression expression,
             FunctionManager functionManager)
@@ -169,9 +162,8 @@ public final class LambdaBytecodeGenerator
             CompiledLambda compiledLambda = preGenerateLambdaExpression(
                     lambdaExpression,
                     "lambda_" + counter,
-                    containerClassDefinition,
+                    classBuilder,
                     compiledLambdaMap.buildOrThrow(),
-                    callSiteBinder,
                     cachedInstanceBinder,
                     functionManager);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
@@ -187,9 +179,8 @@ public final class LambdaBytecodeGenerator
     private static CompiledLambda preGenerateLambdaExpression(
             LambdaDefinitionExpression lambdaExpression,
             String methodName,
-            ClassDefinition classDefinition,
+            ClassBuilder classBuilder,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
-            CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             FunctionManager functionManager)
     {
@@ -206,7 +197,7 @@ public final class LambdaBytecodeGenerator
         }
 
         RowExpressionCompiler innerExpressionCompiler = new RowExpressionCompiler(
-                callSiteBinder,
+                classBuilder,
                 cachedInstanceBinder,
                 variableReferenceCompiler(parameterMapBuilder.buildOrThrow()),
                 functionManager,
@@ -214,7 +205,7 @@ public final class LambdaBytecodeGenerator
 
         return defineLambdaMethod(
                 innerExpressionCompiler,
-                classDefinition,
+                classBuilder,
                 methodName,
                 parameters.build(),
                 lambdaExpression);
@@ -222,14 +213,14 @@ public final class LambdaBytecodeGenerator
 
     private static CompiledLambda defineLambdaMethod(
             RowExpressionCompiler innerExpressionCompiler,
-            ClassDefinition classDefinition,
+            ClassBuilder classBuilder,
             String methodName,
             List<Parameter> inputParameters,
             LambdaDefinitionExpression lambda)
     {
         checkCondition(inputParameters.size() <= 254, NOT_SUPPORTED, "Too many arguments for lambda expression");
         Class<?> returnType = Primitives.wrap(lambda.getBody().getType().getJavaType());
-        MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(returnType), inputParameters);
+        MethodDefinition method = classBuilder.declareMethod(a(PUBLIC), methodName, type(returnType), inputParameters);
 
         Scope scope = method.getScope();
         Variable wasNull = scope.declareVariable(boolean.class, "wasNull");
@@ -327,7 +318,7 @@ public final class LambdaBytecodeGenerator
                 // modify the factory handle to accept an Object instead of the actual target type, because the caller class
                 // cannot see the lambda class, which is in a separate class loader
                 factoryMethodHandle = explicitCastArguments(factoryMethodHandle, factoryMethodHandle.type().changeParameterType(0, Object.class));
-                block.append(context.getCallSiteBinder().invoke(factoryMethodHandle, "ignored", captureVariables));
+                block.append(context.getClassBuilder().invoke(factoryMethodHandle, "ignored", captureVariables));
             }
             catch (LambdaConversionException e) {
                 throw new RuntimeException(e);
@@ -338,23 +329,23 @@ public final class LambdaBytecodeGenerator
 
     public static Class<? extends Supplier<Object>> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, FunctionManager functionManager, Class<?> lambdaInterface)
     {
-        ClassDefinition lambdaProviderClassDefinition = new ClassDefinition(
+        ClassBuilder lambdaProviderClassBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                makeHiddenClassName(lookup(), "LambdaProvider"),
+                "LambdaProvider",
                 type(Object.class),
                 type(Supplier.class, Object.class));
 
-        FieldDefinition sessionField = lambdaProviderClassDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
+        FieldDefinition sessionField = lambdaProviderClassBuilder.declareField(a(PRIVATE), "session", ConnectorSession.class);
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-        CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(lambdaProviderClassDefinition, callSiteBinder);
+        CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(lambdaProviderClassBuilder);
 
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(
                 lambdaExpression,
                 cachedInstanceBinder,
                 functionManager);
 
-        MethodDefinition method = lambdaProviderClassDefinition.declareMethod(
+        MethodDefinition method = lambdaProviderClassBuilder.declareMethod(
                 a(PUBLIC),
                 "get",
                 type(Object.class),
@@ -366,7 +357,7 @@ public final class LambdaBytecodeGenerator
         scope.declareVariable("session", body, method.getThis().getField(sessionField));
 
         RowExpressionCompiler rowExpressionCompiler = new RowExpressionCompiler(
-                callSiteBinder,
+                lambdaProviderClassBuilder,
                 cachedInstanceBinder,
                 variableReferenceCompiler(ImmutableMap.of()),
                 functionManager,
@@ -375,7 +366,7 @@ public final class LambdaBytecodeGenerator
         BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
                 rowExpressionCompiler,
                 scope,
-                callSiteBinder,
+                lambdaProviderClassBuilder,
                 cachedInstanceBinder,
                 functionManager);
 
@@ -390,7 +381,7 @@ public final class LambdaBytecodeGenerator
         // constructor
         Parameter sessionParameter = arg("session", ConnectorSession.class);
 
-        MethodDefinition constructorDefinition = lambdaProviderClassDefinition.declareConstructor(a(PUBLIC), sessionParameter);
+        MethodDefinition constructorDefinition = lambdaProviderClassBuilder.declareConstructor(a(PUBLIC), sessionParameter);
         BytecodeBlock constructorBody = constructorDefinition.getBody();
         Variable constructorThisVariable = constructorDefinition.getThis();
 
@@ -403,7 +394,7 @@ public final class LambdaBytecodeGenerator
         constructorBody.ret();
 
         //noinspection unchecked
-        return (Class<? extends Supplier<Object>>) defineHiddenClass(lookup(), lambdaProviderClassDefinition, Supplier.class, callSiteBinder.getBindings());
+        return (Class<? extends Supplier<Object>>) lambdaProviderClassBuilder.defineClass(Supplier.class);
     }
 
     private static Method getSingleApplyMethod(Class<?> lambdaFunctionInterface)

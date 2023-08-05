@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -34,7 +33,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.ClassBuilder;
 import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 
 import java.util.List;
@@ -61,8 +60,6 @@ import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.functionType;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineHiddenClass;
-import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -104,27 +101,27 @@ public final class ArrayTransformFunction
 
     private static Class<?> generateTransform(Type inputType, Type outputType)
     {
-        CallSiteBinder binder = new CallSiteBinder();
         Class<?> inputJavaType = Primitives.wrap(inputType.getJavaType());
         Class<?> outputJavaType = Primitives.wrap(outputType.getJavaType());
 
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                makeHiddenClassName(lookup(), "ArrayTransform"),
+                "ArrayTransform",
                 type(Object.class));
-        definition.declareDefaultConstructor(a(PRIVATE));
+        classBuilder.declareDefaultConstructor(a(PRIVATE));
 
         // define createPageBuilder
-        MethodDefinition createPageBuilderMethod = definition.declareMethod(a(PUBLIC, STATIC), "createPageBuilder", type(PageBuilder.class));
+        MethodDefinition createPageBuilderMethod = classBuilder.declareMethod(a(PUBLIC, STATIC), "createPageBuilder", type(PageBuilder.class));
         createPageBuilderMethod.getBody()
-                .append(newInstance(PageBuilder.class, constantType(binder, new ArrayType(outputType)).invoke("getTypeParameters", List.class)).ret());
+                .append(newInstance(PageBuilder.class, constantType(classBuilder, new ArrayType(outputType)).invoke("getTypeParameters", List.class)).ret());
 
         // define transform method
         Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
         Parameter block = arg("block", Block.class);
         Parameter function = arg("function", UnaryFunctionInterface.class);
 
-        MethodDefinition method = definition.declareMethod(
+        MethodDefinition method = classBuilder.declareMethod(
                 a(PUBLIC, STATIC),
                 "transform",
                 type(Block.class),
@@ -154,7 +151,7 @@ public final class ArrayTransformFunction
             loadInputElement = new IfStatement()
                     .condition(block.invoke("isNull", boolean.class, position))
                     .ifTrue(inputElement.set(constantNull(inputJavaType)))
-                    .ifFalse(inputElement.set(constantType(binder, inputType).getValue(block, position).cast(inputJavaType)));
+                    .ifFalse(inputElement.set(constantType(classBuilder, inputType).getValue(block, position).cast(inputJavaType)));
         }
         else {
             loadInputElement = new BytecodeBlock().append(inputElement.set(constantNull(inputJavaType)));
@@ -165,7 +162,7 @@ public final class ArrayTransformFunction
             writeOutputElement = new IfStatement()
                     .condition(equal(outputElement, constantNull(outputJavaType)))
                     .ifTrue(blockBuilder.invoke("appendNull", BlockBuilder.class).pop())
-                    .ifFalse(constantType(binder, outputType).writeValue(blockBuilder, outputElement.cast(outputType.getJavaType())));
+                    .ifFalse(constantType(classBuilder, outputType).writeValue(blockBuilder, outputElement.cast(outputType.getJavaType())));
         }
         else {
             writeOutputElement = new BytecodeBlock().append(blockBuilder.invoke("appendNull", BlockBuilder.class).pop());
@@ -184,6 +181,6 @@ public final class ArrayTransformFunction
 
         body.append(blockBuilder.invoke("getRegion", Block.class, subtract(blockBuilder.invoke("getPositionCount", int.class), positionCount), positionCount).ret());
 
-        return defineHiddenClass(lookup(), definition, Object.class, binder.getBindings());
+        return classBuilder.defineClass();
     }
 }

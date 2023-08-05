@@ -210,14 +210,14 @@ public class InCodeGenerator
                 switchBuilder.defaultCase(jump(defaultLabel));
                 switchBlock = new BytecodeBlock()
                         .comment("lookupSwitch(hashCode(<stackValue>))")
-                        .append(generatorContext.getCallSiteBinder().invoke(hashCodeMethodHandle, resolvedHashCodeFunction.getSignature().getName(), value))
+                        .append(generatorContext.getClassBuilder().invoke(hashCodeMethodHandle, resolvedHashCodeFunction.getSignature().getName(), value))
                         .invokeStatic(Long.class, "hashCode", int.class, long.class)
                         .putVariable(expression)
                         .append(switchBuilder.build());
                 break;
             case SET_CONTAINS:
                 Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, hashCodeMethodHandle, equalsMethodHandle);
-                BytecodeExpression constant = generatorContext.getCallSiteBinder().loadConstant(constantValuesSet, constantValuesSet.getClass());
+                BytecodeExpression constant = generatorContext.getClassBuilder().loadConstant(constantValuesSet, constantValuesSet.getClass());
 
                 switchBlock = new BytecodeBlock()
                         .comment("inListSet.contains(<stackValue>)")

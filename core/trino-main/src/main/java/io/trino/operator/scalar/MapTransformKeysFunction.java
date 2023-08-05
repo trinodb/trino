@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -42,7 +41,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.ClassBuilder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 import io.trino.type.BlockTypeOperators;
@@ -76,8 +75,6 @@ import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineHiddenClass;
-import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -130,20 +127,20 @@ public final class MapTransformKeysFunction
 
     private static MethodHandle generateTransformKey(Type keyType, Type transformedKeyType, Type valueType)
     {
-        CallSiteBinder binder = new CallSiteBinder();
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                makeHiddenClassName(lookup(), "MapTransformKey"),
+                "MapTransformKey",
                 type(Object.class));
-        definition.declareDefaultConstructor(a(PRIVATE));
+        classBuilder.declareDefaultConstructor(a(PRIVATE));
 
-        MethodDefinition transformMap = generateTransformKeyInner(definition, binder, keyType, transformedKeyType, valueType);
+        MethodDefinition transformMap = generateTransformKeyInner(classBuilder, keyType, transformedKeyType, valueType);
 
         Parameter state = arg("state", Object.class);
         Parameter session = arg("session", ConnectorSession.class);
         Parameter block = arg("block", Block.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
-        MethodDefinition method = definition.declareMethod(
+        MethodDefinition method = classBuilder.declareMethod(
                 a(PUBLIC, STATIC),
                 "transform",
                 type(Block.class),
@@ -165,22 +162,22 @@ public final class MapTransformKeysFunction
                         new TryCatch.CatchBlock(
                                 new BytecodeBlock()
                                         .putVariable(duplicateKeyException)
-                                        .append(duplicateKeyException.invoke("withDetailedMessage", DuplicateMapKeyException.class, constantType(binder, transformedKeyType), session))
+                                        .append(duplicateKeyException.invoke("withDetailedMessage", DuplicateMapKeyException.class, constantType(classBuilder, transformedKeyType), session))
                                         .throwObject(),
                                 ImmutableList.of(type(DuplicateMapKeyException.class))))));
 
-        Class<?> generatedClass = defineHiddenClass(lookup(), definition, Object.class, binder.getBindings());
+        Class<?> generatedClass = classBuilder.defineClass();
         return methodHandle(generatedClass, "transform", Object.class, ConnectorSession.class, Block.class, BinaryFunctionInterface.class);
     }
 
-    private static MethodDefinition generateTransformKeyInner(ClassDefinition definition, CallSiteBinder binder, Type keyType, Type transformedKeyType, Type valueType)
+    private static MethodDefinition generateTransformKeyInner(ClassBuilder classBuilder, Type keyType, Type transformedKeyType, Type valueType)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter block = arg("block", Block.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         Parameter keyBuilder = arg("keyBuilder", BlockBuilder.class);
         Parameter valueBuilder = arg("valueBuilder", BlockBuilder.class);
-        MethodDefinition method = definition.declareMethod(
+        MethodDefinition method = classBuilder.declareMethod(
                 a(PRIVATE, STATIC),
                 "transform",
                 type(void.class),
@@ -210,7 +207,7 @@ public final class MapTransformKeysFunction
                         constantString("map key cannot be null")))
                 .throwObject();
 
-        SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
+        SqlTypeBytecodeExpression keySqlType = constantType(classBuilder, keyType);
         BytecodeNode loadKeyElement;
         if (!keyType.equals(UNKNOWN)) {
             loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(block, position).cast(keyJavaType)));
@@ -225,7 +222,7 @@ public final class MapTransformKeysFunction
                     .append(throwNullKeyException);
         }
 
-        SqlTypeBytecodeExpression valueSqlType = constantType(binder, valueType);
+        SqlTypeBytecodeExpression valueSqlType = constantType(classBuilder, valueType);
         BytecodeNode loadValueElement;
         if (!valueType.equals(UNKNOWN)) {
             loadValueElement = new IfStatement()
@@ -246,7 +243,7 @@ public final class MapTransformKeysFunction
                             .condition(equal(transformedKeyElement, constantNull(transformedKeyJavaType)))
                             .ifTrue(throwNullKeyException)
                             .ifFalse(new BytecodeBlock()
-                                    .append(constantType(binder, transformedKeyType).writeValue(keyBuilder, transformedKeyElement.cast(transformedKeyType.getJavaType())))
+                                    .append(constantType(classBuilder, transformedKeyType).writeValue(keyBuilder, transformedKeyElement.cast(transformedKeyType.getJavaType())))
                                     .append(valueSqlType.invoke("appendTo", void.class, block, add(position, constantInt(1)), valueBuilder))));
         }
         else {

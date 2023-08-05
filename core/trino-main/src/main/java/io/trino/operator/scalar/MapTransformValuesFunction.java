@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -41,7 +40,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.ClassBuilder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 
@@ -75,8 +74,6 @@ import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineHiddenClass;
-import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.lookup;
 
@@ -129,20 +126,20 @@ public final class MapTransformValuesFunction
 
     private static MethodHandle generateTransform(Type keyType, Type valueType, Type transformedValueType)
     {
-        CallSiteBinder binder = new CallSiteBinder();
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                makeHiddenClassName(lookup(), "MapTransformValue"),
+                "MapTransformValue",
                 type(Object.class));
-        definition.declareDefaultConstructor(a(PRIVATE));
+        classBuilder.declareDefaultConstructor(a(PRIVATE));
 
-        MethodDefinition transformMap = generateTransformInner(definition, binder, keyType, valueType, transformedValueType);
+        MethodDefinition transformMap = generateTransformInner(classBuilder, keyType, valueType, transformedValueType);
 
         // define transform method
         Parameter state = arg("state", Object.class);
         Parameter block = arg("block", Block.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
-        MethodDefinition method = definition.declareMethod(
+        MethodDefinition method = classBuilder.declareMethod(
                 a(PUBLIC, STATIC),
                 "transform",
                 type(Block.class),
@@ -158,17 +155,17 @@ public final class MapTransformValuesFunction
         BytecodeExpression entryCount = divide(block.invoke("getPositionCount", int.class), constantInt(2));
         body.append(mapValueBuilder.invoke("build", Block.class, entryCount, mapEntryBuilder).ret());
 
-        Class<?> generatedClass = defineHiddenClass(lookup(), definition, Object.class, binder.getBindings());
+        Class<?> generatedClass = classBuilder.defineClass();
         return methodHandle(generatedClass, "transform", Object.class, Block.class, BinaryFunctionInterface.class);
     }
 
-    private static MethodDefinition generateTransformInner(ClassDefinition definition, CallSiteBinder binder, Type keyType, Type valueType, Type transformedValueType)
+    private static MethodDefinition generateTransformInner(ClassBuilder classBuilder, Type keyType, Type valueType, Type transformedValueType)
     {
         Parameter block = arg("block", Block.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         Parameter keyBuilder = arg("keyBuilder", BlockBuilder.class);
         Parameter valueBuilder = arg("valueBuilder", BlockBuilder.class);
-        MethodDefinition method = definition.declareMethod(
+        MethodDefinition method = classBuilder.declareMethod(
                 a(PRIVATE, STATIC),
                 "transform",
                 type(void.class),
@@ -198,7 +195,7 @@ public final class MapTransformValuesFunction
                         constantString("map key cannot be null")))
                 .throwObject();
 
-        SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
+        SqlTypeBytecodeExpression keySqlType = constantType(classBuilder, keyType);
         BytecodeNode loadKeyElement;
         if (!keyType.equals(UNKNOWN)) {
             loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(block, position).cast(keyJavaType)));
@@ -213,7 +210,7 @@ public final class MapTransformValuesFunction
                     .append(throwNullKeyException);
         }
 
-        SqlTypeBytecodeExpression valueSqlType = constantType(binder, valueType);
+        SqlTypeBytecodeExpression valueSqlType = constantType(classBuilder, valueType);
         BytecodeNode loadValueElement;
         if (!valueType.equals(UNKNOWN)) {
             loadValueElement = new IfStatement()
@@ -230,7 +227,7 @@ public final class MapTransformValuesFunction
             writeTransformedValueElement = new IfStatement()
                     .condition(equal(transformedValueElement, constantNull(transformedValueJavaType)))
                     .ifTrue(valueBuilder.invoke("appendNull", BlockBuilder.class).pop())
-                    .ifFalse(constantType(binder, transformedValueType).writeValue(valueBuilder, transformedValueElement.cast(transformedValueType.getJavaType())));
+                    .ifFalse(constantType(classBuilder, transformedValueType).writeValue(valueBuilder, transformedValueElement.cast(transformedValueType.getJavaType())));
         }
         else {
             writeTransformedValueElement = new BytecodeBlock().append(valueBuilder.invoke("appendNull", BlockBuilder.class).pop());

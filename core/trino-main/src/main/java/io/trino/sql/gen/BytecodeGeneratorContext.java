@@ -36,7 +36,7 @@ public class BytecodeGeneratorContext
 {
     private final RowExpressionCompiler rowExpressionCompiler;
     private final Scope scope;
-    private final CallSiteBinder callSiteBinder;
+    private final ClassBuilder classBuilder;
     private final CachedInstanceBinder cachedInstanceBinder;
     private final FunctionManager functionManager;
     private final Variable wasNull;
@@ -44,19 +44,19 @@ public class BytecodeGeneratorContext
     public BytecodeGeneratorContext(
             RowExpressionCompiler rowExpressionCompiler,
             Scope scope,
-            CallSiteBinder callSiteBinder,
+            ClassBuilder classBuilder,
             CachedInstanceBinder cachedInstanceBinder,
             FunctionManager functionManager)
     {
         requireNonNull(rowExpressionCompiler, "rowExpressionCompiler is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
         requireNonNull(scope, "scope is null");
-        requireNonNull(callSiteBinder, "callSiteBinder is null");
+        requireNonNull(classBuilder, "classBuilder is null");
         requireNonNull(functionManager, "functionManager is null");
 
         this.rowExpressionCompiler = rowExpressionCompiler;
         this.scope = scope;
-        this.callSiteBinder = callSiteBinder;
+        this.classBuilder = classBuilder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.functionManager = functionManager;
         this.wasNull = scope.getVariable("wasNull");
@@ -67,9 +67,9 @@ public class BytecodeGeneratorContext
         return scope;
     }
 
-    public CallSiteBinder getCallSiteBinder()
+    public ClassBuilder getClassBuilder()
     {
-        return callSiteBinder;
+        return classBuilder;
     }
 
     public BytecodeNode generate(RowExpression expression)
@@ -87,7 +87,7 @@ public class BytecodeGeneratorContext
      */
     public BytecodeNode generateCall(ResolvedFunction resolvedFunction, List<BytecodeNode> arguments)
     {
-        return generateInvocation(scope, resolvedFunction, functionManager, arguments, callSiteBinder);
+        return generateInvocation(scope, resolvedFunction, functionManager, arguments, classBuilder);
     }
 
     public BytecodeNode generateFullCall(ResolvedFunction resolvedFunction, List<RowExpression> arguments)
@@ -98,7 +98,7 @@ public class BytecodeGeneratorContext
 
         Function<MethodHandle, BytecodeNode> instance = instanceFactory -> scope.getThis().getField(cachedInstanceBinder.getCachedInstance(instanceFactory));
 
-        return generateFullInvocation(scope, resolvedFunction, functionManager, instance, argumentCompilers, callSiteBinder);
+        return generateFullInvocation(scope, resolvedFunction, functionManager, instance, argumentCompilers, classBuilder);
     }
 
     private Function<Optional<Class<?>>, BytecodeNode> argumentCompiler(RowExpression argument)

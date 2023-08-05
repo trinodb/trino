@@ -140,7 +140,7 @@ public final class BytecodeUtils
             ResolvedFunction resolvedFunction,
             FunctionManager functionManager,
             List<BytecodeNode> arguments,
-            CallSiteBinder binder)
+            ClassBuilder classBuilder)
     {
         return generateInvocation(
                 scope,
@@ -148,7 +148,7 @@ public final class BytecodeUtils
                 resolvedFunction.getFunctionNullability(),
                 invocationConvention -> functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention),
                 arguments,
-                binder);
+                classBuilder);
     }
 
     public static BytecodeNode generateInvocation(
@@ -157,7 +157,7 @@ public final class BytecodeUtils
             FunctionNullability functionNullability,
             Function<InvocationConvention, ScalarFunctionImplementation> functionImplementationProvider,
             List<BytecodeNode> arguments,
-            CallSiteBinder binder)
+            ClassBuilder classBuilder)
     {
         return generateFullInvocation(
                 scope,
@@ -171,7 +171,7 @@ public final class BytecodeUtils
                 arguments.stream()
                         .map(BytecodeUtils::simpleArgument)
                         .collect(toImmutableList()),
-                binder);
+                classBuilder);
     }
 
     private static Function<Optional<Class<?>>, BytecodeNode> simpleArgument(BytecodeNode argument)
@@ -188,7 +188,7 @@ public final class BytecodeUtils
             FunctionManager functionManager,
             Function<MethodHandle, BytecodeNode> instanceFactory,
             List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
-            CallSiteBinder binder)
+            ClassBuilder classBuilder)
     {
         return generateFullInvocation(
                 scope,
@@ -200,7 +200,7 @@ public final class BytecodeUtils
                 invocationConvention -> functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention),
                 instanceFactory,
                 argumentCompilers,
-                binder);
+                classBuilder);
     }
 
     private static BytecodeNode generateFullInvocation(
@@ -211,7 +211,7 @@ public final class BytecodeUtils
             Function<InvocationConvention, ScalarFunctionImplementation> functionImplementationProvider,
             Function<MethodHandle, BytecodeNode> instanceFactory,
             List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
-            CallSiteBinder binder)
+            ClassBuilder classBuilder)
     {
         verify(argumentIsFunctionType.size() == argumentCompilers.size());
         List<InvocationArgumentConvention> argumentConventions = new ArrayList<>();
@@ -256,7 +256,7 @@ public final class BytecodeUtils
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
         List<Class<?>> stackTypes = new ArrayList<>();
-        block.append(binder.loadConstant(implementation.getMethodHandle(), MethodHandle.class));
+        block.append(classBuilder.loadConstant(implementation.getMethodHandle(), MethodHandle.class));
         stackTypes.add(MethodHandle.class);
         boolean instanceIsBound = false;
         while (currentParameterIndex < methodType.parameterArray().length) {
@@ -420,7 +420,7 @@ public final class BytecodeUtils
         return name.replaceAll("[^A-Za-z0-9_$]", "_");
     }
 
-    public static BytecodeNode generateWrite(CallSiteBinder callSiteBinder, Scope scope, Variable wasNullVariable, Type type)
+    public static BytecodeNode generateWrite(ClassBuilder classBuilder, Scope scope, Variable wasNullVariable, Type type)
     {
         Class<?> valueJavaType = type.getJavaType();
         if (!valueJavaType.isPrimitive() && valueJavaType != Slice.class) {
@@ -450,7 +450,7 @@ public final class BytecodeUtils
                                 .comment("%s.%s(output, %s)", type.getTypeSignature(), methodName, valueJavaType.getSimpleName())
                                 .putVariable(tempValue)
                                 .putVariable(tempOutput)
-                                .append(callSiteBinder.loadConstant(type, Type.class))
+                                .append(classBuilder.loadConstant(type, Type.class))
                                 .getVariable(tempOutput)
                                 .getVariable(tempValue)
                                 .invokeInterface(Type.class, methodName, void.class, BlockBuilder.class, valueJavaType)));

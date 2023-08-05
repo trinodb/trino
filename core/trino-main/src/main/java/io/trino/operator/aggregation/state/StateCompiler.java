@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
@@ -51,9 +50,8 @@ import io.trino.spi.function.InOut;
 import io.trino.spi.function.InternalDataAccessor;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.ClassBuilder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
-import io.trino.util.CompilerUtils;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
@@ -110,8 +108,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.privateLookupIn;
@@ -141,23 +137,22 @@ public final class StateCompiler
             }
         }
 
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                CompilerUtils.makeHiddenClassName(lookup(), clazz.getSimpleName() + "Serializer"),
+                clazz.getSimpleName() + "Serializer",
                 type(Object.class),
                 type(AccumulatorStateSerializer.class));
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-
         // Generate constructor
-        definition.declareDefaultConstructor(a(PUBLIC));
+        classBuilder.declareDefaultConstructor(a(PUBLIC));
 
         List<StateField> fields = enumerateFields(clazz, fieldTypes);
-        generateGetSerializedType(definition, fields, callSiteBinder);
-        generateSerialize(definition, callSiteBinder, clazz, fields);
-        generateDeserialize(definition, callSiteBinder, clazz, fields);
+        generateGetSerializedType(classBuilder, fields);
+        generateSerialize(classBuilder, clazz, fields);
+        generateDeserialize(classBuilder, clazz, fields);
 
-        Class<?> serializerClass = CompilerUtils.defineHiddenClass(lookup(), definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings());
+        Class<?> serializerClass = classBuilder.defineClass(AccumulatorStateSerializer.class);
         try {
             //noinspection unchecked
             return (AccumulatorStateSerializer<T>) serializerClass.getConstructor().newInstance();
@@ -167,14 +162,14 @@ public final class StateCompiler
         }
     }
 
-    private static void generateGetSerializedType(ClassDefinition definition, List<StateField> fields, CallSiteBinder callSiteBinder)
+    private static void generateGetSerializedType(ClassBuilder classBuilder, List<StateField> fields)
     {
-        BytecodeBlock body = definition.declareMethod(a(PUBLIC), "getSerializedType", type(Type.class)).getBody();
+        BytecodeBlock body = classBuilder.declareMethod(a(PUBLIC), "getSerializedType", type(Type.class)).getBody();
 
         Type type = getSerializedType(fields);
 
         body.comment("return %s", type.getTypeSignature())
-                .append(constantType(callSiteBinder, type))
+                .append(constantType(classBuilder, type))
                 .retObject();
     }
 
@@ -207,12 +202,12 @@ public final class StateCompiler
         return null;
     }
 
-    private static <T extends AccumulatorState> void generateDeserialize(ClassDefinition definition, CallSiteBinder binder, Class<T> clazz, List<StateField> fields)
+    private static <T extends AccumulatorState> void generateDeserialize(ClassBuilder classBuilder, Class<T> clazz, List<StateField> fields)
     {
         Parameter block = arg("block", Block.class);
         Parameter index = arg("index", int.class);
         Parameter state = arg("state", AccumulatorState.class);
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "deserialize", type(void.class), block, index, state);
+        MethodDefinition method = classBuilder.declareMethod(a(PUBLIC), "deserialize", type(void.class), block, index, state);
         BytecodeBlock deserializerBody = method.getBody();
         Scope scope = method.getScope();
         if (fields.size() == 1) {
@@ -222,14 +217,14 @@ public final class StateCompiler
                 deserializerBody.append(new IfStatement()
                         .condition(block.invoke("isNull", boolean.class, index))
                         .ifTrue(state.cast(setter.getDeclaringClass()).invoke(setter, constantNull(field.type())))
-                        .ifFalse(state.cast(setter.getDeclaringClass()).invoke(setter, constantType(binder, field.sqlType()).getValue(block, index))));
+                        .ifFalse(state.cast(setter.getDeclaringClass()).invoke(setter, constantType(classBuilder, field.sqlType()).getValue(block, index))));
             }
             else {
                 // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
                 deserializerBody.append(
                         state.cast(setter.getDeclaringClass()).invoke(
                                 setter,
-                                constantType(binder, field.sqlType()).getValue(block, index).cast(field.type())));
+                                constantType(classBuilder, field.sqlType()).getValue(block, index).cast(field.type())));
             }
         }
         else if (fields.size() > 1) {
@@ -242,14 +237,14 @@ public final class StateCompiler
                     deserializerBody.append(new IfStatement()
                             .condition(row.invoke("isNull", boolean.class, constantInt(position)))
                             .ifTrue(state.cast(setter.getDeclaringClass()).invoke(setter, constantNull(field.type())))
-                            .ifFalse(state.cast(setter.getDeclaringClass()).invoke(setter, constantType(binder, field.sqlType()).getValue(row, constantInt(position)))));
+                            .ifFalse(state.cast(setter.getDeclaringClass()).invoke(setter, constantType(classBuilder, field.sqlType()).getValue(row, constantInt(position)))));
                 }
                 else {
                     // For primitive type, we need to cast here because we serialize byte fields with TINYINT/INTEGER (whose java type is long).
                     deserializerBody.append(
                             state.cast(setter.getDeclaringClass()).invoke(
                                     setter,
-                                    constantType(binder, field.sqlType()).getValue(row, constantInt(position)).cast(field.type())));
+                                    constantType(classBuilder, field.sqlType()).getValue(row, constantInt(position)).cast(field.type())));
                 }
                 position++;
             }
@@ -257,11 +252,11 @@ public final class StateCompiler
         deserializerBody.ret();
     }
 
-    private static <T> void generateSerialize(ClassDefinition definition, CallSiteBinder binder, Class<T> clazz, List<StateField> fields)
+    private static <T> void generateSerialize(ClassBuilder classBuilder, Class<T> clazz, List<StateField> fields)
     {
         Parameter state = arg("state", AccumulatorState.class);
         Parameter out = arg("out", BlockBuilder.class);
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "serialize", type(void.class), state, out);
+        MethodDefinition method = classBuilder.declareMethod(a(PUBLIC), "serialize", type(void.class), state, out);
         Scope scope = method.getScope();
         BytecodeBlock serializerBody = method.getBody();
 
@@ -270,7 +265,7 @@ public final class StateCompiler
         }
         else if (fields.size() == 1) {
             Method getter = getGetter(clazz, getOnlyElement(fields));
-            SqlTypeBytecodeExpression sqlType = constantType(binder, getOnlyElement(fields).sqlType());
+            SqlTypeBytecodeExpression sqlType = constantType(classBuilder, getOnlyElement(fields).sqlType());
             Variable fieldValue = scope.declareVariable(getter.getReturnType(), "value");
             serializerBody.append(fieldValue.set(state.cast(getter.getDeclaringClass()).invoke(getter)));
             if (!getOnlyElement(fields).isPrimitiveType()) {
@@ -285,7 +280,7 @@ public final class StateCompiler
             }
         }
         else {
-            MethodDefinition serializeToRow = generateSerializeToRow(definition, binder, clazz, fields);
+            MethodDefinition serializeToRow = generateSerializeToRow(classBuilder, clazz, fields);
             BytecodeExpression rowEntryBuilder = generateMetafactory(RowValueBuilder.class, serializeToRow, ImmutableList.of(state));
             serializerBody.append(out.cast(RowBlockBuilder.class).invoke("buildEntry", void.class, rowEntryBuilder));
         }
@@ -293,14 +288,13 @@ public final class StateCompiler
     }
 
     private static MethodDefinition generateSerializeToRow(
-            ClassDefinition definition,
-            CallSiteBinder binder,
+            ClassBuilder classBuilder,
             Class<?> clazz,
             List<StateField> fields)
     {
         Parameter state = arg("state", AccumulatorState.class);
         Parameter fieldBuilders = arg("fieldBuilders", type(List.class, BlockBuilder.class));
-        MethodDefinition method = definition.declareMethod(a(PRIVATE, STATIC), "serialize", type(void.class), state, fieldBuilders);
+        MethodDefinition method = classBuilder.declareMethod(a(PRIVATE, STATIC), "serialize", type(void.class), state, fieldBuilders);
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
@@ -309,7 +303,7 @@ public final class StateCompiler
             StateField field = fields.get(i);
             Method getter = getGetter(clazz, field);
 
-            SqlTypeBytecodeExpression sqlType = constantType(binder, field.sqlType());
+            SqlTypeBytecodeExpression sqlType = constantType(classBuilder, field.sqlType());
 
             Variable fieldValue = scope.createTempVariable(getter.getReturnType());
             body.append(fieldValue.set(state.cast(getter.getDeclaringClass()).invoke(getter)));
@@ -359,46 +353,31 @@ public final class StateCompiler
 
     private static Class<? extends InOut> generateInOutSingleStateClass(Type type)
     {
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-        Lookup lookup = lookup();
-        ClassDefinition singleStateClassDefinition = generateInOutSingleStateClass(type, callSiteBinder, lookup);
-        return CompilerUtils.defineHiddenClass(lookup, singleStateClassDefinition, InOut.class, callSiteBinder.getBindings());
-    }
-
-    private static Class<? extends InOut> generateInOutGroupedStateClass(Type type)
-    {
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-        Lookup lookup = lookup();
-        ClassDefinition groupedStateClassDefinition = generateInOutGroupedStateClass(type, callSiteBinder, lookup);
-        return CompilerUtils.defineHiddenClass(lookup, groupedStateClassDefinition, InOut.class, callSiteBinder.getBindings());
-    }
-
-    private static ClassDefinition generateInOutSingleStateClass(Type type, CallSiteBinder callSiteBinder, Lookup lookup)
-    {
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                CompilerUtils.makeHiddenClassName(lookup, "SingleInOut"),
+                "SingleInOut",
                 type(Object.class),
                 type(InOut.class),
                 type(InternalDataAccessor.class));
 
-        estimatedSize(definition);
+        estimatedSize(classBuilder);
 
         // Generate constructor
-        MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
+        MethodDefinition constructor = classBuilder.declareConstructor(a(PUBLIC));
 
         constructor.getBody()
                 .append(constructor.getThis())
                 .invokeConstructor(Object.class);
 
         // Generate fields
-        FieldDefinition valueField = definition.declareField(a(PRIVATE), "value", inOutGetterReturnType(type));
+        FieldDefinition valueField = classBuilder.declareField(a(PRIVATE), "value", inOutGetterReturnType(type));
         Function<Scope, BytecodeExpression> valueGetter = scope -> scope.getThis().getField(valueField);
 
         Optional<FieldDefinition> nullField;
         Function<Scope, BytecodeExpression> nullGetter;
         if (type.getJavaType().isPrimitive()) {
-            nullField = Optional.of(definition.declareField(a(PRIVATE), "valueIdNull", boolean.class));
+            nullField = Optional.of(classBuilder.declareField(a(PRIVATE), "valueIdNull", boolean.class));
             constructor.getBody().append(constructor.getThis().setField(nullField.get(), constantTrue()));
             nullGetter = scope -> scope.getThis().getField(nullField.get());
         }
@@ -410,7 +389,7 @@ public final class StateCompiler
         constructor.getBody()
                 .ret();
 
-        inOutSingleCopy(definition, valueField, nullField);
+        inOutSingleCopy(classBuilder, valueField, nullField);
 
         Function<Scope, BytecodeNode> setNullGenerator = scope -> {
             Variable thisVariable = scope.getThis();
@@ -428,38 +407,39 @@ public final class StateCompiler
             return bytecodeBlock;
         };
 
-        generateInOutMethods(type, definition, valueGetter, nullGetter, setNullGenerator, setValueGenerator, callSiteBinder);
-        return definition;
+        generateInOutMethods(type, classBuilder, valueGetter, nullGetter, setNullGenerator, setValueGenerator);
+        return classBuilder.defineClass(InOut.class);
     }
 
-    private static ClassDefinition generateInOutGroupedStateClass(Type type, CallSiteBinder callSiteBinder, Lookup lookup)
+    private static Class<? extends InOut> generateInOutGroupedStateClass(Type type)
     {
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                CompilerUtils.makeHiddenClassName(lookup, "GroupedInOut"), // todo add type
+                "GroupedInOut", // todo add type
                 type(Object.class),
                 type(InOut.class),
                 type(GroupedAccumulatorState.class),
                 type(InternalDataAccessor.class));
 
-        estimatedSize(definition);
+        estimatedSize(classBuilder);
 
-        MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
+        MethodDefinition constructor = classBuilder.declareConstructor(a(PUBLIC));
         constructor.getBody()
                 .append(constructor.getThis())
                 .invokeConstructor(Object.class);
 
-        FieldDefinition groupIdField = definition.declareField(a(PRIVATE), "groupId", long.class);
+        FieldDefinition groupIdField = classBuilder.declareField(a(PRIVATE), "groupId", long.class);
 
         Class<?> valueElementType = inOutGetterReturnType(type);
-        FieldDefinition valueField = definition.declareField(a(PRIVATE, FINAL), "value", getBigArrayType(valueElementType).getBigArrayType());
+        FieldDefinition valueField = classBuilder.declareField(a(PRIVATE, FINAL), "value", getBigArrayType(valueElementType).getBigArrayType());
         constructor.getBody().append(constructor.getThis().setField(valueField, newInstance(valueField.getType())));
         Function<Scope, BytecodeExpression> valueGetter = scope -> scope.getThis().getField(valueField).invoke("get", valueElementType, scope.getThis().getField(groupIdField));
 
         Optional<FieldDefinition> nullField;
         Function<Scope, BytecodeExpression> nullGetter;
         if (type.getJavaType().isPrimitive()) {
-            nullField = Optional.of(definition.declareField(a(PRIVATE, FINAL), "valueIdNull", BooleanBigArray.class));
+            nullField = Optional.of(classBuilder.declareField(a(PRIVATE, FINAL), "valueIdNull", BooleanBigArray.class));
             constructor.getBody().append(constructor.getThis().setField(nullField.get(), newInstance(BooleanBigArray.class, constantTrue())));
             nullGetter = scope -> scope.getThis().getField(nullField.get()).invoke("get", boolean.class, scope.getThis().getField(groupIdField));
         }
@@ -471,9 +451,9 @@ public final class StateCompiler
         constructor.getBody()
                 .ret();
 
-        inOutGroupedSetGroupId(definition, groupIdField);
-        inOutGroupedEnsureCapacity(definition, valueField, nullField);
-        inOutGroupedCopy(definition, valueField, nullField);
+        inOutGroupedSetGroupId(classBuilder, groupIdField);
+        inOutGroupedEnsureCapacity(classBuilder, valueField, nullField);
+        inOutGroupedCopy(classBuilder, valueField, nullField);
 
         Function<Scope, BytecodeNode> setNullGenerator = scope -> {
             Variable thisVariable = scope.getThis();
@@ -490,66 +470,65 @@ public final class StateCompiler
             return bytecodeBlock;
         };
 
-        generateInOutMethods(type, definition, valueGetter, nullGetter, setNullGenerator, setValueGenerator, callSiteBinder);
+        generateInOutMethods(type, classBuilder, valueGetter, nullGetter, setNullGenerator, setValueGenerator);
 
-        return definition;
+        return classBuilder.defineClass(InOut.class);
     }
 
     private static void generateInOutMethods(Type type,
-            ClassDefinition definition,
+            ClassBuilder classBuilder,
             Function<Scope, BytecodeExpression> valueGetter,
             Function<Scope, BytecodeExpression> nullGetter,
             Function<Scope, BytecodeNode> setNullGenerator,
-            BiFunction<Scope, BytecodeExpression, BytecodeNode> setValueGenerator,
-            CallSiteBinder callSiteBinder)
+            BiFunction<Scope, BytecodeExpression, BytecodeNode> setValueGenerator)
     {
-        SqlTypeBytecodeExpression sqlType = constantType(callSiteBinder, type);
+        SqlTypeBytecodeExpression sqlType = constantType(classBuilder, type);
 
-        generateInOutGetType(definition, sqlType);
-        generateInOutIsNull(definition, nullGetter);
-        generateInOutGetBlockBuilder(definition, sqlType, valueGetter);
-        generateInOutSetBlockPosition(definition, sqlType, setNullGenerator, setValueGenerator);
-        generateInOutSetInOut(definition, type, setNullGenerator, setValueGenerator);
-        generateInOutGetValue(definition, type, valueGetter);
+        generateInOutGetType(classBuilder, sqlType);
+        generateInOutIsNull(classBuilder, nullGetter);
+        generateInOutGetBlockBuilder(classBuilder, sqlType, valueGetter);
+        generateInOutSetBlockPosition(classBuilder, sqlType, setNullGenerator, setValueGenerator);
+        generateInOutSetInOut(classBuilder, type, setNullGenerator, setValueGenerator);
+        generateInOutGetValue(classBuilder, type, valueGetter);
     }
 
-    private static void estimatedSize(ClassDefinition definition)
+    private static void estimatedSize(ClassBuilder classBuilder)
     {
-        FieldDefinition instanceSize = generateInstanceSize(definition);
+        FieldDefinition instanceSize = generateInstanceSize(classBuilder);
 
         // Add getter for class size
-        definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class))
+        classBuilder.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class))
                 .getBody()
                 .getStaticField(instanceSize)
                 .retLong();
     }
 
-    private static void inOutSingleCopy(ClassDefinition definition, FieldDefinition valueField, Optional<FieldDefinition> nullField)
+    private static void inOutSingleCopy(ClassBuilder classBuilder, FieldDefinition valueField, Optional<FieldDefinition> nullField)
     {
-        MethodDefinition copy = definition.declareMethod(a(PUBLIC), "copy", type(AccumulatorState.class));
+        MethodDefinition copy = classBuilder.declareMethod(a(PUBLIC), "copy", type(AccumulatorState.class));
         Variable thisVariable = copy.getThis();
         BytecodeBlock body = copy.getBody();
 
-        Variable copyVariable = copy.getScope().declareVariable(definition.getType(), "copy");
-        body.append(copyVariable.set(newInstance(definition.getType())));
+        Variable copyVariable = copy.getScope().declareVariable(classBuilder.getType(), "copy");
+        body.append(copyVariable.set(newInstance(classBuilder.getType())));
         body.append(copyVariable.setField(valueField, thisVariable.getField(valueField)));
         nullField.ifPresent(field -> body.append(copyVariable.setField(field, thisVariable.getField(field))));
         body.append(copyVariable.ret());
     }
 
-    private static void inOutGroupedSetGroupId(ClassDefinition definition, FieldDefinition groupIdField)
+    private static void inOutGroupedSetGroupId(ClassBuilder classBuilder, FieldDefinition groupIdField)
     {
         Parameter groupIdArg = arg("groupId", long.class);
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "setGroupId", type(void.class), groupIdArg);
+        MethodDefinition method = classBuilder.declareMethod(a(PUBLIC), "setGroupId", type(void.class), groupIdArg);
         method.getBody()
                 .append(method.getThis().setField(groupIdField, groupIdArg))
                 .ret();
     }
 
-    private static void inOutGroupedEnsureCapacity(ClassDefinition definition, FieldDefinition valueField, Optional<FieldDefinition> nullField)
+    private static void inOutGroupedEnsureCapacity(ClassBuilder classBuilder, FieldDefinition valueField, Optional<FieldDefinition> nullField)
     {
         Parameter size = arg("size", long.class);
-        MethodDefinition method = definition.declareMethod(a(PUBLIC), "ensureCapacity", type(void.class), size);
+        MethodDefinition method = classBuilder.declareMethod(a(PUBLIC), "ensureCapacity", type(void.class), size);
         Variable thisVariable = method.getThis();
         BytecodeBlock body = method.getBody();
 
@@ -558,14 +537,14 @@ public final class StateCompiler
         body.ret();
     }
 
-    private static void inOutGroupedCopy(ClassDefinition definition, FieldDefinition valueField, Optional<FieldDefinition> nullField)
+    private static void inOutGroupedCopy(ClassBuilder classBuilder, FieldDefinition valueField, Optional<FieldDefinition> nullField)
     {
-        MethodDefinition copy = definition.declareMethod(a(PUBLIC), "copy", type(AccumulatorState.class));
+        MethodDefinition copy = classBuilder.declareMethod(a(PUBLIC), "copy", type(AccumulatorState.class));
         Variable thisVariable = copy.getThis();
         BytecodeBlock body = copy.getBody();
 
-        Variable copyVariable = copy.getScope().declareVariable(definition.getType(), "copy");
-        body.append(copyVariable.set(newInstance(definition.getType())));
+        Variable copyVariable = copy.getScope().declareVariable(classBuilder.getType(), "copy");
+        body.append(copyVariable.set(newInstance(classBuilder.getType())));
         copyBigArray(body, thisVariable, copyVariable, valueField);
         nullField.ifPresent(field -> copyBigArray(body, thisVariable, copyVariable, field));
         body.append(copyVariable.ret());
@@ -583,23 +562,23 @@ public final class StateCompiler
                 source.getField(bigArrayField).invoke("getCapacity", long.class)));
     }
 
-    private static void generateInOutGetType(ClassDefinition definition, SqlTypeBytecodeExpression sqlType)
+    private static void generateInOutGetType(ClassBuilder classBuilder, SqlTypeBytecodeExpression sqlType)
     {
-        definition.declareMethod(a(PUBLIC), "getType", type(Type.class))
+        classBuilder.declareMethod(a(PUBLIC), "getType", type(Type.class))
                 .getBody()
                 .append(sqlType.ret());
     }
 
-    private static void generateInOutIsNull(ClassDefinition definition, Function<Scope, BytecodeExpression> nullGetter)
+    private static void generateInOutIsNull(ClassBuilder classBuilder, Function<Scope, BytecodeExpression> nullGetter)
     {
-        MethodDefinition isNullMethod = definition.declareMethod(a(PUBLIC), "isNull", type(boolean.class));
+        MethodDefinition isNullMethod = classBuilder.declareMethod(a(PUBLIC), "isNull", type(boolean.class));
         isNullMethod.getBody().append(nullGetter.apply(isNullMethod.getScope()).ret());
     }
 
-    private static void generateInOutGetBlockBuilder(ClassDefinition definition, SqlTypeBytecodeExpression sqlType, Function<Scope, BytecodeExpression> valueGetter)
+    private static void generateInOutGetBlockBuilder(ClassBuilder classBuilder, SqlTypeBytecodeExpression sqlType, Function<Scope, BytecodeExpression> valueGetter)
     {
         Parameter blockBuilderArg = arg("blockBuilder", BlockBuilder.class);
-        MethodDefinition getBlockBuilderMethod = definition.declareMethod(a(PUBLIC), "get", type(void.class), blockBuilderArg);
+        MethodDefinition getBlockBuilderMethod = classBuilder.declareMethod(a(PUBLIC), "get", type(void.class), blockBuilderArg);
         Variable thisVariable = getBlockBuilderMethod.getThis();
         BytecodeBlock body = getBlockBuilderMethod.getBody();
 
@@ -611,14 +590,14 @@ public final class StateCompiler
     }
 
     private static void generateInOutSetBlockPosition(
-            ClassDefinition definition,
+            ClassBuilder classBuilder,
             SqlTypeBytecodeExpression sqlType,
             Function<Scope, BytecodeNode> setNullGenerator,
             BiFunction<Scope, BytecodeExpression, BytecodeNode> setValueGenerator)
     {
         Parameter blockArg = arg("block", Block.class);
         Parameter positionArg = arg("position", int.class);
-        MethodDefinition setBlockBuilderMethod = definition.declareMethod(a(PUBLIC), "set", type(void.class), blockArg, positionArg);
+        MethodDefinition setBlockBuilderMethod = classBuilder.declareMethod(a(PUBLIC), "set", type(void.class), blockArg, positionArg);
         BytecodeBlock body = setBlockBuilderMethod.getBody();
 
         body.append(new IfStatement()
@@ -629,13 +608,13 @@ public final class StateCompiler
     }
 
     private static void generateInOutSetInOut(
-            ClassDefinition definition,
+            ClassBuilder classBuilder,
             Type type,
             Function<Scope, BytecodeNode> setNullGenerator,
             BiFunction<Scope, BytecodeExpression, BytecodeNode> setValueGenerator)
     {
         Parameter otherState = arg("otherState", InOut.class);
-        MethodDefinition setter = definition.declareMethod(a(PUBLIC), "set", type(void.class), otherState);
+        MethodDefinition setter = classBuilder.declareMethod(a(PUBLIC), "set", type(void.class), otherState);
         BytecodeBlock body = setter.getBody();
 
         body.append(new IfStatement()
@@ -645,9 +624,9 @@ public final class StateCompiler
         body.ret();
     }
 
-    private static void generateInOutGetValue(ClassDefinition definition, Type type, Function<Scope, BytecodeExpression> valueGetter)
+    private static void generateInOutGetValue(ClassBuilder classBuilder, Type type, Function<Scope, BytecodeExpression> valueGetter)
     {
-        MethodDefinition getter = definition.declareMethod(a(PUBLIC), inOutGetterName(type), type(inOutGetterReturnType(type)));
+        MethodDefinition getter = classBuilder.declareMethod(a(PUBLIC), inOutGetterName(type), type(inOutGetterReturnType(type)));
         getter.getBody().append(valueGetter.apply(getter.getScope()).ret());
     }
 
@@ -710,19 +689,20 @@ public final class StateCompiler
 
     private static Lookup getFullAccessLookupIn(Class<?> clazz)
     {
-        ClassDefinition lookupDefinition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createStandardClass(
+                lookup().in(clazz),
                 a(PUBLIC, FINAL),
-                makeClassName(clazz.getSimpleName() + "Lookup"),
+                clazz.getSimpleName() + "Lookup",
                 type(Object.class));
 
         // Private method to fetch a full access Lookup for this generated class
         // This is required because this class is in a separate classloader and thus a different unnamed module
         // and there does not seem any other way to get a full access method handle across class loaders
-        lookupDefinition.declareMethod(a(PRIVATE, STATIC), "lookup", type(Lookup.class))
+        classBuilder.declareMethod(a(PRIVATE, STATIC), "lookup", type(Lookup.class))
                 .getBody()
                 .append(invokeStatic(MethodHandles.class, "lookup", Lookup.class).ret());
 
-        Class<?> lookupClass = defineClass(lookup().in(clazz), lookupDefinition, Object.class);
+        Class<?> lookupClass = classBuilder.defineClass();
         try {
             return (Lookup) privateLookupIn(lookupClass, lookup()).findStatic(lookupClass, "lookup", methodType(Lookup.class)).invoke();
         }
@@ -737,27 +717,27 @@ public final class StateCompiler
             Class<? extends T> singleStateClass,
             Class<? extends T> groupedStateClass)
     {
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                CompilerUtils.makeHiddenClassName(lookup(), clazz.getSimpleName() + "Factory"),
+                clazz.getSimpleName() + "Factory",
                 type(Object.class),
                 type(AccumulatorStateFactory.class));
 
         // Generate constructor
-        definition.declareDefaultConstructor(a(PUBLIC));
+        classBuilder.declareDefaultConstructor(a(PUBLIC));
 
         // Generate single state creation method
-        definition.declareMethod(a(PUBLIC), "createSingleState", type(AccumulatorState.class))
+        classBuilder.declareMethod(a(PUBLIC), "createSingleState", type(AccumulatorState.class))
                 .getBody()
-                .append(callSiteBinder.invoke(lookupConstructor(singleStateClass), "createSingleState").ret());
+                .append(classBuilder.invoke(lookupConstructor(singleStateClass), "createSingleState").ret());
 
         // Generate grouped state creation method
-        definition.declareMethod(a(PUBLIC), "createGroupedState", type(AccumulatorState.class))
+        classBuilder.declareMethod(a(PUBLIC), "createGroupedState", type(AccumulatorState.class))
                 .getBody()
-                .append(callSiteBinder.invoke(lookupConstructor(groupedStateClass), "groupedConstructor").ret());
+                .append(classBuilder.invoke(lookupConstructor(groupedStateClass), "groupedConstructor").ret());
 
-        Class<?> factoryClass = CompilerUtils.defineHiddenClass(lookup(), definition, AccumulatorStateFactory.class, callSiteBinder.getBindings());
+        Class<?> factoryClass = classBuilder.defineClass(AccumulatorStateFactory.class);
         try {
             //noinspection unchecked
             return (AccumulatorStateFactory<T>) factoryClass.getConstructor().newInstance();
@@ -779,22 +759,23 @@ public final class StateCompiler
 
     private static <T> Class<? extends T> generateSingleStateClass(Lookup lookup, Class<T> clazz, Map<String, Type> fieldTypes)
     {
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup,
                 a(PUBLIC, FINAL),
-                CompilerUtils.makeHiddenClassName(lookup, "Single" + clazz.getSimpleName()),
+                "Single" + clazz.getSimpleName(),
                 type(Object.class),
                 type(clazz));
 
-        FieldDefinition instanceSize = generateInstanceSize(definition);
+        FieldDefinition instanceSize = generateInstanceSize(classBuilder);
 
         // Add getter for class size
-        definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class))
+        classBuilder.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class))
                 .getBody()
                 .getStaticField(instanceSize)
                 .retLong();
 
         // Generate constructor
-        MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
+        MethodDefinition constructor = classBuilder.declareConstructor(a(PUBLIC));
 
         constructor.getBody()
                 .append(constructor.getThis())
@@ -804,20 +785,20 @@ public final class StateCompiler
         List<StateField> fields = enumerateFields(clazz, fieldTypes);
         List<FieldDefinition> fieldDefinitions = new ArrayList<>();
         for (StateField field : fields) {
-            fieldDefinitions.add(generateField(definition, constructor, field));
+            fieldDefinitions.add(generateField(classBuilder, constructor, field));
         }
 
         constructor.getBody()
                 .ret();
 
-        generateCopy(definition, fields, fieldDefinitions);
+        generateCopy(classBuilder, fields, fieldDefinitions);
 
-        return CompilerUtils.defineHiddenClass(lookup, definition, clazz);
+        return classBuilder.defineClass(clazz);
     }
 
-    private static void generateCopy(ClassDefinition definition, List<StateField> fields, List<FieldDefinition> fieldDefinitions)
+    private static void generateCopy(ClassBuilder classBuilder, List<StateField> fields, List<FieldDefinition> fieldDefinitions)
     {
-        MethodDefinition copy = definition.declareMethod(a(PUBLIC), "copy", type(AccumulatorState.class));
+        MethodDefinition copy = classBuilder.declareMethod(a(PUBLIC), "copy", type(AccumulatorState.class));
         Variable thisVariable = copy.getThis();
         BytecodeBlock body = copy.getBody();
 
@@ -826,7 +807,7 @@ public final class StateCompiler
             Optional<BytecodeExpression> fieldCopy = copyField(thisVariable, fieldDefinitions.get(i), fields.get(i).type());
             if (fieldCopy.isEmpty()) {
                 body
-                        .append(newInstance(UnsupportedOperationException.class, constantString(format("copy not supported for %s (cannot copy field of type %s)", definition.getName(), fields.get(i).type()))))
+                        .append(newInstance(UnsupportedOperationException.class, constantString(format("copy not supported for %s (cannot copy field of type %s)", classBuilder.getType().getClassName(), fields.get(i).type()))))
                         .throwObject();
 
                 return;
@@ -835,8 +816,8 @@ public final class StateCompiler
             fieldCopyExpressions.add(fieldCopy.get());
         }
 
-        Variable instanceCopy = copy.getScope().declareVariable(definition.getType(), "instanceCopy");
-        body.append(instanceCopy.set(newInstance(definition.getType())));
+        Variable instanceCopy = copy.getScope().declareVariable(classBuilder.getType(), "instanceCopy");
+        body.append(instanceCopy.set(newInstance(classBuilder.getType())));
 
         for (int i = 0; i < fieldDefinitions.size(); i++) {
             FieldDefinition fieldDefinition = fieldDefinitions.get(i);
@@ -869,77 +850,77 @@ public final class StateCompiler
         return Optional.empty();
     }
 
-    private static FieldDefinition generateInstanceSize(ClassDefinition definition)
+    private static FieldDefinition generateInstanceSize(ClassBuilder classBuilder)
     {
         // Store instance size in static field
-        FieldDefinition instanceSize = definition.declareField(a(PRIVATE, STATIC, FINAL), "INSTANCE_SIZE", long.class);
-        definition.getClassInitializer()
+        FieldDefinition instanceSize = classBuilder.declareField(a(PRIVATE, STATIC, FINAL), "INSTANCE_SIZE", long.class);
+        classBuilder.getClassInitializer()
                 .getBody()
-                .append(setStatic(instanceSize, invokeStatic(SizeOf.class, "instanceSize", int.class, constantClass(definition.getType())).cast(long.class)));
+                .append(setStatic(instanceSize, invokeStatic(SizeOf.class, "instanceSize", int.class, constantClass(classBuilder.getType())).cast(long.class)));
         return instanceSize;
     }
 
     private static <T> Class<? extends T> generateGroupedStateClass(Lookup lookup, Class<T> clazz, Map<String, Type> fieldTypes)
     {
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup,
                 a(PUBLIC, FINAL),
-                CompilerUtils.makeHiddenClassName(lookup, "Grouped" + clazz.getSimpleName()),
+                "Grouped" + clazz.getSimpleName(),
                 type(Object.class),
                 type(GroupedAccumulatorState.class),
                 type(clazz));
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        FieldDefinition instanceSize = generateInstanceSize(definition);
+        FieldDefinition instanceSize = generateInstanceSize(classBuilder);
 
         List<StateField> fields = enumerateFields(clazz, fieldTypes);
 
         // Create constructor
-        MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
+        MethodDefinition constructor = classBuilder.declareConstructor(a(PUBLIC));
         constructor.getBody()
                 .append(constructor.getThis())
                 .invokeConstructor(Object.class);
 
         // GroupId
-        FieldDefinition groupIdField = definition.declareField(a(PRIVATE), "groupId", long.class);
+        FieldDefinition groupIdField = classBuilder.declareField(a(PRIVATE), "groupId", long.class);
         Parameter groupIdParameter = arg("groupId", long.class);
-        MethodDefinition setGroupId = definition.declareMethod(a(PUBLIC), "setGroupId", type(void.class), groupIdParameter);
+        MethodDefinition setGroupId = classBuilder.declareMethod(a(PUBLIC), "setGroupId", type(void.class), groupIdParameter);
         setGroupId.getBody()
                 .append(setGroupId.getThis().setField(groupIdField, groupIdParameter))
                 .ret();
 
         // Create ensureCapacity
-        MethodDefinition ensureCapacity = definition.declareMethod(a(PUBLIC), "ensureCapacity", type(void.class), arg("size", long.class));
+        MethodDefinition ensureCapacity = classBuilder.declareMethod(a(PUBLIC), "ensureCapacity", type(void.class), arg("size", long.class));
 
         // Generate getEstimatedSize
-        MethodDefinition getEstimatedSize = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
+        MethodDefinition getEstimatedSize = classBuilder.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
         // initialize size to the size of the instance
         Variable size = getEstimatedSize.getScope().declareVariable(long.class, "size");
         getEstimatedSize.getBody().append(size.set(getStatic(instanceSize)));
 
         // Generate fields, constructor, and ensureCapacity
         for (StateField field : fields) {
-            generateGroupedField(definition, callSiteBinder, groupIdField, constructor, ensureCapacity, getEstimatedSize, field);
+            generateGroupedField(classBuilder, groupIdField, constructor, ensureCapacity, getEstimatedSize, field);
         }
 
         constructor.getBody().ret();
         ensureCapacity.getBody().ret();
         getEstimatedSize.getBody().append(size.ret());
 
-        return CompilerUtils.defineHiddenClass(lookup, definition, clazz, callSiteBinder.getBindings());
+        return classBuilder.defineClass(clazz);
     }
 
-    private static FieldDefinition generateField(ClassDefinition definition, MethodDefinition constructor, StateField stateField)
+    private static FieldDefinition generateField(ClassBuilder classBuilder, MethodDefinition constructor, StateField stateField)
     {
-        FieldDefinition field = definition.declareField(a(PRIVATE), UPPER_CAMEL.to(LOWER_CAMEL, stateField.name()) + "Value", stateField.type());
+        FieldDefinition field = classBuilder.declareField(a(PRIVATE), UPPER_CAMEL.to(LOWER_CAMEL, stateField.name()) + "Value", stateField.type());
 
         // Generate getter
-        MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getterName(), type(stateField.type()));
+        MethodDefinition getter = classBuilder.declareMethod(a(PUBLIC), stateField.getterName(), type(stateField.type()));
         getter.getBody()
                 .append(getter.getThis().getField(field).cast(getter.getReturnType()).ret());
 
         // Generate setter
         Parameter value = arg("value", stateField.type());
-        MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.setterName(), type(void.class), value);
+        MethodDefinition setter = classBuilder.declareMethod(a(PUBLIC), stateField.setterName(), type(void.class), value);
         setter.getBody()
                 .append(setter.getThis().setField(field, value))
                 .ret();
@@ -951,8 +932,7 @@ public final class StateCompiler
     }
 
     private static void generateGroupedField(
-            ClassDefinition definition,
-            CallSiteBinder callSiteBinder,
+            ClassBuilder classBuilder,
             FieldDefinition groupIdField,
             MethodDefinition constructor,
             MethodDefinition ensureCapacity,
@@ -960,12 +940,12 @@ public final class StateCompiler
             StateField stateField)
     {
         BigArrayType bigArrayType = getBigArrayType(stateField.type());
-        FieldDefinition field = definition.declareField(a(PRIVATE), UPPER_CAMEL.to(LOWER_CAMEL, stateField.name()) + "Values", Object.class);
+        FieldDefinition field = classBuilder.declareField(a(PRIVATE), UPPER_CAMEL.to(LOWER_CAMEL, stateField.name()) + "Values", Object.class);
 
         // Generate getter
-        MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getterName(), type(stateField.type()));
+        MethodDefinition getter = classBuilder.declareMethod(a(PUBLIC), stateField.getterName(), type(stateField.type()));
         getter.getBody()
-                .append(callSiteBinder.invoke(
+                .append(classBuilder.invoke(
                         bigArrayType.getGetter(),
                         "get",
                         getter.getThis().getField(field),
@@ -975,9 +955,9 @@ public final class StateCompiler
 
         // Generate setter
         Parameter value = arg("value", stateField.type());
-        MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.setterName(), type(void.class), value);
+        MethodDefinition setter = classBuilder.declareMethod(a(PUBLIC), stateField.setterName(), type(void.class), value);
         setter.getBody()
-                .append(callSiteBinder.invoke(
+                .append(classBuilder.invoke(
                         bigArrayType.getSetter(),
                         "set",
                         setter.getThis().getField(field),
@@ -986,7 +966,7 @@ public final class StateCompiler
                 .ret();
 
         ensureCapacity.getBody()
-                .append(callSiteBinder.invoke(
+                .append(classBuilder.invoke(
                         bigArrayType.getEnsureCapacity(),
                         "ensureCapacity",
                         ensureCapacity.getThis().getField(field),
@@ -997,7 +977,7 @@ public final class StateCompiler
         getEstimatedSize.getBody()
                 .append(size.set(add(
                     size,
-                    callSiteBinder.invoke(
+                    classBuilder.invoke(
                             bigArrayType.getSizeOf(),
                             "sizeOf",
                             getEstimatedSize.getThis().getField(field)))));
@@ -1006,7 +986,7 @@ public final class StateCompiler
         constructor.getBody()
                 .append(constructor.getThis().setField(
                         field,
-                        callSiteBinder.invoke(
+                        classBuilder.invoke(
                                 bigArrayType.getConstructor(),
                                 "init",
                                 stateField.initialValueExpression())));

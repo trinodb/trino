@@ -44,20 +44,20 @@ import static io.trino.sql.gen.LambdaBytecodeGenerator.generateLambda;
 
 public class RowExpressionCompiler
 {
-    private final CallSiteBinder callSiteBinder;
+    private final ClassBuilder classBuilder;
     private final CachedInstanceBinder cachedInstanceBinder;
     private final RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler;
     private final FunctionManager functionManager;
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
 
     RowExpressionCompiler(
-            CallSiteBinder callSiteBinder,
+            ClassBuilder classBuilder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
             FunctionManager functionManager,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap)
     {
-        this.callSiteBinder = callSiteBinder;
+        this.classBuilder = classBuilder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.fieldReferenceCompiler = fieldReferenceCompiler;
         this.functionManager = functionManager;
@@ -83,7 +83,7 @@ public class RowExpressionCompiler
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
                     RowExpressionCompiler.this,
                     context.getScope(),
-                    callSiteBinder,
+                    classBuilder,
                     cachedInstanceBinder,
                     functionManager);
 
@@ -144,7 +144,7 @@ public class RowExpressionCompiler
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
                     RowExpressionCompiler.this,
                     context.getScope(),
-                    callSiteBinder,
+                    classBuilder,
                     cachedInstanceBinder,
                     functionManager);
 
@@ -183,7 +183,7 @@ public class RowExpressionCompiler
             return new BytecodeBlock()
                     .setDescription("constant " + constant.getType())
                     .comment(constant.toString())
-                    .append(callSiteBinder.loadConstant(value, constant.getType().getJavaType()));
+                    .append(classBuilder.loadConstant(value, constant.getType().getJavaType()));
         }
 
         @Override
@@ -204,7 +204,7 @@ public class RowExpressionCompiler
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
                     RowExpressionCompiler.this,
                     context.getScope(),
-                    callSiteBinder,
+                    classBuilder,
                     cachedInstanceBinder,
                     functionManager);
 

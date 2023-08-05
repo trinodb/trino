@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -33,7 +32,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.ClassBuilder;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -54,8 +53,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
-import static io.trino.util.CompilerUtils.defineHiddenClass;
-import static io.trino.util.CompilerUtils.makeHiddenClassName;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Collections.nCopies;
@@ -115,13 +112,14 @@ public final class ArrayConstructor
                 .map(Class::getSimpleName)
                 .collect(toImmutableList());
 
-        ClassDefinition definition = new ClassDefinition(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+                lookup(),
                 a(PUBLIC, FINAL),
-                makeHiddenClassName(lookup(), Joiner.on("").join(stackTypeNames) + "ArrayConstructor"),
+                Joiner.on("").join(stackTypeNames) + "ArrayConstructor",
                 type(Object.class));
 
         // Generate constructor
-        definition.declareDefaultConstructor(a(PRIVATE));
+        classBuilder.declareDefaultConstructor(a(PRIVATE));
 
         // Generate arrayConstructor()
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
@@ -130,15 +128,14 @@ public final class ArrayConstructor
             parameters.add(arg("arg" + i, stackType));
         }
 
-        MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "arrayConstructor", type(Block.class), parameters.build());
+        MethodDefinition method = classBuilder.declareMethod(a(PUBLIC, STATIC), "arrayConstructor", type(Block.class), parameters.build());
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
         Variable blockBuilderVariable = scope.declareVariable(BlockBuilder.class, "blockBuilder");
-        CallSiteBinder binder = new CallSiteBinder();
 
         BytecodeExpression createBlockBuilder = blockBuilderVariable.set(
-                constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(stackTypes.size())));
+                constantType(classBuilder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(stackTypes.size())));
         body.append(createBlockBuilder);
 
         for (int i = 0; i < stackTypes.size(); i++) {
@@ -146,12 +143,12 @@ public final class ArrayConstructor
             IfStatement ifStatement = new IfStatement()
                     .condition(equal(argument, constantNull(stackTypes.get(i))))
                     .ifTrue(blockBuilderVariable.invoke("appendNull", BlockBuilder.class).pop())
-                    .ifFalse(constantType(binder, elementType).writeValue(blockBuilderVariable, argument.cast(elementType.getJavaType())));
+                    .ifFalse(constantType(classBuilder, elementType).writeValue(blockBuilderVariable, argument.cast(elementType.getJavaType())));
             body.append(ifStatement);
         }
 
         body.append(blockBuilderVariable.invoke("build", Block.class).ret());
 
-        return defineHiddenClass(lookup(), definition, Object.class, binder.getBindings());
+        return classBuilder.defineClass();
     }
 }

@@ -56,7 +56,7 @@ public class RowConstructorCodeGenerator
     public BytecodeNode generateExpression(BytecodeGeneratorContext context)
     {
         BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType);
-        CallSiteBinder binder = context.getCallSiteBinder();
+        ClassBuilder classBuilder = context.getClassBuilder();
         Scope scope = context.getScope();
         List<Type> types = rowType.getTypeParameters();
 
@@ -68,7 +68,7 @@ public class RowConstructorCodeGenerator
             Type fieldType = types.get(i);
             Variable field = scope.createTempVariable(fieldType.getJavaType());
 
-            block.append(blockBuilder.set(constantType(binder, fieldType).invoke(
+            block.append(blockBuilder.set(constantType(classBuilder, fieldType).invoke(
                     "createBlockBuilder",
                     BlockBuilder.class,
                     constantNull(BlockBuilderStatus.class),
@@ -81,7 +81,7 @@ public class RowConstructorCodeGenerator
             block.append(new IfStatement()
                     .condition(context.wasNull())
                     .ifTrue(blockBuilder.invoke("appendNull", BlockBuilder.class).pop())
-                    .ifFalse(constantType(binder, fieldType).writeValue(blockBuilder, field).pop()));
+                    .ifFalse(constantType(classBuilder, fieldType).writeValue(blockBuilder, field).pop()));
 
             block.append(fieldBlocks.setElement(i, blockBuilder.invoke("build", Block.class)));
         }
@@ -94,7 +94,7 @@ public class RowConstructorCodeGenerator
                 invokeStatic(Optional.class, "empty", Optional.class),
                 fieldBlocks);
 
-        block.append(constantType(binder, rowType).invoke("getObject", Object.class, rowBlock, constantInt(0))
+        block.append(constantType(classBuilder, rowType).invoke("getObject", Object.class, rowBlock, constantInt(0))
                 .cast(Block.class));
         block.append(context.wasNull().set(constantFalse()));
         return block;
