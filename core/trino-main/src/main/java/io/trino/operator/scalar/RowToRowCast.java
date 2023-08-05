@@ -163,7 +163,7 @@ public class RowToRowCast
         List<Type> toTypes = toType.getTypeParameters();
         List<Type> fromTypes = fromType.getTypeParameters();
 
-        CallSiteBinder binder = new CallSiteBinder();
+        CallSiteBinder binder = new CallSiteBinder(false);
 
         // Embed the hash code of input and output types into the generated class name instead of the raw type names,
         // which ensures the class name does not hit the length limitation or invalid characters.
@@ -171,7 +171,7 @@ public class RowToRowCast
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(hashSuffix))),
+                makeClassName(lookup(), Joiner.on("$").join("RowCast", BaseEncoding.base16().encode(hashSuffix))),
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 
@@ -233,7 +233,7 @@ public class RowToRowCast
                 .cast(Block.class)
                 .ret());
 
-        return defineClass(definition, Object.class, binder.getBindings(), RowToRowCast.class.getClassLoader());
+        return defineClass(lookup(), definition, Object.class, binder.getBindingList());
     }
 
     private static MethodHandle getNullSafeWrite(Type type)

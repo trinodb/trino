@@ -71,6 +71,7 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.methodHandle;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public final class MapFilterFunction
         extends SqlScalarFunction
@@ -115,10 +116,10 @@ public final class MapFilterFunction
 
     private static MethodHandle generateFilter(MapType mapType)
     {
-        CallSiteBinder binder = new CallSiteBinder();
+        CallSiteBinder binder = new CallSiteBinder(false);
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName("MapFilter"),
+                makeClassName(lookup(), "MapFilter"),
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 
@@ -143,7 +144,7 @@ public final class MapFilterFunction
         BytecodeExpression entryCount = divide(block.invoke("getPositionCount", int.class), constantInt(2));
         body.append(mapValueBuilder.invoke("build", Block.class, entryCount, mapEntryBuilder).ret());
 
-        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapFilterFunction.class.getClassLoader());
+        Class<?> generatedClass = defineClass(lookup(), definition, Object.class, binder.getBindingList());
         return methodHandle(generatedClass, "filter", Object.class, Block.class, BinaryFunctionInterface.class);
     }
 

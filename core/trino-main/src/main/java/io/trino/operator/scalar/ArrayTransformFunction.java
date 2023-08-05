@@ -64,6 +64,7 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.methodHandle;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public final class ArrayTransformFunction
         extends SqlScalarFunction
@@ -103,13 +104,13 @@ public final class ArrayTransformFunction
 
     private static Class<?> generateTransform(Type inputType, Type outputType)
     {
-        CallSiteBinder binder = new CallSiteBinder();
+        CallSiteBinder binder = new CallSiteBinder(false);
         Class<?> inputJavaType = Primitives.wrap(inputType.getJavaType());
         Class<?> outputJavaType = Primitives.wrap(outputType.getJavaType());
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName("ArrayTransform"),
+                makeClassName(lookup(), "ArrayTransform"),
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 
@@ -183,6 +184,6 @@ public final class ArrayTransformFunction
 
         body.append(blockBuilder.invoke("getRegion", Block.class, subtract(blockBuilder.invoke("getPositionCount", int.class), positionCount), positionCount).ret());
 
-        return defineClass(definition, Object.class, binder.getBindings(), ArrayTransformFunction.class.getClassLoader());
+        return defineClass(lookup(), definition, Object.class, binder.getBindingList());
     }
 }

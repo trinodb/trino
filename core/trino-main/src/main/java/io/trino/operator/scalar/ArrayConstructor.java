@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -118,7 +117,7 @@ public final class ArrayConstructor
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("").join(stackTypeNames) + "ArrayConstructor"),
+                makeClassName(lookup(), Joiner.on("").join(stackTypeNames) + "ArrayConstructor"),
                 type(Object.class));
 
         // Generate constructor
@@ -136,7 +135,7 @@ public final class ArrayConstructor
         BytecodeBlock body = method.getBody();
 
         Variable blockBuilderVariable = scope.declareVariable(BlockBuilder.class, "blockBuilder");
-        CallSiteBinder binder = new CallSiteBinder();
+        CallSiteBinder binder = new CallSiteBinder(false);
 
         BytecodeExpression createBlockBuilder = blockBuilderVariable.set(
                 constantType(binder, elementType).invoke("createBlockBuilder", BlockBuilder.class, constantNull(BlockBuilderStatus.class), constantInt(stackTypes.size())));
@@ -153,6 +152,6 @@ public final class ArrayConstructor
 
         body.append(blockBuilderVariable.invoke("build", Block.class).ret());
 
-        return defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader(ArrayConstructor.class.getClassLoader()));
+        return defineClass(lookup(), definition, Object.class, binder.getBindingList());
     }
 }

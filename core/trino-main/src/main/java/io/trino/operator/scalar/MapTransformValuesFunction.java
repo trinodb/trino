@@ -78,6 +78,7 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.methodHandle;
+import static java.lang.invoke.MethodHandles.lookup;
 
 public final class MapTransformValuesFunction
         extends SqlScalarFunction
@@ -128,10 +129,10 @@ public final class MapTransformValuesFunction
 
     private static MethodHandle generateTransform(Type keyType, Type valueType, Type transformedValueType)
     {
-        CallSiteBinder binder = new CallSiteBinder();
+        CallSiteBinder binder = new CallSiteBinder(false);
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName("MapTransformValue"),
+                makeClassName(lookup(), "MapTransformValue"),
                 type(Object.class));
         definition.declareDefaultConstructor(a(PRIVATE));
 
@@ -157,7 +158,7 @@ public final class MapTransformValuesFunction
         BytecodeExpression entryCount = divide(block.invoke("getPositionCount", int.class), constantInt(2));
         body.append(mapValueBuilder.invoke("build", Block.class, entryCount, mapEntryBuilder).ret());
 
-        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformValuesFunction.class.getClassLoader());
+        Class<?> generatedClass = defineClass(lookup(), definition, Object.class, binder.getBindingList());
         return methodHandle(generatedClass, "transform", Object.class, Block.class, BinaryFunctionInterface.class);
     }
 

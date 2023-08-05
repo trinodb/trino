@@ -15,7 +15,6 @@ package io.trino.operator.scalar;
 
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -62,6 +61,7 @@ import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.MinMaxCompare.getMinMaxCompare;
 import static io.trino.util.MinMaxCompare.getMinMaxCompareFunctionDependencies;
 import static io.trino.util.Reflection.methodHandle;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
@@ -126,7 +126,7 @@ public abstract class AbstractGreatestLeast
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(javaTypeName + "$" + signature.getName()),
+                makeClassName(lookup(), javaTypeName + "$" + signature.getName()),
                 type(Object.class));
 
         definition.declareDefaultConstructor(a(PRIVATE));
@@ -144,7 +144,7 @@ public abstract class AbstractGreatestLeast
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
 
-        CallSiteBinder binder = new CallSiteBinder();
+        CallSiteBinder binder = new CallSiteBinder(false);
 
         Variable value = scope.declareVariable(wrap(javaTypes.get(0)), "value");
 
@@ -175,6 +175,6 @@ public abstract class AbstractGreatestLeast
 
         body.append(value.ret());
 
-        return defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader(getClass().getClassLoader()));
+        return defineClass(lookup(), definition, Object.class, binder.getBindingList());
     }
 }
