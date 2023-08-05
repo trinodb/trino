@@ -103,6 +103,10 @@ public class TestAccumulatorCompiler
         // test if we can compile aggregation
         AccumulatorFactory accumulatorFactory = AccumulatorCompiler.generateAccumulatorFactory(signature, implementation, functionNullability);
         assertThat(accumulatorFactory).isNotNull();
+        Accumulator accumulator = accumulatorFactory.createAccumulator(ImmutableList.of());
+        assertThat(accumulator).isNotNull();
+        assertThat(accumulator.copy()).isNotNull().isNotSameAs(accumulator);
+//        assertThat(accumulatorFactory.createGroupedAccumulator(ImmutableList.of())).isNotNull();
 
         // compile window aggregation
         Constructor<? extends WindowAccumulator> actual = AccumulatorCompiler.generateWindowAccumulatorClass(signature, implementation, functionNullability);
@@ -117,6 +121,7 @@ public class TestAccumulatorCompiler
         // call the functions to ensure that the code does not reference the wrong state
         windowAccumulator.addInput(new TestWindowIndex(), 0, 5);
         windowAccumulator.evaluateFinal(new LongArrayBlockBuilder(null, 1));
+        assertThat(windowAccumulator.copy()).isNotNull().isNotSameAs(windowAccumulator);
 
         TestingAggregationFunction aggregationFunction = new TestingAggregationFunction(
                 ImmutableList.of(TIMESTAMP_PICOS),

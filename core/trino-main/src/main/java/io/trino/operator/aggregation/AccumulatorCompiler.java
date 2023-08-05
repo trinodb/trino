@@ -44,8 +44,6 @@ import io.trino.sql.gen.ClassBuilder;
 import io.trino.sql.gen.CompilerOperations;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,7 +68,9 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
 import static io.trino.sql.gen.LambdaMetafactoryGenerator.generateMetafactory;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.explicitCastArguments;
 import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 
 public final class AccumulatorCompiler
@@ -123,7 +123,7 @@ public final class AccumulatorCompiler
     {
         boolean grouped = accumulatorInterface == GroupedAccumulator.class;
 
-        ClassBuilder classBuilder = ClassBuilder.createStandardClass(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
                 lookup(),
                 a(PUBLIC, FINAL),
                 boundSignature.getName() + accumulatorInterface.getSimpleName(),
@@ -221,7 +221,7 @@ public final class AccumulatorCompiler
         List<Boolean> argumentNullable = functionNullability.getArgumentNullable()
                 .subList(0, functionNullability.getArgumentNullable().size() - implementation.getLambdaInterfaces().size());
 
-        ClassBuilder classBuilder = ClassBuilder.createStandardClass(
+        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
                 lookup(),
                 a(PUBLIC, FINAL),
                 boundSignature.getName() + WindowAccumulator.class.getSimpleName(),
@@ -969,10 +969,10 @@ public final class AccumulatorCompiler
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
             List<FieldDefinition> lambdaProviderFields)
     {
-        Parameter source = arg("source", classBuilder.getType());
+        Parameter input = arg("input", Object.class);
         MethodDefinition method = classBuilder.declareConstructor(
                 a(PUBLIC),
-                source);
+                input);
 
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
@@ -980,7 +980,9 @@ public final class AccumulatorCompiler
         body.comment("super();")
                 .append(thisVariable)
                 .invokeConstructor(Object.class);
-
+        // For some reason a hidden class constructor can not have a parameter of the current class type, but
+        // we can create a variable of the current class type
+        Variable source = method.getScope().declareVariable("source", body, input.cast(classBuilder.getType()));
         body.append(generateRequireNotNull(source));
 
         for (StateFieldAndDescriptor descriptor : stateFieldAndDescriptors) {
@@ -1009,7 +1011,7 @@ public final class AccumulatorCompiler
     {
         MethodDefinition copy = classBuilder.declareMethod(a(PUBLIC), "copy", type(returnType));
         copy.getBody()
-                .append(newInstance(classBuilder.getType(), copy.getScope().getThis()).ret());
+                .append(newInstance(classBuilder.getType(), copy.getScope().getThis().cast(Object.class)).ret());
     }
 
     private static BytecodeExpression generateRequireNotNull(Variable variable)
@@ -1056,7 +1058,7 @@ public final class AccumulatorCompiler
         for (int i = parameterTypes.length - lambdaParameterCount; i < parameterTypes.length; i++) {
             parameterTypes[i] = Object.class;
         }
-        return MethodHandles.explicitCastArguments(inputFunction, MethodType.methodType(inputFunction.type().returnType(), parameterTypes));
+        return explicitCastArguments(inputFunction, methodType(inputFunction.type().returnType(), parameterTypes));
     }
 
     private static class StateFieldAndDescriptor
