@@ -14,13 +14,13 @@
 package io.trino.operator.aggregation.state;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
@@ -56,6 +56,8 @@ import io.trino.sql.gen.SqlTypeBytecodeExpression;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -111,6 +113,7 @@ import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.invoke.MethodHandles.privateLookupIn;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 
@@ -139,11 +142,11 @@ public final class StateCompiler
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(clazz.getSimpleName() + "Serializer"),
+                makeClassName(lookup(), clazz.getSimpleName() + "Serializer"),
                 type(Object.class),
                 type(AccumulatorStateSerializer.class));
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
+        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
 
         // Generate constructor
         definition.declareDefaultConstructor(a(PUBLIC));
@@ -153,9 +156,7 @@ public final class StateCompiler
         generateSerialize(definition, callSiteBinder, clazz, fields);
         generateDeserialize(definition, callSiteBinder, clazz, fields);
 
-        // grouped aggregation state fields use engine classes, so generated class must be able to see both plugin and system classes
-        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader(), StateCompiler.class.getClassLoader());
-        Class<?> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
+        Class<?> serializerClass = defineClass(lookup(), definition, AccumulatorStateSerializer.class, callSiteBinder.getBindingList());
         try {
             //noinspection unchecked
             return (AccumulatorStateSerializer<T>) serializerClass.getConstructor().newInstance();
@@ -352,21 +353,21 @@ public final class StateCompiler
     {
         Class<? extends InOut> singleStateClass = generateInOutSingleStateClass(type);
         Class<? extends InOut> groupedStateClass = generateInOutGroupedStateClass(type);
-        return generateStateFactory(InOut.class, singleStateClass, groupedStateClass, new DynamicClassLoader(StateCompiler.class.getClassLoader()));
+        return generateStateFactory(InOut.class, singleStateClass, groupedStateClass);
     }
 
     private static Class<? extends InOut> generateInOutSingleStateClass(Type type)
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         ClassDefinition singleStateClassDefinition = generateInOutSingleStateClass(type, callSiteBinder);
-        return defineClass(singleStateClassDefinition, InOut.class, callSiteBinder.getBindings(), StateCompiler.class.getClassLoader());
+        return defineClass(lookup(), singleStateClassDefinition, InOut.class, callSiteBinder.getBindingList());
     }
 
     private static Class<? extends InOut> generateInOutGroupedStateClass(Type type)
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder();
         ClassDefinition groupedStateClassDefinition = generateInOutGroupedStateClass(type, callSiteBinder);
-        return defineClass(groupedStateClassDefinition, InOut.class, callSiteBinder.getBindings(), StateCompiler.class.getClassLoader());
+        return defineClass(lookup(), groupedStateClassDefinition, InOut.class, callSiteBinder.getBindingList());
     }
 
     private static ClassDefinition generateInOutSingleStateClass(Type type, CallSiteBinder callSiteBinder)
@@ -448,7 +449,7 @@ public final class StateCompiler
         FieldDefinition groupIdField = definition.declareField(a(PRIVATE), "groupId", long.class);
 
         Class<?> valueElementType = inOutGetterReturnType(type);
-        FieldDefinition valueField = definition.declareField(a(PRIVATE, FINAL), "value", getBigArrayType(valueElementType));
+        FieldDefinition valueField = definition.declareField(a(PRIVATE, FINAL), "value", getBigArrayType(valueElementType).getBigArrayType());
         constructor.getBody().append(constructor.getThis().setField(valueField, newInstance(valueField.getType())));
         Function<Scope, BytecodeExpression> valueGetter = scope -> scope.getThis().getField(valueField).invoke("get", valueElementType, scope.getThis().getField(groupIdField));
 
@@ -696,19 +697,42 @@ public final class StateCompiler
             }
         }
 
-        // grouped aggregation state fields use engine classes, so generated class must be able to see both plugin and system classes
-        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader(), StateCompiler.class.getClassLoader());
-        Class<? extends T> singleStateClass = generateSingleStateClass(clazz, fieldTypes, classLoader);
-        Class<? extends T> groupedStateClass = generateGroupedStateClass(clazz, fieldTypes, classLoader);
+        Lookup lookupInClass = getFullAccessLookupIn(clazz);
 
-        return generateStateFactory(clazz, singleStateClass, groupedStateClass, classLoader);
+        Class<? extends T> singleStateClass = generateSingleStateClass(lookupInClass, clazz, fieldTypes);
+        Class<? extends T> groupedStateClass = generateGroupedStateClass(lookupInClass, clazz, fieldTypes);
+
+        return generateStateFactory(clazz, singleStateClass, groupedStateClass);
+    }
+
+    private static Lookup getFullAccessLookupIn(Class<?> clazz)
+    {
+        ClassDefinition lookupDefinition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName(clazz.getSimpleName() + "Lookup"),
+                type(Object.class));
+
+        // Private method to fetch a full access Lookup for this generated class
+        // This is required because this class is in a separate classloader and thus a different unnamed module
+        // and there does not seem any other way to get a full access method handle across class loaders
+        lookupDefinition.declareMethod(a(PRIVATE, STATIC), "lookup", type(Lookup.class))
+                .getBody()
+                .append(invokeStatic(MethodHandles.class, "lookup", Lookup.class).ret());
+
+        Class<?> lookupClass = defineClass(lookupDefinition, Object.class, ImmutableMap.of(), clazz.getClassLoader());
+        try {
+            return (Lookup) privateLookupIn(lookupClass, lookup()).findStatic(lookupClass, "lookup", methodType(Lookup.class)).invoke();
+        }
+        catch (Throwable e) {
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
+        }
     }
 
     private static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(
             Class<T> clazz,
             Class<? extends T> singleStateClass,
-            Class<? extends T> groupedStateClass,
-            ClassLoader classLoader)
+            Class<? extends T> groupedStateClass)
     {
         CallSiteBinder callSiteBinder = new CallSiteBinder(false);
         ClassDefinition definition = new ClassDefinition(
@@ -750,11 +774,11 @@ public final class StateCompiler
         }
     }
 
-    private static <T> Class<? extends T> generateSingleStateClass(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
+    private static <T> Class<? extends T> generateSingleStateClass(Lookup lookup, Class<T> clazz, Map<String, Type> fieldTypes)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName("Single" + clazz.getSimpleName()),
+                makeClassName(lookup, "Single" + clazz.getSimpleName()),
                 type(Object.class),
                 type(clazz));
 
@@ -785,7 +809,7 @@ public final class StateCompiler
 
         generateCopy(definition, fields, fieldDefinitions);
 
-        return defineClass(definition, clazz, classLoader);
+        return defineClass(lookup, definition, clazz);
     }
 
     private static void generateCopy(ClassDefinition definition, List<StateField> fields, List<FieldDefinition> fieldDefinitions)
@@ -852,13 +876,15 @@ public final class StateCompiler
         return instanceSize;
     }
 
-    private static <T> Class<? extends T> generateGroupedStateClass(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
+    private static <T> Class<? extends T> generateGroupedStateClass(Lookup lookup, Class<T> clazz, Map<String, Type> fieldTypes)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName("Grouped" + clazz.getSimpleName()),
-                type(AbstractGroupedAccumulatorState.class),
+                makeClassName(lookup, "Grouped" + clazz.getSimpleName()),
+                type(Object.class),
+                type(GroupedAccumulatorState.class),
                 type(clazz));
+        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
 
         FieldDefinition instanceSize = generateInstanceSize(definition);
 
@@ -868,38 +894,35 @@ public final class StateCompiler
         MethodDefinition constructor = definition.declareConstructor(a(PUBLIC));
         constructor.getBody()
                 .append(constructor.getThis())
-                .invokeConstructor(AbstractGroupedAccumulatorState.class);
+                .invokeConstructor(Object.class);
+
+        // GroupId
+        FieldDefinition groupIdField = definition.declareField(a(PRIVATE), "groupId", long.class);
+        Parameter groupIdParameter = arg("groupId", long.class);
+        MethodDefinition setGroupId = definition.declareMethod(a(PUBLIC), "setGroupId", type(void.class), groupIdParameter);
+        setGroupId.getBody()
+                .append(setGroupId.getThis().setField(groupIdField, groupIdParameter))
+                .ret();
 
         // Create ensureCapacity
         MethodDefinition ensureCapacity = definition.declareMethod(a(PUBLIC), "ensureCapacity", type(void.class), arg("size", long.class));
 
+        // Generate getEstimatedSize
+        MethodDefinition getEstimatedSize = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
+        // initialize size to the size of the instance
+        Variable size = getEstimatedSize.getScope().declareVariable(long.class, "size");
+        getEstimatedSize.getBody().append(size.set(getStatic(instanceSize)));
+
         // Generate fields, constructor, and ensureCapacity
-        List<FieldDefinition> fieldDefinitions = new ArrayList<>();
         for (StateField field : fields) {
-            fieldDefinitions.add(generateGroupedField(definition, constructor, ensureCapacity, field));
+            generateGroupedField(definition, callSiteBinder, groupIdField, constructor, ensureCapacity, getEstimatedSize, field);
         }
 
         constructor.getBody().ret();
         ensureCapacity.getBody().ret();
+        getEstimatedSize.getBody().append(size.ret());
 
-        // Generate getEstimatedSize
-        MethodDefinition getEstimatedSize = definition.declareMethod(a(PUBLIC), "getEstimatedSize", type(long.class));
-        BytecodeBlock body = getEstimatedSize.getBody();
-
-        Variable size = getEstimatedSize.getScope().declareVariable(long.class, "size");
-
-        // initialize size to the size of the instance
-        body.append(size.set(getStatic(instanceSize)));
-
-        // add field to size
-        for (FieldDefinition field : fieldDefinitions) {
-            body.append(size.set(add(size, getEstimatedSize.getThis().getField(field).invoke("sizeOf", long.class))));
-        }
-
-        // return size
-        body.append(size.ret());
-
-        return defineClass(definition, clazz, classLoader);
+        return defineClass(lookup, definition, clazz, callSiteBinder.getBindingList());
     }
 
     private static FieldDefinition generateField(ClassDefinition definition, MethodDefinition constructor, StateField stateField)
@@ -909,7 +932,7 @@ public final class StateCompiler
         // Generate getter
         MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getterName(), type(stateField.type()));
         getter.getBody()
-                .append(getter.getThis().getField(field).ret());
+                .append(getter.getThis().getField(field).cast(getter.getReturnType()).ret());
 
         // Generate setter
         Parameter value = arg("value", stateField.type());
@@ -924,40 +947,66 @@ public final class StateCompiler
         return field;
     }
 
-    private static FieldDefinition generateGroupedField(ClassDefinition definition, MethodDefinition constructor, MethodDefinition ensureCapacity, StateField stateField)
+    private static void generateGroupedField(
+            ClassDefinition definition,
+            CallSiteBinder callSiteBinder,
+            FieldDefinition groupIdField,
+            MethodDefinition constructor,
+            MethodDefinition ensureCapacity,
+            MethodDefinition getEstimatedSize,
+            StateField stateField)
     {
-        Class<?> bigArrayType = getBigArrayType(stateField.type());
-        FieldDefinition field = definition.declareField(a(PRIVATE), UPPER_CAMEL.to(LOWER_CAMEL, stateField.name()) + "Values", bigArrayType);
+        BigArrayType bigArrayType = getBigArrayType(stateField.type());
+        FieldDefinition field = definition.declareField(a(PRIVATE), UPPER_CAMEL.to(LOWER_CAMEL, stateField.name()) + "Values", Object.class);
 
         // Generate getter
         MethodDefinition getter = definition.declareMethod(a(PUBLIC), stateField.getterName(), type(stateField.type()));
         getter.getBody()
-                .append(getter.getThis().getField(field).invoke(
+                .append(callSiteBinder.invoke(
+                        bigArrayType.getGetter(),
                         "get",
-                        stateField.type(),
-                        getter.getThis().invoke("getGroupId", long.class))
+                        getter.getThis().getField(field),
+                        getter.getThis().getField(groupIdField))
+                        .cast(getter.getReturnType())
                         .ret());
 
         // Generate setter
         Parameter value = arg("value", stateField.type());
         MethodDefinition setter = definition.declareMethod(a(PUBLIC), stateField.setterName(), type(void.class), value);
         setter.getBody()
-                .append(setter.getThis().getField(field).invoke(
+                .append(callSiteBinder.invoke(
+                        bigArrayType.getSetter(),
                         "set",
-                        void.class,
-                        setter.getThis().invoke("getGroupId", long.class),
+                        setter.getThis().getField(field),
+                        setter.getThis().getField(groupIdField),
                         value))
                 .ret();
 
-        Scope ensureCapacityScope = ensureCapacity.getScope();
         ensureCapacity.getBody()
-                .append(ensureCapacity.getThis().getField(field).invoke("ensureCapacity", void.class, ensureCapacityScope.getVariable("size")));
+                .append(callSiteBinder.invoke(
+                        bigArrayType.getEnsureCapacity(),
+                        "ensureCapacity",
+                        ensureCapacity.getThis().getField(field),
+                        ensureCapacity.getScope().getVariable("size")));
+
+        // add field to size
+        Variable size = getEstimatedSize.getScope().getVariable("size");
+        getEstimatedSize.getBody()
+                .append(size.set(add(
+                    size,
+                    callSiteBinder.invoke(
+                            bigArrayType.getSizeOf(),
+                            "sizeOf",
+                            getEstimatedSize.getThis().getField(field)))));
 
         // Initialize field in constructor
         constructor.getBody()
-                .append(constructor.getThis().setField(field, newInstance(field.getType(), stateField.initialValueExpression())));
-
-        return field;
+                .append(constructor.getThis().setField(
+                        field,
+                        callSiteBinder.invoke(
+                                bigArrayType.getConstructor(),
+                                "init",
+                                stateField.initialValueExpression())));
     }
 
     /**
@@ -1167,29 +1216,90 @@ public final class StateCompiler
         }
     }
 
-    private static Class<?> getBigArrayType(Class<?> type)
+    private static BigArrayType getBigArrayType(Class<?> type)
     {
-        if (type.equals(long.class)) {
-            return LongBigArray.class;
+        try {
+            if (type.equals(long.class)) {
+                return new BigArrayType(LongBigArray.class, long.class);
+            }
+            if (type.equals(byte.class)) {
+                return new BigArrayType(ByteBigArray.class, byte.class);
+            }
+            if (type.equals(double.class)) {
+                return new BigArrayType(DoubleBigArray.class, double.class);
+            }
+            if (type.equals(boolean.class)) {
+                return new BigArrayType(BooleanBigArray.class, boolean.class);
+            }
+            if (type.equals(int.class)) {
+                return new BigArrayType(IntBigArray.class, int.class);
+            }
+            if (type.equals(Slice.class)) {
+                return new BigArrayType(SliceBigArray.class, Slice.class);
+            }
+            if (type.equals(Block.class)) {
+                return new BigArrayType(BlockBigArray.class, Block.class);
+            }
+            return new BigArrayType(ObjectBigArray.class, Object.class);
         }
-        if (type.equals(byte.class)) {
-            return ByteBigArray.class;
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
-        if (type.equals(double.class)) {
-            return DoubleBigArray.class;
+    }
+
+    private static final class BigArrayType
+    {
+        private final Class<?> bigArrayType;
+        private final MethodHandle constructor;
+        private final MethodHandle ensureCapacity;
+        private final MethodHandle sizeOf;
+        private final MethodHandle getter;
+        private final MethodHandle setter;
+
+        public BigArrayType(Class<?> bigArrayType, Class<?> elementType)
+                throws ReflectiveOperationException
+        {
+            this.bigArrayType = bigArrayType;
+            constructor = lookup().findConstructor(bigArrayType, methodType(void.class, elementType))
+                    .asType(methodType(Object.class, elementType));
+            ensureCapacity = lookup().findVirtual(bigArrayType, "ensureCapacity", methodType(void.class, long.class))
+                    .asType(methodType(void.class, Object.class, long.class));
+            sizeOf = lookup().findVirtual(bigArrayType, "sizeOf", methodType(long.class))
+                    .asType(methodType(long.class, Object.class));
+            getter = lookup().findVirtual(bigArrayType, "get", methodType(elementType, long.class))
+                    .asType(methodType(elementType, Object.class, long.class));
+            setter = lookup().findVirtual(bigArrayType, "set", methodType(void.class, long.class, elementType))
+                    .asType(methodType(void.class, Object.class, long.class, elementType));
         }
-        if (type.equals(boolean.class)) {
-            return BooleanBigArray.class;
+
+        public Class<?> getBigArrayType()
+        {
+            return bigArrayType;
         }
-        if (type.equals(int.class)) {
-            return IntBigArray.class;
+
+        public MethodHandle getConstructor()
+        {
+            return constructor;
         }
-        if (type.equals(Slice.class)) {
-            return SliceBigArray.class;
+
+        public MethodHandle getEnsureCapacity()
+        {
+            return ensureCapacity;
         }
-        if (type.equals(Block.class)) {
-            return BlockBigArray.class;
+
+        public MethodHandle getSizeOf()
+        {
+            return sizeOf;
         }
-        return ObjectBigArray.class;
+
+        public MethodHandle getGetter()
+        {
+            return getter;
+        }
+
+        public MethodHandle getSetter()
+        {
+            return setter;
+        }
     }
 }

@@ -18,15 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.trino.array.BlockBigArray;
-import io.trino.array.BooleanBigArray;
-import io.trino.array.ByteBigArray;
-import io.trino.array.DoubleBigArray;
-import io.trino.array.IntBigArray;
-import io.trino.array.LongBigArray;
 import io.trino.array.ReferenceCountMap;
 import io.trino.array.SliceBigArray;
 import io.trino.operator.aggregation.LongLongState;
 import io.trino.server.PluginManager;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
@@ -279,15 +275,15 @@ public class TestStateCompiler
     {
         long retainedSize = instanceSize(state.getClass());
         // reflection is necessary because TestComplexState implementation is generated
-        Field[] fields = state.getClass().getDeclaredFields();
         try {
-            for (Field field : fields) {
-                Class<?> type = field.getType();
-                field.setAccessible(true);
-                if (type == BlockBigArray.class || type == BooleanBigArray.class || type == SliceBigArray.class ||
-                        type == ByteBigArray.class || type == DoubleBigArray.class || type == LongBigArray.class || type == IntBigArray.class) {
-                    MethodHandle sizeOf = Reflection.methodHandle(type, "sizeOf");
-                    retainedSize += (long) sizeOf.invokeWithArguments(field.get(state));
+            for (Field field : state.getClass().getDeclaredFields()) {
+                try {
+                    field.setAccessible(true);
+                    Object value = field.get(state);
+                    MethodHandle sizeOf = Reflection.methodHandle(value.getClass(), "sizeOf");
+                    retainedSize += (long) sizeOf.invokeWithArguments(value);
+                }
+                catch (TrinoException ignored) {
                 }
             }
         }
@@ -304,18 +300,16 @@ public class TestStateCompiler
         Field[] stateFields = state.getClass().getDeclaredFields();
         try {
             for (Field stateField : stateFields) {
-                if (stateField.getType() != BlockBigArray.class && stateField.getType() != SliceBigArray.class) {
-                    continue;
-                }
                 stateField.setAccessible(true);
-                Field[] bigArrayFields = stateField.getType().getDeclaredFields();
-                for (Field bigArrayField : bigArrayFields) {
-                    if (bigArrayField.getType() != ReferenceCountMap.class) {
-                        continue;
+                Object bigArray = stateField.get(state);
+                if (bigArray instanceof BlockBigArray || bigArray instanceof SliceBigArray) {
+                    for (Field bigArrayField : bigArray.getClass().getDeclaredFields()) {
+                        bigArrayField.setAccessible(true);
+                        Object value = bigArrayField.get(bigArray);
+                        if (value instanceof ReferenceCountMap referenceCountMap) {
+                            overhead += referenceCountMap.sizeOf();
+                        }
                     }
-                    bigArrayField.setAccessible(true);
-                    MethodHandle sizeOf = Reflection.methodHandle(bigArrayField.getType(), "sizeOf");
-                    overhead += (long) sizeOf.invokeWithArguments(bigArrayField.get(stateField.get(state)));
                 }
             }
         }
