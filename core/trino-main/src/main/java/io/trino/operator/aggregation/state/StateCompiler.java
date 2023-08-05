@@ -358,23 +358,25 @@ public final class StateCompiler
 
     private static Class<? extends InOut> generateInOutSingleStateClass(Type type)
     {
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition singleStateClassDefinition = generateInOutSingleStateClass(type, callSiteBinder);
-        return defineClass(lookup(), singleStateClassDefinition, InOut.class, callSiteBinder.getBindingList());
+        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        Lookup lookup = lookup();
+        ClassDefinition singleStateClassDefinition = generateInOutSingleStateClass(type, callSiteBinder, lookup);
+        return defineClass(lookup, singleStateClassDefinition, InOut.class, callSiteBinder.getBindingList());
     }
 
     private static Class<? extends InOut> generateInOutGroupedStateClass(Type type)
     {
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition groupedStateClassDefinition = generateInOutGroupedStateClass(type, callSiteBinder);
-        return defineClass(lookup(), groupedStateClassDefinition, InOut.class, callSiteBinder.getBindingList());
+        CallSiteBinder callSiteBinder = new CallSiteBinder(false);
+        Lookup lookup = lookup();
+        ClassDefinition groupedStateClassDefinition = generateInOutGroupedStateClass(type, callSiteBinder, lookup);
+        return defineClass(lookup, groupedStateClassDefinition, InOut.class, callSiteBinder.getBindingList());
     }
 
-    private static ClassDefinition generateInOutSingleStateClass(Type type, CallSiteBinder callSiteBinder)
+    private static ClassDefinition generateInOutSingleStateClass(Type type, CallSiteBinder callSiteBinder, Lookup lookup)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName("SingleInOut"),
+                makeClassName(lookup, "SingleInOut"),
                 type(Object.class),
                 type(InOut.class),
                 type(InternalDataAccessor.class));
@@ -429,11 +431,11 @@ public final class StateCompiler
         return definition;
     }
 
-    private static ClassDefinition generateInOutGroupedStateClass(Type type, CallSiteBinder callSiteBinder)
+    private static ClassDefinition generateInOutGroupedStateClass(Type type, CallSiteBinder callSiteBinder, Lookup lookup)
     {
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName("GroupedInOut"), // todo add type
+                makeClassName(lookup, "GroupedInOut"), // todo add type
                 type(Object.class),
                 type(InOut.class),
                 type(GroupedAccumulatorState.class),
