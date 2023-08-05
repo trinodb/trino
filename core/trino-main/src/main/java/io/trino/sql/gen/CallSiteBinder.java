@@ -23,38 +23,55 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantDynamic;
 
 public final class CallSiteBinder
 {
-    private static final Method BOOTSTRAP_METHOD;
+    private static final Method CONSTANT_BOOTSTRAP_METHOD;
+    private static final Method LEGACY_BOOTSTRAP_METHOD;
 
     static {
         try {
-            BOOTSTRAP_METHOD = CallSiteBinder.class.getMethod("bootstrap", Lookup.class, String.class, Class.class, int.class);
+            CONSTANT_BOOTSTRAP_METHOD = MethodHandles.class.getMethod("classDataAt", Lookup.class, String.class, Class.class, int.class);
+            LEGACY_BOOTSTRAP_METHOD = CallSiteBinder.class.getMethod("legacyBootstrap", Lookup.class, String.class, Class.class, int.class);
         }
         catch (NoSuchMethodException e) {
             throw new AssertionError(e);
         }
     }
 
+    private final boolean legacy;
     private int nextId;
 
+    private final List<Object> bindingList = new ArrayList<>();
     private final Map<Long, MethodHandle> bindings = new HashMap<>();
+
+    public CallSiteBinder()
+    {
+        this(true);
+    }
+
+    public CallSiteBinder(boolean legacy)
+    {
+        this.legacy = legacy;
+    }
 
     public BytecodeExpression loadConstant(Object constant, Class<?> type)
     {
         int binding = bind(constant, type);
         return constantDynamic(
-                "constant_" + binding,
+                legacy ? "constant_" + binding : "_",
                 type,
-                BOOTSTRAP_METHOD,
+                legacy ? LEGACY_BOOTSTRAP_METHOD : CONSTANT_BOOTSTRAP_METHOD,
                 ImmutableList.of(binding));
     }
 
@@ -77,14 +94,26 @@ public final class CallSiteBinder
     private int bind(Object constant, Class<?> type)
     {
         int bindingId = nextId++;
+
+        verify(bindingId == bindingList.size());
+        bindingList.add(constant);
+
         // DynamicClassLoader only supports MethodHandles, so wrapper constants in a method handle
         bindings.put((long) bindingId, MethodHandles.constant(type, constant));
+
         return bindingId;
     }
 
     public Map<Long, MethodHandle> getBindings()
     {
+        checkState(legacy, "getBindings is only allowed in legacy mode");
         return ImmutableMap.copyOf(bindings);
+    }
+
+    public List<Object> getBindingList()
+    {
+        checkState(!legacy, "getBindings is only allowed in non-legacy mode");
+        return ImmutableList.copyOf(bindingList);
     }
 
     @Override
@@ -97,7 +126,7 @@ public final class CallSiteBinder
     }
 
     @UsedByGeneratedCode
-    public static Object bootstrap(MethodHandles.Lookup callerLookup, String name, Class<?> type, int bindingId)
+    public static Object legacyBootstrap(MethodHandles.Lookup callerLookup, String name, Class<?> type, int bindingId)
     {
         ClassLoader classLoader = callerLookup.lookupClass().getClassLoader();
         checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());

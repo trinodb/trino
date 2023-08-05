@@ -19,14 +19,17 @@ import io.airlift.bytecode.ParameterizedType;
 import io.airlift.log.Logger;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles.Lookup;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static io.airlift.bytecode.BytecodeUtils.toJavaIdentifierString;
 import static io.airlift.bytecode.ClassGenerator.classGenerator;
+import static io.airlift.bytecode.HiddenClassGenerator.hiddenClassGenerator;
 import static io.airlift.bytecode.ParameterizedType.typeFromJavaClassName;
 import static java.time.ZoneOffset.UTC;
 
@@ -47,6 +50,13 @@ public final class CompilerUtils
         return typeFromJavaClassName("io.trino.$gen." + toJavaIdentifierString(className));
     }
 
+    public static ParameterizedType makeClassName(Lookup lookup, String baseName)
+    {
+        String className = baseName + "" + Instant.now().atZone(UTC).format(TIMESTAMP_FORMAT);
+        String packageName = lookup.lookupClass().getPackage().getName();
+        return typeFromJavaClassName(packageName + "." + toJavaIdentifierString(className));
+    }
+
     public static ParameterizedType makeClassName(String baseName)
     {
         return makeClassName(baseName, Optional.empty());
@@ -61,5 +71,17 @@ public final class CompilerUtils
     {
         log.debug("Defining class: %s", classDefinition.getName());
         return classGenerator(classLoader).defineClass(classDefinition, superType);
+    }
+
+    public static <T> Class<? extends T> defineClass(Lookup lookup, ClassDefinition classDefinition, Class<T> superType)
+    {
+        log.debug("Defining hidden class: %s", classDefinition.getName());
+        return hiddenClassGenerator(lookup).defineHiddenClass(classDefinition, superType, Optional.empty());
+    }
+
+    public static <T> Class<? extends T> defineClass(Lookup lookup, ClassDefinition classDefinition, Class<T> superType, List<Object> constants)
+    {
+        log.debug("Defining hidden class: %s", classDefinition.getName());
+        return hiddenClassGenerator(lookup).defineHiddenClass(classDefinition, superType, Optional.of(constants));
     }
 }
