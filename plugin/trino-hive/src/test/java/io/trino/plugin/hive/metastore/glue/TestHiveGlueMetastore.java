@@ -95,7 +95,7 @@ import static io.trino.plugin.hive.HiveColumnStatisticType.NUMBER_OF_NON_NULL_VA
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
@@ -234,7 +234,7 @@ public class TestHiveGlueMetastore
         Executor executor = new BoundedExecutor(this.executor, 10);
         GlueMetastoreStats stats = new GlueMetastoreStats();
         return new GlueHiveMetastore(
-                HDFS_ENVIRONMENT,
+                HDFS_FILE_SYSTEM_FACTORY,
                 glueConfig,
                 executor,
                 new DefaultGlueColumnStatisticsProviderFactory(executor, executor),
