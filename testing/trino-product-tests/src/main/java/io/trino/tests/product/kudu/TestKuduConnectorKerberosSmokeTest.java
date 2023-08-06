@@ -25,7 +25,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestKuduConnectoKerberosSmokeTest
+public class TestKuduConnectorKerberosSmokeTest
 {
     @Test(groups = {KUDU, PROFILE_SPECIFIC_TESTS})
     public void kerberosAuthTicketExpiryTest()
