@@ -123,7 +123,7 @@ public final class AccumulatorCompiler
     {
         boolean grouped = accumulatorInterface == GroupedAccumulator.class;
 
-        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+        ClassBuilder classBuilder = ClassBuilder.createStandardClass(
                 lookup(),
                 a(PUBLIC, FINAL),
                 boundSignature.getName() + accumulatorInterface.getSimpleName(),

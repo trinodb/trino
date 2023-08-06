@@ -113,7 +113,7 @@ public final class MapFilterFunction
 
     private static MethodHandle generateFilter(MapType mapType)
     {
-        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+        ClassBuilder classBuilder = ClassBuilder.createStandardClass(
                 lookup(),
                 a(PUBLIC, FINAL),
                 "MapFilter",

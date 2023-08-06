@@ -137,7 +137,7 @@ public final class StateCompiler
             }
         }
 
-        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+        ClassBuilder classBuilder = ClassBuilder.createStandardClass(
                 lookup(),
                 a(PUBLIC, FINAL),
                 clazz.getSimpleName() + "Serializer",

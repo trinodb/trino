@@ -126,7 +126,7 @@ public final class MapTransformValuesFunction
 
     private static MethodHandle generateTransform(Type keyType, Type valueType, Type transformedValueType)
     {
-        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+        ClassBuilder classBuilder = ClassBuilder.createStandardClass(
                 lookup(),
                 a(PUBLIC, FINAL),
                 "MapTransformValue",

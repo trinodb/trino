@@ -127,7 +127,7 @@ public final class MapTransformKeysFunction
 
     private static MethodHandle generateTransformKey(Type keyType, Type transformedKeyType, Type valueType)
     {
-        ClassBuilder classBuilder = ClassBuilder.createHiddenClass(
+        ClassBuilder classBuilder = ClassBuilder.createStandardClass(
                 lookup(),
                 a(PUBLIC, FINAL),
                 "MapTransformKey",
