@@ -69,12 +69,16 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
@@ -99,7 +103,6 @@ import io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter;
 import io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter;
 import io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.GluePartitionConverter;
 import io.trino.plugin.hive.util.HiveUtil;
-import io.trino.plugin.hive.util.HiveWriteUtils;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -110,10 +113,10 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
-import org.apache.hadoop.fs.Path;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -139,6 +142,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
@@ -184,8 +188,7 @@ public class GlueHiveMetastore
             .withMaxRetries(3)
             .build();
 
-    private final HdfsEnvironment hdfsEnvironment;
-    private final HdfsContext hdfsContext;
+    private final TrinoFileSystem fileSystem;
     private final AWSGlueAsync glueClient;
     private final Optional<String> defaultDir;
     private final int partitionSegments;
@@ -197,7 +200,7 @@ public class GlueHiveMetastore
 
     @Inject
     public GlueHiveMetastore(
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             GlueHiveMetastoreConfig glueConfig,
             @ForGlueHiveMetastore Executor partitionsReadExecutor,
             GlueColumnStatisticsProviderFactory columnStatisticsProviderFactory,
@@ -205,8 +208,7 @@ public class GlueHiveMetastore
             @ForGlueHiveMetastore GlueMetastoreStats stats,
             @ForGlueHiveMetastore Predicate<com.amazonaws.services.glue.model.Table> tableFilter)
     {
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
+        this.fileSystem = fileSystemFactory.create(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.defaultDir = glueConfig.getDefaultWarehouseDir();
         this.partitionSegments = glueConfig.getPartitionSegments();
@@ -227,7 +229,7 @@ public class GlueHiveMetastore
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(defaultWarehouseDir.toUri().toString());
         return new GlueHiveMetastore(
-                hdfsEnvironment,
+                new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()),
                 glueConfig,
                 directExecutor(),
                 new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
@@ -487,9 +489,10 @@ public class GlueHiveMetastore
     public void createDatabase(Database database)
     {
         if (database.getLocation().isEmpty() && defaultDir.isPresent()) {
-            String databaseLocation = new Path(defaultDir.get(), escapeSchemaName(database.getDatabaseName())).toString();
+            Location location = Location.of(defaultDir.get())
+                    .appendPath(escapeSchemaName(database.getDatabaseName()));
             database = Database.builder(database)
-                    .setLocation(Optional.of(databaseLocation))
+                    .setLocation(Optional.of(location.toString()))
                     .build();
         }
 
@@ -506,7 +509,13 @@ public class GlueHiveMetastore
         }
 
         if (database.getLocation().isPresent()) {
-            HiveWriteUtils.createDirectory(hdfsContext, hdfsEnvironment, new Path(database.getLocation().get()));
+            Location location = Location.of(database.getLocation().get());
+            try {
+                fileSystem.createDirectory(location);
+            }
+            catch (IOException e) {
+                throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to create directory: " + location, e);
+            }
         }
     }
 
@@ -532,7 +541,7 @@ public class GlueHiveMetastore
         }
 
         if (deleteData) {
-            location.ifPresent(path -> deleteDir(hdfsContext, hdfsEnvironment, new Path(path), true));
+            location.map(Location::of).ifPresent(this::deleteDir);
         }
     }
 
@@ -598,7 +607,7 @@ public class GlueHiveMetastore
         Optional<String> location = table.getStorage().getOptionalLocation()
                 .filter(not(String::isEmpty));
         if (deleteData && isManagedTable(table) && location.isPresent()) {
-            deleteDir(hdfsContext, hdfsEnvironment, new Path(location.get()), true);
+            deleteDir(Location.of(location.get()));
         }
     }
 
@@ -607,10 +616,10 @@ public class GlueHiveMetastore
         return table.getTableType().equals(MANAGED_TABLE.name());
     }
 
-    private static void deleteDir(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path, boolean recursive)
+    private void deleteDir(Location path)
     {
         try {
-            hdfsEnvironment.getFileSystem(context, path).delete(path, recursive);
+            fileSystem.deleteDirectory(path);
         }
         catch (Exception e) {
             // don't fail if unable to delete path
@@ -1059,7 +1068,7 @@ public class GlueHiveMetastore
 
         String partLocation = partition.getStorage().getLocation();
         if (deleteData && isManagedTable(table) && !isNullOrEmpty(partLocation)) {
-            deleteDir(hdfsContext, hdfsEnvironment, new Path(partLocation), true);
+            deleteDir(Location.of(partLocation));
         }
     }
 
