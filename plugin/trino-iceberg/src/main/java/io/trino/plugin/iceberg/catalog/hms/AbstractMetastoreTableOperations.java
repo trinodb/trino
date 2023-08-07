@@ -33,8 +33,8 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -73,7 +73,7 @@ public abstract class AbstractMetastoreTableOperations
         }
         Table table = getTable();
 
-        if (isPrestoView(table) && isHiveOrPrestoView(table)) {
+        if (isTrinoView(table) || isTrinoMaterializedView(table)) {
             // this is a Hive view or Trino/Presto view, or Trino materialized view, hence not a table
             // TODO table operations should not be constructed for views (remove exception-driven code path)
             throw new TableNotFoundException(getSchemaTableName());
