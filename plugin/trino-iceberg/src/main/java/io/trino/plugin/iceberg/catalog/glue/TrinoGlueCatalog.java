@@ -830,7 +830,7 @@ public class TrinoGlueCatalog
             }
 
             try {
-                TrinoViewUtil.getView(schemaTableName,
+                TrinoViewUtil.getView(
                                 Optional.ofNullable(table.getViewOriginalText()),
                                 getTableType(table),
                                 parameters,
@@ -1014,7 +1014,6 @@ public class TrinoGlueCatalog
         }
         com.amazonaws.services.glue.model.Table viewDefinition = table.get();
         return TrinoViewUtil.getView(
-                viewName,
                 Optional.ofNullable(viewDefinition.getViewOriginalText()),
                 getTableType(viewDefinition),
                 getTableParameters(viewDefinition),
