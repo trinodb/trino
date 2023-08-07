@@ -665,6 +665,7 @@ public final class ThriftMetastoreUtil
 
     public static FieldSchema toMetastoreApiFieldSchema(Column column)
     {
+        checkArgument(column.getProperties().isEmpty(), "Persisting column properties is not supported: %s", column);
         return new FieldSchema(column.getName(), column.getType().getHiveTypeName().toString(), column.getComment().orElse(null));
     }
 
