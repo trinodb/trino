@@ -979,6 +979,33 @@ public class TestIcebergStatistics
         assertUpdate("DROP TABLE show_stats_after_expiration");
     }
 
+    @Test
+    public void testStatsAfterDeletingAllRows()
+    {
+        String tableName = "test_stats_after_deleting_all_rows_";
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .projected("column_name", "distinct_values_count", "row_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('nationkey', DOUBLE '25', null), " +
+                        "('name', DOUBLE '25', null), " +
+                        "('regionkey', DOUBLE '5', null), " +
+                        "('comment', DOUBLE '25', null), " +
+                        "(null, null, DOUBLE '25')");
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey < 50", 25);
+        assertThat(query("SHOW STATS FOR " + tableName))
+                .projected("column_name", "distinct_values_count", "row_count")
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('nationkey', DOUBLE '0.0', null), " +
+                        "('name', DOUBLE '0.0', null), " +
+                        "('regionkey', DOUBLE '0.0', null), " +
+                        "('comment', DOUBLE '0.0', null), " +
+                        "(null, null, DOUBLE '0.0')");
+    }
+
     private long getCurrentSnapshotId(String tableName)
     {
         return (long) computeActual(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName))
