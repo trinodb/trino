@@ -112,6 +112,10 @@ public class SimplifyCountOverConstant
             return false;
         }
 
+        if (aggregation.isDistinct()) {
+            return false;
+        }
+
         Expression argument = aggregation.getArguments().get(0);
         if (argument instanceof SymbolReference) {
             argument = inputs.get(Symbol.from(argument));

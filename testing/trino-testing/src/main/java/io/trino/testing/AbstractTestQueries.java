@@ -508,4 +508,11 @@ public abstract class AbstractTestQueries
     {
         assertQuery("SELECT COUNT(*) FROM region r JOIN (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n ON r.regionkey = n.nationkey", "VALUES 10");
     }
+
+    @Test
+    public void testDistinctAggregationWithConstantLiterals()
+    {
+        String query = "with test_distinct_agg as (select orderkey, 'asdf' constant_str from orders limit 10) select count(distinct constant_str), count(*) from test_distinct_agg";
+	    assertQuery(query, "select 1, 10");
+    }
 }
