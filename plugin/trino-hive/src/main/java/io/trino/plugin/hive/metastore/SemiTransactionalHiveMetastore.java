@@ -470,28 +470,32 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized void dropDatabase(ConnectorSession session, String schemaName)
     {
+        setExclusive((delegate, hdfsEnvironment) -> {
+            boolean deleteData = shouldDeleteDatabaseData(session, schemaName);
+            delegate.dropDatabase(schemaName, deleteData);
+        });
+    }
+
+    public boolean shouldDeleteDatabaseData(ConnectorSession session, String schemaName)
+    {
         Optional<Path> location = delegate.getDatabase(schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName))
                 .getLocation()
                 .map(Path::new);
 
-        setExclusive((delegate, hdfsEnvironment) -> {
-            // If we see files in the schema location, don't delete it.
-            // If we see no files, request deletion.
-            // If we fail to check the schema location, behave according to fallback.
-            boolean deleteData = location.map(path -> {
-                try {
-                    return !hdfsEnvironment.getFileSystem(new HdfsContext(session), path)
-                            .listLocatedStatus(path).hasNext();
-                }
-                catch (IOException | RuntimeException e) {
-                    log.warn(e, "Could not check schema directory '%s'", path);
-                    return deleteSchemaLocationsFallback;
-                }
-            }).orElse(deleteSchemaLocationsFallback);
-
-            delegate.dropDatabase(schemaName, deleteData);
-        });
+        // If we see files in the schema location, don't delete it.
+        // If we see no files, request deletion.
+        // If we fail to check the schema location, behave according to fallback.
+        return location.map(path -> {
+            try {
+                return !hdfsEnvironment.getFileSystem(new HdfsContext(session), path)
+                        .listLocatedStatus(path).hasNext();
+            }
+            catch (IOException | RuntimeException e) {
+                log.warn(e, "Could not check schema directory '%s'", path);
+                return deleteSchemaLocationsFallback;
+            }
+        }).orElse(deleteSchemaLocationsFallback);
     }
 
     public synchronized void renameDatabase(String source, String target)
