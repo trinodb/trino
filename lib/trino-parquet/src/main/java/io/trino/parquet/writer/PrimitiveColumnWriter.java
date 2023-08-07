@@ -297,6 +297,7 @@ public class PrimitiveColumnWriter
     public long getRetainedBytes()
     {
         return INSTANCE_SIZE +
+                compressedOutputStream.getRetainedSize() +
                 primitiveValueWriter.getAllocatedSize() +
                 definitionLevelWriter.getAllocatedSize() +
                 repetitionLevelWriter.getAllocatedSize();
