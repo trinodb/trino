@@ -40,6 +40,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.base.util.Reflection.methodHandle;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.buildTable;
@@ -49,13 +50,12 @@ import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class RegisterTableProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle REGISTER_TABLE;
+    private static final MethodHandle REGISTER_TABLE = methodHandle(RegisterTableProcedure.class, "registerTable", ConnectorSession.class, String.class, String.class, String.class);
 
     private static final String PROCEDURE_NAME = "register_table";
     private static final String SYSTEM_SCHEMA = "system";
@@ -63,15 +63,6 @@ public class RegisterTableProcedure
     private static final String SCHEMA_NAME = "SCHEMA_NAME";
     private static final String TABLE_NAME = "TABLE_NAME";
     private static final String TABLE_LOCATION = "TABLE_LOCATION";
-
-    static {
-        try {
-            REGISTER_TABLE = lookup().unreflect(RegisterTableProcedure.class.getMethod("registerTable", ConnectorSession.class, String.class, String.class, String.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
-    }
 
     private final DeltaLakeMetadataFactory metadataFactory;
     private final TransactionLogAccess transactionLogAccess;
