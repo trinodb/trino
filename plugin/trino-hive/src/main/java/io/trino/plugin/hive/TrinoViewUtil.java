@@ -42,8 +42,8 @@ public final class TrinoViewUtil
             Map<String, String> tableParameters,
             Optional<String> tableOwner)
     {
-        if (!isView(tableType, tableParameters)) {
-            // Filter out Tables and Materialized Views
+        if (!(isHiveOrPrestoView(tableType) && PRESTO_VIEW_COMMENT.equals(tableParameters.get(TABLE_COMMENT)))) {
+            // Filter out Tables, Hive views and Trino Materialized Views
             return Optional.empty();
         }
 
@@ -66,11 +66,6 @@ public final class TrinoViewUtil
                     false);
         }
         return Optional.of(definition);
-    }
-
-    private static boolean isView(String tableType, Map<String, String> tableParameters)
-    {
-        return isHiveOrPrestoView(tableType) && PRESTO_VIEW_COMMENT.equals(tableParameters.get(TABLE_COMMENT));
     }
 
     public static Map<String, String> createViewProperties(ConnectorSession session, String trinoVersion, String connectorName)
