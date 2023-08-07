@@ -42,8 +42,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
@@ -93,8 +93,9 @@ public class GlueIcebergTableOperations
         Table table = getTable(invalidateCaches);
         glueVersionId = table.getVersionId();
 
+        String tableType = getTableType(table);
         Map<String, String> parameters = getTableParameters(table);
-        if (isPrestoView(parameters) && isHiveOrPrestoView(getTableType(table))) {
+        if (isTrinoView(tableType, parameters) || isTrinoMaterializedView(tableType, parameters)) {
             // this is a Hive view or Trino/Presto view, or Trino materialized view, hence not a table
             // TODO table operations should not be constructed for views (remove exception-driven code path)
             throw new TableNotFoundException(getSchemaTableName());

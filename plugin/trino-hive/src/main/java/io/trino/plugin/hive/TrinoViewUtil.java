@@ -27,7 +27,7 @@ import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_CREATED_BY;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 
 public final class TrinoViewUtil
 {
@@ -39,7 +39,7 @@ public final class TrinoViewUtil
             Map<String, String> tableParameters,
             Optional<String> tableOwner)
     {
-        if (!(isHiveOrPrestoView(tableType) && PRESTO_VIEW_COMMENT.equals(tableParameters.get(TABLE_COMMENT)))) {
+        if (!isTrinoView(tableType, tableParameters)) {
             // Filter out Tables, Hive views and Trino Materialized Views
             return Optional.empty();
         }
