@@ -37,6 +37,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -67,10 +68,22 @@ public class ParquetTestUtils
     public static Slice writeParquetFile(ParquetWriterOptions writerOptions, List<Type> types, List<String> columnNames, List<io.trino.spi.Page> inputPages)
             throws IOException
     {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ParquetWriter writer = createParquetWriter(outputStream, writerOptions, types, columnNames);
+
+        for (io.trino.spi.Page inputPage : inputPages) {
+            checkArgument(types.size() == inputPage.getChannelCount());
+            writer.write(inputPage);
+        }
+        writer.close();
+        return Slices.wrappedBuffer(outputStream.toByteArray());
+    }
+
+    public static ParquetWriter createParquetWriter(OutputStream outputStream, ParquetWriterOptions writerOptions, List<Type> types, List<String> columnNames)
+    {
         checkArgument(types.size() == columnNames.size());
         ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames, false, false);
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ParquetWriter writer = new ParquetWriter(
+        return new ParquetWriter(
                 outputStream,
                 schemaConverter.getMessageType(),
                 schemaConverter.getPrimitiveTypes(),
@@ -80,13 +93,6 @@ public class ParquetTestUtils
                 false,
                 Optional.of(DateTimeZone.getDefault()),
                 Optional.empty());
-
-        for (io.trino.spi.Page inputPage : inputPages) {
-            checkArgument(types.size() == inputPage.getChannelCount());
-            writer.write(inputPage);
-        }
-        writer.close();
-        return Slices.wrappedBuffer(outputStream.toByteArray());
     }
 
     public static ParquetReader createParquetReader(
