@@ -16,7 +16,6 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
-import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Map;
 import java.util.Optional;
@@ -29,14 +28,12 @@ import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_CREATED_BY;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 
 public final class TrinoViewUtil
 {
     private TrinoViewUtil() {}
 
     public static Optional<ConnectorViewDefinition> getView(
-            SchemaTableName viewName,
             Optional<String> viewOriginalText,
             String tableType,
             Map<String, String> tableParameters,
@@ -45,11 +42,6 @@ public final class TrinoViewUtil
         if (!(isHiveOrPrestoView(tableType) && PRESTO_VIEW_COMMENT.equals(tableParameters.get(TABLE_COMMENT)))) {
             // Filter out Tables, Hive views and Trino Materialized Views
             return Optional.empty();
-        }
-
-        if (!isPrestoView(tableParameters)) {
-            // Hive views are not compatible
-            throw new HiveViewNotSupportedException(viewName);
         }
 
         checkArgument(viewOriginalText.isPresent(), "viewOriginalText must be present");
