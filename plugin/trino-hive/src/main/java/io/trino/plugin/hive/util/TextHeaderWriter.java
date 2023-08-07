@@ -28,10 +28,10 @@ import org.apache.hadoop.io.Text;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
-import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
+import static java.util.Collections.nCopies;
 
 public class TextHeaderWriter
 {
@@ -52,7 +52,7 @@ public class TextHeaderWriter
         try {
             ObjectInspector stringObjectInspector = HiveWriteUtils.getRowColumnInspector(headerType);
             List<Text> headers = fileColumnNames.stream().map(Text::new).collect(toImmutableList());
-            List<ObjectInspector> inspectors = IntStream.range(0, fileColumnNames.size()).mapToObj(ignored -> stringObjectInspector).collect(toImmutableList());
+            List<ObjectInspector> inspectors = nCopies(fileColumnNames.size(), stringObjectInspector);
             StandardStructObjectInspector headerStructObjectInspectors = ObjectInspectorFactory.getStandardStructObjectInspector(fileColumnNames, inspectors);
             BinaryComparable binary = (BinaryComparable) serializer.serialize(headers, headerStructObjectInspectors);
             compressedOutput.write(binary.getBytes(), 0, binary.getLength());
