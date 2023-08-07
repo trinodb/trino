@@ -626,8 +626,8 @@ public class TestIcebergGlueCatalogAccessOperations
         return trackingFileSystemFactory.getOperationCounts()
                 .entrySet().stream()
                 .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(
-                        fromFilePath(entry.getKey().getLocation().toString()),
-                        entry.getKey().getOperationType())).stream())
+                        fromFilePath(entry.getKey().location().toString()),
+                        entry.getKey().operationType())).stream())
                 .collect(toCollection(HashMultiset::create));
     }
 
