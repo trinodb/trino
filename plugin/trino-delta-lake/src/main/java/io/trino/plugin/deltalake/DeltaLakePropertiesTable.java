@@ -17,8 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
+import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -29,6 +32,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.io.IOException;
 import java.util.List;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -46,14 +50,16 @@ public class DeltaLakePropertiesTable
             .add(new ColumnMetadata("value", VARCHAR))
             .build();
 
+    private final SchemaTableName tableName;
+    private final String tableLocation;
+    private final TransactionLogAccess transactionLogAccess;
     private final ConnectorTableMetadata tableMetadata;
-    private final MetadataEntry metadataEntry;
-    private final ProtocolEntry protocolEntry;
 
-    public DeltaLakePropertiesTable(SchemaTableName tableName, MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
+    public DeltaLakePropertiesTable(SchemaTableName tableName, String tableLocation, TransactionLogAccess transactionLogAccess)
     {
-        this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
-        this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
+        this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"), COLUMNS);
     }
 
@@ -72,10 +78,23 @@ public class DeltaLakePropertiesTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        return new FixedPageSource(buildPages());
+        MetadataEntry metadataEntry;
+        ProtocolEntry protocolEntry;
+
+        try {
+            SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(baseTableName, tableLocation, session);
+            metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
+            protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
+        }
+        catch (IOException e) {
+            throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + tableLocation, e);
+        }
+
+        return new FixedPageSource(buildPages(metadataEntry, protocolEntry));
     }
 
-    private List<Page> buildPages()
+    private List<Page> buildPages(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
 
