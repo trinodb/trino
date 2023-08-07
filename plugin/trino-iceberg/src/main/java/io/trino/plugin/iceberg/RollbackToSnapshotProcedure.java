@@ -26,24 +26,15 @@ import org.apache.iceberg.Table;
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.base.util.Reflection.methodHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class RollbackToSnapshotProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle ROLLBACK_TO_SNAPSHOT;
-
-    static {
-        try {
-            ROLLBACK_TO_SNAPSHOT = lookup().unreflect(RollbackToSnapshotProcedure.class.getMethod("rollbackToSnapshot", ConnectorSession.class, String.class, String.class, Long.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
-    }
+    private static final MethodHandle ROLLBACK_TO_SNAPSHOT = methodHandle(RollbackToSnapshotProcedure.class, "rollbackToSnapshot", ConnectorSession.class, String.class, String.class, Long.class);
 
     private final TrinoCatalogFactory catalogFactory;
 

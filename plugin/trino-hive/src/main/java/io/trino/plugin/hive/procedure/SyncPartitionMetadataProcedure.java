@@ -50,6 +50,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.base.util.Reflection.methodHandle;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
@@ -57,7 +58,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.TRUE;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -71,16 +71,7 @@ public class SyncPartitionMetadataProcedure
 
     private static final int BATCH_GET_PARTITIONS_BY_NAMES_MAX_PAGE_SIZE = 1000;
 
-    private static final MethodHandle SYNC_PARTITION_METADATA;
-
-    static {
-        try {
-            SYNC_PARTITION_METADATA = lookup().unreflect(SyncPartitionMetadataProcedure.class.getMethod("syncPartitionMetadata", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, String.class, boolean.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
-    }
+    private static final MethodHandle SYNC_PARTITION_METADATA = methodHandle(SyncPartitionMetadataProcedure.class, "syncPartitionMetadata", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, String.class, boolean.class);
 
     private final TransactionalMetadataFactory hiveMetadataFactory;
     private final HdfsEnvironment hdfsEnvironment;
