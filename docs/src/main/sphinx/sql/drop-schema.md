@@ -33,6 +33,12 @@ Drop the schema `archive`, along with everything it contains:
 DROP SCHEMA archive CASCADE
 ```
 
+Drop the schema `archive`, only if there are no objects contained in the schema:
+
+```
+DROP SCHEMA archive RESTRICT
+```
+
 ## See also
 
 {doc}`alter-schema`, {doc}`create-schema`
