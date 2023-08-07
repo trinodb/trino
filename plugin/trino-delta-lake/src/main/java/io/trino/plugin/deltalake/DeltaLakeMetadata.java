@@ -3125,11 +3125,10 @@ public class DeltaLakeMetadata
     @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        return getRawSystemTable(session, tableName)
-                .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
+        return getRawSystemTable(tableName).map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
     }
 
-    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName systemTableName)
+    private Optional<SystemTable> getRawSystemTable(SchemaTableName systemTableName)
     {
         Optional<DeltaLakeTableType> tableType = DeltaLakeTableName.tableTypeFrom(systemTableName.getTableName());
         if (tableType.isEmpty() || tableType.get() == DeltaLakeTableType.DATA) {
@@ -3155,7 +3154,7 @@ public class DeltaLakeMetadata
             case HISTORY -> Optional.of(new DeltaLakeHistoryTable(
                     systemTableName,
                     tableLocation,
-                    getCommitInfoEntries(tableLocation, session),
+                    fileSystemFactory,
                     transactionLogAccess,
                     typeManager));
             case PROPERTIES -> Optional.of(new DeltaLakePropertiesTable(systemTableName, tableLocation, transactionLogAccess));
