@@ -163,4 +163,22 @@ public class TestHive
         // used to ingest data into partitioned hive tables.
         testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, STATISTICS_1, STATISTICS_2, STATISTICS_1_1, PartitionStatistics.empty());
     }
+
+    @Override
+    public void testDataColumnProperties()
+    {
+        // Column properties are currently not supported in ThriftHiveMetastore
+        assertThatThrownBy(super::testDataColumnProperties)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Persisting column properties is not supported: Column{name=id, type=bigint}");
+    }
+
+    @Override
+    public void testPartitionColumnProperties()
+    {
+        // Column properties are currently not supported in ThriftHiveMetastore
+        assertThatThrownBy(super::testPartitionColumnProperties)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Persisting column properties is not supported: Column{name=part_key, type=varchar(256)}");
+    }
 }
