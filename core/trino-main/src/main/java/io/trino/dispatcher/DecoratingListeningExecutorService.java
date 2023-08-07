@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import jakarta.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.List;
@@ -32,6 +31,7 @@ import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
 public class DecoratingListeningExecutorService
@@ -49,14 +49,9 @@ public class DecoratingListeningExecutorService
         catch (NoSuchMethodException e) {
             closeMethod = null;
         }
-        try {
-            CLOSE_METHOD = closeMethod != null
-                    ? MethodHandles.lookup().unreflect(closeMethod)
-                    : null;
-        }
-        catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
+        CLOSE_METHOD = closeMethod != null
+                ? methodHandle(closeMethod)
+                : null;
     }
 
     private final ListeningExecutorService delegate;
