@@ -74,7 +74,8 @@ public abstract class AbstractMetastoreTableOperations
         Table table = getTable();
 
         if (isPrestoView(table) && isHiveOrPrestoView(table)) {
-            // this is a Hive view, hence not a table
+            // this is a Hive view or Trino/Presto view, or Trino materialized view, hence not a table
+            // TODO table operations should not be constructed for views (remove exception-driven code path)
             throw new TableNotFoundException(getSchemaTableName());
         }
         if (!isIcebergTable(table)) {

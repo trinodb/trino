@@ -87,7 +87,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     public static void verifyDeltaLakeTable(Table table)
     {
         if (isHiveOrPrestoView(table)) {
-            // this is a Hive view, hence not a table
+            // this is a Hive view or Trino/Presto view, or Trino materialized view, hence not a table
             throw new NotADeltaLakeTableException(table.getDatabaseName(), table.getTableName());
         }
         if (!TABLE_PROVIDER_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_PROVIDER_PROPERTY))) {
