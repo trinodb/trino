@@ -1108,6 +1108,8 @@ public class TrinoGlueCatalog
             // - org.apache.iceberg.exceptions.NotFoundException when accessing manifest file
             // - other failures when reading storage table's metadata files
             // Retry, as we're catching broadly.
+            deleteTable(viewName.getSchemaName(), viewName.getTableName());
+            deleteTable(storageSchema, storageTable);
             throw new MaterializedViewMayBeBeingRemovedException(e);
         }
 
