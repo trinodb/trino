@@ -177,7 +177,7 @@ public class GlueHiveMetastore
     private static final int BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final Comparator<Iterable<String>> PARTITION_VALUE_COMPARATOR = lexicographical(String.CASE_INSENSITIVE_ORDER);
-    private static final Predicate<com.amazonaws.services.glue.model.Table> VIEWS_FILTER = table -> VIRTUAL_VIEW.name().equals(getTableTypeNullable(table));
+    private static final Predicate<com.amazonaws.services.glue.model.Table> SOME_KIND_OF_VIEW_FILTER = table -> VIRTUAL_VIEW.name().equals(getTableTypeNullable(table));
     private static final RetryPolicy<?> CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY = RetryPolicy.builder()
             .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof ConcurrentModificationException)
             .withDelay(Duration.ofMillis(100))
@@ -448,7 +448,7 @@ public class GlueHiveMetastore
     @Override
     public List<String> getAllViews(String databaseName)
     {
-        return getTableNames(databaseName, VIEWS_FILTER);
+        return getTableNames(databaseName, SOME_KIND_OF_VIEW_FILTER);
     }
 
     @Override
