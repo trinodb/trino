@@ -36,6 +36,7 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TableType;
+import io.trino.plugin.hive.ViewReaderUtil;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -97,7 +98,7 @@ import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.MATERIALIZED_VIEW;
-import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
+import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
@@ -328,7 +329,7 @@ public class FileHiveMetastore
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
 
         // validate table location
-        if (table.getTableType().equals(VIRTUAL_VIEW.name())) {
+        if (isSomeKindOfAView(table)) {
             checkArgument(table.getStorage().getLocation().isEmpty(), "Storage location for view must be empty");
         }
         else if (table.getTableType().equals(MANAGED_TABLE.name())) {
@@ -555,7 +556,7 @@ public class FileHiveMetastore
                 .map(tableName -> getTable(databaseName, tableName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .filter(table -> table.getTableType().equals(VIRTUAL_VIEW.name()))
+                .filter(ViewReaderUtil::isSomeKindOfAView)
                 .map(Table::getTableName)
                 .collect(toImmutableList());
     }
