@@ -253,12 +253,11 @@ import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.ViewReaderUtil.canDecodeView;
 import static io.trino.plugin.hive.ViewReaderUtil.createViewReader;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isHiveView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.acid.AcidTransaction.forCreateTable;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
@@ -616,8 +615,8 @@ public class HiveMetadata
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hive table '%s'", tableName));
         }
 
-        boolean isTrinoView = isPrestoView(table) && !isTrinoMaterializedView(table);
-        boolean isHiveView = isHiveOrPrestoView(table) && !isTrinoView && !isTrinoMaterializedView(table);
+        boolean isTrinoView = isTrinoView(table);
+        boolean isHiveView = isHiveView(table);
         boolean isTrinoMaterializedView = isTrinoMaterializedView(table);
         if (isHiveView && translateHiveViews) {
             // Produce metadata for a (translated) Hive view as if it was a table. This is incorrect from ConnectorMetadata.streamTableColumns
@@ -1502,9 +1501,9 @@ public class HiveMetadata
     private Table getTrinoView(SchemaTableName viewName)
     {
         Table view = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
-                .filter(table -> isHiveOrPrestoView(table) && !isTrinoMaterializedView(table))
+                .filter(table -> isTrinoView(table) || isHiveView(table))
                 .orElseThrow(() -> new ViewNotFoundException(viewName));
-        if (!isPrestoView(view)) {
+        if (!isTrinoView(view)) {
             throw new HiveViewNotSupportedException(viewName);
         }
         return view;
@@ -2643,7 +2642,7 @@ public class HiveMetadata
 
         Optional<Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !isPrestoView(existing.get())) {
+            if (!replace || !isTrinoView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 
@@ -2772,12 +2771,18 @@ public class HiveMetadata
     {
         return table
                 .flatMap(view -> {
-                    if (!canDecodeView(view)) {
-                        return Optional.empty();
+                    if (isTrinoView(view)) {
+                        // can handle
                     }
-
-                    if (!translateHiveViews && !isPrestoView(view)) {
-                        throw new HiveViewNotSupportedException(viewName);
+                    else if (isHiveView(view)) {
+                        if (!translateHiveViews) {
+                            throw new HiveViewNotSupportedException(viewName);
+                        }
+                        // can handle
+                    }
+                    else {
+                        // actually not a view
+                        return Optional.empty();
                     }
 
                     ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager, this::redirectTable, metadataProvider, hiveViewsRunAsInvoker, hiveViewsTimestampPrecision)
