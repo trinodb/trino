@@ -14,7 +14,6 @@
 package io.trino.filesystem;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.errorprone.annotations.Immutable;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.security.ConnectorIdentity;
 
@@ -23,14 +22,12 @@ import java.io.OutputStream;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_EXISTS;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
@@ -290,64 +287,12 @@ public class TrackingFileSystemFactory
         }
     }
 
-    @Immutable
-    public static class OperationContext
+    public record OperationContext(Location location, int fileId, OperationType operationType)
     {
-        private final Location location;
-        private final int fileId;
-        private final OperationType operationType;
-
-        public OperationContext(Location location, int fileId, OperationType operationType)
+        public OperationContext
         {
-            this.location = requireNonNull(location, "location is null");
-            this.fileId = fileId;
-            this.operationType = requireNonNull(operationType, "operationType is null");
-        }
-
-        public Location getLocation()
-        {
-            return location;
-        }
-
-        public int getFileId()
-        {
-            return fileId;
-        }
-
-        public OperationType getOperationType()
-        {
-            return operationType;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            OperationContext that = (OperationContext) o;
-            return Objects.equals(location, that.location)
-                    && fileId == that.fileId
-                    && operationType == that.operationType;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(location, fileId, operationType);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("path", location)
-                    .add("fileId", fileId)
-                    .add("operation", operationType)
-                    .toString();
+            requireNonNull(location, "location is null");
+            requireNonNull(operationType, "operationType is null");
         }
     }
 }
