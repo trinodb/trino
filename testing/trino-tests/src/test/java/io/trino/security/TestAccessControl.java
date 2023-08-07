@@ -1061,6 +1061,33 @@ public class TestAccessControl
     }
 
     @Test
+    public void testAccessControlWithTableFunction()
+    {
+        TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
+        accessControlManager.columnMask(
+                new QualifiedObjectName("tpch", "tiny", "nation"),
+                "name",
+                getSession().getUser(),
+                new ViewExpression(
+                        Optional.empty(),
+                        Optional.of("tpch"),
+                        Optional.of("tiny"),
+                        """
+                            (
+                                SELECT CAST(tf.name AS varchar(25)) AS protected
+                                FROM TABLE(exclude_columns(
+                                    input => TABLE(region),
+                                    columns => DESCRIPTOR(comment))) tf
+                                WHERE tf.regionkey = nation.regionkey
+                                ORDER BY tf.name
+                                LIMIT 1
+                             )
+                        """));
+
+        assertQuery("SELECT name FROM tpch.tiny.nation WHERE nationkey = 0", "VALUES 'AFRICA'");
+    }
+
+    @Test
     public void testAccessControlWithRolesAndRowFilter()
     {
         String role = "role";
