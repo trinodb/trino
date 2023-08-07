@@ -3149,28 +3149,16 @@ public class DeltaLakeMetadata
         }
 
         String tableLocation = table.get().location();
-        TableSnapshot tableSnapshot = getSnapshot(new SchemaTableName(systemTableName.getSchemaName(), tableName), tableLocation, session);
-        MetadataEntry metadataEntry;
-        try {
-            metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
-        }
-        catch (TrinoException e) {
-            if (e.getErrorCode().equals(DELTA_LAKE_INVALID_SCHEMA.toErrorCode())) {
-                return Optional.empty();
-            }
-            throw e;
-        }
 
         return switch (tableType.get()) {
             case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
             case HISTORY -> Optional.of(new DeltaLakeHistoryTable(
                     systemTableName,
+                    tableLocation,
                     getCommitInfoEntries(tableLocation, session),
+                    transactionLogAccess,
                     typeManager));
-            case PROPERTIES -> Optional.of(new DeltaLakePropertiesTable(
-                    systemTableName,
-                    metadataEntry,
-                    transactionLogAccess.getProtocolEntry(session, tableSnapshot)));
+            case PROPERTIES -> Optional.of(new DeltaLakePropertiesTable(systemTableName, tableLocation, transactionLogAccess));
         };
     }
 
