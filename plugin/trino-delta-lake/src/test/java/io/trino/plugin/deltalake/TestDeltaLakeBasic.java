@@ -577,8 +577,8 @@ public class TestDeltaLakeBasic
 
         // Assert queries fail cleanly
         assertQueryFails("TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
-        assertQueryFails("SELECT * FROM \"" + tableName + "$history\"", ".* Table '.*\\$history' does not exist");
-        assertQueryFails("SELECT * FROM \"" + tableName + "$properties\"", ".* Table '.*\\$properties' does not exist");
+        assertQueryFails("SELECT * FROM \"" + tableName + "$history\"", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("SELECT * FROM \"" + tableName + "$properties\"", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SELECT * FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SELECT 1 FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SHOW CREATE TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);

@@ -15,8 +15,11 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
+import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -29,6 +32,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
 
+import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -43,15 +47,26 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeHistoryTable
         implements SystemTable
 {
-    private final ConnectorTableMetadata tableMetadata;
+    private final SchemaTableName tableName;
+    private final String tableLocation;
     private final List<CommitInfoEntry> commitInfoEntries;
+    private final TransactionLogAccess transactionLogAccess;
+    private final ConnectorTableMetadata tableMetadata;
 
-    public DeltaLakeHistoryTable(SchemaTableName tableName, List<CommitInfoEntry> commitInfoEntries, TypeManager typeManager)
+    public DeltaLakeHistoryTable(
+            SchemaTableName tableName,
+            String tableLocation,
+            List<CommitInfoEntry> commitInfoEntries,
+            TransactionLogAccess transactionLogAccess,
+            TypeManager typeManager)
     {
         requireNonNull(typeManager, "typeManager is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
         this.commitInfoEntries = ImmutableList.copyOf(requireNonNull(commitInfoEntries, "commitInfoEntries is null")).stream()
                 .sorted(comparingLong(CommitInfoEntry::getVersion).reversed())
                 .collect(toImmutableList());
+        this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
 
         tableMetadata = new ConnectorTableMetadata(
                 requireNonNull(tableName, "tableName is null"),
@@ -85,6 +100,16 @@ public class DeltaLakeHistoryTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
+        try {
+            // Verify the transaction log is readable
+            SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(baseTableName, tableLocation, session);
+            transactionLogAccess.getMetadataEntry(tableSnapshot, session);
+        }
+        catch (IOException e) {
+            throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + tableLocation, e);
+        }
+
         if (commitInfoEntries.isEmpty()) {
             return new FixedPageSource(ImmutableList.of());
         }
