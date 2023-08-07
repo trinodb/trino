@@ -82,6 +82,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("person_without_old_jsons", "databricks73/person_without_old_jsons"),
             new ResourceTable("person_without_checkpoints", "databricks73/person_without_checkpoints"));
     private static final List<ResourceTable> OTHER_TABLES = ImmutableList.of(
+            new ResourceTable("stats_with_minmax_nulls", "deltalake/stats_with_minmax_nulls"),
             new ResourceTable("no_column_stats", "databricks73/no_column_stats"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"));
@@ -707,6 +708,33 @@ public class TestDeltaLakeBasic
         else {
             assertThat(tableLocation.toFile()).exists().as("Table location should exist");
         }
+    }
+
+    /**
+     * @see deltalake.stats_with_minmax_nulls
+     */
+    @Test
+    public void testStatsWithMinMaxValuesAsNulls()
+    {
+        assertQuery(
+                "SELECT * FROM stats_with_minmax_nulls",
+                """
+                   VALUES
+                   (0, 1),
+                   (1, 2),
+                   (3, 4),
+                   (3, 7),
+                   (NULL, NULL),
+                   (NULL, NULL)
+                   """);
+        assertQuery(
+                "SHOW STATS FOR stats_with_minmax_nulls",
+                """
+                   VALUES
+                   ('id', null, null, 0.3333333333333333, null, 0, 3),
+                   ('id2', null, null, 0.3333333333333333, null, 1, 7),
+                   (null, null, null, null, 6.0, null, null)
+                   """);
     }
 
     private static MetadataEntry loadMetadataEntry(long entryNumber, Path tableLocation)

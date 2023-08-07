@@ -471,6 +471,7 @@ public class TransactionLogAccess
     public static <T> Map<CanonicalColumnName, T> toCanonicalNameKeyedMap(Map<String, T> map, Map<String, CanonicalColumnName> canonicalColumnNames)
     {
         return map.entrySet().stream()
+                .filter(entry -> entry.getValue() != null)
                 .collect(toImmutableMap(
                         entry -> requireNonNull(
                                 canonicalColumnNames.get(entry.getKey()),
