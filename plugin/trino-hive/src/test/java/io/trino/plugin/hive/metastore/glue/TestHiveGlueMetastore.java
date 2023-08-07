@@ -1342,6 +1342,15 @@ public class TestHiveGlueMetastore
         }
     }
 
+    @Override
+    public void testPartitionColumnProperties()
+    {
+        // Glue currently does not support parameters on the partitioning columns
+        assertThatThrownBy(super::testPartitionColumnProperties)
+                .isInstanceOf(TrinoException.class)
+                .hasMessageStartingWith("Parameters not supported for partition columns (Service: AWSGlue; Status Code: 400; Error Code: InvalidInputException;");
+    }
+
     @Test
     public void testGlueObjectsWithoutStorageDescriptor()
     {

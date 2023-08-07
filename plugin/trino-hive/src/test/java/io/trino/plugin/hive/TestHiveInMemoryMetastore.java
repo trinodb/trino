@@ -22,6 +22,8 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 // staging directory is shared mutable state
 @Test(singleThreaded = true)
 public class TestHiveInMemoryMetastore
@@ -66,5 +68,23 @@ public class TestHiveInMemoryMetastore
     public void testDisallowQueryingOfIcebergTables()
     {
         throw new SkipException("not supported");
+    }
+
+    @Override
+    public void testDataColumnProperties()
+    {
+        // Column properties are currently not supported in ThriftHiveMetastore
+        assertThatThrownBy(super::testDataColumnProperties)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Persisting column properties is not supported: Column{name=id, type=bigint}");
+    }
+
+    @Override
+    public void testPartitionColumnProperties()
+    {
+        // Column properties are currently not supported in ThriftHiveMetastore
+        assertThatThrownBy(super::testPartitionColumnProperties)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Persisting column properties is not supported: Column{name=part_key, type=varchar(256)}");
     }
 }

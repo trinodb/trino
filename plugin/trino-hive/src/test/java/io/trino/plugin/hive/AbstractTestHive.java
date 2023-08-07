@@ -145,6 +145,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.joda.time.DateTime;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -3406,6 +3407,92 @@ public abstract class AbstractTestHive
                     ZERO_TABLE_STATISTICS,
                     ImmutableList.of(STATISTICS_EMPTY_OPTIONAL_FIELDS),
                     ImmutableList.of(STATISTICS_EMPTY_OPTIONAL_FIELDS));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testDataColumnProperties()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_column_properties");
+        HiveMetastoreClosure metastoreClient = new HiveMetastoreClosure(getMetastoreClient());
+        try {
+            doCreateEmptyTable(tableName, ORC, List.of(new ColumnMetadata("id", BIGINT), new ColumnMetadata("part_key", createVarcharType(256))));
+
+            Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow();
+            assertThat(table.getDataColumns())
+                    .singleElement()
+                    .extracting(Column::getProperties, InstanceOfAssertFactories.MAP)
+                    .isEmpty();
+            assertThat(table.getPartitionColumns())
+                    .singleElement()
+                    .extracting(Column::getProperties, InstanceOfAssertFactories.MAP)
+                    .isEmpty();
+
+            String columnPropertyValue = "data column value ,;.!??? \" ' {} [] non-printable \000 \001 spaces \n\r\t\f hiragana だ emoji 🤷‍♂️  x";
+            metastoreClient.replaceTable(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    Table.builder(table)
+                            .setDataColumns(List.of(new Column("id", HIVE_LONG, Optional.empty(), Map.of("data prop", columnPropertyValue))))
+                            .build(),
+                    NO_PRIVILEGES);
+
+            table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow();
+            assertThat(table.getDataColumns())
+                    .singleElement()
+                    .extracting(Column::getProperties, InstanceOfAssertFactories.MAP)
+                    .isEqualTo(Map.of("data prop", columnPropertyValue));
+            assertThat(table.getPartitionColumns())
+                    .singleElement()
+                    .extracting(Column::getProperties, InstanceOfAssertFactories.MAP)
+                    .isEmpty();
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testPartitionColumnProperties()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_column_properties");
+        HiveMetastoreClosure metastoreClient = new HiveMetastoreClosure(getMetastoreClient());
+        try {
+            doCreateEmptyTable(tableName, ORC, List.of(new ColumnMetadata("id", BIGINT), new ColumnMetadata("part_key", createVarcharType(256))));
+
+            Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow();
+            assertThat(table.getDataColumns())
+                    .singleElement()
+                    .extracting(Column::getProperties, InstanceOfAssertFactories.MAP)
+                    .isEmpty();
+            assertThat(table.getPartitionColumns())
+                    .singleElement()
+                    .extracting(Column::getProperties, InstanceOfAssertFactories.MAP)
+                    .isEmpty();
+
+            String columnPropertyValue = "partition column value ,;.!??? \" ' {} [] non-printable \000 \001 spaces \n\r\t\f hiragana だ emoji 🤷‍♂️  x";
+            metastoreClient.replaceTable(
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    Table.builder(table)
+                            .setPartitionColumns(List.of(new Column("part_key", HiveType.valueOf("varchar(256)"), Optional.empty(), Map.of("partition prop", columnPropertyValue))))
+                            .build(),
+                    NO_PRIVILEGES);
+
+            table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow();
+            assertThat(table.getDataColumns())
+                    .singleElement()
+                    .extracting(Column::getProperties, InstanceOfAssertFactories.MAP)
+                    .isEmpty();
+            assertThat(table.getPartitionColumns())
+                    .singleElement()
+                    .extracting(Column::getProperties, InstanceOfAssertFactories.MAP)
+                    .isEqualTo(Map.of("partition prop", columnPropertyValue));
         }
         finally {
             dropTable(tableName);
