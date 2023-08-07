@@ -29,29 +29,20 @@ import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.base.util.Reflection.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class UnregisterTableProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle UNREGISTER_TABLE;
+    private static final MethodHandle UNREGISTER_TABLE = methodHandle(UnregisterTableProcedure.class, "unregisterTable", ConnectorAccessControl.class, ConnectorSession.class, String.class, String.class);
 
     private static final String PROCEDURE_NAME = "unregister_table";
     private static final String SYSTEM_SCHEMA = "system";
 
     private static final String SCHEMA_NAME = "SCHEMA_NAME";
     private static final String TABLE_NAME = "TABLE_NAME";
-
-    static {
-        try {
-            UNREGISTER_TABLE = lookup().unreflect(UnregisterTableProcedure.class.getMethod("unregisterTable", ConnectorAccessControl.class, ConnectorSession.class, String.class, String.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
-    }
 
     private final TrinoCatalogFactory catalogFactory;
 

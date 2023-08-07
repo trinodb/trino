@@ -27,9 +27,9 @@ import io.trino.spi.procedure.Procedure;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
+import static io.trino.plugin.base.util.Reflection.methodHandle;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class FlushMetadataCacheProcedure
@@ -40,16 +40,7 @@ public class FlushMetadataCacheProcedure
     private static final String PARAM_SCHEMA_NAME = "SCHEMA_NAME";
     private static final String PARAM_TABLE_NAME = "TABLE_NAME";
 
-    private static final MethodHandle FLUSH_METADATA_CACHE;
-
-    static {
-        try {
-            FLUSH_METADATA_CACHE = lookup().unreflect(FlushMetadataCacheProcedure.class.getMethod("flushMetadataCache", String.class, String.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
-    }
+    private static final MethodHandle FLUSH_METADATA_CACHE = methodHandle(FlushMetadataCacheProcedure.class, "flushMetadataCache", String.class, String.class);
 
     private final Optional<CachingHiveMetastore> cachingHiveMetastore;
     private final TransactionLogAccess transactionLogAccess;

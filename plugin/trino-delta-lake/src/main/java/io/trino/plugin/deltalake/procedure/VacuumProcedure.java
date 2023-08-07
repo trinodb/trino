@@ -57,6 +57,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.base.util.Reflection.methodHandle;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.MAX_WRITER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkValidTableHandle;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinRetention;
@@ -65,7 +66,6 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTra
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
 
@@ -75,16 +75,7 @@ public class VacuumProcedure
     private static final Logger log = Logger.get(VacuumProcedure.class);
     private static final int DELETE_BATCH_SIZE = 1000;
 
-    private static final MethodHandle VACUUM;
-
-    static {
-        try {
-            VACUUM = lookup().unreflect(VacuumProcedure.class.getMethod("vacuum", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, String.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
-    }
+    private static final MethodHandle VACUUM = methodHandle(VacuumProcedure.class, "vacuum", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, String.class);
 
     private final CatalogName catalogName;
     private final TrinoFileSystemFactory fileSystemFactory;
