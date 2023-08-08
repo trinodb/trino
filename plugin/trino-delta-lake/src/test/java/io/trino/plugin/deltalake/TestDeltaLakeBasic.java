@@ -444,15 +444,35 @@ public class TestDeltaLakeBasic
         assertThat(stats.getMaxValues().orElseThrow().get("UPPER_CASE")).isEqualTo(20);
         assertThat(stats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
 
-        assertUpdate("UPDATE " + tableName + " SET upper_case = 30", 3);
+        assertUpdate("UPDATE " + tableName + " SET upper_case = upper_case + 10", 3);
 
-        List<DeltaLakeTransactionLogEntry> transactionLogAfterUpdate = getEntriesFromJson(1, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
-        assertThat(transactionLogAfterUpdate).hasSize(2);
-        AddFileEntry updateAddFileEntry = transactionLogAfterUpdate.get(1).getAdd();
+        List<DeltaLakeTransactionLogEntry> transactionLogAfterUpdate = getEntriesFromJson(2, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
+        assertThat(transactionLogAfterUpdate).hasSize(3);
+        AddFileEntry updateAddFileEntry = transactionLogAfterUpdate.get(2).getAdd();
         DeltaLakeFileStatistics updateStats = updateAddFileEntry.getStats().orElseThrow();
-        assertThat(updateStats.getMinValues().orElseThrow().get("UPPER_CASE")).isEqualTo(10);
-        assertThat(updateStats.getMaxValues().orElseThrow().get("UPPER_CASE")).isEqualTo(20);
+        assertThat(updateStats.getMinValues().orElseThrow().get("UPPER_CASE")).isEqualTo(20);
+        assertThat(updateStats.getMaxValues().orElseThrow().get("UPPER_CASE")).isEqualTo(30);
         assertThat(updateStats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('upper_case', null, 2.0, 0.3333333333333333, null, 20, 30),
+                        ('part', null, 1.0, 0.0, null, null, null),
+                        (null, null, null, null, 3.0, null, null)
+                        """);
+
+        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName));
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('upper_case', null, 2.0, 0.3333333333333333, null, 20, 30),
+                        ('part', null, 1.0, 0.0, null, null, null),
+                        (null, null, null, null, 3.0, null, null)
+                        """);
     }
 
     @DataProvider
