@@ -57,7 +57,7 @@ public class CountingMockConnector
     private final AtomicLong listTablesCallsCounter = new AtomicLong();
     private final AtomicLong getTableHandleCallsCounter = new AtomicLong();
     private final AtomicLong getColumnsCallsCounter = new AtomicLong();
-    private final ListRoleGrantsCounter listRoleGranstCounter = new ListRoleGrantsCounter();
+    private final ListRoleGrantsCounter listRoleGrantCounter = new ListRoleGrantsCounter();
 
     public Plugin getPlugin()
     {
@@ -87,7 +87,7 @@ public class CountingMockConnector
             listTablesCallsCounter.set(0);
             getTableHandleCallsCounter.set(0);
             getColumnsCallsCounter.set(0);
-            listRoleGranstCounter.reset();
+            listRoleGrantCounter.reset();
 
             runnable.run();
 
@@ -96,10 +96,10 @@ public class CountingMockConnector
                     listTablesCallsCounter.get(),
                     getTableHandleCallsCounter.get(),
                     getColumnsCallsCounter.get(),
-                    listRoleGranstCounter.listRowGrantsCallsCounter.get(),
-                    listRoleGranstCounter.rolesPushedCounter.get(),
-                    listRoleGranstCounter.granteesPushedCounter.get(),
-                    listRoleGranstCounter.limitPushedCounter.get());
+                    listRoleGrantCounter.listRowGrantsCallsCounter.get(),
+                    listRoleGrantCounter.rolesPushedCounter.get(),
+                    listRoleGrantCounter.granteesPushedCounter.get(),
+                    listRoleGrantCounter.limitPushedCounter.get());
         }
     }
 
@@ -129,7 +129,7 @@ public class CountingMockConnector
                     return defaultGetColumns().apply(schemaTableName);
                 })
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> {
-                    listRoleGranstCounter.incrementListRoleGrants(roles, grantees, limit);
+                    listRoleGrantCounter.incrementListRoleGrants(roles, grantees, limit);
                     return roleGrants;
                 })
                 .build();
