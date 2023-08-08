@@ -4184,7 +4184,9 @@ public abstract class BaseHiveConnectorTest
     public void testWriterTasksCountLimitPartitionedScaleWritersEnabled()
     {
         testLimitWriterTasks(2, 4, true, true, true, DataSize.of(1, MEGABYTE));
-        testLimitWriterTasks(2, 2, true, true, true, DataSize.of(32, MEGABYTE));
+        // Since we track page size for scaling writer instead of actual compressed output file size, we need to have a
+        // larger threshold for writerScalingMinDataProcessed. This way we can ensure that the writer scaling is not triggered.
+        testLimitWriterTasks(2, 2, true, true, true, DataSize.of(128, MEGABYTE));
     }
 
     private void testLimitWriterTasks(int maxWriterTasks, int expectedFilesCount, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned, DataSize writerScalingMinDataProcessed)
