@@ -175,7 +175,7 @@ final class LongTimestampWithTimeZoneType
             if (epochMillis == Long.MAX_VALUE) {
                 return Optional.empty();
             }
-            epochMillis--;
+            epochMillis++;
             picosOfMilli -= PICOSECONDS_PER_MILLISECOND;
         }
         // time zone doesn't matter for ordering
