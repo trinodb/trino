@@ -327,11 +327,11 @@ public class TracingMetadata
     }
 
     @Override
-    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
         Span span = startSpan("listTableColumns", prefix);
         try (var ignored = scopedSpan(span)) {
-            return delegate.listTableColumns(session, prefix);
+            return delegate.listTableColumns(session, prefix, relationFilter);
         }
     }
 

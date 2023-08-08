@@ -564,7 +564,7 @@ public final class MetadataManager
     }
 
     @Override
-    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
         requireNonNull(prefix, "prefix is null");
 
@@ -637,13 +637,14 @@ public final class MetadataManager
                                         }
                                     })
                                     .map(tableMetadata -> TableColumnsMetadata.forTable(relationName, tableMetadata.getColumns())))
+                            .filter(tableColumnsMetadata -> relationFilter.apply(ImmutableSet.of(tableColumnsMetadata.getTable())).contains(tableColumnsMetadata.getTable()))
                             .ifPresent(tableColumnsMetadata -> tableColumns.put(relationName, tableColumnsMetadata));
                 }
                 else {
                     metadata.streamRelationColumns(
                                     connectorSession,
                                     prefix.getSchemaName(),
-                                    UnaryOperator.identity(), // TODO relation filter
+                                    relationFilter,
                                     viewColumnMetadata,
                                     materializedViewColumnMetadata)
                             .forEachRemaining(tableColumnsMetadata -> {
