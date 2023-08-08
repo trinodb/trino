@@ -123,6 +123,13 @@ final class SwitchingFileSystem
         fileSystem(location).createDirectory(location);
     }
 
+    @Override
+    public void renameDirectory(Location source, Location target)
+            throws IOException
+    {
+        fileSystem(source).renameDirectory(source, target);
+    }
+
     private TrinoFileSystem fileSystem(Location location)
     {
         return createFileSystem(determineFactory(location));

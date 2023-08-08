@@ -319,6 +319,41 @@ public class AzureFileSystem
         }
     }
 
+    @Override
+    public void renameDirectory(Location source, Location target)
+            throws IOException
+    {
+        AzureLocation sourceLocation = new AzureLocation(source);
+        AzureLocation targetLocation = new AzureLocation(target);
+        if (!sourceLocation.account().equals(targetLocation.account())) {
+            throw new IOException("Cannot rename across storage accounts");
+        }
+        if (!Objects.equals(sourceLocation.container(), targetLocation.container())) {
+            throw new IOException("Cannot rename across storage account containers");
+        }
+        if (!isHierarchicalNamespaceEnabled(sourceLocation)) {
+            throw new IOException("Azure non-hierarchical does not support directory renames");
+        }
+        if (sourceLocation.path().isEmpty() || targetLocation.path().isEmpty()) {
+            throw new IOException("Cannot rename %s to %s".formatted(source, target));
+        }
+
+        try {
+            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(sourceLocation);
+            DataLakeDirectoryClient directoryClient = fileSystemClient.getDirectoryClient(sourceLocation.path());
+            if (!directoryClient.exists()) {
+                throw new IOException("Source directory does not exist: " + source);
+            }
+            if (!directoryClient.getProperties().isDirectory()) {
+                throw new IOException("Source is not a directory: " + source);
+            }
+            directoryClient.rename(null, targetLocation.path());
+        }
+        catch (RuntimeException e) {
+            throw new IOException("Rename directory from %s to %s failed".formatted(source, target), e);
+        }
+    }
+
     private boolean isHierarchicalNamespaceEnabled(AzureLocation location)
             throws IOException
     {

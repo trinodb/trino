@@ -181,4 +181,13 @@ public interface TrinoFileSystem
      */
     void createDirectory(Location location)
             throws IOException;
+
+    /**
+     * Renames source to target. An exception is raised if the target already exists,
+     * or on non-hierarchical file systems.
+     *
+     * @throws IllegalArgumentException if location is not valid for this file system
+     */
+    void renameDirectory(Location source, Location target)
+            throws IOException;
 }

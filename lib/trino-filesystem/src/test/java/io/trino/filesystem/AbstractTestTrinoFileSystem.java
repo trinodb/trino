@@ -911,6 +911,49 @@ public abstract class AbstractTestTrinoFileSystem
         }
     }
 
+    @Test
+    public void testRenameDirectory()
+            throws IOException
+    {
+        if (!isHierarchical()) {
+            getFileSystem().createDirectory(createLocation("abc"));
+            assertThatThrownBy(() -> getFileSystem().renameDirectory(createLocation("source"), createLocation("target")))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("does not support directory renames");
+            return;
+        }
+
+        // rename directory locations cannot be the root of the file system
+        assertThatThrownBy(() -> getFileSystem().renameDirectory(getRootLocation(), createLocation("dir")))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining(getRootLocation().toString());
+        assertThatThrownBy(() -> getFileSystem().renameDirectory(createLocation("dir"), getRootLocation()))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining(getRootLocation().toString());
+
+        try (Closer closer = Closer.create()) {
+            getFileSystem().createDirectory(createLocation("level0/level1/level2"));
+
+            Location blob = createBlob(closer, "level0/level1/level2-file");
+
+            assertThat(getFileSystem().directoryExists(createLocation("level0/level1/level2"))).contains(true);
+            assertThat(getFileSystem().directoryExists(createLocation("level0/level1"))).contains(true);
+            assertThat(getFileSystem().directoryExists(createLocation("level0"))).contains(true);
+
+            getFileSystem().renameDirectory(createLocation("level0/level1"), createLocation("level0/renamed"));
+
+            assertThat(getFileSystem().directoryExists(createLocation("level0/level1"))).contains(false);
+            assertThat(getFileSystem().directoryExists(createLocation("level0/level1/level2"))).contains(false);
+            assertThat(getFileSystem().directoryExists(createLocation("level0/renamed"))).contains(true);
+            assertThat(getFileSystem().directoryExists(createLocation("level0/renamed/level2"))).contains(true);
+
+            assertThat(getFileSystem().newInputFile(blob).exists()).isFalse();
+
+            assertThat(readLocation(createLocation("level0/renamed/level2-file")))
+                    .isEqualTo(TEST_BLOB_CONTENT_PREFIX + blob);
+        }
+    }
+
     private List<Location> listPath(String path)
             throws IOException
     {

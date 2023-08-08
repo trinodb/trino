@@ -177,6 +177,13 @@ public class TrackingFileSystemFactory
         {
             delegate.createDirectory(location);
         }
+
+        @Override
+        public void renameDirectory(Location source, Location target)
+                throws IOException
+        {
+            delegate.renameDirectory(source, target);
+        }
     }
 
     private static class TrackingInputFile

@@ -170,6 +170,30 @@ public class LocalFileSystem
         }
     }
 
+    @Override
+    public void renameDirectory(Location source, Location target)
+            throws IOException
+    {
+        Path sourcePath = toDirectoryPath(source);
+        Path targetPath = toDirectoryPath(target);
+        try {
+            if (!Files.exists(sourcePath)) {
+                throw new IOException("Source does not exist: " + source);
+            }
+            if (!Files.isDirectory(sourcePath)) {
+                throw new IOException("Source is not a directory: " + source);
+            }
+
+            Files.createDirectories(targetPath.getParent());
+
+            // Do not specify atomic move, as unix overwrites when atomic is enabled
+            Files.move(sourcePath, targetPath);
+        }
+        catch (IOException e) {
+            throw new IOException("Directory rename from %s to %s failed: %s".formatted(source, target, e.getMessage()), e);
+        }
+    }
+
     private Path toFilePath(Location location)
     {
         validateLocalLocation(location);
