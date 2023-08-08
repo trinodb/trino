@@ -150,6 +150,7 @@ public class TestTrinoDatabaseMetaData
     {
         server.close();
         server = null;
+        countingMockConnector.close();
         countingMockConnector = null;
     }
 
