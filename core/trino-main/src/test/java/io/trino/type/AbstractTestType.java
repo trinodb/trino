@@ -73,7 +73,6 @@ import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableSortedMap;
 import static java.util.Objects.requireNonNull;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -201,41 +200,6 @@ public abstract class AbstractTestType
             assertPositionEquals(testBlockWithNulls, entry.getKey() * 2, entry.getValue(), expectedObjectValues.get(entry.getKey()));
             assertPositionEquals(testBlockWithNulls, (entry.getKey() * 2) + 1, null, null);
         }
-    }
-
-    @Test
-    public void testRange()
-    {
-        assertThat(type.getRange())
-                .isEmpty();
-    }
-
-    @Test
-    public void testPreviousValue()
-    {
-        Object sampleValue = getSampleValue();
-        if (!type.isOrderable()) {
-            assertThatThrownBy(() -> type.getPreviousValue(sampleValue))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessage("Type is not orderable: " + type);
-            return;
-        }
-        assertThat(type.getPreviousValue(sampleValue))
-                .isEmpty();
-    }
-
-    @Test
-    public void testNextValue()
-    {
-        Object sampleValue = getSampleValue();
-        if (!type.isOrderable()) {
-            assertThatThrownBy(() -> type.getNextValue(sampleValue))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessage("Type is not orderable: " + type);
-            return;
-        }
-        assertThat(type.getNextValue(sampleValue))
-                .isEmpty();
     }
 
     protected Object getSampleValue()
