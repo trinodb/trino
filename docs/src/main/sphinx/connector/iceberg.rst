@@ -18,7 +18,7 @@ configuration, custom properties, and snapshots of the table contents.
 
 Iceberg data files are stored in either Parquet, ORC, or Avro format, as
 determined by the ``format`` property in the table definition.  The default
-``format`` value is ``ORC``.
+``format`` value is ``PARQUET``.
 
 Iceberg is designed to improve on the known scalability limitations of Hive,
 which stores table metadata in a metastore that is backed by a relational
