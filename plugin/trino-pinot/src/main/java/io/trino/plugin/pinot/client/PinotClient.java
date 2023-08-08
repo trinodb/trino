@@ -592,7 +592,11 @@ public class PinotClient
     {
         BrokerResponseNative response = submitBrokerQueryJson(session, query);
         Map<String, Metric<?>> metrics = ImmutableMap.of(
-                "numDocsScanned", new LongCount(response.getNumDocsScanned())
+                "numDocsScanned", new LongCount(response.getNumDocsScanned()),
+                "numSegmentsQueried", new LongCount(response.getNumSegmentsQueried()),
+                "totalDocs", new LongCount(response.getTotalDocs()),
+                "numSegmentsProcessed", new LongCount(response.getNumSegmentsProcessed()),
+                "numSegmentsMatched", new LongCount(response.getNumSegmentsMatched()),
         );
         return metrics;
     }
