@@ -2817,9 +2817,7 @@ public class DeltaLakeMetadata
         }
 
         List<DeltaLakeColumnMetadata> columnsMetadata = extractSchema(metadata, typeManager);
-        Map<String, String> physicalColumnNameMapping = columnsMetadata.stream()
-                .collect(toImmutableMap(DeltaLakeColumnMetadata::getName, DeltaLakeColumnMetadata::getPhysicalName));
-        Set<String> allColumnNames = physicalColumnNameMapping.keySet();
+        Set<String> allColumnNames = columnsMetadata.stream().map(columnMetadata -> columnMetadata.getName().toLowerCase(ENGLISH)).collect(Collectors.toSet());
         Optional<Set<String>> analyzeColumnNames = getColumnNames(analyzeProperties);
         if (analyzeColumnNames.isPresent()) {
             Set<String> columnNames = analyzeColumnNames.get();
