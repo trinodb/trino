@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import io.airlift.json.JsonCodec;
@@ -171,7 +172,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -181,6 +181,7 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
@@ -299,6 +300,7 @@ public class IcebergMetadata
     private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName(IcebergThetaSketchForStats.NAME);
 
     private static final Integer DELETE_BATCH_SIZE = 1000;
+    public static final int GET_METADATA_BATCH_SIZE = 1000;
 
     private final TypeManager typeManager;
     private final CatalogHandle trinoCatalogHandle;
@@ -648,31 +650,49 @@ public class IcebergMetadata
         else {
             schemaTableNames = ImmutableList.of(prefix.toSchemaTableName());
         }
-        return schemaTableNames.stream()
-                .flatMap(tableName -> {
-                    try {
-                        if (redirectTable(session, tableName).isPresent()) {
-                            return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
-                        }
 
-                        Table icebergTable = catalog.loadTable(session, tableName);
-                        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema());
-                        return Stream.of(TableColumnsMetadata.forTable(tableName, columns));
+        return Lists.partition(schemaTableNames, GET_METADATA_BATCH_SIZE).stream()
+                .map(tableBatch -> {
+                    ImmutableList.Builder<TableColumnsMetadata> tableMetadatas = ImmutableList.builderWithExpectedSize(tableBatch.size());
+                    Set<SchemaTableName> remainingTables = new HashSet<>(tableBatch.size());
+                    for (SchemaTableName tableName : tableBatch) {
+                        if (redirectTable(session, tableName).isPresent()) {
+                            tableMetadatas.add(TableColumnsMetadata.forRedirectedTable(tableName));
+                        }
+                        else {
+                            remainingTables.add(tableName);
+                        }
                     }
-                    catch (TableNotFoundException e) {
-                        // Table disappeared during listing operation
-                        return Stream.empty();
+
+                    Map<SchemaTableName, List<ColumnMetadata>> loaded = catalog.tryGetColumnMetadata(session, ImmutableList.copyOf(remainingTables));
+                    loaded.forEach((tableName, columns) -> {
+                        remainingTables.remove(tableName);
+                        tableMetadatas.add(TableColumnsMetadata.forTable(tableName, columns));
+                    });
+
+                    for (SchemaTableName tableName : remainingTables) {
+                        try {
+                            Table icebergTable = catalog.loadTable(session, tableName);
+                            List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema());
+                            tableMetadatas.add(TableColumnsMetadata.forTable(tableName, columns));
+                        }
+                        catch (TableNotFoundException e) {
+                            // Table disappeared during listing operation
+                            continue;
+                        }
+                        catch (UnknownTableTypeException e) {
+                            // Skip unsupported table type in case that the table redirects are not enabled
+                            continue;
+                        }
+                        catch (RuntimeException e) {
+                            // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
+                            log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
+                            continue;
+                        }
                     }
-                    catch (UnknownTableTypeException e) {
-                        // Skip unsupported table type in case that the table redirects are not enabled
-                        return Stream.empty();
-                    }
-                    catch (RuntimeException e) {
-                        // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
-                        log.warn(e, "Failed to access metadata of table %s during streaming table columns for %s", tableName, prefix);
-                        return Stream.empty();
-                    }
+                    return tableMetadatas.build();
                 })
+                .flatMap(List::stream)
                 .iterator();
     }
 
@@ -724,6 +744,12 @@ public class IcebergMetadata
     public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
         catalog.updateViewColumnComment(session, viewName, columnName, comment);
+    }
+
+    @Override
+    public void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        catalog.updateMaterializedViewColumnComment(session, viewName, columnName, comment);
     }
 
     @Override
@@ -1743,6 +1769,27 @@ public class IcebergMetadata
     }
 
     @Override
+    public void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        String parentPath = String.join(".", fieldPath.subList(0, fieldPath.size() - 1));
+        NestedField parent = icebergTable.schema().caseInsensitiveFindField(parentPath);
+
+        String caseSensitiveParentName = icebergTable.schema().findColumnName(parent.fieldId());
+        NestedField source = parent.type().asStructType().caseInsensitiveField(getLast(fieldPath));
+
+        String sourcePath = caseSensitiveParentName + "." + source.name();
+        try {
+            icebergTable.updateSchema()
+                    .renameColumn(sourcePath, target)
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to rename field: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    @Override
     public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, io.trino.spi.type.Type type)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
@@ -1815,6 +1862,36 @@ public class IcebergMetadata
             }
         }
         return false;
+    }
+
+    @Override
+    public void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, io.trino.spi.type.Type type)
+    {
+        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        String parentPath = String.join(".", fieldPath.subList(0, fieldPath.size() - 1));
+        NestedField parent = icebergTable.schema().caseInsensitiveFindField(parentPath);
+
+        String caseSensitiveParentName = icebergTable.schema().findColumnName(parent.fieldId());
+        NestedField field = parent.type().asStructType().caseInsensitiveField(getLast(fieldPath));
+        // TODO: Add support for changing non-primitive field type
+        if (!field.type().isPrimitiveType()) {
+            throw new TrinoException(NOT_SUPPORTED, "Iceberg doesn't support changing field type from non-primitive types");
+        }
+
+        String name = caseSensitiveParentName + "." + field.name();
+        // Pass dummy AtomicInteger. The field id will be discarded because the subsequent logic disallows non-primitive types.
+        Type icebergType = toIcebergTypeForNewColumn(type, new AtomicInteger());
+        if (!icebergType.isPrimitiveType()) {
+            throw new TrinoException(NOT_SUPPORTED, "Iceberg doesn't support changing field type to non-primitive types");
+        }
+        try {
+            icebergTable.updateSchema()
+                    .updateColumn(name, icebergType.asPrimitiveType())
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to set field type: " + firstNonNull(e.getMessage(), e), e);
+        }
     }
 
     private List<ColumnMetadata> getColumnMetadatas(Schema schema)

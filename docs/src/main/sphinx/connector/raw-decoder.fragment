@@ -1,0 +1,85 @@
+#### Raw decoder
+
+The raw decoder supports reading of raw byte-based values from message or key,
+and converting it into Trino columns.
+
+For fields, the following attributes are supported:
+
+- `dataFormat` - Selects the width of the data type converted.
+- `type` - Trino data type. See the following table for a list of supported
+  data types.
+- `mapping` - `<start>[:<end>]` - Start and end position of bytes to convert
+  (optional).
+
+The `dataFormat` attribute selects the number of bytes converted. If absent,
+`BYTE` is assumed. All values are signed.
+
+Supported values are:
+
+- `BYTE` - one byte
+- `SHORT` - two bytes (big-endian)
+- `INT` - four bytes (big-endian)
+- `LONG` - eight bytes (big-endian)
+- `FLOAT` - four bytes (IEEE 754 format)
+- `DOUBLE` - eight bytes (IEEE 754 format)
+
+The `type` attribute defines the Trino data type on which the value is mapped.
+
+Depending on the Trino type assigned to a column, different values of dataFormat
+can be used:
+
+```{eval-rst}
+.. list-table::
+  :widths: 40, 60
+  :header-rows: 1
+
+  * - Trino data type
+    - Allowed ``dataFormat`` values
+  * - ``BIGINT``
+    - ``BYTE``, ``SHORT``, ``INT``, ``LONG``
+  * - ``INTEGER``
+    - ``BYTE``, ``SHORT``, ``INT``
+  * - ``SMALLINT``
+    - ``BYTE``, ``SHORT``
+  * - ``DOUBLE``
+    - ``DOUBLE``, ``FLOAT``
+  * - ``BOOLEAN``
+    - ``BYTE``, ``SHORT``, ``INT``, ``LONG``
+  * - ``VARCHAR`` / ``VARCHAR(x)``
+    - ``BYTE``
+```
+
+No other types are supported.
+
+The `mapping` attribute specifies the range of the bytes in a key or message
+used for decoding. It can be one or two numbers separated by a colon
+(`<start>[:<end>]`).
+
+If only a start position is given:
+
+- For fixed width types, the column uses the appropriate number of bytes for
+  the specified `dataFormat` (see above).
+- When the `VARCHAR` value is decoded, all bytes from the start position to
+  the end of the message is used.
+
+If start and end position are given:
+
+- For fixed width types, the size must be equal to the number of bytes used by
+  specified `dataFormat`.
+- For the `VARCHAR` data type all bytes between start (inclusive) and end
+  (exclusive) are used.
+
+If no `mapping` attribute is specified, it is equivalent to setting the start
+position to 0 and leaving the end position undefined.
+
+The decoding scheme of numeric data types (`BIGINT`, `INTEGER`,
+`SMALLINT`, `TINYINT`, `DOUBLE`) is straightforward. A sequence of bytes
+is read from input message and decoded according to either:
+
+- big-endian encoding (for integer types)
+- IEEE 754 format for (for `DOUBLE`).
+
+The length of a decoded byte sequence is implied by the `dataFormat`.
+
+For the `VARCHAR` data type, a sequence of bytes is interpreted according to
+UTF-8 encoding.

@@ -30,7 +30,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -94,18 +93,5 @@ public class TestCachingDirectoryListerRecursiveFilesOnly
         assertUpdate("DROP TABLE recursive_directories");
 
         assertFalse(isCached(tableLocation));
-    }
-
-    @Test
-    public void testRecursiveDirectoriesWithSpecialCharacters()
-    {
-        // Create partitioned table with special characters
-        assertUpdate("CREATE TABLE recursive_directories_with_special_chars (payload varchar, event_name varchar) WITH (format = 'ORC', partitioned_by = ARRAY['event_name'])");
-        String values = "VALUES (VARCHAR 'data', VARCHAR 'level1|level2'), ('data', 'level1 | level2'), ('plus sign', 'foo+bar')";
-        assertUpdate("INSERT INTO recursive_directories_with_special_chars " + values, 3);
-        // Check that all files can be read
-        assertThat(query("TABLE recursive_directories_with_special_chars"))
-                .matches(values);
-        assertUpdate("DROP TABLE recursive_directories_with_special_chars");
     }
 }

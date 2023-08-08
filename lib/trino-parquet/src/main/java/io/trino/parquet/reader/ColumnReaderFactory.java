@@ -141,9 +141,15 @@ public final class ColumnReaderFactory
                 }
                 return createColumnReader(field, valueDecoders::getIntDecoder, INT_ADAPTER, memoryContext);
             }
-            if (type instanceof TimeType && primitiveType == INT64) {
-                if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation && timeAnnotation.getUnit() == MICROS) {
+            if (type instanceof TimeType) {
+                if (!(annotation instanceof TimeLogicalTypeAnnotation timeAnnotation)) {
+                    throw unsupportedException(type, field);
+                }
+                if (primitiveType == INT64 && timeAnnotation.getUnit() == MICROS) {
                     return createColumnReader(field, valueDecoders::getTimeMicrosDecoder, LONG_ADAPTER, memoryContext);
+                }
+                if (primitiveType == INT32 && timeAnnotation.getUnit() == MILLIS) {
+                    return createColumnReader(field, valueDecoders::getTimeMillisDecoder, LONG_ADAPTER, memoryContext);
                 }
                 throw unsupportedException(type, field);
             }

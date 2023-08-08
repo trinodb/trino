@@ -160,14 +160,13 @@
         <dep.aws-sdk-v2.version>2.20.93</dep.aws-sdk-v2.version>
         <dep.jsonwebtoken.version>0.11.5</dep.jsonwebtoken.version>
         <dep.oracle.version>21.9.0.0</dep.oracle.version>
-        <dep.drift.version>1.20</dep.drift.version>
-        <dep.tempto.version>197</dep.tempto.version>
+        <dep.drift.version>1.21</dep.drift.version>
+        <dep.tempto.version>200</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
 
-        <dep.errorprone.version>2.20.0</dep.errorprone.version>
+        <dep.errorprone.version>2.21.1</dep.errorprone.version>
         <dep.testcontainers.version>1.18.3</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
-        <dep.coral.version>2.0.153</dep.coral.version>
         <dep.confluent.version>7.3.1</dep.confluent.version>
         <dep.kafka-clients.version>3.3.2</dep.kafka-clients.version>
         <dep.casandra.version>4.14.0</dep.casandra.version>
@@ -179,8 +178,11 @@
         <dep.netty.version>4.1.93.Final</dep.netty.version>
         <dep.jna.version>5.13.0</dep.jna.version>
         <dep.okio.version>3.3.0</dep.okio.version>
+        <dep.flyway.version>9.21.0</dep.flyway.version>
+        <dep.parquet.version>1.13.1</dep.parquet.version>
+        <dep.jmh.version>1.37</dep.jmh.version>
 
-        <dep.docker.images.version>80</dep.docker.images.version>
+        <dep.docker.images.version>81</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -214,7 +216,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.13</version>
+                <version>1.2.14</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -413,12 +415,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.databricks</groupId>
-                <artifactId>databricks-jdbc</artifactId>
-                <version>2.6.32</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.datastax.oss</groupId>
                 <artifactId>java-driver-core</artifactId>
                 <version>${dep.casandra.version}</version>
@@ -517,68 +513,15 @@
             </dependency>
 
             <dependency>
-                <groupId>com.linkedin.calcite</groupId>
-                <artifactId>calcite-core</artifactId>
-                <version>1.21.0.259</version>
-                <classifier>shaded</classifier>
-                <exclusions>
-                    <exclusion>
-                        <!-- Exclude everything because shaded version of calcite-core still pulls in all the original dependencies -->
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.linkedin.coral</groupId>
-                <artifactId>coral-common</artifactId>
-                <version>${dep.coral.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.hadoop</groupId>
-                        <artifactId>hadoop-common</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.hive</groupId>
-                        <artifactId>hive-metastore</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.linkedin.coral</groupId>
-                <artifactId>coral-hive</artifactId>
-                <version>${dep.coral.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.linkedin.coral</groupId>
-                <artifactId>coral-trino</artifactId>
-                <version>${dep.coral.version}</version>
-                <exclusions>
-                    <!--
-                        The `trino-parser` library is being used internally within the `coral-trino` library for
-                        parsing Trino SQL statements. This functionality is irrelevant in the context of
-                        using Coral for Hive view translations within Trino.
-                        This dependency is excluded because `trino-parser` does not guarantee API or behavioral
-                        backwards compatibility.
-                        Trino cannot provide the version on which `coral-trino` library depends on, because the
-                        current version of `trino-parser` is used in tests of this module.
-                        The dependency is therefore intentionally excluded to avoid breaking in an unexpected way,
-                        or silent correctness issues.
-                    -->
-                    <exclusion>
-                        <groupId>io.trino</groupId>
-                        <artifactId>trino-parser</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>11.2.1.jre17</version>
+                <version>12.2.0.jre11</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.mysql</groupId>
+                <artifactId>mysql-connector-j</artifactId>
+                <version>8.1.0</version>
             </dependency>
 
             <dependency>
@@ -590,7 +533,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>10.11</version>
+                <version>10.13</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
@@ -668,12 +611,6 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>parameternames</artifactId>
-                <version>1.4</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
                 <artifactId>units</artifactId>
                 <version>1.9</version>
             </dependency>
@@ -681,7 +618,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.35</version>
+                <version>1.36</version>
                 <exclusions>
                     <exclusion>
                         <groupId>io.airlift</groupId>
@@ -1423,6 +1360,12 @@
             </dependency>
 
             <dependency>
+                <groupId>io.trino.coral</groupId>
+                <artifactId>coral</artifactId>
+                <version>2.0.153-1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.trino.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
                 <version>3.3.5-1</version>
@@ -1431,7 +1374,7 @@
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-21</version>
+                <version>3.1.2-22</version>
             </dependency>
 
             <dependency>
@@ -1510,19 +1453,13 @@
             <dependency>
                 <groupId>it.unimi.dsi</groupId>
                 <artifactId>fastutil</artifactId>
-                <version>8.3.0</version>
+                <version>8.5.12</version>
             </dependency>
 
             <dependency>
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
                 <version>4.13.2</version>
-            </dependency>
-
-            <dependency>
-                <groupId>mysql</groupId>
-                <artifactId>mysql-connector-java</artifactId>
-                <version>8.0.29</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
@@ -1714,10 +1651,6 @@
                 <version>${dep.iceberg.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>org.apache.parquet</groupId>
-                        <artifactId>parquet-avro</artifactId>
-                    </exclusion>
-                    <exclusion>
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-api</artifactId>
                     </exclusion>
@@ -1737,9 +1670,81 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.parquet</groupId>
+                <artifactId>parquet-avro</artifactId>
+                <version>${dep.parquet.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.parquet</groupId>
+                <artifactId>parquet-column</artifactId>
+                <version>${dep.parquet.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.yetus</groupId>
+                        <artifactId>audience-annotations</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.parquet</groupId>
+                <artifactId>parquet-common</artifactId>
+                <version>${dep.parquet.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.yetus</groupId>
+                        <artifactId>audience-annotations</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.parquet</groupId>
+                <artifactId>parquet-encoding</artifactId>
+                <version>${dep.parquet.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.parquet</groupId>
+                <artifactId>parquet-format-structures</artifactId>
+                <version>${dep.parquet.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.parquet</groupId>
+                <artifactId>parquet-hadoop</artifactId>
+                <version>${dep.parquet.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.github.luben</groupId>
+                        <artifactId>zstd-jni</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-pool</groupId>
+                        <artifactId>commons-pool</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.yetus</groupId>
+                        <artifactId>audience-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.xerial.snappy</groupId>
+                        <artifactId>snappy-java</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.parquet</groupId>
+                <artifactId>parquet-jackson</artifactId>
+                <version>${dep.parquet.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.17.0</version>
+                <version>0.18.1</version>
             </dependency>
 
             <dependency>
@@ -1785,7 +1790,19 @@
             <dependency>
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-core</artifactId>
-                <version>7.15.0</version>
+                <version>${dep.flyway.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-database-oracle</artifactId>
+                <version>${dep.flyway.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-mysql</artifactId>
+                <version>${dep.flyway.version}</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
@@ -1822,7 +1839,7 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <version>3.0.5</version>
+                <version>3.1.4</version>
             </dependency>
 
             <dependency>
@@ -1834,7 +1851,7 @@
             <dependency>
                 <groupId>org.pcollections</groupId>
                 <artifactId>pcollections</artifactId>
-                <version>2.1.2</version>
+                <version>4.0.1</version>
             </dependency>
 
             <dependency>
@@ -1846,7 +1863,7 @@
             <dependency>
                 <groupId>org.roaringbitmap</groupId>
                 <artifactId>RoaringBitmap</artifactId>
-                <version>0.9.44</version>
+                <version>0.9.46</version>
             </dependency>
 
             <dependency>
@@ -1870,7 +1887,7 @@
             <dependency>
                 <groupId>org.xerial.snappy</groupId>
                 <artifactId>snappy-java</artifactId>
-                <version>1.1.10.1</version>
+                <version>1.1.10.3</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.osgi</groupId>
@@ -2175,6 +2192,40 @@
                                     <resource>mime.types</resource>
                                 </resources>
                             </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>org.flywaydb</groupId>
+                                        <artifactId>flyway-database-oracle</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.flywaydb</groupId>
+                                        <artifactId>flyway-mysql</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>org/flywaydb/database/version.txt</resource>
+                                </resources>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>org.apache.parquet</groupId>
+                                        <artifactId>parquet-avro</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.parquet</groupId>
+                                        <artifactId>parquet-column</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.parquet</groupId>
+                                        <artifactId>parquet-hadoop</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <packages>
+                                    <pacakge>shaded.parquet.it.unimi.dsi.fastutil</pacakge>
+                                </packages>
+                            </exception>
                         </exceptions>
                     </configuration>
                 </plugin>
@@ -2380,6 +2431,9 @@
                         <configuration combine.children="merge">
                             <!-- forking not required due to JVM flags in .mvn/jvm.config -->
                             <!-- see https://errorprone.info/docs/installation#maven -->
+                            <!-- Do not fail on error-prone's warnings even for modules using air.compiler.fail-warnings -->
+                            <!-- TODO silence warnings we choose to ignore and raise important warnings to error and then remove <failOnWarning> -->
+                            <failOnWarning>false</failOnWarning>
                             <compilerArgs>
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <arg>
@@ -2414,7 +2468,9 @@
                                     <!-- Sometimes our javadoc contains just a @see directive -->
                                     -Xep:MissingSummary:OFF \
                                     -Xep:MutablePublicArray:ERROR \
+                                    -Xep:NarrowingCompoundAssignment:ERROR \
                                     -Xep:NullOptional:ERROR \
+                                    -Xep:NullableOptional:ERROR \
                                     -Xep:ObjectToString:ERROR \
                                     -Xep:OptionalNotPresent:ERROR \
                                     -Xep:OrphanedFormatString:ERROR \

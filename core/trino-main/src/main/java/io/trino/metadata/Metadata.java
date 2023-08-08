@@ -228,6 +228,11 @@ public interface Metadata
     void setViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment);
 
     /**
+     * Comments to the specified materialized view column.
+     */
+    void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment);
+
+    /**
      * Comments to the specified column.
      */
     void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment);
@@ -236,6 +241,11 @@ public interface Metadata
      * Rename the specified column.
      */
     void renameColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle source, String target);
+
+    /**
+     * Rename the specified field.
+     */
+    void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target);
 
     /**
      * Add the specified column to the table.
@@ -251,6 +261,11 @@ public interface Metadata
      * Set the specified type to the column.
      */
     void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
+
+    /**
+     * Set the specified type to the field.
+     */
+    void setFieldType(Session session, TableHandle tableHandle, List<String> fieldPath, Type type);
 
     /**
      * Set the authorization (owner) of specified table's user/role

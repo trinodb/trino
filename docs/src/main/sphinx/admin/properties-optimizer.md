@@ -4,21 +4,21 @@
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `false`
+- **Session property:** `dictionary_aggregation`
 
-Enables optimization for aggregations on dictionaries. This can also be specified
-on a per-query basis using the `dictionary_aggregation` session property.
+Enables optimization for aggregations on dictionaries.
 
 ## `optimizer.optimize-hash-generation`
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
+- **Session property:** `optimize_hash_generation
 
 Compute hash codes for distribution, joins, and aggregations early during execution,
 allowing result to be shared between operations later in the query. This can reduce
 CPU usage by avoiding computing the same hash multiple times, but at the cost of
 additional network transfer for the hashes. In most cases it decreases overall
-query processing time. This can also be specified on a per-query basis using the
-`optimize_hash_generation` session property.
+query processing time.
 
 It is often helpful to disable this property, when using {doc}`/sql/explain` in order
 to make the query plan easier to read.
@@ -44,6 +44,7 @@ create them.
 - **Type:** {ref}`prop-type-string`
 - **Allowed values:** `AUTOMATIC`, `ALWAYS`, `NONE`
 - **Default value:** `AUTOMATIC`
+- **Session property:**  `mark_distinct_strategy`
 
 The mark distinct strategy to use for distinct aggregations. `NONE` does not use
 `MarkDistinct` operator.  `ALWAYS` uses `MarkDistinct` for multiple distinct
@@ -55,13 +56,13 @@ aggregation implementation cannot utilize CPU efficiently.
 `optimizer.use-mark-distinct`. If `optimizer.mark-distinct-strategy` is not
 set, but `optimizer.use-mark-distinct` is then `optimizer.use-mark-distinct`
 is mapped to `optimizer.mark-distinct-strategy` with value `true` mapped to
-`AUTOMATIC` and value `false` mapped to `NONE`.The strategy can be specified
-on a per-query basis using the `mark_distinct_strategy` session property.
+`AUTOMATIC` and value `false` mapped to `NONE`.
 
 ## `optimizer.push-aggregation-through-outer-join`
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
+- **Session property:** `push_aggregation_through_join`
 
 When an aggregation is above an outer join and all columns from the outer side of the join
 are in the grouping clause, the aggregation is pushed below the outer join. This optimization
@@ -75,36 +76,35 @@ SELECT * FROM item i
             WHERE i.i_category = j.i_category);
 ```
 
-Enabling this optimization can substantially speed up queries by reducing
-the amount of data that needs to be processed by the join.  However, it may slow down some
-queries that have very selective joins. This can also be specified on a per-query basis using
-the `push_aggregation_through_join` session property.
+Enabling this optimization can substantially speed up queries by reducing the
+amount of data that needs to be processed by the join. However, it may slow down
+some queries that have very selective joins.
 
 ## `optimizer.push-table-write-through-union`
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
+- **Session property:** `push_table_write_through_union`
 
 Parallelize writes when using `UNION ALL` in queries that write data. This improves the
 speed of writing output tables in `UNION ALL` queries, because these writes do not require
 additional synchronization when collecting results. Enabling this optimization can improve
 `UNION ALL` speed, when write speed is not yet saturated. However, it may slow down queries
-in an already heavily loaded system. This can also be specified on a per-query basis
-using the `push_table_write_through_union` session property.
+in an already heavily loaded system.
 
 ## `optimizer.join-reordering-strategy`
 
 - **Type:** {ref}`prop-type-string`
 - **Allowed values:** `AUTOMATIC`, `ELIMINATE_CROSS_JOINS`, `NONE`
 - **Default value:** `AUTOMATIC`
+- **Session property:** `join_reordering_strategy`
 
 The join reordering strategy to use.  `NONE` maintains the order the tables are listed in the
 query.  `ELIMINATE_CROSS_JOINS` reorders joins to eliminate cross joins, where possible, and
 otherwise maintains the original query order. When reordering joins, it also strives to maintain the
 original table order as much as possible. `AUTOMATIC` enumerates possible orders, and uses
 statistics-based cost estimation to determine the least cost order. If stats are not available, or if
-for any reason a cost could not be computed, the `ELIMINATE_CROSS_JOINS` strategy is used. This can
-be specified on a per-query basis using the `join_reordering_strategy` session property.
+for any reason a cost could not be computed, the `ELIMINATE_CROSS_JOINS` strategy is used.
 
 ## `optimizer.max-reordered-joins`
 

@@ -766,7 +766,7 @@ class AstBuilder
         return new RenameColumn(
                 getLocation(context),
                 getQualifiedName(context.tableName),
-                (Identifier) visit(context.from),
+                getQualifiedName(context.from),
                 (Identifier) visit(context.to),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
@@ -801,7 +801,7 @@ class AstBuilder
         return new SetColumnType(
                 getLocation(context),
                 getQualifiedName(context.tableName),
-                (Identifier) visit(context.columnName),
+                getQualifiedName(context.columnName),
                 (DataType) visit(context.type()),
                 context.EXISTS() != null);
     }

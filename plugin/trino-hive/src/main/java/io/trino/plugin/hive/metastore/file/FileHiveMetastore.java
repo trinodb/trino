@@ -37,7 +37,6 @@ import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TableType;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -680,7 +679,7 @@ public class FileHiveMetastore
             ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
             for (Column fieldSchema : oldTable.getDataColumns()) {
                 if (fieldSchema.getName().equals(columnName)) {
-                    newDataColumns.add(new Column(columnName, fieldSchema.getType(), comment));
+                    newDataColumns.add(new Column(columnName, fieldSchema.getType(), comment, fieldSchema.getProperties()));
                 }
                 else {
                     newDataColumns.add(fieldSchema);
@@ -703,7 +702,7 @@ public class FileHiveMetastore
                     currentVersion,
                     ImmutableList.<Column>builder()
                             .addAll(oldTable.getDataColumns())
-                            .add(new Column(columnName, columnType, Optional.ofNullable(columnComment)))
+                            .add(new Column(columnName, columnType, Optional.ofNullable(columnComment), ImmutableMap.of()))
                             .build());
         });
     }
@@ -728,7 +727,7 @@ public class FileHiveMetastore
             ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
             for (Column fieldSchema : oldTable.getDataColumns()) {
                 if (fieldSchema.getName().equals(oldColumnName)) {
-                    newDataColumns.add(new Column(newColumnName, fieldSchema.getType(), fieldSchema.getComment()));
+                    newDataColumns.add(new Column(newColumnName, fieldSchema.getType(), fieldSchema.getComment(), fieldSchema.getProperties()));
                 }
                 else {
                     newDataColumns.add(fieldSchema);
@@ -1084,7 +1083,7 @@ public class FileHiveMetastore
         }
     }
 
-    private List<ArrayDeque<String>> listPartitions(Path director, List<Column> partitionColumns)
+    private List<ArrayDeque<String>> listPartitions(Path director, List<io.trino.plugin.hive.metastore.Column> partitionColumns)
     {
         if (partitionColumns.isEmpty()) {
             return ImmutableList.of();

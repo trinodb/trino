@@ -90,7 +90,7 @@
                             <mainClass>io.trino.sql.ReservedIdentifiers</mainClass>
                             <arguments>
                                 <argument>validateDocs</argument>
-                                <argument>${project.basedir}/src/main/sphinx/language/reserved.rst</argument>
+                                <argument>${project.basedir}/src/main/sphinx/language/reserved.md</argument>
                             </arguments>
                         </configuration>
                     </execution>

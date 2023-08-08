@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -96,11 +97,18 @@ public interface TrinoCatalog
      */
     Table loadTable(ConnectorSession session, SchemaTableName schemaTableName);
 
+    /**
+     * Bulk load column metadata. The returned map may contain fewer entries then asked for.
+     */
+    Map<SchemaTableName, List<ColumnMetadata>> tryGetColumnMetadata(ConnectorSession session, List<SchemaTableName> tables);
+
     void updateTableComment(ConnectorSession session, SchemaTableName schemaTableName, Optional<String> comment);
 
     void updateViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment);
 
     void updateViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment);
+
+    void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment);
 
     String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName);
 

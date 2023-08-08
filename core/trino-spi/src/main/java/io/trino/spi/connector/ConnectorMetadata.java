@@ -435,6 +435,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Comments to the specified materialized view column.
+     */
+    default void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view column comments");
+    }
+
+    /**
      * Comments to the specified column
      */
     default void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
@@ -471,6 +479,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Set the specified field type
+     *
+     * @param fieldPath path starting with column name. The path is always lower-cased. It cannot be an empty or a single element.
+     */
+    @Experimental(eta = "2023-09-01")
+    default void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting field types");
+    }
+
+    /**
      * Sets the user/role on the specified table.
      */
     default void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal)
@@ -484,6 +503,18 @@ public interface ConnectorMetadata
     default void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+    }
+
+    /**
+     * Rename the specified field, potentially nested, to a row.
+     *
+     * @param fieldPath path starting with column name.
+     * @param target the new field name. The field position and nested level shouldn't be changed.
+     */
+    @Experimental(eta = "2023-09-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
+    default void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming fields");
     }
 
     /**

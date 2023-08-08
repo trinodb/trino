@@ -232,7 +232,10 @@ Hive connector documentation.
         `Table Statistics <#table-statistics>`__ for details.
       - ``true``
     * - ``hive.s3select-pushdown.enabled``
-      - Enable query pushdown to AWS S3 Select service.
+      - Enable query pushdown to JSON files using the AWS S3 Select service.
+      - ``false``
+    * - ``hive.s3select-pushdown.experimental-textfile-pushdown-enabled``
+      - Enable query pushdown to TEXTFILE tables using the AWS S3 Select service.
       - ``false``
     * - ``hive.s3select-pushdown.max-connections``
       - Maximum number of simultaneously open connections to S3 for
@@ -763,7 +766,7 @@ Drop stats for a partition of the ``page_views`` table::
     CALL system.drop_stats(
         schema_name => 'web',
         table_name => 'page_views',
-        partition_values => ARRAY['2016-08-09', 'US']);
+        partition_values => ARRAY[ARRAY['2016-08-09', 'US']]);
 
 .. _hive-procedures:
 
@@ -1663,15 +1666,8 @@ with Parquet files performed by the Hive connector.
         optimized parquet reader by default. The equivalent catalog session
         property is ``parquet_optimized_reader_enabled``.
       - ``true``
-    * - ``parquet.optimized-writer.enabled``
-      - Whether the optimized writer is used when writing Parquet files.
-        Set this property to ``false`` to disable the optimized parquet writer by
-        default. The equivalent catalog session property is
-        ``parquet_optimized_writer_enabled``.
-      - ``true``
-    * - ``parquet.optimized-writer.validation-percentage``
-      - Percentage of parquet files to validate after write by re-reading the whole file
-        when ``parquet.optimized-writer.enabled`` is set to ``true``.
+    * - ``parquet.writer.validation-percentage``
+      - Percentage of Parquet files to validate after write by re-reading the whole file.
         The equivalent catalog session property is ``parquet_optimized_writer_validation_percentage``.
         Validation can be turned off by setting this property to ``0``.
       - ``5``

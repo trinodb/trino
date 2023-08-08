@@ -98,6 +98,9 @@ public class AddFileEntry
         return partitionValues;
     }
 
+    /**
+     * @return the original key and canonical value. The value returns {@code Optional.empty()} when it's null or empty string.
+     */
     @JsonIgnore
     public Map<String, Optional<String>> getCanonicalPartitionValues()
     {

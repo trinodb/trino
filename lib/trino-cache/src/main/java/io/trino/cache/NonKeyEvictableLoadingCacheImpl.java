@@ -48,6 +48,7 @@ class NonKeyEvictableLoadingCacheImpl<K, V>
     }
 
     @Override
+    @SuppressWarnings("deprecation") // we're implementing a deprecated API method
     public void unsafeInvalidate(Object key)
     {
         super.invalidate(key);
@@ -64,7 +65,7 @@ class NonKeyEvictableLoadingCacheImpl<K, V>
     public ConcurrentMap<K, V> asMap()
     {
         ConcurrentMap<K, V> map = delegate.asMap();
-        return new ForwardingConcurrentMap<K, V>()
+        return new ForwardingConcurrentMap<>()
         {
             @Override
             protected ConcurrentMap<K, V> delegate()

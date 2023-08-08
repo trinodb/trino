@@ -131,6 +131,10 @@ public class TestHivePageSink
                     if (codec == NONE) {
                         continue;
                     }
+                    if ((format == HiveStorageFormat.PARQUET) && (codec == LZ4)) {
+                        // TODO (https://github.com/trinodb/trino/issues/9142) LZ4 is not supported with native Parquet writer
+                        continue;
+                    }
                     config.setHiveCompressionCodec(codec);
 
                     if (!isSupportedCodec(format, codec)) {

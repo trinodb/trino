@@ -114,6 +114,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW_COLUMN;
@@ -138,6 +139,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
@@ -146,6 +148,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_AC
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_COLUMN_TYPE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
@@ -1584,6 +1587,48 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testColumnCommentMaterializedView()
+    {
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN)) {
+            if (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
+                String viewName = "test_materialized_view_" + randomNameSuffix();
+                assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+                assertQueryFails("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'", "This connector does not support setting materialized view column comments");
+                assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+                return;
+            }
+            throw new SkipException("Skipping as connector does not support MATERIALIZED VIEW COLUMN COMMENT");
+        }
+
+        String viewName = "test_materialized_view_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".name IS 'new comment'");
+            assertThat(getColumnComment(viewName, "name")).isEqualTo("new comment");
+
+            // comment deleted
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".name IS NULL");
+            assertThat(getColumnComment(viewName, "name")).isEqualTo(null);
+
+            // comment set to non-empty value before verifying setting empty comment
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".name IS 'updated comment'");
+            assertThat(getColumnComment(viewName, "name")).isEqualTo("updated comment");
+
+            // refresh materialized view
+            assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 25);
+            assertThat(getColumnComment(viewName, "name")).isEqualTo("updated comment");
+
+            // comment set to empty
+            assertUpdate("COMMENT ON COLUMN " + viewName + ".name IS ''");
+            assertThat(getColumnComment(viewName, "name")).isEmpty();
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+        }
+    }
+
+    @Test
     public void testCompatibleTypeChangeForView()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
@@ -2780,6 +2825,68 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testRenameRowField()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        if (!hasBehavior(SUPPORTS_RENAME_FIELD)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_field_", "AS SELECT CAST(row(1) AS row(x integer)) AS col")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " RENAME COLUMN col.x TO x_renamed",
+                        "This connector does not support renaming fields");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_add_field_",
+                "AS SELECT CAST(row(1, row(10)) AS row(a integer, b row(x integer))) AS col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, b row(x integer))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col.a TO a_renamed");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a_renamed integer, b row(x integer))");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10)) AS row(a_renamed integer, b row(x integer)))");
+
+            // Rename a nested field
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col.b.x TO x_renamed");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a_renamed integer, b row(x_renamed integer))");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10)) AS row(a_renamed integer, b row(x_renamed integer)))");
+
+            // Specify not existing fields with IF EXISTS option
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN IF EXISTS col.a_missing TO a_missing_renamed");
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN IF EXISTS col.b.x_missing TO x_missing_renamed");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a_renamed integer, b row(x_renamed integer))");
+
+            // Specify existing fields without IF EXISTS option
+            assertQueryFails("ALTER TABLE " + table.getName() + " RENAME COLUMN col.a_renamed TO a_renamed", ".* Field 'a_renamed' already exists");
+        }
+    }
+
+    @Test
+    public void testRenameRowFieldCaseSensitivity()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_RENAME_FIELD));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_add_row_field_case_sensitivity_",
+                "AS SELECT CAST(row(1, 2) AS row(lower integer, \"UPPER\" integer)) AS col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(lower integer, UPPER integer)");
+
+            assertQueryFails("ALTER TABLE " + table.getName() + " RENAME COLUMN col.lower TO UPPER", ".* Field 'upper' already exists");
+            assertQueryFails("ALTER TABLE " + table.getName() + " RENAME COLUMN col.lower TO upper", ".* Field 'upper' already exists");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col.lower TO LOWER_RENAMED");
+            assertEquals(getColumnType(table.getName(), "col"), "row(lower_renamed integer, UPPER integer)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col.\"UPPER\" TO upper_renamed");
+            assertEquals(getColumnType(table.getName(), "col"), "row(lower_renamed integer, upper_renamed integer)");
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT CAST(row(1, 2) AS row(lower_renamed integer, upper_renamed integer))");
+        }
+    }
+
+    @Test
     public void testSetColumnType()
     {
         if (!hasBehavior(SUPPORTS_SET_COLUMN_TYPE)) {
@@ -2976,6 +3083,156 @@ public abstract class BaseConnectorTest
     protected void verifySetColumnTypeFailurePermissible(Throwable e)
     {
         throw new AssertionError("Unexpected set column type failure", e);
+    }
+
+    @Test
+    public void testSetFieldType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        if (!hasBehavior(SUPPORTS_SET_FIELD_TYPE)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_", "(col row(field int))")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE bigint",
+                        "This connector does not support setting field types");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_", "AS SELECT CAST(row(123) AS row(field integer)) AS col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(field integer)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE bigint");
+
+            assertEquals(getColumnType(table.getName(), "col"), "row(field bigint)");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("SELECT row(bigint '123')");
+        }
+    }
+
+    @Test(dataProvider = "setFieldTypesDataProvider")
+    public void testSetFieldTypes(SetColumnTypeSetup setup)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        TestTable table;
+        try {
+            table = new TestTable(
+                    getQueryRunner()::execute,
+                    "test_set_field_type_",
+                    " AS SELECT CAST(row(" + setup.sourceValueLiteral + ") AS row(field " + setup.sourceColumnType + ")) AS col");
+        }
+        catch (Exception e) {
+            verifyUnsupportedTypeException(e, setup.sourceColumnType);
+            throw new SkipException("Unsupported column type: " + setup.sourceColumnType);
+        }
+        try (table) {
+            Runnable setFieldType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE " + setup.newColumnType);
+            if (setup.unsupportedType) {
+                assertThatThrownBy(setFieldType::run)
+                        .satisfies(this::verifySetFieldTypeFailurePermissible);
+                return;
+            }
+            setFieldType.run();
+
+            assertEquals(getColumnType(table.getName(), "col"), "row(field " + setup.newColumnType + ")");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("SELECT row(" + setup.newValueLiteral + ")");
+        }
+    }
+
+    @DataProvider
+    public Object[][] setFieldTypesDataProvider()
+    {
+        return setColumnTypeSetupData().stream()
+                .map(this::filterSetFieldTypesDataProvider)
+                .flatMap(Optional::stream)
+                .collect(toDataProvider());
+    }
+
+    protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        return Optional.of(setup);
+    }
+
+    @Test
+    public void testSetFieldTypeCaseSensitivity()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_case_", " AS SELECT CAST(row(1) AS row(\"UPPER\" integer)) col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(UPPER integer)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.upper SET DATA TYPE bigint");
+            assertEquals(getColumnType(table.getName(), "col"), "row(UPPER bigint)");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT CAST(row(1) AS row(UPPER bigint))");
+        }
+    }
+
+    @Test
+    public void testSetFieldTypeWithNotNull()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_null_", "(col row(field int) NOT NULL)")) {
+            assertFalse(columnIsNullable(table.getName(), "col"));
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE bigint");
+            assertFalse(columnIsNullable(table.getName(), "col"));
+        }
+    }
+
+    @Test
+    public void testSetFieldTypeWithComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_field_type_comment_", "(col row(field int) COMMENT 'test comment')")) {
+            assertEquals(getColumnComment(table.getName(), "col"), "test comment");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE bigint");
+            assertEquals(getColumnComment(table.getName(), "col"), "test comment");
+        }
+    }
+
+    @Test
+    public void testSetFieldIncompatibleType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_set_invalid_field_type_",
+                "(row_col row(field varchar), nested_col row(field row(nested int)))")) {
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN row_col.field SET DATA TYPE row(nested integer)"))
+                    .satisfies(this::verifySetFieldTypeFailurePermissible);
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN row_col.field SET DATA TYPE integer"))
+                    .satisfies(this::verifySetFieldTypeFailurePermissible);
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN nested_col.field SET DATA TYPE integer"))
+                    .satisfies(this::verifySetFieldTypeFailurePermissible);
+        }
+    }
+
+    @Test
+    public void testSetFieldOutOfRangeType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_set_field_type_invalid_range_",
+                "AS SELECT CAST(row(9223372036854775807) AS row(field bigint)) AS col")) {
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE integer"))
+                    .satisfies(this::verifySetFieldTypeFailurePermissible);
+        }
+    }
+
+    protected void verifySetFieldTypeFailurePermissible(Throwable e)
+    {
+        throw new AssertionError("Unexpected set field type failure", e);
     }
 
     protected String getColumnType(String tableName, String columnName)

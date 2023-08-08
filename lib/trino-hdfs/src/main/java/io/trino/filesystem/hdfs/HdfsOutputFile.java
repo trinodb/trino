@@ -20,7 +20,9 @@ import io.trino.hdfs.CallStats;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.MemoryAwareFileSystem;
+import io.trino.hdfs.authentication.GenericExceptionAction;
 import io.trino.memory.context.AggregatedMemoryContext;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -70,14 +72,21 @@ class HdfsOutputFile
         FileSystem rawFileSystem = getRawFileSystem(fileSystem);
         try (TimeStat.BlockTimer ignored = createFileCallStat.time()) {
             if (rawFileSystem instanceof MemoryAwareFileSystem memoryAwareFileSystem) {
-                return environment.doAs(context.getIdentity(), () -> memoryAwareFileSystem.create(file, memoryContext));
+                return create(() -> memoryAwareFileSystem.create(file, memoryContext));
             }
-            return environment.doAs(context.getIdentity(), () -> fileSystem.create(file, overwrite));
+            return create(() -> fileSystem.create(file, overwrite));
         }
         catch (IOException e) {
             createFileCallStat.recordException(e);
             throw e;
         }
+    }
+
+    private OutputStream create(GenericExceptionAction<FSDataOutputStream, IOException> action)
+            throws IOException
+    {
+        FSDataOutputStream out = environment.doAs(context.getIdentity(), action);
+        return new HdfsOutputStream(out, environment, context);
     }
 
     @Override

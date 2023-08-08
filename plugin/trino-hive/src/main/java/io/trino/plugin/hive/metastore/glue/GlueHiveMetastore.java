@@ -231,7 +231,7 @@ public class GlueHiveMetastore
                 glueConfig,
                 directExecutor(),
                 new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), Optional.empty(), stats.newRequestMetricsCollector()),
+                createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), ImmutableSet.of(), stats.newRequestMetricsCollector()),
                 stats,
                 table -> true);
     }
@@ -430,6 +430,35 @@ public class GlueHiveMetastore
     @Override
     public List<String> getAllTables(String databaseName)
     {
+        return getTableNames(databaseName, tableFilter);
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    {
+        return getTableNames(databaseName, table -> parameterValue.equals(getTableParameters(table).get(parameterKey)));
+    }
+
+    @Override
+    public List<String> getAllViews(String databaseName)
+    {
+        return getTableNames(databaseName, VIEWS_FILTER);
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        return Optional.empty();
+    }
+
+    private List<String> getTableNames(String databaseName, Predicate<com.amazonaws.services.glue.model.Table> filter)
+    {
         try {
             List<String> tableNames = getPaginatedResults(
                     glueClient::getTables,
@@ -440,60 +469,10 @@ public class GlueHiveMetastore
                     stats.getGetTables())
                     .map(GetTablesResult::getTableList)
                     .flatMap(List::stream)
-                    .filter(tableFilter)
+                    .filter(filter)
                     .map(com.amazonaws.services.glue.model.Table::getName)
                     .collect(toImmutableList());
             return tableNames;
-        }
-        catch (EntityNotFoundException | AccessDeniedException e) {
-            // database does not exist or permission denied
-            return ImmutableList.of();
-        }
-        catch (AmazonServiceException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllTables()
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
-    {
-        return getAllViews(databaseName, table -> parameterValue.equals(getTableParameters(table).get(parameterKey)));
-    }
-
-    @Override
-    public List<String> getAllViews(String databaseName)
-    {
-        return getAllViews(databaseName, table -> true);
-    }
-
-    @Override
-    public Optional<List<SchemaTableName>> getAllViews()
-    {
-        return Optional.empty();
-    }
-
-    private List<String> getAllViews(String databaseName, Predicate<com.amazonaws.services.glue.model.Table> additionalFilter)
-    {
-        try {
-            List<String> views = getPaginatedResults(
-                    glueClient::getTables,
-                    new GetTablesRequest()
-                            .withDatabaseName(databaseName),
-                    GetTablesRequest::setNextToken,
-                    GetTablesResult::getNextToken,
-                    stats.getGetTables())
-                    .map(GetTablesResult::getTableList)
-                    .flatMap(List::stream)
-                    .filter(VIEWS_FILTER.and(additionalFilter))
-                    .map(com.amazonaws.services.glue.model.Table::getName)
-                    .collect(toImmutableList());
-            return views;
         }
         catch (EntityNotFoundException | AccessDeniedException e) {
             // database does not exist or permission denied
@@ -531,7 +510,6 @@ public class GlueHiveMetastore
         }
     }
 
-    // TODO: respect deleteData
     @Override
     public void dropDatabase(String databaseName, boolean deleteData)
     {

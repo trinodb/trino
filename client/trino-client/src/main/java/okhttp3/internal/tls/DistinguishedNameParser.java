@@ -164,7 +164,7 @@ final class DistinguishedNameParser
                 break;
             }
             else if (chars[pos] >= 'A' && chars[pos] <= 'F') {
-                chars[pos] += 32; //to low case
+                chars[pos] += (char) 32; // to low case
             }
 
             pos++;

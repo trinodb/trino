@@ -26,6 +26,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
+import org.apache.hive.hcatalog.data.JsonSerDe;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -117,13 +118,53 @@ public class TestS3SelectRecordCursorProvider
         assertTrue(recordCursor.isEmpty());
     }
 
+    @Test
+    public void testDisableExperimentalFeatures()
+    {
+        List<HiveColumnHandle> readerColumns = new ArrayList<>();
+        TupleDomain<HiveColumnHandle> effectivePredicate = TupleDomain.all();
+        S3SelectRecordCursorProvider s3SelectRecordCursorProvider = new S3SelectRecordCursorProvider(
+                new TestingHdfsEnvironment(new ArrayList<>()),
+                new TrinoS3ClientFactory(new HiveConfig()),
+                new HiveConfig().setS3SelectExperimentalPushdownEnabled(false));
+
+        Optional<ReaderRecordCursorWithProjections> csvRecordCursor = s3SelectRecordCursorProvider.createRecordCursor(
+                ConfigurationInstantiator.newEmptyConfiguration(),
+                SESSION,
+                Location.of("s3://fakeBucket/fakeObject.gz"),
+                0,
+                10,
+                10,
+                createTestingSchema(LazySimpleSerDe.class.getName()),
+                readerColumns,
+                effectivePredicate,
+                TESTING_TYPE_MANAGER,
+                true);
+        assertTrue(csvRecordCursor.isEmpty());
+
+        Optional<ReaderRecordCursorWithProjections> jsonRecordCursor = s3SelectRecordCursorProvider.createRecordCursor(
+                ConfigurationInstantiator.newEmptyConfiguration(),
+                SESSION,
+                Location.of("s3://fakeBucket/fakeObject.gz"),
+                0,
+                10,
+                10,
+                createTestingSchema(JsonSerDe.class.getName()),
+                readerColumns,
+                effectivePredicate,
+                TESTING_TYPE_MANAGER,
+                true);
+        assertTrue(jsonRecordCursor.isPresent());
+    }
+
     private static Optional<ReaderRecordCursorWithProjections> getRecordCursor(TupleDomain<HiveColumnHandle> effectivePredicate,
                                                                                List<HiveColumnHandle> readerColumns,
                                                                                boolean s3SelectPushdownEnabled)
     {
         S3SelectRecordCursorProvider s3SelectRecordCursorProvider = new S3SelectRecordCursorProvider(
                 new TestingHdfsEnvironment(new ArrayList<>()),
-                new TrinoS3ClientFactory(new HiveConfig()));
+                new TrinoS3ClientFactory(new HiveConfig()),
+                new HiveConfig().setS3SelectExperimentalPushdownEnabled(true));
 
         return s3SelectRecordCursorProvider.createRecordCursor(
                 ConfigurationInstantiator.newEmptyConfiguration(),
@@ -141,14 +182,18 @@ public class TestS3SelectRecordCursorProvider
 
     private static Properties createTestingSchema()
     {
+        return createTestingSchema(LazySimpleSerDe.class.getName());
+    }
+
+    private static Properties createTestingSchema(String serdeClassName)
+    {
         List<HiveColumnHandle> schemaColumns = getAllColumns();
         Properties schema = new Properties();
         String columnNames = buildPropertyFromColumns(schemaColumns, HiveColumnHandle::getName);
         String columnTypeNames = buildPropertyFromColumns(schemaColumns, column -> column.getHiveType().getTypeInfo().getTypeName());
         schema.setProperty(LIST_COLUMNS, columnNames);
         schema.setProperty(LIST_COLUMN_TYPES, columnTypeNames);
-        String deserializerClassName = LazySimpleSerDe.class.getName();
-        schema.setProperty(SERIALIZATION_LIB, deserializerClassName);
+        schema.setProperty(SERIALIZATION_LIB, serdeClassName);
         return schema;
     }
 

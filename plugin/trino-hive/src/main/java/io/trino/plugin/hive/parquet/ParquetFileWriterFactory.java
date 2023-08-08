@@ -98,10 +98,6 @@ public class ParquetFileWriterFactory
             boolean useAcidSchema,
             WriterKind writerKind)
     {
-        if (!HiveSessionProperties.isParquetOptimizedWriterEnabled(session)) {
-            return Optional.empty();
-        }
-
         if (!MAPRED_PARQUET_OUTPUT_FORMAT_CLASS.equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
         }

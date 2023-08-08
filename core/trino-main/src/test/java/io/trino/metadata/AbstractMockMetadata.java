@@ -295,6 +295,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment)
     {
         throw new UnsupportedOperationException();
@@ -302,6 +308,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void renameColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle source, String target)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target)
     {
         throw new UnsupportedOperationException();
     }
@@ -332,6 +344,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setFieldType(Session session, TableHandle tableHandle, List<String> fieldPath, Type type)
     {
         throw new UnsupportedOperationException();
     }

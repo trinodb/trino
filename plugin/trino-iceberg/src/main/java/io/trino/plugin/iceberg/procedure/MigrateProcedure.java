@@ -97,6 +97,8 @@ import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -311,6 +313,9 @@ public class MigrateProcedure
         if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
             // TODO https://github.com/trinodb/trino/issues/17583 Add support for these complex types
             throw new TrinoException(NOT_SUPPORTED, "Migrating %s type is not supported".formatted(type));
+        }
+        if (type.equals(TINYINT) || type.equals(SMALLINT)) {
+            return Types.IntegerType.get();
         }
         return toIcebergTypeForNewColumn(type, nextFieldId);
     }

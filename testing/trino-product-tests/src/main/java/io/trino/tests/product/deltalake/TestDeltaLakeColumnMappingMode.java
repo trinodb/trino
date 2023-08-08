@@ -50,6 +50,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableC
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertyOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -403,6 +404,11 @@ public class TestDeltaLakeColumnMappingMode
                     .containsOnly(ImmutableList.of(
                             row("mixed_case", null, null, 0.0, null, "0", "9"),
                             row(null, null, null, null, 2.0, null, null)));
+
+            // Verify column comments
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".mixed_case IS 'test column comment'");
+            assertEquals(getColumnCommentOnTrino("default", tableName, "mixed_case"), "test column comment");
+            assertEquals(getColumnCommentOnDelta("default", tableName, "mixed_case"), "test column comment");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -686,6 +692,35 @@ public class TestDeltaLakeColumnMappingMode
             // 5 comes from 1 (a_number) + 1 (a_array) + 1 (a_map) + 2 (column & field of a_row)
             assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
                     .isEqualTo("5");
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testTrinoColumnMappingModeAddColumnWithExistingNonLowerCaseColumn(String mode)
+    {
+        String tableName = "test_dl_column_mapping_mode_add_column_existing_non_lowercase_" + randomNameSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                " (UPPER_CASE INT)" +
+                " USING delta" +
+                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                " TBLPROPERTIES (" +
+                " 'delta.columnMapping.mode' = '" + mode + "'" +
+                ")");
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES 1");
+
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col VARCHAR");
+
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, null));
+            assertThat(getColumnNamesOnDelta("default", tableName))
+                    .containsExactly("UPPER_CASE", "new_col");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -1385,16 +1420,16 @@ public class TestDeltaLakeColumnMappingMode
 
             // Column mapping mode 'none' is tested in TestDeltaLakeDatabricksChangeDataFeedCompatibility
             assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + targetTableName + " SET regionkey = 10"))
-                    .hasMessageContaining("Unsupported column mapping mode for tables with change data feed enabled: " + mode);
+                    .hasMessageContaining("Unsupported column mapping mode for tables with change data feed enabled: " + mode.toUpperCase(ENGLISH));
             assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + targetTableName))
-                    .hasMessageContaining("Unsupported column mapping mode for tables with change data feed enabled: " + mode);
+                    .hasMessageContaining("Unsupported column mapping mode for tables with change data feed enabled: " + mode.toUpperCase(ENGLISH));
             assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + targetTableName + " cdf USING delta.default." + sourceTableName + " n " +
                     "ON (cdf.nationkey = n.nationkey) " +
                     "WHEN MATCHED " +
                     "THEN UPDATE SET nationkey = (cdf.nationkey + n.nationkey + n.regionkey) " +
                     "WHEN NOT MATCHED " +
                     "THEN INSERT (nationkey, name, regionkey) VALUES (n.nationkey, n.name, n.regionkey)"))
-                    .hasMessageContaining("Unsupported column mapping mode for tables with change data feed enabled: " + mode);
+                    .hasMessageContaining("Unsupported column mapping mode for tables with change data feed enabled: " + mode.toUpperCase(ENGLISH));
 
             assertThat(onDelta().executeQuery("SELECT nationkey, name, regionkey, _change_type, _commit_version " +
                     "FROM table_changes('default." + targetTableName + "', 0)"))
@@ -1473,6 +1508,32 @@ public class TestDeltaLakeColumnMappingMode
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testDropLastNonPartitionColumnWithColumnMappingMode(String mode)
+    {
+        String tableName = "test_drop_column_" + randomNameSuffix();
+        String tableLocation = "s3://" + bucketName + "/databricks-compatibility-test-" + tableName;
+
+        onTrino().executeQuery("CREATE TABLE delta.default." + tableName +
+                " WITH (column_mapping_mode = '" + mode + "', partitioned_by = ARRAY['part'], location = '" + tableLocation + "')" +
+                "AS SELECT 1 data, 'part#1' part");
+        try {
+            assertThatThrownBy(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " DROP COLUMN data"))
+                    .hasMessageContaining("Dropping the last non-partition column is unsupported");
+
+            // TODO https://github.com/delta-io/delta/issues/1929 Delta Lake disallows creating tables with all partitioned column, but allows dropping the non-partition column
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " DROP COLUMN data");
+
+            assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .hasMessageContaining("Index 0 out of bounds for length 0");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName).getOnlyValue()).isNull();
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
         }
     }
 

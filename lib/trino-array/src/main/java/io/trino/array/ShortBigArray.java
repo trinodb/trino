@@ -13,6 +13,7 @@
  */
 package io.trino.array;
 
+import com.google.common.primitives.Shorts;
 import io.airlift.slice.SizeOf;
 
 import java.util.Arrays;
@@ -102,7 +103,7 @@ public final class ShortBigArray
      */
     public void add(long index, long value)
     {
-        array[segment(index)][offset(index)] += value;
+        array[segment(index)][offset(index)] += Shorts.checkedCast(value);
     }
 
     /**

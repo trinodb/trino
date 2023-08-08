@@ -189,7 +189,7 @@ public class FunctionManager
         checkArgument(convention.getArgumentConventions().size() == boundSignature.getArgumentTypes().size(),
                 "Expected %s arguments, but got %s", boundSignature.getArgumentTypes().size(), convention.getArgumentConventions().size());
 
-        int expectedParameterCount = convention.getArgumentConventions().stream()
+        long expectedParameterCount = convention.getArgumentConventions().stream()
                 .mapToInt(InvocationArgumentConvention::getParameterCount)
                 .sum();
         expectedParameterCount += methodType.parameterList().stream().filter(ConnectorSession.class::equals).count();

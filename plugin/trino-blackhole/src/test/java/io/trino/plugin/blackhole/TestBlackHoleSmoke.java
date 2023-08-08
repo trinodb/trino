@@ -38,11 +38,13 @@ import static io.trino.plugin.blackhole.BlackHoleConnector.PAGE_PROCESSING_DELAY
 import static io.trino.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
 import static io.trino.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
 import static io.trino.plugin.blackhole.BlackHoleQueryRunner.createQueryRunner;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -172,6 +174,102 @@ public class TestBlackHoleSmoke
         assertEquals(row.getField(3), "****************");
 
         assertThatQueryDoesNotReturnValues("DROP TABLE nation");
+    }
+
+    @Test
+    public void testCreateViewWithComment()
+    {
+        String viewName = "test_crerate_view_with_comment_" + randomNameSuffix();
+        queryRunner.execute("CREATE VIEW " + viewName + " COMMENT 'test comment' AS SELECT * FROM tpch.tiny.nation");
+
+        assertThat(getTableComment(viewName)).isEqualTo("test comment");
+
+        queryRunner.execute("DROP VIEW " + viewName);
+    }
+
+    @Test
+    public void testCommentOnView()
+    {
+        String viewName = "test_comment_on_view_" + randomNameSuffix();
+        queryRunner.execute("CREATE VIEW " + viewName + " AS SELECT * FROM tpch.tiny.nation");
+
+        // comment set
+        queryRunner.execute("COMMENT ON VIEW " + viewName + " IS 'new comment'");
+        assertThat(getTableComment(viewName)).isEqualTo("new comment");
+
+        // comment deleted
+        queryRunner.execute("COMMENT ON VIEW " + viewName + " IS NULL");
+        assertThat(getTableComment(viewName)).isEqualTo(null);
+
+        // comment set to non-empty value before verifying setting empty comment
+        queryRunner.execute("COMMENT ON VIEW " + viewName + " IS 'updated comment'");
+        assertThat(getTableComment(viewName)).isEqualTo("updated comment");
+
+        // comment set to empty
+        queryRunner.execute("COMMENT ON VIEW " + viewName + " IS ''");
+        assertThat(getTableComment(viewName)).isEqualTo("");
+
+        queryRunner.execute("DROP VIEW " + viewName);
+    }
+
+    private String getTableComment(String tableName)
+    {
+        return (String) queryRunner.execute("SELECT comment FROM system.metadata.table_comments " +
+                "WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA AND table_name = '" + tableName + "'")
+                .getOnlyValue();
+    }
+
+    @Test
+    public void testMaterializedView()
+    {
+        String viewName = "test_materialized_view_" + randomNameSuffix();
+        queryRunner.execute("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM tpch.tiny.nation");
+
+        try {
+            // reading
+            MaterializedResult rows = queryRunner.execute("SELECT * FROM " + viewName);
+            assertEquals(rows.getRowCount(), 25);
+
+            // listing
+            assertThat(queryRunner.execute("SHOW TABLES").getOnlyColumnAsSet())
+                    .contains(viewName);
+        }
+        finally {
+            assertThatQueryDoesNotReturnValues("DROP MATERIALIZED VIEW " + viewName);
+        }
+    }
+
+    @Test
+    public void testCommentMaterializedViewColumn()
+    {
+        String viewName = "test_materialized_view_" + randomNameSuffix();
+        try {
+            queryRunner.execute("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM tpch.tiny.nation");
+
+            // comment set
+            queryRunner.execute("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'");
+            assertThat(getColumnComment(viewName, "regionkey")).isEqualTo("new region key comment");
+
+            // comment updated
+            queryRunner.execute("COMMENT ON COLUMN " + viewName + ".regionkey IS 'updated region key comment'");
+            assertThat(getColumnComment(viewName, "regionkey")).isEqualTo("updated region key comment");
+
+            // comment set to empty
+            queryRunner.execute("COMMENT ON COLUMN " + viewName + ".regionkey IS ''");
+            assertThat(getColumnComment(viewName, "regionkey")).isEqualTo("");
+
+            // comment deleted
+            queryRunner.execute("COMMENT ON COLUMN " + viewName + ".regionkey IS NULL");
+            assertThat(getColumnComment(viewName, "regionkey")).isEqualTo(null);
+        }
+        finally {
+            assertThatQueryDoesNotReturnValues("DROP MATERIALIZED VIEW " + viewName);
+        }
+    }
+
+    private String getColumnComment(String tableName, String columnName)
+    {
+        return (String) queryRunner.execute(format("SELECT comment FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'", "default", tableName, columnName)).getOnlyValue();
     }
 
     @Test

@@ -20,6 +20,7 @@ import io.trino.orc.checkpoint.LongStreamV1Checkpoint;
 import java.io.IOException;
 
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 
 public class LongInputStreamV1
         implements LongInputStream
@@ -227,7 +228,7 @@ public class LongInputStreamV1
             if (used == numLiterals) {
                 readValues();
             }
-            long consume = min(items, numLiterals - used);
+            int consume = toIntExact(min(items, numLiterals - used));
             used += consume;
             items -= consume;
         }
