@@ -23,13 +23,11 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.ArraySubscriptOperator;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.FunctionNullability;
@@ -52,7 +50,6 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
-import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
@@ -164,7 +161,6 @@ import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsRefere
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.isMatchAllPattern;
 import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
-import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
@@ -1269,29 +1265,6 @@ public class ExpressionInterpreter
                 }
                 throw e;
             }
-        }
-
-        @Override
-        protected Object visitArray(Array node, Object context)
-        {
-            Type elementType = ((ArrayType) type(node)).getElementType();
-            BlockBuilder arrayBlockBuilder = elementType.createBlockBuilder(null, node.getValues().size());
-
-            for (Expression expression : node.getValues()) {
-                Object value = processWithExceptionHandling(expression, context);
-                if (value instanceof Expression) {
-                    checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
-                    return visitFunctionCall(
-                            FunctionCallBuilder.resolve(session, metadata)
-                                    .setName(QualifiedName.of(ArrayConstructor.NAME))
-                                    .setArguments(types(node.getValues()), node.getValues())
-                                    .build(),
-                            context);
-                }
-                writeNativeValue(elementType, arrayBlockBuilder, value);
-            }
-
-            return arrayBlockBuilder.build();
         }
 
         @Override
