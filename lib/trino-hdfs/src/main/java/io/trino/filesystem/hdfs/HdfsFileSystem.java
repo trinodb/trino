@@ -261,6 +261,32 @@ class HdfsFileSystem
         });
     }
 
+    @Override
+    public void renameDirectory(Location source, Location target)
+            throws IOException
+    {
+        stats.getRenameDirectoryCalls().newCall();
+        Path sourcePath = hadoopPath(source);
+        Path targetPath = hadoopPath(target);
+        FileSystem fileSystem = environment.getFileSystem(context, sourcePath);
+
+        environment.doAs(context.getIdentity(), () -> {
+            try (TimeStat.BlockTimer ignored = stats.getRenameDirectoryCalls().time()) {
+                if (!fileSystem.getFileStatus(sourcePath).isDirectory()) {
+                    throw new IOException("Source location is not a directory");
+                }
+                if (!fileSystem.rename(sourcePath, targetPath)) {
+                    throw new IOException("rename failed");
+                }
+                return null;
+            }
+            catch (IOException e) {
+                stats.getRenameDirectoryCalls().recordException(e);
+                throw new IOException("Directory rename from %s to %s failed: %s".formatted(source, target, e.getMessage()), e);
+            }
+        });
+    }
+
     private boolean hierarchical(FileSystem fileSystem, Location rootLocation)
     {
         Boolean knownResult = KNOWN_HIERARCHICAL_FILESYSTEMS.get(fileSystem.getScheme());
