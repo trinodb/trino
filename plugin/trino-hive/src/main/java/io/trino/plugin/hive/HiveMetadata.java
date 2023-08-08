@@ -615,8 +615,8 @@ public class HiveMetadata
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hive table '%s'", tableName));
         }
 
-        boolean isTrinoView = isPrestoView(table);
-        boolean isHiveView = !isTrinoView && isHiveOrPrestoView(table);
+        boolean isTrinoView = isPrestoView(table) && !isTrinoMaterializedView(table);
+        boolean isHiveView = isHiveOrPrestoView(table) && !isTrinoView && !isTrinoMaterializedView(table);
         boolean isTrinoMaterializedView = isTrinoMaterializedView(table);
         if (isHiveView && translateHiveViews) {
             // Produce metadata for a (translated) Hive view as if it was a table. This is incorrect from ConnectorMetadata.streamTableColumns
