@@ -13,7 +13,10 @@
  */
 package io.trino.type;
 
+import org.junit.jupiter.api.Test;
+
 import static io.trino.type.UnknownType.UNKNOWN;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUnknownType
         extends AbstractTestType
@@ -35,15 +38,10 @@ public class TestUnknownType
         throw new UnsupportedOperationException();
     }
 
-    @Override
-    public void testPreviousValue()
+    @Test
+    public void testRange()
     {
-        // There is no value of this type, so getPreviousValue() cannot be invoked
-    }
-
-    @Override
-    public void testNextValue()
-    {
-        // There is no value of this type, so getNextValue() cannot be invoked
+        assertThat(type.getRange())
+                .isEmpty();
     }
 }

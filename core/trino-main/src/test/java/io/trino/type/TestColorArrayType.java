@@ -16,6 +16,7 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -23,6 +24,8 @@ import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.type.ColorType.COLOR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestColorArrayType
         extends AbstractTestType
@@ -46,5 +49,28 @@ public class TestColorArrayType
     protected Object getGreaterValue(Object value)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThatThrownBy(() -> type.getPreviousValue(getSampleValue()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Type is not orderable: " + type);
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThatThrownBy(() -> type.getNextValue(getSampleValue()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Type is not orderable: " + type);
     }
 }
