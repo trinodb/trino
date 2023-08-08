@@ -564,7 +564,7 @@ public final class MetadataManager
     }
 
     @Override
-    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
         requireNonNull(prefix, "prefix is null");
 
@@ -607,6 +607,7 @@ public final class MetadataManager
                         // Not found, or getting metadata failed.
                         return Optional.empty();
                     })
+                    .filter(relationColumnsMetadata -> relationFilter.apply(ImmutableSet.of(relationColumnsMetadata.name())).contains(relationColumnsMetadata.name()))
                     .map(relationColumnsMetadata -> ImmutableList.of(tableColumnsMetadata(catalogName, relationColumnsMetadata)))
                     .orElse(ImmutableList.of());
         }
@@ -621,8 +622,7 @@ public final class MetadataManager
                 }
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-                // TODO relation filter
-                metadata.streamRelationColumns(connectorSession, schemaName, UnaryOperator.identity())
+                metadata.streamRelationColumns(connectorSession, schemaName, relationFilter)
                         .forEachRemaining(relationColumnsMetadata -> {
                             if (!isExternalInformationSchema(catalogHandle, relationColumnsMetadata.name().getSchemaName())) {
                                 // putIfAbsent to resolve any potential conflicts between system tables and regular tables
