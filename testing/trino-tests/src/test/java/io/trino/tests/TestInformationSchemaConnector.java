@@ -206,13 +206,11 @@ public class TestInformationSchemaConnector
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'test_catalog' AND table_schema = 'wrong_schema1' AND table_name = 'test_table1'",
                 "VALUES 0",
                 new MetadataCallsCount()
-                        .withListTablesCount(1)
                         .withGetTableHandleCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog IN ('wrong', 'test_catalog') AND table_schema = 'wrong_schema1' AND table_name = 'test_table1'",
                 "VALUES 0",
                 new MetadataCallsCount()
-                        .withListTablesCount(1)
                         .withGetTableHandleCount(1));
         assertMetadataCalls(
                 "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 1)",
