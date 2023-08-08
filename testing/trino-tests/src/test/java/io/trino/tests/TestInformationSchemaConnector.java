@@ -37,6 +37,31 @@ public class TestInformationSchemaConnector
 {
     private final CountingMockConnector countingMockConnector = new CountingMockConnector();
 
+    @Override
+    protected DistributedQueryRunner createQueryRunner()
+            throws Exception
+    {
+        Session session = testSessionBuilder().build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setNodeCount(1)
+                .build();
+        try {
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
+
+            queryRunner.installPlugin(countingMockConnector.getPlugin());
+            queryRunner.createCatalog("test_catalog", "mock", ImmutableMap.of());
+
+            queryRunner.installPlugin(new FailingMockConnectorPlugin());
+            queryRunner.createCatalog("broken_catalog", "failing_mock", ImmutableMap.of());
+            return queryRunner;
+        }
+        catch (Exception e) {
+            queryRunner.close();
+            throw e;
+        }
+    }
+
     @Test
     public void testBasic()
     {
@@ -246,31 +271,6 @@ public class TestInformationSchemaConnector
         assertQueryFails(
                 "SELECT * FROM broken_catalog.information_schema.columns",
                 "Error listing table columns for catalog broken_catalog: Catalog is broken");
-    }
-
-    @Override
-    protected DistributedQueryRunner createQueryRunner()
-            throws Exception
-    {
-        Session session = testSessionBuilder().build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setNodeCount(1)
-                .build();
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            queryRunner.installPlugin(countingMockConnector.getPlugin());
-            queryRunner.createCatalog("test_catalog", "mock", ImmutableMap.of());
-
-            queryRunner.installPlugin(new FailingMockConnectorPlugin());
-            queryRunner.createCatalog("broken_catalog", "failing_mock", ImmutableMap.of());
-            return queryRunner;
-        }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
-        }
     }
 
     private void assertMetadataCalls(String actualSql, String expectedSql, MetadataCallsCount expectedMetadataCallsCount)
