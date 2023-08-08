@@ -16,11 +16,13 @@ package io.trino.type;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestShortTimestampWithTimeZoneType
         extends AbstractTestType
@@ -52,5 +54,26 @@ public class TestShortTimestampWithTimeZoneType
     {
         // time zone doesn't matter for ordering
         return packDateTimeWithZone(unpackMillisUtc((Long) value) + 10, getTimeZoneKeyForOffset(33));
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

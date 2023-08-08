@@ -19,10 +19,12 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlDecimal;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 
 import static io.trino.spi.type.Decimals.writeBigDecimal;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongDecimalType
         extends AbstractTestType
@@ -68,5 +70,26 @@ public class TestLongDecimalType
     private static BigDecimal toBigDecimal(Int128 value, int scale)
     {
         return new BigDecimal(value.toBigInteger(), scale);
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }
