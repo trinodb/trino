@@ -174,7 +174,7 @@ public interface Metadata
      * Gets the columns metadata for all tables that match the specified prefix.
      * TODO: consider returning a stream for more efficient processing
      */
-    List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix);
+    List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> relationFilter);
 
     /**
      * Gets the comments metadata for all relations (tables, views, materialized views) that match the specified prefix.
