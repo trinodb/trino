@@ -1271,7 +1271,7 @@ public class TestTrinoDatabaseMetaData
                         .mapToObj(i -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + i, "varchar"))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
-                        .withListTablesCount(1)
+                        .withGetTableHandleCount(1)
                         .withGetColumnsCount(1));
 
         // Equality predicate on catalog name, schema name, table name and column name
@@ -1282,7 +1282,7 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
                 new MetadataCallsCount()
-                        .withListTablesCount(1)
+                        .withGetTableHandleCount(1)
                         .withGetColumnsCount(1));
 
         // Equality predicate on catalog name, LIKE predicate on schema name, table name and column name
@@ -1294,7 +1294,8 @@ public class TestTrinoDatabaseMetaData
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(2)
+                        .withListTablesCount(1)
+                        .withGetTableHandleCount(1)
                         .withGetColumnsCount(1));
 
         // LIKE predicate on schema name and table name, but no predicate on catalog name
@@ -1308,7 +1309,8 @@ public class TestTrinoDatabaseMetaData
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(2)
+                        .withListTablesCount(1)
+                        .withGetTableHandleCount(1)
                         .withGetColumnsCount(1));
 
         // LIKE predicate on schema name, but no predicate on catalog name and table name
@@ -1340,8 +1342,8 @@ public class TestTrinoDatabaseMetaData
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
                         .withListSchemasCount(5)
-                        .withListTablesCount(4)
-                        .withGetTableHandleCount(8)
+                        .withListTablesCount(2)
+                        .withGetTableHandleCount(10)
                         .withGetColumnsCount(2));
 
         // Equality predicate on schema name and table name, but no predicate on catalog name
@@ -1354,7 +1356,7 @@ public class TestTrinoDatabaseMetaData
                         .mapToObj(i -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + i, "varchar"))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
-                        .withListTablesCount(1)
+                        .withGetTableHandleCount(1)
                         .withGetColumnsCount(1));
 
         // catalog does not exist
@@ -1374,7 +1376,7 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
                 new MetadataCallsCount()
-                        .withListTablesCount(1));
+                        .withGetTableHandleCount(1));
 
         // schema does not exist
         assertMetadataCalls(
@@ -1477,7 +1479,7 @@ public class TestTrinoDatabaseMetaData
                             .mapToObj(i -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + i, "varchar"))
                             .collect(toImmutableList()),
                     new MetadataCallsCount()
-                            .withListTablesCount(1)
+                            .withGetTableHandleCount(1)
                             .withGetColumnsCount(1));
 
             // getColumns's schema, table and column name patterns treated as literals
@@ -1488,7 +1490,7 @@ public class TestTrinoDatabaseMetaData
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
                     new MetadataCallsCount()
-                            .withListTablesCount(1)
+                            .withGetTableHandleCount(1)
                             .withGetColumnsCount(1));
 
             // no matches in getColumns call as table name pattern treated as literal
@@ -1499,7 +1501,7 @@ public class TestTrinoDatabaseMetaData
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                     list(),
                     new MetadataCallsCount()
-                            .withListTablesCount(1));
+                            .withGetTableHandleCount(1));
         }
     }
 
