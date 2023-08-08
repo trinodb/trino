@@ -430,13 +430,6 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        checkArgument(context == null, "context must be null");
-        accessControl.checkCanShowRoleAuthorizationDescriptors(securityContext, Optional.of(catalogName));
-    }
-
-    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context)
     {
         checkArgument(context == null, "context must be null");

@@ -607,12 +607,6 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        // allow, no roles are supported so show will always be empty
-    }
-
-    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context)
     {
         // allow, no roles are supported so show will always be empty

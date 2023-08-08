@@ -373,11 +373,6 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-    }
-
-    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context)
     {
     }
