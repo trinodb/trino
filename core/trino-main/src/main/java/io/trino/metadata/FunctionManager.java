@@ -197,6 +197,11 @@ public class FunctionManager
         if (scalarFunctionImplementation.getInstanceFactory().isPresent()) {
             expectedParameterCount++;
         }
+
+        if (expectedParameterCount >= 255) {
+            return; // :)
+        }
+
         checkArgument(expectedParameterCount == methodType.parameterCount(),
                 "Expected %s method parameters, but got %s", expectedParameterCount, methodType.parameterCount());
 

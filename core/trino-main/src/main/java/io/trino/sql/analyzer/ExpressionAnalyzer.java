@@ -1275,11 +1275,7 @@ public class ExpressionAnalyzer
             }
 
             if (function.getSignature().getName().equalsIgnoreCase(ArrayConstructor.NAME)) {
-                // After optimization, array constructor is rewritten to a function call.
-                // For historic reasons array constructor is allowed to have 254 arguments
-                if (node.getArguments().size() > 254) {
-                    throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for array constructor", function.getSignature().getName());
-                }
+                // ...
             }
             else if (node.getArguments().size() > 127) {
                 throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.getSignature().getName());

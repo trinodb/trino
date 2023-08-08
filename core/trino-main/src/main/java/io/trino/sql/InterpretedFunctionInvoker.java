@@ -97,6 +97,11 @@ public class InterpretedFunctionInvoker
             actualArguments.add(argument);
         }
 
+        if (actualArguments.size() >= 255 && method.type().parameterCount() == 1) {
+            // varargs
+            actualArguments = ImmutableList.of(actualArguments.toArray());
+        }
+
         try {
             return method.invokeWithArguments(actualArguments);
         }
