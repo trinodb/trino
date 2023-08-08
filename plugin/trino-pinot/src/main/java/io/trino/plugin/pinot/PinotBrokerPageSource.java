@@ -155,5 +155,10 @@ public class PinotBrokerPageSource
     }
 
     @Override
+    public Metrics getMetrics() {
+        return new Metrics(pinotClient.getMetrics(session, query));
+    }
+
+    @Override
     public void close() {}
 }

@@ -588,6 +588,15 @@ public class PinotClient
         return fromResultTable(response, columnHandles, query.getGroupByClauses());
     }
 
+    public Map<String, Metric<?>> getMetrics(ConnectorSession session, PinotQueryInfo query)
+    {
+        BrokerResponseNative response = submitBrokerQueryJson(session, query);
+        Map<String, Metric<?>> metrics = ImmutableMap.of(
+                "numDocsScanned", new LongCount(response.getNumDocsScanned())
+        );
+        return metrics;
+    }
+
     @VisibleForTesting
     public static ResultsIterator fromResultTable(BrokerResponseNative brokerResponse, List<PinotColumnHandle> columnHandles, int groupByClauses)
     {
