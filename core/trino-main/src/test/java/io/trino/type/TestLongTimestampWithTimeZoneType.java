@@ -101,6 +101,8 @@ public class TestLongTimestampWithTimeZoneType
 
         assertThat(type.getNextValue(getSampleValue()))
                 .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, 1_000_000, getTimeZoneKeyForOffset(0))));
+        assertThat(type.getNextValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1483228799999L, 999_000_000, getTimeZoneKeyForOffset(0))))
+                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1483228800000L, 000_000_000, getTimeZoneKeyForOffset(0))));
 
         assertThat(type.getNextValue(previousToMaxValue))
                 .isEqualTo(Optional.of(maxValue));
