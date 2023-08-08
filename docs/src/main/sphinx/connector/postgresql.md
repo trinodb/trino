@@ -51,6 +51,21 @@ determine the user credentials for the connection, often a service user. You can
 use {doc}`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
+### Access to system tables
+
+The PostgreSQL connector supports reading [PostgreSQ catalog
+tables](https://www.postgresql.org/docs/current/catalogs.html), such as
+`pg_namespace`. The functionality is turned off by default, and can be enabled
+using the `postgresql.include-system-tables` configuration property.
+
+You can see more details in the `pg_catalog` schema in the `example` catalog,
+for example about the `pg_namespace` system table:
+
+```sql
+SHOW TABLES FROM example.pg_catalog;
+SELECT * FROM example.pg_catalog.pg_namespace;
+```
+
 (postgresql-tls)=
 
 ### Connection security
