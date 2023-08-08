@@ -470,14 +470,6 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanShowRoleAuthorizationDescriptors(context);
-        }
-    }
-
-    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

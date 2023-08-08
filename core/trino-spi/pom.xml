@@ -228,6 +228,16 @@
                                     </old>
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.connector.ConnectorAccessControl::checkCanShowRoleAuthorizationDescriptors(io.trino.spi.connector.ConnectorSecurityContext)</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.security.SystemAccessControl::checkCanShowRoleAuthorizationDescriptors(io.trino.spi.security.SystemSecurityContext)</old>
+                                </item>
                                 <!-- Any exclusions below can be deleted after each release -->
                             </differences>
                         </revapi.differences>
