@@ -21,7 +21,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -31,7 +30,6 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.MockConnectorFactory.Builder.defaultGetColumns;
 import static io.trino.connector.MockConnectorFactory.Builder.defaultGetTableHandle;
@@ -41,13 +39,13 @@ public class CountingMockConnector
 {
     private final Object lock = new Object();
 
-    private final List<String> tablesTestSchema1 = IntStream.range(0, 1000)
+    private final Set<String> tablesTestSchema1 = IntStream.range(0, 1000)
             .mapToObj(i -> "test_table" + i)
-            .collect(toImmutableList());
+            .collect(toImmutableSet());
 
-    private final List<String> tablesTestSchema2 = IntStream.range(0, 2000)
+    private final Set<String> tablesTestSchema2 = IntStream.range(0, 2000)
             .mapToObj(i -> "test_table" + i)
-            .collect(toImmutableList());
+            .collect(toImmutableSet());
 
     private final Set<RoleGrant> roleGrants = IntStream.range(0, 100)
             .mapToObj(i -> new RoleGrant(new TrinoPrincipal(USER, "user" + (i == 0 ? "" : i)), "role" + i / 2, false))
@@ -113,15 +111,30 @@ public class CountingMockConnector
                 .withListTables((connectorSession, schemaName) -> {
                     listTablesCallsCounter.incrementAndGet();
                     if (schemaName.equals("test_schema1")) {
-                        return tablesTestSchema1;
+                        return ImmutableList.copyOf(tablesTestSchema1);
                     }
                     if (schemaName.equals("test_schema2")) {
-                        return tablesTestSchema2;
+                        return ImmutableList.copyOf(tablesTestSchema2);
                     }
                     return ImmutableList.of();
                 })
                 .withGetTableHandle((connectorSession, schemaTableName) -> {
                     getTableHandleCallsCounter.incrementAndGet();
+                    switch (schemaTableName.getSchemaName()) {
+                        case "test_schema1" -> {
+                            if (!tablesTestSchema1.contains(schemaTableName.getTableName())) {
+                                return null;
+                            }
+                        }
+                        case "test_schema2" -> {
+                            if (!tablesTestSchema2.contains(schemaTableName.getTableName())) {
+                                return null;
+                            }
+                        }
+                        default -> {
+                            return null;
+                        }
+                    }
                     return defaultGetTableHandle().apply(connectorSession, schemaTableName);
                 })
                 .withGetColumns(schemaTableName -> {
