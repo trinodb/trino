@@ -15,6 +15,8 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultiset;
+import com.google.common.collect.Multiset;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -23,24 +25,25 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.CountingMockConnector;
-import io.trino.testing.CountingMockConnector.MetadataCallsCount;
 import io.trino.testing.DistributedQueryRunner;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestInformationSchemaConnector
         extends AbstractTestQueryFramework
 {
-    private final CountingMockConnector countingMockConnector = new CountingMockConnector();
+    private CountingMockConnector countingMockConnector;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
+        countingMockConnector = closeAfterClass(new CountingMockConnector());
         Session session = testSessionBuilder().build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(1)
@@ -60,6 +63,12 @@ public class TestInformationSchemaConnector
             queryRunner.close();
             throw e;
         }
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanUp()
+    {
+        countingMockConnector = null; // closed by closeAfterClass
     }
 
     @Test
@@ -144,107 +153,171 @@ public class TestInformationSchemaConnector
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.schemata WHERE schema_name LIKE 'test_sch_ma1'",
                 "VALUES 1",
-                new MetadataCallsCount()
-                        .withListSchemasCount(1));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listSchemaNames")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.schemata WHERE schema_name LIKE 'test_sch_ma1' AND schema_name IN ('test_schema1', 'test_schema2')",
                 "VALUES 1",
-                new MetadataCallsCount()
-                        .withListSchemasCount(1));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listSchemaNames")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables",
                 "VALUES 3008",
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listTables")
+                        .add("ConnectorMetadata.listViews")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1'",
                 "VALUES 1000",
-                new MetadataCallsCount()
-                        .withListTablesCount(1));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .add("ConnectorMetadata.listViews(schema=test_schema1)")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1'",
                 "VALUES 1000",
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(1));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listSchemaNames")
+                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .add("ConnectorMetadata.listViews(schema=test_schema1)")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1' AND table_schema IN ('test_schema1', 'test_schema2')",
                 "VALUES 1000",
-                new MetadataCallsCount()
-                        .withListTablesCount(2));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .add("ConnectorMetadata.listViews(schema=test_schema1)")
+                        .add("ConnectorMetadata.listTables(schema=test_schema2)")
+                        .add("ConnectorMetadata.listViews(schema=test_schema2)")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = 'test_table1'",
                 "VALUES 2",
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withGetTableHandleCount(2));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listSchemaNames")
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 5)
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema2, table=test_table1)")
+                        .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 2)
+                        .addCopies("ConnectorMetadata.getView(schema=test_schema2, table=test_table1)", 2)
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema2, table=test_table1)")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1'",
                 "VALUES 2",
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listSchemaNames")
+                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .add("ConnectorMetadata.listTables(schema=test_schema2)")
+                        .add("ConnectorMetadata.listViews(schema=test_schema1)")
+                        .add("ConnectorMetadata.listViews(schema=test_schema2)")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1' AND table_name IN ('test_table1', 'test_table2')",
                 "VALUES 2",
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withGetTableHandleCount(4));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listSchemaNames")
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table2)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table2)", 5)
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema2, table=test_table2)")
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table2)")
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema2, table=test_table1)")
+                        .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 2)
+                        .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table2)", 2)
+                        .addCopies("ConnectorMetadata.getView(schema=test_schema2, table=test_table1)", 2)
+                        .addCopies("ConnectorMetadata.getView(schema=test_schema2, table=test_table2)", 2)
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table2)")
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table2)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table2)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema2, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema2, table=test_table2)")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_schema = 'test_schema1' AND table_name = 'test_table1'",
                 "VALUES 100",
-                new MetadataCallsCount()
-                        .withListTablesCount(1)
-                        .withGetTableHandleCount(1)
-                        .withGetColumnsCount(1));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.streamTableColumns(schema=test_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 4)
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'wrong'",
                 "VALUES 0",
-                new MetadataCallsCount());
+                ImmutableMultiset.of());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'test_catalog' AND table_schema = 'wrong_schema1' AND table_name = 'test_table1'",
                 "VALUES 0",
-                new MetadataCallsCount()
-                        .withGetTableHandleCount(1));
+                ImmutableMultiset.<String>builder()
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 4)
+                        .add("ConnectorMetadata.getMaterializedView(schema=wrong_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getView(schema=wrong_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=wrong_schema1, table=test_table1)")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog IN ('wrong', 'test_catalog') AND table_schema = 'wrong_schema1' AND table_name = 'test_table1'",
                 "VALUES 0",
-                new MetadataCallsCount()
-                        .withGetTableHandleCount(1));
+                ImmutableMultiset.<String>builder()
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 4)
+                        .add("ConnectorMetadata.getMaterializedView(schema=wrong_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getView(schema=wrong_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=wrong_schema1, table=test_table1)")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 1)",
                 "VALUES 1",
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withGetColumnsCount(0));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listSchemaNames")
+                        .build());
         assertMetadataCalls(
                 "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 1000)",
                 "VALUES 1000",
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(1)
-                        .withGetColumnsCount(1000));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listSchemaNames")
+                        .add("ConnectorMetadata.streamTableColumns(schema=test_schema1)")
+                        .addCopies("ConnectorMetadata.getMaterializedViews(schema=test_schema1)", 3)
+                        .addCopies("ConnectorMetadata.getViews(schema=test_schema1)", 3)
+                        .build());
 
         // Empty table schema and table name
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = '' AND table_name = ''",
                 "VALUES 0",
-                new MetadataCallsCount());
+                ImmutableMultiset.of());
 
         // Empty table schema
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_schema = ''",
                 "VALUES 0",
-                new MetadataCallsCount()
-                        .withListTablesCount(1));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listTables(schema=)")
+                        .add("ConnectorMetadata.listViews(schema=)")
+                        .build());
 
         // Empty table name
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = ''",
                 "VALUES 0",
-                new MetadataCallsCount()
-                        .withListSchemasCount(1));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listSchemaNames")
+                        .build());
     }
 
     @Test
@@ -271,14 +344,20 @@ public class TestInformationSchemaConnector
                 "Error listing table columns for catalog broken_catalog: Catalog is broken");
     }
 
-    private void assertMetadataCalls(String actualSql, String expectedSql, MetadataCallsCount expectedMetadataCallsCount)
+    private void assertMetadataCalls(String actualSql, String expectedSql, Multiset<String> expectedMetadataCallsCount)
     {
-        MetadataCallsCount actualMetadataCallsCount = countingMockConnector.runCounting(() -> {
+        expectedMetadataCallsCount = ImmutableMultiset.<String>builder()
+                // Every query involves beginQuery and cleanupQuery, so expect them implicitly.
+                .add("ConnectorMetadata.beginQuery", "ConnectorMetadata.cleanupQuery")
+                .addAll(expectedMetadataCallsCount)
+                .build();
+
+        Multiset<String> actualMetadataCallsCount = countingMockConnector.runTracing(() -> {
             // expectedSql is run on H2, so does not affect counts.
             assertQuery(actualSql, expectedSql);
         });
 
-        assertEquals(actualMetadataCallsCount, expectedMetadataCallsCount);
+        assertMultisetsEqual(actualMetadataCallsCount, expectedMetadataCallsCount);
     }
 
     private static final class FailingMockConnectorPlugin
