@@ -131,6 +131,7 @@ public class MockConnector
     private static final String UPDATE_ROW_ID = "update_row_id";
     private static final String MERGE_ROW_ID = "merge_row_id";
 
+    private final Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper;
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<String>> listTables;
     private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns;
@@ -176,6 +177,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
 
     MockConnector(
+            Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper,
             List<PropertyMetadata<?>> sessionProperties,
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<String>> listTables,
@@ -220,6 +222,7 @@ public class MockConnector
             OptionalInt maxWriterTasks,
             BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute)
     {
+        this.metadataWrapper = requireNonNull(metadataWrapper, "metadataWrapper is null");
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -280,7 +283,7 @@ public class MockConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
-        return new MockConnectorMetadata();
+        return metadataWrapper.apply(new MockConnectorMetadata());
     }
 
     @Override
