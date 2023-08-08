@@ -50,10 +50,10 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -65,6 +65,7 @@ import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 
@@ -306,11 +307,54 @@ public interface ConnectorMetadata
     /**
      * Gets the metadata for all columns that match the specified table prefix. Redirected table names are included, but
      * the column metadata for them is not. Views and materialized views are not included.
+     *
+     * @deprecated Implement {@link #streamRelationColumns}.
      */
+    @Deprecated
     default Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return listTableColumns(session, prefix).entrySet().stream()
                 .map(entry -> TableColumnsMetadata.forTable(entry.getKey(), entry.getValue()))
+                .iterator();
+    }
+
+    /**
+     * Gets columns for all relations (tables, views, materialized views), possibly filtered by schemaName.
+     * (e.g. for all relations that would be returned by {@link #listTables(ConnectorSession, Optional)}).
+     * Redirected table names are included, but the comment for them is not.
+     */
+    @Experimental(eta = "2024-01-01")
+    default Iterator<TableColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> tablesFilter,
+            BiFunction<SchemaTableName, ConnectorViewDefinition.ViewColumn, ColumnMetadata> viewColumnMetadata,
+            BiFunction<SchemaTableName, ConnectorMaterializedViewDefinition.Column, ColumnMetadata> materializedViewColumnMetadata)
+    {
+        Map<SchemaTableName, Optional<List<ColumnMetadata>>> relationColumns = new HashMap<>();
+
+        // Collect column metadata from tables
+        SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new)
+                .orElseGet(SchemaTablePrefix::new);
+        streamTableColumns(session, prefix)
+                .forEachRemaining(columnsMetadata -> relationColumns.put(columnsMetadata.getTable(), columnsMetadata.getColumns()));
+
+        // Collect column metadata from views. if table and view names overlap, the view wins
+        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
+            relationColumns.put(entry.getKey(), Optional.of(entry.getValue().getColumns().stream()
+                    .map(column -> viewColumnMetadata.apply(entry.getKey(), column))
+                    .toList()));
+        }
+
+        // if view and materialized view names overlap, the materialized view wins
+        for (Map.Entry<SchemaTableName, ConnectorMaterializedViewDefinition> entry : getMaterializedViews(session, schemaName).entrySet()) {
+            relationColumns.put(entry.getKey(), Optional.of(entry.getValue().getColumns().stream()
+                    .map(column -> materializedViewColumnMetadata.apply(entry.getKey(), column))
+                    .toList()));
+        }
+
+        return tablesFilter.apply(relationColumns.keySet()).stream()
+                .map(relationName -> new TableColumnsMetadata(relationName, relationColumns.get(relationName)))
                 .iterator();
     }
 
@@ -618,7 +662,7 @@ public interface ConnectorMetadata
         return properties.getTablePartitioning()
                 .map(partitioning -> {
                     Map<ColumnHandle, String> columnNamesByHandle = getColumnHandles(session, tableHandle).entrySet().stream()
-                            .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+                            .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
                     List<String> partitionColumns = partitioning.getPartitioningColumns().stream()
                             .map(columnNamesByHandle::get)
                             .collect(toUnmodifiableList());
