@@ -806,10 +806,6 @@ public class DeltaLakeMetadata
         Optional<Long> checkpointInterval = getCheckpointInterval(tableMetadata.getProperties());
         Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(tableMetadata.getProperties());
         ColumnMappingMode columnMappingMode = DeltaLakeTableProperties.getColumnMappingMode(tableMetadata.getProperties());
-        if (changeDataFeedEnabled.orElse(false) && columnMappingMode != NONE) {
-            // TODO https://github.com/trinodb/trino/issues/16967 Add support for CDF with column mapping mode
-            throw new TrinoException(NOT_SUPPORTED, "Creating tables with %s and %s is unsupported".formatted(CHANGE_DATA_FEED_ENABLED_PROPERTY, COLUMN_MAPPING_MODE_PROPERTY));
-        }
         AtomicInteger fieldId = new AtomicInteger();
 
         try {
@@ -943,12 +939,7 @@ public class DeltaLakeMetadata
             external = false;
         }
 
-        Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(tableMetadata.getProperties());
         ColumnMappingMode columnMappingMode = DeltaLakeTableProperties.getColumnMappingMode(tableMetadata.getProperties());
-        if (changeDataFeedEnabled.orElse(false) && columnMappingMode != NONE) {
-            // TODO https://github.com/trinodb/trino/issues/16967 Add support for CDF with column mapping mode
-            throw new TrinoException(NOT_SUPPORTED, "Creating tables with %s and %s is unsupported".formatted(CHANGE_DATA_FEED_ENABLED_PROPERTY, COLUMN_MAPPING_MODE_PROPERTY));
-        }
         AtomicInteger fieldId = new AtomicInteger();
 
         Location finalLocation = Location.of(location);
@@ -1809,11 +1800,6 @@ public class DeltaLakeMetadata
             throw new TrinoException(NOT_SUPPORTED, "Cannot modify rows from a table with '" + APPEND_ONLY_CONFIGURATION_KEY + "' set to true");
         }
         checkWriteAllowed(session, handle);
-        ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
-        if (changeDataFeedEnabled(handle.getMetadataEntry()) && columnMappingMode != NONE) {
-            // TODO https://github.com/trinodb/trino/issues/16967 Support CDF for tables with 'id' and 'name' column mapping
-            throw new TrinoException(NOT_SUPPORTED, "Unsupported column mapping mode for tables with change data feed enabled: " + columnMappingMode);
-        }
         checkWriteSupported(session, handle);
 
         List<DeltaLakeColumnHandle> inputColumns = getColumns(handle.getMetadataEntry()).stream()
@@ -1877,19 +1863,20 @@ public class DeltaLakeMetadata
 
             long writeTimestamp = Instant.now().toEpochMilli();
 
+            ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
+            List<String> partitionColumns = getPartitionColumns(
+                    handle.getMetadataEntry().getOriginalPartitionColumns(),
+                    mergeHandle.getInsertTableHandle().getInputColumns(),
+                    columnMappingMode);
+
             if (!cdcFiles.isEmpty()) {
-                appendCdcFilesInfos(transactionLogWriter, cdcFiles, handle.getMetadataEntry().getOriginalPartitionColumns());
+                appendCdcFilesInfos(transactionLogWriter, cdcFiles, partitionColumns);
             }
 
             for (String file : oldFiles) {
                 transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(file, writeTimestamp, true));
             }
 
-            ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
-            List<String> partitionColumns = getPartitionColumns(
-                    handle.getMetadataEntry().getOriginalPartitionColumns(),
-                    mergeHandle.getInsertTableHandle().getInputColumns(),
-                    columnMappingMode);
             appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, getExactColumnNames(handle.getMetadataEntry()), true);
 
             transactionLogWriter.flush();
