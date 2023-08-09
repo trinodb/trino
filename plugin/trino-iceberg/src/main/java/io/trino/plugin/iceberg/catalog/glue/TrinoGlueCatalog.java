@@ -770,33 +770,6 @@ public class TrinoGlueCatalog
         return Optional.of(table);
     }
 
-    private void createTable(String schemaName, TableInput tableInput)
-    {
-        glueTableCache.invalidateAll();
-        stats.getCreateTable().call(() ->
-                glueClient.createTable(new CreateTableRequest()
-                        .withDatabaseName(schemaName)
-                        .withTableInput(tableInput)));
-    }
-
-    private void updateTable(String schemaName, TableInput tableInput)
-    {
-        glueTableCache.invalidateAll();
-        stats.getUpdateTable().call(() ->
-                glueClient.updateTable(new UpdateTableRequest()
-                        .withDatabaseName(schemaName)
-                        .withTableInput(tableInput)));
-    }
-
-    private void deleteTable(String schema, String table)
-    {
-        glueTableCache.invalidateAll();
-        stats.getDeleteTable().call(() ->
-                glueClient.deleteTable(new DeleteTableRequest()
-                        .withDatabaseName(schema)
-                        .withName(table)));
-    }
-
     @Override
     public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
@@ -1330,5 +1303,32 @@ public class TrinoGlueCatalog
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Get table request failed: " + firstNonNull(e.getMessage(), e), e.getCause());
         }
+    }
+
+    private void createTable(String schemaName, TableInput tableInput)
+    {
+        glueTableCache.invalidateAll();
+        stats.getCreateTable().call(() ->
+                glueClient.createTable(new CreateTableRequest()
+                        .withDatabaseName(schemaName)
+                        .withTableInput(tableInput)));
+    }
+
+    private void updateTable(String schemaName, TableInput tableInput)
+    {
+        glueTableCache.invalidateAll();
+        stats.getUpdateTable().call(() ->
+                glueClient.updateTable(new UpdateTableRequest()
+                        .withDatabaseName(schemaName)
+                        .withTableInput(tableInput)));
+    }
+
+    private void deleteTable(String schema, String table)
+    {
+        glueTableCache.invalidateAll();
+        stats.getDeleteTable().call(() ->
+                glueClient.deleteTable(new DeleteTableRequest()
+                        .withDatabaseName(schema)
+                        .withName(table)));
     }
 }
