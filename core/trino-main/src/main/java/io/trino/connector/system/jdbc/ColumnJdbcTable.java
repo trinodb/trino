@@ -19,12 +19,11 @@ import com.google.inject.Inject;
 import io.airlift.slice.Slices;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
+import io.trino.connector.informationschema.SystemTableFilter;
 import io.trino.connector.system.SystemColumnHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.security.AccessControl;
-import io.trino.spi.connector.CatalogSchemaName;
-import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -47,11 +46,11 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.planner.OptimizerConfig;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
 import java.time.ZoneId;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -65,12 +64,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
-import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
+import static io.trino.connector.informationschema.SystemTableFilter.TABLE_COUNT_PER_SCHEMA_THRESHOLD;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
-import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataListing.listTableColumns;
-import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -92,7 +89,6 @@ public class ColumnJdbcTable
 {
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "columns");
 
-    private static final int MAX_DOMAIN_SIZE = 100;
     private static final int MAX_TIMEZONE_LENGTH = ZoneId.getAvailableZoneIds().stream()
             .map(String::length)
             .max(Integer::compareTo)
@@ -131,12 +127,14 @@ public class ColumnJdbcTable
 
     private final Metadata metadata;
     private final AccessControl accessControl;
+    private final int maxPrefetchedInformationSchemaPrefixes;
 
     @Inject
-    public ColumnJdbcTable(Metadata metadata, AccessControl accessControl)
+    public ColumnJdbcTable(Metadata metadata, AccessControl accessControl, OptimizerConfig optimizerConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.maxPrefetchedInformationSchemaPrefixes = optimizerConfig.getMaxPrefetchedInformationSchemaPrefixes();
     }
 
     @Override
@@ -152,7 +150,7 @@ public class ColumnJdbcTable
         if (tupleDomain.isNone() || constraint.predicate().isEmpty()) {
             return tupleDomain;
         }
-        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().get();
+        Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate = constraint.predicate();
         Set<ColumnHandle> predicateColumns = constraint.getPredicateColumns().orElseThrow(() -> new VerifyException("columns not present for a predicate"));
 
         boolean hasSchemaPredicate = predicateColumns.contains(TABLE_SCHEMA_COLUMN);
@@ -165,68 +163,44 @@ public class ColumnJdbcTable
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
         Optional<String> catalogFilter = tryGetSingleVarcharValue(tupleDomain, TABLE_CATALOG_COLUMN);
-        Optional<String> schemaFilter = tryGetSingleVarcharValue(tupleDomain, TABLE_SCHEMA_COLUMN);
-        Optional<String> tableFilter = tryGetSingleVarcharValue(tupleDomain, TABLE_NAME_COLUMN);
-
-        if (schemaFilter.isPresent() && tableFilter.isPresent()) {
-            // No need to narrow down the domain.
-            return tupleDomain;
-        }
-
         List<String> catalogs = listCatalogNames(session, metadata, accessControl, catalogFilter).stream()
-                .filter(catalogName -> predicate.test(ImmutableMap.of(TABLE_CATALOG_COLUMN, toNullableValue(catalogName))))
+                .filter(catalogName -> predicate.get().test(ImmutableMap.of(TABLE_CATALOG_COLUMN, toNullableValue(catalogName))))
                 .collect(toImmutableList());
 
-        List<CatalogSchemaName> schemas = catalogs.stream()
-                .flatMap(catalogName ->
-                        listSchemas(session, metadata, accessControl, catalogName, schemaFilter).stream()
-                                .filter(schemaName -> !hasSchemaPredicate || predicate.test(ImmutableMap.of(
-                                        TABLE_CATALOG_COLUMN, toNullableValue(catalogName),
-                                        TABLE_SCHEMA_COLUMN, toNullableValue(schemaName))))
-                                .map(schemaName -> new CatalogSchemaName(catalogName, schemaName)))
-                .collect(toImmutableList());
+        List<QualifiedTablePrefix> tables = catalogs.stream().flatMap(catalogName -> {
+            SystemTableFilter<ColumnHandle> filter = new SystemTableFilter<>(
+                    catalogName,
+                    metadata,
+                    accessControl,
+                    TABLE_CATALOG_COLUMN,
+                    TABLE_SCHEMA_COLUMN,
+                    TABLE_NAME_COLUMN,
+                    true,
+                    maxPrefetchedInformationSchemaPrefixes);
+            return filter.getPrefixes(connectorSession, tupleDomain, predicate).stream();
+        }).collect(toImmutableList());
 
-        if (!hasTablePredicate) {
-            return TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
-                    .put(TABLE_CATALOG_COLUMN, schemas.stream()
-                            .map(CatalogSchemaName::getCatalogName)
-                            .collect(toVarcharDomain())
-                            .simplify(MAX_DOMAIN_SIZE))
-                    .put(TABLE_SCHEMA_COLUMN, schemas.stream()
-                            .map(CatalogSchemaName::getSchemaName)
-                            .collect(toVarcharDomain())
-                            .simplify(MAX_DOMAIN_SIZE))
-                    .buildOrThrow());
-        }
-
-        List<CatalogSchemaTableName> tables = schemas.stream()
-                .flatMap(schema -> {
-                    QualifiedTablePrefix tablePrefix = tableFilter.isPresent()
-                            ? new QualifiedTablePrefix(schema.getCatalogName(), schema.getSchemaName(), tableFilter.get())
-                            : new QualifiedTablePrefix(schema.getCatalogName(), schema.getSchemaName());
-                    return listTables(session, metadata, accessControl, tablePrefix).stream()
-                            .filter(schemaTableName -> predicate.test(ImmutableMap.of(
-                                    TABLE_CATALOG_COLUMN, toNullableValue(schema.getCatalogName()),
-                                    TABLE_SCHEMA_COLUMN, toNullableValue(schemaTableName.getSchemaName()),
-                                    TABLE_NAME_COLUMN, toNullableValue(schemaTableName.getTableName()))))
-                            .map(schemaTableName -> new CatalogSchemaTableName(schema.getCatalogName(), schemaTableName.getSchemaName(), schemaTableName.getTableName()));
-                })
-                .collect(toImmutableList());
-
-        return TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+        ImmutableMap.Builder<ColumnHandle, Domain> builder = ImmutableMap.<ColumnHandle, Domain>builder()
                 .put(TABLE_CATALOG_COLUMN, tables.stream()
-                        .map(CatalogSchemaTableName::getCatalogName)
+                        .map(QualifiedTablePrefix::getCatalogName)
                         .collect(toVarcharDomain())
-                        .simplify(MAX_DOMAIN_SIZE))
-                .put(TABLE_SCHEMA_COLUMN, tables.stream()
-                        .map(catalogSchemaTableName -> catalogSchemaTableName.getSchemaTableName().getSchemaName())
-                        .collect(toVarcharDomain())
-                        .simplify(MAX_DOMAIN_SIZE))
-                .put(TABLE_NAME_COLUMN, tables.stream()
-                        .map(catalogSchemaTableName -> catalogSchemaTableName.getSchemaTableName().getTableName())
-                        .collect(toVarcharDomain())
-                        .simplify(MAX_DOMAIN_SIZE))
-                .buildOrThrow());
+                        .simplify(maxPrefetchedInformationSchemaPrefixes));
+        Domain schemaDomain = tables.stream()
+                .flatMap(table -> table.getSchemaName().stream())
+                .collect(toVarcharDomain())
+                .simplify(maxPrefetchedInformationSchemaPrefixes);
+        Domain tableDomain = tables.stream()
+                .flatMap(table -> table.getTableName().stream())
+                .collect(toVarcharDomain())
+                .simplify(maxPrefetchedInformationSchemaPrefixes * TABLE_COUNT_PER_SCHEMA_THRESHOLD);
+
+        if (!schemaDomain.isNone()) {
+            builder.put(TABLE_SCHEMA_COLUMN, schemaDomain);
+        }
+        if (!tableDomain.isNone()) {
+            builder.put(TABLE_NAME_COLUMN, tableDomain);
+        }
+        return TupleDomain.withColumnDomains(builder.buildOrThrow());
     }
 
     @Override
@@ -244,47 +218,34 @@ public class ColumnJdbcTable
         Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
 
         Domain catalogDomain = constraint.getDomains().get().getOrDefault(0, Domain.all(createUnboundedVarcharType()));
-        Domain schemaDomain = constraint.getDomains().get().getOrDefault(1, Domain.all(createUnboundedVarcharType()));
-        Domain tableDomain = constraint.getDomains().get().getOrDefault(2, Domain.all(createUnboundedVarcharType()));
 
         if (isNonLowercase(schemaFilter) || isNonLowercase(tableFilter)) {
             // Non-lowercase predicate will never match a lowercase name (until TODO https://github.com/trinodb/trino/issues/17)
             return table.build().cursor();
         }
 
-        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
-            if (!catalogDomain.includesNullableValue(utf8Slice(catalog))) {
-                continue;
-            }
+        List<String> catalogs = listCatalogNames(session, metadata, accessControl, catalogFilter).stream()
+                .filter(catalog -> catalogDomain.includesNullableValue(utf8Slice(catalog)))
+                .collect(toImmutableList());
 
-            if ((schemaDomain.isAll() && tableDomain.isAll()) || schemaFilter.isPresent()) {
-                QualifiedTablePrefix tablePrefix = tablePrefix(catalog, schemaFilter, tableFilter);
-                Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, tablePrefix);
-                addColumnsRow(table, catalog, tableColumns, omitDateTimeTypePrecision);
-            }
-            else {
-                Collection<String> schemas = listSchemas(session, metadata, accessControl, catalog, schemaFilter);
-                for (String schema : schemas) {
-                    if (!schemaDomain.includesNullableValue(utf8Slice(schema))) {
-                        continue;
-                    }
+        List<QualifiedTablePrefix> prefixes = catalogs.stream().flatMap(catalogName -> {
+            SystemTableFilter<Integer> filter = new SystemTableFilter<>(
+                    catalogName,
+                    metadata,
+                    accessControl,
+                    0,
+                    1,
+                    2,
+                    true,
+                    maxPrefetchedInformationSchemaPrefixes);
+            return filter.getPrefixes(connectorSession, constraint, Optional.empty()).stream();
+        }).collect(toImmutableList());
 
-                    QualifiedTablePrefix tablePrefix = tableFilter.isPresent()
-                            ? new QualifiedTablePrefix(catalog, schema, tableFilter.get())
-                            : new QualifiedTablePrefix(catalog, schema);
-                    Set<SchemaTableName> tables = listTables(session, metadata, accessControl, tablePrefix);
-                    for (SchemaTableName schemaTableName : tables) {
-                        String tableName = schemaTableName.getTableName();
-                        if (!tableDomain.includesNullableValue(utf8Slice(tableName))) {
-                            continue;
-                        }
+        prefixes.forEach(prefix -> {
+            Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, prefix);
+            addColumnsRow(table, prefix.getCatalogName(), tableColumns, omitDateTimeTypePrecision);
+        });
 
-                        Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, new QualifiedTablePrefix(catalog, schema, tableName));
-                        addColumnsRow(table, catalog, tableColumns, omitDateTimeTypePrecision);
-                    }
-                }
-            }
-        }
         return table.build().cursor();
     }
 

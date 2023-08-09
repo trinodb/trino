@@ -1271,6 +1271,7 @@ public class TestTrinoDatabaseMetaData
                         .mapToObj(i -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + i, "varchar"))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
+                        .withGetTableHandleCount(1)
                         .withListTablesCount(1)
                         .withGetColumnsCount(1));
 
@@ -1282,6 +1283,7 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
                 new MetadataCallsCount()
+                        .withGetTableHandleCount(1)
                         .withListTablesCount(1)
                         .withGetColumnsCount(1));
 
@@ -1293,6 +1295,7 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
                 new MetadataCallsCount()
+                        .withGetTableHandleCount(4)
                         .withListSchemasCount(1)
                         .withListTablesCount(2)
                         .withGetColumnsCount(1));
@@ -1307,6 +1310,7 @@ public class TestTrinoDatabaseMetaData
                         .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + columnIndex, "varchar"))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
+                        .withGetTableHandleCount(4)
                         .withListSchemasCount(1)
                         .withListTablesCount(2)
                         .withGetColumnsCount(1));
@@ -1323,8 +1327,8 @@ public class TestTrinoDatabaseMetaData
                                         .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table" + tableIndex, "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
-                        .withListSchemasCount(4)
-                        .withListTablesCount(1)
+                        .withListSchemasCount(1)
+                        .withListTablesCount(5)
                         .withGetColumnsCount(1000));
 
         // LIKE predicate on table name, but no predicate on catalog name and schema name
@@ -1339,7 +1343,7 @@ public class TestTrinoDatabaseMetaData
                                         .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema" + schemaIndex, "test_table1", "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
-                        .withListSchemasCount(5)
+                        .withListSchemasCount(1)
                         .withListTablesCount(4)
                         .withGetTableHandleCount(8)
                         .withGetColumnsCount(2));
@@ -1354,6 +1358,7 @@ public class TestTrinoDatabaseMetaData
                         .mapToObj(i -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + i, "varchar"))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
+                        .withGetTableHandleCount(1)
                         .withListTablesCount(1)
                         .withGetColumnsCount(1));
 
@@ -1374,6 +1379,7 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
                 new MetadataCallsCount()
+                        .withGetTableHandleCount(1)
                         .withListTablesCount(1));
 
         // schema does not exist
@@ -1396,7 +1402,7 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
                 new MetadataCallsCount()
-                        .withListSchemasCount(1)
+                        .withListSchemasCount(0)
                         .withListTablesCount(0)
                         .withGetColumnsCount(0));
 

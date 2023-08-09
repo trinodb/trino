@@ -13,6 +13,7 @@
  */
 package io.trino.connector.informationschema;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -50,6 +51,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class SystemTableFilter<T>
 {
+    @VisibleForTesting
+    public static final int TABLE_COUNT_PER_SCHEMA_THRESHOLD = 3;
+
     private final String catalogName;
     private final Metadata metadata;
     private final AccessControl accessControl;
@@ -97,7 +101,8 @@ public final class SystemTableFilter<T>
 
         Set<QualifiedTablePrefix> schemaPrefixes = calculatePrefixesWithSchemaName(session, constraint, predicate);
         Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(session, schemaPrefixes, constraint, predicate);
-        verify(tablePrefixes.size() <= maxPrefetchedInformationSchemaPrefixes, "calculatePrefixesWithTableName returned too many prefixes: %s", tablePrefixes.size());
+        verify(tablePrefixes.size() <= maxPrefetchedInformationSchemaPrefixes * TABLE_COUNT_PER_SCHEMA_THRESHOLD, "calculatePrefixesWithTableName returned too many prefixes: %s",
+                tablePrefixes.size());
         return tablePrefixes;
     }
 
@@ -115,33 +120,33 @@ public final class SystemTableFilter<T>
                     .collect(toImmutableSet());
         }
 
-        if (predicate.isEmpty()) {
-            return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
-        }
-
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        Set<QualifiedTablePrefix> schemaPrefixes = listSchemaNames(session)
-                .filter(prefix -> predicate.get().test(schemaAsFixedValues(prefix.getSchemaName().get())))
+        return listSchemaNames(session)
+                .filter(prefix -> predicate
+                        .map(pred -> pred.test(schemaAsFixedValues(prefix.getSchemaName().get())))
+                        .orElse(true))
                 .collect(toImmutableSet());
-        if (schemaPrefixes.size() > maxPrefetchedInformationSchemaPrefixes) {
-            // in case of high number of prefixes it is better to populate all data and then filter
-            // TODO this may cause re-running the above filtering upon next applyFilter
-            return defaultPrefixes(catalogName);
-        }
-        return schemaPrefixes;
     }
 
     private Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
             ConnectorSession connectorSession,
-            Set<QualifiedTablePrefix> prefixes,
+            Set<QualifiedTablePrefix> schemaPrefixes,
             TupleDomain<T> constraint,
             Optional<Predicate<Map<T, NullableValue>>> predicate)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
 
+        // when number of tables is >> number of schemas, it's better to fetch whole schemas worth of tables
+        // but if there are a lot of schemas and only, say, one or two tables are of interest, then it's faster to actually check tables one by one
+        final long schemaPrefixLimit = Math.min(maxPrefetchedInformationSchemaPrefixes, schemaPrefixes.size());
+        final long tablePrefixLimit = Math.max(maxPrefetchedInformationSchemaPrefixes, schemaPrefixLimit * TABLE_COUNT_PER_SCHEMA_THRESHOLD);
+
+        // fetch all tables and views
+        schemaPrefixes = limitPrefixesCount(schemaPrefixes, schemaPrefixLimit, defaultPrefixes(catalogName));
+
         Optional<Set<String>> tables = filterString(constraint, tableColumnReference);
         if (tables.isPresent()) {
-            Set<QualifiedTablePrefix> tablePrefixes = prefixes.stream()
+            Set<QualifiedTablePrefix> tablePrefixes = schemaPrefixes.stream()
                     .peek(prefix -> verify(prefix.asQualifiedObjectName().isEmpty()))
                     .flatMap(prefix -> prefix.getSchemaName()
                             .map(schemaName -> Stream.of(prefix))
@@ -175,34 +180,35 @@ public final class SystemTableFilter<T>
                     .filter(objectName -> predicate.isEmpty() || predicate.get().test(asFixedValues(objectName)))
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
                     .distinct()
-                    .limit(maxPrefetchedInformationSchemaPrefixes + 1)
+                    .limit(tablePrefixLimit + 1)
                     .collect(toImmutableSet());
 
-            if (tablePrefixes.size() > maxPrefetchedInformationSchemaPrefixes) {
-                // in case of high number of prefixes it is better to populate all data and then filter
-                // TODO this may cause re-running the above filtering upon next applyFilter
-                return defaultPrefixes(catalogName);
-            }
-            return tablePrefixes;
+            return limitPrefixesCount(tablePrefixes, tablePrefixLimit, schemaPrefixes);
         }
 
         if (predicate.isEmpty() || !enumerateColumns) {
-            return prefixes;
+            return schemaPrefixes;
         }
 
-        Set<QualifiedTablePrefix> tablePrefixes = prefixes.stream()
+        Set<QualifiedTablePrefix> tablePrefixes = schemaPrefixes.stream()
                 .flatMap(prefix -> listTableNames(session, prefix))
                 .filter(objectName -> predicate.get().test(asFixedValues(objectName)))
                 .map(QualifiedObjectName::asQualifiedTablePrefix)
                 .distinct()
-                .limit(maxPrefetchedInformationSchemaPrefixes + 1)
+                .limit(tablePrefixLimit + 1)
                 .collect(toImmutableSet());
-        if (tablePrefixes.size() > maxPrefetchedInformationSchemaPrefixes) {
-            // in case of high number of prefixes it is better to populate all data and then filter
-            // TODO this may cause re-running the above filtering upon next applyFilter
-            return defaultPrefixes(catalogName);
+
+        return limitPrefixesCount(tablePrefixes, tablePrefixLimit, schemaPrefixes);
+    }
+
+    private Set<QualifiedTablePrefix> limitPrefixesCount(Set<QualifiedTablePrefix> prefixes, long limit, Set<QualifiedTablePrefix> fallback)
+    {
+        if (prefixes.size() <= limit) {
+            return prefixes;
         }
-        return tablePrefixes;
+        // in case of high number of prefixes it is better to populate all data and then filter
+        // TODO this may cause re-running the above filtering upon next applyFilter
+        return fallback;
     }
 
     private Stream<QualifiedTablePrefix> listSchemaNames(Session session)
