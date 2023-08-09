@@ -16,13 +16,8 @@ package io.trino.connector.informationschema;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
-import io.trino.FullConnectorSession;
-import io.trino.Session;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -35,39 +30,29 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.EquatableValueSet;
 import io.trino.spi.predicate.NullableValue;
-import io.trino.spi.predicate.Range;
-import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.informationschema.InformationSchemaTable.COLUMNS;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLES;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.trino.connector.informationschema.InformationSchemaTable.VIEWS;
+import static io.trino.connector.informationschema.SystemTableFilter.defaultPrefixes;
 import static io.trino.metadata.MetadataUtil.findColumnMetadata;
-import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Collections.emptyList;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -190,7 +175,16 @@ public class InformationSchemaMetadata
 
         Set<QualifiedTablePrefix> prefixes = table.getPrefixes();
         if (isTablesEnumeratingTable(table.getTable()) && table.getPrefixes().equals(defaultPrefixes(catalogName))) {
-            prefixes = getPrefixes(session, table, constraint);
+            SystemTableFilter<ColumnHandle> filter = new SystemTableFilter<>(
+                    catalogName,
+                    metadata,
+                    CATALOG_COLUMN_HANDLE,
+                    SCHEMA_COLUMN_HANDLE,
+                    TABLE_NAME_COLUMN_HANDLE,
+                    isColumnsEnumeratingTable(table.getTable()),
+                    maxPrefetchedInformationSchemaPrefixes);
+
+            prefixes = filter.getPrefixes(session, constraint.getSummary(), constraint.predicate());
         }
 
         if (prefixes.equals(table.getPrefixes())) {
@@ -201,189 +195,14 @@ public class InformationSchemaMetadata
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), false));
     }
 
-    public static Set<QualifiedTablePrefix> defaultPrefixes(String catalogName)
-    {
-        return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
-    }
-
-    private Set<QualifiedTablePrefix> getPrefixes(ConnectorSession session, InformationSchemaTableHandle table, Constraint constraint)
-    {
-        if (constraint.getSummary().isNone()) {
-            return ImmutableSet.of();
-        }
-
-        Optional<Set<String>> catalogs = filterString(constraint.getSummary(), CATALOG_COLUMN_HANDLE);
-        if (catalogs.isPresent() && !catalogs.get().contains(table.getCatalogName())) {
-            return ImmutableSet.of();
-        }
-
-        InformationSchemaTable informationSchemaTable = table.getTable();
-        Set<QualifiedTablePrefix> schemaPrefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
-        Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(informationSchemaTable, session, schemaPrefixes, constraint.getSummary(), constraint.predicate());
-        verify(tablePrefixes.size() <= maxPrefetchedInformationSchemaPrefixes, "calculatePrefixesWithTableName returned too many prefixes: %s", tablePrefixes.size());
-        return tablePrefixes;
-    }
-
     public static boolean isTablesEnumeratingTable(InformationSchemaTable table)
     {
         return ImmutableSet.of(COLUMNS, VIEWS, TABLES, TABLE_PRIVILEGES).contains(table);
     }
 
-    private Set<QualifiedTablePrefix> calculatePrefixesWithSchemaName(
-            ConnectorSession connectorSession,
-            TupleDomain<ColumnHandle> constraint,
-            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
-    {
-        Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
-        if (schemas.isPresent()) {
-            return schemas.get().stream()
-                    .filter(this::isLowerCase)
-                    .filter(schema -> predicate.isEmpty() || predicate.get().test(schemaAsFixedValues(schema)))
-                    .map(schema -> new QualifiedTablePrefix(catalogName, schema))
-                    .collect(toImmutableSet());
-        }
-
-        if (predicate.isEmpty()) {
-            return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
-        }
-
-        Session session = ((FullConnectorSession) connectorSession).getSession();
-        Set<QualifiedTablePrefix> schemaPrefixes = listSchemaNames(session)
-                .filter(prefix -> predicate.get().test(schemaAsFixedValues(prefix.getSchemaName().get())))
-                .collect(toImmutableSet());
-        if (schemaPrefixes.size() > maxPrefetchedInformationSchemaPrefixes) {
-            // in case of high number of prefixes it is better to populate all data and then filter
-            // TODO this may cause re-running the above filtering upon next applyFilter
-            return defaultPrefixes(catalogName);
-        }
-        return schemaPrefixes;
-    }
-
-    private Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
-            InformationSchemaTable informationSchemaTable,
-            ConnectorSession connectorSession,
-            Set<QualifiedTablePrefix> prefixes,
-            TupleDomain<ColumnHandle> constraint,
-            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
-    {
-        Session session = ((FullConnectorSession) connectorSession).getSession();
-
-        Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
-        if (tables.isPresent()) {
-            Set<QualifiedTablePrefix> tablePrefixes = prefixes.stream()
-                    .peek(prefix -> verify(prefix.asQualifiedObjectName().isEmpty()))
-                    .flatMap(prefix -> prefix.getSchemaName()
-                            .map(schemaName -> Stream.of(prefix))
-                            .orElseGet(() -> listSchemaNames(session)))
-                    .flatMap(prefix -> tables.get().stream()
-                            .filter(this::isLowerCase)
-                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
-                    .filter(objectName -> {
-                        if (!isColumnsEnumeratingTable(informationSchemaTable) ||
-                                metadata.isMaterializedView(session, objectName) ||
-                                metadata.isView(session, objectName)) {
-                            return true;
-                        }
-
-                        // This is a columns enumerating table and the object is not a view
-                        try {
-                            // Table redirection to enumerate columns from target table happens later in
-                            // MetadataListing#listTableColumns, but also applying it here to avoid incorrect
-                            // filtering in case the source table does not exist or there is a problem with redirection.
-                            return metadata.getRedirectionAwareTableHandle(session, objectName).tableHandle().isPresent();
-                        }
-                        catch (TrinoException e) {
-                            if (e.getErrorCode().equals(TABLE_REDIRECTION_ERROR.toErrorCode())) {
-                                // Ignore redirection errors for listing, treat as if the table does not exist
-                                return false;
-                            }
-
-                            throw e;
-                        }
-                    })
-                    .filter(objectName -> predicate.isEmpty() || predicate.get().test(asFixedValues(objectName)))
-                    .map(QualifiedObjectName::asQualifiedTablePrefix)
-                    .distinct()
-                    .limit(maxPrefetchedInformationSchemaPrefixes + 1)
-                    .collect(toImmutableSet());
-
-            if (tablePrefixes.size() > maxPrefetchedInformationSchemaPrefixes) {
-                // in case of high number of prefixes it is better to populate all data and then filter
-                // TODO this may cause re-running the above filtering upon next applyFilter
-                return defaultPrefixes(catalogName);
-            }
-            return tablePrefixes;
-        }
-
-        if (predicate.isEmpty() || !isColumnsEnumeratingTable(informationSchemaTable)) {
-            return prefixes;
-        }
-
-        Set<QualifiedTablePrefix> tablePrefixes = prefixes.stream()
-                .flatMap(prefix -> metadata.listTables(session, prefix).stream())
-                .filter(objectName -> predicate.get().test(asFixedValues(objectName)))
-                .map(QualifiedObjectName::asQualifiedTablePrefix)
-                .distinct()
-                .limit(maxPrefetchedInformationSchemaPrefixes + 1)
-                .collect(toImmutableSet());
-        if (tablePrefixes.size() > maxPrefetchedInformationSchemaPrefixes) {
-            // in case of high number of prefixes it is better to populate all data and then filter
-            // TODO this may cause re-running the above filtering upon next applyFilter
-            return defaultPrefixes(catalogName);
-        }
-        return tablePrefixes;
-    }
-
     private boolean isColumnsEnumeratingTable(InformationSchemaTable table)
     {
         return COLUMNS == table;
-    }
-
-    private Stream<QualifiedTablePrefix> listSchemaNames(Session session)
-    {
-        return metadata.listSchemaNames(session, catalogName).stream()
-                .map(schema -> new QualifiedTablePrefix(catalogName, schema));
-    }
-
-    private <T> Optional<Set<String>> filterString(TupleDomain<T> constraint, T column)
-    {
-        if (constraint.isNone()) {
-            return Optional.of(ImmutableSet.of());
-        }
-
-        Domain domain = constraint.getDomains().get().get(column);
-        if (domain == null) {
-            return Optional.empty();
-        }
-
-        if (domain.isSingleValue()) {
-            return Optional.of(ImmutableSet.of(((Slice) domain.getSingleValue()).toStringUtf8()));
-        }
-        if (domain.getValues() instanceof EquatableValueSet) {
-            Collection<Object> values = ((EquatableValueSet) domain.getValues()).getValues();
-            return Optional.of(values.stream()
-                    .map(Slice.class::cast)
-                    .map(Slice::toStringUtf8)
-                    .collect(toImmutableSet()));
-        }
-        if (domain.getValues() instanceof SortedRangeSet) {
-            ImmutableSet.Builder<String> result = ImmutableSet.builder();
-            for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
-                if (!range.isSingleValue()) {
-                    return Optional.empty();
-                }
-
-                result.add(((Slice) range.getSingleValue()).toStringUtf8());
-            }
-
-            return Optional.of(result.build());
-        }
-        return Optional.empty();
-    }
-
-    private Map<ColumnHandle, NullableValue> schemaAsFixedValues(String schema)
-    {
-        return ImmutableMap.of(SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(schema)));
     }
 
     private Map<ColumnHandle, NullableValue> roleAsFixedValues(String schema)
@@ -394,18 +213,5 @@ public class InformationSchemaMetadata
     private Map<ColumnHandle, NullableValue> granteeAsFixedValues(String schema)
     {
         return ImmutableMap.of(GRANTEE_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(schema)));
-    }
-
-    private Map<ColumnHandle, NullableValue> asFixedValues(QualifiedObjectName objectName)
-    {
-        return ImmutableMap.of(
-                CATALOG_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getCatalogName())),
-                SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getSchemaName())),
-                TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getObjectName())));
-    }
-
-    private boolean isLowerCase(String value)
-    {
-        return value.toLowerCase(ENGLISH).equals(value);
     }
 }
