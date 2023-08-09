@@ -19,11 +19,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -56,9 +53,7 @@ public class TestUrlFunctions
         validateUrlExtract("https://username:password@example.com", "https", "example.com", null, "", "", "");
         validateUrlExtract("mailto:test@example.com", "mailto", "", null, "", "", "");
         validateUrlExtract("foo", "", "", null, "foo", "", "");
-
-        invalidUrlExtract("http://example.com/^");
-        invalidUrlExtract("http://not uri/cannot contain whitespace");
+        validateUrlExtract("http://example.com/^", null, null, null, null, null, null);
     }
 
     @Test
@@ -101,10 +96,6 @@ public class TestUrlFunctions
 
         assertThat(assertions.expression("url_extract_parameter('foo', 'k1')"))
                 .isNull(createVarcharType(3));
-
-        assertTrinoExceptionThrownBy(() -> assertions.expression("url_extract_parameter('http://not uri/cannot contain whitespace?foo=bar', 'foo')").evaluate())
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Cannot parse as URI value 'http://not uri/cannot contain whitespace?foo=bar': Illegal character in authority at index 7: http://not uri/cannot contain whitespace?foo=bar");
     }
 
     @Test
@@ -153,8 +144,6 @@ public class TestUrlFunctions
 
     private void validateUrlExtract(String url, String protocol, String host, Long port, String path, String query, String fragment)
     {
-        checkArgument(!url.contains("'")); // Would require escaping in literals
-
         assertThat(assertions.function("url_extract_protocol", "'" + url + "'"))
                 .hasType(createVarcharType(url.length()))
                 .isEqualTo(protocol);
@@ -178,34 +167,5 @@ public class TestUrlFunctions
         assertThat(assertions.function("url_extract_fragment", "'" + url + "'"))
                 .hasType(createVarcharType(url.length()))
                 .isEqualTo(fragment);
-    }
-
-    private void invalidUrlExtract(String url)
-    {
-        checkArgument(!url.contains("'")); // Would require escaping in literals
-
-        assertTrinoExceptionThrownBy(() -> assertions.function("url_extract_protocol", "'" + url + "'").evaluate())
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessageStartingWith("Cannot parse as URI value '%s': ".formatted(url));
-
-        assertTrinoExceptionThrownBy(() -> assertions.function("url_extract_host", "'" + url + "'").evaluate())
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessageStartingWith("Cannot parse as URI value '%s': ".formatted(url));
-
-        assertTrinoExceptionThrownBy(() -> assertions.function("url_extract_port", "'" + url + "'").evaluate())
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessageStartingWith("Cannot parse as URI value '%s': ".formatted(url));
-
-        assertTrinoExceptionThrownBy(() -> assertions.function("url_extract_path", "'" + url + "'").evaluate())
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessageStartingWith("Cannot parse as URI value '%s': ".formatted(url));
-
-        assertTrinoExceptionThrownBy(() -> assertions.function("url_extract_query", "'" + url + "'").evaluate())
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessageStartingWith("Cannot parse as URI value '%s': ".formatted(url));
-
-        assertTrinoExceptionThrownBy(() -> assertions.function("url_extract_fragment", "'" + url + "'").evaluate())
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessageStartingWith("Cannot parse as URI value '%s': ".formatted(url));
     }
 }
