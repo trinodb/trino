@@ -529,7 +529,6 @@ public final class MetadataManager
                 metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(table -> !isExternalInformationSchema(catalogHandle, table.getSchemaName()))
-                        .filter(prefix::matches)
                         .forEach(tables::add);
             }
         }
@@ -1186,7 +1185,6 @@ public final class MetadataManager
                 metadata.listViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(view -> !isExternalInformationSchema(catalogHandle, view.getSchemaName()))
-                        .filter(prefix::matches)
                         .forEach(views::add);
             }
         }
@@ -1420,7 +1418,6 @@ public final class MetadataManager
                 metadata.listMaterializedViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(materializedView -> !isExternalInformationSchema(catalogHandle, materializedView.getSchemaName()))
-                        .filter(prefix::matches)
                         .forEach(materializedViews::add);
             }
         }
