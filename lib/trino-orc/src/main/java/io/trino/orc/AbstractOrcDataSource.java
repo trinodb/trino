@@ -31,6 +31,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.orc.OrcDataSourceUtils.getDiskRangeSlice;
 import static io.trino.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -54,7 +55,8 @@ public abstract class AbstractOrcDataSource
     protected Slice readTailInternal(int length)
             throws IOException
     {
-        return readFully(estimatedSize - length, length);
+        int readSize = toIntExact(min(estimatedSize, length));
+        return readFully(estimatedSize - readSize, readSize);
     }
 
     protected abstract void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
