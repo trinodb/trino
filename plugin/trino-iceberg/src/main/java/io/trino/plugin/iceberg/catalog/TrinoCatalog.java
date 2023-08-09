@@ -20,6 +20,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
@@ -72,6 +73,12 @@ public interface TrinoCatalog
     void renameNamespace(ConnectorSession session, String source, String target);
 
     List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace);
+
+    Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> namespace,
+            UnaryOperator<Set<SchemaTableName>> relationFilter,
+            Predicate<SchemaTableName> isRedirected);
 
     Optional<Iterator<RelationCommentMetadata>> streamRelationComments(
             ConnectorSession session,
