@@ -48,6 +48,7 @@ import io.trino.plugin.hive.TrinoViewUtil;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.ViewReaderUtil;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
@@ -59,6 +60,7 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -129,6 +131,7 @@ import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_NOT_NULL_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_TYPE_ID_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_METADATA_INFO_VALID_FOR;
+import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
@@ -356,6 +359,93 @@ public class TrinoGlueCatalog
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
         }
         return tables.build();
+    }
+
+    @Override
+    public Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> namespace,
+            UnaryOperator<Set<SchemaTableName>> relationFilter,
+            Predicate<SchemaTableName> isRedirected)
+    {
+        ImmutableList.Builder<RelationColumnsMetadata> unfilteredResult = ImmutableList.builder();
+        ImmutableList.Builder<RelationColumnsMetadata> filteredResult = ImmutableList.builder();
+        Map<SchemaTableName, com.amazonaws.services.glue.model.Table> unprocessed = new HashMap<>();
+
+        listNamespaces(session, namespace).stream()
+                .flatMap(glueNamespace -> getGlueTables(glueNamespace)
+                        .map(table -> Map.entry(new SchemaTableName(glueNamespace, table.getName()), table)))
+                .forEach(entry -> {
+                    SchemaTableName name = entry.getKey();
+                    com.amazonaws.services.glue.model.Table table = entry.getValue();
+                    String tableType = getTableType(table);
+                    Map<String, String> tableParameters = getTableParameters(table);
+                    if (isTrinoMaterializedView(tableType, tableParameters)) {
+                        IcebergMaterializedViewDefinition definition = decodeMaterializedViewData(table.getViewOriginalText());
+                        unfilteredResult.add(RelationColumnsMetadata.forMaterializedView(name, toSpiMaterializedViewColumns(definition.getColumns())));
+                    }
+                    else if (isPrestoView(tableParameters)) {
+                        ConnectorViewDefinition definition = ViewReaderUtil.PrestoViewReader.decodeViewData(table.getViewOriginalText());
+                        unfilteredResult.add(RelationColumnsMetadata.forView(name, definition.getColumns()));
+                    }
+                    else if (isRedirected.test(name)) {
+                        unfilteredResult.add(RelationColumnsMetadata.forRedirectedTable(name));
+                    }
+                    else if (!isIcebergTable(tableParameters)) {
+                        // This can be e.g. Hive, Delta table, a Hive view, etc. Skip for columns listing
+                    }
+                    else {
+                        Optional<List<ColumnMetadata>> columnMetadata = getCachedColumnMetadata(table);
+                        if (columnMetadata.isPresent()) {
+                            unfilteredResult.add(RelationColumnsMetadata.forTable(name, columnMetadata.get()));
+                        }
+                        else {
+                            unprocessed.put(name, table);
+                            if (unprocessed.size() >= PER_QUERY_CACHE_SIZE) {
+                                getColumnsFromIcebergMetadata(session, unprocessed, relationFilter, filteredResult::add);
+                                unprocessed.clear();
+                            }
+                        }
+                    }
+                });
+
+        if (!unprocessed.isEmpty()) {
+            getColumnsFromIcebergMetadata(session, unprocessed, relationFilter, filteredResult::add);
+        }
+
+        List<RelationColumnsMetadata> unfilteredResultList = unfilteredResult.build();
+        Set<SchemaTableName> availableNames = relationFilter.apply(unfilteredResultList.stream()
+                .map(RelationColumnsMetadata::name)
+                .collect(toImmutableSet()));
+
+        return Optional.of(Stream.concat(
+                        unfilteredResultList.stream()
+                                .filter(commentMetadata -> availableNames.contains(commentMetadata.name())),
+                        filteredResult.build().stream())
+                .iterator());
+    }
+
+    private void getColumnsFromIcebergMetadata(
+            ConnectorSession session,
+            Map<SchemaTableName, com.amazonaws.services.glue.model.Table> glueTables, // only Iceberg tables
+            UnaryOperator<Set<SchemaTableName>> relationFilter,
+            Consumer<RelationColumnsMetadata> resultsCollector)
+    {
+        for (SchemaTableName tableName : relationFilter.apply(glueTables.keySet())) {
+            com.amazonaws.services.glue.model.Table table = glueTables.get(tableName);
+            // potentially racy with invalidation, but TrinoGlueCatalog is session-scoped
+            uncheckedCacheGet(glueTableCache, tableName, () -> table);
+            List<ColumnMetadata> columns;
+            try {
+                columns = getColumnMetadatas(loadTable(session, tableName).schema(), typeManager);
+            }
+            catch (RuntimeException e) {
+                // Table may be concurrently deleted
+                LOG.warn(e, "Failed to get metadata for table: %s", tableName);
+                return;
+            }
+            resultsCollector.accept(RelationColumnsMetadata.forTable(tableName, columns));
+        }
     }
 
     @Override
