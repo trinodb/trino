@@ -343,17 +343,9 @@ public class TrinoGlueCatalog
             for (String glueNamespace : namespaces) {
                 try {
                     // Add all tables from a namespace together, in case it is removed while fetching paginated results
-                    tables.addAll(
-                            getPaginatedResults(
-                                    glueClient::getTables,
-                                    new GetTablesRequest().withDatabaseName(glueNamespace),
-                                    GetTablesRequest::setNextToken,
-                                    GetTablesResult::getNextToken,
-                                    stats.getGetTables())
-                                    .map(GetTablesResult::getTableList)
-                                    .flatMap(List::stream)
-                                    .map(table -> new SchemaTableName(glueNamespace, table.getName()))
-                                    .collect(toImmutableList()));
+                    tables.addAll(getGlueTables(glueNamespace)
+                            .map(table -> new SchemaTableName(glueNamespace, table.getName()))
+                            .collect(toImmutableList()));
                 }
                 catch (EntityNotFoundException | AccessDeniedException e) {
                     // Namespace may have been deleted or permission denied
@@ -382,14 +374,7 @@ public class TrinoGlueCatalog
         Map<SchemaTableName, com.amazonaws.services.glue.model.Table> unprocessed = new HashMap<>();
 
         listNamespaces(session, namespace).stream()
-                .flatMap(glueNamespace -> getPaginatedResults(
-                        glueClient::getTables,
-                        new GetTablesRequest().withDatabaseName(glueNamespace),
-                        GetTablesRequest::setNextToken,
-                        GetTablesResult::getNextToken,
-                        stats.getGetTables())
-                        .map(GetTablesResult::getTableList)
-                        .flatMap(List::stream)
+                .flatMap(glueNamespace -> getGlueTables(glueNamespace)
                         .map(table -> Map.entry(new SchemaTableName(glueNamespace, table.getName()), table)))
                 .forEach(entry -> {
                     SchemaTableName name = entry.getKey();
@@ -904,14 +889,7 @@ public class TrinoGlueCatalog
             List<String> namespaces = listNamespaces(session, namespace);
             for (String glueNamespace : namespaces) {
                 try {
-                    views.addAll(getPaginatedResults(
-                            glueClient::getTables,
-                            new GetTablesRequest().withDatabaseName(glueNamespace),
-                            GetTablesRequest::setNextToken,
-                            GetTablesResult::getNextToken,
-                            stats.getGetTables())
-                            .map(GetTablesResult::getTableList)
-                            .flatMap(List::stream)
+                    views.addAll(getGlueTables(glueNamespace)
                             .filter(table -> isPrestoView(getTableParameters(table)) && !isTrinoMaterializedView(getTableType(table), getTableParameters(table))) // TODO isTrinoMaterializedView should not be needed, isPrestoView should not return true for materialized views
                             .map(table -> new SchemaTableName(glueNamespace, table.getName()))
                             .collect(toImmutableList()));
@@ -1013,14 +991,7 @@ public class TrinoGlueCatalog
             List<String> namespaces = listNamespaces(session, namespace);
             for (String glueNamespace : namespaces) {
                 try {
-                    materializedViews.addAll(getPaginatedResults(
-                            glueClient::getTables,
-                            new GetTablesRequest().withDatabaseName(glueNamespace),
-                            GetTablesRequest::setNextToken,
-                            GetTablesResult::getNextToken,
-                            stats.getGetTables())
-                            .map(GetTablesResult::getTableList)
-                            .flatMap(List::stream)
+                    materializedViews.addAll(getGlueTables(glueNamespace)
                             .filter(table -> isTrinoMaterializedView(getTableType(table), getTableParameters(table)))
                             .map(table -> new SchemaTableName(glueNamespace, table.getName()))
                             .collect(toImmutableList()));
@@ -1303,6 +1274,18 @@ public class TrinoGlueCatalog
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Get table request failed: " + firstNonNull(e.getMessage(), e), e.getCause());
         }
+    }
+
+    private Stream<com.amazonaws.services.glue.model.Table> getGlueTables(String glueNamespace)
+    {
+        return getPaginatedResults(
+                glueClient::getTables,
+                new GetTablesRequest().withDatabaseName(glueNamespace),
+                GetTablesRequest::setNextToken,
+                GetTablesResult::getNextToken,
+                stats.getGetTables())
+                .map(GetTablesResult::getTableList)
+                .flatMap(List::stream);
     }
 
     private void createTable(String schemaName, TableInput tableInput)
