@@ -75,6 +75,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetUseColumnIndex;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMappingMode;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.PARQUET_ROW_INDEX_COLUMN;
@@ -137,12 +138,19 @@ public class DeltaLakePageSourceProvider
                 .collect(toImmutableList());
 
         Map<String, Optional<String>> partitionKeys = split.getPartitionKeys();
-
+        ColumnMappingMode columnMappingMode = getColumnMappingMode(table.getMetadataEntry());
         Optional<List<String>> partitionValues = Optional.empty();
         if (deltaLakeColumns.stream().anyMatch(column -> column.getBaseColumnName().equals(ROW_ID_COLUMN_NAME))) {
             partitionValues = Optional.of(new ArrayList<>());
             for (DeltaLakeColumnMetadata column : extractSchema(table.getMetadataEntry(), typeManager)) {
-                Optional<String> value = partitionKeys.get(column.getName());
+                Optional<String> value = switch (columnMappingMode) {
+                    case NONE:
+                        yield partitionKeys.get(column.getName());
+                    case ID, NAME:
+                        yield partitionKeys.get(column.getPhysicalName());
+                    default:
+                        throw new IllegalStateException("Unknown column mapping mode");
+                };
                 if (value != null) {
                     partitionValues.get().add(value.orElse(null));
                 }
@@ -183,7 +191,6 @@ public class DeltaLakePageSourceProvider
                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                 .withUseColumnIndex(isParquetUseColumnIndex(session));
 
-        ColumnMappingMode columnMappingMode = getColumnMappingMode(table.getMetadataEntry());
         Map<Integer, String> parquetFieldIdToName = columnMappingMode == ColumnMappingMode.ID ? loadParquetIdAndNameMapping(inputFile, options) : ImmutableMap.of();
 
         ImmutableSet.Builder<String> missingColumnNames = ImmutableSet.builder();

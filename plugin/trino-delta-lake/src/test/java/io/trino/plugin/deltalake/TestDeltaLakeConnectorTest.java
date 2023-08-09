@@ -1143,19 +1143,6 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    public void testCreateTableUnsupportedChangeDataFeedAndColumnMappingMode()
-    {
-        String tableName = "test_unsupported_column_mapping_mode_" + randomNameSuffix();
-
-        assertQueryFails("CREATE TABLE " + tableName + "(a integer) WITH (change_data_feed_enabled = true, column_mapping_mode = 'id')",
-                "Creating tables with change_data_feed_enabled and column_mapping_mode is unsupported");
-        assertQueryFails("CREATE TABLE " + tableName + "(a integer) WITH (change_data_feed_enabled = true, column_mapping_mode = 'name')",
-                "Creating tables with change_data_feed_enabled and column_mapping_mode is unsupported");
-
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-    }
-
-    @Test
     public void testAlterTableWithUnsupportedProperties()
     {
         String tableName = "test_alter_table_with_unsupported_properties_" + randomNameSuffix();
@@ -1280,11 +1267,12 @@ public class TestDeltaLakeConnectorTest
                 "_row#child := _row#child:bigint:REGULAR");
     }
 
-    @Test
-    public void testReadCdfChanges()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadCdfChanges(ColumnMappingMode mode)
     {
         String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain3', 3)", 3);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url4', 'domain4', 4), ('url5', 'domain5', 2), ('url6', 'domain6', 6)", 3);
 
@@ -1330,11 +1318,12 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testReadCdfChangesOnPartitionedTable()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadCdfChangesOnPartitionedTable(ColumnMappingMode mode)
     {
         String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'])");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'], column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain1', 3)", 3);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url4', 'domain1', 400), ('url5', 'domain2', 500), ('url6', 'domain3', 2)", 3);
 
@@ -1383,10 +1372,49 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
-    public void testReadMergeChanges()
+    public void testCdfWithNameMappingModeOnTableWithColumnDropped()
+    {
+        testCdfWithMappingModeOnTableWithColumnDropped(ColumnMappingMode.NAME);
+    }
+
+    @Test
+    public void testCdfWithIdMappingModeOnTableWithColumnDropped()
+    {
+        testCdfWithMappingModeOnTableWithColumnDropped(ColumnMappingMode.ID);
+    }
+
+    private void testCdfWithMappingModeOnTableWithColumnDropped(ColumnMappingMode mode)
+    {
+        String tableName = "test_dropping_column_with_cdf_enabled_and_mapping_mode_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, page_views INTEGER, column_to_drop INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 1, 111)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 2, 222)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url3', 3, 333)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url4', 4, 444)", 1);
+
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN column_to_drop");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url5', 5)", 1);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 0))",
+                """
+                        VALUES
+                            ('url1', 1, 'insert', BIGINT '1'),
+                            ('url2', 2, 'insert', BIGINT '2'),
+                            ('url3', 3, 'insert', BIGINT '3'),
+                            ('url4', 4, 'insert', BIGINT '4'),
+                            ('url5', 5, 'insert', BIGINT '6')
+                        """);
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadMergeChanges(ColumnMappingMode mode)
     {
         String tableName1 = "test_basic_operations_on_table_with_cdf_enabled_merge_into_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName1 + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName1 + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName1 + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain3', 3), ('url4', 'domain4', 4)", 4);
 
         String tableName2 = "test_basic_operations_on_table_with_cdf_enabled_merge_from_" + randomNameSuffix();
@@ -1427,11 +1455,12 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testReadMergeChangesOnPartitionedTable()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadMergeChangesOnPartitionedTable(ColumnMappingMode mode)
     {
         String targetTable = "test_basic_operations_on_partitioned_table_with_cdf_enabled_target_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + targetTable + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'])");
+        assertUpdate("CREATE TABLE " + targetTable + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'], column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + targetTable + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain3', 3), ('url4', 'domain1', 4)", 4);
 
         String sourceTable1 = "test_basic_operations_on_partitioned_table_with_cdf_enabled_source_1_" + randomNameSuffix();
@@ -1504,22 +1533,24 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testCdfCommitTimestamp()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCdfCommitTimestamp(ColumnMappingMode mode)
     {
         String tableName = "test_cdf_commit_timestamp_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
         ZonedDateTime historyCommitTimestamp = (ZonedDateTime) computeScalar("SELECT timestamp FROM \"" + tableName + "$history\" WHERE version = 1");
         ZonedDateTime tableChangesCommitTimestamp = (ZonedDateTime) computeScalar("SELECT _commit_timestamp FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 0)) WHERE _commit_Version = 1");
         assertThat(historyCommitTimestamp).isEqualTo(tableChangesCommitTimestamp);
     }
 
-    @Test
-    public void testReadDifferentChangeRanges()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadDifferentChangeRanges(ColumnMappingMode mode)
     {
         String tableName = "test_reading_ranges_of_changes_on_table_with_cdf_enabled_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertQueryReturnsEmptyResult("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2)", 1);
@@ -1580,11 +1611,12 @@ public class TestDeltaLakeConnectorTest
         assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 10))", "since_version: 10 is higher then current table version: 6");
     }
 
-    @Test
-    public void testReadChangesOnTableWithColumnAdded()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadChangesOnTableWithColumnAdded(ColumnMappingMode mode)
     {
         String tableName = "test_reading_changes_on_table_with_columns_added_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN company VARCHAR");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2, 'starburst')", 1);
@@ -1597,11 +1629,12 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testReadChangesOnTableWithRowColumn()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadChangesOnTableWithRowColumn(ColumnMappingMode mode)
     {
         String tableName = "test_reading_changes_on_table_with_columns_added_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, costs ROW(month VARCHAR, amount BIGINT)) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, costs ROW(month VARCHAR, amount BIGINT)) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', ROW('01', 11))", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url2', ROW('02', 19))", 1);
         assertUpdate("UPDATE " + tableName + " SET costs = ROW('02', 37) WHERE costs.month = '02'", 1);
@@ -1625,11 +1658,12 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testCdfOnTableWhichDoesntHaveItEnabledInitially()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCdfOnTableWhichDoesntHaveItEnabledInitially(ColumnMappingMode mode)
     {
         String tableName = "test_cdf_on_table_without_it_initially_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url3', 'domain3', 3)", 1);
@@ -1666,11 +1700,12 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testReadChangesFromCtasTable()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testReadChangesFromCtasTable(ColumnMappingMode mode)
     {
         String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true) AS SELECT * FROM (VALUES" +
+        assertUpdate("CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "') " +
+                        "AS SELECT * FROM (VALUES" +
                         "('url1', 'domain1', 1), " +
                         "('url2', 'domain2', 2)) t(page_url, domain, views)",
                 2);
@@ -1683,12 +1718,13 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testVacuumDeletesCdfFiles()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testVacuumDeletesCdfFiles(ColumnMappingMode mode)
             throws InterruptedException
     {
         String tableName = "test_vacuum_correctly_deletes_cdf_files_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1), ('url3', 'domain3', 3), ('url2', 'domain2', 2)", 3);
         assertUpdate("UPDATE " + tableName + " SET views = views * 10 WHERE views = 1", 1);
         assertUpdate("UPDATE " + tableName + " SET views = views * 10 WHERE views = 2", 1);
@@ -1713,11 +1749,12 @@ public class TestDeltaLakeConnectorTest
                         """);
     }
 
-    @Test
-    public void testCdfWithOptimize()
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCdfWithOptimize(ColumnMappingMode mode)
     {
         String tableName = "test_cdf_with_optimize_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) " +
+                "WITH (change_data_feed_enabled = true, column_mapping_mode = '" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES('url3', 'domain3', 3)", 1);
