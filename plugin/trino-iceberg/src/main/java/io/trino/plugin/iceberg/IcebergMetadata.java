@@ -78,6 +78,7 @@ import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -688,6 +689,16 @@ public class IcebergMetadata
                 })
                 .flatMap(List::stream)
                 .iterator();
+    }
+
+    @Override
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        return catalog.streamRelationColumns(session, schemaName, relationFilter, tableName -> redirectTable(session, tableName).isPresent())
+                .orElseGet(() -> {
+                    // Catalog does not support streamRelationColumns
+                    return ConnectorMetadata.super.streamRelationColumns(session, schemaName, relationFilter);
+                });
     }
 
     @Override
