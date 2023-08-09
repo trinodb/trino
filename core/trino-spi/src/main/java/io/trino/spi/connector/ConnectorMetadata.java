@@ -104,8 +104,10 @@ public interface ConnectorMetadata
      * cannot be queried.
      * @see #getView(ConnectorSession, SchemaTableName)
      * @see #getMaterializedView(ConnectorSession, SchemaTableName)
+     * @deprecated Implement {@link #getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional)}.
      */
     @Nullable
+    @Deprecated
     default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         return null;
