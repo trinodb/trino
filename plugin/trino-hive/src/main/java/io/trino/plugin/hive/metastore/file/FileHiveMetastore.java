@@ -86,7 +86,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -1017,9 +1016,9 @@ public class FileHiveMetastore
 
     private Set<RoleGrant> removeDuplicatedEntries(Set<RoleGrant> grants)
     {
-        Map<RoleGranteeTuple, RoleGrant> map = new HashMap<>();
+        Map<RoleGrantee, RoleGrant> map = new HashMap<>();
         for (RoleGrant grant : grants) {
-            RoleGranteeTuple tuple = new RoleGranteeTuple(grant.getRoleName(), HivePrincipal.from(grant.getGrantee()));
+            RoleGrantee tuple = new RoleGrantee(grant.getRoleName(), HivePrincipal.from(grant.getGrantee()));
             map.merge(tuple, grant, (first, second) -> first.isGrantable() ? first : second);
         }
         return ImmutableSet.copyOf(map.values());
@@ -1481,54 +1480,12 @@ public class FileHiveMetastore
         return isChildDirectory(parentDirectory, childDirectory.getParent());
     }
 
-    private static class RoleGranteeTuple
+    private record RoleGrantee(String role, HivePrincipal grantee)
     {
-        private final String role;
-        private final HivePrincipal grantee;
-
-        private RoleGranteeTuple(String role, HivePrincipal grantee)
+        private RoleGrantee
         {
-            this.role = requireNonNull(role, "role is null");
-            this.grantee = requireNonNull(grantee, "grantee is null");
-        }
-
-        public String getRole()
-        {
-            return role;
-        }
-
-        public HivePrincipal getGrantee()
-        {
-            return grantee;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            RoleGranteeTuple that = (RoleGranteeTuple) o;
-            return Objects.equals(role, that.role) &&
-                    Objects.equals(grantee, that.grantee);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(role, grantee);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("role", role)
-                    .add("grantee", grantee)
-                    .toString();
+            requireNonNull(role, "role is null");
+            requireNonNull(grantee, "grantee is null");
         }
     }
 
