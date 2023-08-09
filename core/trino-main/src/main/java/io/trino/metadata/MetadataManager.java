@@ -588,42 +588,42 @@ public final class MetadataManager
                                 tableColumns.put(columnsMetadata.getTable(), columnsMetadata.getColumns());
                             }
                         });
+            }
 
-                // Collect column metadata from views. if table and view names overlap, the view wins
-                for (Entry<QualifiedObjectName, ViewInfo> entry : getViews(session, prefix).entrySet()) {
-                    ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                    for (ViewColumn column : entry.getValue().getColumns()) {
-                        try {
-                            columns.add(ColumnMetadata.builder()
-                                    .setName(column.getName())
-                                    .setType(typeManager.getType(column.getType()))
-                                    .setComment(column.getComment())
-                                    .build());
-                        }
-                        catch (TypeNotFoundException e) {
-                            throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
-                        }
+            // Collect column metadata from views. if table and view names overlap, the view wins
+            for (Entry<QualifiedObjectName, ViewInfo> entry : getViews(session, prefix).entrySet()) {
+                ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+                for (ViewColumn column : entry.getValue().getColumns()) {
+                    try {
+                        columns.add(ColumnMetadata.builder()
+                                .setName(column.getName())
+                                .setType(typeManager.getType(column.getType()))
+                                .setComment(column.getComment())
+                                .build());
                     }
-                    tableColumns.put(entry.getKey().asSchemaTableName(), Optional.of(columns.build()));
+                    catch (TypeNotFoundException e) {
+                        throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
+                    }
                 }
+                tableColumns.put(entry.getKey().asSchemaTableName(), Optional.of(columns.build()));
+            }
 
-                // if view and materialized view names overlap, the materialized view wins
-                for (Entry<QualifiedObjectName, ViewInfo> entry : getMaterializedViews(session, prefix).entrySet()) {
-                    ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                    for (ViewColumn column : entry.getValue().getColumns()) {
-                        try {
-                            columns.add(ColumnMetadata.builder()
-                                    .setName(column.getName())
-                                    .setType(typeManager.getType(column.getType()))
-                                    .setComment(column.getComment())
-                                    .build());
-                        }
-                        catch (TypeNotFoundException e) {
-                            throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.getType(), column.getName(), entry.getKey()));
-                        }
+            // if view and materialized view names overlap, the materialized view wins
+            for (Entry<QualifiedObjectName, ViewInfo> entry : getMaterializedViews(session, prefix).entrySet()) {
+                ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+                for (ViewColumn column : entry.getValue().getColumns()) {
+                    try {
+                        columns.add(ColumnMetadata.builder()
+                                .setName(column.getName())
+                                .setType(typeManager.getType(column.getType()))
+                                .setComment(column.getComment())
+                                .build());
                     }
-                    tableColumns.put(entry.getKey().asSchemaTableName(), Optional.of(columns.build()));
+                    catch (TypeNotFoundException e) {
+                        throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.getType(), column.getName(), entry.getKey()));
+                    }
                 }
+                tableColumns.put(entry.getKey().asSchemaTableName(), Optional.of(columns.build()));
             }
         }
         return tableColumns.entrySet().stream()
