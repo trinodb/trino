@@ -841,7 +841,7 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # build a list of impacted modules, ignoring modules that cannot affect either product tests or Trino
-          $MAVEN validate ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-tests,!:trino-faulttolerant-tests'
+          $MAVEN validate ${MAVEN_FAST_INSTALL} -Dmaven.test.skip=true ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-tests,!:trino-faulttolerant-tests'
           # GIB doesn't run on master, so make sure the file always exist
           touch gib-impacted.log
           testing/trino-plugin-reader/target/trino-plugin-reader-*-executable.jar -i gib-impacted.log -p core/trino-server/target/trino-server-*-hardlinks/plugin > impacted-features.log
