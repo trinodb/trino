@@ -251,8 +251,8 @@ public class TestInformationSchemaConnector
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.streamTableColumns(schema=test_schema1, table=test_table1)")
                         .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
-                        .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)", 2)
+                        .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                         .build());
@@ -292,8 +292,8 @@ public class TestInformationSchemaConnector
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.listSchemaNames")
                         .add("ConnectorMetadata.streamTableColumns(schema=test_schema1)")
-                        .addCopies("ConnectorMetadata.getMaterializedViews(schema=test_schema1)", 3)
-                        .addCopies("ConnectorMetadata.getViews(schema=test_schema1)", 3)
+                        .add("ConnectorMetadata.getMaterializedViews(schema=test_schema1)")
+                        .add("ConnectorMetadata.getViews(schema=test_schema1)")
                         .build());
 
         // Empty table schema and table name

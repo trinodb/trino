@@ -497,7 +497,7 @@ public class TestIcebergGlueCatalogAccessOperations
                             session,
                             "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
                             ImmutableMultiset.<GlueMetastoreMethod>builder()
-                                    .addCopies(GET_TABLES, 7)
+                                    .addCopies(GET_TABLES, 3)
                                     .addCopies(GET_TABLE, tables * 2)
                                     .build(),
                             ImmutableMultiset.of());
