@@ -427,14 +427,16 @@ Inserts are not supported, and the only data format supported is AVRO.
       Confluent ``CachingSchemaRegistry`` client.
     - 1000
   * - ``kafka.empty-field-strategy``
-    - Avro allows empty struct fields, but this is not allowed in Trino. There
-      are three strategies for handling empty struct fields:
+    - Avro allows empty struct fields, but this is not allowed in Trino.
+      There are three strategies for handling empty struct fields:
 
         * ``IGNORE`` - Ignore structs with no fields. This propagates to parents.
           For example, an array of structs with no fields is ignored.
         * ``FAIL`` - Fail the query if a struct with no fields is defined.
         * ``MARK`` - Add a marker field named ``$empty_field_marker``, which of type boolean with a null value.
           This may be desired if the struct represents a marker field.
+          
+      This can also be modified via the ``empty_field_strategy`` session property.    
     - ``IGNORE``
   * - ``kafka.confluent-subjects-cache-refresh-interval``
     - The interval used for refreshing the list of subjects and the definition
