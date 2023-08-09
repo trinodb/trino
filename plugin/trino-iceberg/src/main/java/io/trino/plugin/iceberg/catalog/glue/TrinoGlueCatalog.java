@@ -506,7 +506,7 @@ public class TrinoGlueCatalog
         for (SchemaTableName tableName : tables) {
             Optional<List<ColumnMetadata>> columnMetadata;
             try {
-                columnMetadata = getColumnMetadata(tableName);
+                columnMetadata = getCachedColumnMetadata(tableName);
             }
             catch (TableNotFoundException ignore) {
                 // Table disappeared during listing.
@@ -522,13 +522,22 @@ public class TrinoGlueCatalog
         return metadatas.buildOrThrow();
     }
 
-    private Optional<List<ColumnMetadata>> getColumnMetadata(SchemaTableName tableName)
+    private Optional<List<ColumnMetadata>> getCachedColumnMetadata(SchemaTableName tableName)
     {
-        if (viewCache.containsKey(tableName) || materializedViewCache.containsKey(tableName)) {
+        if (!cacheTableMetadata || viewCache.containsKey(tableName) || materializedViewCache.containsKey(tableName)) {
             return Optional.empty();
         }
 
         com.amazonaws.services.glue.model.Table glueTable = getTable(tableName, false);
+        return getCachedColumnMetadata(glueTable);
+    }
+
+    private Optional<List<ColumnMetadata>> getCachedColumnMetadata(com.amazonaws.services.glue.model.Table glueTable)
+    {
+        if (!cacheTableMetadata) {
+            return Optional.empty();
+        }
+
         Map<String, String> tableParameters = getTableParameters(glueTable);
         String metadataLocation = tableParameters.get(METADATA_LOCATION_PROP);
         String metadataValidForMetadata = tableParameters.get(TRINO_TABLE_METADATA_INFO_VALID_FOR);
