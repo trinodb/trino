@@ -188,14 +188,15 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cache: restore
-      - name: Maven Package
+      - name: Maven Install
         run: |
+          # build everything to make sure dependencies of impacted modules are present
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean package ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN ${MAVEN_TEST} -T 1C clean verify -DskipTests -P gib,errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T 1C clean verify -DskipTests ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   web-ui-checks:
