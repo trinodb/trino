@@ -14,17 +14,15 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.bytecode.Access;
 import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.ParameterizedType;
 import io.airlift.bytecode.expression.BytecodeExpression;
+import io.airlift.bytecode.instruction.BootstrapMethod;
 import io.airlift.log.Logger;
-import io.trino.annotation.UsedByGeneratedCode;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -41,9 +39,10 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.bytecode.BytecodeUtils.toJavaIdentifierString;
-import static io.airlift.bytecode.ClassGenerator.classGenerator;
-import static io.airlift.bytecode.HiddenClassGenerator.hiddenClassGenerator;
+import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.ParameterizedType.typeFromJavaClassName;
+import static io.airlift.bytecode.SingleClassGenerator.declareStandardClassDataAtBootstrapMethod;
+import static io.airlift.bytecode.SingleClassGenerator.singleClassGenerator;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantDynamic;
 import static java.time.Instant.now;
 import static java.time.ZoneOffset.UTC;
@@ -52,14 +51,13 @@ import static java.util.Objects.requireNonNull;
 public final class ClassBuilder
 {
     private static final Logger log = Logger.get(ClassBuilder.class);
-    private static final Method BOOTSTRAP_METHOD;
+    private static final Method HIDDEN_CLASS_BOOTSTRAP_METHOD;
     private static final AtomicLong CLASS_ID = new AtomicLong();
     private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
-    private final boolean hiddenClass;
 
     static {
         try {
-            BOOTSTRAP_METHOD = ClassBuilder.class.getMethod("bootstrap", Lookup.class, String.class, Class.class, int.class);
+            HIDDEN_CLASS_BOOTSTRAP_METHOD = MethodHandles.class.getMethod("classDataAt", Lookup.class, String.class, Class.class, int.class);
         }
         catch (NoSuchMethodException e) {
             throw new AssertionError(e);
@@ -68,6 +66,9 @@ public final class ClassBuilder
 
     private final Lookup lookup;
     private final ClassDefinition definition;
+    private final boolean hiddenClass;
+
+    private BootstrapMethod bootstrapMethod;
     private int nextId;
 
     private final List<Object> bindings = new ArrayList<>();
@@ -114,6 +115,10 @@ public final class ClassBuilder
         this.lookup = requireNonNull(lookup, "lookup is null");
         this.definition = requireNonNull(definition, "definition is null");
         this.hiddenClass = hiddenClass;
+
+        if (hiddenClass) {
+            bootstrapMethod = BootstrapMethod.from(HIDDEN_CLASS_BOOTSTRAP_METHOD);
+        }
     }
 
     public ParameterizedType getType()
@@ -163,11 +168,16 @@ public final class ClassBuilder
 
     public BytecodeExpression loadConstant(Object constant, Class<?> type)
     {
+        // bootstrap method is only added if necessary
+        if (bootstrapMethod == null) {
+            this.bootstrapMethod = declareStandardClassDataAtBootstrapMethod(definition);
+        }
+
         int binding = bind(constant);
         return constantDynamic(
                 "_",
-                type,
-                BOOTSTRAP_METHOD,
+                type(type),
+                bootstrapMethod,
                 ImmutableList.of(binding));
     }
 
@@ -207,20 +217,10 @@ public final class ClassBuilder
     public <T> Class<? extends T> defineClass(Class<T> superType)
     {
         log.debug("Defining class: %s", definition.getName());
-        Class<?> clazz;
         if (hiddenClass) {
-            clazz = hiddenClassGenerator(lookup).defineHiddenClass(definition, Object.class, Optional.of(bindings));
+            return singleClassGenerator(lookup).defineHiddenClass(definition, superType, Optional.of(bindings));
         }
-        else {
-            ImmutableMap.Builder<Long, MethodHandle> bindingsMap = ImmutableMap.builder();
-            for (int i = 0; i < bindings.size(); i++) {
-                // DynamicClassLoader only supports MethodHandles, so wrapper constants in a method handle
-                bindingsMap.put((long) i, MethodHandles.constant(Object.class, bindings.get(i)));
-            }
-            DynamicClassLoader classLoader = new DynamicClassLoader(lookup.lookupClass().getClassLoader(), bindingsMap.buildOrThrow());
-            clazz = classGenerator(classLoader).defineClass(definition, Object.class);
-        }
-        return clazz.asSubclass(superType);
+        return singleClassGenerator(lookup).defineStandardClass(definition, superType, Optional.of(bindings));
     }
 
     @Override
@@ -230,32 +230,5 @@ public final class ClassBuilder
                 .add("nextId", nextId)
                 .add("bindings", bindings)
                 .toString();
-    }
-
-    @UsedByGeneratedCode
-    public static Object bootstrap(Lookup callerLookup, String name, Class<?> type, int bindingId)
-    {
-        try {
-            Object data = MethodHandles.classDataAt(callerLookup, name, type, bindingId);
-            if (data != null) {
-                return data;
-            }
-        }
-        catch (IllegalAccessException ignored) {
-        }
-
-        ClassLoader classLoader = callerLookup.lookupClass().getClassLoader();
-        checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());
-
-        DynamicClassLoader dynamicClassLoader = (DynamicClassLoader) classLoader;
-        MethodHandle target = dynamicClassLoader.getCallSiteBindings().get((long) bindingId);
-        checkArgument(target != null, "Binding %s for constant %s with type %s not found", bindingId, name, type);
-
-        try {
-            return target.invoke();
-        }
-        catch (Throwable e) {
-            throw new RuntimeException("Error loading value for constant %s with type %s not found".formatted(name, type));
-        }
     }
 }

@@ -121,14 +121,14 @@ public class TestStateCompiler
 
         assertThat(StateCompiler.getMetadataAnnotation(stateInterface)).isNull();
         AccumulatorStateSerializer<? extends AccumulatorState> serializer = StateCompiler.generateStateSerializer(stateInterface);
-        assertThat(serializer.getSerializedType()).isEqualTo(RowType.anonymousRow(BIGINT, BOOLEAN, BIGINT, BOOLEAN));
+        assertThat(serializer.getSerializedType()).isEqualTo(RowType.anonymousRow(BIGINT, BIGINT));
         AccumulatorStateFactory<? extends AccumulatorState> factory = StateCompiler.generateStateFactory(stateInterface);
         AccumulatorState singleState = factory.createSingleState();
         assertThat(singleState.getEstimatedSize()).isEqualTo(32);
         assertThat(singleState.copy()).isNotSameAs(singleState);
 
         AccumulatorState groupedState = factory.createGroupedState();
-        assertThat(groupedState.getEstimatedSize()).isBetween(32L * 1024, 36L * 1024);
+        assertThat(groupedState.getEstimatedSize()).isBetween(24L * 1024, 26L * 1024);
         assertThat(groupedState).isInstanceOf(GroupedAccumulatorState.class);
         GroupedAccumulatorState groupedAccumulatorState = (GroupedAccumulatorState) groupedState;
         groupedAccumulatorState.ensureCapacity(4);
