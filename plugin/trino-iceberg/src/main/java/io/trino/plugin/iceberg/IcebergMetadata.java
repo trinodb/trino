@@ -1902,9 +1902,10 @@ public class IcebergMetadata
 
     private List<ColumnMetadata> getColumnMetadatas(Schema schema)
     {
-        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+        List<NestedField> icebergColumns = schema.columns();
+        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(icebergColumns.size() + 2);
 
-        List<ColumnMetadata> schemaColumns = schema.columns().stream()
+        icebergColumns.stream()
                 .map(column ->
                         ColumnMetadata.builder()
                                 .setName(column.name())
@@ -1912,8 +1913,7 @@ public class IcebergMetadata
                                 .setNullable(column.isOptional())
                                 .setComment(Optional.ofNullable(column.doc()))
                                 .build())
-                .collect(toImmutableList());
-        columns.addAll(schemaColumns);
+                .forEach(columns::add);
         columns.add(pathColumnMetadata());
         columns.add(fileModifiedTimeColumnMetadata());
         return columns.build();
