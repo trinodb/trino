@@ -151,10 +151,13 @@ public enum HiveStorageFormat
 
     public boolean isSplittable(String path)
     {
-        // Only uncompressed text input format is splittable
         return switch (this) {
             case ORC, PARQUET, AVRO, RCBINARY, RCTEXT, SEQUENCEFILE -> true;
-            case JSON, OPENX_JSON, TEXTFILE, CSV, REGEX -> CompressionKind.forFile(path).isEmpty();
+            case JSON, OPENX_JSON, TEXTFILE, CSV, REGEX -> {
+                // Only uncompressed or BZIP2 text input format files are splittable
+                Optional<CompressionKind> compressionKind = CompressionKind.forFile(path);
+                yield compressionKind.isEmpty() || CompressionKind.BZIP2 == compressionKind.get();
+            }
         };
     }
 

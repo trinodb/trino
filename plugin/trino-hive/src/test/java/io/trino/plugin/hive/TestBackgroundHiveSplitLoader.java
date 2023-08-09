@@ -29,6 +29,7 @@ import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
 import io.trino.plugin.hive.fs.DirectoryLister;
@@ -97,6 +98,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.hive.formats.compression.CompressionKind.BZIP2;
+import static io.trino.hive.formats.compression.CompressionKind.GZIP;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.getBucketNumber;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
@@ -196,14 +199,17 @@ public class TestBackgroundHiveSplitLoader
             throws Exception
     {
         DataSize fileSize = DataSize.of(2, GIGABYTE);
-        assertSplitCount(CSV, ImmutableMap.of(), fileSize, 33);
-        assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "1"), fileSize, 33);
-        assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "2"), fileSize, 1);
-        assertSplitCount(CSV, ImmutableMap.of("skip.footer.line.count", "1"), fileSize, 1);
-        assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "1", "skip.footer.line.count", "1"), fileSize, 1);
+        assertSplitCount(CSV, Optional.empty(), ImmutableMap.of(), fileSize, 33);
+        // GZIP is not splittable, but BZIP2 is
+        assertSplitCount(CSV, Optional.of(GZIP), ImmutableMap.of(), fileSize, 1);
+        assertSplitCount(CSV, Optional.of(BZIP2), ImmutableMap.of(), fileSize, 33);
+        assertSplitCount(CSV, Optional.empty(), ImmutableMap.of("skip.header.line.count", "1"), fileSize, 33);
+        assertSplitCount(CSV, Optional.empty(), ImmutableMap.of("skip.header.line.count", "2"), fileSize, 1);
+        assertSplitCount(CSV, Optional.empty(), ImmutableMap.of("skip.footer.line.count", "1"), fileSize, 1);
+        assertSplitCount(CSV, Optional.empty(), ImmutableMap.of("skip.header.line.count", "1", "skip.footer.line.count", "1"), fileSize, 1);
     }
 
-    private void assertSplitCount(HiveStorageFormat storageFormat, Map<String, String> tableProperties, DataSize fileSize, int expectedSplitCount)
+    private void assertSplitCount(HiveStorageFormat storageFormat, Optional<CompressionKind> compressionKind, Map<String, String> tableProperties, DataSize fileSize, int expectedSplitCount)
             throws Exception
     {
         Table table = table(
@@ -212,8 +218,13 @@ public class TestBackgroundHiveSplitLoader
                 ImmutableMap.copyOf(tableProperties),
                 StorageFormat.fromHiveStorageFormat(storageFormat));
 
+        String filePath = SAMPLE_PATH;
+        if (compressionKind.isPresent()) {
+            filePath += compressionKind.get().getFileExtension();
+        }
+
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), fileSize.toBytes())),
+                ImmutableList.of(locatedFileStatus(new Path(filePath), fileSize.toBytes())),
                 TupleDomain.all(),
                 Optional.empty(),
                 table,
