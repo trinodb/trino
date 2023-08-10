@@ -30,9 +30,7 @@ import io.trino.execution.QueryManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.server.BasicQueryInfo;
-import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.security.Identity;
@@ -145,6 +143,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIAL
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_REPORTING_WRITTEN_BYTES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_COLUMN_TYPE;
@@ -155,7 +154,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.assertions.TestUtil.verifyResultOrFailure;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.lang.Thread.currentThread;
@@ -5086,41 +5084,14 @@ public abstract class BaseConnectorTest
     @Test
     public void testWrittenDataSize()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
-
-        AtomicBoolean isReportingWrittenBytesSupported = new AtomicBoolean();
-        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
-                .singleStatement()
-                .execute(getSession(), session -> {
-                    String catalogName = session.getCatalog().orElseThrow();
-                    TestingTrinoServer coordinator = getDistributedQueryRunner().getCoordinator();
-                    Map<String, Object> properties = coordinator.getTablePropertyManager().getProperties(
-                            catalogName,
-                            coordinator.getMetadata().getCatalogHandle(session, catalogName).orElseThrow(),
-                            List.of(),
-                            session,
-                            null,
-                            new AllowAllAccessControl(),
-                            Map.of(),
-                            true);
-                    QualifiedObjectName fullTableName = new QualifiedObjectName(catalogName, "any", "any");
-                    isReportingWrittenBytesSupported.set(coordinator.getMetadata().supportsReportingWrittenBytes(session, fullTableName, properties));
-                });
-
+        skipTestUnless(hasBehavior(SUPPORTS_REPORTING_WRITTEN_BYTES));
         String tableName = "write_stats_" + randomNameSuffix();
         try {
             String query = "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation";
             assertQueryStats(
                     getSession(),
                     query,
-                    queryStats -> {
-                        if (isReportingWrittenBytesSupported.get()) {
-                            assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isPositive();
-                        }
-                        else {
-                            assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isZero();
-                        }
-                    },
+                    queryStats -> assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isPositive(),
                     results -> {});
         }
         finally {
