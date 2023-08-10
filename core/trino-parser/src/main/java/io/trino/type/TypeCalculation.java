@@ -13,7 +13,6 @@
  */
 package io.trino.type;
 
-import io.trino.sql.parser.CaseInsensitiveStream;
 import io.trino.sql.parser.ParsingException;
 import io.trino.type.TypeCalculationParser.ArithmeticBinaryContext;
 import io.trino.type.TypeCalculationParser.ArithmeticUnaryContext;
@@ -74,7 +73,7 @@ public final class TypeCalculation
 
     private static ParserRuleContext parseTypeCalculation(String calculation)
     {
-        TypeCalculationLexer lexer = new TypeCalculationLexer(new CaseInsensitiveStream(CharStreams.fromString(calculation)));
+        TypeCalculationLexer lexer = new TypeCalculationLexer(CharStreams.fromString(calculation));
         CommonTokenStream tokenStream = new CommonTokenStream(lexer);
         TypeCalculationParser parser = new TypeCalculationParser(tokenStream);
 
