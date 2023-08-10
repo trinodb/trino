@@ -13,6 +13,9 @@
  */
 package io.trino.sql.parser;
 
+import io.trino.grammar.sql.SqlBaseBaseListener;
+import io.trino.grammar.sql.SqlBaseLexer;
+import io.trino.grammar.sql.SqlBaseParser;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Node;

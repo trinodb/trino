@@ -13,15 +13,18 @@
  */
 package io.trino.type;
 
+import io.trino.grammar.type.TypeCalculationBaseVisitor;
+import io.trino.grammar.type.TypeCalculationLexer;
+import io.trino.grammar.type.TypeCalculationParser;
+import io.trino.grammar.type.TypeCalculationParser.ArithmeticBinaryContext;
+import io.trino.grammar.type.TypeCalculationParser.ArithmeticUnaryContext;
+import io.trino.grammar.type.TypeCalculationParser.BinaryFunctionContext;
+import io.trino.grammar.type.TypeCalculationParser.IdentifierContext;
+import io.trino.grammar.type.TypeCalculationParser.NullLiteralContext;
+import io.trino.grammar.type.TypeCalculationParser.NumericLiteralContext;
+import io.trino.grammar.type.TypeCalculationParser.ParenthesizedExpressionContext;
+import io.trino.grammar.type.TypeCalculationParser.TypeCalculationContext;
 import io.trino.sql.parser.ParsingException;
-import io.trino.type.TypeCalculationParser.ArithmeticBinaryContext;
-import io.trino.type.TypeCalculationParser.ArithmeticUnaryContext;
-import io.trino.type.TypeCalculationParser.BinaryFunctionContext;
-import io.trino.type.TypeCalculationParser.IdentifierContext;
-import io.trino.type.TypeCalculationParser.NullLiteralContext;
-import io.trino.type.TypeCalculationParser.NumericLiteralContext;
-import io.trino.type.TypeCalculationParser.ParenthesizedExpressionContext;
-import io.trino.type.TypeCalculationParser.TypeCalculationContext;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -35,12 +38,12 @@ import java.math.BigInteger;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.type.TypeCalculationParser.ASTERISK;
-import static io.trino.type.TypeCalculationParser.MAX;
-import static io.trino.type.TypeCalculationParser.MIN;
-import static io.trino.type.TypeCalculationParser.MINUS;
-import static io.trino.type.TypeCalculationParser.PLUS;
-import static io.trino.type.TypeCalculationParser.SLASH;
+import static io.trino.grammar.type.TypeCalculationParser.ASTERISK;
+import static io.trino.grammar.type.TypeCalculationParser.MAX;
+import static io.trino.grammar.type.TypeCalculationParser.MIN;
+import static io.trino.grammar.type.TypeCalculationParser.MINUS;
+import static io.trino.grammar.type.TypeCalculationParser.PLUS;
+import static io.trino.grammar.type.TypeCalculationParser.SLASH;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeCalculation

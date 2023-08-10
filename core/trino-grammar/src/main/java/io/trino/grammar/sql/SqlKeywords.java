@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.parser;
+package io.trino.grammar.sql;
 
 import com.google.common.collect.ImmutableSet;
 import org.antlr.v4.runtime.Vocabulary;

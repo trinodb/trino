@@ -30,7 +30,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.sql.parser.SqlKeywords.sqlKeywords;
+import static io.trino.grammar.sql.SqlKeywords.sqlKeywords;
 import static java.lang.String.format;
 
 public final class ReservedIdentifiers

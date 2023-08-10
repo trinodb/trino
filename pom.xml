@@ -31,6 +31,7 @@
         <module>client/trino-cli</module>
         <module>client/trino-client</module>
         <module>client/trino-jdbc</module>
+        <module>core/trino-grammar</module>
         <module>core/trino-main</module>
         <module>core/trino-parser</module>
         <module>core/trino-server</module>
@@ -954,6 +955,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-geospatial-toolkit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-grammar</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

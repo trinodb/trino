@@ -14,7 +14,7 @@
 package io.trino.cli;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.sql.parser.StatementSplitter;
+import io.trino.cli.lexer.StatementSplitter;
 import org.jline.reader.EOFError;
 import org.jline.reader.ParsedLine;
 import org.jline.reader.Parser;

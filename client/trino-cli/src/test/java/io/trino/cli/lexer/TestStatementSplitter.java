@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.parser;
+package io.trino.cli.lexer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.cli.lexer.StatementSplitter.Statement;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.sql.parser.StatementSplitter.Statement;
-import static io.trino.sql.parser.StatementSplitter.isEmptyStatement;
-import static io.trino.sql.parser.StatementSplitter.squeezeStatement;
+import static io.trino.cli.lexer.StatementSplitter.isEmptyStatement;
+import static io.trino.cli.lexer.StatementSplitter.squeezeStatement;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
