@@ -94,6 +94,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.HostAddress.fromParts;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
@@ -214,9 +215,20 @@ public class MongoSession
         client.getDatabase(schemaName).createCollection(schemaCollection);
     }
 
-    public void dropSchema(String schemaName)
+    public void dropSchema(String schemaName, boolean cascade)
     {
-        client.getDatabase(toRemoteSchemaName(schemaName)).drop();
+        MongoDatabase database = client.getDatabase(toRemoteSchemaName(schemaName));
+        if (!cascade) {
+            try (MongoCursor<String> collections = database.listCollectionNames().cursor()) {
+                while (collections.hasNext()) {
+                    if (collections.next().equals(schemaCollection)) {
+                        continue;
+                    }
+                    throw new TrinoException(SCHEMA_NOT_EMPTY, "Cannot drop non-empty schema '%s'".formatted(schemaName));
+                }
+            }
+        }
+        database.drop();
     }
 
     public Set<String> getAllTables(String schema)
