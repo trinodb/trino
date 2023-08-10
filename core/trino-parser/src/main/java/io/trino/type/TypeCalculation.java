@@ -152,32 +152,24 @@ public final class TypeCalculation
         {
             BigInteger left = visit(ctx.left);
             BigInteger right = visit(ctx.right);
-            switch (ctx.operator.getType()) {
-                case PLUS:
-                    return left.add(right);
-                case MINUS:
-                    return left.subtract(right);
-                case ASTERISK:
-                    return left.multiply(right);
-                case SLASH:
-                    return left.divide(right);
-                default:
-                    throw new IllegalStateException("Unsupported binary operator " + ctx.operator.getText());
-            }
+            return switch (ctx.operator.getType()) {
+                case PLUS -> left.add(right);
+                case MINUS -> left.subtract(right);
+                case ASTERISK -> left.multiply(right);
+                case SLASH -> left.divide(right);
+                default -> throw new IllegalStateException("Unsupported binary operator " + ctx.operator.getText());
+            };
         }
 
         @Override
         public BigInteger visitArithmeticUnary(ArithmeticUnaryContext ctx)
         {
             BigInteger value = visit(ctx.expression());
-            switch (ctx.operator.getType()) {
-                case PLUS:
-                    return value;
-                case MINUS:
-                    return value.negate();
-                default:
-                    throw new IllegalStateException("Unsupported unary operator " + ctx.operator.getText());
-            }
+            return switch (ctx.operator.getType()) {
+                case PLUS -> value;
+                case MINUS -> value.negate();
+                default -> throw new IllegalStateException("Unsupported unary operator " + ctx.operator.getText());
+            };
         }
 
         @Override
@@ -185,14 +177,11 @@ public final class TypeCalculation
         {
             BigInteger left = visit(ctx.left);
             BigInteger right = visit(ctx.right);
-            switch (ctx.binaryFunctionName().name.getType()) {
-                case MIN:
-                    return left.min(right);
-                case MAX:
-                    return left.max(right);
-                default:
-                    throw new IllegalArgumentException("Unsupported binary function " + ctx.binaryFunctionName().getText());
-            }
+            return switch (ctx.binaryFunctionName().name.getType()) {
+                case MIN -> left.min(right);
+                case MAX -> left.max(right);
+                default -> throw new IllegalArgumentException("Unsupported binary function " + ctx.binaryFunctionName().getText());
+            };
         }
 
         @Override

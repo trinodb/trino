@@ -462,14 +462,10 @@ public final class ExpressionFormatter
             builder.append(')');
 
             node.getNullTreatment().ifPresent(nullTreatment -> {
-                switch (nullTreatment) {
-                    case IGNORE:
-                        builder.append(" IGNORE NULLS");
-                        break;
-                    case RESPECT:
-                        builder.append(" RESPECT NULLS");
-                        break;
-                }
+                builder.append(switch (nullTreatment) {
+                    case IGNORE -> " IGNORE NULLS";
+                    case RESPECT -> " RESPECT NULLS";
+                });
             });
 
             if (node.getFilter().isPresent()) {
@@ -589,15 +585,12 @@ public final class ExpressionFormatter
         {
             String value = process(node.getValue(), context);
 
-            switch (node.getSign()) {
-                case MINUS:
-                    // Unary is ambiguous with respect to negative numbers. "-1" parses as a number, but "-(1)" parses as "unaryMinus(number)"
-                    // The parentheses are needed to ensure the parsing roundtrips properly.
-                    return "-(" + value + ")";
-                case PLUS:
-                    return "+" + value;
-            }
-            throw new UnsupportedOperationException("Unsupported sign: " + node.getSign());
+            return switch (node.getSign()) {
+                // Unary is ambiguous with respect to negative numbers. "-1" parses as a number, but "-(1)" parses as "unaryMinus(number)"
+                // The parentheses are needed to ensure the parsing roundtrips properly.
+                case MINUS -> "-(" + value + ")";
+                case PLUS -> "+" + value;
+            };
         }
 
         @Override
@@ -891,31 +884,17 @@ public final class ExpressionFormatter
                         .append(node.getOutputFormat().map(string -> " FORMAT " + string).orElse(""));
             }
 
-            switch (node.getWrapperBehavior()) {
-                case WITHOUT:
-                    builder.append(" WITHOUT ARRAY WRAPPER");
-                    break;
-                case CONDITIONAL:
-                    builder.append(" WITH CONDITIONAL ARRAY WRAPPER");
-                    break;
-                case UNCONDITIONAL:
-                    builder.append((" WITH UNCONDITIONAL ARRAY WRAPPER"));
-                    break;
-                default:
-                    throw new IllegalStateException("unexpected array wrapper behavior: " + node.getWrapperBehavior());
-            }
+            builder.append(switch (node.getWrapperBehavior()) {
+                case WITHOUT -> " WITHOUT ARRAY WRAPPER";
+                case CONDITIONAL -> " WITH CONDITIONAL ARRAY WRAPPER";
+                case UNCONDITIONAL -> (" WITH UNCONDITIONAL ARRAY WRAPPER");
+            });
 
             if (node.getQuotesBehavior().isPresent()) {
-                switch (node.getQuotesBehavior().get()) {
-                    case KEEP:
-                        builder.append(" KEEP QUOTES ON SCALAR STRING");
-                        break;
-                    case OMIT:
-                        builder.append(" OMIT QUOTES ON SCALAR STRING");
-                        break;
-                    default:
-                        throw new IllegalStateException("unexpected quotes behavior: " + node.getQuotesBehavior());
-                }
+                builder.append(switch (node.getQuotesBehavior().get()) {
+                    case KEEP -> " KEEP QUOTES ON SCALAR STRING";
+                    case OMIT -> " OMIT QUOTES ON SCALAR STRING";
+                });
             }
 
             builder.append(" ")
@@ -1150,37 +1129,29 @@ public final class ExpressionFormatter
 
     private static String formatFrameBound(FrameBound frameBound)
     {
-        switch (frameBound.getType()) {
-            case UNBOUNDED_PRECEDING:
-                return "UNBOUNDED PRECEDING";
-            case PRECEDING:
-                return formatExpression(frameBound.getValue().get()) + " PRECEDING";
-            case CURRENT_ROW:
-                return "CURRENT ROW";
-            case FOLLOWING:
-                return formatExpression(frameBound.getValue().get()) + " FOLLOWING";
-            case UNBOUNDED_FOLLOWING:
-                return "UNBOUNDED FOLLOWING";
-        }
-        throw new IllegalArgumentException("unhandled type: " + frameBound.getType());
+        return switch (frameBound.getType()) {
+            case UNBOUNDED_PRECEDING -> "UNBOUNDED PRECEDING";
+            case PRECEDING -> formatExpression(frameBound.getValue().get()) + " PRECEDING";
+            case CURRENT_ROW -> "CURRENT ROW";
+            case FOLLOWING -> formatExpression(frameBound.getValue().get()) + " FOLLOWING";
+            case UNBOUNDED_FOLLOWING -> "UNBOUNDED FOLLOWING";
+        };
     }
 
     public static String formatSkipTo(SkipTo skipTo)
     {
-        switch (skipTo.getPosition()) {
-            case PAST_LAST:
-                return "AFTER MATCH SKIP PAST LAST ROW";
-            case NEXT:
-                return "AFTER MATCH SKIP TO NEXT ROW";
-            case LAST:
+        return switch (skipTo.getPosition()) {
+            case PAST_LAST -> "AFTER MATCH SKIP PAST LAST ROW";
+            case NEXT -> "AFTER MATCH SKIP TO NEXT ROW";
+            case LAST -> {
                 checkState(skipTo.getIdentifier().isPresent(), "missing identifier in AFTER MATCH SKIP TO LAST");
-                return "AFTER MATCH SKIP TO LAST " + formatExpression(skipTo.getIdentifier().get());
-            case FIRST:
+                yield "AFTER MATCH SKIP TO LAST " + formatExpression(skipTo.getIdentifier().get());
+            }
+            case FIRST -> {
                 checkState(skipTo.getIdentifier().isPresent(), "missing identifier in AFTER MATCH SKIP TO FIRST");
-                return "AFTER MATCH SKIP TO FIRST " + formatExpression(skipTo.getIdentifier().get());
-            default:
-                throw new IllegalStateException("unexpected skipTo: " + skipTo);
-        }
+                yield "AFTER MATCH SKIP TO FIRST " + formatExpression(skipTo.getIdentifier().get());
+            }
+        };
     }
 
     static String formatGroupBy(List<GroupingElement> groupingElements)
@@ -1196,23 +1167,14 @@ public final class ExpressionFormatter
                     result = formatGroupingSet(columns);
                 }
             }
-            else if (groupingElement instanceof GroupingSets) {
-                String type;
-                switch (((GroupingSets) groupingElement).getType()) {
-                    case EXPLICIT:
-                        type = "GROUPING SETS";
-                        break;
-                    case CUBE:
-                        type = "CUBE";
-                        break;
-                    case ROLLUP:
-                        type = "ROLLUP";
-                        break;
-                    default:
-                        throw new UnsupportedOperationException();
-                }
+            else if (groupingElement instanceof GroupingSets groupingSets) {
+                String type = switch (groupingSets.getType()) {
+                    case EXPLICIT -> "GROUPING SETS";
+                    case CUBE -> "CUBE";
+                    case ROLLUP -> "ROLLUP";
+                };
 
-                result = ((GroupingSets) groupingElement).getSets().stream()
+                result = groupingSets.getSets().stream()
                         .map(ExpressionFormatter::formatGroupingSet)
                         .collect(joining(", ", type + " (", ")"));
             }
@@ -1240,30 +1202,16 @@ public final class ExpressionFormatter
 
             builder.append(formatExpression(input.getSortKey()));
 
-            switch (input.getOrdering()) {
-                case ASCENDING:
-                    builder.append(" ASC");
-                    break;
-                case DESCENDING:
-                    builder.append(" DESC");
-                    break;
-                default:
-                    throw new UnsupportedOperationException("unknown ordering: " + input.getOrdering());
-            }
+            builder.append(switch (input.getOrdering()) {
+                case ASCENDING -> " ASC";
+                case DESCENDING -> " DESC";
+            });
 
-            switch (input.getNullOrdering()) {
-                case FIRST:
-                    builder.append(" NULLS FIRST");
-                    break;
-                case LAST:
-                    builder.append(" NULLS LAST");
-                    break;
-                case UNDEFINED:
-                    // no op
-                    break;
-                default:
-                    throw new UnsupportedOperationException("unknown null ordering: " + input.getNullOrdering());
-            }
+            builder.append(switch (input.getNullOrdering()) {
+                case FIRST -> " NULLS FIRST";
+                case LAST -> " NULLS LAST";
+                case UNDEFINED -> "";
+            });
 
             return builder.toString();
         };
