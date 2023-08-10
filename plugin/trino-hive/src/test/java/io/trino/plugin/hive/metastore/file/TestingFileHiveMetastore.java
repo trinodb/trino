@@ -13,17 +13,12 @@
  */
 package io.trino.plugin.hive.metastore.file;
 
-import com.google.common.collect.ImmutableSet;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 
 import java.io.File;
+
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 
 public final class TestingFileHiveMetastore
 {
@@ -31,12 +26,9 @@ public final class TestingFileHiveMetastore
 
     public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
     {
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(
                 new NodeVersion("testversion"),
-                hdfsEnvironment,
+                HDFS_FILE_SYSTEM_FACTORY,
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 new FileHiveMetastoreConfig()
                         .setCatalogDirectory(catalogDirectory.toURI().toString())
