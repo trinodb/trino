@@ -15,7 +15,6 @@ package io.trino.sql.parser;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.TokenSource;
@@ -107,8 +106,7 @@ public class StatementSplitter
     public static TokenSource getLexer(String sql, Set<String> terminators)
     {
         requireNonNull(sql, "sql is null");
-        CharStream stream = new CaseInsensitiveStream(CharStreams.fromString(sql));
-        return new DelimiterLexer(stream, terminators);
+        return new DelimiterLexer(CharStreams.fromString(sql), terminators);
     }
 
     public static class Statement
