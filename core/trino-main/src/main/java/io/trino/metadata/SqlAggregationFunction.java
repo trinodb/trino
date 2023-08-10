@@ -37,7 +37,7 @@ public abstract class SqlAggregationFunction
             return ImmutableList.copyOf(AggregationFromAnnotationsParser.parseFunctionDefinitions(aggregationDefinition));
         }
         catch (RuntimeException e) {
-            throw new IllegalArgumentException("Invalid aggregation class " + aggregationDefinition.getSimpleName());
+            throw new IllegalArgumentException("Invalid aggregation class " + aggregationDefinition.getSimpleName(), e);
         }
     }
 
