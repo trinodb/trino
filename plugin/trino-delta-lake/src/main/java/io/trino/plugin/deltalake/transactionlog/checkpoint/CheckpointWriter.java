@@ -45,9 +45,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.format.CompressionCodec;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -138,7 +138,7 @@ public class CheckpointWriter
                 parquetWriterOptions,
                 CompressionCodec.SNAPPY,
                 trinoVersion,
-                Optional.of(DateTimeZone.UTC),
+                Optional.of(ZoneOffset.UTC),
                 Optional.empty());
 
         PageBuilder pageBuilder = new PageBuilder(columnTypes);

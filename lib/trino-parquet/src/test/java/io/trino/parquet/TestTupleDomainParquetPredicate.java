@@ -55,7 +55,6 @@ import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -96,6 +95,7 @@ import static java.lang.Float.NaN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
 import static java.time.temporal.ChronoField.MICRO_OF_SECOND;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
@@ -112,7 +112,6 @@ import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -414,9 +413,9 @@ public class TestTupleDomainParquetPredicate
     {
         LocalDateTime baseTime = LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123456789);
         return new Object[][] {
-                {3, baseTime, baseTime.atZone(ZoneOffset.UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND},
+                {3, baseTime, baseTime.atZone(UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND},
                 // note the rounding of micros
-                {6, baseTime, baseTime.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + 123457},
+                {6, baseTime, baseTime.atZone(UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + 123457},
                 {9, baseTime, longTimestamp(9, baseTime)}
         };
     }
@@ -485,9 +484,9 @@ public class TestTupleDomainParquetPredicate
     public Object[][] testTimestampInt64DataProvider()
     {
         LocalDateTime baseTime = LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123456789);
-        Object millisExpectedValue = baseTime.atZone(ZoneOffset.UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        Object millisExpectedValue = baseTime.atZone(UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
         // note the rounding of micros
-        Object microsExpectedValue = baseTime.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + 123457;
+        Object microsExpectedValue = baseTime.atZone(UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + 123457;
         Object nanosExpectedValue = longTimestamp(9, baseTime);
 
         Object nanosTruncatedToMillisExpectedValue = longTimestamp(
@@ -511,7 +510,7 @@ public class TestTupleDomainParquetPredicate
 
     private static long toEpochWithPrecision(LocalDateTime time, int precision)
     {
-        long scaledEpochSeconds = time.toEpochSecond(ZoneOffset.UTC) * (long) Math.pow(10, precision);
+        long scaledEpochSeconds = time.toEpochSecond(UTC) * (long) Math.pow(10, precision);
         long fractionOfSecond = LongMath.divide(time.getNano(), (long) Math.pow(10, 9 - precision), RoundingMode.HALF_UP);
         return scaledEpochSeconds + fractionOfSecond;
     }
@@ -527,12 +526,12 @@ public class TestTupleDomainParquetPredicate
 
     private static byte[] toParquetEncoding(LocalDateTime timestamp)
     {
-        long startOfDay = timestamp.toLocalDate().atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli();
-        long timeOfDayNanos = (long) ((timestamp.atZone(ZoneOffset.UTC).toInstant().toEpochMilli() - startOfDay) * Math.pow(10, 6)) + timestamp.getNano() % NANOSECONDS_PER_MILLISECOND;
+        long startOfDay = timestamp.toLocalDate().atStartOfDay().toInstant(UTC).toEpochMilli();
+        long timeOfDayNanos = (long) ((timestamp.atZone(UTC).toInstant().toEpochMilli() - startOfDay) * Math.pow(10, 6)) + timestamp.getNano() % NANOSECONDS_PER_MILLISECOND;
 
         Slice slice = Slices.allocate(12);
         slice.setLong(0, timeOfDayNanos);
-        slice.setInt(8, millisToJulianDay(timestamp.atZone(ZoneOffset.UTC).toInstant().toEpochMilli()));
+        slice.setInt(8, millisToJulianDay(timestamp.atZone(UTC).toInstant().toEpochMilli()));
         return slice.byteArray();
     }
 
@@ -846,7 +845,7 @@ public class TestTupleDomainParquetPredicate
     {
         checkArgument(precision > MAX_SHORT_PRECISION && precision <= TimestampType.MAX_PRECISION, "Precision is out of range");
         return new LongTimestamp(
-                start.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + start.getLong(MICRO_OF_SECOND),
+                start.atZone(UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + start.getLong(MICRO_OF_SECOND),
                 toIntExact(round((start.getNano() % PICOSECONDS_PER_NANOSECOND) * (long) PICOSECONDS_PER_NANOSECOND, toIntExact(TimestampType.MAX_PRECISION - precision))));
     }
 

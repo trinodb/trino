@@ -53,10 +53,10 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexFilter;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
-import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -136,7 +136,7 @@ public class ParquetReader
             List<BlockMetaData> blocks,
             List<Long> firstRowsOfBlocks,
             ParquetDataSource dataSource,
-            DateTimeZone timeZone,
+            ZoneId timeZone,
             AggregatedMemoryContext memoryContext,
             ParquetReaderOptions options,
             Function<Exception, RuntimeException> exceptionTransform)
@@ -151,7 +151,7 @@ public class ParquetReader
             List<BlockMetaData> blocks,
             List<Long> firstRowsOfBlocks,
             ParquetDataSource dataSource,
-            DateTimeZone timeZone,
+            ZoneId timeZone,
             AggregatedMemoryContext memoryContext,
             ParquetReaderOptions options,
             Function<Exception, RuntimeException> exceptionTransform,

@@ -55,8 +55,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.LongObjectInspect
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.ShortObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.StringObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.TimestampObjectInspector;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -156,7 +156,7 @@ public final class SerDeUtils
             case TIMESTAMP:
                 TimestampType timestampType = (TimestampType) type;
                 DecodedTimestamp timestamp = formatTimestamp(timestampType, object, (TimestampObjectInspector) inspector);
-                createTimestampEncoder(timestampType, DateTimeZone.UTC).write(timestamp, builder);
+                createTimestampEncoder(timestampType, ZoneOffset.UTC).write(timestamp, builder);
                 return;
             case BINARY:
                 type.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));

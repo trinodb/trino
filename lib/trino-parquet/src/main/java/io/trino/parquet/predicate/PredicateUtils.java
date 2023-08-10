@@ -38,11 +38,11 @@ import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.MessageType;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -112,7 +112,7 @@ public final class PredicateUtils
             MessageType requestedSchema,
             TupleDomain<ColumnDescriptor> parquetTupleDomain,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
-            DateTimeZone timeZone)
+            ZoneId timeZone)
     {
         ImmutableList.Builder<ColumnDescriptor> columnReferences = ImmutableList.builder();
         for (String[] paths : requestedSchema.getPaths()) {
@@ -132,7 +132,7 @@ public final class PredicateUtils
             TupleDomain<ColumnDescriptor> parquetTupleDomain,
             Optional<ColumnIndexStore> columnIndexStore,
             Optional<BloomFilterStore> bloomFilterStore,
-            DateTimeZone timeZone,
+            ZoneId timeZone,
             int domainCompactionThreshold)
             throws IOException
     {

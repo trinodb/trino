@@ -15,7 +15,9 @@ package io.trino.plugin.base.type;
 
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.TimestampType;
-import org.joda.time.DateTimeZone;
+
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -28,7 +30,7 @@ import static java.lang.Math.multiplyExact;
 class ShortTimestampEncoder
         extends AbstractTrinoTimestampEncoder<Long>
 {
-    ShortTimestampEncoder(TimestampType type, DateTimeZone timeZone)
+    ShortTimestampEncoder(TimestampType type, ZoneId timeZone)
     {
         super(type, timeZone);
     }
@@ -44,8 +46,8 @@ class ShortTimestampEncoder
     public Long getTimestamp(DecodedTimestamp decodedTimestamp)
     {
         long micros;
-        if (timeZone != DateTimeZone.UTC) {
-            micros = multiplyExact(timeZone.convertUTCToLocal(multiplyExact(decodedTimestamp.epochSeconds(), MILLISECONDS_PER_SECOND)), MICROSECONDS_PER_MILLISECOND);
+        if (timeZone != ZoneOffset.UTC) {
+            micros = multiplyExact(convertUTCToLocal(timeZone, multiplyExact(decodedTimestamp.epochSeconds(), MILLISECONDS_PER_SECOND)), MICROSECONDS_PER_MILLISECOND);
         }
         else {
             micros = multiplyExact(decodedTimestamp.epochSeconds(), MICROSECONDS_PER_SECOND);

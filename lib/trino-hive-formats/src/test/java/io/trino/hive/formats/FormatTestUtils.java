@@ -76,11 +76,13 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -217,7 +219,7 @@ public final class FormatTestUtils
         return decodeRecordReaderValue(type, actualValue, Optional.empty());
     }
 
-    public static Object decodeRecordReaderValue(Type type, Object actualValue, Optional<DateTimeZone> hiveStorageTimeZone)
+    public static Object decodeRecordReaderValue(Type type, Object actualValue, Optional<ZoneId> hiveStorageTimeZone)
     {
         if (actualValue instanceof LazyObjectBase lazyObject) {
             actualValue = unwrapLazy(lazyObject);
@@ -269,17 +271,17 @@ public final class FormatTestUtils
         return actualValue;
     }
 
-    private static SqlTimestamp decodeRecordReaderTimestamp(TimestampType timestampType, Optional<DateTimeZone> hiveStorageTimeZone, Timestamp timestamp)
+    private static SqlTimestamp decodeRecordReaderTimestamp(TimestampType timestampType, Optional<ZoneId> hiveStorageTimeZone, Timestamp timestamp)
     {
         if (hiveStorageTimeZone.isPresent()) {
             long millis = timestamp.toEpochMilli();
-            millis = hiveStorageTimeZone.get().convertUTCToLocal(millis);
+            millis = convertUTCToLocal(hiveStorageTimeZone.get(), millis);
             return sqlTimestampOf(3, millis);
         }
         return SqlTimestamp.fromSeconds(timestampType.getPrecision(), timestamp.toEpochSecond(), timestamp.getNanos());
     }
 
-    private static List<Object> decodeRecordReaderList(Type type, List<?> list, Optional<DateTimeZone> hiveStorageTimeZone)
+    private static List<Object> decodeRecordReaderList(Type type, List<?> list, Optional<ZoneId> hiveStorageTimeZone)
     {
         Type elementType = type.getTypeParameters().get(0);
         return list.stream()
@@ -287,7 +289,7 @@ public final class FormatTestUtils
                 .toList();
     }
 
-    private static Object decodeRecordReaderMap(Type type, Map<?, ?> map, Optional<DateTimeZone> hiveStorageTimeZone)
+    private static Object decodeRecordReaderMap(Type type, Map<?, ?> map, Optional<ZoneId> hiveStorageTimeZone)
     {
         Type keyType = type.getTypeParameters().get(0);
         Type valueType = type.getTypeParameters().get(1);
@@ -300,7 +302,7 @@ public final class FormatTestUtils
         return newMap;
     }
 
-    private static List<Object> decodeRecordReaderStruct(Type type, List<?> fields, Optional<DateTimeZone> hiveStorageTimeZone)
+    private static List<Object> decodeRecordReaderStruct(Type type, List<?> fields, Optional<ZoneId> hiveStorageTimeZone)
     {
         List<Type> fieldTypes = type.getTypeParameters();
         List<Object> newFields = new ArrayList<>(fields.size());
@@ -571,7 +573,7 @@ public final class FormatTestUtils
         }
     }
 
-    public static Object toHiveWriteValue(Type type, Object value, Optional<DateTimeZone> storageTimeZone)
+    public static Object toHiveWriteValue(Type type, Object value, Optional<ZoneId> storageTimeZone)
     {
         if (value == null) {
             return null;
@@ -614,7 +616,7 @@ public final class FormatTestUtils
             SqlTimestamp timestampValue = (SqlTimestamp) value;
             if (storageTimeZone.isPresent()) {
                 long millis = timestampValue.getMillis();
-                millis = storageTimeZone.get().convertLocalToUTC(millis, false);
+                millis = convertLocalToUTC(storageTimeZone.get(), millis);
                 return Timestamp.ofEpochMilli(millis);
             }
             LocalDateTime localDateTime = timestampValue.toLocalDateTime();
@@ -658,10 +660,10 @@ public final class FormatTestUtils
         }
         DecodedTimestamp decodedTimestamp = new DecodedTimestamp(localDateTime.toEpochSecond(UTC), localDateTime.getNano());
         if (timestampType.isShort()) {
-            long micros = (Long) createTimestampEncoder(timestampType, DateTimeZone.UTC).getTimestamp(decodedTimestamp);
+            long micros = (Long) createTimestampEncoder(timestampType, ZoneOffset.UTC).getTimestamp(decodedTimestamp);
             return SqlTimestamp.newInstance(timestampType.getPrecision(), micros, 0);
         }
-        LongTimestamp longTimestamp = (LongTimestamp) createTimestampEncoder(timestampType, DateTimeZone.UTC).getTimestamp(decodedTimestamp);
+        LongTimestamp longTimestamp = (LongTimestamp) createTimestampEncoder(timestampType, ZoneOffset.UTC).getTimestamp(decodedTimestamp);
         return SqlTimestamp.newInstance(timestampType.getPrecision(), longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro());
     }
 
@@ -683,5 +685,23 @@ public final class FormatTestUtils
     public static boolean isScalarType(Type type)
     {
         return !(type instanceof ArrayType) && !(type instanceof MapType) && !(type instanceof RowType);
+    }
+
+    private static long convertLocalToUTC(ZoneId zoneId, long millis)
+    {
+        return Instant.ofEpochMilli(millis)
+                .atZone(ZoneOffset.UTC)
+                .withZoneSameLocal(zoneId)
+                .toInstant()
+                .toEpochMilli();
+    }
+
+    private static long convertUTCToLocal(ZoneId zoneId, long millis)
+    {
+        return Instant.ofEpochMilli(millis)
+                .atZone(zoneId)
+                .withZoneSameLocal(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli();
     }
 }

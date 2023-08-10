@@ -24,8 +24,10 @@ import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.TimestampType;
-import org.joda.time.DateTimeZone;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.function.BiFunction;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
@@ -37,10 +39,10 @@ public class TimestampEncoding
         implements BinaryColumnEncoding
 {
     private final TimestampType type;
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
     private final TrinoTimestampEncoder<?> trinoTimestampEncoder;
 
-    public TimestampEncoding(TimestampType type, DateTimeZone timeZone)
+    public TimestampEncoding(TimestampType type, ZoneId timeZone)
     {
         this.type = requireNonNull(type, "type is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
@@ -176,7 +178,7 @@ public class TimestampEncoding
 
     private void writeTimestamp(SliceOutput output, TimestampHolder timestamp)
     {
-        long millis = timeZone.convertLocalToUTC(timestamp.getSeconds() * MILLISECONDS_PER_SECOND, false);
+        long millis = convertLocalToUTC(timeZone, timestamp.getSeconds() * MILLISECONDS_PER_SECOND);
         long seconds = millis / MILLISECONDS_PER_SECOND;
         int nanos = timestamp.getNanosOfSecond();
         writeTimestamp(seconds, nanos, output);
@@ -227,5 +229,14 @@ public class TimestampEncoding
             }
         }
         return decimal;
+    }
+
+    private static long convertLocalToUTC(ZoneId zoneId, long millis)
+    {
+        return Instant.ofEpochMilli(millis)
+                .atZone(ZoneOffset.UTC)
+                .withZoneSameLocal(zoneId)
+                .toInstant()
+                .toEpochMilli();
     }
 }

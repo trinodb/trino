@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
+import java.time.ZoneOffset;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -55,7 +55,7 @@ public class TestOrcLz4
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(BIGINT, INTEGER, BIGINT),
                 OrcPredicate.TRUE,
-                DateTimeZone.UTC,
+                ZoneOffset.UTC,
                 newSimpleAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE,
                 RuntimeException::new)) {

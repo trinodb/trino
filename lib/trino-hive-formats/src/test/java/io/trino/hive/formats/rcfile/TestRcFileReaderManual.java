@@ -22,10 +22,10 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
 import io.trino.spi.block.Block;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -237,7 +237,7 @@ public class TestRcFileReaderManual
 
         RcFileReader reader = new RcFileReader(
                 new MemoryInputFile(Location.of("memory:///test"), data),
-                new BinaryColumnEncodingFactory(DateTimeZone.UTC),
+                new BinaryColumnEncodingFactory(ZoneOffset.UTC),
                 ImmutableMap.of(0, SMALLINT),
                 offset,
                 length);

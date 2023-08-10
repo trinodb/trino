@@ -33,11 +33,12 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.mapred.JobConf;
-import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -85,7 +86,7 @@ public class RecordFileWriter
             DataSize estimatedWriterMemoryUsage,
             JobConf conf,
             TypeManager typeManager,
-            DateTimeZone parquetTimeZone,
+            ZoneId parquetTimeZone,
             ConnectorSession session)
     {
         this.path = requireNonNull(path, "path is null");
@@ -120,7 +121,7 @@ public class RecordFileWriter
 
         row = tableInspector.create();
 
-        DateTimeZone timeZone = (recordWriter instanceof ParquetRecordWriter) ? parquetTimeZone : DateTimeZone.UTC;
+        ZoneId timeZone = (recordWriter instanceof ParquetRecordWriter) ? parquetTimeZone : ZoneOffset.UTC;
         FieldSetterFactory fieldSetterFactory = new FieldSetterFactory(timeZone);
 
         setters = new FieldSetter[structFields.size()];

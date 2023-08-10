@@ -25,10 +25,9 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.Optional;
-import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -71,7 +70,7 @@ public class DeltaLakeConfig
     private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private boolean deleteSchemaLocationsFallback;
-    private String parquetTimeZone = TimeZone.getDefault().getID();
+    private String parquetTimeZone = ZoneId.systemDefault().getId();
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
     private boolean uniqueTableLocation = true;
     private boolean legacyCreateTableWithExistingLocationEnabled;
@@ -402,9 +401,9 @@ public class DeltaLakeConfig
         return this;
     }
 
-    public DateTimeZone getParquetDateTimeZone()
+    public ZoneId getParquetDateTimeZone()
     {
-        return DateTimeZone.forID(parquetTimeZone);
+        return ZoneId.of(parquetTimeZone);
     }
 
     @NotNull

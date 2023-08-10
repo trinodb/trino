@@ -21,11 +21,11 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlVarbinary;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -69,7 +69,7 @@ public abstract class AbstractTestRcFileReader
     @BeforeClass
     public void setUp()
     {
-        assertEquals(DateTimeZone.getDefault(), RcFileTester.HIVE_STORAGE_TIME_ZONE);
+        assertEquals(ZoneId.systemDefault(), RcFileTester.HIVE_STORAGE_TIME_ZONE);
     }
 
     @Test

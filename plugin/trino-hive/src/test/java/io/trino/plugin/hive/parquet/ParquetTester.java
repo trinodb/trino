@@ -89,6 +89,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigInteger;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -776,7 +777,7 @@ public class ParquetTester
                         .build(),
                 compressionCodec,
                 "test-version",
-                Optional.of(DateTimeZone.getDefault()),
+                Optional.of(ZoneId.systemDefault()),
                 Optional.of(new ParquetWriteValidationBuilder(types, columnNames)));
 
         PageBuilder pageBuilder = new PageBuilder(types);

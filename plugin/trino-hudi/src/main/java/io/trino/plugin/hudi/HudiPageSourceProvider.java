@@ -53,18 +53,17 @@ import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TimeZone;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -118,7 +117,7 @@ public class HudiPageSourceProvider
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats dataSourceStats;
     private final ParquetReaderOptions options;
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
     private static final int DOMAIN_COMPACTION_THRESHOLD = 1000;
 
     @Inject
@@ -130,7 +129,7 @@ public class HudiPageSourceProvider
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.dataSourceStats = requireNonNull(dataSourceStats, "dataSourceStats is null");
         this.options = requireNonNull(parquetReaderConfig, "parquetReaderConfig is null").toParquetReaderOptions();
-        this.timeZone = DateTimeZone.forID(TimeZone.getDefault().getID());
+        this.timeZone = ZoneId.systemDefault();
     }
 
     @Override
@@ -185,7 +184,7 @@ public class HudiPageSourceProvider
             TrinoInputFile inputFile,
             FileFormatDataSourceStats dataSourceStats,
             ParquetReaderOptions options,
-            DateTimeZone timeZone)
+            ZoneId timeZone)
     {
         ParquetDataSource dataSource = null;
         boolean useColumnNames = shouldUseParquetColumnNames(session);

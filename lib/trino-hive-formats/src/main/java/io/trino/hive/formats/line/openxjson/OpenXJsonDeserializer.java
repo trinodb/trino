@@ -43,7 +43,6 @@ import io.trino.spi.type.VarcharType;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
@@ -87,11 +86,11 @@ import static java.lang.StrictMath.floorDiv;
 import static java.lang.StrictMath.floorMod;
 import static java.lang.StrictMath.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 import static java.time.format.ResolverStyle.LENIENT;
 import static java.util.HexFormat.isHexDigit;
 import static java.util.Objects.requireNonNull;
-import static org.joda.time.DateTimeZone.UTC;
 
 public final class OpenXJsonDeserializer
         implements LineDeserializer
@@ -110,7 +109,7 @@ public final class OpenXJsonDeserializer
 
         List<DateTimeFormatter> timestampFormatters = options.getTimestampFormats().stream()
                 .map(DateTimeFormatter::ofPattern)
-                .map(formatter -> formatter.withZone(ZoneOffset.UTC))
+                .map(formatter -> formatter.withZone(UTC))
                 .collect(toImmutableList());
 
         rowDecoder = new RowDecoder(
@@ -496,14 +495,14 @@ public final class OpenXJsonDeserializer
                 if (value.endsWith("z") || value.endsWith("Z") || HAS_TZ_OFFSET.matcher(value).matches()) {
                     try {
                         ZonedDateTime zonedDateTime = ZonedDateTime.parse(value, ZONED_DATE_TIME_PARSER_NO_COLON);
-                        zonedDateTime = zonedDateTime.withZoneSameInstant(ZoneOffset.UTC);
+                        zonedDateTime = zonedDateTime.withZoneSameInstant(UTC);
                         return new DecodedTimestamp(zonedDateTime.toEpochSecond(), zonedDateTime.getNano());
                     }
                     catch (DateTimeParseException ignored) {
                     }
                     try {
                         ZonedDateTime zonedDateTime = ZonedDateTime.parse(value, ZONED_DATE_TIME_PARSER_WITH_COLON);
-                        zonedDateTime = zonedDateTime.withZoneSameInstant(ZoneOffset.UTC);
+                        zonedDateTime = zonedDateTime.withZoneSameInstant(UTC);
                         return new DecodedTimestamp(zonedDateTime.toEpochSecond(), zonedDateTime.getNano());
                     }
                     catch (DateTimeParseException ignored) {

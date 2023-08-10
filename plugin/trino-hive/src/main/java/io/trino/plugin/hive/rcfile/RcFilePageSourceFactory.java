@@ -45,9 +45,9 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.joda.time.DateTimeZone;
 
 import java.io.InputStream;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -74,7 +74,7 @@ public class RcFilePageSourceFactory
 
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats stats;
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
 
     @Inject
     public RcFilePageSourceFactory(TrinoFileSystemFactory fileSystemFactory, FileFormatDataSourceStats stats, HiveConfig hiveConfig)

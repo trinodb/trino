@@ -39,13 +39,14 @@ import org.apache.hadoop.io.FloatWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.plugin.hive.util.HiveWriteUtils.convertLocalToUTC;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getField;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getHiveDecimal;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -68,9 +69,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class FieldSetterFactory
 {
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
 
-    public FieldSetterFactory(DateTimeZone timeZone)
+    public FieldSetterFactory(ZoneId timeZone)
     {
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
@@ -350,11 +351,11 @@ public final class FieldSetterFactory
     private static class TimestampFieldSetter
             extends FieldSetter
     {
-        private final DateTimeZone timeZone;
+        private final ZoneId timeZone;
         private final TimestampType type;
         private final TimestampWritableV2 value = new TimestampWritableV2();
 
-        public TimestampFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, TimestampType type, DateTimeZone timeZone)
+        public TimestampFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field, TimestampType type, ZoneId timeZone)
         {
             super(rowInspector, row, field);
             this.type = requireNonNull(type, "type is null");
@@ -391,7 +392,7 @@ public final class FieldSetterFactory
         private long convertLocalEpochSecondsToUtc(long epochSeconds)
         {
             long epochMillis = epochSeconds * MILLISECONDS_PER_SECOND;
-            epochMillis = timeZone.convertLocalToUTC(epochMillis, false);
+            epochMillis = convertLocalToUTC(timeZone, epochMillis);
             return epochMillis / MILLISECONDS_PER_SECOND;
         }
     }

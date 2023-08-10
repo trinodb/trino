@@ -75,9 +75,9 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.readAllBytes;
+import static java.time.ZoneOffset.UTC;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
 @SuppressWarnings("MethodMayBeStatic")

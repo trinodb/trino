@@ -19,10 +19,10 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.RowType;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.time.ZoneOffset;
 import java.util.OptionalInt;
 
 import static com.google.common.io.Resources.getResource;
@@ -67,7 +67,7 @@ public class TestOrcWithoutRowGroupInfo
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(INTEGER, BIGINT, INTEGER, BIGINT, BIGINT, rowType),
                 orcPredicate,
-                DateTimeZone.UTC,
+                ZoneOffset.UTC,
                 newSimpleAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE,
                 RuntimeException::new);

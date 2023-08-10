@@ -42,11 +42,11 @@ import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -55,7 +55,7 @@ import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_IN
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
-import static org.joda.time.DateTimeZone.UTC;
+import static java.time.ZoneOffset.UTC;
 
 public final class StandardFileFormats
 {
@@ -206,7 +206,7 @@ public final class StandardFileFormats
                     ParquetWriterOptions.builder().build(),
                     compressionCodec.getParquetCompressionCodec(),
                     "test-version",
-                    Optional.of(DateTimeZone.getDefault()),
+                    Optional.of(ZoneId.systemDefault()),
                     Optional.empty());
         }
 

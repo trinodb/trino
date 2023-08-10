@@ -27,12 +27,12 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.schema.Types;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -106,7 +106,7 @@ public class TestInt96Timestamp
                 null,
                 false);
         // Read and assert
-        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(DateTimeZone.UTC);
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(ZoneOffset.UTC);
         ColumnReader reader = columnReaderFactory.create(field, newSimpleAggregatedMemoryContext());
         reader.setPageReader(
                 new PageReader(UNCOMPRESSED, List.of(dataPage).iterator(), false, false),

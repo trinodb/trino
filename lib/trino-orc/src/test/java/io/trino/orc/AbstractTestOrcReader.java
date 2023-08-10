@@ -27,11 +27,11 @@ import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -95,7 +95,7 @@ public abstract class AbstractTestOrcReader
     @BeforeClass
     public void setUp()
     {
-        assertEquals(DateTimeZone.getDefault(), HIVE_STORAGE_TIME_ZONE);
+        assertEquals(ZoneId.systemDefault(), HIVE_STORAGE_TIME_ZONE);
     }
 
     @Test

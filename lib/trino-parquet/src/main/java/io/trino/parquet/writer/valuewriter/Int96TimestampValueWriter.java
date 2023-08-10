@@ -20,7 +20,10 @@ import io.trino.spi.type.Type;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
-import org.joda.time.DateTimeZone;
+
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetTimestampUtils.JULIAN_EPOCH_OFFSET_DAYS;
@@ -38,9 +41,9 @@ public class Int96TimestampValueWriter
         extends PrimitiveValueWriter
 {
     private final TimestampType timestampType;
-    private final DateTimeZone parquetTimeZone;
+    private final ZoneId parquetTimeZone;
 
-    public Int96TimestampValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType, DateTimeZone parquetTimeZone)
+    public Int96TimestampValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType, ZoneId parquetTimeZone)
     {
         super(parquetType, valuesWriter);
         requireNonNull(type, "type is null");
@@ -88,7 +91,7 @@ public class Int96TimestampValueWriter
         }
 
         for (int i = 0; i < nonNullsCount; i++) {
-            long epochMillis = parquetTimeZone.convertLocalToUTC(localEpochMillis[i], false);
+            long epochMillis = convertLocalToUTC(parquetTimeZone, localEpochMillis[i]);
             long epochDay = floorDiv(epochMillis, MILLISECONDS_PER_DAY);
             int julianDay = JULIAN_EPOCH_OFFSET_DAYS + toIntExact(epochDay);
 
@@ -125,5 +128,14 @@ public class Int96TimestampValueWriter
         outBuffer[2] = (byte) (value >>> 16);
         outBuffer[1] = (byte) (value >>> 8);
         outBuffer[0] = (byte) value;
+    }
+
+    private static long convertLocalToUTC(ZoneId zoneId, long millis)
+    {
+        return Instant.ofEpochMilli(millis)
+                .atZone(ZoneOffset.UTC)
+                .withZoneSameLocal(zoneId)
+                .toInstant()
+                .toEpochMilli();
     }
 }

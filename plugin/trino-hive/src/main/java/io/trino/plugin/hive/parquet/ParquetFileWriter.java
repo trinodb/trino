@@ -28,7 +28,6 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
-import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -36,6 +35,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -75,7 +75,7 @@ public class ParquetFileWriter
             int[] fileInputColumnIndexes,
             CompressionCodec compressionCodec,
             String trinoVersion,
-            Optional<DateTimeZone> parquetTimeZone,
+            Optional<ZoneId> parquetTimeZone,
             Optional<Supplier<ParquetDataSource>> validationInputFactory)
             throws IOException
     {

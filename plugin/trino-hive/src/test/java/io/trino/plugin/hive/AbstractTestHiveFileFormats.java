@@ -62,7 +62,6 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 
 import java.io.File;
@@ -70,6 +69,7 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -148,7 +148,7 @@ import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestHiveFileFormats
 {
-    protected static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    protected static final ZoneId HIVE_STORAGE_TIME_ZONE = ZoneId.of("America/Bahia_Banderas");
 
     private static final double EPSILON = 0.001;
 

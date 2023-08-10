@@ -40,11 +40,11 @@ import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
-import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -83,7 +83,7 @@ public class ParquetWriter
     private final int chunkMaxLogicalBytes;
     private final Map<List<String>, Type> primitiveTypes;
     private final CompressionCodec compressionCodec;
-    private final Optional<DateTimeZone> parquetTimeZone;
+    private final Optional<ZoneId> parquetTimeZone;
 
     private final ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
     private final Optional<ParquetWriteValidationBuilder> validationBuilder;
@@ -103,7 +103,7 @@ public class ParquetWriter
             ParquetWriterOptions writerOption,
             CompressionCodec compressionCodec,
             String trinoVersion,
-            Optional<DateTimeZone> parquetTimeZone,
+            Optional<ZoneId> parquetTimeZone,
             Optional<ParquetWriteValidationBuilder> validationBuilder)
     {
         this.validationBuilder = requireNonNull(validationBuilder, "validationBuilder is null");
@@ -115,7 +115,7 @@ public class ParquetWriter
         this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
         this.createdBy = formatCreatedBy(requireNonNull(trinoVersion, "trinoVersion is null"));
 
-        recordValidation(validation -> validation.setTimeZone(parquetTimeZone.map(DateTimeZone::getID)));
+        recordValidation(validation -> validation.setTimeZone(parquetTimeZone.map(ZoneId::getId)));
         recordValidation(validation -> validation.setColumns(messageType.getColumns()));
         recordValidation(validation -> validation.setCreatedBy(createdBy));
         initColumnWriters();
@@ -348,7 +348,7 @@ public class ParquetWriter
         fileMetaData.setSchema(MessageTypeConverter.toParquetSchema(messageType));
         // Added based on org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport
         parquetTimeZone.ifPresent(dateTimeZone -> fileMetaData.setKey_value_metadata(
-                ImmutableList.of(new KeyValue("writer.time.zone").setValue(dateTimeZone.getID()))));
+                ImmutableList.of(new KeyValue("writer.time.zone").setValue(dateTimeZone.getId()))));
         long totalRows = rowGroups.stream().mapToLong(RowGroup::getNum_rows).sum();
         fileMetaData.setNum_rows(totalRows);
         fileMetaData.setRow_groups(ImmutableList.copyOf(rowGroups));

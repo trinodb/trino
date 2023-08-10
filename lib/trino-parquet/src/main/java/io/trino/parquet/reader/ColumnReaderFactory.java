@@ -42,8 +42,8 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.UUIDLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static io.trino.parquet.ParquetEncoding.PLAIN;
@@ -83,9 +83,9 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public final class ColumnReaderFactory
 {
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
 
-    public ColumnReaderFactory(DateTimeZone timeZone)
+    public ColumnReaderFactory(ZoneId timeZone)
     {
         this.timeZone = requireNonNull(timeZone, "dateTimeZone is null");
     }

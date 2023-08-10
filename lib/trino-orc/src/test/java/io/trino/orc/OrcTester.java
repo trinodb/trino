@@ -95,13 +95,13 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.Progressable;
-import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -210,7 +210,7 @@ public class OrcTester
             .withMaxBufferSize(DataSize.of(1, MEGABYTE))
             .withStreamBufferSize(DataSize.of(1, MEGABYTE))
             .withTinyStripeThreshold(DataSize.of(1, MEGABYTE));
-    public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    public static final ZoneId HIVE_STORAGE_TIME_ZONE = ZoneId.of("America/Bahia_Banderas");
 
     public enum Format
     {

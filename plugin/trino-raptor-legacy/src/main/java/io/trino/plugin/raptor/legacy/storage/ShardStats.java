@@ -42,7 +42,7 @@ import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.trino.plugin.raptor.legacy.storage.RaptorStorageManager.toOrcFileType;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
-import static org.joda.time.DateTimeZone.UTC;
+import static java.time.ZoneOffset.UTC;
 
 public final class ShardStats
 {

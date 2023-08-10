@@ -58,9 +58,9 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.Type;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -128,7 +128,7 @@ public class ParquetPageSourceFactory
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats stats;
     private final ParquetReaderOptions options;
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
     private final int domainCompactionThreshold;
 
     @Inject
@@ -207,7 +207,7 @@ public class ParquetPageSourceFactory
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             boolean useColumnNames,
-            DateTimeZone timeZone,
+            ZoneId timeZone,
             FileFormatDataSourceStats stats,
             ParquetReaderOptions options,
             Optional<ParquetWriteValidation> parquetWriteValidation,

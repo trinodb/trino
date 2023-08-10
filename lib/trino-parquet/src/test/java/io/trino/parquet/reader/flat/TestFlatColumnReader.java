@@ -42,12 +42,12 @@ import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.reader.TestingColumnReader.PLAIN_WRITER;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static java.time.ZoneOffset.UTC;
 import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.joda.time.DateTimeZone.UTC;
 
 /**
  * The purpose of this class is to cover all code paths of FlatColumnReader with all supported data types.

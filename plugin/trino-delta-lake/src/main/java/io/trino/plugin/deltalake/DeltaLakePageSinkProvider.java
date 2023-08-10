@@ -34,8 +34,8 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.TypeManager;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -62,7 +62,7 @@ public class DeltaLakePageSinkProvider
     private final JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec;
     private final DeltaLakeWriterStats stats;
     private final int maxPartitionsPerWriter;
-    private final DateTimeZone parquetDateTimeZone;
+    private final ZoneId parquetDateTimeZone;
     private final TypeManager typeManager;
     private final String trinoVersion;
     private final int domainCompactionThreshold;

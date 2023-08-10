@@ -28,11 +28,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.time.ZoneOffset;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
@@ -80,7 +80,7 @@ public final class OrcFileRewriter
                 reader.getRootColumn().getNestedColumns(),
                 columnTypes,
                 OrcPredicate.TRUE,
-                DateTimeZone.UTC,
+                ZoneOffset.UTC,
                 newSimpleAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE,
                 RaptorPageSource::handleException);

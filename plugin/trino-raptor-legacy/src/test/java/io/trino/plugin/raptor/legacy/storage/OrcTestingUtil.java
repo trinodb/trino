@@ -22,11 +22,11 @@ import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.spi.type.Type;
-import org.joda.time.DateTimeZone;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -64,7 +64,7 @@ final class OrcTestingUtil
                 orcReader.getRootColumn().getNestedColumns(),
                 types,
                 OrcPredicate.TRUE,
-                DateTimeZone.UTC,
+                ZoneOffset.UTC,
                 newSimpleAggregatedMemoryContext(),
                 MAX_BATCH_SIZE,
                 RuntimeException::new);

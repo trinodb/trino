@@ -40,10 +40,10 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
+import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
-import static org.joda.time.DateTimeZone.UTC;
 
 @State(Scope.Thread)
 @OutputTimeUnit(SECONDS)

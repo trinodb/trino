@@ -34,7 +34,10 @@ import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
-import org.joda.time.DateTimeZone;
+
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
@@ -344,7 +347,7 @@ public final class ValueDecoders
                 });
     }
 
-    public ValueDecoder<long[]> getInt96ToShortTimestampDecoder(ParquetEncoding encoding, DateTimeZone timeZone)
+    public ValueDecoder<long[]> getInt96ToShortTimestampDecoder(ParquetEncoding encoding, ZoneId timeZone)
     {
         checkArgument(
                 field.getType() instanceof TimestampType timestampType && timestampType.isShort(),
@@ -368,11 +371,11 @@ public final class ValueDecoders
                 for (int i = 0; i < length; i++) {
                     long epochSeconds = decodeFixed12First(int96Buffer, i);
                     long epochMicros;
-                    if (timeZone == DateTimeZone.UTC) {
+                    if (timeZone == ZoneOffset.UTC) {
                         epochMicros = epochSeconds * MICROSECONDS_PER_SECOND;
                     }
                     else {
-                        epochMicros = timeZone.convertUTCToLocal(epochSeconds * MILLISECONDS_PER_SECOND) * MICROSECONDS_PER_MILLISECOND;
+                        epochMicros = convertUTCToLocal(timeZone, epochSeconds * MILLISECONDS_PER_SECOND) * MICROSECONDS_PER_MILLISECOND;
                     }
                     int nanosOfSecond = (int) round(decodeFixed12Second(int96Buffer, i), 9 - precision);
                     values[offset + i] = epochMicros + nanosOfSecond / NANOSECONDS_PER_MICROSECOND;
@@ -387,7 +390,7 @@ public final class ValueDecoders
         };
     }
 
-    public ValueDecoder<int[]> getInt96ToLongTimestampDecoder(ParquetEncoding encoding, DateTimeZone timeZone)
+    public ValueDecoder<int[]> getInt96ToLongTimestampDecoder(ParquetEncoding encoding, ZoneId timeZone)
     {
         checkArgument(
                 field.getType() instanceof TimestampType timestampType && !timestampType.isShort(),
@@ -400,8 +403,8 @@ public final class ValueDecoders
                     for (int i = offset; i < offset + length; i++) {
                         long epochSeconds = decodeFixed12First(values, i);
                         long nanosOfSecond = decodeFixed12Second(values, i);
-                        if (timeZone != DateTimeZone.UTC) {
-                            epochSeconds = timeZone.convertUTCToLocal(epochSeconds * MILLISECONDS_PER_SECOND) / MILLISECONDS_PER_SECOND;
+                        if (timeZone != ZoneOffset.UTC) {
+                            epochSeconds = convertUTCToLocal(timeZone, epochSeconds * MILLISECONDS_PER_SECOND) / MILLISECONDS_PER_SECOND;
                         }
                         if (precision < 9) {
                             nanosOfSecond = (int) round(nanosOfSecond, 9 - precision);
@@ -1254,5 +1257,14 @@ public final class ValueDecoders
     private IllegalArgumentException wrongEncoding(ParquetEncoding encoding)
     {
         return new IllegalArgumentException("Wrong encoding " + encoding + " for column " + field.getDescriptor());
+    }
+
+    private static long convertUTCToLocal(ZoneId zoneId, long millis)
+    {
+        return Instant.ofEpochMilli(millis)
+                .atZone(zoneId)
+                .withZoneSameLocal(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli();
     }
 }

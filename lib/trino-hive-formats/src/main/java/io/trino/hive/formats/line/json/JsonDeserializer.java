@@ -87,7 +87,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.joda.time.DateTimeZone.UTC;
+import static java.time.ZoneOffset.UTC;
 
 /**
  * Deserializer that is bug for bug compatible with Hive JsonSerDe where possible. Known exceptions are:

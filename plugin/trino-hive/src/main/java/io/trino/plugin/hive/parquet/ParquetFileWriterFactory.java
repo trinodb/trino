@@ -36,12 +36,12 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.joda.time.DateTimeZone;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -66,7 +66,7 @@ public class ParquetFileWriterFactory
     private final TrinoFileSystemFactory fileSystemFactory;
     private final NodeVersion nodeVersion;
     private final TypeManager typeManager;
-    private final DateTimeZone parquetTimeZone;
+    private final ZoneId parquetTimeZone;
     private final FileFormatDataSourceStats readStats;
 
     @Inject

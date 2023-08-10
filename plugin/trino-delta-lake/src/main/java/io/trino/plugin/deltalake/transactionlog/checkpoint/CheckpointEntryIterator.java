@@ -52,10 +52,10 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import jakarta.annotation.Nullable;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.List;
@@ -188,7 +188,7 @@ public class CheckpointEntryIterator
                 columns,
                 tupleDomain,
                 true,
-                DateTimeZone.UTC,
+                ZoneOffset.UTC,
                 stats,
                 parquetReaderOptions,
                 Optional.empty(),

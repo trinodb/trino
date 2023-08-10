@@ -54,9 +54,9 @@ import static io.trino.plugin.hive.orc.OrcPageSourceFactory.verifyAcidSchema;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcDeleteDeltaPageSource
         implements ConnectorPageSource

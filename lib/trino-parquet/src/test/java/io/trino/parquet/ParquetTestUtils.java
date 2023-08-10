@@ -33,11 +33,12 @@ import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.MessageColumnIO;
-import org.joda.time.DateTimeZone;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -56,7 +57,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class ParquetTestUtils
 {
@@ -90,7 +90,7 @@ public class ParquetTestUtils
                 writerOptions,
                 CompressionCodec.SNAPPY,
                 "test-version",
-                Optional.of(DateTimeZone.getDefault()),
+                Optional.of(ZoneId.systemDefault()),
                 Optional.empty());
     }
 
@@ -124,7 +124,7 @@ public class ParquetTestUtils
                 parquetMetadata.getBlocks(),
                 blockStarts,
                 input,
-                UTC,
+                ZoneOffset.UTC,
                 memoryContext,
                 new ParquetReaderOptions(),
                 exception -> {

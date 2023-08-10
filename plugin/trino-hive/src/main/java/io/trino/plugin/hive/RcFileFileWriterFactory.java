@@ -31,10 +31,10 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.OutputStream;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -59,7 +59,7 @@ public class RcFileFileWriterFactory
         implements HiveFileWriterFactory
 {
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final DateTimeZone timeZone;
+    private final ZoneId timeZone;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
 
@@ -77,7 +77,7 @@ public class RcFileFileWriterFactory
             TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            DateTimeZone timeZone)
+            ZoneId timeZone)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");

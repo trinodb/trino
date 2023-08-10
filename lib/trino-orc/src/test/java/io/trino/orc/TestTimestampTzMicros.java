@@ -18,8 +18,9 @@ import io.airlift.slice.Slices;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
+
+import java.time.ZoneOffset;
 
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.toByteArray;
@@ -49,7 +50,7 @@ public class TestTimestampTzMicros
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(timestampTzType, TimestampType.createTimestampType(6)),
                 OrcPredicate.TRUE,
-                DateTimeZone.UTC,
+                ZoneOffset.UTC,
                 newSimpleAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE,
                 RuntimeException::new)) {

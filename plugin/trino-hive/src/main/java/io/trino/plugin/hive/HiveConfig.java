@@ -31,12 +31,11 @@ import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TimeZone;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -109,12 +108,12 @@ public class HiveConfig
 
     private DataSize textMaxLineLength = DataSize.of(100, MEGABYTE);
 
-    private String orcLegacyTimeZone = TimeZone.getDefault().getID();
+    private String orcLegacyTimeZone = ZoneId.systemDefault().getId();
 
-    private String parquetTimeZone = TimeZone.getDefault().getID();
+    private String parquetTimeZone = ZoneId.systemDefault().getId();
     private boolean useParquetColumnNames = true;
 
-    private String rcfileTimeZone = TimeZone.getDefault().getID();
+    private String rcfileTimeZone = ZoneId.systemDefault().getId();
     private boolean rcfileWriterValidate;
 
     private boolean skipDeletionForAlter;
@@ -633,9 +632,9 @@ public class HiveConfig
         return this;
     }
 
-    public DateTimeZone getRcfileDateTimeZone()
+    public ZoneId getRcfileDateTimeZone()
     {
-        return DateTimeZone.forID(rcfileTimeZone);
+        return ZoneId.of(rcfileTimeZone);
     }
 
     @NotNull
@@ -681,9 +680,9 @@ public class HiveConfig
         return this;
     }
 
-    public DateTimeZone getOrcLegacyDateTimeZone()
+    public ZoneId getOrcLegacyZoneId()
     {
-        return DateTimeZone.forID(orcLegacyTimeZone);
+        return ZoneId.of(orcLegacyTimeZone);
     }
 
     @NotNull
@@ -700,9 +699,9 @@ public class HiveConfig
         return this;
     }
 
-    public DateTimeZone getParquetDateTimeZone()
+    public ZoneId getParquetDateTimeZone()
     {
-        return DateTimeZone.forID(parquetTimeZone);
+        return ZoneId.of(parquetTimeZone);
     }
 
     @NotNull

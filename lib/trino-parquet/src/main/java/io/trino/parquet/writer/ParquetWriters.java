@@ -51,8 +51,8 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.TimeLogicalTypeAnnotation
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
-import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -89,7 +89,7 @@ final class ParquetWriters
             Map<List<String>, Type> trinoTypes,
             ParquetProperties parquetProperties,
             CompressionCodec compressionCodec,
-            Optional<DateTimeZone> parquetTimeZone)
+            Optional<ZoneId> parquetTimeZone)
     {
         WriteBuilder writeBuilder = new WriteBuilder(messageType, trinoTypes, parquetProperties, compressionCodec, parquetTimeZone);
         ParquetTypeVisitor.visit(messageType, writeBuilder);
@@ -103,7 +103,7 @@ final class ParquetWriters
         private final Map<List<String>, Type> trinoTypes;
         private final ParquetProperties parquetProperties;
         private final CompressionCodec compressionCodec;
-        private final Optional<DateTimeZone> parquetTimeZone;
+        private final Optional<ZoneId> parquetTimeZone;
         private final ImmutableList.Builder<ColumnWriter> builder = ImmutableList.builder();
 
         WriteBuilder(
@@ -111,7 +111,7 @@ final class ParquetWriters
                 Map<List<String>, Type> trinoTypes,
                 ParquetProperties parquetProperties,
                 CompressionCodec compressionCodec,
-                Optional<DateTimeZone> parquetTimeZone)
+                Optional<ZoneId> parquetTimeZone)
         {
             this.type = requireNonNull(messageType, "messageType is null");
             this.trinoTypes = requireNonNull(trinoTypes, "trinoTypes is null");
@@ -188,7 +188,7 @@ final class ParquetWriters
         }
     }
 
-    private static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType, Optional<DateTimeZone> parquetTimeZone)
+    private static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType, Optional<ZoneId> parquetTimeZone)
     {
         if (BOOLEAN.equals(type)) {
             return new BooleanValueWriter(valuesWriter, parquetType);

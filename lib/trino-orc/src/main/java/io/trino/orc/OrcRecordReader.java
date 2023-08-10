@@ -41,7 +41,6 @@ import io.trino.orc.stream.InputStreamSources;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
-import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -140,7 +139,7 @@ public class OrcRecordReader
             ColumnMetadata<OrcType> orcTypes,
             Optional<OrcDecompressor> decompressor,
             OptionalInt rowsInRowGroup,
-            DateTimeZone legacyFileTimeZone,
+            ZoneId legacyFileTimeZone,
             HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
             OrcReaderOptions options,
@@ -249,7 +248,7 @@ public class OrcRecordReader
 
         stripeReader = new StripeReader(
                 orcDataSource,
-                ZoneId.of(legacyFileTimeZone.getID()),
+                legacyFileTimeZone,
                 decompressor,
                 orcTypes,
                 ImmutableSet.copyOf(readColumns),

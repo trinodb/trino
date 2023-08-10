@@ -75,11 +75,13 @@ import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.joda.time.DateTimeZone;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -280,7 +282,7 @@ public final class HiveWriteUtils
     {
         ImmutableList.Builder<String> partitionValues = ImmutableList.builder();
         for (int field = 0; field < partitionColumns.getChannelCount(); field++) {
-            Object value = getField(DateTimeZone.UTC, partitionColumnTypes.get(field), partitionColumns.getBlock(field), position);
+            Object value = getField(ZoneOffset.UTC, partitionColumnTypes.get(field), partitionColumns.getBlock(field), position);
             if (value == null) {
                 partitionValues.add(HIVE_DEFAULT_DYNAMIC_PARTITION);
             }
@@ -297,7 +299,7 @@ public final class HiveWriteUtils
         return partitionValues.build();
     }
 
-    public static Object getField(DateTimeZone localZone, Type type, Block block, int position)
+    public static Object getField(ZoneId localZone, Type type, Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
@@ -758,7 +760,7 @@ public final class HiveWriteUtils
         return HiveDecimal.create(unscaledValue, decimalType.getScale());
     }
 
-    private static Timestamp getHiveTimestamp(DateTimeZone localZone, TimestampType type, Block block, int position)
+    private static Timestamp getHiveTimestamp(ZoneId localZone, TimestampType type, Block block, int position)
     {
         verify(type.getPrecision() <= HiveTimestampPrecision.MAX.getPrecision(), "Timestamp precision too high for Hive");
 
@@ -775,12 +777,12 @@ public final class HiveWriteUtils
         }
 
         long epochSeconds;
-        if (DateTimeZone.UTC.equals(localZone)) {
+        if (ZoneOffset.UTC.equals(localZone)) {
             epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
         }
         else {
             long localEpochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
-            long utcEpochMillis = localZone.convertLocalToUTC(localEpochMillis, false);
+            long utcEpochMillis = convertLocalToUTC(localZone, localEpochMillis);
             epochSeconds = floorDiv(utcEpochMillis, MILLISECONDS_PER_SECOND);
         }
 
@@ -793,5 +795,14 @@ public final class HiveWriteUtils
     {
         long epochMillis = unpackMillisUtc(block.getLong(position, 0));
         return Timestamp.ofEpochMilli(epochMillis);
+    }
+
+    public static long convertLocalToUTC(ZoneId zoneId, long millis)
+    {
+        return Instant.ofEpochMilli(millis)
+                .atZone(ZoneOffset.UTC)
+                .withZoneSameLocal(zoneId)
+                .toInstant()
+                .toEpochMilli();
     }
 }
