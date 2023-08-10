@@ -1237,24 +1237,6 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName schemaTableName, Map<String, Object> tableProperties)
-    {
-        Span span = startSpan("supportsReportingWrittenBytes", schemaTableName);
-        try (var ignored = scopedSpan(span)) {
-            return delegate.supportsReportingWrittenBytes(session, schemaTableName, tableProperties);
-        }
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
-    {
-        Span span = startSpan("supportsReportingWrittenBytes", connectorTableHandle);
-        try (var ignored = scopedSpan(span)) {
-            return delegate.supportsReportingWrittenBytes(session, connectorTableHandle);
-        }
-    }
-
-    @Override
     public OptionalInt getMaxWriterTasks(ConnectorSession session)
     {
         Span span = startSpan("getMaxWriterTasks");

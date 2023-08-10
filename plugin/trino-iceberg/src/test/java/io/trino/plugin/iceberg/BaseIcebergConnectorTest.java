@@ -235,6 +235,9 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT:
                 return false;
 
+            case SUPPORTS_REPORTING_WRITTEN_BYTES:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

@@ -279,6 +279,8 @@ public abstract class BaseHiveConnectorTest
 
             case SUPPORTS_MULTI_STATEMENT_WRITES:
                 return true;
+            case SUPPORTS_REPORTING_WRITTEN_BYTES:
+                return true;
 
             default:
                 return super.hasBehavior(connectorBehavior);
