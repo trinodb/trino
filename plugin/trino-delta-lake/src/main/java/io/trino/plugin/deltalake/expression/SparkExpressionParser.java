@@ -60,7 +60,7 @@ public final class SparkExpressionParser
     private static Object invokeParser(String input, Function<SparkExpressionBaseParser, ParserRuleContext> parseFunction)
     {
         try {
-            SparkExpressionBaseLexer lexer = new SparkExpressionBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(input)));
+            SparkExpressionBaseLexer lexer = new SparkExpressionBaseLexer(CharStreams.fromString(input));
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
             SparkExpressionBaseParser parser = new SparkExpressionBaseParser(tokenStream);
 
