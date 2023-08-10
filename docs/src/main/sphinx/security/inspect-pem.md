@@ -52,7 +52,8 @@ MIIEowIBAAKCAQEAwJL8CLeDFAHhZe3QOOF1vWt4Vuk9vyO38Y1y9SgBfB02b2jW
 If your key section reports `BEGIN ENCRYPTED PRIVATE KEY` instead, this means
 the key is encrypted and you must use the password to open or inspect the key.
 You may have specified the password when requesting the key, or the password
-could be assigned by your site's network managers.
+could be assigned by your site's network managers. Note that password protected
+PEM files are not supported by Trino.
 
 If your key section reports `BEGIN EC PRIVATE KEY` or `BEGIN DSA PRIVATE
 KEY`, this designates a key using Elliptical Curve or DSA alternatives to RSA.
@@ -107,6 +108,7 @@ openssl x509 -in clustercoord.pem -text -noout
 ```
 
 If your certificate was generated with a password, `openssl` prompts for it.
+Note that password protected PEM files are not supported by Trino.
 
 In the output of the `openssl` command, look for the following
 characteristics:
