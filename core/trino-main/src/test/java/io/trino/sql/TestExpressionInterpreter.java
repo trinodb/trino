@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.operator.scalar.TryFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
@@ -288,18 +287,16 @@ public class TestExpressionInterpreter
     @Test
     public void testLambdaBody()
     {
-        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> 100 * 100)",
-                "\"" + TryFunction.NAME + "\"(() -> 10000)");
-        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> CAST('123' as BIGINT))",
-                "\"" + TryFunction.NAME + "\"(() -> BIGINT '123')");
-        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> CAST('abc' as BIGINT))",
-                "\"" + TryFunction.NAME + "\"(() -> CAST('abc' as BIGINT))");
-        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> IF(false, 1, 0 / 0))",
-                "\"" + TryFunction.NAME + "\"(() -> 0 / 0)");
-        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> 5 / 0)",
-                "\"" + TryFunction.NAME + "\"(() -> 5 / 0)");
-        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> nullif(true, true))",
-                "\"" + TryFunction.NAME + "\"(() -> CAST(null AS Boolean))");
+        assertOptimizedEquals("transform(ARRAY[bound_long], n -> CAST(n as BIGINT))",
+                "transform(ARRAY[bound_long], n -> n)");
+        assertOptimizedEquals("transform(ARRAY[bound_long], n -> CAST(n as VARCHAR(5)))",
+                "transform(ARRAY[bound_long], n -> CAST(n as VARCHAR(5)))");
+        assertOptimizedEquals("transform(ARRAY[bound_long], n -> IF(false, 1, 0 / 0))",
+                "transform(ARRAY[bound_long], n -> 0 / 0)");
+        assertOptimizedEquals("transform(ARRAY[bound_long], n -> 5 / 0)",
+                "transform(ARRAY[bound_long], n -> 5 / 0)");
+        assertOptimizedEquals("transform(ARRAY[bound_long], n -> nullif(true, true))",
+                "transform(ARRAY[bound_long], n -> CAST(null AS Boolean))");
         assertOptimizedEquals("transform(ARRAY[bound_long], n -> n + 10 * 10)",
                 "transform(ARRAY[bound_long], n -> n + 100)");
         assertOptimizedEquals("reduce_agg(bound_long, 0, (a, b) -> IF(false, a, b), (a, b) -> IF(true, a, b))",
