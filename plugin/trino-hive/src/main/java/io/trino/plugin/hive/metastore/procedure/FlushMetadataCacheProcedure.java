@@ -29,9 +29,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.base.util.Reflection.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -69,8 +69,17 @@ public class FlushMetadataCacheProcedure
             PARAM_PARTITION_COLUMN.toLowerCase(ENGLISH),
             PARAM_PARTITION_VALUE.toLowerCase(ENGLISH));
 
-    private static final MethodHandle FLUSH_HIVE_METASTORE_CACHE = methodHandle(FlushMetadataCacheProcedure.class,
-            "flushMetadataCache", String.class, String.class, List.class, List.class, List.class, List.class);
+    private static final MethodHandle FLUSH_HIVE_METASTORE_CACHE;
+
+    static {
+        try {
+            FLUSH_HIVE_METASTORE_CACHE = lookup().unreflect(FlushMetadataCacheProcedure.class.getMethod(
+                    "flushMetadataCache", String.class, String.class, List.class, List.class, List.class, List.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final Optional<CachingHiveMetastore> cachingHiveMetastore;
 
