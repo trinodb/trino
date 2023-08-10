@@ -202,7 +202,9 @@ final class S3InputStream
             streamPosition = nextReadPosition;
         }
         catch (NoSuchKeyException e) {
-            throw new FileNotFoundException(location.toString());
+            var ex = new FileNotFoundException(location.toString());
+            ex.initCause(e);
+            throw ex;
         }
         catch (SdkException e) {
             throw new IOException("Failed to open S3 file: " + location, e);

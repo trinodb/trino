@@ -31,6 +31,7 @@ import java.io.OutputStream;
 import java.nio.file.FileAlreadyExistsException;
 
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
+import static io.trino.filesystem.hdfs.HdfsFileSystem.withCause;
 import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
 import static java.util.Objects.requireNonNull;
 
@@ -80,7 +81,7 @@ class HdfsOutputFile
         }
         catch (org.apache.hadoop.fs.FileAlreadyExistsException e) {
             createFileCallStat.recordException(e);
-            throw new FileAlreadyExistsException(toString());
+            throw withCause(new FileAlreadyExistsException(toString()), e);
         }
         catch (IOException e) {
             createFileCallStat.recordException(e);

@@ -22,6 +22,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
+import static io.trino.filesystem.hdfs.HdfsFileSystem.withCause;
 import static java.util.Objects.requireNonNull;
 
 class HdfsInput
@@ -46,7 +47,7 @@ class HdfsInput
             stream.readFully(position, buffer, bufferOffset, bufferLength);
         }
         catch (FileNotFoundException e) {
-            throw new FileNotFoundException("File %s not found: %s".formatted(toString(), e.getMessage()));
+            throw withCause(new FileNotFoundException("File %s not found: %s".formatted(toString(), e.getMessage())), e);
         }
         catch (IOException e) {
             throw new IOException("Read exactly %s bytes at position %s of file %s failed: %s".formatted(bufferLength, position, toString(), e.getMessage()), e);
@@ -64,7 +65,7 @@ class HdfsInput
             return tail.length();
         }
         catch (FileNotFoundException e) {
-            throw new FileNotFoundException("File %s not found: %s".formatted(toString(), e.getMessage()));
+            throw withCause(new FileNotFoundException("File %s not found: %s".formatted(toString(), e.getMessage())), e);
         }
         catch (IOException e) {
             throw new IOException("Read %s tail bytes of file %s failed: %s".formatted(bufferLength, toString(), e.getMessage()), e);
