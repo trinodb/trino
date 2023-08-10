@@ -24,7 +24,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -34,7 +33,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
-import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -73,7 +71,6 @@ import static io.trino.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
 import static io.trino.plugin.blackhole.BlackHolePageSourceProvider.isNumericType;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
-import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -89,7 +86,6 @@ public class BlackHoleMetadata
     private final List<String> schemas = new ArrayList<>();
     private final Map<SchemaTableName, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
     private final Map<SchemaTableName, ConnectorViewDefinition> views = new ConcurrentHashMap<>();
-    private final Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
 
     public BlackHoleMetadata()
     {
@@ -426,67 +422,5 @@ public class BlackHoleMetadata
                 view.getComment(),
                 view.getOwner(),
                 view.isRunAsInvoker()));
-    }
-
-    @Override
-    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
-    {
-        return false;
-    }
-
-    @Override
-    public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
-    {
-        materializedViews.remove(viewName);
-    }
-
-    @Override
-    public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
-    {
-        materializedViews.put(viewName, definition);
-    }
-
-    @Override
-    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
-    {
-        return Optional.ofNullable(materializedViews.get(viewName));
-    }
-
-    @Override
-    public Map<SchemaTableName, ConnectorMaterializedViewDefinition> getMaterializedViews(ConnectorSession session, Optional<String> schemaName)
-    {
-        return ImmutableMap.copyOf(materializedViews);
-    }
-
-    @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
-    {
-        return new MaterializedViewFreshness(STALE, Optional.empty());
-    }
-
-    @Override
-    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
-    {
-        return ImmutableList.copyOf(materializedViews.keySet());
-    }
-
-    @Override
-    public void setMaterializedViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
-    {
-        ConnectorMaterializedViewDefinition view = getMaterializedView(session, viewName).orElseThrow(() -> new ViewNotFoundException(viewName));
-        materializedViews.put(viewName, new ConnectorMaterializedViewDefinition(
-                view.getOriginalSql(),
-                view.getStorageTable(),
-                view.getCatalog(),
-                view.getSchema(),
-                view.getColumns().stream()
-                        .map(currentViewColumn -> Objects.equals(columnName, currentViewColumn.getName())
-                                ? new ConnectorMaterializedViewDefinition.Column(currentViewColumn.getName(), currentViewColumn.getType(), comment)
-                                : currentViewColumn)
-                        .collect(toImmutableList()),
-                view.getGracePeriod(),
-                view.getComment(),
-                view.getOwner(),
-                view.getProperties()));
     }
 }
