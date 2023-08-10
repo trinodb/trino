@@ -24,6 +24,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningHandle;
@@ -33,6 +34,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.LocalQueryRunner;
@@ -117,10 +119,58 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalog, schemaTableName, true),
+                                planBuilder.createTarget(catalog, schemaTableName, true, WriterScalingOptions.ENABLED),
                                 tableWriterSource,
                                 symbol)));
         validatePlan(root);
+    }
+
+    @Test(dataProvider = "scaledWriterPartitioningHandles")
+    public void testScaledWritersUsedAndTargetDoesNotSupportScalingPerTask(PartitioningHandle scaledWriterPartitionHandle)
+    {
+        PlanNode tableWriterSource = planBuilder.exchange(ex ->
+                ex
+                        .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                        .addInputsSet(symbol)
+                        .addSource(planBuilder.exchange(innerExchange ->
+                                innerExchange
+                                        .scope(ExchangeNode.Scope.LOCAL)
+                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .addInputsSet(symbol)
+                                        .addSource(tableScanNode))));
+        PlanNode root = planBuilder.output(
+                outputBuilder -> outputBuilder
+                        .source(planBuilder.tableWithExchangeCreate(
+                                planBuilder.createTarget(catalog, schemaTableName, true, new WriterScalingOptions(true, false)),
+                                tableWriterSource,
+                                symbol)));
+        assertThatThrownBy(() -> validatePlan(root))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The scaled writer per task partitioning scheme is set but writer target catalog:INSTANCE doesn't support it");
+    }
+
+    @Test(dataProvider = "scaledWriterPartitioningHandles")
+    public void testScaledWritersUsedAndTargetDoesNotSupportScalingAcrossTasks(PartitioningHandle scaledWriterPartitionHandle)
+    {
+        PlanNode tableWriterSource = planBuilder.exchange(ex ->
+                ex
+                        .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                        .addInputsSet(symbol)
+                        .addSource(planBuilder.exchange(innerExchange ->
+                                innerExchange
+                                        .scope(ExchangeNode.Scope.REMOTE)
+                                        .partitioningScheme(new PartitioningScheme(Partitioning.create(scaledWriterPartitionHandle, ImmutableList.of()), ImmutableList.of(symbol)))
+                                        .addInputsSet(symbol)
+                                        .addSource(tableScanNode))));
+        PlanNode root = planBuilder.output(
+                outputBuilder -> outputBuilder
+                        .source(planBuilder.tableWithExchangeCreate(
+                                planBuilder.createTarget(catalog, schemaTableName, true, new WriterScalingOptions(false, true)),
+                                tableWriterSource,
+                                symbol)));
+        assertThatThrownBy(() -> validatePlan(root))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The scaled writer across tasks partitioning scheme is set but writer target catalog:INSTANCE doesn't support it");
     }
 
     @Test(dataProvider = "scaledWriterPartitioningHandles")
@@ -138,7 +188,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalog, schemaTableName, false),
+                                planBuilder.createTarget(catalog, schemaTableName, false, WriterScalingOptions.ENABLED),
                                 tableWriterSource,
                                 symbol)));
 
@@ -173,7 +223,7 @@ public class TestValidateScaledWritersUsage
         PlanNode root = planBuilder.output(
                 outputBuilder -> outputBuilder
                         .source(planBuilder.tableWithExchangeCreate(
-                                planBuilder.createTarget(catalog, schemaTableName, false),
+                                planBuilder.createTarget(catalog, schemaTableName, false, WriterScalingOptions.ENABLED),
                                 tableWriterSource,
                                 symbol)));
 

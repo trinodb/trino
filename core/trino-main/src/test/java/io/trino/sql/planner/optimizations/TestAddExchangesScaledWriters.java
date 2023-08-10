@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -42,15 +43,17 @@ public class TestAddExchangesScaledWriters
                 .build();
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
         queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
-        queryRunner.createCatalog("catalog", createConnectorFactory("catalog"), ImmutableMap.of());
+        queryRunner.createCatalog("catalog_with_scaled_writers", createConnectorFactory("catalog_with_scaled_writers", true), ImmutableMap.of());
+        queryRunner.createCatalog("catalog_without_scaled_writers", createConnectorFactory("catalog_without_scaled_writers", false), ImmutableMap.of());
         return queryRunner;
     }
 
-    private MockConnectorFactory createConnectorFactory(String name)
+    private MockConnectorFactory createConnectorFactory(String name, boolean writerScalingEnabledAcrossTasks)
     {
         return MockConnectorFactory.builder()
                 .withGetTableHandle(((session, schemaTableName) -> null))
                 .withName(name)
+                .withWriterScalingOptions(new WriterScalingOptions(writerScalingEnabledAcrossTasks, true))
                 .build();
     }
 
@@ -68,7 +71,7 @@ public class TestAddExchangesScaledWriters
                 .build();
 
         @Language("SQL")
-        String query = "CREATE TABLE catalog.mock.test AS SELECT * FROM tpch.tiny.nation";
+        String query = "CREATE TABLE catalog_with_scaled_writers.mock.test AS SELECT * FROM tpch.tiny.nation";
         SubPlan subPlan = subplan(query, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, session);
         if (isScaleWritersEnabled) {
             assertThat(subPlan.getAllFragments().get(1).getPartitioning().getConnectorHandle()).isEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle());
@@ -77,5 +80,19 @@ public class TestAddExchangesScaledWriters
             subPlan.getAllFragments().forEach(
                     fragment -> assertThat(fragment.getPartitioning().getConnectorHandle()).isNotEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle()));
         }
+    }
+
+    @Test(dataProvider = "scale_writers")
+    public void testScaledWritersWithTasksScalingDisabled(boolean isScaleWritersEnabled)
+    {
+        Session session = testSessionBuilder()
+                .setSystemProperty("scale_writers", Boolean.toString(isScaleWritersEnabled))
+                .build();
+
+        @Language("SQL")
+        String query = "CREATE TABLE catalog_without_scaled_writers.mock.test AS SELECT * FROM tpch.tiny.nation";
+        SubPlan subPlan = subplan(query, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, false, session);
+        subPlan.getAllFragments().forEach(
+                fragment -> assertThat(fragment.getPartitioning().getConnectorHandle()).isNotEqualTo(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION.getConnectorHandle()));
     }
 }

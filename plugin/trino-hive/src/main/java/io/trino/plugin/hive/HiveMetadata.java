@@ -102,6 +102,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
@@ -3853,6 +3854,18 @@ public class HiveMetadata
             return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
         }
         return Optional.empty();
+    }
+
+    @Override
+    public WriterScalingOptions getNewTableWriterScalingOptions(ConnectorSession session, SchemaTableName tableName, Map<String, Object> tableProperties)
+    {
+        return WriterScalingOptions.ENABLED;
+    }
+
+    @Override
+    public WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return WriterScalingOptions.ENABLED;
     }
 
     private static TableNameSplitResult splitTableName(String tableName)

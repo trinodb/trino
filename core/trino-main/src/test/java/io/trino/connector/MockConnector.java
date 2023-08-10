@@ -83,6 +83,7 @@ import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.FunctionProvider;
@@ -178,6 +179,7 @@ public class MockConnector
     private final Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources;
     private final OptionalInt maxWriterTasks;
     private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
+    private final WriterScalingOptions writerScalingOptions;
 
     MockConnector(
             Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper,
@@ -224,7 +226,8 @@ public class MockConnector
             Supplier<List<PropertyMetadata<?>>> columnProperties,
             Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources,
             OptionalInt maxWriterTasks,
-            BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute)
+            BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute,
+            WriterScalingOptions writerScalingOptions)
     {
         this.metadataWrapper = requireNonNull(metadataWrapper, "metadataWrapper is null");
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
@@ -271,6 +274,7 @@ public class MockConnector
         this.tableFunctionSplitsSources = requireNonNull(tableFunctionSplitsSources, "tableFunctionSplitsSources is null");
         this.maxWriterTasks = requireNonNull(maxWriterTasks, "maxWriterTasks is null");
         this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
+        this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
     }
 
     @Override
@@ -870,6 +874,18 @@ public class MockConnector
         public BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> beginTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorTableHandle updatedSourceTableHandle)
         {
             return new BeginTableExecuteResult<>(tableExecuteHandle, updatedSourceTableHandle);
+        }
+
+        @Override
+        public WriterScalingOptions getNewTableWriterScalingOptions(ConnectorSession session, SchemaTableName tableName, Map<String, Object> tableProperties)
+        {
+            return writerScalingOptions;
+        }
+
+        @Override
+        public WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            return writerScalingOptions;
         }
 
         private MockConnectorAccessControl getMockAccessControl()

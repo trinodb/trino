@@ -88,6 +88,7 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
@@ -2893,6 +2894,18 @@ public class IcebergMetadata
             return Optional.empty();
         }
         return catalog.redirectTable(session, tableName, targetCatalogName.get());
+    }
+
+    @Override
+    public WriterScalingOptions getNewTableWriterScalingOptions(ConnectorSession session, SchemaTableName tableName, Map<String, Object> tableProperties)
+    {
+        return WriterScalingOptions.ENABLED;
+    }
+
+    @Override
+    public WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return WriterScalingOptions.ENABLED;
     }
 
     private static CollectedStatistics processComputedTableStatistics(Table table, Collection<ComputedStatistics> computedStatistics)

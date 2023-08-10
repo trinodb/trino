@@ -53,6 +53,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.BoundSignature;
@@ -931,6 +932,18 @@ public abstract class AbstractMockMetadata
 
     @Override
     public OptionalInt getMaxWriterTasks(Session session, String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public WriterScalingOptions getNewTableWriterScalingOptions(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public WriterScalingOptions getInsertWriterScalingOptions(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
     }

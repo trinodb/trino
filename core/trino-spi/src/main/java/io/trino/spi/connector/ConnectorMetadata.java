@@ -1604,6 +1604,16 @@ public interface ConnectorMetadata
         return OptionalInt.empty();
     }
 
+    default WriterScalingOptions getNewTableWriterScalingOptions(ConnectorSession session, SchemaTableName tableName, Map<String, Object> tableProperties)
+    {
+        return WriterScalingOptions.DISABLED;
+    }
+
+    default WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return WriterScalingOptions.DISABLED;
+    }
+
     final class Helper
     {
         private Helper() {}

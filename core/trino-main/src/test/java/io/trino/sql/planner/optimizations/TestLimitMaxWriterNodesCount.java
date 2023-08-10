@@ -25,6 +25,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.planner.SystemPartitioningHandle;
 import io.trino.sql.planner.TestTableScanNodePartitioning;
@@ -99,6 +100,7 @@ public class TestLimitMaxWriterNodesCount
                     }
                     return null;
                 }))
+                .withWriterScalingOptions(WriterScalingOptions.ENABLED)
                 .withGetInsertLayout((session, tableMetadata) -> {
                     if (tableMetadata.getTableName().equals(partitionedTable)) {
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("column_a")));

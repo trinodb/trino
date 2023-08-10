@@ -74,6 +74,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.FunctionMetadata;
@@ -1355,6 +1356,24 @@ public class TracingMetadata
         Span span = startSpan("getMaxWriterTasks", catalogName);
         try (var ignored = scopedSpan(span)) {
             return delegate.getMaxWriterTasks(session, catalogName);
+        }
+    }
+
+    @Override
+    public WriterScalingOptions getNewTableWriterScalingOptions(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
+    {
+        Span span = startSpan("getNewTableWriterScalingOptions", tableName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getNewTableWriterScalingOptions(session, tableName, tableProperties);
+        }
+    }
+
+    @Override
+    public WriterScalingOptions getInsertWriterScalingOptions(Session session, TableHandle tableHandle)
+    {
+        Span span = startSpan("getInsertWriterScalingOptions", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getInsertWriterScalingOptions(session, tableHandle);
         }
     }
 
