@@ -25,7 +25,6 @@ import io.trino.Session;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.hdfs.HdfsContext;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
@@ -58,7 +57,6 @@ import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.io.FileIO;
@@ -108,7 +106,6 @@ import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -4208,13 +4205,8 @@ public abstract class BaseIcebergConnectorTest
         assertNotEquals(dataFile.get("file_size_in_bytes"), alteredValue);
         dataFile.put("file_size_in_bytes", alteredValue);
 
-        // Replace the file through HDFS client. This is required for correct checksums.
-        HdfsContext context = new HdfsContext(getSession().toConnectorSession());
-        org.apache.hadoop.fs.Path manifestFilePath = new org.apache.hadoop.fs.Path(manifestFile);
-        FileSystem fs = HDFS_ENVIRONMENT.getFileSystem(context, manifestFilePath);
-
         // Write altered metadata
-        try (OutputStream out = fs.create(manifestFilePath);
+        try (OutputStream out = fileSystem.newOutputFile(Location.of(manifestFile)).createOrOverwrite();
                 DataFileWriter<GenericData.Record> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
             dataFileWriter.create(schema, out);
             dataFileWriter.append(entry);
@@ -4227,7 +4219,9 @@ public abstract class BaseIcebergConnectorTest
         assertQuery(session, "SELECT * FROM test_iceberg_file_size", "VALUES (123), (456), (758)");
 
         // Using Iceberg provided file size fails the query
-        assertQueryFails("SELECT * FROM test_iceberg_file_size", ".*Error opening Iceberg split.*\\QIncorrect file size (%d) for file (end of stream not reached)\\E.*".formatted(alteredValue));
+        assertQueryFails(
+                "SELECT * FROM test_iceberg_file_size",
+                "(Malformed ORC file\\. Invalid file metadata.*)|(.*Error opening Iceberg split.* Incorrect file size \\(%s\\) for file .*)".formatted(alteredValue));
 
         dropTable("test_iceberg_file_size");
     }
