@@ -161,6 +161,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionId;
@@ -379,6 +380,7 @@ import static io.trino.util.SpatialJoinUtils.ST_INTERSECTS;
 import static io.trino.util.SpatialJoinUtils.ST_WITHIN;
 import static io.trino.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static io.trino.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -3280,7 +3282,11 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            int maxWriterCount = getWriterCount(session, node.getPartitioningScheme(), node.getSource());
+            int maxWriterCount = getWriterCount(
+                    session,
+                    node.getTarget().getWriterScalingOptions(metadata, session),
+                    node.getPartitioningScheme(),
+                    node.getSource());
             context.setDriverInstanceCount(maxWriterCount);
             context.taskContext.setMaxWriterCount(maxWriterCount);
 
@@ -3438,7 +3444,11 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableExecute(TableExecuteNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            int maxWriterCount = getWriterCount(session, node.getPartitioningScheme(), node.getSource());
+            int maxWriterCount = getWriterCount(
+                    session,
+                    node.getTarget().getWriterScalingOptions(metadata, session),
+                    node.getPartitioningScheme(),
+                    node.getSource());
             context.setDriverInstanceCount(maxWriterCount);
             context.taskContext.setMaxWriterCount(maxWriterCount);
 
@@ -3465,7 +3475,7 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMapping.buildOrThrow(), context, source);
         }
 
-        private int getWriterCount(Session session, Optional<PartitioningScheme> partitioningScheme, PlanNode source)
+        private int getWriterCount(Session session, WriterScalingOptions connectorScalingOptions, Optional<PartitioningScheme> partitioningScheme, PlanNode source)
         {
             // This check is required because we don't know which writer count to use when exchange is
             // single distribution. It could be possible that when scaling is enabled, a single distribution is
@@ -3475,12 +3485,24 @@ public class LocalExecutionPlanner
                 return 1;
             }
 
-            // The default value of partitioned writer count is 32 which is high enough to use it
-            // for both cases when scaling is enabled or not. Additionally, it doesn't lead to too many
-            // small files since when scaling is disabled only single writer will handle a single partition.
-            return partitioningScheme
-                    .map(scheme -> getTaskPartitionedWriterCount(session))
-                    .orElseGet(() -> isLocalScaledWriterExchange(source) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session));
+            if (partitioningScheme.isPresent()) {
+                // The default value of partitioned writer count is 32 which is high enough to use it
+                // for both cases when scaling is enabled or not. Additionally, it doesn't lead to too many
+                // small files since when scaling is disabled only single writer will handle a single partition.
+                if (isLocalScaledWriterExchange(source)) {
+                    return connectorScalingOptions.perTaskMaxScaledWriterCount()
+                            .map(writerCount -> min(writerCount, getTaskPartitionedWriterCount(session)))
+                            .orElse(getTaskPartitionedWriterCount(session));
+                }
+                return getTaskPartitionedWriterCount(session);
+            }
+
+            if (isLocalScaledWriterExchange(source)) {
+                return connectorScalingOptions.perTaskMaxScaledWriterCount()
+                        .map(writerCount -> min(writerCount, getTaskScaleWritersMaxWriterCount(session)))
+                        .orElse(getTaskScaleWritersMaxWriterCount(session));
+            }
+            return getTaskWriterCount(session);
         }
 
         private boolean isSingleGatheringExchange(PlanNode node)

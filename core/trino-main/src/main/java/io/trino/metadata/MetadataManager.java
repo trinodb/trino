@@ -83,6 +83,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.AggregationFunctionMetadata;
@@ -2669,6 +2670,22 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = catalog.get();
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         return catalogMetadata.getMetadata(session).getMaxWriterTasks(session.toConnectorSession(catalogHandle));
+    }
+
+    @Override
+    public WriterScalingOptions getNewTableWriterScalingOptions(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, tableName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+        return metadata.getNewTableWriterScalingOptions(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName(), tableProperties);
+    }
+
+    @Override
+    public WriterScalingOptions getInsertWriterScalingOptions(Session session, TableHandle tableHandle)
+    {
+        ConnectorMetadata metadata = getMetadataForWrite(session, tableHandle.getCatalogHandle());
+        return metadata.getInsertWriterScalingOptions(session.toConnectorSession(tableHandle.getCatalogHandle()), tableHandle.getConnectorHandle());
     }
 
     private Optional<ConnectorTableVersion> toConnectorVersion(Optional<TableVersion> version)

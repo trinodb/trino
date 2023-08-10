@@ -944,7 +944,11 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(executeHandle, Optional.empty(), tableName.asSchemaTableName());
+        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(
+                executeHandle,
+                Optional.empty(),
+                tableName.asSchemaTableName(),
+                metadata.getInsertWriterScalingOptions(session, tableHandle));
 
         Optional<TableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
 

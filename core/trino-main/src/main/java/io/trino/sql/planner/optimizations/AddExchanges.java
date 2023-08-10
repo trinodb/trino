@@ -33,6 +33,7 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Partitioning;
@@ -760,13 +761,14 @@ public class AddExchanges
 
         private PlanWithProperties getWriterPlanWithProperties(Optional<PartitioningScheme> partitioningScheme, PlanWithProperties newSource, TableWriterNode.WriterTarget writerTarget)
         {
+            WriterScalingOptions scalingOptions = writerTarget.getWriterScalingOptions(plannerContext.getMetadata(), session);
             if (partitioningScheme.isEmpty()) {
                 // use maxWritersTasks to set PartitioningScheme.partitionCount field to limit number of tasks that will take part in executing writing stage
                 int maxWriterTasks = writerTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
                 Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
                         ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
                         : Optional.empty();
-                if (scaleWriters) {
+                if (scaleWriters && scalingOptions.isWriterTasksScalingEnabled()) {
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols(), Optional.empty(), false, Optional.empty(), maxWritersNodesCount));
                 }
                 else if (redistributeWrites) {
@@ -774,6 +776,7 @@ public class AddExchanges
                 }
             }
             else if (scaleWriters
+                    && scalingOptions.isWriterTasksScalingEnabled()
                     && writerTarget.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session)
                     // do not insert an exchange if partitioning is compatible
                     && !newSource.getProperties().isCompatibleTablePartitioningWith(partitioningScheme.get().getPartitioning(), false, plannerContext.getMetadata(), session)) {
