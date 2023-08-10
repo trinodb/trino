@@ -32,6 +32,7 @@ import java.time.Instant;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
+import static io.trino.filesystem.hdfs.HdfsFileSystem.withCause;
 import static java.util.Objects.requireNonNull;
 
 class HdfsInputFile
@@ -120,7 +121,7 @@ class HdfsInputFile
             catch (IOException e) {
                 openFileCallStat.recordException(e);
                 if (e instanceof FileNotFoundException) {
-                    throw new FileNotFoundException(location.toString());
+                    throw withCause(new FileNotFoundException(toString()), e);
                 }
                 throw new IOException("Open file %s failed: %s".formatted(location, e.getMessage()), e);
             }
@@ -136,7 +137,7 @@ class HdfsInputFile
                 status = environment.doAs(context.getIdentity(), () -> fileSystem.getFileStatus(file));
             }
             catch (FileNotFoundException e) {
-                throw new FileNotFoundException(toString());
+                throw withCause(new FileNotFoundException(toString()), e);
             }
             catch (IOException e) {
                 throw new IOException("Get status for file %s failed: %s".formatted(location, e.getMessage()), e);
