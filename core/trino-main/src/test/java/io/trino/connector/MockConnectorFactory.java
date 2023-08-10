@@ -51,6 +51,7 @@ import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.FunctionProvider;
@@ -138,6 +139,8 @@ public class MockConnectorFactory
     private final OptionalInt maxWriterTasks;
     private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
 
+    private final WriterScalingOptions writerScalingOptions;
+
     private MockConnectorFactory(
             String name,
             List<PropertyMetadata<?>> sessionProperty,
@@ -184,7 +187,8 @@ public class MockConnectorFactory
             boolean allowMissingColumnsOnInsert,
             Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources,
             OptionalInt maxWriterTasks,
-            BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute)
+            BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute,
+            WriterScalingOptions writerScalingOptions)
     {
         this.name = requireNonNull(name, "name is null");
         this.sessionProperty = ImmutableList.copyOf(requireNonNull(sessionProperty, "sessionProperty is null"));
@@ -232,6 +236,7 @@ public class MockConnectorFactory
         this.tableFunctionSplitsSources = requireNonNull(tableFunctionSplitsSources, "tableFunctionSplitsSources is null");
         this.maxWriterTasks = maxWriterTasks;
         this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
+        this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
     }
 
     @Override
@@ -288,7 +293,8 @@ public class MockConnectorFactory
                 columnProperties,
                 tableFunctionSplitsSources,
                 maxWriterTasks,
-                getLayoutForTableExecute);
+                getLayoutForTableExecute,
+                writerScalingOptions);
     }
 
     public static MockConnectorFactory create()
@@ -438,6 +444,7 @@ public class MockConnectorFactory
         private boolean allowMissingColumnsOnInsert;
         private OptionalInt maxWriterTasks = OptionalInt.empty();
         private BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute = (session, handle) -> Optional.empty();
+        private WriterScalingOptions writerScalingOptions = WriterScalingOptions.DISABLED;
 
         private Builder() {}
 
@@ -759,6 +766,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withWriterScalingOptions(WriterScalingOptions writerScalingOptions)
+        {
+            this.writerScalingOptions = writerScalingOptions;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
             Optional<ConnectorAccessControl> accessControl = Optional.empty();
@@ -811,7 +824,8 @@ public class MockConnectorFactory
                     allowMissingColumnsOnInsert,
                     tableFunctionSplitsSources,
                     maxWriterTasks,
-                    getLayoutForTableExecute);
+                    getLayoutForTableExecute,
+                    writerScalingOptions);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()

@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.planner.plan.TableWriterNode;
 
 import java.util.OptionalInt;
@@ -39,5 +40,11 @@ public class TestingWriterTarget
     public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
     {
         return OptionalInt.empty();
+    }
+
+    @Override
+    public WriterScalingOptions getWriterScalingOptions(Metadata metadata, Session session)
+    {
+        return WriterScalingOptions.DISABLED;
     }
 }

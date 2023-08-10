@@ -33,6 +33,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -716,7 +717,7 @@ public class PlanBuilder
                 rowCountSymbol);
     }
 
-    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean multipleWritersPerPartitionSupported, OptionalInt maxWriterTasks)
+    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean multipleWritersPerPartitionSupported, OptionalInt maxWriterTasks, WriterScalingOptions writerScalingOptions)
     {
         OutputTableHandle tableHandle = new OutputTableHandle(
                 catalogHandle,
@@ -727,12 +728,13 @@ public class PlanBuilder
                 tableHandle,
                 schemaTableName,
                 multipleWritersPerPartitionSupported,
-                maxWriterTasks);
+                maxWriterTasks,
+                writerScalingOptions);
     }
 
-    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean multipleWritersPerPartitionSupported)
+    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean multipleWritersPerPartitionSupported, WriterScalingOptions writerScalingOptions)
     {
-        return createTarget(catalogHandle, schemaTableName, multipleWritersPerPartitionSupported, OptionalInt.empty());
+        return createTarget(catalogHandle, schemaTableName, multipleWritersPerPartitionSupported, OptionalInt.empty(), writerScalingOptions);
     }
 
     public MergeWriterNode merge(SchemaTableName schemaTableName, PlanNode mergeSource, Symbol mergeRow, Symbol rowId, List<Symbol> outputs)
@@ -1206,7 +1208,8 @@ public class PlanBuilder
                                 TestingTransactionHandle.create(),
                                 new TestingTableExecuteHandle()),
                         Optional.empty(),
-                        new SchemaTableName("schemaName", "tableName")),
+                        new SchemaTableName("schemaName", "tableName"),
+                        WriterScalingOptions.DISABLED),
                 symbol("partialrows", BIGINT),
                 symbol("fragment", VARBINARY),
                 columns,

@@ -23,6 +23,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningHandle;
@@ -686,13 +687,14 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, StreamPreferredProperties parentPreferences)
         {
+            WriterScalingOptions scalingOptions = node.getTarget().getWriterScalingOptions(plannerContext.getMetadata(), session);
             return visitTableWriter(
                     node,
                     node.getPartitioningScheme(),
                     node.getSource(),
                     parentPreferences,
                     node.getTarget(),
-                    isTaskScaleWritersEnabled(session));
+                    isTaskScaleWritersEnabled(session) && scalingOptions.isPerTaskWriterScalingEnabled());
         }
 
         @Override
