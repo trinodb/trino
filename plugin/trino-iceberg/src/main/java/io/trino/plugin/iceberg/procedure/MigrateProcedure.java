@@ -84,7 +84,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.concat;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.base.util.Reflection.methodHandle;
 import static io.trino.plugin.hive.HiveMetadata.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveMetadata.extractHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
@@ -102,6 +101,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.parseBoolean;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -137,7 +137,16 @@ public class MigrateProcedure
         /**/
     }
 
-    private static final MethodHandle MIGRATE = methodHandle(MigrateProcedure.class, "migrate", ConnectorSession.class, String.class, String.class, String.class);
+    private static final MethodHandle MIGRATE;
+
+    static {
+        try {
+            MIGRATE = lookup().unreflect(MigrateProcedure.class.getMethod("migrate", ConnectorSession.class, String.class, String.class, String.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     @Inject
     public MigrateProcedure(

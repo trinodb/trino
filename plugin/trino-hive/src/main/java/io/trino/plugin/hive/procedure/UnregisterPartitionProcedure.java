@@ -33,19 +33,28 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
-import static io.trino.plugin.base.util.Reflection.methodHandle;
 import static io.trino.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
 import static io.trino.plugin.hive.procedure.Procedures.checkPartitionColumns;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class UnregisterPartitionProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle UNREGISTER_PARTITION = methodHandle(UnregisterPartitionProcedure.class, "unregisterPartition", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, List.class, List.class);
+    private static final MethodHandle UNREGISTER_PARTITION;
+
+    static {
+        try {
+            UNREGISTER_PARTITION = lookup().unreflect(UnregisterPartitionProcedure.class.getMethod("unregisterPartition", ConnectorSession.class, ConnectorAccessControl.class, String.class, String.class, List.class, List.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final TransactionalMetadataFactory hiveMetadataFactory;
 
