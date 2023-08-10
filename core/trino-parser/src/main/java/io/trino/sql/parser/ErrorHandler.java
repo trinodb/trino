@@ -296,8 +296,7 @@ class ErrorHandler
                 for (int i = 0; i < state.getNumberOfTransitions(); i++) {
                     Transition transition = state.transition(i);
 
-                    if (transition instanceof RuleTransition) {
-                        RuleTransition ruleTransition = (RuleTransition) transition;
+                    if (transition instanceof RuleTransition ruleTransition) {
                         for (int endToken : process(new ParsingState(ruleTransition.target, tokenIndex, suppressed, parser), ruleTransition.precedence)) {
                             activeStates.push(new ParsingState(ruleTransition.followState, endToken, suppressed && endToken == currentToken, parser));
                         }
