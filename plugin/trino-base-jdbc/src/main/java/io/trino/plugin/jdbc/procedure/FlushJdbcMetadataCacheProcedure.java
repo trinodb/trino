@@ -23,13 +23,22 @@ import io.trino.spi.procedure.Procedure;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.plugin.base.util.Reflection.methodHandle;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class FlushJdbcMetadataCacheProcedure
         implements Provider<Procedure>
 {
-    private static final MethodHandle FLUSH_JDBC_METADATA_CACHE = methodHandle(FlushJdbcMetadataCacheProcedure.class, "flushMetadataCache");
+    private static final MethodHandle FLUSH_JDBC_METADATA_CACHE;
+
+    static {
+        try {
+            FLUSH_JDBC_METADATA_CACHE = lookup().unreflect(FlushJdbcMetadataCacheProcedure.class.getMethod("flushMetadataCache"));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final CachingJdbcClient cachingJdbcClient;
     private final Optional<CachingIdentifierMapping> cachingIdentifierMapping;

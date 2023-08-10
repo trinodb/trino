@@ -24,14 +24,24 @@ import io.trino.spi.procedure.Procedure.Argument;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.plugin.base.util.Reflection.methodHandle;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 
 public class RangePartitionProcedures
 {
-    private static final MethodHandle ADD = methodHandle(RangePartitionProcedures.class, "addRangePartition", String.class, String.class, String.class);
-    private static final MethodHandle DROP = methodHandle(RangePartitionProcedures.class, "dropRangePartition", String.class, String.class, String.class);
+    private static final MethodHandle ADD;
+    private static final MethodHandle DROP;
+
+    static {
+        try {
+            ADD = lookup().unreflect(RangePartitionProcedures.class.getMethod("addRangePartition", String.class, String.class, String.class));
+            DROP = lookup().unreflect(RangePartitionProcedures.class.getMethod("dropRangePartition", String.class, String.class, String.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private final KuduClientSession clientSession;
 
