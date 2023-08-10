@@ -362,4 +362,10 @@ class HdfsFileSystem
             return true;
         }
     }
+
+    static <T extends Throwable> T withCause(T throwable, Throwable cause)
+    {
+        throwable.initCause(cause);
+        return throwable;
+    }
 }
