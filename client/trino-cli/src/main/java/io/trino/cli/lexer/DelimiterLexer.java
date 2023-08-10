@@ -11,9 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.parser;
+package io.trino.cli.lexer;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.grammar.sql.SqlBaseLexer;
+import io.trino.grammar.sql.SqlBaseParser;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.IntStream;
 import org.antlr.v4.runtime.LexerNoViableAltException;
