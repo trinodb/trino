@@ -37,7 +37,7 @@ public class NoSchemaEmulation
     }
 
     @Override
-    public void dropSchema(KuduClientWrapper client, String schemaName)
+    public void dropSchema(KuduClientWrapper client, String schemaName, boolean cascade)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
             throw new TrinoException(GENERIC_USER_ERROR, "Deleting default schema not allowed.");
