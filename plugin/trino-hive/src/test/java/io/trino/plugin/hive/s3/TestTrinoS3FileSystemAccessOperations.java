@@ -23,9 +23,6 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
@@ -45,7 +42,7 @@ import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_CONFIGURATION;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -85,7 +82,7 @@ public class TestTrinoS3FileSystemAccessOperations
                     File baseDir = distributedQueryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
                     return new FileHiveMetastore(
                             new NodeVersion("testversion"),
-                            new HdfsEnvironment(HDFS_CONFIGURATION, new HdfsConfig(), new NoHdfsAuthentication()),
+                            HDFS_FILE_SYSTEM_FACTORY,
                             new HiveMetastoreConfig().isHideDeltaLakeTables(),
                             new FileHiveMetastoreConfig()
                                     .setCatalogDirectory(baseDir.toURI().toString())

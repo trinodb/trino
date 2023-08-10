@@ -33,7 +33,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.List;
 
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,7 +68,7 @@ public class TestS3SelectQueries
                     File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
                     return new FileHiveMetastore(
                             new NodeVersion("testversion"),
-                            HDFS_ENVIRONMENT,
+                            HDFS_FILE_SYSTEM_FACTORY,
                             new HiveMetastoreConfig().isHideDeltaLakeTables(),
                             new FileHiveMetastoreConfig()
                                     .setCatalogDirectory(baseDir.toURI().toString())

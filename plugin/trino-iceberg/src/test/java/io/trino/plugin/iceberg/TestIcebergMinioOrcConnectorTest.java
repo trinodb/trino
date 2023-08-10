@@ -33,6 +33,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,12 +64,14 @@ public class TestIcebergMinioOrcConnectorTest
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
-                                .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
-                                .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                                .put("hive.s3.endpoint", minio.getMinioAddress())
-                                .put("hive.s3.path-style-access", "true")
-                                .put("hive.s3.streaming.part-size", "5MB") // minimize memory usage
-                                .put("hive.s3.max-connections", "8") // verify no leaks
+                                .put("fs.native-s3.enabled", "true")
+                                .put("s3.aws-access-key", MINIO_ACCESS_KEY)
+                                .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                                .put("s3.region", MINIO_REGION)
+                                .put("s3.endpoint", minio.getMinioAddress())
+                                .put("s3.path-style-access", "true")
+                                .put("s3.streaming.part-size", "5MB") // minimize memory usage
+                                .put("s3.max-connections", "2") // verify no leaks
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 // Allows testing the sorting writer flushing to the file system with smaller tables
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
