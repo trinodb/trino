@@ -1341,24 +1341,6 @@ public class TracingMetadata
     }
 
     @Override
-    public boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle)
-    {
-        Span span = startSpan("supportsReportingWrittenBytes", tableHandle);
-        try (var ignored = scopedSpan(span)) {
-            return delegate.supportsReportingWrittenBytes(session, tableHandle);
-        }
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
-    {
-        Span span = startSpan("supportsReportingWrittenBytes", tableName);
-        try (var ignored = scopedSpan(span)) {
-            return delegate.supportsReportingWrittenBytes(session, tableName, tableProperties);
-        }
-    }
-
-    @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         Span span = startSpan("getTableHandle", tableName);

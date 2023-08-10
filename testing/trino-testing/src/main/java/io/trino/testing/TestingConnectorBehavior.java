@@ -116,6 +116,8 @@ public enum TestingConnectorBehavior
 
     SUPPORTS_NATIVE_QUERY(true), // system.query or equivalent PTF for query passthrough
 
+    SUPPORTS_REPORTING_WRITTEN_BYTES(false),
+
     /**/;
 
     private final Predicate<Predicate<TestingConnectorBehavior>> hasBehaviorByDefault;
@@ -134,6 +136,7 @@ public enum TestingConnectorBehavior
                         (name().equals("SUPPORTS_CANCELLATION") ||
                                 name().equals("SUPPORTS_DYNAMIC_FILTER_PUSHDOWN") ||
                                 name().equals("SUPPORTS_JOIN_PUSHDOWN") ||
+                                name().equals("SUPPORTS_REPORTING_WRITTEN_BYTES") ||
                                 name().equals("SUPPORTS_MULTI_STATEMENT_WRITES")),
                 "Every behavior should be expected to be true by default. Having mixed defaults makes reasoning about tests harder. False default provided for %s",
                 name());

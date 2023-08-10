@@ -3054,18 +3054,6 @@ public class DeltaLakeMetadata
         return originalColumnName;
     }
 
-    @Override
-    public boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
-    {
-        return true;
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName fullTableName, Map<String, Object> tableProperties)
-    {
-        return true;
-    }
-
     private void cleanExtraOutputFiles(ConnectorSession session, Location baseLocation, List<DataFileInfo> validDataFiles)
     {
         Set<Location> writtenFilePaths = validDataFiles.stream()

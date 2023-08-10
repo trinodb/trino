@@ -2604,27 +2604,6 @@ public final class MetadataManager
     }
 
     @Override
-    public boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
-    {
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
-        if (catalog.isEmpty()) {
-            return false;
-        }
-
-        CatalogMetadata catalogMetadata = catalog.get();
-        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, tableName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
-        return metadata.supportsReportingWrittenBytes(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName(), tableProperties);
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle)
-    {
-        ConnectorMetadata metadata = getMetadata(session, tableHandle.getCatalogHandle());
-        return metadata.supportsReportingWrittenBytes(session.toConnectorSession(tableHandle.getCatalogHandle()), tableHandle.getConnectorHandle());
-    }
-
-    @Override
     public OptionalInt getMaxWriterTasks(Session session, String catalogName)
     {
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, catalogName);
