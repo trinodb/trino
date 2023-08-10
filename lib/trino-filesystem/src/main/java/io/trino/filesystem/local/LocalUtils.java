@@ -27,12 +27,18 @@ final class LocalUtils
     static IOException handleException(Location location, IOException exception)
             throws IOException
     {
-        if (exception instanceof NoSuchFileException) {
-            throw new FileNotFoundException(location.toString());
+        if (exception instanceof FileNotFoundException || exception instanceof NoSuchFileException) {
+            throw withCause(new FileNotFoundException(location.toString()), exception);
         }
         if (exception instanceof FileAlreadyExistsException) {
-            throw new FileAlreadyExistsException(location.toString());
+            throw withCause(new FileAlreadyExistsException(location.toString()), exception);
         }
         throw new IOException(exception.getMessage() + ": " + location, exception);
+    }
+
+    private static <T extends Throwable> T withCause(T throwable, Throwable cause)
+    {
+        throwable.initCause(cause);
+        return throwable;
     }
 }
