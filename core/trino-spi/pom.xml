@@ -229,12 +229,10 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <item>
-                                    <ignore>true</ignore>
                                     <code>java.method.removed</code>
                                     <old>method void io.trino.spi.connector.ConnectorAccessControl::checkCanShowRoleAuthorizationDescriptors(io.trino.spi.connector.ConnectorSecurityContext)</old>
                                 </item>
                                 <item>
-                                    <ignore>true</ignore>
                                     <code>java.method.removed</code>
                                     <old>method void io.trino.spi.security.SystemAccessControl::checkCanShowRoleAuthorizationDescriptors(io.trino.spi.security.SystemSecurityContext)</old>
                                 </item>
