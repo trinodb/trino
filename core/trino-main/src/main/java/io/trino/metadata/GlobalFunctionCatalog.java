@@ -127,11 +127,13 @@ public class GlobalFunctionCatalog
         checkArgument(signature.equals(expectedSignature.build()), "Can not register %s functionMetadata: %s", operatorType, signature);
     }
 
+    @Override
     public List<FunctionMetadata> listFunctions()
     {
         return functions.list();
     }
 
+    @Override
     public Collection<FunctionMetadata> getFunctions(SchemaFunctionName name)
     {
         if (!BUILTIN_SCHEMA.equals(name.getSchemaName())) {
@@ -140,11 +142,13 @@ public class GlobalFunctionCatalog
         return functions.get(name.getFunctionName());
     }
 
+    @Override
     public FunctionMetadata getFunctionMetadata(FunctionId functionId)
     {
         return functions.get(functionId);
     }
 
+    @Override
     public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionId functionId)
     {
         return functions.getFunctionBundle(functionId).getAggregationFunctionMetadata(functionId);
@@ -162,6 +166,7 @@ public class GlobalFunctionCatalog
         return functions.getFunctionBundle(functionId).getAggregationImplementation(functionId, boundSignature, functionDependencies);
     }
 
+    @Override
     public FunctionDependencyDeclaration getFunctionDependencies(FunctionId functionId, BoundSignature boundSignature)
     {
         return functions.getFunctionBundle(functionId).getFunctionDependencies(functionId, boundSignature);

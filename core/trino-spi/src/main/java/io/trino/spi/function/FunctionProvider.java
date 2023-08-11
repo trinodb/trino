@@ -17,6 +17,9 @@ import io.trino.spi.Experimental;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 
+import java.util.Collection;
+import java.util.List;
+
 @Experimental(eta = "2023-03-31")
 public interface FunctionProvider
 {
@@ -42,5 +45,30 @@ public interface FunctionProvider
     default TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
     {
         throw new UnsupportedOperationException("%s does not provide table functions".formatted(getClass().getName()));
+    }
+
+    default List<FunctionMetadata> listFunctions()
+    {
+        throw new UnsupportedOperationException("%s does not provide list functions".formatted(getClass().getName()));
+    }
+
+    default Collection<FunctionMetadata> getFunctions(SchemaFunctionName name)
+    {
+        throw new UnsupportedOperationException("%s does not provide get functions".formatted(getClass().getName()));
+    }
+
+    default FunctionMetadata getFunctionMetadata(FunctionId functionId)
+    {
+        throw new UnsupportedOperationException("%s does not provide function metadata".formatted(getClass().getName()));
+    }
+
+    default AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionId functionId)
+    {
+        throw new UnsupportedOperationException("%s does not provide aggreagtion function metadata".formatted(getClass().getName()));
+    }
+
+    default FunctionDependencyDeclaration getFunctionDependencies(FunctionId functionId, BoundSignature boundSignature)
+    {
+        throw new UnsupportedOperationException("%s does not provide function dependencies".formatted(getClass().getName()));
     }
 }
