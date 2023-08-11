@@ -170,6 +170,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public Optional<JdbcExpression> convertProjection(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return stats.getConvertProjection().wrap(() -> delegate().convertProjection(session, expression, assignments));
+    }
+
+    @Override
     public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle layoutHandle)
     {
         return stats.getGetSplits().wrap(() -> delegate().getSplits(session, layoutHandle));
