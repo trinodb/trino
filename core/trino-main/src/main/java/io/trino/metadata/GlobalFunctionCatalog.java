@@ -27,7 +27,6 @@ import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
-import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunctionImplementation;
@@ -59,11 +58,12 @@ import static java.util.Locale.ENGLISH;
 
 @ThreadSafe
 public class GlobalFunctionCatalog
-        implements FunctionProvider
+        implements CatalogFunctionManager
 {
     public static final String BUILTIN_SCHEMA = "builtin";
     private volatile FunctionMap functions = new FunctionMap();
 
+    @Override
     public final synchronized void addFunctions(FunctionBundle functionBundle)
     {
         for (FunctionMetadata functionMetadata : functionBundle.getFunctions()) {
