@@ -50,7 +50,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -157,9 +156,9 @@ public abstract class BaseIcebergConnectorSmokeTest
                 boolean deleteSuccessful = tryGetFutureValue(future, 10, SECONDS).orElseThrow();
                 return deleteSuccessful ? Optional.empty() : Optional.of(rows.get((int) index));
             });
-            String expectedValues = expectedRows.filter(Optional::isPresent).map(Optional::get).collect(joining(", "));
-            assertThat(expectedValues).isNotEmpty().as("Expected at least one delete operation to pass");
-            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES " + expectedValues);
+            List<String> expectedValues = expectedRows.filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
+            assertThat(expectedValues).as("Expected at least one delete operation to pass").hasSizeLessThan(rows.size());
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES " + String.join(", ", expectedValues));
         }
         finally {
             executor.shutdownNow();
