@@ -62,8 +62,6 @@ public class TestFlatColumnReaderRowRanges
     private enum FlatColumnReaderProvider
             implements ColumnReaderProvider
     {
-        INT_PRIMITIVE_NO_NULLS(() -> new IntColumnReader(FIELD), FIELD),
-        INT_PRIMITIVE_NULLABLE(() -> new IntColumnReader(NULLABLE_FIELD), NULLABLE_FIELD),
         INT_FLAT_NO_NULLS(() -> createFlatColumnReader(FIELD), FIELD),
         INT_FLAT_NULLABLE(() -> createFlatColumnReader(NULLABLE_FIELD), NULLABLE_FIELD),
         /**/;

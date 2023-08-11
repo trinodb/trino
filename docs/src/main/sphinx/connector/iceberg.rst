@@ -1595,19 +1595,6 @@ with Parquet files performed by the Iceberg connector.
     * - ``parquet.max-read-block-row-count``
       - Sets the maximum number of rows read in a batch.
       - ``8192``
-    * - ``parquet.optimized-reader.enabled``
-      - Whether batched column readers are used when reading Parquet files for
-        improved performance. Set this property to ``false`` to disable the
-        optimized parquet reader by default. The equivalent catalog session
-        property is ``parquet_optimized_reader_enabled``.
-      - ``true``
-    * - ``parquet.optimized-nested-reader.enabled``
-      - Whether batched column readers are used when reading ARRAY, MAP, and ROW
-        types from Parquet files for improved performance. Set this property to
-        ``false`` to disable the optimized parquet reader by default for
-        structural data types. The equivalent catalog session property is
-        ``parquet_optimized_nested_reader_enabled``.
-      - ``true``
     * - ``parquet.use-bloom-filter``
       - Whether bloom filters are used for predicate pushdown when reading
         Parquet files. Set this property to ``false`` to disable the usage of

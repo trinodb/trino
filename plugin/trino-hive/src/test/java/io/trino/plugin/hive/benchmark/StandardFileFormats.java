@@ -206,7 +206,6 @@ public final class StandardFileFormats
                     ParquetWriterOptions.builder().build(),
                     compressionCodec.getParquetCompressionCodec(),
                     "test-version",
-                    false,
                     Optional.of(DateTimeZone.getDefault()),
                     Optional.empty());
         }

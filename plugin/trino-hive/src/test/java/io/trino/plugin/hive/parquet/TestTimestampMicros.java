@@ -47,7 +47,6 @@ import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,12 +54,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestTimestampMicros
 {
     @Test(dataProvider = "testTimestampMicrosDataProvider")
-    public void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected, boolean useOptimizedParquetReader)
+    public void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
             throws Exception
     {
-        ConnectorSession session = getHiveSession(
-                new HiveConfig().setTimestampPrecision(timestampPrecision),
-                new ParquetReaderConfig().setOptimizedReaderEnabled(useOptimizedParquetReader));
+        ConnectorSession session = getHiveSession(new HiveConfig().setTimestampPrecision(timestampPrecision));
 
         File parquetFile = new File(Resources.getResource("issue-5483.parquet").toURI());
         Type columnType = createTimestampType(timestampPrecision.getPrecision());
@@ -73,12 +70,10 @@ public class TestTimestampMicros
     }
 
     @Test(dataProvider = "testTimestampMicrosDataProvider")
-    public void testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision timestampPrecision, LocalDateTime expected, boolean useOptimizedParquetReader)
+    public void testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
             throws Exception
     {
-        ConnectorSession session = getHiveSession(
-                new HiveConfig().setTimestampPrecision(timestampPrecision),
-                new ParquetReaderConfig().setOptimizedReaderEnabled(useOptimizedParquetReader));
+        ConnectorSession session = getHiveSession(new HiveConfig().setTimestampPrecision(timestampPrecision));
 
         File parquetFile = new File(Resources.getResource("issue-5483.parquet").toURI());
         Type columnType = createTimestampWithTimeZoneType(timestampPrecision.getPrecision());
@@ -93,13 +88,10 @@ public class TestTimestampMicros
     @DataProvider
     public static Object[][] testTimestampMicrosDataProvider()
     {
-        return cartesianProduct(
-                new Object[][] {
-                        {HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907")},
-                        {HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")},
-                        {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")},
-                },
-                new Object[][] {{true}, {false}});
+        return new Object[][] {
+                {HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907")},
+                {HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")},
+                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")}};
     }
 
     private ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, String columnName, HiveType columnHiveType, Type columnType)

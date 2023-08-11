@@ -57,19 +57,6 @@ Additionally, following configuration properties can be set depending on the use
       - Access Parquet columns using names from the file. If disabled, then columns
         are accessed using the index. Only applicable to Parquet file format.
       - ``true``
-    * - ``parquet.optimized-reader.enabled``
-      - Whether batched column readers must be used when reading Parquet files
-        for improved performance. Set this property to ``false`` to disable the
-        optimized parquet reader by default. The equivalent catalog session
-        property is ``parquet_optimized_reader_enabled``.
-      - ``true``
-    * - ``parquet.optimized-nested-reader.enabled``
-      - Whether batched column readers must be used when reading ARRAY, MAP
-        and ROW types from Parquet files for improved performance. Set this
-        property to ``false`` to disable the optimized parquet reader by default
-        for structural data types. The equivalent catalog session property is
-        ``parquet_optimized_nested_reader_enabled``.
-      - ``true``
     * - ``hudi.split-generator-parallelism``
       - Number of threads to generate splits from partitions.
       - ``4``

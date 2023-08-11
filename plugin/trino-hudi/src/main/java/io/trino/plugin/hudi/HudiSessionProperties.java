@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
@@ -42,8 +41,6 @@ public class HudiSessionProperties
     private static final String COLUMNS_TO_HIDE = "columns_to_hide";
     private static final String METADATA_ENABLED = "metadata_enabled";
     private static final String USE_PARQUET_COLUMN_NAMES = "use_parquet_column_names";
-    private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
-    private static final String PARQUET_OPTIMIZED_NESTED_READER_ENABLED = "parquet_optimized_nested_reader_enabled";
     private static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     private static final String STANDARD_SPLIT_WEIGHT_SIZE = "standard_split_weight_size";
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
@@ -54,7 +51,7 @@ public class HudiSessionProperties
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
-    public HudiSessionProperties(HudiConfig hudiConfig, ParquetReaderConfig parquetReaderConfig)
+    public HudiSessionProperties(HudiConfig hudiConfig)
     {
         sessionProperties = ImmutableList.of(
                 new PropertyMetadata<>(
@@ -77,16 +74,6 @@ public class HudiSessionProperties
                         USE_PARQUET_COLUMN_NAMES,
                         "Access parquet columns using names from the file. If disabled, then columns are accessed using index.",
                         hudiConfig.getUseParquetColumnNames(),
-                        false),
-                booleanProperty(
-                        PARQUET_OPTIMIZED_READER_ENABLED,
-                        "Use optimized Parquet reader",
-                        parquetReaderConfig.isOptimizedReaderEnabled(),
-                        false),
-                booleanProperty(
-                        PARQUET_OPTIMIZED_NESTED_READER_ENABLED,
-                        "Use optimized Parquet reader for nested columns",
-                        parquetReaderConfig.isOptimizedNestedReaderEnabled(),
                         false),
                 booleanProperty(
                         SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
@@ -145,16 +132,6 @@ public class HudiSessionProperties
     public static boolean shouldUseParquetColumnNames(ConnectorSession session)
     {
         return session.getProperty(USE_PARQUET_COLUMN_NAMES, Boolean.class);
-    }
-
-    public static boolean isParquetOptimizedReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isParquetOptimizedNestedReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(PARQUET_OPTIMIZED_NESTED_READER_ENABLED, Boolean.class);
     }
 
     public static boolean isSizeBasedSplitWeightsEnabled(ConnectorSession session)

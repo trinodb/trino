@@ -195,10 +195,6 @@ The following table describes :ref:`catalog session properties
     * - Property name
       - Description
       - Default
-    * - ``parquet_optimized_reader_enabled``
-      - Specifies whether batched column readers are used when reading Parquet
-        files for improved performance.
-      - ``true``
     * - ``parquet_max_read_block_size``
       - The maximum block size used when reading Parquet files.
       - ``16MB``
@@ -1138,19 +1134,6 @@ connector.
       - Sets the maximum number of rows read in a batch. The equivalent catalog
         session property is ``parquet_max_read_block_row_count``.
       - ``8192``
-    * - ``parquet.optimized-reader.enabled``
-      - Specifies whether batched column readers are used when reading Parquet
-        files for improved performance. Set this property to ``false`` to
-        disable the optimized parquet reader by default. The equivalent catalog
-        session property is ``parquet_optimized_reader_enabled``.
-      - ``true``
-    * - ``parquet.optimized-nested-reader.enabled``
-      - Specifies whether batched column readers are used when reading ARRAY,
-        MAP, and ROW types from Parquet files for improved performance. Set this
-        property to ``false`` to disable the optimized parquet reader by default
-        for structural data types. The equivalent catalog session property is
-        ``parquet_optimized_nested_reader_enabled``.
-      - ``true``
     * - ``parquet.use-column-index``
       - Skip reading Parquet pages by using Parquet column indices. The equivalent
         catalog session property is ``parquet_use_column_index``.
