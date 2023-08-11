@@ -87,8 +87,6 @@
 ## Hudi connector
 
 * Improve memory accounting of the Parquet writer. ({issue}`18564`)
-* Fix incorrectly creating files smaller than the configured
-  `file_size_threshold` as part of `OPTIMIZE`. ({issue}`18388`)
 * Fix query failure when a table has a file with a location ending with
   whitespace. ({issue}`18206`)
 
