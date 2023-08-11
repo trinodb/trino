@@ -89,6 +89,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -1638,6 +1639,12 @@ public class EventDrivenFaultTolerantQueryScheduler
             DataSize defaultTaskMemory = stage.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION) ?
                     getFaultTolerantExecutionDefaultCoordinatorTaskMemory(session) :
                     getFaultTolerantExecutionDefaultTaskMemory(session);
+            if (stage.getFragment().getRoot().getSources().stream()
+                    .anyMatch(planNode -> planNode instanceof RefreshMaterializedViewNode)) {
+                // REFRESH MATERIALIZED VIEW will issue other SQL commands under the hood. If its task memory is
+                // non-zero, then a deadlock scenario is possible if we only have a single node in the cluster.
+                defaultTaskMemory = DataSize.ofBytes(0);
+            }
             StagePartition partition = new StagePartition(
                     taskDescriptorStorage,
                     stage.getStageId(),
