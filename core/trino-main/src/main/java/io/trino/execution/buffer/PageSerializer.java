@@ -342,7 +342,7 @@ public class PageSerializer
 
             Slice page;
             if (serializedPageSize < slice.length() / 2) {
-                page = Slices.copyOf(slice, 0, serializedPageSize);
+                page = slice.copy(0, serializedPageSize);
             }
             else {
                 page = slice.slice(0, serializedPageSize);
