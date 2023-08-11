@@ -90,7 +90,6 @@ public class ParquetTestUtils
                 writerOptions,
                 CompressionCodec.SNAPPY,
                 "test-version",
-                false,
                 Optional.of(DateTimeZone.getDefault()),
                 Optional.empty());
     }
