@@ -65,10 +65,10 @@ public class FunctionManager
     private final NonEvictableCache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
 
     private final CatalogServiceProvider<FunctionProvider> functionProviders;
-    private final GlobalFunctionCatalog globalFunctionCatalog;
+    private final CatalogFunctionManager globalFunctionCatalog;
 
     @Inject
-    public FunctionManager(CatalogServiceProvider<FunctionProvider> functionProviders, GlobalFunctionCatalog globalFunctionCatalog)
+    public FunctionManager(CatalogServiceProvider<FunctionProvider> functionProviders, CatalogFunctionManager globalFunctionCatalog)
     {
         specializedScalarCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -340,7 +340,7 @@ public class FunctionManager
     public static FunctionManager createTestingFunctionManager()
     {
         TypeOperators typeOperators = new TypeOperators();
-        GlobalFunctionCatalog functionCatalog = new GlobalFunctionCatalog();
+        CatalogFunctionManager functionCatalog = new GlobalFunctionCatalog();
         functionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
         functionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER))));
         return new FunctionManager(CatalogServiceProvider.fail(), functionCatalog);

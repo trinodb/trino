@@ -63,6 +63,7 @@ import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.MemoryResource;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.CatalogFunctionManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
@@ -372,7 +373,7 @@ public class ServerMainModule
                 .setDefault()
                 .to(DisabledSystemSecurityMetadata.class)
                 .in(Scopes.SINGLETON);
-        binder.bind(GlobalFunctionCatalog.class).in(Scopes.SINGLETON);
+        binder.bind(CatalogFunctionManager.class).to(GlobalFunctionCatalog.class).in(Scopes.SINGLETON);
         binder.bind(TypeOperatorsCache.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TypeOperatorsCache.class).as(factory -> factory.generatedNameOf(TypeOperators.class));
         binder.bind(BlockTypeOperators.class).in(Scopes.SINGLETON);
@@ -487,7 +488,7 @@ public class ServerMainModule
     private static class RegisterFunctionBundles
     {
         @Inject
-        public RegisterFunctionBundles(GlobalFunctionCatalog globalFunctionCatalog, Set<FunctionBundle> functionBundles)
+        public RegisterFunctionBundles(CatalogFunctionManager globalFunctionCatalog, Set<FunctionBundle> functionBundles)
         {
             for (FunctionBundle functionBundle : functionBundles) {
                 globalFunctionCatalog.addFunctions(functionBundle);

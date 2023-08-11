@@ -186,7 +186,7 @@ public final class MetadataManager
     @VisibleForTesting
     public static final int MAX_TABLE_REDIRECTIONS = 10;
 
-    private final GlobalFunctionCatalog functions;
+    private final CatalogFunctionManager functions;
     private final FunctionResolver functionResolver;
     private final SystemSecurityMetadata systemSecurityMetadata;
     private final TransactionManager transactionManager;
@@ -203,7 +203,7 @@ public final class MetadataManager
     public MetadataManager(
             SystemSecurityMetadata systemSecurityMetadata,
             TransactionManager transactionManager,
-            GlobalFunctionCatalog globalFunctionCatalog,
+            CatalogFunctionManager globalFunctionCatalog,
             TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -2807,7 +2807,7 @@ public final class MetadataManager
     {
         private TransactionManager transactionManager;
         private TypeManager typeManager = TESTING_TYPE_MANAGER;
-        private GlobalFunctionCatalog globalFunctionCatalog;
+        private CatalogFunctionManager globalFunctionCatalog;
 
         private TestMetadataManagerBuilder() {}
 
@@ -2823,7 +2823,7 @@ public final class MetadataManager
             return this;
         }
 
-        public TestMetadataManagerBuilder withGlobalFunctionCatalog(GlobalFunctionCatalog globalFunctionCatalog)
+        public TestMetadataManagerBuilder withGlobalFunctionCatalog(CatalogFunctionManager globalFunctionCatalog)
         {
             this.globalFunctionCatalog = globalFunctionCatalog;
             return this;
@@ -2836,7 +2836,7 @@ public final class MetadataManager
                 transactionManager = createTestTransactionManager();
             }
 
-            GlobalFunctionCatalog globalFunctionCatalog = this.globalFunctionCatalog;
+            CatalogFunctionManager globalFunctionCatalog = this.globalFunctionCatalog;
             if (globalFunctionCatalog == null) {
                 globalFunctionCatalog = new GlobalFunctionCatalog();
                 TypeOperators typeOperators = new TypeOperators();

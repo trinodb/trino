@@ -103,7 +103,7 @@ public class TestGlobalFunctionCatalog
         FunctionBundle functionBundle = extractFunctions(CustomAdd.class);
 
         TypeOperators typeOperators = new TypeOperators();
-        GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog();
+        CatalogFunctionManager globalFunctionCatalog = new GlobalFunctionCatalog();
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN));
         globalFunctionCatalog.addFunctions(functionBundle);
         assertThatThrownBy(() -> globalFunctionCatalog.addFunctions(functionBundle))
@@ -117,7 +117,7 @@ public class TestGlobalFunctionCatalog
         FunctionBundle functions = extractFunctions(ScalarSum.class);
 
         TypeOperators typeOperators = new TypeOperators();
-        GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog();
+        CatalogFunctionManager globalFunctionCatalog = new GlobalFunctionCatalog();
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN));
         assertThatThrownBy(() -> globalFunctionCatalog.addFunctions(functions))
                 .isInstanceOf(IllegalStateException.class)

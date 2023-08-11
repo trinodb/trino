@@ -82,6 +82,7 @@ import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.CatalogFunctionManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
@@ -275,7 +276,7 @@ public class LocalQueryRunner
     private final BlockTypeOperators blockTypeOperators;
     private final PlannerContext plannerContext;
     private final TypeRegistry typeRegistry;
-    private final GlobalFunctionCatalog globalFunctionCatalog;
+    private final CatalogFunctionManager globalFunctionCatalog;
     private final FunctionManager functionManager;
     private final StatsCalculator statsCalculator;
     private final ScalarStatsCalculator scalarStatsCalculator;
@@ -635,7 +636,7 @@ public class LocalQueryRunner
         return plannerContext.getTypeManager();
     }
 
-    public GlobalFunctionCatalog getGlobalFunctionCatalog()
+    public CatalogFunctionManager getGlobalFunctionCatalog()
     {
         return globalFunctionCatalog;
     }
@@ -1195,7 +1196,7 @@ public class LocalQueryRunner
         Metadata getMetadata(
                 SystemSecurityMetadata systemSecurityMetadata,
                 TransactionManager transactionManager,
-                GlobalFunctionCatalog globalFunctionCatalog,
+                CatalogFunctionManager globalFunctionCatalog,
                 TypeManager typeManager);
     }
 

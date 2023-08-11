@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import io.trino.FeaturesConfig;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.CatalogFunctionManager;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
@@ -115,7 +116,7 @@ public final class TestingPlannerContext
             types.forEach(typeRegistry::addType);
             parametricTypes.forEach(typeRegistry::addParametricType);
 
-            GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog();
+            CatalogFunctionManager globalFunctionCatalog = new GlobalFunctionCatalog();
             globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
             functionBundles.forEach(globalFunctionCatalog::addFunctions);
 

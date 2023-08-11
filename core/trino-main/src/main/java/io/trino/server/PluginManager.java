@@ -22,7 +22,7 @@ import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
-import io.trino.metadata.GlobalFunctionCatalog;
+import io.trino.metadata.CatalogFunctionManager;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
@@ -79,7 +79,7 @@ public class PluginManager
 
     private final PluginsProvider pluginsProvider;
     private final CatalogFactory connectorFactory;
-    private final GlobalFunctionCatalog globalFunctionCatalog;
+    private final CatalogFunctionManager globalFunctionCatalog;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
     private final Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager;
@@ -98,7 +98,7 @@ public class PluginManager
     public PluginManager(
             PluginsProvider pluginsProvider,
             CatalogFactory connectorFactory,
-            GlobalFunctionCatalog globalFunctionCatalog,
+            CatalogFunctionManager globalFunctionCatalog,
             ResourceGroupManager<?> resourceGroupManager,
             AccessControlManager accessControlManager,
             Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager,
