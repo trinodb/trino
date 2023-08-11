@@ -86,7 +86,6 @@
 
 ## Hudi connector
 
-* Improve memory accounting of the Parquet writer. ({issue}`18564`)
 * Fix query failure when a table has a file with a location ending with
   whitespace. ({issue}`18206`)
 
