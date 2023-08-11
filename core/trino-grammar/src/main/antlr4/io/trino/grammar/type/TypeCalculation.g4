@@ -59,7 +59,7 @@ fragment DIGIT
     ;
 
 fragment LETTER
-    : [A-Za-z]
+    : [A-Z]
     ;
 
 WS
