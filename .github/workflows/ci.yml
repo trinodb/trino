@@ -453,6 +453,11 @@ jobs:
             !:trino-druid,
             !:trino-elasticsearch,
             !:trino-faulttolerant-tests,
+            !:trino-filesystem,
+            !:trino-filesystem-azure,
+            !:trino-filesystem-manager,
+            !:trino-filesystem-s3,
+            !:trino-hdfs,
             !:trino-hive,
             !:trino-hudi,
             !:trino-iceberg,
@@ -481,10 +486,6 @@ jobs:
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
             !:trino-thrift'
-      - name: trino-hdfs isolated JVM tests
-        # Isolate HDFS file system cache concurrency test to avoid flakiness
-        run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-hdfs -P test-isolated-jvm-suites
       - name: Upload test results
         uses: actions/upload-artifact@v3
         # Upload all test reports only on failure, because the artifacts are large
@@ -558,6 +559,12 @@ jobs:
             - modules:
                 - lib/trino-orc
                 - lib/trino-parquet
+            - modules:
+                - lib/trino-filesystem
+                - lib/trino-filesystem-azure
+                - lib/trino-filesystem-manager
+                - lib/trino-filesystem-s3
+                - lib/trino-hdfs
             - { modules: core/trino-main }
             - { modules: core/trino-main, jdk: 19 }
             - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
@@ -647,6 +654,10 @@ jobs:
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
+      - name: HDFS file system cache isolated JVM tests
+        if: contains(matrix.modules, 'trino-hdfs')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-hdfs -P test-isolated-jvm-suites
       - name: S3 FileSystem Cloud Tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
