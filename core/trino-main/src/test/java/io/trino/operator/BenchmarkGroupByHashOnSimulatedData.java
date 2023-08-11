@@ -199,13 +199,9 @@ public class BenchmarkGroupByHashOnSimulatedData
 
         private static void writeVarchar(BlockBuilder blockBuilder, int positionCount, long seed, int maxLength)
         {
-            Random r = new Random(seed);
-
+            Random random = new Random(seed);
             for (int i = 0; i < positionCount; i++) {
-                int length = 1 + r.nextInt(maxLength - 1);
-                byte[] bytes = new byte[length];
-                r.nextBytes(bytes);
-                VarcharType.VARCHAR.writeSlice(blockBuilder, Slices.wrappedBuffer(bytes));
+                VarcharType.VARCHAR.writeSlice(blockBuilder, Slices.random(1 + random.nextInt(maxLength - 1), random));
             }
         }
 
