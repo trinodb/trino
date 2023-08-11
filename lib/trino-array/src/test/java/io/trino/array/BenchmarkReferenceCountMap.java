@@ -85,7 +85,7 @@ public class BenchmarkReferenceCountMap
         ReferenceCountMap map = new ReferenceCountMap();
         for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
             map.incrementAndGet(data.slices[i]);
-            map.incrementAndGet(data.slices[i].getBase());
+            map.incrementAndGet(data.slices[i].byteArray());
         }
         return map;
     }

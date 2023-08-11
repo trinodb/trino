@@ -15,7 +15,6 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -211,11 +210,11 @@ public class BenchmarkStringFunctions
         public void setup()
         {
             Slice whitespace = createRandomUtf8Slice(ascii ? ASCII_WHITESPACE : ALL_WHITESPACE, length + 1);
-            leftWhitespace = Slices.copyOf(whitespace);
+            leftWhitespace = whitespace.copy();
             leftWhitespace.setByte(leftWhitespace.length() - 1, 'X');
-            rightWhitespace = Slices.copyOf(whitespace);
+            rightWhitespace = whitespace.copy();
             rightWhitespace.setByte(0, 'X');
-            bothWhitespace = Slices.copyOf(whitespace);
+            bothWhitespace = whitespace.copy();
             bothWhitespace.setByte(length / 2, 'X');
         }
 

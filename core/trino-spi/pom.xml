@@ -254,6 +254,14 @@
                                     <new>enum io.opentelemetry.api.logs.Severity</new>
                                     <justification>Upgrade to new opentelemetry version</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.airlift.slice.Slice::getAddress()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte[] io.airlift.slice.Slice::getBase()</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

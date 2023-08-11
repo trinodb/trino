@@ -78,7 +78,7 @@ public final class SliceBigArray
     {
         Slice currentValue = array.get(index);
         if (currentValue != null) {
-            int baseReferenceCount = trackedSlices.decrementAndGet(currentValue.getBase());
+            int baseReferenceCount = trackedSlices.decrementAndGet(currentValue.byteArray());
             int sliceReferenceCount = trackedSlices.decrementAndGet(currentValue);
             if (baseReferenceCount == 0) {
                 // it is the last referenced base
@@ -90,7 +90,7 @@ public final class SliceBigArray
             }
         }
         if (value != null) {
-            int baseReferenceCount = trackedSlices.incrementAndGet(value.getBase());
+            int baseReferenceCount = trackedSlices.incrementAndGet(value.byteArray());
             int sliceReferenceCount = trackedSlices.incrementAndGet(value);
             if (baseReferenceCount == 1) {
                 // it is the first referenced base

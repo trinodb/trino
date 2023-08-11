@@ -737,7 +737,7 @@ public class TestPositionsAppender
             int offset = getPositionOffset(position);
             int entrySize = getSliceLength(position);
 
-            Slice copy = Slices.copyOf(getRawSlice(position), offset, entrySize);
+            Slice copy = getRawSlice(position).copy(offset, entrySize);
 
             return new TestVariableWidthBlock(0, 1, copy, new int[] {0, copy.length()}, null);
         }
