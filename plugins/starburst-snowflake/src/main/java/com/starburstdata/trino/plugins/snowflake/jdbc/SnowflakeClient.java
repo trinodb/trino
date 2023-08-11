@@ -310,11 +310,11 @@ public class SnowflakeClient
     }
 
     @Override
-    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
+    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
             throws SQLException
     {
         if (!databasePrefixForSchemaEnabled) {
-            super.dropSchema(session, connection, remoteSchemaName);
+            super.dropSchema(session, connection, remoteSchemaName, cascade);
             return;
         }
         DatabaseSchemaName databaseSchema = parseDatabaseSchemaName(remoteSchemaName);
