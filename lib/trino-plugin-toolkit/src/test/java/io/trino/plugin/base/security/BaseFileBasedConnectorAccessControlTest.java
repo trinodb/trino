@@ -123,7 +123,6 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanSetRole(ADMIN, "role"));
 
         // showing roles and permissions is hard coded to allow
-        accessControl.checkCanShowRoleAuthorizationDescriptors(UNKNOWN);
         accessControl.checkCanShowRoles(UNKNOWN);
         accessControl.checkCanShowCurrentRoles(UNKNOWN);
         accessControl.checkCanShowRoleGrants(UNKNOWN);

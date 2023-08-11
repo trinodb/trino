@@ -251,12 +251,6 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        // allow
-    }
-
-    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context)
     {
         // allow

@@ -11,11 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.parser;
+package io.trino.cli.lexer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.antlr.v4.runtime.CharStream;
+import io.trino.grammar.sql.SqlBaseLexer;
+import io.trino.grammar.sql.SqlBaseParser;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.TokenSource;
@@ -107,8 +108,7 @@ public class StatementSplitter
     public static TokenSource getLexer(String sql, Set<String> terminators)
     {
         requireNonNull(sql, "sql is null");
-        CharStream stream = new CaseInsensitiveStream(CharStreams.fromString(sql));
-        return new DelimiterLexer(stream, terminators);
+        return new DelimiterLexer(CharStreams.fromString(sql), terminators);
     }
 
     public static class Statement

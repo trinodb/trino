@@ -380,9 +380,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
-        delegate().dropSchema(session, schemaName);
+        delegate().dropSchema(session, schemaName, cascade);
     }
 
     @Override

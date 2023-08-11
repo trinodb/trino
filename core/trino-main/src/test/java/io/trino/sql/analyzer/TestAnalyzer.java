@@ -4035,6 +4035,7 @@ public class TestAnalyzer
     @Test
     public void testNullAggregationFilter()
     {
+        analyze("SELECT count(*) FILTER (WHERE NULL) FROM t1");
         analyze("SELECT a, count(*) FILTER (WHERE NULL) FROM t1 GROUP BY a");
     }
 
@@ -4052,10 +4053,10 @@ public class TestAnalyzer
                 .hasMessage("line 1:8: Filter is only valid for aggregation functions");
         assertFails("SELECT count(*) FILTER (WHERE 0) FROM t1")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:31: Filter expression must evaluate to a boolean: actual type integer");
+                .hasMessage("line 1:31: Filter expression must evaluate to a boolean (actual: integer)");
         assertFails("SELECT a, count(*) FILTER (WHERE 0) FROM t1 GROUP BY a")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:34: Filter expression must evaluate to a boolean: actual type integer");
+                .hasMessage("line 1:34: Filter expression must evaluate to a boolean (actual: integer)");
     }
 
     @Test

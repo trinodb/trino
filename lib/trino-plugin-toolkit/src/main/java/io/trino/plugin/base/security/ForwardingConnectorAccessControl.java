@@ -370,12 +370,6 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        delegate().checkCanShowRoleAuthorizationDescriptors(context);
-    }
-
-    @Override
     public void checkCanShowRoles(ConnectorSecurityContext context)
     {
         delegate().checkCanShowRoles(context);

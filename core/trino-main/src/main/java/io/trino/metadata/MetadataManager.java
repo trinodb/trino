@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
@@ -69,6 +70,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
@@ -164,6 +166,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -178,6 +181,8 @@ import static java.util.Objects.requireNonNull;
 public final class MetadataManager
         implements Metadata
 {
+    private static final Logger log = Logger.get(MetadataManager.class);
+
     @VisibleForTesting
     public static final int MAX_TABLE_REDIRECTIONS = 10;
 
@@ -529,7 +534,6 @@ public final class MetadataManager
                 metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(table -> !isExternalInformationSchema(catalogHandle, table.getSchemaName()))
-                        .filter(prefix::matches)
                         .forEach(tables::add);
             }
         }
@@ -560,75 +564,128 @@ public final class MetadataManager
     }
 
     @Override
-    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
         requireNonNull(prefix, "prefix is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
+        String catalogName = prefix.getCatalogName();
+        Optional<String> schemaName = prefix.getSchemaName();
+        Optional<String> relationName = prefix.getTableName();
 
-        // Track column metadata for every object name to resolve ties between table and view
-        Map<SchemaTableName, Optional<List<ColumnMetadata>>> tableColumns = new HashMap<>();
+        if (catalogName.isEmpty() ||
+                (schemaName.isPresent() && schemaName.get().isEmpty()) ||
+                (relationName.isPresent() && relationName.get().isEmpty())) {
+            // Cannot exist
+            return ImmutableList.of();
+        }
+
+        if (relationName.isPresent()) {
+            QualifiedObjectName objectName = new QualifiedObjectName(catalogName, schemaName.orElseThrow(), relationName.get());
+            SchemaTableName schemaTableName = objectName.asSchemaTableName();
+
+            return Optional.<RelationColumnsMetadata>empty()
+                    .or(() -> getMaterializedViewInternal(session, objectName)
+                            .map(materializedView -> RelationColumnsMetadata.forMaterializedView(schemaTableName, materializedView.getColumns())))
+                    .or(() -> getViewInternal(session, objectName)
+                            .map(view -> RelationColumnsMetadata.forView(schemaTableName, view.getColumns())))
+                    .or(() -> {
+                        try {
+                            // TODO: redirects are handled inefficiently: we currently throw-away redirect info and redo it later
+                            RedirectionAwareTableHandle redirectionAware = getRedirectionAwareTableHandle(session, objectName);
+                            if (redirectionAware.redirectedTableName().isPresent()) {
+                                return Optional.of(RelationColumnsMetadata.forRedirectedTable(schemaTableName));
+                            }
+                            if (redirectionAware.tableHandle().isPresent()) {
+                                return Optional.of(RelationColumnsMetadata.forTable(schemaTableName, getTableMetadata(session, redirectionAware.tableHandle().get()).getColumns()));
+                            }
+                        }
+                        catch (RuntimeException e) {
+                            if (!(e instanceof TrinoException trinoException) || !trinoException.getErrorCode().equals(UNSUPPORTED_TABLE_TYPE.toErrorCode())) {
+                                log.warn(e, "Failed to get metadata for table: %s", objectName);
+                            }
+                        }
+                        // Not found, or getting metadata failed.
+                        return Optional.empty();
+                    })
+                    .filter(relationColumnsMetadata -> relationFilter.apply(ImmutableSet.of(relationColumnsMetadata.name())).contains(relationColumnsMetadata.name()))
+                    .map(relationColumnsMetadata -> ImmutableList.of(tableColumnsMetadata(catalogName, relationColumnsMetadata)))
+                    .orElse(ImmutableList.of());
+        }
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, catalogName);
+        Map<SchemaTableName, TableColumnsMetadata> tableColumns = new HashMap<>();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
-
-            SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
             for (CatalogHandle catalogHandle : catalogMetadata.listCatalogHandles()) {
-                if (isExternalInformationSchema(catalogHandle, prefix.getSchemaName())) {
+                if (isExternalInformationSchema(catalogHandle, schemaName)) {
                     continue;
                 }
-
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
-
                 ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-
-                // Collect column metadata from tables
-                metadata.streamTableColumns(connectorSession, tablePrefix)
-                        .forEachRemaining(columnsMetadata -> {
-                            if (!isExternalInformationSchema(catalogHandle, columnsMetadata.getTable().getSchemaName())) {
-                                tableColumns.put(columnsMetadata.getTable(), columnsMetadata.getColumns());
+                metadata.streamRelationColumns(connectorSession, schemaName, relationFilter)
+                        .forEachRemaining(relationColumnsMetadata -> {
+                            if (!isExternalInformationSchema(catalogHandle, relationColumnsMetadata.name().getSchemaName())) {
+                                // putIfAbsent to resolve any potential conflicts between system tables and regular tables
+                                tableColumns.putIfAbsent(relationColumnsMetadata.name(), tableColumnsMetadata(catalogName, relationColumnsMetadata));
                             }
                         });
-
-                // Collect column metadata from views. if table and view names overlap, the view wins
-                for (Entry<QualifiedObjectName, ViewInfo> entry : getViews(session, prefix).entrySet()) {
-                    ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                    for (ViewColumn column : entry.getValue().getColumns()) {
-                        try {
-                            columns.add(ColumnMetadata.builder()
-                                    .setName(column.getName())
-                                    .setType(typeManager.getType(column.getType()))
-                                    .setComment(column.getComment())
-                                    .build());
-                        }
-                        catch (TypeNotFoundException e) {
-                            throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
-                        }
-                    }
-                    tableColumns.put(entry.getKey().asSchemaTableName(), Optional.of(columns.build()));
-                }
-
-                // if view and materialized view names overlap, the materialized view wins
-                for (Entry<QualifiedObjectName, ViewInfo> entry : getMaterializedViews(session, prefix).entrySet()) {
-                    ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                    for (ViewColumn column : entry.getValue().getColumns()) {
-                        try {
-                            columns.add(ColumnMetadata.builder()
-                                    .setName(column.getName())
-                                    .setType(typeManager.getType(column.getType()))
-                                    .setComment(column.getComment())
-                                    .build());
-                        }
-                        catch (TypeNotFoundException e) {
-                            throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.getType(), column.getName(), entry.getKey()));
-                        }
-                    }
-                    tableColumns.put(entry.getKey().asSchemaTableName(), Optional.of(columns.build()));
-                }
             }
         }
-        return tableColumns.entrySet().stream()
-                .map(entry -> new TableColumnsMetadata(entry.getKey(), entry.getValue()))
-                .collect(toImmutableList());
+        return ImmutableList.copyOf(tableColumns.values());
+    }
+
+    private TableColumnsMetadata tableColumnsMetadata(String catalogName, RelationColumnsMetadata relationColumnsMetadata)
+    {
+        SchemaTableName relationName = relationColumnsMetadata.name();
+        Optional<List<ColumnMetadata>> columnsMetadata = Optional.<List<ColumnMetadata>>empty()
+                .or(() -> relationColumnsMetadata.materializedViewColumns()
+                        .map(columns -> materializedViewColumnMetadata(catalogName, relationName, columns)))
+                .or(() -> relationColumnsMetadata.viewColumns()
+                        .map(columns -> viewColumnMetadata(catalogName, relationName, columns)))
+                .or(relationColumnsMetadata::tableColumns)
+                .or(() -> {
+                    checkState(relationColumnsMetadata.redirected(), "Invalid RelationColumnsMetadata: %s", relationColumnsMetadata);
+                    return Optional.empty();
+                });
+        return new TableColumnsMetadata(relationName, columnsMetadata);
+    }
+
+    private List<ColumnMetadata> materializedViewColumnMetadata(String catalogName, SchemaTableName materializedViewName, List<ConnectorMaterializedViewDefinition.Column> columns)
+    {
+        ImmutableList.Builder<ColumnMetadata> columnMetadata = ImmutableList.builderWithExpectedSize(columns.size());
+        for (ConnectorMaterializedViewDefinition.Column column : columns) {
+            try {
+                columnMetadata.add(ColumnMetadata.builder()
+                        .setName(column.getName())
+                        .setType(typeManager.getType(column.getType()))
+                        .setComment(column.getComment())
+                        .build());
+            }
+            catch (TypeNotFoundException e) {
+                QualifiedObjectName name = new QualifiedObjectName(catalogName, materializedViewName.getSchemaName(), materializedViewName.getTableName());
+                throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.getType(), column.getName(), name));
+            }
+        }
+        return columnMetadata.build();
+    }
+
+    private List<ColumnMetadata> viewColumnMetadata(String catalogName, SchemaTableName viewName, List<ConnectorViewDefinition.ViewColumn> columns)
+    {
+        ImmutableList.Builder<ColumnMetadata> columnMetadata = ImmutableList.builderWithExpectedSize(columns.size());
+        for (ConnectorViewDefinition.ViewColumn column : columns) {
+            try {
+                columnMetadata.add(ColumnMetadata.builder()
+                        .setName(column.getName())
+                        .setType(typeManager.getType(column.getType()))
+                        .setComment(column.getComment())
+                        .build());
+            }
+            catch (TypeNotFoundException e) {
+                QualifiedObjectName name = new QualifiedObjectName(catalogName, viewName.getSchemaName(), viewName.getTableName());
+                throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), name));
+            }
+        }
+        return columnMetadata.build();
     }
 
     @Override
@@ -1186,7 +1243,6 @@ public final class MetadataManager
                 metadata.listViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(view -> !isExternalInformationSchema(catalogHandle, view.getSchemaName()))
-                        .filter(prefix::matches)
                         .forEach(views::add);
             }
         }
@@ -1420,7 +1476,6 @@ public final class MetadataManager
                 metadata.listMaterializedViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(materializedView -> !isExternalInformationSchema(catalogHandle, materializedView.getSchemaName()))
-                        .filter(prefix::matches)
                         .forEach(materializedViews::add);
             }
         }
@@ -2601,27 +2656,6 @@ public final class MetadataManager
                 catalogMetadata.getMetadata(session).cleanupQuery(connectorSession);
             }
         }
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
-    {
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
-        if (catalog.isEmpty()) {
-            return false;
-        }
-
-        CatalogMetadata catalogMetadata = catalog.get();
-        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, tableName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
-        return metadata.supportsReportingWrittenBytes(session.toConnectorSession(catalogHandle), tableName.asSchemaTableName(), tableProperties);
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle)
-    {
-        ConnectorMetadata metadata = getMetadata(session, tableHandle.getCatalogHandle());
-        return metadata.supportsReportingWrittenBytes(session.toConnectorSession(tableHandle.getCatalogHandle()), tableHandle.getConnectorHandle());
     }
 
     @Override

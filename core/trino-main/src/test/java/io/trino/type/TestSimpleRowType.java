@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.RowType;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -25,6 +26,7 @@ import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimpleRowType
         extends AbstractTestType
@@ -68,5 +70,26 @@ public class TestSimpleRowType
             BIGINT.writeLong(fieldBuilders.get(0), block.getSingleValueBlock(0).getLong(0, 0) + 1);
             VARCHAR.writeSlice(fieldBuilders.get(1), block.getSingleValueBlock(1).getSlice(0, 0, 1));
         });
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

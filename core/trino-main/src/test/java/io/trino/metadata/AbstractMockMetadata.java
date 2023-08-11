@@ -232,7 +232,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
         throw new UnsupportedOperationException();
     }
@@ -919,18 +919,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
     {
         throw new UnsupportedOperationException();
     }

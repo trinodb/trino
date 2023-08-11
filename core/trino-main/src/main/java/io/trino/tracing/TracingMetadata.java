@@ -327,11 +327,11 @@ public class TracingMetadata
     }
 
     @Override
-    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
         Span span = startSpan("listTableColumns", prefix);
         try (var ignored = scopedSpan(span)) {
-            return delegate.listTableColumns(session, prefix);
+            return delegate.listTableColumns(session, prefix, relationFilter);
         }
     }
 
@@ -1337,24 +1337,6 @@ public class TracingMetadata
         Span span = startSpan("getRedirectionAwareTableHandle", tableName);
         try (var ignored = scopedSpan(span)) {
             return delegate.getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion);
-        }
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle)
-    {
-        Span span = startSpan("supportsReportingWrittenBytes", tableHandle);
-        try (var ignored = scopedSpan(span)) {
-            return delegate.supportsReportingWrittenBytes(session, tableHandle);
-        }
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
-    {
-        Span span = startSpan("supportsReportingWrittenBytes", tableName);
-        try (var ignored = scopedSpan(span)) {
-            return delegate.supportsReportingWrittenBytes(session, tableName, tableProperties);
         }
     }
 

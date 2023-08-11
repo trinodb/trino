@@ -470,12 +470,6 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SystemSecurityContext context)
-    {
-        delegate().checkCanShowRoleAuthorizationDescriptors(context);
-    }
-
-    @Override
     public void checkCanShowCurrentRoles(SystemSecurityContext context)
     {
         delegate().checkCanShowCurrentRoles(context);

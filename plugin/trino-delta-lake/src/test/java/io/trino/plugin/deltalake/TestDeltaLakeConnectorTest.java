@@ -162,6 +162,9 @@ public class TestDeltaLakeConnectorTest
             case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
+            case SUPPORTS_REPORTING_WRITTEN_BYTES:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

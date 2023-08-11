@@ -255,9 +255,10 @@ import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.createViewReader;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isHiveView;
+import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.acid.AcidTransaction.forCreateTable;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
@@ -615,8 +616,8 @@ public class HiveMetadata
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hive table '%s'", tableName));
         }
 
-        boolean isTrinoView = isPrestoView(table);
-        boolean isHiveView = !isTrinoView && isHiveOrPrestoView(table);
+        boolean isTrinoView = isTrinoView(table);
+        boolean isHiveView = isHiveView(table);
         boolean isTrinoMaterializedView = isTrinoMaterializedView(table);
         if (isHiveView && translateHiveViews) {
             // Produce metadata for a (translated) Hive view as if it was a table. This is incorrect from ConnectorMetadata.streamTableColumns
@@ -1455,7 +1456,7 @@ public class HiveMetadata
     @Override
     public void setViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
     {
-        Table view = getView(viewName);
+        Table view = getTrinoView(viewName);
 
         ConnectorViewDefinition definition = toConnectorViewDefinition(session, viewName, Optional.of(view))
                 .orElseThrow(() -> new ViewNotFoundException(viewName));
@@ -1474,7 +1475,7 @@ public class HiveMetadata
     @Override
     public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
     {
-        Table view = getView(viewName);
+        Table view = getTrinoView(viewName);
 
         ConnectorViewDefinition definition = toConnectorViewDefinition(session, viewName, Optional.of(view))
                 .orElseThrow(() -> new ViewNotFoundException(viewName));
@@ -1498,11 +1499,12 @@ public class HiveMetadata
         hiveMaterializedViewMetadata.setMaterializedViewColumnComment(session, viewName, columnName, comment);
     }
 
-    private Table getView(SchemaTableName viewName)
+    private Table getTrinoView(SchemaTableName viewName)
     {
         Table view = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
+                .filter(table -> isTrinoView(table) || isHiveView(table))
                 .orElseThrow(() -> new ViewNotFoundException(viewName));
-        if (translateHiveViews && !isPrestoView(view)) {
+        if (!isTrinoView(view)) {
             throw new HiveViewNotSupportedException(viewName);
         }
         return view;
@@ -2641,7 +2643,7 @@ public class HiveMetadata
 
         Optional<Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !isPrestoView(existing.get())) {
+            if (!replace || !isTrinoView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 
@@ -2769,10 +2771,19 @@ public class HiveMetadata
     private Optional<ConnectorViewDefinition> toConnectorViewDefinition(ConnectorSession session, SchemaTableName viewName, Optional<Table> table)
     {
         return table
-                .filter(ViewReaderUtil::canDecodeView)
-                .map(view -> {
-                    if (!translateHiveViews && !isPrestoView(view)) {
-                        throw new HiveViewNotSupportedException(viewName);
+                .flatMap(view -> {
+                    if (isTrinoView(view)) {
+                        // can handle
+                    }
+                    else if (isHiveView(view)) {
+                        if (!translateHiveViews) {
+                            throw new HiveViewNotSupportedException(viewName);
+                        }
+                        // can handle
+                    }
+                    else {
+                        // actually not a view
+                        return Optional.empty();
                     }
 
                     ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager, this::redirectTable, metadataProvider, hiveViewsRunAsInvoker, hiveViewsTimestampPrecision)
@@ -2788,7 +2799,7 @@ public class HiveMetadata
                                 view.getOwner(),
                                 false);
                     }
-                    return definition;
+                    return Optional.of(definition);
                 });
     }
 
@@ -3804,7 +3815,7 @@ public class HiveMetadata
         // we need to chop off any "$partitions" and similar suffixes from table name while querying the metastore for the Table object
         TableNameSplitResult tableNameSplit = splitTableName(tableName.getTableName());
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
-        if (table.isEmpty() || VIRTUAL_VIEW.name().equals(table.get().getTableType())) {
+        if (table.isEmpty() || isSomeKindOfAView(table.get())) {
             return Optional.empty();
         }
 
@@ -3901,17 +3912,5 @@ public class HiveMetadata
         // If query_partition_filter_required_schemas is empty then we would apply partition filter for all tables.
         return isQueryPartitionFilterRequired(session) &&
                 requiredSchemas.isEmpty() || requiredSchemas.contains(schemaTableName.getSchemaName());
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
-    {
-        return true;
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName schemaTableName, Map<String, Object> tableProperties)
-    {
-        return true;
     }
 }

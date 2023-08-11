@@ -15,6 +15,8 @@
 //TODO: consider using the SQL grammar for this
 grammar TypeCalculation;
 
+options { caseInsensitive = true; }
+
 // workaround for:
 //  https://github.com/antlr/antlr4/issues/118
 typeCalculation

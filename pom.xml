@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>423-SNAPSHOT</version>
+    <version>424-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -31,6 +31,7 @@
         <module>client/trino-cli</module>
         <module>client/trino-client</module>
         <module>client/trino-jdbc</module>
+        <module>core/trino-grammar</module>
         <module>core/trino-main</module>
         <module>core/trino-parser</module>
         <module>core/trino-server</module>
@@ -761,7 +762,7 @@
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
-                <version>4.1.18</version>
+                <version>4.2.19</version>
             </dependency>
 
             <dependency>
@@ -954,6 +955,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-geospatial-toolkit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-grammar</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -2523,6 +2530,9 @@
             <properties>
                 <!-- the *local* master, not refs/remotes/... -->
                 <gib.referenceBranch>master</gib.referenceBranch>
+                <!-- set as properties, not configuration, to allow overriding them -->
+                <gib.buildDownstream>true</gib.buildDownstream>
+                <gib.buildUpstream>true</gib.buildUpstream>
             </properties>
             <build>
                 <plugins>
@@ -2536,8 +2546,6 @@
                             <compareToMergeBase>true</compareToMergeBase>
                             <uncommitted>true</uncommitted>
                             <untracked>true</untracked>
-                            <buildDownstream>true</buildDownstream>
-                            <buildUpstream>true</buildUpstream>
                             <buildUpstreamMode>impacted</buildUpstreamMode>
                             <!-- Skip tests and checks for upstream modules since they have not been modified but are still required to be built -->
                             <skipTestsForUpstreamModules>true</skipTestsForUpstreamModules>

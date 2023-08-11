@@ -20,7 +20,6 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
-import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.metastore.glue.ForGlueHiveMetastore;
@@ -63,11 +62,10 @@ public class TestingIcebergGlueCatalogModule
         newExporter(binder).export(TrinoCatalogFactory.class).withGeneratedName();
         binder.bind(AWSGlueAsyncAdapterProvider.class).toInstance(awsGlueAsyncAdapterProvider);
 
-        Multibinder<RequestHandler2> requestHandlers = newSetBinder(binder, RequestHandler2.class);
         install(conditionalModule(
                 IcebergGlueCatalogConfig.class,
                 IcebergGlueCatalogConfig::isSkipArchive,
-                config -> requestHandlers.addBinding().toInstance(new SkipArchiveRequestHandler())));
+                internalBinder -> newSetBinder(internalBinder, RequestHandler2.class, ForGlueHiveMetastore.class).addBinding().toInstance(new SkipArchiveRequestHandler())));
 
         // Required to inject HiveMetastoreFactory for migrate procedure
         binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);

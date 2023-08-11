@@ -645,15 +645,6 @@ public class TracingAccessControl
     }
 
     @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, Optional<String> catalogName)
-    {
-        Span span = startSpan("checkCanShowRoleAuthorizationDescriptors");
-        try (var ignored = scopedSpan(span)) {
-            delegate.checkCanShowRoleAuthorizationDescriptors(context, catalogName);
-        }
-    }
-
-    @Override
     public void checkCanShowRoles(SecurityContext context, Optional<String> catalogName)
     {
         Span span = startSpan("checkCanShowRoles");

@@ -174,7 +174,7 @@ public interface Metadata
      * Gets the columns metadata for all tables that match the specified prefix.
      * TODO: consider returning a stream for more efficient processing
      */
-    List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix);
+    List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix, UnaryOperator<Set<SchemaTableName>> relationFilter);
 
     /**
      * Gets the comments metadata for all relations (tables, views, materialized views) that match the specified prefix.
@@ -740,16 +740,6 @@ public interface Metadata
      * Get the target table handle after performing redirection with a table version.
      */
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
-
-    /**
-     * Returns true if the connector reports number of written bytes for an existing table. Otherwise, it returns false.
-     */
-    boolean supportsReportingWrittenBytes(Session session, TableHandle tableHandle);
-
-    /**
-     * Returns true if the connector reports number of written bytes for a new table. Otherwise, it returns false.
-     */
-    boolean supportsReportingWrittenBytes(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties);
 
     /**
      * Returns a table handle for the specified table name with a specified version

@@ -78,6 +78,7 @@ import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -195,9 +196,7 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_ROW_ID;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_ROW_ID_NAME;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -225,6 +224,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.fileName;
 import static io.trino.plugin.iceberg.IcebergUtil.firstSnapshot;
 import static io.trino.plugin.iceberg.IcebergUtil.firstSnapshotAfter;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
+import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
@@ -242,7 +242,6 @@ import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.INCR
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.REPLACE;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
-import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TABLES;
 import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.TRINO_QUERY_START_TIME;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.DROP_EXTENDED_STATS;
@@ -595,7 +594,7 @@ public class IcebergMetadata
         // This method does not calculate column metadata for the projected columns
         checkArgument(tableHandle.getProjectedColumns().isEmpty(), "Unexpected projected columns");
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
-        List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()));
+        List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager);
         return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
     }
 
@@ -669,7 +668,7 @@ public class IcebergMetadata
                     for (SchemaTableName tableName : remainingTables) {
                         try {
                             Table icebergTable = catalog.loadTable(session, tableName);
-                            List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema());
+                            List<ColumnMetadata> columns = getColumnMetadatas(icebergTable.schema(), typeManager);
                             tableMetadatas.add(TableColumnsMetadata.forTable(tableName, columns));
                         }
                         catch (TableNotFoundException e) {
@@ -690,6 +689,16 @@ public class IcebergMetadata
                 })
                 .flatMap(List::stream)
                 .iterator();
+    }
+
+    @Override
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        return catalog.streamRelationColumns(session, schemaName, relationFilter, tableName -> redirectTable(session, tableName).isPresent())
+                .orElseGet(() -> {
+                    // Catalog does not support streamRelationColumns
+                    return ConnectorMetadata.super.streamRelationColumns(session, schemaName, relationFilter);
+                });
     }
 
     @Override
@@ -1900,25 +1909,6 @@ public class IcebergMetadata
         }
     }
 
-    private List<ColumnMetadata> getColumnMetadatas(Schema schema)
-    {
-        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-
-        List<ColumnMetadata> schemaColumns = schema.columns().stream()
-                .map(column ->
-                        ColumnMetadata.builder()
-                                .setName(column.name())
-                                .setType(toTrinoType(column.type(), typeManager))
-                                .setNullable(column.isOptional())
-                                .setComment(Optional.ofNullable(column.doc()))
-                                .build())
-                .collect(toImmutableList());
-        columns.addAll(schemaColumns);
-        columns.add(pathColumnMetadata());
-        columns.add(fileModifiedTimeColumnMetadata());
-        return columns.build();
-    }
-
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
@@ -2876,18 +2866,6 @@ public class IcebergMetadata
         return firstSnapshotAfter(icebergTable, snapshotAtRefresh.get())
                 .<TableChangeInfo>map(FirstChangeSnapshot::new)
                 .orElse(new UnknownTableChange());
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
-    {
-        return true;
-    }
-
-    @Override
-    public boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName fullTableName, Map<String, Object> tableProperties)
-    {
-        return true;
     }
 
     @Override

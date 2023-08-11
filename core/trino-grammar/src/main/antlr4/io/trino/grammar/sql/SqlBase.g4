@@ -14,6 +14,8 @@
 
 grammar SqlBase;
 
+options { caseInsensitive = true; }
+
 tokens {
     DELIMITER
 }
