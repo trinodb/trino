@@ -273,20 +273,20 @@ values specified in WHERE clause. A sub-query or list of values must be specifie
 in the parenthesis.
 
 ```
-SELECT * FROM region WHERE name IN ('America', 'Europe');
+SELECT * FROM region WHERE name IN ('AMERICA', 'EUROPE');
 ```
 
 It is shorthand of mutiple `OR` operator. The same query can be modified to 
 include a list of values seperated with `OR` operator.
 
 ```
-SELECT * FROM region WHERE name = 'America' OR name = 'Europe';
+SELECT * FROM region WHERE name = 'AMERICA' OR name = 'EUROPE';
 ```
 
 You can also negate the result by adding `NOT`, and get all other regions except the values in list:
 
 ```
-SELECT * FROM region WHERE name NOT IN ('America', 'Europe');
+SELECT * FROM region WHERE name NOT IN ('AMERICA', 'EUROPE');
 ```
 
 You can also use the subquery with the IN operator that returns records from the single column. 
@@ -297,6 +297,6 @@ SELECT name FROM nation
 WHERE regionkey IN ( 
     SELECT regionkey 
     FROM region 
-    WHERE name IN ('America', 'Europe')
+    WHERE name IN ('AMERICA', 'EUROPE')
 );
 ```
