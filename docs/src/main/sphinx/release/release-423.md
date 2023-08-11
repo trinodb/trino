@@ -40,7 +40,6 @@
 
 ## Blackhole connector
 
-* Add support for materialized views. ({issue}`18016`)
 * Add support for the `COMMENT ON VIEW` statement. ({issue}`18516`)
 
 ## Delta Lake connector
