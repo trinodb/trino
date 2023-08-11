@@ -1762,6 +1762,32 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
+    public void testOptimizeRewritesTable()
+    {
+        String tableName = "test_optimize_rewrites_table_" + randomNameSuffix();
+        String tableLocation = getLocationForTable(bucketName, tableName);
+        assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (location = '" + tableLocation + "')");
+        try {
+            // DistributedQueryRunner sets node-scheduler.include-coordinator by default, so include coordinator
+            int workerCount = getQueryRunner().getNodeCount();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
+
+            for (int i = 0; i < 3; i++) {
+                Set<String> initialFiles = getActiveFiles(tableName);
+                computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+                Set<String> updatedFiles = getActiveFiles(tableName);
+                assertThat(updatedFiles)
+                        .hasSizeBetween(1, workerCount)
+                        .doesNotContainAnyElementsOf(initialFiles);
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     public void testOptimizeParameterValidation()
     {
         assertQueryFails(
