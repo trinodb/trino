@@ -74,7 +74,7 @@ public final class ChunkedSliceOutput
     {
         return ImmutableList.<Slice>builder()
                 .addAll(closedSlices)
-                .add(Slices.copyOf(slice, 0, bufferPosition))
+                .add(slice.copy(0, bufferPosition))
                 .build();
     }
 

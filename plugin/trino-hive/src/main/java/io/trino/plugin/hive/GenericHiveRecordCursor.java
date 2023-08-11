@@ -406,7 +406,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         // create a slice view over the hive value and trim to character limits
         Slice value = trimStringToCharacterLimits(type, Slices.wrappedBuffer(hiveValue.getBytes(), 0, hiveValue.getLength()));
         // store a copy of the bytes, since the hive reader can reuse the underlying buffer
-        return Slices.copyOf(value);
+        return value.copy();
     }
 
     private static Slice parseStringFromPrimitiveJavaObjectValue(Type type, Object fieldValue)
@@ -431,7 +431,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         value = trimStringToCharacterLimits(type, value);
         // Copy the slice if the value was trimmed and is now smaller than the backing buffer
         if (!value.isCompact()) {
-            return Slices.copyOf(value);
+            return value.copy();
         }
         return value;
     }
