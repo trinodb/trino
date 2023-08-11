@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import io.trino.connector.ForGlobalSystemConnector;
 import io.trino.connector.system.jdbc.AttributeJdbcTable;
 import io.trino.connector.system.jdbc.CatalogJdbcTable;
 import io.trino.connector.system.jdbc.ColumnJdbcTable;
@@ -35,6 +36,7 @@ import io.trino.operator.table.Sequence;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
+import io.trino.transaction.InternalConnector;
 
 public class SystemConnectorModule
         implements Module
@@ -76,7 +78,7 @@ public class SystemConnectorModule
 
         binder.bind(KillQueryProcedure.class).in(Scopes.SINGLETON);
 
-        binder.bind(GlobalSystemConnector.class).in(Scopes.SINGLETON);
+        binder.bind(InternalConnector.class).annotatedWith(ForGlobalSystemConnector.class).to(GlobalSystemConnector.class).in(Scopes.SINGLETON);
 
         Multibinder<ConnectorTableFunction> tableFunctions = Multibinder.newSetBinder(binder, ConnectorTableFunction.class);
         tableFunctions.addBinding().toProvider(ExcludeColumns.class).in(Scopes.SINGLETON);

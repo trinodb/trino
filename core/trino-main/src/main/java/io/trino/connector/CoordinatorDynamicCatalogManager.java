@@ -27,6 +27,7 @@ import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.transaction.InternalConnector;
 import jakarta.annotation.PreDestroy;
 
 import java.util.ArrayList;
@@ -279,7 +280,7 @@ public class CoordinatorDynamicCatalogManager
         }
     }
 
-    public void registerGlobalSystemConnector(GlobalSystemConnector connector)
+    public void registerGlobalSystemConnector(InternalConnector connector)
     {
         requireNonNull(connector, "connector is null");
 

@@ -21,6 +21,7 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.transaction.InternalConnector;
 import jakarta.annotation.PreDestroy;
 
 import java.util.ArrayList;
@@ -161,7 +162,7 @@ public class WorkerDynamicCatalogManager
         return catalogConnector.getMaterializedConnector(catalogHandle.getType());
     }
 
-    public void registerGlobalSystemConnector(GlobalSystemConnector connector)
+    public void registerGlobalSystemConnector(InternalConnector connector)
     {
         requireNonNull(connector, "connector is null");
 

@@ -17,9 +17,9 @@ import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.CatalogManager;
 import io.trino.server.ServerConfig;
+import io.trino.transaction.InternalConnector;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -61,7 +61,7 @@ public class DynamicCatalogManagerModule
                 DefaultCatalogFactory defaultCatalogFactory,
                 LazyCatalogFactory lazyCatalogFactory,
                 CoordinatorDynamicCatalogManager catalogManager,
-                GlobalSystemConnector globalSystemConnector)
+                @ForGlobalSystemConnector InternalConnector globalSystemConnector)
         {
             lazyCatalogFactory.setCatalogFactory(defaultCatalogFactory);
             catalogManager.registerGlobalSystemConnector(globalSystemConnector);
@@ -75,7 +75,7 @@ public class DynamicCatalogManagerModule
                 DefaultCatalogFactory defaultCatalogFactory,
                 LazyCatalogFactory lazyCatalogFactory,
                 WorkerDynamicCatalogManager catalogManager,
-                GlobalSystemConnector globalSystemConnector)
+                @ForGlobalSystemConnector InternalConnector globalSystemConnector)
         {
             lazyCatalogFactory.setCatalogFactory(defaultCatalogFactory);
             catalogManager.registerGlobalSystemConnector(globalSystemConnector);
