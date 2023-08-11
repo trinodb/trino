@@ -156,13 +156,6 @@ public final class HiveTestUtils
                 .build();
     }
 
-    public static TestingConnectorSession getHiveSession(HiveConfig hiveConfig, ParquetReaderConfig parquetReaderConfig)
-    {
-        return TestingConnectorSession.builder()
-                .setPropertyMetadata(getHiveSessionProperties(hiveConfig, parquetReaderConfig).getSessionProperties())
-                .build();
-    }
-
     public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig)
     {
         return getHiveSessionProperties(hiveConfig, new OrcReaderConfig());
