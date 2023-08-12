@@ -58,7 +58,7 @@ public class VariableWidthBlockEncoding
 
         sliceOutput
                 .appendInt(nonNullsCount)
-                .writeBytes(Slices.wrappedIntArray(lengths, 0, nonNullsCount));
+                .writeInts(lengths, 0, nonNullsCount);
 
         encodeNullsAsBits(sliceOutput, variableWidthBlock);
 
@@ -80,7 +80,7 @@ public class VariableWidthBlockEncoding
         int[] offsets = new int[positionCount + 1];
         // Read the lengths array into the end of the offsets array, since nonNullsCount <= positionCount
         int lengthIndex = offsets.length - nonNullsCount;
-        sliceInput.readBytes(Slices.wrappedIntArray(offsets, lengthIndex, nonNullsCount));
+        sliceInput.readInts(offsets, lengthIndex, nonNullsCount);
 
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
         // Transform lengths back to offsets

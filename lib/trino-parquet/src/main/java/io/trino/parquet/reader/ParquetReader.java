@@ -167,7 +167,7 @@ public class ParquetReader
         this.blocks = requireNonNull(blocks, "blocks is null");
         this.firstRowsOfBlocks = requireNonNull(firstRowsOfBlocks, "firstRowsOfBlocks is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
-        this.columnReaderFactory = new ColumnReaderFactory(timeZone, options);
+        this.columnReaderFactory = new ColumnReaderFactory(timeZone);
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");

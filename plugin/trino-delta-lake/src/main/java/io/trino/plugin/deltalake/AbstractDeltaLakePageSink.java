@@ -470,7 +470,6 @@ public abstract class AbstractDeltaLakePageSink
                     identityMapping,
                     compressionCodec,
                     trinoVersion,
-                    false,
                     Optional.empty(),
                     Optional.empty());
         }

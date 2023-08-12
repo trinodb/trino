@@ -427,8 +427,8 @@ public class TupleDomainParquetPredicate
         if (type instanceof VarcharType) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
-                Slice min = Slices.wrappedBuffer(((Binary) minimums.get(i)).toByteBuffer());
-                Slice max = Slices.wrappedBuffer(((Binary) maximums.get(i)).toByteBuffer());
+                Slice min = Slices.wrappedHeapBuffer(((Binary) minimums.get(i)).toByteBuffer());
+                Slice max = Slices.wrappedHeapBuffer(((Binary) maximums.get(i)).toByteBuffer());
                 rangesBuilder.addRangeInclusive(min, max);
             }
             return Domain.create(rangesBuilder.build(), hasNullValue);

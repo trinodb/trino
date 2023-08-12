@@ -46,8 +46,6 @@ import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_TYPE_COLUMN_
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockSize;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetOptimizedNestedReaderEnabled;
-import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.deltalake.functions.tablechanges.TableChangesFileType.CDF_FILE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
@@ -176,9 +174,7 @@ public class TableChangesFunctionProcessor
         parquetReaderOptions = parquetReaderOptions
                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
-                .withUseColumnIndex(isParquetUseColumnIndex(session))
-                .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session))
-                .withBatchNestedColumnReaders(isParquetOptimizedNestedReaderEnabled(session));
+                .withUseColumnIndex(isParquetUseColumnIndex(session));
 
         List<DeltaLakeColumnHandle> splitColumns = switch (split.fileType()) {
             case CDF_FILE -> ImmutableList.<DeltaLakeColumnHandle>builder().addAll(handle.columns())

@@ -138,7 +138,6 @@ public class CheckpointWriter
                 parquetWriterOptions,
                 CompressionCodec.SNAPPY,
                 trinoVersion,
-                false,
                 Optional.of(DateTimeZone.UTC),
                 Optional.empty());
 

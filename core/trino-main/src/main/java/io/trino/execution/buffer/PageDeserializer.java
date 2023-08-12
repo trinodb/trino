@@ -239,6 +239,76 @@ public class PageDeserializer
         }
 
         @Override
+        public void readShorts(short[] destination, int destinationIndex, int length)
+        {
+            ReadBuffer buffer = buffers[0];
+            int shortsRemaining = length;
+            while (shortsRemaining > 0) {
+                ensureReadable(min(Long.BYTES, shortsRemaining * Short.BYTES));
+                int shortsToRead = min(shortsRemaining, buffer.available() / Short.BYTES);
+                buffer.readShorts(destination, destinationIndex, shortsToRead);
+                shortsRemaining -= shortsToRead;
+                destinationIndex += shortsToRead;
+            }
+        }
+
+        @Override
+        public void readInts(int[] destination, int destinationIndex, int length)
+        {
+            ReadBuffer buffer = buffers[0];
+            int intsRemaining = length;
+            while (intsRemaining > 0) {
+                ensureReadable(min(Long.BYTES, intsRemaining * Integer.BYTES));
+                int intsToRead = min(intsRemaining, buffer.available() / Integer.BYTES);
+                buffer.readInts(destination, destinationIndex, intsToRead);
+                intsRemaining -= intsToRead;
+                destinationIndex += intsToRead;
+            }
+        }
+
+        @Override
+        public void readLongs(long[] destination, int destinationIndex, int length)
+        {
+            ReadBuffer buffer = buffers[0];
+            int longsRemaining = length;
+            while (longsRemaining > 0) {
+                ensureReadable(min(Long.BYTES, longsRemaining * Long.BYTES));
+                int longsToRead = min(longsRemaining, buffer.available() / Long.BYTES);
+                buffer.readLongs(destination, destinationIndex, longsToRead);
+                longsRemaining -= longsToRead;
+                destinationIndex += longsToRead;
+            }
+        }
+
+        @Override
+        public void readFloats(float[] destination, int destinationIndex, int length)
+        {
+            ReadBuffer buffer = buffers[0];
+            int floatsRemaining = length;
+            while (floatsRemaining > 0) {
+                ensureReadable(min(Long.BYTES, floatsRemaining * Float.BYTES));
+                int floatsToRead = min(floatsRemaining, buffer.available() / Float.BYTES);
+                buffer.readFloats(destination, destinationIndex, floatsToRead);
+                floatsRemaining -= floatsToRead;
+                destinationIndex += floatsToRead;
+            }
+        }
+
+        @Override
+        public void readDoubles(double[] destination, int destinationIndex, int length)
+        {
+            ReadBuffer buffer = buffers[0];
+            int doublesRemaining = length;
+            while (doublesRemaining > 0) {
+                ensureReadable(min(Long.BYTES, doublesRemaining * Double.BYTES));
+                int doublesToRead = min(doublesRemaining, buffer.available() / Double.BYTES);
+                buffer.readDoubles(destination, destinationIndex, doublesToRead);
+                doublesRemaining -= doublesToRead;
+                destinationIndex += doublesToRead;
+            }
+        }
+
+        @Override
         public void readBytes(Slice destination, int destinationIndex, int length)
         {
             ReadBuffer buffer = buffers[0];
@@ -469,7 +539,6 @@ public class PageDeserializer
         public ReadBuffer(Slice slice)
         {
             requireNonNull(slice, "slice is null");
-            checkArgument(slice.hasByteArray(), "slice is expected to be based on a byte array");
             this.slice = slice;
             limit = slice.length();
         }
@@ -570,6 +639,36 @@ public class PageDeserializer
         {
             slice.getBytes(position, destination, destinationIndex, length);
             position += length;
+        }
+
+        public void readShorts(short[] destination, int destinationIndex, int length)
+        {
+            slice.getShorts(position, destination, destinationIndex, length);
+            position += length * Short.BYTES;
+        }
+
+        public void readInts(int[] destination, int destinationIndex, int length)
+        {
+            slice.getInts(position, destination, destinationIndex, length);
+            position += length * Integer.BYTES;
+        }
+
+        public void readLongs(long[] destination, int destinationIndex, int length)
+        {
+            slice.getLongs(position, destination, destinationIndex, length);
+            position += length * Long.BYTES;
+        }
+
+        public void readFloats(float[] destination, int destinationIndex, int length)
+        {
+            slice.getFloats(position, destination, destinationIndex, length);
+            position += length * Float.BYTES;
+        }
+
+        public void readDoubles(double[] destination, int destinationIndex, int length)
+        {
+            slice.getDoubles(position, destination, destinationIndex, length);
+            position += length * Double.BYTES;
         }
 
         public void readBytes(Slice destination, int destinationIndex, int length)
