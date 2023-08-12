@@ -15,7 +15,6 @@ package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static io.trino.plugin.clickhouse.TestingClickHouseServer.ALTINITY_DEFAULT_IMAGE;

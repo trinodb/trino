@@ -43,6 +43,7 @@ import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_P
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.TestingClickHouseServer.CLICKHOUSE_LATEST_IMAGE;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -62,26 +63,37 @@ public class TestClickHouseConnectorTest
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        return switch (connectorBehavior) {
-            case SUPPORTS_TRUNCATE -> true;
-            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
-                    SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
-                    SUPPORTS_ARRAY,
-                    SUPPORTS_DELETE,
-                    SUPPORTS_NATIVE_QUERY,
-                    SUPPORTS_NEGATIVE_DATE,
-                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
-                    SUPPORTS_ROW_TYPE,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_UPDATE -> false;
-            default -> super.hasBehavior(connectorBehavior);
-        };
+        switch (connectorBehavior) {
+            case SUPPORTS_TRUNCATE:
+                return true;
+
+            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
+            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
+            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
+                return false;
+
+            case SUPPORTS_SET_COLUMN_TYPE:
+                return false;
+
+            case SUPPORTS_ARRAY:
+            case SUPPORTS_ROW_TYPE:
+            case SUPPORTS_NEGATIVE_DATE:
+                return false;
+
+            case SUPPORTS_NATIVE_QUERY:
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Override
@@ -94,6 +106,129 @@ public class TestClickHouseConnectorTest
                 ImmutableMap.of(),
                 ImmutableMap.of("clickhouse.map-string-as-varchar", "true"),
                 REQUIRED_TPCH_TABLES);
+    }
+
+    @Test
+    @Override
+    public void testDelete()
+    {
+        // Override because default storage engine doesn't support delete
+        String tableDefinition = "(" +
+                "         orderkey BIGINT NOT NULL," +
+                "         custkey BIGINT NOT NULL," +
+                "         orderstatus VARCHAR(1)," +
+                "         totalprice DOUBLE," +
+                "         orderdate DATE," +
+                "         orderpriority VARCHAR(15)," +
+                "         clerk VARCHAR(15)," +
+                "         shippriority INTEGER," +
+                "         comment VARCHAR(79)" +
+                "    ) WITH (engine='MergeTree', order_by=ARRAY['custkey', 'orderkey'])";
+
+        // delete successive parts of the table
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_",
+                tableDefinition)) {
+            assertQuerySucceeds(format("insert into %s select * from orders", table.getName()));
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders");
+
+            assertQuerySucceeds(format("delete from %s where custkey <= 100", table.getName()));
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE custkey > 100");
+
+            assertQuerySucceeds(format("delete from %s where custkey <= 300", table.getName()));
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE custkey > 300");
+
+            assertQuerySucceeds(format("delete from %s where custkey <= 500", table.getName()));
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders WHERE custkey > 500");
+        }
+
+        // delete without matching any rows
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_",
+                tableDefinition)) {
+            assertQuerySucceeds(format("insert into %s select * from orders", table.getName()));
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders");
+
+            assertQuerySucceeds("DELETE FROM " + table.getName() + " WHERE orderkey < 0");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders");
+        }
+
+        // delete with a predicate that optimizes to false
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_",
+                tableDefinition)) {
+            assertQuerySucceeds(format("insert into %s select * from orders", table.getName()));
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders");
+
+            assertQuerySucceeds("DELETE FROM " + table.getName() + " WHERE orderkey > 5 AND orderkey < 4");
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM orders");
+        }
+
+        String tableName = "test_delete_" + randomNameSuffix();
+        try {
+            // test EXPLAIN ANALYZE with CTAS
+            assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT CAST(orderstatus AS VARCHAR(15)) orderstatus FROM orders");
+            assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
+            // check that INSERT works also
+            assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO " + tableName + " SELECT clerk FROM orders");
+            assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders UNION ALL SELECT clerk FROM orders");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Override
+    public void testDeleteWithComplexPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithComplexPredicate)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
+    public void testDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testDeleteWithSubquery)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
+    public void testExplainAnalyzeWithDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
+    public void testDeleteWithSemiJoin()
+    {
+        assertThatThrownBy(super::testDeleteWithSemiJoin)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
+    public void testDeleteWithVarcharPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithVarcharPredicate)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
+    public void testDeleteAllDataFromTable()
+    {
+        assertThatThrownBy(super::testDeleteAllDataFromTable)
+                .hasStackTraceContaining("Deleting without partition key is not supported");
+    }
+
+    @Override
+    public void testRowLevelDelete()
+    {
+        assertThatThrownBy(super::testRowLevelDelete)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
     @Test
