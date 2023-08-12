@@ -261,42 +261,39 @@ For example, you can use `\\` to match for `\`.
 
 ## Row comparison: IN
 
-The `IN` operator can be used to compare values with the following patterns:
+The `IN` operator can be used to compare values with the following patterns. 
+It can fetch records according to mutiple values specified in WHERE clause. A 
+sub-query or list of values must be specified in the parenthesis.
 
 ```
 ... WHERE column [NOT] IN ('value1','value2');
 ... WHERE column [NOT] IN ( subquery )
 ```
 
-The `IN` operator can be use to fetch multiple records according to mutiple 
-values specified in WHERE clause. A sub-query or list of values must be specified 
-in the parenthesis.
-
 ```
 SELECT * FROM region WHERE name IN ('AMERICA', 'EUROPE');
 ```
-
-It is shorthand of mutiple `OR` operator. The same query can be modified to 
-include a list of values seperated with `OR` operator.
+The values in the clause are used for multiple comparisons that are combined as 
+a logical `OR`. The preceding query is equivalent to the following query:
 
 ```
 SELECT * FROM region WHERE name = 'AMERICA' OR name = 'EUROPE';
 ```
 
-You can also negate the result by adding `NOT`, and get all other regions except the values in list:
+You can negate the comparisons by adding `NOT`, and get all other regions 
+except the values in list:
 
 ```
 SELECT * FROM region WHERE name NOT IN ('AMERICA', 'EUROPE');
 ```
 
-You can also use the subquery with the IN operator that returns records from the single column. 
-The subquery cannot include more than one column in the SELECT column list.
+When using a subquery to determine the values to use in the comparison, the 
+subquery must return a single column and one or more rows.
 
 ```
 SELECT name FROM nation 
 WHERE regionkey IN ( 
-    SELECT regionkey 
+    SELECT starts_with(regionkey,"A") AS regionkey
     FROM region 
-    WHERE name IN ('AMERICA', 'EUROPE')
 );
 ```
