@@ -1066,7 +1066,18 @@ public class ExpressionInterpreter
             if (optimize) {
                 // TODO: enable optimization related to lambda expression
                 // A mechanism to convert function type back into lambda expression need to exist to enable optimization
-                return node;
+                Object value = processWithExceptionHandling(node.getBody(), context);
+                Expression optimizedBody;
+
+                // value may be null, converted to an expression by toExpression(value, type)
+                if (value instanceof Expression) {
+                    optimizedBody = (Expression) value;
+                }
+                else {
+                    Type type = type(node.getBody());
+                    optimizedBody = toExpression(value, type);
+                }
+                return new LambdaExpression(node.getArguments(), optimizedBody);
             }
 
             Expression body = node.getBody();
