@@ -6951,7 +6951,7 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Override
-    protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
+    protected Optional<SetColumnTypeSetup> filterSetFieldTypeDataProvider(SetColumnTypeSetup setup)
     {
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "bigint -> integer":

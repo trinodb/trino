@@ -3109,8 +3109,8 @@ public abstract class BaseConnectorTest
         }
     }
 
-    @Test(dataProvider = "setFieldTypesDataProvider")
-    public void testSetFieldTypes(SetColumnTypeSetup setup)
+    @Test(dataProvider = "setFieldTypeDataProvider")
+    public void testSetFieldType(SetColumnTypeSetup setup)
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_FIELD_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
@@ -3142,15 +3142,15 @@ public abstract class BaseConnectorTest
     }
 
     @DataProvider
-    public Object[][] setFieldTypesDataProvider()
+    public Object[][] setFieldTypeDataProvider()
     {
         return setColumnTypeSetupData().stream()
-                .map(this::filterSetFieldTypesDataProvider)
+                .map(this::filterSetFieldTypeDataProvider)
                 .flatMap(Optional::stream)
                 .collect(toDataProvider());
     }
 
-    protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
+    protected Optional<SetColumnTypeSetup> filterSetFieldTypeDataProvider(SetColumnTypeSetup setup)
     {
         return Optional.of(setup);
     }
