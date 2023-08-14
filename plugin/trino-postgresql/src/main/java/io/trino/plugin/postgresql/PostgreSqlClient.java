@@ -346,17 +346,6 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
-            throws SQLException
-    {
-        if (cascade) {
-            // Dropping schema with cascade option may lead to other metadata listing operations. Disable until finding the solution.
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
-        }
-        execute(session, connection, "DROP SCHEMA " + quoted(remoteSchemaName));
-    }
-
-    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         try {
