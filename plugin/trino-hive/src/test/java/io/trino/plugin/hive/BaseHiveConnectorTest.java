@@ -5521,14 +5521,14 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    public void schemaMismatchesWithDereferenceProjections()
+    public void testSchemaMismatchesWithDereferenceProjections()
     {
         for (TestingHiveStorageFormat format : getAllTestingHiveStorageFormat()) {
-            schemaMismatchesWithDereferenceProjections(format.getFormat());
+            testSchemaMismatchesWithDereferenceProjections(format.getFormat());
         }
     }
 
-    private void schemaMismatchesWithDereferenceProjections(HiveStorageFormat format)
+    private void testSchemaMismatchesWithDereferenceProjections(HiveStorageFormat format)
     {
         // Verify reordering of subfields between a partition column and a table column is not supported
         // eg. table column: a row(c varchar, b bigint), partition column: a row(b bigint, c varchar)
