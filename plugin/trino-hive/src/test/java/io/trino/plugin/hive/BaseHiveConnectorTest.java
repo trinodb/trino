@@ -211,13 +211,6 @@ public abstract class BaseHiveConnectorTest
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
     }
 
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return createHiveQueryRunner(HiveQueryRunner.builder());
-    }
-
     protected static QueryRunner createHiveQueryRunner(HiveQueryRunner.Builder<?> builder)
             throws Exception
     {
