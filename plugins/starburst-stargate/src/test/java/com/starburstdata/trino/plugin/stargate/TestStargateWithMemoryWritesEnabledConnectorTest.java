@@ -199,6 +199,16 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     }
 
     @Override
+    public void testDropSchemaCascade()
+    {
+        // Overridden because we get an error message with "Query failed (<query_id>):" prefixed instead of one expected by superclass
+        String schemaName = getSession().getSchema().orElseThrow();
+        assertQueryFails(
+                format("DROP SCHEMA %s CASCADE", schemaName),
+                ".*This connector does not support dropping schemas with CASCADE option");
+    }
+
+    @Override
     public void testNativeQuerySimple()
     {
         assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1 a'))", "VALUES 1");
