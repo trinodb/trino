@@ -50,6 +50,7 @@ import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagementExecutor;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.executor.TaskExecutor;
+import io.trino.execution.executor.dedicated.ThreadPerDriverTaskExecutor;
 import io.trino.execution.executor.timesharing.MultilevelSplitQueue;
 import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.execution.scheduler.NodeScheduler;
@@ -283,8 +284,6 @@ public class ServerMainModule
         binder.bind(FailureInjector.class).in(Scopes.SINGLETON);
         jaxrsBinder(binder).bind(TaskResource.class);
         newExporter(binder).export(TaskResource.class).withGeneratedName();
-        jaxrsBinder(binder).bind(TaskExecutorResource.class);
-        newExporter(binder).export(TaskExecutorResource.class).withGeneratedName();
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
         binder.bind(TableExecuteContextManager.class).in(Scopes.SINGLETON);
@@ -307,11 +306,6 @@ public class ServerMainModule
         newOptionalBinder(binder, VersionEmbedder.class).setDefault().to(EmbedVersion.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SqlTaskManager.class).withGeneratedName();
 
-        binder.bind(TaskExecutor.class)
-                .to(TimeSharingTaskExecutor.class)
-                .in(Scopes.SINGLETON);
-        binder.bind(TimeSharingTaskExecutor.class).in(Scopes.SINGLETON);
-
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
         binder.bind(MultilevelSplitQueue.class).in(Scopes.SINGLETON);
         newExporter(binder).export(MultilevelSplitQueue.class).withGeneratedName();
@@ -322,6 +316,24 @@ public class ServerMainModule
         binder.bind(PageFunctionCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(PageFunctionCompiler.class).withGeneratedName();
         configBinder(binder).bindConfig(TaskManagerConfig.class);
+
+        // TODO: use conditional module
+        TaskManagerConfig taskManagerConfig = buildConfigObject(TaskManagerConfig.class);
+        if (taskManagerConfig.isThreadPerDriverSchedulerEnabled()) {
+            binder.bind(TaskExecutor.class)
+                    .to(ThreadPerDriverTaskExecutor.class)
+                    .in(Scopes.SINGLETON);
+        }
+        else {
+            jaxrsBinder(binder).bind(TaskExecutorResource.class);
+            newExporter(binder).export(TaskExecutorResource.class).withGeneratedName();
+
+            binder.bind(TaskExecutor.class)
+                    .to(TimeSharingTaskExecutor.class)
+                    .in(Scopes.SINGLETON);
+            binder.bind(TimeSharingTaskExecutor.class).in(Scopes.SINGLETON);
+        }
+
         if (retryPolicy == TASK) {
             configBinder(binder).bindConfigDefaults(TaskManagerConfig.class, TaskManagerConfig::applyFaultTolerantExecutionDefaults);
         }
