@@ -1550,9 +1550,9 @@ public class TestDeltaLakeColumnMappingMode
             // TODO https://github.com/delta-io/delta/issues/1929 Delta Lake disallows creating tables with all partitioned column, but allows dropping the non-partition column
             onDelta().executeQuery("ALTER TABLE default." + tableName + " DROP COLUMN data");
 
-            assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .hasMessageContaining("Index 0 out of bounds for length 0");
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName).getOnlyValue()).isNull();
+            Row expected = row("part#1");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).containsOnly(expected);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).containsOnly(expected);
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
