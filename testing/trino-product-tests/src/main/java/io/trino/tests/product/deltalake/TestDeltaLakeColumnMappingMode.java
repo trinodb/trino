@@ -440,6 +440,29 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "supportedColumnMappingForDmlDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testCreatePartitionTableAsSelect(String mode)
+    {
+        String tableName = "test_dl_create_partition_table_as_select_" + randomNameSuffix();
+
+        onTrino().executeQuery("" +
+                "CREATE TABLE delta.default." + tableName + " " +
+                "WITH (" +
+                "location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'," +
+                "column_mapping_mode = '" + mode + "'" +
+                ")" +
+                "AS SELECT 1 AS id, 'part#1' AS part");
+        try {
+            Row expected = row(1, "part#1");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).containsOnly(expected);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).containsOnly(expected);
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCreateTableWithComments(String mode)
@@ -1528,9 +1551,9 @@ public class TestDeltaLakeColumnMappingMode
             // TODO https://github.com/delta-io/delta/issues/1929 Delta Lake disallows creating tables with all partitioned column, but allows dropping the non-partition column
             onDelta().executeQuery("ALTER TABLE default." + tableName + " DROP COLUMN data");
 
-            assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .hasMessageContaining("Index 0 out of bounds for length 0");
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName).getOnlyValue()).isNull();
+            Row expected = row("part#1");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).containsOnly(expected);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).containsOnly(expected);
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);

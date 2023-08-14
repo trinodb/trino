@@ -1088,6 +1088,14 @@ public class TestDeltaLakeConnectorTest
                         " AS SELECT 1 AS a_int, CAST(row(11) AS row(x integer)) AS a_row", 1));
     }
 
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCreatePartitionTableAsSelectWithColumnMappingMode(ColumnMappingMode mode)
+    {
+        testCreateTableColumnMappingMode(mode, tableName ->
+                assertUpdate("CREATE TABLE " + tableName + " WITH (column_mapping_mode='" + mode + "', partitioned_by=ARRAY['a_int'])" +
+                        " AS SELECT 1 AS a_int, CAST(row(11) AS row(x integer)) AS a_row", 1));
+    }
+
     private void testCreateTableColumnMappingMode(ColumnMappingMode mode, Consumer<String> createTable)
     {
         String tableName = "test_create_table_column_mapping_" + randomNameSuffix();
