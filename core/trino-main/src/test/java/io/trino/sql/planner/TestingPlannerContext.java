@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.FeaturesConfig;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.BlockEncodingManager;
@@ -115,7 +116,7 @@ public final class TestingPlannerContext
             types.forEach(typeRegistry::addType);
             parametricTypes.forEach(typeRegistry::addParametricType);
 
-            GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog();
+            GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog(ImmutableSet.of());
             globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
             functionBundles.forEach(globalFunctionCatalog::addFunctions);
 

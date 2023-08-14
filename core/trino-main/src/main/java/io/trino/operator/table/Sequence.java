@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Provider;
+import io.trino.metadata.TableFunctionProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
@@ -45,11 +46,13 @@ import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
+import static io.trino.metadata.TableFunctionProvider.TableFunction;
 import static io.trino.operator.table.Sequence.SequenceFunctionSplit.MAX_SPLIT_SIZE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.Descriptor.descriptor;
@@ -57,6 +60,7 @@ import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.F
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class Sequence
         implements Provider<ConnectorTableFunction>
@@ -236,18 +240,6 @@ public class Sequence
         }
     }
 
-    public static TableFunctionProcessorProvider getSequenceFunctionProcessorProvider()
-    {
-        return new TableFunctionProcessorProvider()
-        {
-            @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
-            {
-                return new SequenceFunctionProcessor(((SequenceFunctionHandle) handle).step(), (SequenceFunctionSplit) split);
-            }
-        };
-    }
-
     public static class SequenceFunctionProcessor
             implements TableFunctionSplitProcessor
     {
@@ -287,6 +279,49 @@ public class Sequence
             Page page = pageBuilder.build();
             pageBuilder.reset();
             return produced(page);
+        }
+    }
+
+    public static class SequenceTableFunctionProvider
+            implements TableFunctionProvider
+    {
+        @Override
+        public Optional<TableFunction> get(ConnectorTableFunctionHandle functionHandle)
+        {
+            if (functionHandle instanceof SequenceFunctionHandle sequenceFunctionHandle) {
+                return Optional.of(new SequenceTableFunction(sequenceFunctionHandle));
+            }
+            return Optional.empty();
+        }
+    }
+
+    private static class SequenceTableFunction
+            implements TableFunction
+    {
+        private final SequenceFunctionHandle functionHandle;
+
+        public SequenceTableFunction(SequenceFunctionHandle functionHandle)
+        {
+            this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
+        }
+
+        @Override
+        public TableFunctionProcessorProvider getTableFunctionProcessorProvider()
+        {
+            return new TableFunctionProcessorProvider()
+            {
+                @Override
+                public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
+                {
+                    return new SequenceFunctionProcessor(((SequenceFunctionHandle) handle).step(), (SequenceFunctionSplit) split);
+                }
+            };
+        }
+
+        @Override
+        public ConnectorSplitSource getSplitSource()
+        {
+            return getSequenceFunctionSplitSource(functionHandle);
         }
     }
 }

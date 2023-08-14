@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.trino.FeaturesConfig;
@@ -340,7 +341,7 @@ public class FunctionManager
     public static FunctionManager createTestingFunctionManager()
     {
         TypeOperators typeOperators = new TypeOperators();
-        GlobalFunctionCatalog functionCatalog = new GlobalFunctionCatalog();
+        GlobalFunctionCatalog functionCatalog = new GlobalFunctionCatalog(ImmutableSet.of());
         functionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
         functionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER))));
         return new FunctionManager(CatalogServiceProvider.fail(), functionCatalog);

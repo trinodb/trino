@@ -16,10 +16,10 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.errorprone.annotations.ThreadSafe;
-import io.trino.operator.table.ExcludeColumns.ExcludeColumnsFunctionHandle;
-import io.trino.operator.table.Sequence.SequenceFunctionHandle;
+import com.google.inject.Inject;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
@@ -42,20 +42,23 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.OperatorNameUtil.isOperatorName;
 import static io.trino.metadata.OperatorNameUtil.unmangleOperator;
-import static io.trino.operator.table.ExcludeColumns.getExcludeColumnsFunctionProcessorProvider;
-import static io.trino.operator.table.Sequence.getSequenceFunctionProcessorProvider;
+import static io.trino.metadata.TableFunctionProvider.TableFunction;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class GlobalFunctionCatalog
@@ -63,6 +66,13 @@ public class GlobalFunctionCatalog
 {
     public static final String BUILTIN_SCHEMA = "builtin";
     private volatile FunctionMap functions = new FunctionMap();
+    private final Set<TableFunctionProvider> tableFunctionProviders;
+
+    @Inject
+    public GlobalFunctionCatalog(Set<TableFunctionProvider> tableFunctionProviders)
+    {
+        this.tableFunctionProviders = ImmutableSet.copyOf(requireNonNull(tableFunctionProviders, "tableFunctionFeaturesFactories is null"));
+    }
 
     public final synchronized void addFunctions(FunctionBundle functionBundle)
     {
@@ -180,14 +190,18 @@ public class GlobalFunctionCatalog
     @Override
     public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
     {
-        if (functionHandle instanceof ExcludeColumnsFunctionHandle) {
-            return getExcludeColumnsFunctionProcessorProvider();
-        }
-        if (functionHandle instanceof SequenceFunctionHandle) {
-            return getSequenceFunctionProcessorProvider();
-        }
+        Set<TableFunction> tableFunctions = tableFunctionProviders.stream()
+                .map(factory -> factory.get(functionHandle))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toSet());
 
-        return null;
+        checkArgument(tableFunctions.size() <= 1, "we should have only one implementation for concrete function handle or nothing");
+
+        return tableFunctions.stream()
+                .map(TableFunction::getTableFunctionProcessorProvider)
+                .findFirst()
+                .orElse(null);
     }
 
     private static class FunctionMap

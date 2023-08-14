@@ -15,7 +15,7 @@ package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import io.trino.operator.table.Sequence.SequenceFunctionHandle;
+import io.trino.metadata.TableFunctionProvider;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -31,9 +31,12 @@ import io.trino.spi.transaction.IsolationLevel;
 import io.trino.transaction.InternalConnector;
 import io.trino.transaction.TransactionId;
 
+import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.operator.table.Sequence.getSequenceFunctionSplitSource;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.metadata.TableFunctionProvider.TableFunction;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -46,13 +49,15 @@ public class GlobalSystemConnector
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
     private final Set<ConnectorTableFunction> tableFunctions;
+    private final Set<TableFunctionProvider> tableFunctionProviders;
 
     @Inject
-    public GlobalSystemConnector(Set<SystemTable> systemTables, Set<Procedure> procedures, Set<ConnectorTableFunction> tableFunctions)
+    public GlobalSystemConnector(Set<SystemTable> systemTables, Set<Procedure> procedures, Set<TableFunctionProvider> tableFunctionProviders, Set<ConnectorTableFunction> tableFunctions)
     {
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
+        this.tableFunctionProviders = ImmutableSet.copyOf(requireNonNull(tableFunctionProviders, "tableFunctionFeaturesFactories is null"));
     }
 
     @Override
@@ -93,11 +98,18 @@ public class GlobalSystemConnector
             @Override
             public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle functionHandle)
             {
-                if (functionHandle instanceof SequenceFunctionHandle sequenceFunctionHandle) {
-                    return getSequenceFunctionSplitSource(sequenceFunctionHandle);
-                }
+                Set<TableFunction> tableFunctionAdditionalFeatures = tableFunctionProviders.stream()
+                        .map(factory -> factory.get(functionHandle))
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .collect(toImmutableSet());
 
-                throw new UnsupportedOperationException();
+                checkArgument(tableFunctionAdditionalFeatures.size() <= 1, "we should have only one implementation for concrete function handle or nothing");
+
+                return tableFunctionAdditionalFeatures.stream()
+                        .map(TableFunction::getSplitSource)
+                        .findFirst()
+                        .orElseThrow(UnsupportedOperationException::new);
             }
         };
     }

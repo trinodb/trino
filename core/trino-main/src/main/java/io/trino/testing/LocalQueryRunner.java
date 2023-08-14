@@ -378,7 +378,7 @@ public class LocalQueryRunner
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
 
-        this.globalFunctionCatalog = new GlobalFunctionCatalog();
+        this.globalFunctionCatalog = new GlobalFunctionCatalog(ImmutableSet.of());
         globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
         Metadata metadata = metadataProvider.getMetadata(
@@ -473,7 +473,7 @@ public class LocalQueryRunner
                 new AnalyzePropertiesSystemTable(metadata, accessControl, analyzePropertyManager),
                 new TransactionsSystemTable(typeManager, transactionManager)),
                 ImmutableSet.of(),
-                ImmutableSet.of(new ExcludeColumnsFunction()));
+                ImmutableSet.of(), ImmutableSet.of(new ExcludeColumnsFunction()));
 
         exchangeManagerRegistry = new ExchangeManagerRegistry();
         this.pluginManager = new PluginManager(

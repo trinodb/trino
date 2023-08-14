@@ -16,6 +16,7 @@ package io.trino.operator.table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.inject.Provider;
+import io.trino.metadata.TableFunctionProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -43,6 +44,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
+import static io.trino.metadata.TableFunctionProvider.TableFunction;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
@@ -149,26 +151,44 @@ public class ExcludeColumns
         }
     }
 
-    public static TableFunctionProcessorProvider getExcludeColumnsFunctionProcessorProvider()
-    {
-        return new TableFunctionProcessorProvider()
-        {
-            @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
-            {
-                return input -> {
-                    if (input == null) {
-                        return FINISHED;
-                    }
-                    return usedInputAndProduced(getOnlyElement(input).orElseThrow());
-                };
-            }
-        };
-    }
-
     public record ExcludeColumnsFunctionHandle()
             implements ConnectorTableFunctionHandle
     {
         // there's no information to remember. All logic is effectively delegated to the engine via `requiredColumns`.
+    }
+
+    public static class ExcludeColumnsTableFunctionProvider
+            implements TableFunctionProvider
+    {
+        @Override
+        public Optional<TableFunction> get(ConnectorTableFunctionHandle functionHandle)
+        {
+            if (!(functionHandle instanceof ExcludeColumnsFunctionHandle)) {
+                return Optional.empty();
+            }
+            return Optional.of(new ExcludeColumnsTableFunctionAdditionalFeature());
+        }
+    }
+
+    private static class ExcludeColumnsTableFunctionAdditionalFeature
+            implements TableFunction
+    {
+        @Override
+        public TableFunctionProcessorProvider getTableFunctionProcessorProvider()
+        {
+            return new TableFunctionProcessorProvider()
+            {
+                @Override
+                public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+                {
+                    return input -> {
+                        if (input == null) {
+                            return FINISHED;
+                        }
+                        return usedInputAndProduced(getOnlyElement(input).orElseThrow());
+                    };
+                }
+            };
+        }
     }
 }
