@@ -2960,29 +2960,28 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCreateEmptyBucketedPartition()
     {
-        for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
-            testCreateEmptyBucketedPartition(storageFormat.getFormat());
-        }
+        testWithAllStorageFormats(this::testCreateEmptyBucketedPartition);
     }
 
-    private void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat)
+    private void testCreateEmptyBucketedPartition(Session session, HiveStorageFormat storageFormat)
     {
         String tableName = "test_insert_empty_partitioned_bucketed_table";
-        createPartitionedBucketedTable(tableName, storageFormat);
+        createPartitionedBucketedTable(session, tableName, storageFormat);
 
         List<String> orderStatusList = ImmutableList.of("F", "O", "P");
         for (int i = 0; i < orderStatusList.size(); i++) {
             String sql = format("CALL system.create_empty_partition('%s', '%s', ARRAY['orderstatus'], ARRAY['%s'])", TPCH_SCHEMA, tableName, orderStatusList.get(i));
-            assertUpdate(sql);
+            assertUpdate(session, sql);
             assertQuery(
+                    session,
                     format("SELECT count(*) FROM \"%s$partitions\"", tableName),
                     "SELECT " + (i + 1));
 
-            assertQueryFails(sql, "Partition already exists.*");
+            assertQueryFails(session, sql, "Partition already exists.*");
         }
 
-        assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertUpdate(session, "DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(session, tableName));
     }
 
     @Test
@@ -3011,7 +3010,7 @@ public abstract class BaseHiveConnectorTest
     private void testInsertPartitionedBucketedTable(HiveStorageFormat storageFormat)
     {
         String tableName = "test_insert_partitioned_bucketed_table";
-        createPartitionedBucketedTable(tableName, storageFormat);
+        createPartitionedBucketedTable(getSession(), tableName, storageFormat);
 
         List<String> orderStatusList = ImmutableList.of("F", "O", "P");
         for (int i = 0; i < orderStatusList.size(); i++) {
@@ -3034,19 +3033,20 @@ public abstract class BaseHiveConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
-    private void createPartitionedBucketedTable(String tableName, HiveStorageFormat storageFormat)
+    private void createPartitionedBucketedTable(Session session, String tableName, HiveStorageFormat storageFormat)
     {
-        assertUpdate("" +
+        assertUpdate(
+                session,
                 "CREATE TABLE " + tableName + " (" +
-                "  custkey bigint," +
-                "  custkey2 bigint," +
-                "  comment varchar," +
-                "  orderstatus varchar)" +
-                "WITH (" +
-                "format = '" + storageFormat + "', " +
-                "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                "bucketed_by = ARRAY[ 'custkey', 'custkey2' ], " +
-                "bucket_count = 11)");
+                        "  custkey bigint," +
+                        "  custkey2 bigint," +
+                        "  comment varchar," +
+                        "  orderstatus varchar)" +
+                        "WITH (" +
+                        "format = '" + storageFormat + "', " +
+                        "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                        "bucketed_by = ARRAY[ 'custkey', 'custkey2' ], " +
+                        "bucket_count = 11)");
     }
 
     @Test
@@ -3100,7 +3100,7 @@ public abstract class BaseHiveConnectorTest
     public void testInsertTwiceToSamePartitionedBucket()
     {
         String tableName = "test_insert_twice_to_same_partitioned_bucket";
-        createPartitionedBucketedTable(tableName, HiveStorageFormat.RCBINARY);
+        createPartitionedBucketedTable(getSession(), tableName, HiveStorageFormat.RCBINARY);
 
         String insert = "INSERT INTO " + tableName +
                 " VALUES (1, 1, 'first_comment', 'F'), (2, 2, 'second_comment', 'G')";
