@@ -22,4 +22,5 @@ admin/fault-tolerant-execution
 :titlesonly: true
 
 admin/event-listeners-http
+admin/event-listeners-mysql
 ```
