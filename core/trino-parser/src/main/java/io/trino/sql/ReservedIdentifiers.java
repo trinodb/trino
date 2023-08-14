@@ -30,7 +30,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.grammar.sql.SqlKeywords.sqlKeywords;
-import static java.lang.String.format;
 
 public final class ReservedIdentifiers
 {
@@ -106,7 +105,7 @@ public final class ReservedIdentifiers
             }
         }
 
-        System.out.println(format("Validated %s reserved identifiers", reserved.size()));
+        System.out.println("Validated %s reserved identifiers".formatted(reserved.size()));
     }
 
     public static Set<String> reservedIdentifiers()

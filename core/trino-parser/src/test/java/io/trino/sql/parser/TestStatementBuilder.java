@@ -24,7 +24,6 @@ import java.io.UncheckedIOException;
 
 import static com.google.common.base.Strings.repeat;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -419,7 +418,7 @@ public class TestStatementBuilder
         String sql = getTpchQuery(query);
 
         for (int i = values.length - 1; i >= 0; i--) {
-            sql = sql.replaceAll(format(":%s", i + 1), String.valueOf(values[i]));
+            sql = sql.replaceAll(":%s".formatted(i + 1), String.valueOf(values[i]));
         }
 
         assertFalse(sql.matches("(?s).*:[0-9].*"), "Not all bind parameters were replaced: " + sql);

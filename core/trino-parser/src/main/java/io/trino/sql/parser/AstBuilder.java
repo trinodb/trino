@@ -360,7 +360,6 @@ import static io.trino.sql.tree.SkipTo.skipToLast;
 import static io.trino.sql.tree.SkipTo.skipToNextRow;
 import static io.trino.sql.tree.TableFunctionDescriptorArgument.descriptorArgument;
 import static io.trino.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -4019,7 +4018,7 @@ class AstBuilder
                         else {
                             char currentCodePoint = (char) codePoint;
                             if (Character.isSurrogate(currentCodePoint)) {
-                                throw parseError(format("Invalid escaped character: %s. Escaped character is a surrogate. Use '\\+123456' instead.", currentEscapedCode), context);
+                                throw parseError("Invalid escaped character: %s. Escaped character is a surrogate. Use '\\+123456' instead.".formatted(currentEscapedCode), context);
                             }
                             unicodeStringBuilder.append(currentCodePoint);
                         }
