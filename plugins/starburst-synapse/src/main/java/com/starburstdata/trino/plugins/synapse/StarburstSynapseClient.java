@@ -9,7 +9,6 @@
  */
 package com.starburstdata.trino.plugins.synapse;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
@@ -59,7 +58,6 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.jdbi.v3.core.Jdbi;
 
-import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -93,8 +91,6 @@ public class StarburstSynapseClient
     private static final int MAX_VARBINARY_LENGTH = 8000;
 
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
-
-    private static final Joiner DOT_JOINER = Joiner.on(".");
 
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
@@ -190,19 +186,6 @@ public class StarburstSynapseClient
                 quoted(catalogName, remoteSchemaName, remoteTableName),
                 newRemoteTableName);
         execute(session, connection, sql);
-    }
-
-    @Override
-    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
-            throws SQLException
-    {
-        String columnFrom = DOT_JOINER.join(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), remoteColumnName);
-
-        try (CallableStatement renameColumn = connection.prepareCall("exec sp_rename ?, ?, 'COLUMN'")) {
-            renameColumn.setString(1, columnFrom);
-            renameColumn.setString(2, newRemoteColumnName);
-            renameColumn.execute();
-        }
     }
 
     @Override
