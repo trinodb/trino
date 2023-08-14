@@ -45,6 +45,7 @@ import static java.lang.Math.min;
         "task.level-absolute-priority"})
 public class TaskManagerConfig
 {
+    private boolean threadPerDriverSchedulerEnabled;
     private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
     private boolean statisticsCpuTimerEnabled = true;
@@ -106,6 +107,18 @@ public class TaskManagerConfig
     private int taskYieldThreads = 3;
 
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
+
+    @Config("experimental.thread-per-driver-scheduler-enabled")
+    public TaskManagerConfig setThreadPerDriverSchedulerEnabled(boolean enabled)
+    {
+        this.threadPerDriverSchedulerEnabled = enabled;
+        return this;
+    }
+
+    public boolean isThreadPerDriverSchedulerEnabled()
+    {
+        return threadPerDriverSchedulerEnabled;
+    }
 
     @MinDuration("1ms")
     @MaxDuration("10s")

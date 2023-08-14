@@ -2497,7 +2497,8 @@
                                     -Xep:StreamResourceLeak:ERROR \
                                     -Xep:UnnecessaryMethodReference:ERROR \
                                     -Xep:UnnecessaryOptionalGet:ERROR \
-                                    -Xep:UnusedVariable:ERROR \
+                                    <!-- Enable when https://github.com/google/error-prone/pull/3837 is fixed -->
+                                    <!-- -Xep:UnusedVariable:ERROR \ -->
                                     -Xep:UseEnumSwitch:ERROR \
                                     -XepExcludedPaths:.*/target/generated-(|test-)sources/.*
                                 </arg>
