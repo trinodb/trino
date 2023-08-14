@@ -1133,6 +1133,10 @@ public class DeltaLakeMetadata
         ColumnMappingMode columnMappingMode = handle.getColumnMappingMode();
         String schemaString = handle.getSchemaString();
         List<String> columnNames = handle.getInputColumns().stream().map(DeltaLakeColumnHandle::getBaseColumnName).collect(toImmutableList());
+        List<String> physicalPartitionNames = handle.getInputColumns().stream()
+                .filter(column -> column.getColumnType() == PARTITION_KEY)
+                .map(DeltaLakeColumnHandle::getBasePhysicalColumnName)
+                .collect(toImmutableList());
         try {
             // For CTAS there is no risk of multiple writers racing. Using writer without transaction isolation so we are not limiting support for CTAS to
             // filesystems for which we have proper implementations of TransactionLogSynchronizers.
@@ -1149,7 +1153,7 @@ public class DeltaLakeMetadata
                     session,
                     handle.getComment(),
                     handle.getProtocolEntry());
-            appendAddFileEntries(transactionLogWriter, dataFileInfos, handle.getPartitionedBy(), columnNames, true);
+            appendAddFileEntries(transactionLogWriter, dataFileInfos, physicalPartitionNames, columnNames, true);
             transactionLogWriter.flush();
 
             if (isCollectExtendedStatisticsColumnStatisticsOnWrite(session) && !computedStatistics.isEmpty()) {
