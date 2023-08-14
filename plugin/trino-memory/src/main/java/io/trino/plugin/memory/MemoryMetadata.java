@@ -67,6 +67,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
@@ -111,12 +112,24 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized void dropSchema(ConnectorSession session, String schemaName)
+    public synchronized void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         if (!schemas.contains(schemaName)) {
             throw new TrinoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
         }
 
+        if (cascade) {
+            Set<SchemaTableName> viewNames = views.keySet().stream()
+                    .filter(view -> view.getSchemaName().equals(schemaName))
+                    .collect(toImmutableSet());
+            viewNames.forEach(viewName -> dropView(session, viewName));
+
+            Set<SchemaTableName> tableNames = tables.values().stream()
+                    .filter(table -> table.getSchemaName().equals(schemaName))
+                    .map(TableInfo::getSchemaTableName)
+                    .collect(toImmutableSet());
+            tableNames.forEach(tableName -> dropTable(session, getTableHandle(session, tableName)));
+        }
         // DropSchemaTask has the same logic, but needs to check in connector side considering concurrent operations
         if (!isSchemaEmpty(schemaName)) {
             throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
