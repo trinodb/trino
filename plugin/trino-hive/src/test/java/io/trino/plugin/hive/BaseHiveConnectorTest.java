@@ -2212,7 +2212,7 @@ public abstract class BaseHiveConnectorTest
                 ") t (bucket_key, col_1, col_2)";
 
         // make sure that we will get one file per bucket regardless of writer count configured
-        Session parallelWriter = Session.builder(getParallelWriteSession())
+        Session parallelWriter = Session.builder(getParallelWriteSession(session))
                 .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
                 .build();
         assertUpdate(parallelWriter, createTable, 3);
@@ -2441,7 +2441,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                Session.builder(getParallelWriteSession())
+                Session.builder(getParallelWriteSession(session))
                         .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
                         .build(),
                 createTable,
@@ -2477,7 +2477,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getParallelWriteSession(getSession()),
                 createTable,
                 "SELECT count(*) FROM orders");
 
@@ -2510,7 +2510,7 @@ public abstract class BaseHiveConnectorTest
                 "FROM tpch.tiny.orders";
 
         assertUpdate(
-                getParallelWriteSession(),
+                getParallelWriteSession(getSession()),
                 createTable,
                 "SELECT count(*) FROM orders");
 
@@ -2602,11 +2602,12 @@ public abstract class BaseHiveConnectorTest
                     "SELECT custkey, comment, orderstatus " +
                     "FROM tpch.tiny.orders";
 
-            assertUpdate(getParallelWriteSession(), createSourceTable, "SELECT count(*) FROM orders");
-            assertUpdate(getParallelWriteSession(), createTargetTable, "SELECT count(*) FROM orders");
+            Session session = getParallelWriteSession(getSession());
+            assertUpdate(session, createSourceTable, "SELECT count(*) FROM orders");
+            assertUpdate(session, createTargetTable, "SELECT count(*) FROM orders");
 
             transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl()).execute(
-                    getParallelWriteSession(),
+                    session,
                     transactionalSession -> {
                         assertUpdate(
                                 transactionalSession,
@@ -2651,7 +2652,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getParallelWriteSession(getSession()),
                 createTable,
                 "SELECT count(*) FROM orders");
 
@@ -2815,7 +2816,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                getParallelWriteSession(session),
                 "INSERT INTO " + tableName + " " +
                         "VALUES " +
                         "  (VARCHAR 'a', VARCHAR 'b', VARCHAR 'c'), " +
@@ -3018,7 +3019,7 @@ public abstract class BaseHiveConnectorTest
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
                     // make sure that we will get one file per bucket regardless of writer count configured
-                    getParallelWriteSession(),
+                    getParallelWriteSession(getSession()),
                     format(
                             "INSERT INTO " + tableName + " " +
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
@@ -3076,7 +3077,7 @@ public abstract class BaseHiveConnectorTest
             String orderStatus = orderStatusList.get(i);
             assertUpdate(
                     // make sure that we will get one file per bucket regardless of writer count configured
-                    getParallelWriteSession(),
+                    getParallelWriteSession(getSession()),
                     format(
                             "INSERT INTO " + tableName + " " +
                                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
@@ -8709,9 +8710,9 @@ public abstract class BaseHiveConnectorTest
         };
     }
 
-    private Session getParallelWriteSession()
+    private Session getParallelWriteSession(Session baseSession)
     {
-        return Session.builder(getSession())
+        return Session.builder(baseSession)
                 .setSystemProperty("task_writer_count", "4")
                 .setSystemProperty("task_partitioned_writer_count", "4")
                 .setSystemProperty("task_scale_writers_enabled", "false")
