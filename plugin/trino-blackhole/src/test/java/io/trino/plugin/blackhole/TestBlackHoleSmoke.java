@@ -22,9 +22,10 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -46,20 +47,21 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestBlackHoleSmoke
 {
     private QueryRunner queryRunner;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
         queryRunner = createQueryRunner();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         assertThatNoBlackHoleTableIsCreated();
