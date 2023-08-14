@@ -2129,18 +2129,17 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testEmptyBucketedTable()
     {
-        // create empty bucket files for all storage formats and compression codecs
-        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            if (storageFormat == REGEX) {
-                // REGEX format is readonly
-                continue;
-            }
-            testEmptyBucketedTable(storageFormat, true);
-            testEmptyBucketedTable(storageFormat, false);
-        }
+        // go through all storage formats to make sure the empty buckets are correctly created
+        testWithAllStorageFormats(this::testEmptyBucketedTable);
     }
 
-    private void testEmptyBucketedTable(HiveStorageFormat storageFormat, boolean createEmpty)
+    private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat)
+    {
+        testEmptyBucketedTable(session, storageFormat, true);
+        testEmptyBucketedTable(session, storageFormat, false);
+    }
+
+    private void testEmptyBucketedTable(Session baseSession, HiveStorageFormat storageFormat, boolean createEmpty)
     {
         String tableName = "test_empty_bucketed_table";
 
@@ -2165,7 +2164,7 @@ public abstract class BaseHiveConnectorTest
         assertEquals(computeActual("SELECT * from " + tableName).getRowCount(), 0);
 
         // make sure that we will get one file per bucket regardless of writer count configured
-        Session session = Session.builder(getSession())
+        Session session = Session.builder(baseSession)
                 .setSystemProperty("task_writer_count", "4")
                 .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
                 .build();
