@@ -1148,7 +1148,7 @@ jobs:
             - suite-functions
             - suite-sap-hana
             - suite-synapse
-            - suite-snowflake
+            - suite-starburst-snowflake
             - suite-stargate
             - suite-tpch
             - suite-tpcds

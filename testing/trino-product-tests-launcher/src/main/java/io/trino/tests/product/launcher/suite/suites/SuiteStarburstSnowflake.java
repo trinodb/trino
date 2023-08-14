@@ -15,25 +15,25 @@
 package io.trino.tests.product.launcher.suite.suites;
 
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeSnowflake;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeStarburstSnowflake;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
 import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
-import static io.trino.tests.product.TestGroups.SNOWFLAKE;
+import static io.trino.tests.product.TestGroups.STARBURST_SNOWFLAKE;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
-public class SuiteSnowflake
+public class SuiteStarburstSnowflake
         extends Suite
 {
     @Override
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return List.of(
-                testOnEnvironment(EnvMultinodeSnowflake.class)
-                        .withGroups(CONFIGURED_FEATURES, SNOWFLAKE)
+                testOnEnvironment(EnvMultinodeStarburstSnowflake.class)
+                        .withGroups(CONFIGURED_FEATURES, STARBURST_SNOWFLAKE)
                         .build());
     }
 }

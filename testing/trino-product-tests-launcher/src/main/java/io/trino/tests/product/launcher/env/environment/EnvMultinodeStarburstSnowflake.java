@@ -31,17 +31,17 @@ import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
-public class EnvMultinodeSnowflake
+public class EnvMultinodeStarburstSnowflake
         extends EnvironmentProvider
 {
     private final DockerFiles.ResourceProvider configDir;
 
     @Inject
-    public EnvMultinodeSnowflake(StandardMultinode standard, DockerFiles dockerFiles)
+    public EnvMultinodeStarburstSnowflake(StandardMultinode standard, DockerFiles dockerFiles)
     {
         super(standard);
         this.configDir = requireNonNull(dockerFiles, "dockerFiles is null")
-                .getDockerFilesHostDirectory("conf/environment/singlenode-snowflake");
+                .getDockerFilesHostDirectory("conf/environment/multinode-starburst-snowflake");
     }
 
     @Override

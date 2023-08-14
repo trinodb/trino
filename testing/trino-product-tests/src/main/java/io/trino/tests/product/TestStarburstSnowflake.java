@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.TestGroups.SNOWFLAKE;
+import static io.trino.tests.product.TestGroups.STARBURST_SNOWFLAKE;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
@@ -29,10 +29,10 @@ import static java.util.UUID.randomUUID;
  * Adapted from SEP's {@code TestSnowflake}, but doesn't test the distributed
  * connector.
  */
-public class TestSnowflake
+public class TestStarburstSnowflake
         extends ProductTest
 {
-    @Test(groups = {SNOWFLAKE, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {STARBURST_SNOWFLAKE, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
         String catalog = "snowflake_jdbc";
