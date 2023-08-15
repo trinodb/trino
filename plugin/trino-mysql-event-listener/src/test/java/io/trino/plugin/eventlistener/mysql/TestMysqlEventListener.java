@@ -34,10 +34,11 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.ResourceEstimates;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.MySQLContainer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.sql.Connection;
@@ -58,7 +59,9 @@ import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestMysqlEventListener
 {
     private static final QueryMetadata FULL_QUERY_METADATA = new QueryMetadata(
@@ -321,7 +324,7 @@ public class TestMysqlEventListener
     private EventListener eventListener;
     private JsonCodecFactory jsonCodecFactory;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         mysqlContainer = new MySQLContainer<>("mysql:8.0.12");
@@ -332,7 +335,7 @@ public class TestMysqlEventListener
         jsonCodecFactory = new JsonCodecFactory();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         if (mysqlContainer != null) {
