@@ -28,7 +28,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.jmx.MetadataUtil.TABLE_CODEC;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJmxTableHandle
 {
@@ -47,7 +47,7 @@ public class TestJmxTableHandle
 
         String json = TABLE_CODEC.toJson(table);
         JmxTableHandle copy = TABLE_CODEC.fromJson(json);
-        assertEquals(copy, table);
+        assertThat(copy).isEqualTo(table);
     }
 
     @Test
