@@ -81,6 +81,18 @@ public class TestOracleConnectorTest
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return oracleServer::execute;
+        return new SqlExecutor() {
+            @Override
+            public boolean supportsMultiRowInsert()
+            {
+                return false;
+            }
+
+            @Override
+            public void execute(String sql)
+            {
+                oracleServer.execute(sql);
+            }
+        };
     }
 }
