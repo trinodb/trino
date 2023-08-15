@@ -16,6 +16,13 @@ jmx.rmiserver.port=9081
   Specifies the port for the JMX RMI server. Trino exports many metrics,
   that are useful for monitoring via JMX.
 
+Additionally configure a Java system property in the
+[jvm.config](jvm-config) with the RMI server port:
+
+```properties
+-Dcom.sun.management.jmxremote.rmi.port=9081
+```
+
 JConsole (supplied with the JDK), [VisualVM](https://visualvm.github.io/), and
 many other tools can be used to access the metrics in a client application.
 Many monitoring solutions support JMX. You can also use the
