@@ -24,6 +24,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class TestTable
         implements TemporaryRelation
@@ -49,9 +50,17 @@ public class TestTable
     {
         sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
         try {
-            for (String row : rowsToInsert) {
-                // some databases do not support multi value insert statement
-                sqlExecutor.execute(format("INSERT INTO %s VALUES (%s)", name, row));
+            if (!rowsToInsert.isEmpty()) {
+                if (sqlExecutor.supportsMultiRowInsert()) {
+                    sqlExecutor.execute(format("INSERT INTO %s VALUES %s", name, rowsToInsert.stream()
+                            .map("(%s)"::formatted)
+                            .collect(joining(", "))));
+                }
+                else {
+                    for (String row : rowsToInsert) {
+                        sqlExecutor.execute(format("INSERT INTO %s VALUES (%s)", name, row));
+                    }
+                }
             }
         }
         catch (Exception e) {
