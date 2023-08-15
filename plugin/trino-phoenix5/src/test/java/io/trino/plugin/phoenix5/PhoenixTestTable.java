@@ -29,7 +29,7 @@ public class PhoenixTestTable
     }
 
     @Override
-    public void createAndInsert(List<String> rowsToInsert)
+    protected void createAndInsert(List<String> rowsToInsert)
     {
         sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
         try {
