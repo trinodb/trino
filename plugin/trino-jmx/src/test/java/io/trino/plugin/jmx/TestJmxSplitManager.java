@@ -35,8 +35,9 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingNodeManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
 import java.util.HashSet;
@@ -56,7 +57,9 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestJmxSplitManager
 {
     private static final Duration JMX_STATS_DUMP = new Duration(100, TimeUnit.MILLISECONDS);
@@ -89,7 +92,7 @@ public class TestJmxSplitManager
     private final JmxMetadata metadata = jmxConnector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
     private final JmxRecordSetProvider recordSetProvider = jmxConnector.getRecordSetProvider();
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         jmxConnector.shutdown();
