@@ -238,11 +238,6 @@ public interface Metadata
     void setViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment);
 
     /**
-     * Comments to the specified materialized view column.
-     */
-    void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment);
-
-    /**
      * Comments to the specified column.
      */
     void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment);
@@ -724,6 +719,11 @@ public interface Metadata
      * Sets the properties of the specified materialized view.
      */
     void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties);
+
+    /**
+     * Comments to the specified materialized view column.
+     */
+    void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment);
 
     /**
      * Returns the result of redirecting the table scan on a given table to a different table.

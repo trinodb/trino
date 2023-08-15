@@ -305,12 +305,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment)
     {
         throw new UnsupportedOperationException();
@@ -902,6 +896,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
     {
         throw new UnsupportedOperationException();
     }
