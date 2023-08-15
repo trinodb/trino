@@ -30,15 +30,13 @@ final class AzureBlobFileIterator
 {
     private final AzureLocation location;
     private final Iterator<BlobItem> iterator;
-    private final String base;
+    private final Location baseLocation;
 
     AzureBlobFileIterator(AzureLocation location, Iterator<BlobItem> iterator)
     {
         this.location = requireNonNull(location, "location is null");
         this.iterator = requireNonNull(iterator, "iterator is null");
-        this.base = "abfs://%s%s.dfs.core.windows.net".formatted(
-                location.container().map(container -> container + "@").orElse(""),
-                location.account());
+        this.baseLocation = location.baseLocation();
     }
 
     @Override
@@ -60,7 +58,7 @@ final class AzureBlobFileIterator
         try {
             BlobItem blobItem = iterator.next();
             return new FileEntry(
-                    Location.of(base + "/" + blobItem.getName()),
+                    baseLocation.appendPath(blobItem.getName()),
                     blobItem.getProperties().getContentLength(),
                     blobItem.getProperties().getLastModified().toInstant(),
                     Optional.empty());
