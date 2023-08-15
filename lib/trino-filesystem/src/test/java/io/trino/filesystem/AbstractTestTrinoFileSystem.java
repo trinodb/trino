@@ -964,6 +964,7 @@ public abstract class AbstractTestTrinoFileSystem
             assertThat(getFileSystem().directoryExists(createLocation("level0/level1"))).contains(true);
             assertThat(getFileSystem().directoryExists(createLocation("level0"))).contains(true);
 
+            // rename interior directory
             getFileSystem().renameDirectory(createLocation("level0/level1"), createLocation("level0/renamed"));
 
             assertThat(getFileSystem().directoryExists(createLocation("level0/level1"))).contains(false);
@@ -973,8 +974,22 @@ public abstract class AbstractTestTrinoFileSystem
 
             assertThat(getFileSystem().newInputFile(blob).exists()).isFalse();
 
-            assertThat(readLocation(createLocation("level0/renamed/level2-file")))
+            Location renamedBlob = createLocation("level0/renamed/level2-file");
+            assertThat(readLocation(renamedBlob))
                     .isEqualTo(TEST_BLOB_CONTENT_PREFIX + blob);
+
+            // rename to existing directory is an error
+            Location blob2 = createBlob(closer, "abc/xyz-file");
+
+            assertThat(getFileSystem().directoryExists(createLocation("abc"))).contains(true);
+
+            assertThatThrownBy(() -> getFileSystem().renameDirectory(createLocation("abc"), createLocation("level0")))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining(createLocation("abc").toString())
+                    .hasMessageContaining(createLocation("level0").toString());
+
+            assertThat(getFileSystem().newInputFile(blob2).exists()).isTrue();
+            assertThat(getFileSystem().newInputFile(renamedBlob).exists()).isTrue();
         }
     }
 

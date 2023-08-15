@@ -328,6 +328,9 @@ class HdfsFileSystem
                 if (!fileSystem.getFileStatus(sourcePath).isDirectory()) {
                     throw new IOException("Source location is not a directory");
                 }
+                if (fileSystem.exists(targetPath)) {
+                    throw new IOException("Target location already exists");
+                }
                 if (!fileSystem.rename(sourcePath, targetPath)) {
                     throw new IOException("rename failed");
                 }
