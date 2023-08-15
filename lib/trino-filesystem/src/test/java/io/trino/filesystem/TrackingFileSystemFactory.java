@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -183,6 +184,13 @@ public class TrackingFileSystemFactory
                 throws IOException
         {
             delegate.renameDirectory(source, target);
+        }
+
+        @Override
+        public Set<Location> listDirectories(Location location)
+                throws IOException
+        {
+            return delegate.listDirectories(location);
         }
     }
 

@@ -14,6 +14,7 @@
 package io.trino.filesystem.hdfs;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.stats.TimeStat;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -37,9 +38,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
+import static io.trino.filesystem.hdfs.HdfsFileIterator.listedLocation;
 import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
@@ -331,6 +336,38 @@ class HdfsFileSystem
             catch (IOException e) {
                 stats.getRenameDirectoryCalls().recordException(e);
                 throw new IOException("Directory rename from %s to %s failed: %s".formatted(source, target, e.getMessage()), e);
+            }
+        });
+    }
+
+    @Override
+    public Set<Location> listDirectories(Location location)
+            throws IOException
+    {
+        stats.getListDirectoriesCalls().newCall();
+        Path directory = hadoopPath(location);
+        FileSystem fileSystem = environment.getFileSystem(context, directory);
+        return environment.doAs(context.getIdentity(), () -> {
+            try (TimeStat.BlockTimer ignored = stats.getListDirectoriesCalls().time()) {
+                FileStatus[] files = fileSystem.listStatus(directory);
+                if (files.length == 0) {
+                    return ImmutableSet.of();
+                }
+                if (files[0].getPath().equals(directory)) {
+                    throw new IOException("Location is a file, not a directory: " + location);
+                }
+                return Stream.of(files)
+                        .filter(FileStatus::isDirectory)
+                        .map(file -> listedLocation(location, directory, file.getPath()))
+                        .map(file -> file.appendSuffix("/"))
+                        .collect(toImmutableSet());
+            }
+            catch (FileNotFoundException e) {
+                return ImmutableSet.of();
+            }
+            catch (IOException e) {
+                stats.getListDirectoriesCalls().recordException(e);
+                throw new IOException("List directories for %s failed: %s".formatted(location, e.getMessage()), e);
             }
         });
     }

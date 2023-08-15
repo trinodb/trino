@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.memory;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
@@ -28,6 +29,7 @@ import java.nio.file.FileAlreadyExistsException;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -178,6 +180,23 @@ public class MemoryFileSystem
             throws IOException
     {
         throw new IOException("Memory file system does not support directory renames");
+    }
+
+    @Override
+    public Set<Location> listDirectories(Location location)
+            throws IOException
+    {
+        String prefix = toBlobPrefix(location);
+        ImmutableSet.Builder<Location> directories = ImmutableSet.builder();
+        for (String key : blobs.keySet()) {
+            if (key.startsWith(prefix)) {
+                int index = key.indexOf('/', prefix.length() + 1);
+                if (index >= 0) {
+                    directories.add(Location.of("memory:///" + key.substring(0, index + 1)));
+                }
+            }
+        }
+        return directories.build();
     }
 
     private static String toBlobKey(Location location)
