@@ -31,13 +31,13 @@ final class S3FileIterator
 {
     private final S3Location location;
     private final Iterator<S3Object> iterator;
-    private final String base;
+    private final Location baseLocation;
 
     public S3FileIterator(S3Location location, Iterator<S3Object> iterator)
     {
         this.location = requireNonNull(location, "location is null");
         this.iterator = requireNonNull(iterator, "iterator is null");
-        this.base = "%s://%s/".formatted(location.scheme(), location.bucket());
+        this.baseLocation = location.baseLocation();
     }
 
     @Override
@@ -62,7 +62,7 @@ final class S3FileIterator
             verify(object.key().startsWith(location.key()), "S3 listed key [%s] does not start with prefix [%s]", object.key(), location.key());
 
             return new FileEntry(
-                    Location.of(base + object.key()),
+                    baseLocation.appendPath(object.key()),
                     object.size(),
                     object.lastModified(),
                     Optional.empty());

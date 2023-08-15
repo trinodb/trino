@@ -27,6 +27,7 @@ public final class TrinoHdfsFileSystemStats
     private final CallStats directoryExistsCalls = new CallStats();
     private final CallStats createDirectoryCalls = new CallStats();
     private final CallStats renameDirectoryCalls = new CallStats();
+    private final CallStats listDirectoriesCalls = new CallStats();
 
     @Managed
     @Nested
@@ -89,5 +90,12 @@ public final class TrinoHdfsFileSystemStats
     public CallStats getRenameDirectoryCalls()
     {
         return renameDirectoryCalls;
+    }
+
+    @Managed
+    @Nested
+    public CallStats getListDirectoriesCalls()
+    {
+        return listDirectoriesCalls;
     }
 }

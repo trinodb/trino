@@ -16,6 +16,7 @@ package io.trino.filesystem;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * TrinoFileSystem is the main abstraction for Trino to interact with data in cloud-like storage
@@ -189,5 +190,21 @@ public interface TrinoFileSystem
      * @throws IllegalArgumentException if location is not valid for this file system
      */
     void renameDirectory(Location source, Location target)
+            throws IOException;
+
+    /**
+     * Lists all directories that are direct descendants of the specified directory.
+     * The location can be empty, which lists all directories at the root of the file system,
+     * otherwise the location otherwise the location must end with a slash.
+     * If the location does not exist, an empty set is returned.
+     * <p>
+     * For hierarchical file systems, if the path is not a directory, an exception is raised.
+     * For hierarchical file systems, if the path does not reference an existing directory,
+     * an empty iterator is returned. For blob file systems, all directories containing
+     * blobs that start with the location are listed.
+     *
+     * @throws IllegalArgumentException if location is not valid for this file system
+     */
+    Set<Location> listDirectories(Location location)
             throws IOException;
 }
