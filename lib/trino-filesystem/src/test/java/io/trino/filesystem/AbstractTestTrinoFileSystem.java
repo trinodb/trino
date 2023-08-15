@@ -978,6 +978,66 @@ public abstract class AbstractTestTrinoFileSystem
         }
     }
 
+    @Test
+    public void testListDirectories()
+            throws IOException
+    {
+        testListDirectories(isHierarchical());
+    }
+
+    protected void testListDirectories(boolean hierarchicalNamingConstraints)
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            createTestDirectoryStructure(closer, hierarchicalNamingConstraints);
+            createBlob(closer, "level0/level1/level2/level3-file0");
+            createBlob(closer, "level0/level1x/level2x-file0");
+            createBlob(closer, "other/file");
+
+            assertThat(listDirectories("")).containsOnly(
+                    createLocation("level0/"),
+                    createLocation("other/"));
+
+            assertThat(listDirectories("level0")).containsOnly(
+                    createLocation("level0/level1/"),
+                    createLocation("level0/level1x/"));
+            assertThat(listDirectories("level0/")).containsOnly(
+                    createLocation("level0/level1/"),
+                    createLocation("level0/level1x/"));
+
+            assertThat(listDirectories("level0/level1")).containsOnly(
+                    createLocation("level0/level1/level2/"));
+            assertThat(listDirectories("level0/level1/")).containsOnly(
+                    createLocation("level0/level1/level2/"));
+
+            assertThat(listDirectories("level0/level1/level2/level3")).isEmpty();
+            assertThat(listDirectories("level0/level1/level2/level3/")).isEmpty();
+
+            assertThat(listDirectories("unknown")).isEmpty();
+            assertThat(listDirectories("unknown/")).isEmpty();
+
+            if (isHierarchical()) {
+                assertThatThrownBy(() -> listDirectories("level0-file0"))
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining(createLocation("level0-file0").toString());
+            }
+            else {
+                assertThat(listDirectories("level0-file0")).isEmpty();
+            }
+
+            if (!hierarchicalNamingConstraints && !normalizesListFilesResult()) {
+                // this lists a path in a directory with an empty name
+                assertThat(listDirectories("/")).isEmpty();
+            }
+        }
+    }
+
+    private Set<Location> listDirectories(String path)
+            throws IOException
+    {
+        return getFileSystem().listDirectories(createListingLocation(path));
+    }
+
     private List<Location> listPath(String path)
             throws IOException
     {

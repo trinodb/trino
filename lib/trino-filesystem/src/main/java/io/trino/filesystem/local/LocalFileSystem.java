@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.local;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -26,9 +27,13 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.filesystem.local.LocalUtils.handleException;
+import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
 /**
  * A hierarchical file system for testing.
@@ -191,6 +196,26 @@ public class LocalFileSystem
         }
         catch (IOException e) {
             throw new IOException("Directory rename from %s to %s failed: %s".formatted(source, target, e.getMessage()), e);
+        }
+    }
+
+    @Override
+    public Set<Location> listDirectories(Location location)
+            throws IOException
+    {
+        Path path = toDirectoryPath(location);
+        if (Files.isRegularFile(path)) {
+            throw new IOException("Location is a file: " + location);
+        }
+        if (!Files.isDirectory(path)) {
+            return ImmutableSet.of();
+        }
+        try (Stream<Path> stream = Files.list(path)) {
+            return stream
+                    .filter(file -> Files.isDirectory(file, NOFOLLOW_LINKS))
+                    .map(file -> file.getFileName() + "/")
+                    .map(location::appendPath)
+                    .collect(toImmutableSet());
         }
     }
 
