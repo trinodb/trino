@@ -312,12 +312,6 @@ public class TrinoJdbcCatalog
     }
 
     @Override
-    public void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "updateMaterializedViewColumnComment is not supported for Iceberg JDBC catalogs");
-    }
-
-    @Override
     public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
         Namespace namespace = Namespace.of(schemaTableName.getSchemaName());
@@ -398,6 +392,12 @@ public class TrinoJdbcCatalog
     public void createMaterializedView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "createMaterializedView is not supported for Iceberg JDBC catalogs");
+    }
+
+    @Override
+    public void updateMaterializedViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "updateMaterializedViewColumnComment is not supported for Iceberg JDBC catalogs");
     }
 
     @Override
