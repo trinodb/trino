@@ -1587,21 +1587,18 @@ public abstract class BaseConnectorTest
     @Test
     public void testColumnCommentMaterializedView()
     {
-        if (!hasBehavior(SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN)) {
-            if (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
-                String viewName = "test_materialized_view_" + randomNameSuffix();
-                assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
-                assertQueryFails("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'", "This connector does not support setting materialized view column comments");
-                assertUpdate("DROP MATERIALIZED VIEW " + viewName);
-                return;
-            }
-            throw new SkipException("Skipping as connector does not support MATERIALIZED VIEW COLUMN COMMENT");
-        }
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
 
         String viewName = "test_materialized_view_" + randomNameSuffix();
-        try {
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_MATERIALIZED_VIEW_COLUMN)) {
             assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+            assertQueryFails("COMMENT ON COLUMN " + viewName + ".regionkey IS 'new region key comment'", "This connector does not support setting materialized view column comments");
+            assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+            return;
+        }
 
+        assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
+        try {
             assertUpdate("COMMENT ON COLUMN " + viewName + ".name IS 'new comment'");
             assertThat(getColumnComment(viewName, "name")).isEqualTo("new comment");
 
