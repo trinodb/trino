@@ -14,10 +14,11 @@
 package io.trino.plugin.jmx;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResult;
-import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Locale;
 import java.util.Set;
@@ -26,14 +27,28 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static io.trino.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
-import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestJmxQueries
-        extends AbstractTestQueryFramework
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+            throws Exception
+    {
+        assertions = new QueryAssertions(JmxQueryRunner.createJmxQueryRunner());
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     private static final Set<String> STANDARD_NAMES = ImmutableSet.<String>builder()
             .add("java.lang:type=ClassLoading")
             .add("java.lang:type=Memory")
@@ -43,18 +58,11 @@ public class TestJmxQueries
             .add("java.util.logging:type=Logging")
             .build();
 
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return JmxQueryRunner.createJmxQueryRunner();
-    }
-
     @Test
     public void testShowSchemas()
     {
-        MaterializedResult result = computeActual("SHOW SCHEMAS");
-        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(INFORMATION_SCHEMA, JMX_SCHEMA_NAME, HISTORY_SCHEMA_NAME));
+        assertThat(assertions.query("SHOW SCHEMAS"))
+                .matches(result -> result.getOnlyColumnAsSet().equals(ImmutableSet.of(INFORMATION_SCHEMA, JMX_SCHEMA_NAME, HISTORY_SCHEMA_NAME)));
     }
 
     @Test
@@ -63,41 +71,47 @@ public class TestJmxQueries
         Set<String> standardNamesLower = STANDARD_NAMES.stream()
                 .map(name -> name.toLowerCase(Locale.ENGLISH))
                 .collect(toImmutableSet());
-        MaterializedResult result = computeActual("SHOW TABLES");
-        assertTrue(result.getOnlyColumnAsSet().containsAll(standardNamesLower));
+
+        assertThat(assertions.query("SHOW TABLES"))
+                .matches(result -> result.getOnlyColumnAsSet().containsAll(standardNamesLower));
     }
 
     @Test
     public void testQuery()
     {
         for (String name : STANDARD_NAMES) {
-            computeActual(format("SELECT * FROM \"%s\"", name));
+            assertThat(assertions.query("SELECT * FROM \"%s\"".formatted(name)))
+                    .succeeds();
         }
     }
 
     @Test
     public void testNodeCount()
     {
-        String name = STANDARD_NAMES.iterator().next();
-        MaterializedResult actual = computeActual("SELECT node_id FROM system.runtime.nodes");
-        MaterializedResult expected = computeActual(format("SELECT DISTINCT node FROM \"%s\"", name));
-        assertEqualsIgnoreOrder(actual, expected);
+        assertThat(assertions.query("SELECT DISTINCT node FROM \"%s\"".formatted(STANDARD_NAMES.iterator().next())))
+                .matches("SELECT node_id FROM system.runtime.nodes");
     }
 
     @Test
     public void testOrderOfParametersIsIgnored()
     {
-        assertEqualsIgnoreOrder(
-                computeActual("SELECT node FROM \"java.nio:type=bufferpool,name=direct\""),
-                computeActual("SELECT node FROM \"java.nio:name=direct,type=bufferpool\""));
+        assertThat(assertions.query("SELECT node FROM \"java.nio:type=bufferpool,name=direct\""))
+                .matches("SELECT node FROM \"java.nio:name=direct,type=bufferpool\"");
     }
 
     @Test
     public void testQueryCumulativeTable()
     {
-        computeActual("SELECT * FROM \"*:*\"");
-        computeActual("SELECT * FROM \"java.util.logging:*\"");
-        assertTrue(computeActual("SELECT * FROM \"java.lang:*\"").getRowCount() > 1);
-        assertTrue(computeActual("SELECT * FROM \"jAVA.LANg:*\"").getRowCount() > 1);
+        assertThat(assertions.query("SELECT * FROM \"*:*\""))
+                .succeeds();
+
+        assertThat(assertions.query("SELECT * FROM \"java.util.logging:*\""))
+                .succeeds();
+
+        assertThat(assertions.query("SELECT * FROM \"java.lang:*\""))
+                .matches(result -> result.getRowCount() > 1);
+
+        assertThat(assertions.query("SELECT * FROM \"jAVA.LANg:*\""))
+                .matches(result -> result.getRowCount() > 1);
     }
 }
