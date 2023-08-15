@@ -15,7 +15,7 @@ package io.trino.plugin.jmx;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.jmx.MetadataUtil.SPLIT_CODEC;
 import static org.assertj.core.api.Assertions.assertThat;
