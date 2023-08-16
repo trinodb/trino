@@ -112,6 +112,9 @@ public class TestHiveCoercionOnPartitionedTable
                         "    bigint_to_varchar          BIGINT," +
                         "    float_to_double            " + floatType + "," +
                         "    double_to_float            DOUBLE," +
+                        "    double_to_string           DOUBLE," +
+                        "    double_to_bounded_varchar  DOUBLE," +
+                        "    double_infinity_to_string  DOUBLE," +
                         "    shortdecimal_to_shortdecimal          DECIMAL(10,2)," +
                         "    shortdecimal_to_longdecimal           DECIMAL(10,2)," +
                         "    longdecimal_to_shortdecimal           DECIMAL(20,12)," +

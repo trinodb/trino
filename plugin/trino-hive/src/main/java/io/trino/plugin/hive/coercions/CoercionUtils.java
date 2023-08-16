@@ -147,6 +147,9 @@ public final class CoercionUtils
         if (fromType instanceof TimestampType && toType instanceof VarcharType varcharType) {
             return Optional.of(new TimestampCoercer.LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
         }
+        if (fromType == DOUBLE && toType instanceof VarcharType toVarcharType) {
+            return Optional.of(new DoubleToVarcharCoercer(toVarcharType, coercionContext.treatNaNAsNull()));
+        }
         if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
             return createCoercerForList(
                     typeManager,
@@ -395,7 +398,7 @@ public final class CoercionUtils
         }
     }
 
-    public record CoercionContext(HiveTimestampPrecision timestampPrecision)
+    public record CoercionContext(HiveTimestampPrecision timestampPrecision, boolean treatNaNAsNull)
     {
         public CoercionContext
         {
