@@ -14,23 +14,32 @@
 package io.trino.plugin.mongodb;
 
 import io.trino.testing.sql.SqlExecutor;
-import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TemporaryRelation;
 
-import java.util.List;
-
-import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.util.Objects.requireNonNull;
 
 public class MongoTestTable
-        extends TestTable
+        implements TemporaryRelation
 {
+    private final SqlExecutor sqlExecutor;
+    private final String name;
+
     public MongoTestTable(SqlExecutor sqlExecutor, String namePrefix)
     {
-        super(sqlExecutor, namePrefix, null);
+        this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
+        this.name = requireNonNull(namePrefix, "namePrefix is null") + randomNameSuffix();
     }
 
     @Override
-    public void createAndInsert(List<String> rowsToInsert)
+    public String getName()
     {
-        checkArgument(rowsToInsert.isEmpty(), "rowsToInsert must be empty");
+        return name;
+    }
+
+    @Override
+    public void close()
+    {
+        sqlExecutor.execute("DROP TABLE " + name);
     }
 }
