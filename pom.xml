@@ -172,7 +172,7 @@
         <dep.errorprone.version>2.22.0</dep.errorprone.version>
         <dep.testcontainers.version>1.19.1</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
-        <dep.confluent.version>7.3.1</dep.confluent.version>
+        <dep.confluent.version>7.4.1</dep.confluent.version>
         <dep.kafka-clients.version>3.6.0</dep.kafka-clients.version>
         <dep.casandra.version>4.17.0</dep.casandra.version>
         <dep.minio.version>8.5.6</dep.minio.version>

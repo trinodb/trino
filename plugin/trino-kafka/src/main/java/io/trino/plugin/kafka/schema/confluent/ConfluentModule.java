@@ -189,6 +189,18 @@ public class ConfluentModule
         }
 
         @Override
+        public Optional<ParsedSchema> parseSchema(Schema schema, boolean isNew)
+        {
+            return SchemaProvider.super.parseSchema(schema, isNew);
+        }
+
+        @Override
+        public Optional<ParsedSchema> parseSchema(Schema schema, boolean isNew, boolean normalize)
+        {
+            return SchemaProvider.super.parseSchema(schema, isNew, normalize);
+        }
+
+        @Override
         public void configure(Map<String, ?> configuration)
         {
             Map<String, ?> oldConfiguration = this.configuration.getAndSet(ImmutableMap.copyOf(configuration));
@@ -202,9 +214,21 @@ public class ConfluentModule
         }
 
         @Override
-        public ParsedSchema parseSchemaOrElseThrow(Schema schema, boolean isNew)
+        public Optional<ParsedSchema> parseSchema(String schemaString, List<SchemaReference> references, boolean isNew, boolean normalize)
         {
-            return delegate.get().parseSchemaOrElseThrow(schema, isNew);
+            return SchemaProvider.super.parseSchema(schemaString, references, isNew, normalize);
+        }
+
+        @Override
+        public Optional<ParsedSchema> parseSchema(String schemaString, List<SchemaReference> references)
+        {
+            return SchemaProvider.super.parseSchema(schemaString, references);
+        }
+
+        @Override
+        public ParsedSchema parseSchemaOrElseThrow(Schema schema, boolean isNew, boolean normalize)
+        {
+            return delegate.get().parseSchemaOrElseThrow(schema, isNew, normalize);
         }
 
         private SchemaProvider create()
