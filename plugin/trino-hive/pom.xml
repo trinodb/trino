@@ -553,6 +553,7 @@
                                 <exclude>**/TestTrinoS3FileSystemAwsS3.java</exclude>
                                 <exclude>**/TestS3SelectQueries.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
+                                <exclude>**/TestParquetReader.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
@@ -588,6 +589,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestFullParquetReader.java</include>
+                                <include>**/TestParquetReader.java</include>
                             </includes>
                         </configuration>
                     </plugin>
