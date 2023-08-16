@@ -68,11 +68,6 @@ public final class ViewReaderUtil
     private ViewReaderUtil()
     {}
 
-    public interface ViewReader
-    {
-        ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName);
-    }
-
     public static ViewReader createViewReader(
             SemiTransactionalHiveMetastore metastore,
             ConnectorSession session,

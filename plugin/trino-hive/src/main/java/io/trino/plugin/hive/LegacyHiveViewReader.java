@@ -28,7 +28,7 @@ import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveToTrinoTranslator.translateHiveViewToTrino;
 
 public class LegacyHiveViewReader
-        implements ViewReaderUtil.ViewReader
+        implements ViewReader
 {
     private final boolean hiveViewsRunAsInvoker;
 
