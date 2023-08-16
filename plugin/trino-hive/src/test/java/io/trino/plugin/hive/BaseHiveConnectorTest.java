@@ -4082,7 +4082,6 @@ public abstract class BaseHiveConnectorTest
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("task_scale_writers_enabled", "false")
                             .setSystemProperty("writer_scaling_min_data_processed", "1MB")
-                            .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
                             .build(),
                     createTableSql,
                     (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
@@ -4113,7 +4112,6 @@ public abstract class BaseHiveConnectorTest
                             .setSystemProperty("task_scale_writers_enabled", "false")
                             .setSystemProperty("writer_scaling_min_data_processed", "1MB")
                             .setSystemProperty("join_distribution_type", "PARTITIONED")
-                            .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
                             .build(),
                     createTableSql,
                     (long) computeActual("SELECT count(*) FROM (" + selectSql + ")")
@@ -4234,10 +4232,6 @@ public abstract class BaseHiveConnectorTest
                             .setSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MAX, "2GB")
                             .setSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE, "2GB")
                             .setSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE, "2GB")
-                            // Set the value of orc strip size low to increase the frequency at which
-                            // physicalWrittenDataSize is updated through ConnectorPageSink#getCompletedBytes()
-                            .setCatalogSessionProperty(catalog, "orc_optimized_writer_min_stripe_size", "2MB")
-                            .setCatalogSessionProperty(catalog, "orc_optimized_writer_max_stripe_size", "2MB")
                             .build(),
                     createTableSql,
                     (long) computeActual("SELECT count(*) FROM tpch.sf5.orders").getOnlyValue());
