@@ -23,19 +23,19 @@ public class BigQueryTestView
         implements TemporaryRelation
 {
     private final SqlExecutor sqlExecutor;
-    private final TemporaryRelation table;
+    private final TemporaryRelation relation;
     private final String viewName;
 
-    public BigQueryTestView(SqlExecutor sqlExecutor, TemporaryRelation table)
+    public BigQueryTestView(SqlExecutor sqlExecutor, TemporaryRelation relation)
     {
         this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
-        this.table = requireNonNull(table, "table is null");
-        this.viewName = table.getName() + "_view";
+        this.relation = requireNonNull(relation, "relation is null");
+        this.viewName = relation.getName() + "_view";
     }
 
     public void createView()
     {
-        sqlExecutor.execute(format("CREATE VIEW %s AS SELECT * FROM %s", viewName, table.getName()));
+        sqlExecutor.execute(format("CREATE VIEW %s AS SELECT * FROM %s", viewName, relation.getName()));
     }
 
     @Override
@@ -47,7 +47,7 @@ public class BigQueryTestView
     @Override
     public void close()
     {
-        sqlExecutor.execute("DROP TABLE " + table.getName());
+        relation.close();
         sqlExecutor.execute("DROP VIEW " + viewName);
     }
 }
