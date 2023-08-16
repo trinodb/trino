@@ -33,6 +33,7 @@ import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.AbstractTestHiveFileSystem.TestingHiveMetastore;
 import io.trino.plugin.hive.DefaultHiveMaterializedViewMetadataFactory;
+import io.trino.plugin.hive.DefaultHiveViewReaderFactory;
 import io.trino.plugin.hive.GenericHiveRecordCursorProvider;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveLocationService;
@@ -149,6 +150,10 @@ public class S3SelectTestHelper
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                new DefaultHiveViewReaderFactory(
+                        TESTING_TYPE_MANAGER,
+                        NOOP_METADATA_PROVIDER,
+                        this.hiveConfig),
                 hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),

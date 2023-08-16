@@ -836,6 +836,10 @@ public abstract class AbstractTestHive
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                new DefaultHiveViewReaderFactory(
+                        TESTING_TYPE_MANAGER,
+                        NOOP_METADATA_PROVIDER,
+                        hiveConfig),
                 hdfsEnvironment,
                 partitionManager,
                 10,

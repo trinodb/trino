@@ -59,6 +59,7 @@ public class HiveMetadataFactory
     private final HiveMetastoreFactory metastoreFactory;
     private final Set<HiveFileWriterFactory> fileWriterFactories;
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final HiveViewReaderFactory hiveViewReaderFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final TypeManager typeManager;
@@ -90,6 +91,7 @@ public class HiveMetadataFactory
             HiveMetastoreFactory metastoreFactory,
             Set<HiveFileWriterFactory> fileWriterFactories,
             TrinoFileSystemFactory fileSystemFactory,
+            HiveViewReaderFactory hiveViewReaderFactory,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             ExecutorService executorService,
@@ -113,6 +115,7 @@ public class HiveMetadataFactory
                 metastoreFactory,
                 fileWriterFactories,
                 fileSystemFactory,
+                hiveViewReaderFactory,
                 hdfsEnvironment,
                 partitionManager,
                 hiveConfig.getMaxConcurrentFileSystemOperations(),
@@ -152,6 +155,7 @@ public class HiveMetadataFactory
             HiveMetastoreFactory metastoreFactory,
             Set<HiveFileWriterFactory> fileWriterFactories,
             TrinoFileSystemFactory fileSystemFactory,
+            HiveViewReaderFactory hiveViewReaderFactory,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             int maxConcurrentFileSystemOperations,
@@ -199,6 +203,7 @@ public class HiveMetadataFactory
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.hiveViewReaderFactory = requireNonNull(hiveViewReaderFactory, "hiveViewReaderFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -256,6 +261,7 @@ public class HiveMetadataFactory
                 autoCommit,
                 fileWriterFactories,
                 fileSystemFactory,
+                hiveViewReaderFactory,
                 hdfsEnvironment,
                 partitionManager,
                 writesToNonManagedTablesEnabled,

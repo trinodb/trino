@@ -21,17 +21,13 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.CoralSemiTransactionalHiveMSCAdapter;
-import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.MetadataProvider;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.TypeManager;
 import org.apache.calcite.rel.RelNode;
@@ -42,7 +38,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -51,7 +46,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.trino.plugin.hive.HiveSessionProperties.isHiveViewsLegacyTranslation;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
@@ -68,36 +62,12 @@ public final class ViewReaderUtil
     private ViewReaderUtil()
     {}
 
-    public static ViewReader createViewReader(
-            SemiTransactionalHiveMetastore metastore,
+    public static CoralTableRedirectionResolver coralTableRedirectionResolver(
             ConnectorSession session,
-            Table table,
-            TypeManager typeManager,
-            BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> tableRedirectionResolver,
-            MetadataProvider metadataProvider,
-            boolean runHiveViewRunAsInvoker,
-            HiveTimestampPrecision hiveViewsTimestampPrecision)
-    {
-        if (isTrinoView(table)) {
-            return new PrestoViewReader();
-        }
-        if (isHiveViewsLegacyTranslation(session)) {
-            return new LegacyHiveViewReader(runHiveViewRunAsInvoker);
-        }
-
-        return new HiveViewReader(
-                new CoralSemiTransactionalHiveMSCAdapter(metastore, coralTableRedirectionResolver(session, tableRedirectionResolver, metadataProvider)),
-                typeManager,
-                runHiveViewRunAsInvoker,
-                hiveViewsTimestampPrecision);
-    }
-
-    private static CoralTableRedirectionResolver coralTableRedirectionResolver(
-            ConnectorSession session,
-            BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> tableRedirectionResolver,
+            TableRedirectionResolver tableRedirectionResolver,
             MetadataProvider metadataProvider)
     {
-        return schemaTableName -> tableRedirectionResolver.apply(session, schemaTableName).map(target -> {
+        return schemaTableName -> tableRedirectionResolver.redirect(session, schemaTableName).map(target -> {
             ConnectorTableSchema tableSchema = metadataProvider.getRelationMetadata(session, target)
                     .orElseThrow(() -> new TableNotFoundException(
                             target.getSchemaTableName(),
