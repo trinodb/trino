@@ -105,6 +105,8 @@ public abstract class BaseTestHiveCoercion
                 "bigint_to_varchar",
                 "float_to_double",
                 "double_to_float",
+                "double_to_string",
+                "double_to_bounded_varchar",
                 "shortdecimal_to_shortdecimal",
                 "shortdecimal_to_longdecimal",
                 "longdecimal_to_shortdecimal",
@@ -166,6 +168,8 @@ public abstract class BaseTestHiveCoercion
                         "  12345, " +
                         "  REAL '0.5', " +
                         "  DOUBLE '0.5', " +
+                        "  DOUBLE '12345.12345', " +
+                        "  DOUBLE '12345.12345', " +
                         "  DECIMAL '12345678.12', " +
                         "  DECIMAL '12345678.12', " +
                         "  DECIMAL '12345678.123456123456', " +
@@ -201,6 +205,8 @@ public abstract class BaseTestHiveCoercion
                         "  -12345, " +
                         "  REAL '-1.5', " +
                         "  DOUBLE '-1.5', " +
+                        "  DOUBLE 'NaN', " +
+                        "  DOUBLE '-12345.12345', " +
                         "  DECIMAL '-12345678.12', " +
                         "  DECIMAL '-12345678.12', " +
                         "  DECIMAL '-12345678.123456123456', " +
@@ -230,6 +236,7 @@ public abstract class BaseTestHiveCoercion
     protected Map<String, List<Object>> expectedValuesForEngineProvider(Engine engine, String tableName, String decimalToFloatVal, String floatToDecimalVal)
     {
         String hiveValueForCaseChangeField;
+        String coercedNaN = "NaN";
         Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
         if (isFormat.test("rctext") || isFormat.test("textfile")) {
             hiveValueForCaseChangeField = "\"lower2uppercase\":2";
@@ -239,6 +246,11 @@ public abstract class BaseTestHiveCoercion
         }
         else {
             hiveValueForCaseChangeField = "\"LOWER2UPPERCASE\":2";
+        }
+
+        // For ORC when we coerce NaN to String, it returns coerced value as `null`
+        if (isFormat.test("orc") && engine == Engine.HIVE) {
+            coercedNaN = null;
         }
 
         return ImmutableMap.<String, List<Object>>builder()
@@ -321,6 +333,8 @@ public abstract class BaseTestHiveCoercion
                         0.5,
                         -1.5))
                 .put("double_to_float", ImmutableList.of(0.5, -1.5))
+                .put("double_to_string", Arrays.asList("12345.12345", coercedNaN))
+                .put("double_to_bounded_varchar", ImmutableList.of("12345.12345", "-12345.12345"))
                 .put("shortdecimal_to_shortdecimal", ImmutableList.of(
                         new BigDecimal("12345678.1200"),
                         new BigDecimal("-12345678.1200")))
@@ -750,6 +764,8 @@ public abstract class BaseTestHiveCoercion
                 row("bigint_to_varchar", "varchar"),
                 row("float_to_double", "double"),
                 row("double_to_float", floatType),
+                row("double_to_string", "varchar"),
+                row("double_to_bounded_varchar", "varchar(12)"),
                 row("shortdecimal_to_shortdecimal", "decimal(18,4)"),
                 row("shortdecimal_to_longdecimal", "decimal(20,4)"),
                 row("longdecimal_to_shortdecimal", "decimal(12,2)"),
@@ -801,6 +817,8 @@ public abstract class BaseTestHiveCoercion
                 .put("bigint_to_varchar", VARCHAR)
                 .put("float_to_double", DOUBLE)
                 .put("double_to_float", floatType)
+                .put("double_to_string", VARCHAR)
+                .put("double_to_bounded_varchar", VARCHAR)
                 .put("shortdecimal_to_shortdecimal", DECIMAL)
                 .put("shortdecimal_to_longdecimal", DECIMAL)
                 .put("longdecimal_to_shortdecimal", DECIMAL)
@@ -851,6 +869,8 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_varchar bigint_to_varchar string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_float double_to_float %s", tableName, floatType));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_string double_to_string string", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_bounded_varchar double_to_bounded_varchar varchar(12)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_shortdecimal shortdecimal_to_shortdecimal DECIMAL(18,4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_longdecimal shortdecimal_to_longdecimal DECIMAL(20,4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_shortdecimal longdecimal_to_shortdecimal DECIMAL(12,2)", tableName));

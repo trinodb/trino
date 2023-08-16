@@ -147,6 +147,9 @@ public final class CoercionUtils
         if (fromType instanceof TimestampType && toType instanceof VarcharType varcharType) {
             return Optional.of(new TimestampCoercer.LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
         }
+        if (fromType == DOUBLE && toType instanceof VarcharType toVarcharType) {
+            return Optional.of(new DoubleToVarcharCoercer(toVarcharType));
+        }
         if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
             return createCoercerForList(
                     typeManager,
