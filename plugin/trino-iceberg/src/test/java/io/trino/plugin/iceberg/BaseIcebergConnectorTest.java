@@ -5302,6 +5302,42 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testTargetMaxFileSizeOnSortedTable()
+    {
+        String tableName = "test_default_max_file_size_sorted_" + randomNameSuffix();
+        @Language("SQL") String createTableSql = format("CREATE TABLE %s WITH (sorted_by = ARRAY['shipdate']) AS SELECT * FROM tpch.sf1.lineitem LIMIT 100000", tableName);
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
+                .build();
+        assertUpdate(session, createTableSql, 100000);
+        List<String> initialFiles = getActiveFiles(tableName);
+        assertThat(initialFiles.size()).isLessThanOrEqualTo(3);
+        assertUpdate(format("DROP TABLE %s", tableName));
+
+        DataSize maxSize = DataSize.of(40, DataSize.Unit.KILOBYTE);
+        session = Session.builder(getSession())
+                .setSystemProperty("task_writer_count", "1")
+                // task scale writers should be disabled since we want to write with a single task writer
+                .setSystemProperty("task_scale_writers_enabled", "false")
+                .setCatalogSessionProperty("iceberg", "target_max_file_size", maxSize.toString())
+                .build();
+
+        assertUpdate(session, createTableSql, 100000);
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).matches("VALUES BIGINT '100000'");
+        List<String> updatedFiles = getActiveFiles(tableName);
+        assertThat(updatedFiles.size()).isGreaterThan(5);
+
+        computeActual(format("SELECT file_size_in_bytes FROM \"%s$files\"", tableName))
+                .getMaterializedRows()
+                // as target_max_file_size is set to quite low value it can happen that created files are bigger,
+                // so just to be safe we check if it is not much bigger
+                .forEach(row -> assertThat((Long) row.getField(0)).isBetween(1L, maxSize.toBytes() * 20));
+    }
+
+    @Test
     public void testDroppingIcebergAndCreatingANewTableWithTheSameNameShouldBePossible()
     {
         assertUpdate("CREATE TABLE test_iceberg_recreate (a_int) AS VALUES (1)", 1);
