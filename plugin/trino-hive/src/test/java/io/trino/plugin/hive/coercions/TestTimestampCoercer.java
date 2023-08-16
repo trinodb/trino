@@ -222,7 +222,7 @@ public class TestTimestampCoercer
 
     public static void assertCoercions(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue, HiveTimestampPrecision timestampPrecision)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(timestampPrecision)).orElseThrow()
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(timestampPrecision, false)).orElseThrow()
                 .apply(nativeValueToBlock(fromType, valueToBeCoerced));
         assertThat(blockToNativeValue(toType, coercedValue))
                 .isEqualTo(expectedValue);
