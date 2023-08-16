@@ -718,8 +718,19 @@ public class IcebergMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
+        if (cascade) {
+            for (SchemaTableName materializedView : listMaterializedViews(session, Optional.of(schemaName))) {
+                dropMaterializedView(session, materializedView);
+            }
+            for (SchemaTableName viewName : listViews(session, Optional.of(schemaName))) {
+                dropView(session, viewName);
+            }
+            for (SchemaTableName tableName : listTables(session, Optional.of(schemaName))) {
+                dropTable(session, getTableHandle(session, tableName, Optional.empty(), Optional.empty()));
+            }
+        }
         catalog.dropNamespace(session, schemaName);
     }
 
