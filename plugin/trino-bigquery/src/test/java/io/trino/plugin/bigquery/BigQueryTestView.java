@@ -14,6 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TemporaryRelation;
 import io.trino.testing.sql.TestTable;
 
 import java.util.List;
@@ -24,10 +25,10 @@ import static java.util.Objects.requireNonNull;
 public class BigQueryTestView
         extends TestTable
 {
-    private final TestTable table;
+    private final TemporaryRelation table;
     private final String viewName;
 
-    public BigQueryTestView(SqlExecutor sqlExecutor, TestTable table)
+    public BigQueryTestView(SqlExecutor sqlExecutor, TemporaryRelation table)
     {
         super(sqlExecutor, table.getName(), null);
         this.table = requireNonNull(table, "table is null");
