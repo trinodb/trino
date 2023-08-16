@@ -35,17 +35,6 @@ public class TDigestType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
-        }
-    }
-
-    @Override
     public Object getObject(Block block, int position)
     {
         return TDigest.deserialize(block.getSlice(position, 0, block.getSliceLength(position)));

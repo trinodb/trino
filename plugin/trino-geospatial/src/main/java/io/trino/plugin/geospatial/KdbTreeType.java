@@ -71,17 +71,6 @@ public final class KdbTreeType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
-        }
-    }
-
-    @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         byte[] jsonBytes = KdbTreeUtils.toJsonBytes(((KdbTree) value));
