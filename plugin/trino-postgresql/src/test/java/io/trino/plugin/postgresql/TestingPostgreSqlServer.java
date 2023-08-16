@@ -65,7 +65,7 @@ public class TestingPostgreSqlServer
     public TestingPostgreSqlServer(boolean shouldExposeFixedPorts)
     {
         // Use the oldest supported PostgreSQL version
-        dockerContainer = new PostgreSQLContainer<>("postgres:10.20")
+        dockerContainer = new PostgreSQLContainer<>("postgres:11")
                 .withStartupAttempts(3)
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)
