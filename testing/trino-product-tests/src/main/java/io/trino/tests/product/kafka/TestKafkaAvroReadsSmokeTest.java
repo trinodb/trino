@@ -18,6 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import io.confluent.kafka.schemaregistry.ParsedSchema;
+import io.confluent.kafka.schemaregistry.SchemaEntity;
+import io.confluent.kafka.schemaregistry.client.rest.entities.Metadata;
+import io.confluent.kafka.schemaregistry.client.rest.entities.RuleSet;
 import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.trino.tempto.ProductTest;
@@ -46,6 +49,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
@@ -332,9 +336,51 @@ public class TestKafkaAvroReadsSmokeTest
         }
 
         @Override
+        public Integer version()
+        {
+            return 1;
+        }
+
+        @Override
         public List<SchemaReference> references()
         {
             return schemaReferences;
+        }
+
+        @Override
+        public Metadata metadata()
+        {
+            return new Metadata(null, null, Set.of());
+        }
+
+        @Override
+        public RuleSet ruleSet()
+        {
+            return new RuleSet(null, null);
+        }
+
+        @Override
+        public ParsedSchema copy()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ParsedSchema copy(Integer version)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ParsedSchema copy(Metadata metadata, RuleSet ruleSet)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ParsedSchema copy(Map<SchemaEntity, Set<String>> tagsToAdd, Map<SchemaEntity, Set<String>> tagsToRemove)
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override
