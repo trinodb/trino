@@ -617,6 +617,17 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testCreateSchemaWithIncorrectLocation()
+    {
+        String schemaName = "test_create_schema_with_incorrect_location_" + randomNameSuffix();
+        String schemaLocation = "s3://testbucket/%s/a#hash/%s".formatted(schemaName, schemaName);
+
+        assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')"))
+                .hasMessageContaining("Invalid location URI")
+                .hasStackTraceContaining("Fragment is not allowed in a file system location");
+    }
+
+    @Test
     public void testSchemaAuthorizationForUser()
     {
         Session admin = Session.builder(getSession())
