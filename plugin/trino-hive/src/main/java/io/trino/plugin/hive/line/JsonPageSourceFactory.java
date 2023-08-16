@@ -17,7 +17,6 @@ import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.formats.line.json.JsonDeserializerFactory;
 import io.trino.hive.formats.line.text.TextLineReaderFactory;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveSessionProperties;
 
@@ -27,10 +26,9 @@ public class JsonPageSourceFactory
         extends LinePageSourceFactory
 {
     @Inject
-    public JsonPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, FileFormatDataSourceStats stats, HiveConfig config)
+    public JsonPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, HiveConfig config)
     {
         super(trinoFileSystemFactory,
-                stats,
                 new JsonDeserializerFactory(),
                 new TextLineReaderFactory(1024, 1024, toIntExact(config.getTextMaxLineLength().toBytes())),
                 HiveSessionProperties::isJsonNativeReaderEnabled);
