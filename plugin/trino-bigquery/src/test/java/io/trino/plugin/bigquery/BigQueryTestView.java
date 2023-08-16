@@ -31,10 +31,6 @@ public class BigQueryTestView
         this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
         this.relation = requireNonNull(relation, "relation is null");
         this.viewName = relation.getName() + "_view";
-    }
-
-    public void createView()
-    {
         sqlExecutor.execute(format("CREATE VIEW %s AS SELECT * FROM %s", viewName, relation.getName()));
     }
 
