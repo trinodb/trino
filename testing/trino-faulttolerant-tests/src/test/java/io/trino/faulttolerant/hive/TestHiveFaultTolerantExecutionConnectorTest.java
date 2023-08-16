@@ -51,9 +51,15 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     }
 
     @Override
-    public void testScaleWriters()
+    public void testMultipleWriters()
     {
-        testWithAllStorageFormats(this::testSingleWriter);
+        // Not applicable for fault-tolerant mode.
+    }
+
+    @Override
+    public void testMultipleWritersWithSkewedData()
+    {
+        // Not applicable for fault-tolerant mode.
     }
 
     // We need to override this method because in the case of pipeline execution,
