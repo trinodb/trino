@@ -15,28 +15,23 @@ package io.trino.plugin.bigquery;
 
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TemporaryRelation;
-import io.trino.testing.sql.TestTable;
-
-import java.util.List;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryTestView
-        extends TestTable
+        implements TemporaryRelation
 {
+    private final SqlExecutor sqlExecutor;
     private final TemporaryRelation table;
     private final String viewName;
 
     public BigQueryTestView(SqlExecutor sqlExecutor, TemporaryRelation table)
     {
-        super(sqlExecutor, table.getName(), null);
+        this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
         this.table = requireNonNull(table, "table is null");
         this.viewName = table.getName() + "_view";
     }
-
-    @Override
-    public void createAndInsert(List<String> rowsToInsert) {}
 
     public void createView()
     {
