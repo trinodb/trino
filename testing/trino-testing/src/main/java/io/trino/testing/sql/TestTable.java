@@ -23,6 +23,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.util.Objects.requireNonNull;
 
 public class TestTable
         implements TemporaryRelation
@@ -38,9 +39,9 @@ public class TestTable
 
     public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition, List<String> rowsToInsert)
     {
-        this.sqlExecutor = sqlExecutor;
-        this.name = namePrefix + randomNameSuffix();
-        this.tableDefinition = tableDefinition;
+        this.sqlExecutor = requireNonNull(sqlExecutor, "sqlExecutor is null");
+        this.name = requireNonNull(namePrefix, "namePrefix is null") + randomNameSuffix();
+        this.tableDefinition = requireNonNull(tableDefinition, "tableDefinition is null");
         createAndInsert(rowsToInsert);
     }
 
