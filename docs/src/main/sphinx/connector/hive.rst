@@ -17,6 +17,7 @@ Hive connector
     IBM Cloud Object Storage <hive-cos>
     Storage Caching <hive-caching>
     Alluxio <hive-alluxio>
+    Object storage file formats <object-storage-file-formats>
 
 The Hive connector allows querying data stored in an
 `Apache Hive <https://hive.apache.org/>`_
@@ -53,6 +54,19 @@ connector.
 The coordinator and all workers must have network access to the Hive metastore
 and the storage system. Hive metastore access with the Thrift protocol defaults
 to using port 9083.
+
+Data files must be in a supported file format. Some file formats can be
+configured using file format configuration properties per catalog:
+
+* :ref:`ORC <hive-orc-configuration>`
+* :ref:`Parquet <hive-parquet-configuration>`
+* Avro
+* RCText (RCFile using ColumnarSerDe)
+* RCBinary (RCFile using LazyBinaryColumnarSerDe)
+* SequenceFile
+* JSON (using org.apache.hive.hcatalog.data.JsonSerDe)
+* CSV (using org.apache.hadoop.hive.serde2.OpenCSVSerde)
+* TextFile
 
 General configuration
 ---------------------
@@ -1590,99 +1604,6 @@ connector.
         splits result in more parallelism and thus can decrease latency, but
         also have more overhead and increase load on the system.
       - ``64 MB``
-
-File formats
-------------
-
-The following file types and formats are supported for the Hive connector:
-
-* ORC
-* Parquet
-* Avro
-* RCText (RCFile using ``ColumnarSerDe``)
-* RCBinary (RCFile using ``LazyBinaryColumnarSerDe``)
-* SequenceFile
-* JSON (using ``org.apache.hive.hcatalog.data.JsonSerDe``)
-* CSV (using ``org.apache.hadoop.hive.serde2.OpenCSVSerde``)
-* TextFile
-
-ORC format configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The following properties are used to configure the read and write operations
-with ORC files performed by the Hive connector.
-
-.. list-table:: ORC format configuration properties
-    :widths: 30, 50, 20
-    :header-rows: 1
-
-    * - Property Name
-      - Description
-      - Default
-    * - ``hive.orc.time-zone``
-      - Sets the default time zone for legacy ORC files that did not declare a
-        time zone.
-      - JVM default
-    * - ``hive.orc.use-column-names``
-      - Access ORC columns by name. By default, columns in ORC files are
-        accessed by their ordinal position in the Hive table definition. The
-        equivalent catalog session property is ``orc_use_column_names``.
-      - ``false``
-    * - ``hive.orc.bloom-filters.enabled``
-      - Enable bloom filters for predicate pushdown.
-      - ``false``
-    * - ``hive.orc.read-legacy-short-zone-id``
-      - Allow reads on ORC files with short zone ID in the stripe footer.
-      - ``false``
-
-.. _hive-parquet-configuration:
-
-Parquet format configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The following properties are used to configure the read and write operations
-with Parquet files performed by the Hive connector.
-
-.. list-table:: Parquet format configuration properties
-    :widths: 30, 50, 20
-    :header-rows: 1
-
-    * - Property Name
-      - Description
-      - Default
-    * - ``hive.parquet.time-zone``
-      - Adjusts timestamp values to a specific time zone. For Hive 3.1+, set
-        this to UTC.
-      - JVM default
-    * - ``hive.parquet.use-column-names``
-      - Access Parquet columns by name by default. Set this property to
-        ``false`` to access columns by their ordinal position in the Hive table
-        definition. The equivalent catalog session property is
-        ``parquet_use_column_names``.
-      - ``true``
-    * - ``parquet.writer.validation-percentage``
-      - Percentage of Parquet files to validate after write by re-reading the whole file.
-        The equivalent catalog session property is ``parquet_optimized_writer_validation_percentage``.
-        Validation can be turned off by setting this property to ``0``.
-      - ``5``
-    * - ``parquet.writer.page-size``
-      - Maximum page size for the Parquet writer.
-      - ``1 MB``
-    * - ``parquet.writer.block-size``
-      - Maximum row group size for the Parquet writer.
-      - ``128 MB``
-    * - ``parquet.writer.batch-size``
-      - Maximum number of rows processed by the parquet writer in a batch.
-      - ``10000``
-    * - ``parquet.use-bloom-filter``
-      - Whether bloom filters are used for predicate pushdown when reading
-        Parquet files. Set this property to ``false`` to disable the usage of
-        bloom filters by default. The equivalent catalog session property is
-        ``parquet_use_bloom_filter``.
-      - ``true``
-    * - ``parquet.max-read-block-row-count``
-      - Sets the maximum number of rows read in a batch.
-      - ``8192``
 
 Hive 3-related limitations
 --------------------------
