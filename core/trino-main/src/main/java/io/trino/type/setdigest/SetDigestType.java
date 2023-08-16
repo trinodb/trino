@@ -54,17 +54,6 @@ public class SetDigestType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        if (block.isNull(position)) {
-            blockBuilder.appendNull();
-        }
-        else {
-            ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
-        }
-    }
-
-    @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value)
     {
         writeSlice(blockBuilder, value, 0, value.length());

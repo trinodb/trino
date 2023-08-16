@@ -33,12 +33,6 @@ public class P4HyperLogLogType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        HYPER_LOG_LOG.appendTo(block, position, blockBuilder);
-    }
-
-    @Override
     public Slice getSlice(Block block, int position)
     {
         return HYPER_LOG_LOG.getSlice(block, position);
