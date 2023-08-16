@@ -20,6 +20,7 @@ import io.trino.testing.sql.TemporaryRelation;
 
 import java.util.List;
 
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryViewCreateAndInsertDataSetup
@@ -37,8 +38,12 @@ public class BigQueryViewCreateAndInsertDataSetup
     public TemporaryRelation setupTemporaryRelation(List<ColumnSetup> inputs)
     {
         TemporaryRelation table = super.setupTemporaryRelation(inputs);
-        BigQueryTestView view = new BigQueryTestView(sqlExecutor, table);
-        view.createView();
-        return view;
+        try {
+            return new BigQueryTestView(sqlExecutor, table);
+        }
+        catch (Throwable e) {
+            closeAllSuppress(e, table);
+            throw e;
+        }
     }
 }
