@@ -16,7 +16,7 @@ admin/graceful-shutdown
 admin/fault-tolerant-execution
 ```
 
-# Event listeners
+## Event listeners
 
 ```{toctree}
 :titlesonly: true
