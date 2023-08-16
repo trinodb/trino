@@ -22,7 +22,8 @@ To connect to Databricks Delta Lake, you need:
 * Deployments using AWS, HDFS, Azure Storage, and Google Cloud Storage (GCS) are
   fully supported.
 * Network access from the coordinator and workers to the Delta Lake storage.
-* Access to the Hive metastore service (HMS) of Delta Lake or a separate HMS.
+* Access to the Hive metastore service (HMS) of Delta Lake or a separate HMS,
+  or a Glue metastore.
 * Network access to the HMS from the coordinator and workers. Port 9083 is the
   default port for the Thrift protocol used by the HMS.
 * Data files stored in the Parquet file format. These can be configured using
@@ -32,36 +33,31 @@ To connect to Databricks Delta Lake, you need:
 General configuration
 ---------------------
 
-The connector requires a Hive metastore for table metadata and supports the same
-metastore configuration properties as the :doc:`Hive connector
-</connector/hive>`. At a minimum, ``hive.metastore.uri`` must be configured.
-
-The connector recognizes Delta tables created in the metastore by the Databricks
-runtime. If non-Delta tables are present in the metastore as well, they are not
-visible to the connector.
-
 To configure the Delta Lake connector, create a catalog properties file
 ``etc/catalog/example.properties`` that references the ``delta_lake``
-connector. Update the ``hive.metastore.uri`` with the URI of your Hive metastore
-Thrift service:
+connector and defines a metastore. You must configure a metastore for table
+metadata.  If you are using a :ref:`Hive metastore <hive-thrift-metastore>`,
+``hive.metastore.uri`` must be configured:
 
 .. code-block:: properties
 
     connector.name=delta_lake
     hive.metastore.uri=thrift://example.net:9083
 
-If you are using AWS Glue as Hive metastore, you can simply set the metastore to
-``glue``:
+If you are using :ref:`AWS Glue <hive-glue-metastore>` as your metastore, you
+must instead set ``hive.metastore`` to ``glue``:
 
 .. code-block:: properties
 
     connector.name=delta_lake
     hive.metastore=glue
 
-The Delta Lake connector reuses certain functionalities from the Hive connector,
-including the metastore :ref:`Thrift <hive-thrift-metastore>` and :ref:`Glue
-<hive-glue-metastore>` configuration, detailed in the :doc:`Hive connector
-documentation </connector/hive>`.
+Each metastore type has specific configuration properties along with
+:ref:`general metastore configuration properties <general-metastore-properties>`. 
+
+The connector recognizes Delta Lake tables created in the metastore by the Databricks
+runtime. If non-Delta Lake tables are present in the metastore as well, they are not
+visible to the connector.
 
 To configure access to S3 and S3-compatible storage, Azure storage, and others,
 consult the appropriate section of the Hive documentation:

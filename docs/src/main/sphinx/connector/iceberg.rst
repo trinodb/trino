@@ -38,10 +38,10 @@ To use Iceberg, you need:
 
 * Network access from the Trino coordinator and workers to the distributed
   object storage.
-* Access to a :ref:`Hive metastore service (HMS)<iceberg-hive-catalog>`, an
-  :ref:`AWS Glue catalog<iceberg-glue-catalog>`, a :ref:`JDBC catalog
-  <iceberg-jdbc-catalog>`, a :ref:`REST catalog<iceberg-rest-catalog>`, or a
-  :ref:`Nessie server<iceberg-nessie-catalog>`.
+* Access to a :ref:`Hive metastore service (HMS) <hive-thrift-metastore>`, an
+  :ref:`AWS Glue catalog <iceberg-glue-catalog>`, a :ref:`JDBC catalog
+  <iceberg-jdbc-catalog>`, a :ref:`REST catalog <iceberg-rest-catalog>`, or a
+  :ref:`Nessie server <iceberg-nessie-catalog>`.
 * Data files stored in a supported file format. These can be configured using
   file format configuration properties per catalog:
   
@@ -51,8 +51,26 @@ To use Iceberg, you need:
 General configuration
 ---------------------
 
-These configuration properties are independent of which catalog implementation
-is used.
+To configure the Iceberg connector, create a catalog properties file
+``etc/catalog/example.properties`` that references the ``iceberg``
+connector and defines a metastore type. The Hive metastore catalog is the
+default implementation. To use a :ref:`Hive metastore <hive-thrift-metastore>`,
+``iceberg.catalog.type`` must be set to ``hive_metastore`` and
+``hive.metastore.uri`` must be configured:
+
+.. code-block:: properties
+
+    connector.name=iceberg
+    iceberg.catalog.type=hive_metastore
+    hive.metastore.uri=thrift://example.net:9083
+
+Other metadata catalog types as listed in the requirements section of this topic
+are available. Each metastore type has specific configuration properties along
+with :ref:`general metastore configuration properties
+<general-metastore-properties>`.
+
+The following configuration properties are independent of which catalog
+implementation is used:
 
 .. list-table:: Iceberg general configuration properties
   :widths: 30, 58, 12
@@ -61,6 +79,15 @@ is used.
   * - Property name
     - Description
     - Default
+  * - ``iceberg.catalog.type``
+    - Define the metastore type to use. Possible values are:
+
+      * ``hive_metastore``
+      * ``glue``
+      * ``jdbc``
+      * ``rest``
+      * ``nessie``
+    -
   * - ``iceberg.file-format``
     - Define the data storage file format for Iceberg tables.
       Possible values are:
@@ -131,170 +158,6 @@ is used.
   * - ``iceberg.register-table-procedure.enabled``
     - Enable to allow user to call ``register_table`` procedure.
     - ``false``
-
-Metastores
-----------
-
-The Iceberg table format manages most metadata in metadata files in the object
-storage itself. A small amount of metadata, however, still requires the use of a
-metastore. In the Iceberg ecosystem, these smaller metastores are called Iceberg
-metadata catalogs, or just catalogs. The examples in each subsection depict the
-contents of a Trino catalog file that uses the the Iceberg connector to
-configures different Iceberg metadata catalogs.
-
-The connector supports multiple Iceberg catalog types; you can use either a Hive
-metastore service (HMS), AWS Glue, a REST catalog, or Nessie. The catalog type
-is determined by the ``iceberg.catalog.type`` property. It can be set to
-``HIVE_METASTORE``, ``GLUE``, ``JDBC``, ``REST``, or ``NESSIE``.
-
-.. _iceberg-hive-catalog:
-
-Hive metastore catalog
-^^^^^^^^^^^^^^^^^^^^^^
-
-The Hive metastore catalog is the default implementation. When using it, the
-Iceberg connector supports the same metastore configuration properties as the
-Hive connector. At a minimum, ``hive.metastore.uri`` must be configured. See
-:ref:`Thrift metastore configuration<hive-thrift-metastore>`.
-
-.. code-block:: text
-
-    connector.name=iceberg
-    hive.metastore.uri=thrift://localhost:9083
-
-.. _iceberg-glue-catalog:
-
-Glue catalog
-^^^^^^^^^^^^
-
-When using the Glue catalog, the Iceberg connector supports the same
-configuration properties as the Hive connector's Glue setup. See :ref:`AWS Glue
-metastore configuration<hive-glue-metastore>`.
-
-.. code-block:: text
-
-    connector.name=iceberg
-    iceberg.catalog.type=glue
-
-.. list-table:: Iceberg Glue catalog configuration properties
-  :widths: 35, 50, 15
-  :header-rows: 1
-
-  * - Property name
-    - Description
-    - Default
-  * - ``iceberg.glue.skip-archive``
-    - Skip archiving an old table version when creating a new version in a
-      commit. See `AWS Glue Skip Archive
-      <https://iceberg.apache.org/docs/latest/aws/#skip-archive>`_.
-    - ``false``
-
-.. _iceberg-rest-catalog:
-
-REST catalog
-^^^^^^^^^^^^^^
-
-In order to use the Iceberg REST catalog, ensure to configure the catalog type
-with ``iceberg.catalog.type=rest`` and provide further details with the
-following properties:
-
-.. list-table:: Iceberg REST catalog configuration properties
-  :widths: 40, 60
-  :header-rows: 1
-
-  * - Property name
-    - Description
-  * - ``iceberg.rest-catalog.uri``
-    - REST server API endpoint URI (required).
-      Example: ``http://iceberg-with-rest:8181``
-  * - ``iceberg.rest-catalog.warehouse``
-    - Warehouse identifier/location for the catalog (optional). Example:
-      ``s3://my_bucket/warehouse_location``
-  * - ``iceberg.rest-catalog.security``
-    - The type of security to use (default: ``NONE``).  ``OAUTH2`` requires
-      either a ``token`` or ``credential``. Example: ``OAUTH2``
-  * - ``iceberg.rest-catalog.session``
-    - Session information included when communicating with the REST Catalog.
-      Options are ``NONE`` or ``USER`` (default: ``NONE``).
-  * - ``iceberg.rest-catalog.oauth2.token``
-    - The bearer token used for interactions with the server. A ``token`` or
-      ``credential`` is required for ``OAUTH2`` security. Example:
-      ``AbCdEf123456``
-  * - ``iceberg.rest-catalog.oauth2.credential``
-    - The credential to exchange for a token in the OAuth2 client credentials
-      flow with the server. A ``token`` or ``credential`` is required for
-      ``OAUTH2`` security. Example: ``AbCdEf123456``
-
-.. code-block:: text
-
-    connector.name=iceberg
-    iceberg.catalog.type=rest
-    iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
-
-REST catalog does not support :doc:`views</sql/create-view>` or
-:doc:`materialized views</sql/create-materialized-view>`.
-
-.. _iceberg-nessie-catalog:
-
-Nessie catalog
-^^^^^^^^^^^^^^
-
-In order to use a Nessie catalog, ensure to configure the catalog type with
-``iceberg.catalog.type=nessie`` and provide further details with the following
-properties:
-
-.. list-table:: Nessie catalog configuration properties
-  :widths: 40, 60
-  :header-rows: 1
-
-  * - Property name
-    - Description
-  * - ``iceberg.nessie-catalog.uri``
-    - Nessie API endpoint URI (required).
-      Example: ``https://localhost:19120/api/v1``
-  * - ``iceberg.nessie-catalog.ref``
-    - The branch/tag to use for Nessie, defaults to ``main``.
-  * - ``iceberg.nessie-catalog.default-warehouse-dir``
-    - Default warehouse directory for schemas created without an explicit
-      ``location`` property. Example: ``/tmp``
-
-.. code-block:: text
-
-    connector.name=iceberg
-    iceberg.catalog.type=nessie
-    iceberg.nessie-catalog.uri=https://localhost:19120/api/v1
-    iceberg.nessie-catalog.default-warehouse-dir=/tmp
-
-.. _iceberg-jdbc-catalog:
-
-JDBC catalog
-^^^^^^^^^^^^
-
-.. warning::
-
-  The JDBC catalog could face the compatibility issue if Iceberg introduces
-  breaking changes in the future. Consider the :ref:`REST catalog
-  <iceberg-rest-catalog>` as an alternative solution.
-
-At a minimum, ``iceberg.jdbc-catalog.driver-class``,
-``iceberg.jdbc-catalog.connection-url``, and
-``iceberg.jdbc-catalog.catalog-name`` must be configured. When using any
-database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
-directory.
-
-.. code-block:: text
-
-    connector.name=iceberg
-    iceberg.catalog.type=jdbc
-    iceberg.jdbc-catalog.catalog-name=test
-    iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
-    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://example.net:5432/database
-    iceberg.jdbc-catalog.connection-user=admin
-    iceberg.jdbc-catalog.connection-password=test
-    iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
-
-JDBC catalog does not support :doc:`views</sql/create-view>` or
-:doc:`materialized views</sql/create-materialized-view>`.
 
 Type mapping
 ------------
