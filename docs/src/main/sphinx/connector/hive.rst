@@ -10,6 +10,7 @@ Hive connector
     :maxdepth: 1
     :hidden:
 
+    Metastores <metastores>
     Security <hive-security>
     Amazon S3 <hive-s3>
     Azure Storage <hive-azure>
@@ -38,9 +39,10 @@ It does not use HiveQL or any part of Hive's execution environment.
 Requirements
 ------------
 
-The Hive connector requires a Hive metastore service (HMS), or a compatible
-implementation of the Hive metastore, such as
-`AWS Glue Data Catalog <https://aws.amazon.com/glue/>`_.
+The Hive connector requires a
+:ref:`Hive metastore service <hive-thrift-metastore>` (HMS), or a compatible
+implementation of the Hive metastore, such as 
+:ref:`AWS Glue <hive-glue-metastore>`.
 
 Apache Hadoop HDFS 2.x and 3.x are supported.
 
@@ -71,15 +73,27 @@ configured using file format configuration properties per catalog:
 General configuration
 ---------------------
 
-Create ``etc/catalog/example.properties`` with the following contents
-to mount the ``hive`` connector as the ``example`` catalog,
-replacing ``example.net:9083`` with the correct host and port
-for your Hive metastore Thrift service:
+To configure the Hive connector, create a catalog properties file
+``etc/catalog/example.properties`` that references the ``hive``
+connector and defines a metastore. You must configure a metastore for table
+metadata. If you are using a :ref:`Hive metastore <hive-thrift-metastore>`,
+``hive.metastore.uri`` must be configured: 
 
-.. code-block:: text
+.. code-block:: properties
 
     connector.name=hive
     hive.metastore.uri=thrift://example.net:9083
+
+If you are using :ref:`AWS Glue <hive-glue-metastore>` as your metastore, you
+must instead set ``hive.metastore`` to ``glue``:
+
+.. code-block:: properties
+
+    connector.name=hive
+    hive.metastore=glue
+
+Each metastore type has specific configuration properties along with
+:ref:`general metastore configuration properties <general-metastore-properties>`. 
 
 Multiple Hive clusters
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -347,294 +361,6 @@ Hive connector documentation.
       - Enables auto-commit for all writes. This can be used to disallow
         multi-statement write transactions.
       - ``false``
-
-Metastores
-----------
-
-The Hive connector supports the use of the Hive Metastore Service (HMS) and AWS
-Glue data catalog.
-
-Additionally, accessing tables with Athena partition projection metadata, as
-well as first class support for Avro tables, are available with additional
-configuration.
-
-General metastore configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The required Hive metastore can be configured with a number of properties.
-Specific properties can be used to further configure the
-`Thrift <#thrift-metastore-configuration-properties>`__ or
-`Glue <#aws-glue-catalog-configuration-properties>`__ metastore.
-
-.. list-table:: General metastore configuration properties
-    :widths: 35, 50, 15
-    :header-rows: 1
-
-    * - Property Name
-      - Description
-      - Default
-    * - ``hive.metastore``
-      - The type of Hive metastore to use. Trino currently supports the default
-        Hive Thrift metastore (``thrift``), and the AWS Glue Catalog (``glue``)
-        as metadata sources.
-      - ``thrift``
-    * - ``hive.metastore-cache.cache-partitions``
-      - Enable caching for partition metadata. You can disable caching to avoid
-        inconsistent behavior that results from it.
-      - ``true``
-    * - ``hive.metastore-cache-ttl``
-      - Duration of how long cached metastore data is considered valid.
-      - ``0s``
-    * - ``hive.metastore-stats-cache-ttl``
-      - Duration of how long cached metastore statistics are considered valid.
-        If ``hive.metastore-cache-ttl`` is larger then it takes precedence
-        over ``hive.metastore-stats-cache-ttl``.
-      - ``5m``
-    * - ``hive.metastore-cache-maximum-size``
-      - Maximum number of metastore data objects in the Hive metastore cache.
-      - ``10000``
-    * - ``hive.metastore-refresh-interval``
-      - Asynchronously refresh cached metastore data after access if it is older
-        than this but is not yet expired, allowing subsequent accesses to see
-        fresh data.
-      -
-    * - ``hive.metastore-refresh-max-threads``
-      - Maximum threads used to refresh cached metastore data.
-      - ``10``
-    * - ``hive.metastore-timeout``
-      - Timeout for Hive metastore requests.
-      - ``10s``
-    * - ``hive.hide-delta-lake-tables``
-      - Controls whether to hide Delta Lake tables in table listings. Currently
-        applies only when using the AWS Glue metastore.
-      - ``false``
-
-.. _hive-thrift-metastore:
-
-Thrift metastore configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-In order to use a Hive Thrift metastore, you must configure the metastore with
-``hive.metastore=thrift`` and provide further details with the following
-properties:
-
-.. list-table:: Thrift metastore configuration properties
-   :widths: 35, 50, 15
-   :header-rows: 1
-
-   * - Property name
-     - Description
-     - Default
-   * - ``hive.metastore.uri``
-     - The URIs of the Hive metastore to connect to using the Thrift protocol.
-       If a comma-separated list of URIs is provided, the first URI is used by
-       default, and the rest of the URIs are fallback metastores. This property
-       is required. Example: ``thrift://192.0.2.3:9083`` or
-       ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
-     -
-   * - ``hive.metastore.username``
-     - The username Trino uses to access the Hive metastore.
-     -
-   * - ``hive.metastore.authentication.type``
-     - Hive metastore authentication type. Possible values are ``NONE`` or
-       ``KERBEROS``.
-     - ``NONE``
-   * - ``hive.metastore.thrift.impersonation.enabled``
-     - Enable Hive metastore end user impersonation.
-     -
-   * - ``hive.metastore.thrift.use-spark-table-statistics-fallback``
-     - Enable usage of table statistics generated by Apache Spark when Hive
-       table statistics are not available.
-     - ``true``
-   * - ``hive.metastore.thrift.delegation-token.cache-ttl``
-     - Time to live delegation token cache for metastore.
-     - ``1h``
-   * - ``hive.metastore.thrift.delegation-token.cache-maximum-size``
-     - Delegation token cache maximum size.
-     - ``1000``
-   * - ``hive.metastore.thrift.client.ssl.enabled``
-     - Use SSL when connecting to metastore.
-     - ``false``
-   * - ``hive.metastore.thrift.client.ssl.key``
-     - Path to private key and client certification (key store).
-     -
-   * - ``hive.metastore.thrift.client.ssl.key-password``
-     - Password for the private key.
-     -
-   * - ``hive.metastore.thrift.client.ssl.trust-certificate``
-     - Path to the server certificate chain (trust store). Required when SSL is
-       enabled.
-     -
-   * - ``hive.metastore.thrift.client.ssl.trust-certificate-password``
-     - Password for the trust store.
-     -
-   * - ``hive.metastore.service.principal``
-     - The Kerberos principal of the Hive metastore service.
-     -
-   * - ``hive.metastore.client.principal``
-     - The Kerberos principal that Trino uses when connecting to the Hive
-       metastore service.
-     -
-   * - ``hive.metastore.client.keytab``
-     - Hive metastore client keytab location.
-     -
-   * - ``hive.metastore.thrift.delete-files-on-drop``
-     - Actively delete the files for managed tables when performing drop table
-       or partition operations, for cases when the metastore does not delete the
-       files.
-     - ``false``
-   * - ``hive.metastore.thrift.assume-canonical-partition-keys``
-     - Allow the metastore to assume that the values of partition columns can be
-       converted to string values. This can lead to performance improvements in
-       queries which apply filters on the partition columns. Partition keys with
-       a ``TIMESTAMP`` type do not get canonicalized.
-     - ``false``
-   * - ``hive.metastore.thrift.client.socks-proxy``
-     - SOCKS proxy to use for the Thrift Hive metastore.
-     -
-   * - ``hive.metastore.thrift.client.max-retries``
-     - Maximum number of retry attempts for metastore requests.
-     - ``9``
-   * - ``hive.metastore.thrift.client.backoff-scale-factor``
-     - Scale factor for metastore request retry delay.
-     - ``2.0``
-   * - ``hive.metastore.thrift.client.max-retry-time``
-     - Total allowed time limit for a metastore request to be retried.
-     - ``30s``
-   * - ``hive.metastore.thrift.client.min-backoff-delay``
-     - Minimum delay between metastore request retries.
-     - ``1s``
-   * - ``hive.metastore.thrift.client.max-backoff-delay``
-     - Maximum delay between metastore request retries.
-     - ``1s``
-   * - ``hive.metastore.thrift.txn-lock-max-wait``
-     - Maximum time to wait to acquire hive transaction lock.
-     - ``10m``
-
-.. _hive-glue-metastore:
-
-AWS Glue catalog configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-In order to use a Glue catalog, you must configure the metastore with
-``hive.metastore=glue`` and provide further details with the following
-properties:
-
-.. list-table:: AWS Glue catalog configuration properties
-    :widths: 35, 50, 15
-    :header-rows: 1
-
-    * - Property Name
-      - Description
-      - Default
-    * - ``hive.metastore.glue.region``
-      - AWS region of the Glue Catalog. This is required when not running in
-        EC2, or when the catalog is in a different region. Example:
-        ``us-east-1``
-      -
-    * - ``hive.metastore.glue.endpoint-url``
-      - Glue API endpoint URL (optional). Example:
-        ``https://glue.us-east-1.amazonaws.com``
-      -
-    * - ``hive.metastore.glue.sts.region``
-      - AWS region of the STS service to authenticate with. This is required
-        when running in a GovCloud region. Example: ``us-gov-east-1``
-      -
-    * - ``hive.metastore.glue.proxy-api-id``
-      - The ID of the Glue Proxy API, when accessing Glue via an VPC endpoint in
-        API Gateway.
-      -
-    * - ``hive.metastore.glue.sts.endpoint``
-      - STS endpoint URL to use when authenticating to Glue (optional). Example:
-        ``https://sts.us-gov-east-1.amazonaws.com``
-      -
-    * - ``hive.metastore.glue.pin-client-to-current-region``
-      - Pin Glue requests to the same region as the EC2 instance where Trino is
-        running.
-      - ``false``
-    * - ``hive.metastore.glue.max-connections``
-      - Max number of concurrent connections to Glue.
-      - ``30``
-    * - ``hive.metastore.glue.max-error-retries``
-      - Maximum number of error retries for the Glue client.
-      - ``10``
-    * - ``hive.metastore.glue.default-warehouse-dir``
-      - Default warehouse directory for schemas created without an explicit
-        ``location`` property.
-      -
-    * - ``hive.metastore.glue.aws-credentials-provider``
-      - Fully qualified name of the Java class to use for obtaining AWS
-        credentials. Can be used to supply a custom credentials provider.
-      -
-    * - ``hive.metastore.glue.aws-access-key``
-      - AWS access key to use to connect to the Glue Catalog. If specified along
-        with ``hive.metastore.glue.aws-secret-key``, this parameter takes
-        precedence over ``hive.metastore.glue.iam-role``.
-      -
-    * - ``hive.metastore.glue.aws-secret-key``
-      - AWS secret key to use to connect to the Glue Catalog. If specified along
-        with ``hive.metastore.glue.aws-access-key``, this parameter takes
-        precedence over ``hive.metastore.glue.iam-role``.
-      -
-    * - ``hive.metastore.glue.catalogid``
-      - The ID of the Glue Catalog in which the metadata database resides.
-      -
-    * - ``hive.metastore.glue.iam-role``
-      - ARN of an IAM role to assume when connecting to the Glue Catalog.
-      -
-    * - ``hive.metastore.glue.external-id``
-      - External ID for the IAM role trust policy when connecting to the Glue
-        Catalog.
-      -
-    * - ``hive.metastore.glue.partitions-segments``
-      - Number of segments for partitioned Glue tables.
-      - ``5``
-    * - ``hive.metastore.glue.get-partition-threads``
-      - Number of threads for parallel partition fetches from Glue.
-      - ``20``
-    * - ``hive.metastore.glue.read-statistics-threads``
-      - Number of threads for parallel statistic fetches from Glue.
-      - ``5``
-    * - ``hive.metastore.glue.write-statistics-threads``
-      - Number of threads for parallel statistic writes to Glue.
-      - ``5``
-
-.. _partition-projection:
-
-Accessing tables with Athena partition projection metadata
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-`Partition projection <https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html>`_
-is a feature of AWS Athena often used to speed up query processing with highly
-partitioned tables.
-
-Trino supports partition projection table properties stored in the metastore,
-and it reimplements this functionality. Currently, there is a limitation in
-comparison to AWS Athena for date projection, as it only supports intervals of
-``DAYS``, ``HOURS``, ``MINUTES``, and ``SECONDS``.
-
-If there are any compatibility issues blocking access to a requested table when
-you have partition projection enabled, you can set the
-``partition_projection_ignore`` table property to ``true`` for a table to bypass
-any errors.
-
-Refer to :ref:`hive-table-properties` and :ref:`hive-column-properties` for
-configuration of partition projection.
-
-Metastore configuration for Avro
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-In order to enable first-class support for Avro tables when using
-Hive 3.x, you must add the following property definition to the Hive metastore
-configuration file ``hive-site.xml`` and restart the metastore service:
-
-.. code-block:: xml
-
-   <property>
-        <!-- https://community.hortonworks.com/content/supportkb/247055/errorjavalangunsupportedoperationexception-storage.html -->
-        <name>metastore.storage.schema.reader.impl</name>
-        <value>org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader</value>
-    </property>
 
 Storage
 -------
