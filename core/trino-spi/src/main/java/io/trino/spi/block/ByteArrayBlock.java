@@ -125,15 +125,6 @@ public final class ByteArrayBlock
         return positionCount;
     }
 
-    @Override
-    public byte getByte(int position, int offset)
-    {
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-        return getByte(position);
-    }
-
     public byte getByte(int position)
     {
         checkReadablePosition(this, position);

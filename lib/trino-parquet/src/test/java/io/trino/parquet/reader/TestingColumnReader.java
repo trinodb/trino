@@ -342,7 +342,8 @@ public class TestingColumnReader
         };
     }
 
-    private static final Assertion<Number> ASSERT_BYTE = (values, block, offset, blockOffset) -> assertThat(block.getByte(blockOffset, 0)).isEqualTo(values[offset].byteValue());
+    private static final Assertion<Number> ASSERT_BOOLEAN = (values, block, offset, blockOffset) -> assertThat(BooleanType.BOOLEAN.getBoolean(block, blockOffset)).isEqualTo(values[offset].byteValue() != 0);
+    private static final Assertion<Number> ASSERT_BYTE = (values, block, offset, blockOffset) -> assertThat(TINYINT.getByte(block, blockOffset)).isEqualTo(values[offset].byteValue());
     private static final Assertion<Number> ASSERT_SHORT = (values, block, offset, blockOffset) -> assertThat(block.getShort(blockOffset, 0)).isEqualTo(values[offset].shortValue());
     private static final Assertion<Number> ASSERT_INT = (values, block, offset, blockOffset) -> assertThat(block.getInt(blockOffset, 0)).isEqualTo(values[offset].intValue());
     private static final Assertion<Float> ASSERT_FLOAT = (values, block, offset, blockOffset) -> assertThat(intBitsToFloat(block.getInt(blockOffset, 0))).isEqualTo(values[offset].floatValue());
@@ -629,7 +630,7 @@ public class TestingColumnReader
     private static ColumnReaderFormat<?>[] columnReaders()
     {
         return new ColumnReaderFormat[] {
-                new ColumnReaderFormat<>(BOOLEAN, BooleanType.BOOLEAN, BOOLEAN_WRITER, null, WRITE_BOOLEAN, ASSERT_BYTE),
+                new ColumnReaderFormat<>(BOOLEAN, BooleanType.BOOLEAN, BOOLEAN_WRITER, null, WRITE_BOOLEAN, ASSERT_BOOLEAN),
                 new ColumnReaderFormat<>(FLOAT, REAL, PLAIN_WRITER, DICTIONARY_FLOAT_WRITER, WRITE_FLOAT, ASSERT_FLOAT),
                 // FLOAT parquet primitive type can be read as a DOUBLE or REAL type in Trino
                 new ColumnReaderFormat<>(FLOAT, DoubleType.DOUBLE, PLAIN_WRITER, DICTIONARY_FLOAT_WRITER, WRITE_FLOAT, ASSERT_DOUBLE_STORED_AS_FLOAT),

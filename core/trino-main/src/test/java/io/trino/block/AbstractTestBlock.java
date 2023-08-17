@@ -36,13 +36,13 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.toIntExact;
@@ -262,12 +262,6 @@ public abstract class AbstractTestBlock
         assertThat(block.isNull(position)).isFalse();
 
         if (expectedValue instanceof Slice expectedSliceValue) {
-            if (isByteAccessSupported()) {
-                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_BYTE; offset++) {
-                    assertThat(block.getByte(position, offset)).isEqualTo(expectedSliceValue.getByte(offset));
-                }
-            }
-
             if (isShortAccessSupported()) {
                 for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_SHORT; offset++) {
                     assertThat(block.getShort(position, offset)).isEqualTo(expectedSliceValue.getShort(offset));
@@ -305,6 +299,18 @@ public abstract class AbstractTestBlock
 
             assertPositionEquals(block, position, expectedSliceValue);
         }
+        else if (expectedValue instanceof Byte[] expected) {
+            Block actual = block.getObject(position, Block.class);
+            assertThat(actual.getPositionCount()).isEqualTo(expected.length);
+            for (int i = 0; i < expected.length; i++) {
+                if (expected[i] == null) {
+                    assertThat(actual.isNull(i)).isTrue();
+                }
+                else {
+                    assertThat(TINYINT.getByte(actual, i)).isEqualTo(expected[i].byteValue());
+                }
+            }
+        }
         else if (expectedValue instanceof long[] expected) {
             Block actual = block.getObject(position, Block.class);
             assertThat(actual.getPositionCount()).isEqualTo(expected.length);
@@ -327,13 +333,8 @@ public abstract class AbstractTestBlock
             }
         }
         else {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Unsupported type: " + expectedValue.getClass().getSimpleName());
         }
-    }
-
-    protected boolean isByteAccessSupported()
-    {
-        return true;
     }
 
     protected boolean isShortAccessSupported()

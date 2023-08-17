@@ -121,7 +121,7 @@ public class TestAvroPageDataReaderWithoutTypeManager
                 assertBlockEquals(MAP_VARCHAR_VARCHAR, mb, expected);
 
                 ByteArrayBlock block = (ByteArrayBlock) p.getBlock(readerSchema.getFields().size() - 1);
-                assertThat(block.getByte(0, 0)).isGreaterThan((byte) 0);
+                assertThat(block.getByte(0)).isGreaterThan((byte) 0);
                 totalRecords += p.getPositionCount();
             }
             assertThat(totalRecords).isEqualTo(count);

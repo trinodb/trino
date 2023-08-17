@@ -57,12 +57,6 @@ public final class LazyBlock
     }
 
     @Override
-    public byte getByte(int position, int offset)
-    {
-        return getBlock().getByte(position, offset);
-    }
-
-    @Override
     public short getShort(int position, int offset)
     {
         return getBlock().getShort(position, offset);
