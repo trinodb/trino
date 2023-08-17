@@ -283,7 +283,7 @@ public class TestIcebergBucketing
 
         Block bucketBlock = blockTransform.apply(block);
         verify(bucketBlock.getPositionCount() == 1);
-        Integer trinoBucketWithBlock = bucketBlock.isNull(0) ? null : bucketBlock.getInt(0, 0);
+        Integer trinoBucketWithBlock = bucketBlock.isNull(0) ? null : INTEGER.getInt(bucketBlock, 0);
 
         Long trinoBucketWithValue = (Long) transform.getValueTransform().apply(block, 0);
         Integer trinoBucketWithValueAsInteger = trinoBucketWithValue == null ? null : toIntExact(trinoBucketWithValue);

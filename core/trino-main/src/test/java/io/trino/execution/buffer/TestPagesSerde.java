@@ -317,12 +317,15 @@ public class TestPagesSerde
         @Override
         public void writeBlock(SliceOutput output, Block block)
         {
-            int offset = 0;
-            int numberOfEntries = block.getInt(0, offset);
+            VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
+            Slice slice = variableWidthBlock.getSlice(0);
+
+            int numberOfEntries = slice.getInt(0);
             output.writeInt(numberOfEntries);
-            offset += 4;
+
+            int offset = 4;
             for (int i = 0; i < numberOfEntries; ++i) {
-                long value = block.getLong(0, offset);
+                long value = slice.getLong(offset);
                 offset += 8;
                 long b7 = value >> 56 & 0xffL;
                 long b6 = value >> 48 & 0xffL;
