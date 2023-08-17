@@ -36,6 +36,7 @@ import io.trino.plugin.hive.type.StructTypeInfo;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -93,6 +94,7 @@ import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.HiveType.toHiveTypes;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
@@ -509,6 +511,13 @@ public final class HiveUtil
             throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType, name));
         }
         return partitionKey;
+    }
+
+    public static List<ColumnMetadata> getTableColumnMetadata(ConnectorSession session, Table table, TypeManager typeManager)
+    {
+        return hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
+                .map(columnMetadataGetter(table))
+                .collect(toImmutableList());
     }
 
     public static List<HiveColumnHandle> hiveColumnHandles(Table table, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
