@@ -545,16 +545,12 @@ public class DeltaLakeMetadata
         // This method does not calculate column metadata for the projected columns
         checkArgument(tableHandle.getProjectedColumns().isEmpty(), "Unexpected projected columns");
         MetadataEntry metadataEntry = tableHandle.getMetadataEntry();
-        Map<String, String> columnComments = getColumnComments(metadataEntry);
-        Map<String, Boolean> columnsNullability = getColumnsNullability(metadataEntry);
-        Map<String, String> columnGenerations = getGeneratedColumnExpressions(metadataEntry);
+
         List<String> constraints = ImmutableList.<String>builder()
                 .addAll(getCheckConstraints(metadataEntry).values())
                 .addAll(getColumnInvariants(metadataEntry).values()) // The internal logic for column invariants in Delta Lake is same as check constraints
                 .build();
-        List<ColumnMetadata> columns = getColumns(metadataEntry).stream()
-                .map(column -> getColumnMetadata(column, columnComments.get(column.getBaseColumnName()), columnsNullability.getOrDefault(column.getBaseColumnName(), true), columnGenerations.get(column.getBaseColumnName())))
-                .collect(toImmutableList());
+        List<ColumnMetadata> columns = getTableColumnMetadata(metadataEntry);
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.<String, Object>builder()
                 .put(LOCATION_PROPERTY, tableHandle.getLocation());
@@ -589,6 +585,17 @@ public class DeltaLakeMetadata
                             }
                         })
                         .collect(toImmutableList()));
+    }
+
+    private List<ColumnMetadata> getTableColumnMetadata(MetadataEntry metadataEntry)
+    {
+        Map<String, String> columnComments = getColumnComments(metadataEntry);
+        Map<String, Boolean> columnsNullability = getColumnsNullability(metadataEntry);
+        Map<String, String> columnGenerations = getGeneratedColumnExpressions(metadataEntry);
+        List<ColumnMetadata> columns = getColumns(metadataEntry).stream()
+                .map(column -> getColumnMetadata(column, columnComments.get(column.getBaseColumnName()), columnsNullability.getOrDefault(column.getBaseColumnName(), true), columnGenerations.get(column.getBaseColumnName())))
+                .collect(toImmutableList());
+        return columns;
     }
 
     @Override
