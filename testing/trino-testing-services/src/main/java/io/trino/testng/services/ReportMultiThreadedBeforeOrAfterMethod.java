@@ -25,7 +25,7 @@ import org.testng.xml.XmlTest;
 import java.lang.reflect.Method;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
-import static io.trino.testng.services.Listeners.reportListenerFailure;
+import static io.trino.testing.Listeners.reportListenerFailure;
 import static java.lang.String.format;
 
 public class ReportMultiThreadedBeforeOrAfterMethod

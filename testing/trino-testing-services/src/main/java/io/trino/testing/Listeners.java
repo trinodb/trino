@@ -11,27 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.testng.services;
+package io.trino.testing;
 
 import com.google.common.base.Joiner;
 import com.google.errorprone.annotations.FormatMethod;
 import org.testng.ITestClass;
-import org.testng.ITestNGListener;
 import org.testng.ITestResult;
 
 import static java.lang.String.format;
 
-final class Listeners
+public final class Listeners
 {
     private Listeners() {}
 
     /**
      * Print error to standard error and exit JVM.
      *
-     * @apiNote A TestNG listener cannot throw an exception, as this are not currently properly handled by TestNG.
+     * @apiNote A TestNG listener and JUnit extension cannot throw an exception, as this are not currently properly handled by them.
      */
     @FormatMethod
-    public static void reportListenerFailure(Class<? extends ITestNGListener> listenerClass, String format, Object... args)
+    public static void reportListenerFailure(Class<?> listenerClass, String format, Object... args)
     {
         System.err.println(format("FATAL: %s: ", listenerClass.getName()) + format(format, args));
         System.err.println("JVM will be terminated");

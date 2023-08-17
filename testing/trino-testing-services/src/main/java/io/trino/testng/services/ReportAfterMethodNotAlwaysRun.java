@@ -32,7 +32,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.testng.services.Listeners.reportListenerFailure;
+import static io.trino.testing.Listeners.reportListenerFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;

@@ -28,7 +28,7 @@ import java.util.regex.PatternSyntaxException;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.testng.services.Listeners.reportListenerFailure;
+import static io.trino.testing.Listeners.reportListenerFailure;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 

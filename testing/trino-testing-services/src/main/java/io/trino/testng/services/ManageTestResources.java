@@ -38,7 +38,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
-import static io.trino.testng.services.Listeners.reportListenerFailure;
+import static io.trino.testing.Listeners.reportListenerFailure;
 import static io.trino.testng.services.ManageTestResources.Stage.AFTER_CLASS;
 import static io.trino.testng.services.ManageTestResources.Stage.BEFORE_CLASS;
 import static java.lang.annotation.ElementType.FIELD;

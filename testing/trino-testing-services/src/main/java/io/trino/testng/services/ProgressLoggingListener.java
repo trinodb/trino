@@ -25,7 +25,7 @@ import org.testng.ITestResult;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-import static io.trino.testng.services.Listeners.formatTestName;
+import static io.trino.testing.Listeners.formatTestName;
 import static java.lang.String.format;
 
 public class ProgressLoggingListener

@@ -19,7 +19,7 @@ import org.testng.ITestClass;
 import java.util.Optional;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
-import static io.trino.testng.services.Listeners.reportListenerFailure;
+import static io.trino.testing.Listeners.reportListenerFailure;
 
 /**
  * Detects test classes which are defined as inner classes
