@@ -134,7 +134,7 @@ public class RowPositionsAppender
         ensureCapacity(1);
         RowBlock sourceRowBlock = (RowBlock) value;
 
-        List<Block> fieldBlocks = sourceRowBlock.getChildren();
+        List<Block> fieldBlocks = sourceRowBlock.getFieldBlocks();
         for (int i = 0; i < fieldAppenders.length; i++) {
             fieldAppenders[i].append(position, fieldBlocks.get(i));
         }

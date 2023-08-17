@@ -255,12 +255,6 @@ public final class RowBlock
     }
 
     @Override
-    public List<Block> getChildren()
-    {
-        return fieldBlocksList;
-    }
-
-    @Override
     public String getEncodingName()
     {
         return RowBlockEncoding.NAME;
