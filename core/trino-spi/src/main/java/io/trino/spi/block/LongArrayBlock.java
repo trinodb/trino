@@ -27,7 +27,6 @@ import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
-import static java.lang.Math.toIntExact;
 
 public final class LongArrayBlock
         implements ValueBlock
@@ -137,18 +136,6 @@ public final class LongArrayBlock
     {
         checkReadablePosition(this, position);
         return values[position + arrayOffset];
-    }
-
-    @Override
-    @Deprecated
-    // TODO: Remove when we fix intermediate types on aggregations.
-    public int getInt(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-        return toIntExact(values[position + arrayOffset]);
     }
 
     @Override

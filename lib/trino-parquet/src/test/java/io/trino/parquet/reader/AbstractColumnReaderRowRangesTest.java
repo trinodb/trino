@@ -65,6 +65,7 @@ import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.parquet.reader.FilteredRowRanges.RowRange;
 import static io.trino.parquet.reader.TestingRowRanges.toRowRange;
 import static io.trino.parquet.reader.TestingRowRanges.toRowRanges;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.concat;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -132,7 +133,7 @@ public abstract class AbstractColumnReaderRowRangesTest
                     assertThat(rowValueCounts.getInt(i)).isEqualTo(expectedDefinitions.size());
                     for (int j = 0; j < rowValueCounts.getInt(i); j++) {
                         if (expectedDefinitions.getBoolean(j)) {
-                            assertThat(block.getInt(blockIndex++, 0)).isEqualTo(selectedRowNumber);
+                            assertThat(INTEGER.getInt(block, blockIndex++)).isEqualTo(selectedRowNumber);
                         }
                         else {
                             assertThat(block.isNull(blockIndex++)).isTrue();

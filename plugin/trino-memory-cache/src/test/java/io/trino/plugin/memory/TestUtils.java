@@ -17,6 +17,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public final class TestUtils
@@ -29,7 +30,7 @@ public final class TestUtils
         if (expected instanceof IntArrayBlock) {
             assertThat(actual).isInstanceOf(IntArrayBlock.class);
             for (int position = 0; position < actual.getPositionCount(); position++) {
-                assertThat(actual.getInt(position, 0)).isEqualTo(expected.getInt(position, 0));
+                assertThat(INTEGER.getInt(actual, position)).isEqualTo(INTEGER.getInt(expected, position));
             }
         }
         else {

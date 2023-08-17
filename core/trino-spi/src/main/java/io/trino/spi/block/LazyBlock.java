@@ -57,12 +57,6 @@ public final class LazyBlock
     }
 
     @Override
-    public int getInt(int position, int offset)
-    {
-        return getBlock().getInt(position, offset);
-    }
-
-    @Override
     public long getLong(int position, int offset)
     {
         return getBlock().getLong(position, offset);

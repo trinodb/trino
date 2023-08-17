@@ -327,6 +327,30 @@
                                     <code>java.method.removed</code>
                                     <old>method short io.trino.spi.block.VariableWidthBlock::getShort(int, int)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.Block::getInt(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.DictionaryBlock::getInt(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.IntArrayBlock::getInt(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.LazyBlock::getInt(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.RunLengthEncodedBlock::getInt(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.VariableWidthBlock::getInt(int, int)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
