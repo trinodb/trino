@@ -34,7 +34,7 @@ import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES_FROM_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE_WITH_PARAMETER;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLES_WITH_PARAMETER;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.REPLACE_TABLE;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
@@ -348,7 +348,7 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.builder()
                         .add(GET_ALL_TABLES_FROM_DATABASE)
                         .addCopies(GET_TABLE, tables * 2)
-                        .addCopies(GET_TABLE_WITH_PARAMETER, 2)
+                        .addCopies(GET_TABLES_WITH_PARAMETER, 2)
                         .build());
 
         for (int i = 0; i < tables; i++) {
@@ -380,7 +380,7 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.builder()
                         .add(GET_ALL_TABLES_FROM_DATABASE)
                         .addCopies(GET_TABLE, tables * 2)
-                        .addCopies(GET_TABLE_WITH_PARAMETER, 2)
+                        .addCopies(GET_TABLES_WITH_PARAMETER, 2)
                         .build());
 
         // Pointed lookup
