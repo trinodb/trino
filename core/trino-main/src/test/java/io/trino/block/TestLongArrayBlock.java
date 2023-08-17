@@ -116,12 +116,6 @@ public class TestLongArrayBlock
     }
 
     @Override
-    protected boolean isIntAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
     protected boolean isSliceAccessSupported()
     {
         return false;
