@@ -15,8 +15,6 @@ package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -257,14 +255,6 @@ public sealed interface Block
     default Block getLoadedBlock()
     {
         return this;
-    }
-
-    /**
-     * Gets the direct child blocks of this block.
-     */
-    default List<Block> getChildren()
-    {
-        return Collections.emptyList();
     }
 
     /**

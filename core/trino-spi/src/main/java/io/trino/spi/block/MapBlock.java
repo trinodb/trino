@@ -18,7 +18,6 @@ import io.trino.spi.type.MapType;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
@@ -322,12 +321,6 @@ public final class MapBlock
                 keyBlock,
                 valueBlock,
                 hashTables);
-    }
-
-    @Override
-    public List<Block> getChildren()
-    {
-        return List.of(keyBlock, valueBlock);
     }
 
     MapType getMapType()
