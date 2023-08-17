@@ -169,23 +169,6 @@ public final class LongArrayBlock
     }
 
     @Override
-    @Deprecated
-    // TODO: Remove when we fix intermediate types on aggregations.
-    public byte getByte(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-
-        byte value = (byte) values[position + arrayOffset];
-        if (value != values[position + arrayOffset]) {
-            throw new ArithmeticException("byte overflow");
-        }
-        return value;
-    }
-
-    @Override
     public boolean mayHaveNull()
     {
         return valueIsNull != null;

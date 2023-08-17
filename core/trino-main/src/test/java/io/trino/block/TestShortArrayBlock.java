@@ -116,12 +116,6 @@ public class TestShortArrayBlock
     }
 
     @Override
-    protected boolean isByteAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
     protected boolean isShortAccessSupported()
     {
         return true;

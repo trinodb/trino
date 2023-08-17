@@ -279,6 +279,30 @@
                                     <code>java.method.removed</code>
                                     <old>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.RowBlock::getChildren()</old>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.trino.spi.block.Block::getByte(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.trino.spi.block.ByteArrayBlock::getByte(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.trino.spi.block.DictionaryBlock::getByte(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.trino.spi.block.LazyBlock::getByte(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.trino.spi.block.RunLengthEncodedBlock::getByte(int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.trino.spi.block.VariableWidthBlock::getByte(int, int)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
