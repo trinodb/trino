@@ -204,13 +204,6 @@ public final class RunLengthEncodedBlock
     }
 
     @Override
-    public short getShort(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        return value.getShort(0, offset);
-    }
-
-    @Override
     public int getInt(int position, int offset)
     {
         checkReadablePosition(this, position);
