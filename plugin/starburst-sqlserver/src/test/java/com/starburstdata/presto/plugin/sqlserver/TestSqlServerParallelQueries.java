@@ -59,6 +59,20 @@ public class TestSqlServerParallelQueries
         dropTable(tableName);
     }
 
+    @Test(dataProvider = "partitionRangesDataProvider")
+    public void testReadingPartitionedTableWithIndex(int range)
+    {
+        String tableName = "partitioned" + randomNameSuffix();
+        createPartitionedTable(tableName, 4, range);
+        addNonClusteredIndex(tableName);
+        fillTableWithData(tableName, 3);
+
+        verifyTableSplitCount(tableName, Optional.empty(), 1);
+        verifyTableSplitCount(tableName, Optional.of(4), 4);
+
+        dropTable(tableName);
+    }
+
     @Test
     public void testReadingPartitionedEmptyTable()
     {
@@ -189,6 +203,12 @@ public class TestSqlServerParallelQueries
         sqlServer.execute(format("CREATE PARTITION FUNCTION %sPartitionFunction (int) AS RANGE RIGHT FOR VALUES (%s)", tableName, partitionRanges));
         sqlServer.execute(format("CREATE PARTITION SCHEME %sPartitionScheme AS PARTITION %sPartitionFunction ALL TO ('PRIMARY')", tableName, tableName));
         sqlServer.execute(format("CREATE TABLE %s (%s int) ON %sPartitionScheme (%s)", tableName, COLUMN, tableName, COLUMN));
+    }
+
+    private void addNonClusteredIndex(String tableName)
+    {
+        // creating non clustered index on the same partition column will result in the two, same partition schemes being listed from metadata
+        sqlServer.execute(format("CREATE NONCLUSTERED INDEX %sIndex ON %s (%s) ON %sPartitionScheme (%s)", tableName, tableName, COLUMN, tableName, COLUMN));
     }
 
     private void createNonPartitionedTable(String tableName)

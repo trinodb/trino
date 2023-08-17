@@ -109,7 +109,7 @@ public class SqlServerSplitManager
             RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
 
             return handle.createQuery("""
-                            SELECT
+                            SELECT TOP 1
                                sys_columns.name AS column_name,
                                sys_functions.name AS function_name,
                                sys_functions.fanout AS partition_fanout
@@ -128,6 +128,7 @@ public class SqlServerSplitManager
                                ON sys_tables.object_id = sys_columns.object_id
                                AND sys_index_columns.column_id = sys_columns.column_id
                             WHERE sys_tables.name = :name
+                            ORDER BY partition_fanout DESC
                             """)
                     // sys_index_columns.partition_ordinal >= 1 is a partitioning column?
                     // Ordinal within set of partitioning columns.
