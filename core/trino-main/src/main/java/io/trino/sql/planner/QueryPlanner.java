@@ -1343,7 +1343,7 @@ class QueryPlanner
             List<Set<FieldId>> sets = IntStream.rangeClosed(0, rollup.size())
                     .mapToObj(prefixLength -> rollup.subList(0, prefixLength).stream()
                             .flatMap(Collection::stream)
-                            .collect(Collectors.toSet()))
+                            .collect(toImmutableSet()))
                     .collect(toImmutableList());
 
             partialSets.add(sets);
