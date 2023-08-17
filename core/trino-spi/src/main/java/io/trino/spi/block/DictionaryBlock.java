@@ -140,12 +140,6 @@ public final class DictionaryBlock
     }
 
     @Override
-    public short getShort(int position, int offset)
-    {
-        return dictionary.getShort(getId(position), offset);
-    }
-
-    @Override
     public int getInt(int position, int offset)
     {
         return dictionary.getInt(getId(position), offset);
