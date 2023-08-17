@@ -179,13 +179,6 @@ public final class VariableWidthBlock
     }
 
     @Override
-    public short getShort(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        return slice.getShort(getPositionOffset(position) + offset);
-    }
-
-    @Override
     public int getInt(int position, int offset)
     {
         checkReadablePosition(this, position);

@@ -118,12 +118,6 @@ public class TestInt128ArrayBlock
     }
 
     @Override
-    protected boolean isShortAccessSupported()
-    {
-        return false;
-    }
-
-    @Override
     protected boolean isIntAccessSupported()
     {
         return false;

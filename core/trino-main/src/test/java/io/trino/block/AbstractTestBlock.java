@@ -38,7 +38,6 @@ import java.util.List;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -262,12 +261,6 @@ public abstract class AbstractTestBlock
         assertThat(block.isNull(position)).isFalse();
 
         if (expectedValue instanceof Slice expectedSliceValue) {
-            if (isShortAccessSupported()) {
-                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_SHORT; offset++) {
-                    assertThat(block.getShort(position, offset)).isEqualTo(expectedSliceValue.getShort(offset));
-                }
-            }
-
             if (isIntAccessSupported()) {
                 for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_INT; offset++) {
                     assertThat(block.getInt(position, offset)).isEqualTo(expectedSliceValue.getInt(offset));
@@ -335,11 +328,6 @@ public abstract class AbstractTestBlock
         else {
             throw new IllegalArgumentException("Unsupported type: " + expectedValue.getClass().getSimpleName());
         }
-    }
-
-    protected boolean isShortAccessSupported()
-    {
-        return true;
     }
 
     protected boolean isIntAccessSupported()

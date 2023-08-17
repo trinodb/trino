@@ -123,15 +123,6 @@ public final class ShortArrayBlock
         return positionCount;
     }
 
-    @Override
-    public short getShort(int position, int offset)
-    {
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-        return getShort(position);
-    }
-
     public short getShort(int position)
     {
         checkReadablePosition(this, position);

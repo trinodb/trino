@@ -152,23 +152,6 @@ public final class LongArrayBlock
     }
 
     @Override
-    @Deprecated
-    // TODO: Remove when we fix intermediate types on aggregations.
-    public short getShort(int position, int offset)
-    {
-        checkReadablePosition(this, position);
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-
-        short value = (short) values[position + arrayOffset];
-        if (value != values[position + arrayOffset]) {
-            throw new ArithmeticException("short overflow");
-        }
-        return value;
-    }
-
-    @Override
     public boolean mayHaveNull()
     {
         return valueIsNull != null;
