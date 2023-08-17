@@ -126,14 +126,9 @@ public class TestFixed12Block
     @Override
     protected void assertPositionEquals(Block block, int position, Slice expectedBytes)
     {
-        assertThat(block.getLong(position, 0)).isEqualTo(expectedBytes.getLong(0));
-        assertThat(block.getInt(position, 8)).isEqualTo(expectedBytes.getInt(8));
-    }
-
-    @Override
-    protected boolean isIntAccessSupported()
-    {
-        return false;
+        Fixed12Block fixed12Block = (Fixed12Block) block;
+        assertThat(fixed12Block.getFixed12First(position)).isEqualTo(expectedBytes.getLong(0));
+        assertThat(fixed12Block.getFixed12Second(position)).isEqualTo(expectedBytes.getInt(8));
     }
 
     @Override

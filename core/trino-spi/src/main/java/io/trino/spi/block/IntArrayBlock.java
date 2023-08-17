@@ -124,15 +124,6 @@ public final class IntArrayBlock
         return positionCount;
     }
 
-    @Override
-    public int getInt(int position, int offset)
-    {
-        if (offset != 0) {
-            throw new IllegalArgumentException("offset must be zero");
-        }
-        return getInt(position);
-    }
-
     public int getInt(int position)
     {
         checkReadablePosition(this, position);

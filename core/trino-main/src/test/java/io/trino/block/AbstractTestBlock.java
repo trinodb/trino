@@ -36,7 +36,6 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -261,12 +260,6 @@ public abstract class AbstractTestBlock
         assertThat(block.isNull(position)).isFalse();
 
         if (expectedValue instanceof Slice expectedSliceValue) {
-            if (isIntAccessSupported()) {
-                for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_INT; offset++) {
-                    assertThat(block.getInt(position, offset)).isEqualTo(expectedSliceValue.getInt(offset));
-                }
-            }
-
             if (isLongAccessSupported()) {
                 for (int offset = 0; offset <= expectedSliceValue.length() - SIZE_OF_LONG; offset++) {
                     assertThat(block.getLong(position, offset)).isEqualTo(expectedSliceValue.getLong(offset));
@@ -328,11 +321,6 @@ public abstract class AbstractTestBlock
         else {
             throw new IllegalArgumentException("Unsupported type: " + expectedValue.getClass().getSimpleName());
         }
-    }
-
-    protected boolean isIntAccessSupported()
-    {
-        return true;
     }
 
     protected boolean isLongAccessSupported()

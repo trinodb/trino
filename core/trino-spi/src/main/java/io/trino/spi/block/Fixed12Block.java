@@ -134,7 +134,6 @@ public final class Fixed12Block
         return getFixed12First(position);
     }
 
-    @Override
     public int getInt(int position, int offset)
     {
         checkReadablePosition(this, position);
