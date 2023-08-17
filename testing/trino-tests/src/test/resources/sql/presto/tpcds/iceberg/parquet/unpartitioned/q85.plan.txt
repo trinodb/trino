@@ -6,7 +6,7 @@ local exchange (GATHER, SINGLE, [])
                     partial aggregation over (r_reason_desc)
                         join (INNER, REPLICATED):
                             join (INNER, REPLICATED):
-                                dynamic filter (["cd_demo_sk_6", "cd_education_status_9", "cd_marital_status_8"])
+                                dynamic filter (["cd_demo_sk", "cd_education_status", "cd_marital_status"])
                                     scan customer_demographics
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -28,7 +28,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                 scan date_dim
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
-                                                                        dynamic filter (["wr_reason_sk", "wr_refunded_cdemo_sk"])
+                                                                        dynamic filter (["wr_reason_sk", "wr_returning_cdemo_sk"])
                                                                             scan web_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
