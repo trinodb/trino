@@ -18,7 +18,6 @@ import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
-import java.util.List;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
@@ -28,7 +27,6 @@ import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidPosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public final class RunLengthEncodedBlock
@@ -93,12 +91,6 @@ public final class RunLengthEncodedBlock
 
         this.value = value;
         this.positionCount = positionCount;
-    }
-
-    @Override
-    public List<Block> getChildren()
-    {
-        return singletonList(value);
     }
 
     public ValueBlock getValue()

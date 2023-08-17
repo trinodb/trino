@@ -30,7 +30,6 @@ import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.lang.Math.min;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public final class DictionaryBlock
@@ -548,12 +547,6 @@ public final class DictionaryBlock
             return this;
         }
         return createInternal(idsOffset, getPositionCount(), loadedDictionary, ids, randomDictionaryId());
-    }
-
-    @Override
-    public List<Block> getChildren()
-    {
-        return singletonList(getDictionary());
     }
 
     @Override

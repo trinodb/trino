@@ -212,12 +212,6 @@ public final class LazyBlock
         return getBlock().mayHaveNull();
     }
 
-    @Override
-    public List<Block> getChildren()
-    {
-        return singletonList(getBlock());
-    }
-
     public Block getBlock()
     {
         return lazyData.getTopLevelBlock();
@@ -390,21 +384,43 @@ public final class LazyBlock
         }
 
         /**
-         * If the block is unloaded, add the listeners; otherwise call this method on child blocks
+         * If the block is unloaded, add the listeners; otherwise call this method on the nested blocks
          */
-        @SuppressWarnings("AccessingNonPublicFieldOfAnotherObject")
         private static void addListenersRecursive(Block block, List<Consumer<Block>> listeners)
         {
-            if (block instanceof LazyBlock) {
-                LazyData lazyData = ((LazyBlock) block).lazyData;
-                if (!lazyData.isTopLevelBlockLoaded()) {
-                    lazyData.addListeners(listeners);
-                    return;
-                }
+            if (block == null) {
+                return;
             }
 
-            for (Block child : block.getChildren()) {
-                addListenersRecursive(child, listeners);
+            switch (block) {
+                case LazyBlock lazyBlock -> {
+                    LazyData lazyData = lazyBlock.lazyData;
+                    if (lazyData.isTopLevelBlockLoaded()) {
+                        addListenersRecursive(lazyBlock.getBlock(), listeners);
+                    }
+                    else {
+                        lazyData.addListeners(listeners);
+                    }
+                }
+                case DictionaryBlock dictionaryBlock -> addListenersRecursive(dictionaryBlock.getDictionary(), listeners);
+                case RunLengthEncodedBlock runLengthEncodedBlock -> addListenersRecursive(runLengthEncodedBlock.getValue(), listeners);
+                case ValueBlock valueBlock -> {
+                    switch (valueBlock) {
+                        case ArrayBlock arrayBlock -> addListenersRecursive(arrayBlock.getRawElementBlock(), listeners);
+                        case MapBlock mapBlock -> {
+                            addListenersRecursive(mapBlock.getRawKeyBlock(), listeners);
+                            addListenersRecursive(mapBlock.getRawValueBlock(), listeners);
+                        }
+                        case RowBlock rowBlock -> {
+                            for (Block fieldBlock : rowBlock.getFieldBlocks()) {
+                                addListenersRecursive(fieldBlock, listeners);
+                            }
+                        }
+                        default -> {
+                            // no other value blocks are container types
+                        }
+                    }
+                }
             }
         }
     }

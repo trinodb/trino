@@ -15,7 +15,6 @@ package io.trino.spi.block;
 
 import jakarta.annotation.Nullable;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
@@ -33,7 +32,6 @@ import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
 import static io.trino.spi.block.BlockUtil.countAndMarkSelectedPositionsFromOffsets;
 import static io.trino.spi.block.BlockUtil.countSelectedPositionsFromOffsets;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public final class ArrayBlock
@@ -185,12 +183,6 @@ public final class ArrayBlock
     int getOffsetBase()
     {
         return arrayOffset;
-    }
-
-    @Override
-    public List<Block> getChildren()
-    {
-        return singletonList(values);
     }
 
     @Override
