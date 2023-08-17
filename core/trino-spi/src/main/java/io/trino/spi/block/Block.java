@@ -34,14 +34,6 @@ public sealed interface Block
     }
 
     /**
-     * Gets a byte at {@code offset} in the value at {@code position}.
-     */
-    default byte getByte(int position, int offset)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
      * Gets a little endian short at {@code offset} in the value at {@code position}.
      */
     default short getShort(int position, int offset)
