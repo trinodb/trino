@@ -473,39 +473,38 @@ public class DeltaLakeMetadata
             // Pretend the table does not exist to produce better error message in case of table redirects to Hive
             return null;
         }
-        SchemaTableName dataTableName = new SchemaTableName(tableName.getSchemaName(), tableName.getTableName());
-        Optional<DeltaMetastoreTable> table = metastore.getTable(dataTableName.getSchemaName(), dataTableName.getTableName());
+        Optional<DeltaMetastoreTable> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
         if (table.isEmpty()) {
             return null;
         }
         boolean managed = table.get().managed();
 
         String tableLocation = table.get().location();
-        TableSnapshot tableSnapshot = getSnapshot(dataTableName, tableLocation, session);
+        TableSnapshot tableSnapshot = getSnapshot(tableName, tableLocation, session);
         MetadataEntry metadataEntry;
         try {
             metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(DELTA_LAKE_INVALID_SCHEMA.toErrorCode())) {
-                return new CorruptedDeltaLakeTableHandle(dataTableName, managed, tableLocation, e);
+                return new CorruptedDeltaLakeTableHandle(tableName, managed, tableLocation, e);
             }
             throw e;
         }
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
         if (protocolEntry.getMinReaderVersion() > MAX_READER_VERSION) {
-            LOG.debug("Skip %s because the reader version is unsupported: %d", dataTableName, protocolEntry.getMinReaderVersion());
+            LOG.debug("Skip %s because the reader version is unsupported: %d", tableName, protocolEntry.getMinReaderVersion());
             return null;
         }
         Set<String> unsupportedReaderFeatures = unsupportedReaderFeatures(protocolEntry.getReaderFeatures().orElse(ImmutableSet.of()));
         if (!unsupportedReaderFeatures.isEmpty()) {
-            LOG.debug("Skip %s because the table contains unsupported reader features: %s", dataTableName, unsupportedReaderFeatures);
+            LOG.debug("Skip %s because the table contains unsupported reader features: %s", tableName, unsupportedReaderFeatures);
             return null;
         }
         verifySupportedColumnMapping(getColumnMappingMode(metadataEntry));
         return new DeltaLakeTableHandle(
-                dataTableName.getSchemaName(),
-                dataTableName.getTableName(),
+                tableName.getSchemaName(),
+                tableName.getTableName(),
                 managed,
                 tableLocation,
                 metadataEntry,
