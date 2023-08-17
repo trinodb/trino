@@ -59,6 +59,7 @@ import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertContains;
+import static io.trino.plugin.jdbc.JdbcColumnHandle.createJdbcColumnHandle;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BOOLEAN;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_CHAR;
@@ -119,18 +120,18 @@ public class TestDefaultJdbcQueryBuilder
         CharType charType = CharType.createCharType(0);
 
         columns = ImmutableList.of(
-                new JdbcColumnHandle("col_0", JDBC_BIGINT, BIGINT),
-                new JdbcColumnHandle("col_1", JDBC_DOUBLE, DOUBLE),
-                new JdbcColumnHandle("col_2", JDBC_BOOLEAN, BOOLEAN),
-                new JdbcColumnHandle("col_3", JDBC_VARCHAR, VARCHAR),
-                new JdbcColumnHandle("col_4", JDBC_DATE, DATE),
-                new JdbcColumnHandle("col_5", JDBC_TIME, TIME_MILLIS),
-                new JdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
-                new JdbcColumnHandle("col_7", JDBC_TINYINT, TINYINT),
-                new JdbcColumnHandle("col_8", JDBC_SMALLINT, SMALLINT),
-                new JdbcColumnHandle("col_9", JDBC_INTEGER, INTEGER),
-                new JdbcColumnHandle("col_10", JDBC_REAL, REAL),
-                new JdbcColumnHandle("col_11", JDBC_CHAR, charType));
+                createJdbcColumnHandle("col_0", JDBC_BIGINT, BIGINT),
+                createJdbcColumnHandle("col_1", JDBC_DOUBLE, DOUBLE),
+                createJdbcColumnHandle("col_2", JDBC_BOOLEAN, BOOLEAN),
+                createJdbcColumnHandle("col_3", JDBC_VARCHAR, VARCHAR),
+                createJdbcColumnHandle("col_4", JDBC_DATE, DATE),
+                createJdbcColumnHandle("col_5", JDBC_TIME, TIME_MILLIS),
+                createJdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
+                createJdbcColumnHandle("col_7", JDBC_TINYINT, TINYINT),
+                createJdbcColumnHandle("col_8", JDBC_SMALLINT, SMALLINT),
+                createJdbcColumnHandle("col_9", JDBC_INTEGER, INTEGER),
+                createJdbcColumnHandle("col_10", JDBC_REAL, REAL),
+                createJdbcColumnHandle("col_11", JDBC_CHAR, charType));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" +

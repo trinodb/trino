@@ -280,7 +280,11 @@ public abstract class BaseJdbcClient
             Type type = toColumnMapping(session, connection, jdbcTypeHandle)
                     .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
                     .getType();
-            columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type));
+            columns.add(JdbcColumnHandle.builder()
+                    .setColumnName(name)
+                    .setJdbcTypeHandle(jdbcTypeHandle)
+                    .setColumnType(type)
+                    .build());
         }
         return columns.build();
     }

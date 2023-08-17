@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.testing.Closeables.closeAll;
+import static io.trino.plugin.jdbc.JdbcColumnHandle.createJdbcColumnHandle;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -73,20 +74,20 @@ public class TestJdbcRecordSet
     public void testGetColumnTypes()
     {
         RecordSet recordSet = createRecordSet(ImmutableList.of(
-                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR),
-                new JdbcColumnHandle("text_short", JDBC_VARCHAR, createVarcharType(32)),
-                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT)));
+                createJdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR),
+                createJdbcColumnHandle("text_short", JDBC_VARCHAR, createVarcharType(32)),
+                createJdbcColumnHandle("value", JDBC_BIGINT, BIGINT)));
         assertThat(recordSet.getColumnTypes()).containsExactly(VARCHAR, createVarcharType(32), BIGINT);
 
         recordSet = createRecordSet(ImmutableList.of(
-                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
-                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)));
+                createJdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
+                createJdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)));
         assertThat(recordSet.getColumnTypes()).containsExactly(BIGINT, VARCHAR);
 
         recordSet = createRecordSet(ImmutableList.of(
-                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
-                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
-                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)));
+                createJdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
+                createJdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
+                createJdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)));
         assertThat(recordSet.getColumnTypes()).containsExactly(BIGINT, BIGINT, VARCHAR);
 
         recordSet = createRecordSet(ImmutableList.of());

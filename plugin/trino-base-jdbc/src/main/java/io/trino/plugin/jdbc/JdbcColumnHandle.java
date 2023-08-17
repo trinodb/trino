@@ -152,6 +152,15 @@ public final class JdbcColumnHandle
                 + jdbcTypeHandle.getRetainedSizeInBytes();
     }
 
+    public static JdbcColumnHandle createJdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType)
+    {
+        return builder()
+                .setColumnName(columnName)
+                .setJdbcTypeHandle(jdbcTypeHandle)
+                .setColumnType(columnType)
+                .build();
+    }
+
     public static Builder builder()
     {
         return new Builder();

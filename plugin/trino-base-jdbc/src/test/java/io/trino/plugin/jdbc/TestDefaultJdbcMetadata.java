@@ -42,6 +42,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.jdbc.JdbcColumnHandle.createJdbcColumnHandle;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -133,9 +134,9 @@ public class TestDefaultJdbcMetadata
     {
         // known table
         assertThat(metadata.getColumnHandles(SESSION, tableHandle)).isEqualTo(ImmutableMap.of(
-                "text", new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
-                "text_short", new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
-                "value", new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
+                "text", createJdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
+                "text_short", createJdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
+                "value", createJdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
 
         // unknown table
         unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), new RemoteTableName(Optional.of("unknown"), Optional.of("unknown"), "unknown"), Optional.empty()));
@@ -220,7 +221,7 @@ public class TestDefaultJdbcMetadata
     @Test
     public void getColumnMetadata()
     {
-        assertThat(metadata.getColumnMetadata(SESSION, tableHandle, new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR))).isEqualTo(new ColumnMetadata("text", VARCHAR));
+        assertThat(metadata.getColumnMetadata(SESSION, tableHandle, createJdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR))).isEqualTo(new ColumnMetadata("text", VARCHAR));
     }
 
     @Test
@@ -242,7 +243,7 @@ public class TestDefaultJdbcMetadata
         assertThat(layout.getColumns().get(0)).isEqualTo(new ColumnMetadata("text", VARCHAR));
         assertThat(layout.getColumns().get(1)).isEqualTo(new ColumnMetadata("x", VARCHAR));
 
-        JdbcColumnHandle columnHandle = new JdbcColumnHandle("x", JDBC_VARCHAR, VARCHAR);
+        JdbcColumnHandle columnHandle = createJdbcColumnHandle("x", JDBC_VARCHAR, VARCHAR);
         metadata.dropColumn(SESSION, handle, columnHandle);
         layout = metadata.getTableMetadata(SESSION, handle);
         assertThat(layout.getColumns()).hasSize(1);

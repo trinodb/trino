@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.plugin.jdbc.JdbcColumnHandle.createJdbcColumnHandle;
 import static io.trino.plugin.jdbc.MetadataUtil.COLUMN_CODEC;
 import static io.trino.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
@@ -45,15 +46,15 @@ public class TestJdbcColumnHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("columnName", JDBC_BIGINT, BIGINT),
-                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR))
+                        createJdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR),
+                        createJdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR),
+                        createJdbcColumnHandle("columnName", JDBC_BIGINT, BIGINT),
+                        createJdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR))
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("columnNameX", JDBC_BIGINT, BIGINT),
-                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR))
+                        createJdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR),
+                        createJdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR),
+                        createJdbcColumnHandle("columnNameX", JDBC_BIGINT, BIGINT),
+                        createJdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR))
                 .check();
     }
 }

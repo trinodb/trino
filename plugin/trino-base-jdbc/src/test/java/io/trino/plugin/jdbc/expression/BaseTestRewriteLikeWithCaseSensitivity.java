@@ -16,7 +16,6 @@ package io.trino.plugin.jdbc.expression;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Match;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
-import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.spi.connector.ColumnHandle;
@@ -31,6 +30,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
+import static io.trino.plugin.jdbc.JdbcColumnHandle.createJdbcColumnHandle;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,8 +50,8 @@ public abstract class BaseTestRewriteLikeWithCaseSensitivity
             @Override
             public Map<String, ColumnHandle> getAssignments()
             {
-                return Map.of("case_insensitive_value", new JdbcColumnHandle("case_insensitive_value", JDBC_BIGINT, VARCHAR),
-                        "case_sensitive_value", new JdbcColumnHandle("case_sensitive_value", new JdbcTypeHandle(Types.VARCHAR, Optional.of("varchar"), Optional.of(10), Optional.empty(), Optional.empty(), Optional.of(CASE_SENSITIVE)), VARCHAR));
+                return Map.of("case_insensitive_value", createJdbcColumnHandle("case_insensitive_value", JDBC_BIGINT, VARCHAR),
+                        "case_sensitive_value", createJdbcColumnHandle("case_sensitive_value", new JdbcTypeHandle(Types.VARCHAR, Optional.of("varchar"), Optional.of(10), Optional.empty(), Optional.empty(), Optional.of(CASE_SENSITIVE)), VARCHAR));
             }
 
             @Override

@@ -874,10 +874,11 @@ public class DefaultJdbcMetadata
     {
         verify(!isTableHandleForProcedure(tableHandle), "Not a table reference: %s", tableHandle);
         // The column is used for row-level merge, which is not supported, but it's required during analysis anyway.
-        return new JdbcColumnHandle(
-                MERGE_ROW_ID,
-                new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
-                BIGINT);
+        return JdbcColumnHandle.builder()
+                .setColumnName(MERGE_ROW_ID)
+                .setJdbcTypeHandle(new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                .setColumnType(BIGINT)
+                .build();
     }
 
     @Override

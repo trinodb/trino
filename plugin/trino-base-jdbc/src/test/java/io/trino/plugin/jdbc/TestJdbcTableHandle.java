@@ -25,6 +25,7 @@ import java.sql.Types;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static io.trino.plugin.jdbc.JdbcColumnHandle.createJdbcColumnHandle;
 import static io.trino.plugin.jdbc.MetadataUtil.TABLE_CODEC;
 import static io.trino.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
 
@@ -70,7 +71,7 @@ public class TestJdbcTableHandle
                 ImmutableList.of(),
                 Optional.empty(),
                 OptionalLong.of(1),
-                Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
+                Optional.of(ImmutableList.of(createJdbcColumnHandle("i", type, IntegerType.INTEGER))),
                 Optional.of(ImmutableSet.of()),
                 0,
                 Optional.empty());
@@ -88,7 +89,7 @@ public class TestJdbcTableHandle
                 ImmutableList.of(),
                 Optional.empty(),
                 OptionalLong.of(1),
-                Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
+                Optional.of(ImmutableList.of(createJdbcColumnHandle("i", type, IntegerType.INTEGER))),
                 Optional.of(ImmutableSet.of()),
                 0,
                 Optional.empty());
