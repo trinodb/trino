@@ -10,7 +10,6 @@
 package com.starburstdata.trino.plugins.salesforce;
 
 import com.google.inject.Inject;
-import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -30,7 +29,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
-import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TimeType;
@@ -105,14 +103,12 @@ import static java.util.stream.Collectors.joining;
 public class SalesforceJdbcClient
         extends BaseJdbcClient
 {
-    private final TableScanRedirection tableScanRedirection;
     private final boolean enableWrites;
     private final Set<SystemTableProvider> systemTables;
 
     @Inject
     public SalesforceJdbcClient(
             BaseJdbcConfig config,
-            TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             @EnableWrites boolean enableWrites,
             IdentifierMapping identifierMapping,
@@ -121,15 +117,8 @@ public class SalesforceJdbcClient
             RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
-        this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.enableWrites = enableWrites;
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
-    }
-
-    @Override
-    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
-    {
-        return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 
     @Override
