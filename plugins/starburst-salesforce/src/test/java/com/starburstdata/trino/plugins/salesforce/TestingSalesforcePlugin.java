@@ -12,7 +12,7 @@ package com.starburstdata.trino.plugins.salesforce;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorFactory;
 
-import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
+import static com.starburstdata.trino.plugins.salesforce.SalesforceQueryRunner.NOOP_LICENSE_MANAGER;
 
 public class TestingSalesforcePlugin
         extends SalesforcePlugin
@@ -21,12 +21,13 @@ public class TestingSalesforcePlugin
 
     public TestingSalesforcePlugin(boolean enableWrites)
     {
+        super(NOOP_LICENSE_MANAGER);
         this.enableWrites = enableWrites;
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(getConnectorFactory(NOOP_LICENSE_MANAGER, enableWrites));
+        return ImmutableList.of(getConnectorFactory(enableWrites));
     }
 }

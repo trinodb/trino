@@ -11,28 +11,32 @@ package com.starburstdata.trino.plugins.salesforce;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
-import com.starburstdata.presto.license.LicenseManager;
-import com.starburstdata.presto.license.LicenseManagerProvider;
+import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
-import static com.starburstdata.presto.license.StarburstFeature.SALESFORCE;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
 public class SalesforcePlugin
         implements Plugin
 {
+    private final LicenseManager licenseManager;
+
+    public SalesforcePlugin(LicenseManager licenseManager)
+    {
+        this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
+    }
+
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new LicenceCheckingConnectorFactory(SALESFORCE, getConnectorFactory(new LicenseManagerProvider().get(), false)));
+        return ImmutableList.of(getConnectorFactory(false));
     }
 
     @VisibleForTesting
-    ConnectorFactory getConnectorFactory(LicenseManager licenseManager, boolean enableWrites)
+    ConnectorFactory getConnectorFactory(boolean enableWrites)
     {
         requireNonNull(licenseManager, "licenseManager is null");
         return new JdbcConnectorFactory(
@@ -40,6 +44,6 @@ public class SalesforcePlugin
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
                         binder -> binder.bind(Boolean.class).annotatedWith(EnableWrites.class).toInstance(enableWrites),
-                        new SalesforceModule()));
+                        new SalesforceModule(licenseManager)));
     }
 }

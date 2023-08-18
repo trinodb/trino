@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.starburstdata.trino.plugins.salesforce.SalesforceModule.OAuthJwtConnectionUrlProvider;
 import com.starburstdata.presto.server.StarburstEngineQueryRunner;
+import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -49,6 +50,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public final class SalesforceQueryRunner
 {
+    public static final LicenseManager NOOP_LICENSE_MANAGER = () -> true;
+
     private static final Logger log = Logger.get(SalesforceQueryRunner.class);
 
     private SalesforceQueryRunner() {}

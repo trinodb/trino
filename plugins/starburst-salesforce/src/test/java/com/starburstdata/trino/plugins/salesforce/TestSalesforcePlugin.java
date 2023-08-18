@@ -16,20 +16,9 @@ import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSalesforcePlugin
 {
-    @Test
-    public void testLicenseRequired()
-    {
-        Plugin plugin = new SalesforcePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of(), new TestingConnectorContext()))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Valid license required to use the feature: Starburst Salesforce connector");
-    }
-
     @Test
     public void testCreateConnector()
     {

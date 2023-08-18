@@ -17,6 +17,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
+import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -41,11 +42,20 @@ import static java.util.Objects.requireNonNull;
 public class SalesforceModule
         extends AbstractConfigurationAwareModule
 {
+    private final LicenseManager licenseManager;
+
+    public SalesforceModule(LicenseManager licenseManager)
+    {
+        this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SalesforceJdbcClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(SalesforceConfig.class);
+
+        binder.bind(LicenseManager.class).toInstance(licenseManager);
 
         newOptionalBinder(binder, ConnectorPageSinkProvider.class).setBinding().to(SalesforceJdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SystemTableProvider.class).addBinding().to(SalesforceSystemTableProvider.class);
