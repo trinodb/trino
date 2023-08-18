@@ -102,7 +102,7 @@ public final class StargateQueryRunner
             queryRunner.installPlugin(new StarburstHivePlugin());
             queryRunner.createCatalog("hive", "hive", ImmutableMap.of(
                     "hive.metastore", "file",
-                    "hive.metastore.catalog.dir", hiveCatalog.toUri().toString(),
+                    "hive.metastore.catalog.dir", "file:" + hiveCatalog.toRealPath(),
                     "hive.security", "allow-all"));
 
             queryRunner.execute("CREATE SCHEMA hive.tiny");
