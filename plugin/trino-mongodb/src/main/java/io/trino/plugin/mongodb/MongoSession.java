@@ -68,6 +68,7 @@ import org.bson.types.Binary;
 import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -98,6 +99,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
@@ -899,6 +901,16 @@ public class MongoSession
         }
         else if (value instanceof Float || value instanceof Double) {
             typeSignature = DOUBLE.getTypeSignature();
+        }
+        else if (value instanceof Decimal128 decimal128) {
+            BigDecimal decimal;
+            try {
+                decimal = decimal128.bigDecimalValue();
+            }
+            catch (ArithmeticException e) {
+                return Optional.empty();
+            }
+            typeSignature = createDecimalType(decimal.precision(), decimal.scale()).getTypeSignature();
         }
         else if (value instanceof Date) {
             typeSignature = TIMESTAMP_MILLIS.getTypeSignature();
