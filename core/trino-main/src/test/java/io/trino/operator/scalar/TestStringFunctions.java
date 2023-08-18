@@ -794,7 +794,7 @@ public class TestStringFunctions
 
         assertThat(assertions.function("substr", "'Quadratically'", "0"))
                 .hasType(createVarcharType(13))
-                .isEqualTo("");
+                .isEqualTo("Quadratically");
 
         assertThat(assertions.function("substr", "'Quadratically'", "5", "6"))
                 .hasType(createVarcharType(13))
@@ -826,7 +826,7 @@ public class TestStringFunctions
 
         assertThat(assertions.function("substr", "'Quadratically'", "0", "4"))
                 .hasType(createVarcharType(13))
-                .isEqualTo("");
+                .isEqualTo("Quad");
 
         assertThat(assertions.function("substr", "'Quadratically'", "5", "0"))
                 .hasType(createVarcharType(13))
@@ -860,7 +860,7 @@ public class TestStringFunctions
                 .binding("value", "'Quadratically'")
                 .binding("start", "0"))
                 .hasType(createVarcharType(13))
-                .isEqualTo("");
+                .isEqualTo("Quadratically");
 
         assertThat(assertions.expression("SUBSTRING(value FROM start FOR length)")
                 .binding("value", "'Quadratically'")
@@ -939,7 +939,7 @@ public class TestStringFunctions
 
         assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "0"))
                 .hasType(createVarcharType(13))
-                .isEqualTo("");
+                .isEqualTo("Quadratically");
 
         assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "5", "6"))
                 .hasType(createVarcharType(13))
@@ -971,7 +971,7 @@ public class TestStringFunctions
 
         assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "0", "4"))
                 .hasType(createVarcharType(13))
-                .isEqualTo("");
+                .isEqualTo("Quad");
 
         assertThat(assertions.function("substr", "CAST('Quadratically' AS CHAR(13))", "5", "0"))
                 .hasType(createVarcharType(13))
@@ -1021,7 +1021,7 @@ public class TestStringFunctions
                 .binding("value", "CAST('Quadratically' AS CHAR(13))")
                 .binding("start", "0"))
                 .hasType(createVarcharType(13))
-                .isEqualTo("");
+                .isEqualTo("Quadratically");
 
         assertThat(assertions.function("substring", "CAST('Quadratically' AS CHAR(13))", "5", "6"))
                 .hasType(createVarcharType(13))
