@@ -3,15 +3,15 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.starburstdata.presto</groupId>
-        <artifactId>starburst-enterprise-root</artifactId>
-        <version>423-e-SNAPSHOT</version>
-        <relativePath>../..</relativePath>
+        <groupId>com.starburstdata.trino.plugins</groupId>
+        <artifactId>starburst-trino-plugins</artifactId>
+        <version>426-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>starburst-salesforce</artifactId>
-    <packaging>trino-plugin</packaging>
     <description>Starburst Enterprise - Salesforce Connector</description>
+    <packaging>trino-plugin</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -19,33 +19,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-base-jdbc</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
+            <groupId>com.starburstdata.trino.plugins</groupId>
             <artifactId>starburst-license</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-plugin-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
@@ -59,58 +34,23 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-api</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-context</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- Driver is not referenced at compile time -->
-        <dependency>
-            <groupId>com.cdata</groupId>
-            <artifactId>salesforce-jdbc</artifactId>
-            <version>2022-3</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-redirection</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -137,56 +77,48 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Driver is not referenced at compile time -->
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>test</scope>
+            <groupId>com.cdata</groupId>
+            <artifactId>salesforce-jdbc</artifactId>
+            <version>2022-3</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-base-jdbc</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-engine</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-engine</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-license</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-redirection</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-testing</artifactId>
-            <scope>test</scope>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
-            <scope>test</scope>
+            <artifactId>slice</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -261,6 +193,18 @@
         <dependency>
             <groupId>io.trino.tpch</groupId>
             <artifactId>tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
 
