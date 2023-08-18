@@ -4199,10 +4199,10 @@ public abstract class BaseHiveConnectorTest
                 .build();
         String tableName = "writing_tasks_limit_%s".formatted(randomNameSuffix());
         @Language("SQL") String createTableSql = format(
-                "CREATE TABLE %s WITH (format = 'ORC' %s) AS SELECT *, mod(orderkey, 2) as part_key FROM tpch.sf1.orders LIMIT",
+                "CREATE TABLE %s WITH (format = 'ORC' %s) AS SELECT *, mod(orderkey, 2) as part_key FROM tpch.sf2.orders LIMIT",
                 tableName, partitioned ? ", partitioned_by = ARRAY['part_key']" : "");
         try {
-            assertUpdate(session, createTableSql, (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+            assertUpdate(session, createTableSql, (long) computeActual("SELECT count(*) FROM tpch.sf2.orders").getOnlyValue());
             long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM %s".formatted(tableName));
             assertEquals(files, expectedFilesCount);
         }
