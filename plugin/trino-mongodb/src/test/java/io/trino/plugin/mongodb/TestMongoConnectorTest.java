@@ -33,6 +33,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.bson.Document;
+import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -522,6 +523,26 @@ public class TestMongoConnectorTest
         client.getDatabase("test").getCollection(allUnknownFieldTable).insertOne(document2);
         assertQueryReturnsEmptyResult("SHOW COLUMNS FROM test." + allUnknownFieldTable);
         assertUpdate("DROP TABLE test." + allUnknownFieldTable);
+    }
+
+    @Test
+    public void testSkipUnsupportedDecimal128()
+    {
+        String tableName = "test_unsupported_decimal128" + randomNameSuffix();
+
+        Document document = new Document(ImmutableMap.<String, Object>builder()
+                .put("col", 1)
+                .put("nan", Decimal128.NaN)
+                .put("negative_nan", Decimal128.NEGATIVE_NaN)
+                .put("positive_infinity", Decimal128.POSITIVE_INFINITY)
+                .put("negative_infinity", Decimal128.NEGATIVE_INFINITY)
+                .put("negative_zero", Decimal128.NEGATIVE_ZERO)
+                .buildOrThrow());
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+        assertQuery("SHOW COLUMNS FROM test." + tableName, "SELECT 'col', 'bigint', '', ''");
+        assertQuery("SELECT col FROM test." + tableName, "SELECT 1");
+
+        assertUpdate("DROP TABLE test." + tableName);
     }
 
     @Test(dataProvider = "dbRefProvider")
