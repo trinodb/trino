@@ -228,153 +228,31 @@
                                     </old>
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.connector.ConnectorAccessControl::checkCanShowRoleAuthorizationDescriptors(io.trino.spi.connector.ConnectorSecurityContext)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.security.SystemAccessControl::checkCanShowRoleAuthorizationDescriptors(io.trino.spi.security.SystemSecurityContext)</old>
-                                </item>
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.returnTypeChanged</code>
-                                    <old>method void io.trino.spi.block.VariableWidthBlockBuilder::writeEntry(io.airlift.slice.Slice)</old>
-                                    <new>method io.trino.spi.block.VariableWidthBlockBuilder io.trino.spi.block.VariableWidthBlockBuilder::writeEntry(io.airlift.slice.Slice)</new>
-                                    <justification>Safe to change void return to match other method of same name with different signature</justification>
-                                </item>
-                                <item>
-                                    <code>java.method.returnTypeChanged</code>
-                                    <old>method java.lang.Object io.airlift.slice.Slice::getBase()</old>
-                                    <new>method byte[] io.airlift.slice.Slice::getBase()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
-                                    <new>method void io.airlift.slice.SliceInput::readDoubles(double[])</new>
-                                </item>
-                                <item>
-                                    <code>java.method.abstractMethodAdded</code>
-                                    <new>method void io.airlift.slice.SliceInput::readDoubles(double[], int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
-                                    <new>method void io.airlift.slice.SliceInput::readFloats(float[])</new>
-                                </item>
-                                <item>
-                                    <code>java.method.abstractMethodAdded</code>
-                                    <new>method void io.airlift.slice.SliceInput::readFloats(float[], int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
-                                    <new>method void io.airlift.slice.SliceInput::readInts(int[])</new>
-                                </item>
-                                <item>
-                                    <code>java.method.abstractMethodAdded</code>
-                                    <new>method void io.airlift.slice.SliceInput::readInts(int[], int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
-                                    <new>method void io.airlift.slice.SliceInput::readLongs(long[])</new>
-                                </item>
-                                <item>
-                                    <code>java.method.abstractMethodAdded</code>
-                                    <new>method void io.airlift.slice.SliceInput::readLongs(long[], int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
-                                    <new>method void io.airlift.slice.SliceInput::readShorts(short[])</new>
-                                </item>
-                                <item>
-                                    <code>java.method.abstractMethodAdded</code>
-                                    <new>method void io.airlift.slice.SliceInput::readShorts(short[], int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.abstractMethodAdded</code>
-                                    <new>method void io.airlift.slice.SliceOutput::writeDoubles(double[], int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.abstractMethodAdded</code>
-                                    <new>method void io.airlift.slice.SliceOutput::writeFloats(float[], int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.abstractMethodAdded</code>
-                                    <new>method void io.airlift.slice.SliceOutput::writeInts(int[], int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.abstractMethodAdded</code>
-                                    <new>method void io.airlift.slice.SliceOutput::writeLongs(long[], int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.abstractMethodAdded</code>
-                                    <new>method void io.airlift.slice.SliceOutput::writeShorts(short[], int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.returnTypeChanged</code>
-                                    <old>method java.lang.Object io.airlift.slice.Slice::getBase()</old>
-                                    <new>method byte[] io.airlift.slice.Slice::getBase()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method byte io.airlift.slice.Slice::getByteUnchecked(int)</old>
-                                    <new>method byte io.airlift.slice.Slice::getByteUnchecked(int)</new>
-                                    <oldVisibility>package</oldVisibility>
-                                    <newVisibility>public</newVisibility>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method int io.airlift.slice.Slice::getIntUnchecked(int)</old>
-                                    <new>method int io.airlift.slice.Slice::getIntUnchecked(int)</new>
-                                    <oldVisibility>package</oldVisibility>
-                                    <newVisibility>public</newVisibility>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method long io.airlift.slice.Slice::getLongUnchecked(int)</old>
-                                    <new>method long io.airlift.slice.Slice::getLongUnchecked(int)</new>
-                                    <oldVisibility>package</oldVisibility>
-                                    <newVisibility>public</newVisibility>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method short io.airlift.slice.Slice::getShortUnchecked(int)</old>
-                                    <new>method short io.airlift.slice.Slice::getShortUnchecked(int)</new>
-                                    <oldVisibility>package</oldVisibility>
-                                    <newVisibility>public</newVisibility>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean io.airlift.slice.Slice::hasByteArray()</old>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
                                     <code>java.class.externalClassExposedInAPI</code>
                                     <new>interface io.opentelemetry.api.logs.LogRecordBuilder</new>
                                     <justification>Upgrade to new opentelemetry version</justification>
                                 </item>
                                 <item>
-                                    <ignore>true</ignore>
                                     <code>java.class.externalClassExposedInAPI</code>
                                     <new>interface io.opentelemetry.api.logs.Logger</new>
                                     <justification>Upgrade to new opentelemetry version</justification>
                                 </item>
                                 <item>
-                                    <ignore>true</ignore>
                                     <code>java.class.externalClassExposedInAPI</code>
                                     <new>interface io.opentelemetry.api.logs.LoggerBuilder</new>
                                     <justification>Upgrade to new opentelemetry version</justification>
                                 </item>
                                 <item>
-                                    <ignore>true</ignore>
                                     <code>java.class.externalClassExposedInAPI</code>
                                     <new>interface io.opentelemetry.api.logs.LoggerProvider</new>
                                     <justification>Upgrade to new opentelemetry version</justification>
                                 </item>
                                 <item>
-                                    <ignore>true</ignore>
                                     <code>java.class.externalClassExposedInAPI</code>
                                     <new>enum io.opentelemetry.api.logs.Severity</new>
-                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                    <justification>Upgrade to new opentelemetry version</justification>
                                 </item>
                             </differences>
                         </revapi.differences>
