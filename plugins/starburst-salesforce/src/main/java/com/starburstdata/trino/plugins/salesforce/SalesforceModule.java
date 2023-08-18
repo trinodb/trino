@@ -15,7 +15,6 @@ import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import com.starburstdata.trino.plugins.license.LicenseManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -32,10 +31,7 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithCredentialProvider;
-import static com.starburstdata.trino.plugins.salesforce.SalesforceConfig.SalesforceAuthenticationType.OAUTH_JWT;
-import static com.starburstdata.trino.plugins.salesforce.SalesforceConfig.SalesforceAuthenticationType.PASSWORD;
 import static com.starburstdata.trino.plugins.salesforce.SalesforceConnectionFactory.CDATA_OEM_KEY;
-import static com.starburstdata.presto.plugin.toolkit.guice.Modules.enumConditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
@@ -63,17 +59,8 @@ public class SalesforceModule
         install(new CredentialProviderModule());
         install(noImpersonationModuleWithCredentialProvider());
 
-        install(enumConditionalModule(
-                SalesforceConfig.class,
-                SalesforceConfig::getAuthenticationType,
-                PASSWORD, authenticationBinder -> {
-                    configBinder(authenticationBinder).bindConfig(SalesforcePasswordConfig.class);
-                    binder.bind(ConnectionUrlProvider.class).to(PasswordConnectionUrlProvider.class).in(Scopes.SINGLETON);
-                },
-                OAUTH_JWT, authenticationBinder -> {
-                    configBinder(authenticationBinder).bindConfig(SalesforceOAuthJwtConfig.class);
-                    binder.bind(ConnectionUrlProvider.class).to(OAuthJwtConnectionUrlProvider.class).in(Scopes.SINGLETON);
-                }));
+        configBinder(binder).bindConfig(SalesforcePasswordConfig.class);
+        binder.bind(ConnectionUrlProvider.class).to(PasswordConnectionUrlProvider.class).in(Scopes.SINGLETON);
 
         install(new JdbcTableScanRedirectionModule());
         install(new DecimalModule());
@@ -115,43 +102,6 @@ public class SalesforceModule
                     .append("OEMKey=\"").append(CDATA_OEM_KEY).append("\";");
 
             passwordConfig.getSecurityToken().ifPresent(token -> builder.append("SecurityToken=\"").append(token).append("\";"));
-
-            if (salesforceConfig.isDriverLoggingEnabled()) {
-                builder.append("LogFile=\"").append(salesforceConfig.getDriverLoggingLocation()).append("\";")
-                        .append("Verbosity=\"").append(salesforceConfig.getDriverLoggingVerbosity()).append("\";");
-            }
-
-            salesforceConfig.getExtraJdbcProperties().ifPresent(builder::append);
-            return builder.toString();
-        }
-    }
-
-    public static class OAuthJwtConnectionUrlProvider
-            implements ConnectionUrlProvider
-    {
-        private final SalesforceConfig salesforceConfig;
-        private final SalesforceOAuthJwtConfig oAuthJwtConfig;
-
-        @Inject
-        public OAuthJwtConnectionUrlProvider(SalesforceConfig salesforceConfig, SalesforceOAuthJwtConfig oAuthJwtConfig)
-        {
-            this.salesforceConfig = requireNonNull(salesforceConfig, "salesforceConfig is null");
-            this.oAuthJwtConfig = requireNonNull(oAuthJwtConfig, "oAuthJwtConfig is null");
-        }
-
-        @Override
-        public String get()
-        {
-            StringBuilder builder = new StringBuilder("jdbc:salesforce:")
-                    .append("AuthScheme=\"OAuthJWT\";")
-                    .append("OAuthJWTCertSubject=\"").append(oAuthJwtConfig.getPkcs12CertificateSubject()).append("\";")
-                    .append("OAuthJWTCertPassword=\"").append(oAuthJwtConfig.getPkcs12Password()).append("\";")
-                    .append("OAuthJWTCert=\"").append(oAuthJwtConfig.getPkcs12Path()).append("\";")
-                    .append("OAuthJWTCertType=\"PFXFILE\";")
-                    .append("OAuthJWTIssuer=\"").append(oAuthJwtConfig.getJwtIssuer()).append("\";")
-                    .append("OAuthJWTSubject=\"").append(oAuthJwtConfig.getJwtSubject()).append("\";")
-                    .append("UseSandbox=\"").append(salesforceConfig.isSandboxEnabled()).append("\";")
-                    .append("OEMKey=\"").append(CDATA_OEM_KEY).append("\";");
 
             if (salesforceConfig.isDriverLoggingEnabled()) {
                 builder.append("LogFile=\"").append(salesforceConfig.getDriverLoggingLocation()).append("\";")

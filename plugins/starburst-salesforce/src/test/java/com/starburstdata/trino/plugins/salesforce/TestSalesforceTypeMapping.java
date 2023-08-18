@@ -10,7 +10,6 @@
 package com.starburstdata.trino.plugins.salesforce;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Resources;
 import com.starburstdata.trino.plugins.salesforce.testing.datatype.SalesforceCreateAndInsertDataSetup;
 import com.starburstdata.trino.plugins.salesforce.testing.datatype.SqlDataTypeTest;
 import com.starburstdata.trino.plugins.salesforce.testing.sql.SalesforceTestTable;
@@ -36,7 +35,7 @@ import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.starburstdata.trino.plugins.salesforce.SalesforceConfig.SalesforceAuthenticationType.OAUTH_JWT;
+import static com.starburstdata.trino.plugins.salesforce.SalesforceConfig.SalesforceAuthenticationType.PASSWORD;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPING;
@@ -75,22 +74,20 @@ public class TestSalesforceTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        SalesforceOAuthJwtConfig oAuthConfig = new SalesforceOAuthJwtConfig()
-                .setPkcs12CertificateSubject("*")
-                .setPkcs12Path(Resources.getResource("salesforce-ca.p12").getPath())
-                .setPkcs12Password(requireNonNull(System.getProperty("salesforce.test.user1.pkcs12.password"), "salesforce.test.user1.pkcs12.password is not set"))
-                .setJwtIssuer("3MVG9OI03ecbG2Vr3NBmmhtNrcBp3Ywy2y0XHbRN_uGz_zYWqKozppyAOX27EWcrOH5HAib9Cd2i8E8g.rYD.")
-                .setJwtSubject(requireNonNull(System.getProperty("salesforce.test.user1.jwt.subject"), "salesforce.test.user1.jwt.subject is not set"));
+        SalesforcePasswordConfig passwordConfig = new SalesforcePasswordConfig()
+                .setUser(requireNonNull(System.getProperty("salesforce.test.basic.auth.user"), "salesforce.test.basic.auth.user is not set"))
+                .setPassword(requireNonNull(System.getProperty("salesforce.test.basic.auth.password"), "salesforce.test.basic.auth.password is not set"))
+                .setSecurityToken(requireNonNull(System.getProperty("salesforce.test.basic.auth.security-token"), "salesforce.test.basic.auth.security-token is not set"));
 
         SalesforceConfig config = new SalesforceConfig()
-                .setAuthenticationType(OAUTH_JWT)
+                .setAuthenticationType(PASSWORD)
                 .setSandboxEnabled(true);
 
         // Create a SalesforceConfig to get the JDBC URL that we can forward to the testing classes
         // to reset the metadata cache between runs
         // Note that if the JDBC connection properties are different than what is used by the
         // QueryRunner than we may have issues with the metadata cache
-        this.jdbcUrl = new SalesforceModule.OAuthJwtConnectionUrlProvider(config, oAuthConfig).get();
+        this.jdbcUrl = new SalesforceModule.PasswordConnectionUrlProvider(config, passwordConfig).get();
         return SalesforceQueryRunner.builder()
                 .enableWrites() // Enable writes so we can create tables and write data to them
                 .setTables(ImmutableList.of()) // No tables needed for type mapping tests

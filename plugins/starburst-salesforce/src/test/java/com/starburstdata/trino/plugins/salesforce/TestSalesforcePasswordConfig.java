@@ -53,11 +53,6 @@ public class TestSalesforcePasswordConfig
     @Test
     public void testSalesforcePasswordAuthenticationProvider()
     {
-        // We use OAuth to run the tests against Salesforce as the handshake won't ever expire.
-        // Password authentication expires periodically and we need to reset it which is a pain to maintain.
-        // This test case exists to validate that the correct configuration results in a correct
-        // JDBC string which is used by the CData driver to authenticate with Salesforce via user/password.
-
         SalesforceConfig config = new SalesforceConfig();
         config.setAuthenticationType(PASSWORD);
 

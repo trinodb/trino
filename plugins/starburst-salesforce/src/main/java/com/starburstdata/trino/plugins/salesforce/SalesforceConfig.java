@@ -24,7 +24,6 @@ public class SalesforceConfig
     public enum SalesforceAuthenticationType
     {
         PASSWORD,
-        OAUTH_JWT,
     }
 
     private SalesforceAuthenticationType authenticationType = PASSWORD;

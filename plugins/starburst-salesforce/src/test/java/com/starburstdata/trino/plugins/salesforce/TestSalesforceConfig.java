@@ -10,15 +10,15 @@
 package com.starburstdata.trino.plugins.salesforce;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.ConfigurationFactory;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.starburstdata.trino.plugins.salesforce.SalesforceConfig.SalesforceAuthenticationType.OAUTH_JWT;
 import static com.starburstdata.trino.plugins.salesforce.SalesforceConfig.SalesforceAuthenticationType.PASSWORD;
-import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.testng.Assert.assertEquals;
 
 public class TestSalesforceConfig
 {
@@ -38,7 +38,7 @@ public class TestSalesforceConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("salesforce.authentication.type", "OAUTH_JWT")
+                .put("salesforce.authentication.type", "PASSWORD")
                 .put("salesforce.enable-sandbox", "true")
                 .put("salesforce.driver-logging.enabled", "true")
                 .put("salesforce.driver-logging.location", "/tmp/foo")
@@ -46,14 +46,21 @@ public class TestSalesforceConfig
                 .put("salesforce.extra-jdbc-properties", "foo=bar;")
                 .buildOrThrow();
 
+        SalesforceConfig actual = new ConfigurationFactory(properties).build(SalesforceConfig.class);
+
         SalesforceConfig expected = new SalesforceConfig()
-                .setAuthenticationType(OAUTH_JWT)
+                .setAuthenticationType(PASSWORD)
                 .setSandboxEnabled(true)
                 .setDriverLoggingEnabled(true)
                 .setDriverLoggingLocation("/tmp/foo")
                 .setDriverLoggingVerbosity(5)
                 .setExtraJdbcProperties("foo=bar;");
 
-        assertFullMapping(properties, expected);
+        assertEquals(expected.getAuthenticationType(), actual.getAuthenticationType());
+        assertEquals(expected.isSandboxEnabled(), actual.isSandboxEnabled());
+        assertEquals(expected.isDriverLoggingEnabled(), actual.isDriverLoggingEnabled());
+        assertEquals(expected.getDriverLoggingLocation(), actual.getDriverLoggingLocation());
+        assertEquals(expected.getDriverLoggingVerbosity(), actual.getDriverLoggingVerbosity());
+        assertEquals(expected.getExtraJdbcProperties(), actual.getExtraJdbcProperties());
     }
 }
