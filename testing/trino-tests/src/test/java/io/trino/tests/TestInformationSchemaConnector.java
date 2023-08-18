@@ -249,11 +249,11 @@ public class TestInformationSchemaConnector
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_schema = 'test_schema1' AND table_name = 'test_table1'",
                 "VALUES 100",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 8)
-                        .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)", 2)
-                        .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 2)
-                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
-                        .addCopies("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)", 2)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                         .build());
         assertMetadataCalls(
