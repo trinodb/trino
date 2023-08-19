@@ -381,6 +381,10 @@
                                     <shadedPattern>${shadeBase}.okhttp3</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>io.opentelemetry.extension</pattern>
+                                    <shadedPattern>${shadeBase}.opentelemetry.extension</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>io.opentelemetry.instrumentation</pattern>
                                     <shadedPattern>${shadeBase}.opentelemetry.instrumentation</shadedPattern>
                                 </relocation>
