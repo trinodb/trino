@@ -1463,7 +1463,8 @@ public class TestCassandraConnectorTest
         String tableName = "test_insert" + randomNameSuffix();
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (1)'))"))
-                .hasMessageContaining("unconfigured table");
+                .hasMessage("Cannot get column definition")
+                .hasStackTraceContaining("unconfigured table");
     }
 
     @Test
@@ -1490,7 +1491,8 @@ public class TestCassandraConnectorTest
     public void testNativeQueryIncorrectSyntax()
     {
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .hasMessageContaining("no viable alternative at input 'some'");
+                .hasMessage("Cannot get column definition")
+                .hasStackTraceContaining("no viable alternative at input 'some'");
     }
 
     @Override
