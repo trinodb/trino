@@ -21,7 +21,9 @@ import alluxio.conf.AlluxioConfiguration;
 import alluxio.hadoop.AlluxioHdfsInputStream;
 import alluxio.hadoop.HdfsFileInputStream;
 import alluxio.wire.FileInfo;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
+import io.trino.hdfs.CallStats;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -40,10 +42,10 @@ public class CachingHdfsInputFile
 
     private final FileSystem.Statistics statistics = new FileSystem.Statistics("alluxio");
 
-    public CachingHdfsInputFile(String path, Long length, HdfsEnvironment environment, HdfsContext context,
-            CacheManager cacheManager, AlluxioConfiguration alluxioConf)
+    public CachingHdfsInputFile(Location location, Long length, HdfsEnvironment environment, HdfsContext context,
+            CallStats stats, CacheManager cacheManager, AlluxioConfiguration alluxioConf)
     {
-        super(path, length, environment, context);
+        super(location, length, environment, context, stats);
         this.cacheManager = cacheManager;
         this.alluxioConf = alluxioConf;
     }

@@ -36,6 +36,7 @@ import static java.util.Objects.requireNonNull;
 class HdfsInputFile
         implements TrinoInputFile
 {
+    protected final Location location;
     protected final HdfsEnvironment environment;
     protected final HdfsContext context;
     protected final Path file;

@@ -50,7 +50,7 @@ public class HdfsFileSystem
 {
     protected final HdfsEnvironment environment;
     protected final HdfsContext context;
-    private final TrinoHdfsFileSystemStats stats;
+    protected final TrinoHdfsFileSystemStats stats;
 
     private final Map<FileSystem, Boolean> hierarchicalFileSystemCache = new IdentityHashMap<>();
 
