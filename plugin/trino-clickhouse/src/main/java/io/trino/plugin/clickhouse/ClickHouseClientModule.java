@@ -20,6 +20,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.ConfigBinder;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
@@ -54,11 +55,11 @@ public class ClickHouseClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
     {
         Properties properties = new Properties();
         // The connector expects byte array for FixedString and String types
         properties.setProperty(USE_BINARY_STRING.getKey(), "true");
-        return new ClickHouseConnectionFactory(new DriverConnectionFactory(new ClickHouseDriver(), config.getConnectionUrl(), properties, credentialProvider));
+        return new ClickHouseConnectionFactory(new DriverConnectionFactory(new ClickHouseDriver(), config.getConnectionUrl(), properties, credentialProvider, openTelemetry));
     }
 }
