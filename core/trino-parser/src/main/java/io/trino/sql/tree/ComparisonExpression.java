@@ -92,7 +92,7 @@ public class ComparisonExpression
 
     private final Operator operator;
     private final Expression left;
-    private final Expression right;
+    private Expression right;
 
     public ComparisonExpression(Operator operator, Expression left, Expression right)
     {
@@ -129,6 +129,11 @@ public class ComparisonExpression
     public Expression getRight()
     {
         return right;
+    }
+
+    public void setRight(Expression right)
+    {
+        this.right = right;
     }
 
     @Override

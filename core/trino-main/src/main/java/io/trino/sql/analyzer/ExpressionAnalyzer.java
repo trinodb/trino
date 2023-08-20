@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
+import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.OperatorNotFoundException;
@@ -89,6 +90,7 @@ import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.Identifier;
@@ -115,6 +117,7 @@ import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -281,6 +284,8 @@ import static java.util.Objects.requireNonNull;
 
 public class ExpressionAnalyzer
 {
+    private static final Logger logger = Logger.get(ExpressionAnalyzer.class);
+
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT = 63;
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER = 31;
 
@@ -800,7 +805,45 @@ public class ExpressionAnalyzer
                 case IS_DISTINCT_FROM -> OperatorType.IS_DISTINCT_FROM;
             };
 
+            Optional<String> convertedDataType = getConvertedDateType(node.getLeft(), node.getRight(), context);
+            Optional<Expression> convertedExpression = getConvertedExpression(node.getRight(), convertedDataType);
+            convertedExpression.ifPresent(exp -> node.setRight(exp));
+
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
+        }
+
+        private Optional<Expression> getConvertedExpression(Expression expression, Optional<String> dataType)
+        {
+            if (dataType.isPresent()) {
+                return Optional.of(new TryExpression(new Cast(expression, new GenericDataType(new NodeLocation(1, 1), new Identifier(dataType.get()), new ArrayList<>()))));
+            }
+            else {
+                return Optional.ofNullable(null);
+            }
+        }
+
+        private Optional<String> getConvertedDateType(Expression left, Expression right, StackableAstVisitorContext<Context> context)
+        {
+            Type leftType = process(left, context);
+            Type rightType = process(right, context);
+            if (leftType == rightType) {
+                return Optional.ofNullable(null);
+            }
+
+            String datePattern = "^'([1-2][0-9][0-9][0-9]-[0-1]{0,1}[0-9]-[0-3]{0,1}[0-9])\\s(20|21|22|23|[0-1]\\d):[0-5]\\d:[0-5]\\d'$";
+            String datetimePattern = "^'([1-2][0-9][0-9][0-9]-[0-1]{0,1}[0-9]-[0-3]{0,1}[0-9])'$";
+            if (leftType instanceof TimestampType && rightType instanceof VarcharType) {
+                if (right.toString().matches(datePattern) || right.toString().matches(datetimePattern)) {
+                    return Optional.of("timestamp");
+                }
+            }
+            if (leftType instanceof VarcharType && rightType instanceof TimestampType) {
+                if (left.toString().matches(datePattern) || left.toString().matches(datetimePattern)) {
+                    return Optional.of("varchar");
+                }
+            }
+
+            return Optional.ofNullable(null);
         }
 
         @Override
@@ -1800,8 +1843,8 @@ public class ExpressionAnalyzer
             String name = node.getName().getSuffix();
 
             List<Expression> unlabeledInputColumns = Streams.concat(
-                            extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), Identifier.class).stream(),
-                            extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), DereferenceExpression.class).stream())
+                    extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), Identifier.class).stream(),
+                    extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), DereferenceExpression.class).stream())
                     .filter(expression -> columnReferences.containsKey(NodeRef.of(expression)))
                     .collect(toImmutableList());
             List<Expression> labeledInputColumns = extractExpressions(ImmutableList.of(node.getArguments().get(argumentIndex)), DereferenceExpression.class).stream()
