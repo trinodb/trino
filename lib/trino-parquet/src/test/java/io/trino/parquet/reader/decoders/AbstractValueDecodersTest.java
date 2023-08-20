@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.ParquetEncoding;
+import io.trino.parquet.ParquetTestUtils;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.dictionary.Dictionary;
 import io.trino.parquet.reader.SimpleSliceInputStream;
-import io.trino.parquet.reader.TestingColumnReader;
 import io.trino.parquet.reader.flat.ColumnAdapter;
 import io.trino.parquet.reader.flat.DictionaryDecoder;
 import io.trino.spi.type.DecimalType;
@@ -134,7 +134,7 @@ public abstract class AbstractValueDecodersTest
         DataBuffer dataBuffer = inputDataProvider.write(valuesWriter, dataSize);
 
         Optional<io.trino.parquet.DictionaryPage> dictionaryPage = Optional.ofNullable(dataBuffer.dictionaryPage())
-                .map(TestingColumnReader::toTrinoDictionaryPage);
+                .map(ParquetTestUtils::toTrinoDictionaryPage);
         Optional<Dictionary> dictionary = dictionaryPage.map(page -> {
             try {
                 return encoding.initDictionary(field.getDescriptor(), page);

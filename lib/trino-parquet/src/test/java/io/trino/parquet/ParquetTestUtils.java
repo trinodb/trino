@@ -38,6 +38,7 @@ import org.joda.time.DateTimeZone;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +49,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
+import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.block.MapBlock.fromKeyValueBlock;
@@ -228,5 +230,18 @@ public class ParquetTestUtils
             writeNativeValue(type, blockBuilder, (long) i);
         }
         return blockBuilder.build();
+    }
+
+    public static DictionaryPage toTrinoDictionaryPage(org.apache.parquet.column.page.DictionaryPage dictionary)
+    {
+        try {
+            return new DictionaryPage(
+                    Slices.wrappedBuffer(dictionary.getBytes().toByteArray()),
+                    dictionary.getDictionarySize(),
+                    getParquetEncoding(dictionary.getEncoding()));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
