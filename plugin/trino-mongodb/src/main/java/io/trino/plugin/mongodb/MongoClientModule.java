@@ -23,6 +23,8 @@ import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.instrumentation.mongo.v3_1.MongoTelemetry;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.mongodb.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -60,10 +62,11 @@ public class MongoClientModule
 
     @Singleton
     @Provides
-    public static MongoSession createMongoSession(TypeManager typeManager, MongoClientConfig config, Set<MongoClientSettingConfigurator> configurators)
+    public static MongoSession createMongoSession(TypeManager typeManager, MongoClientConfig config, Set<MongoClientSettingConfigurator> configurators, OpenTelemetry openTelemetry)
     {
         MongoClientSettings.Builder options = MongoClientSettings.builder();
         configurators.forEach(configurator -> configurator.configure(options));
+        options.addCommandListener(MongoTelemetry.builder(openTelemetry).build().newCommandListener());
         MongoClient client = MongoClients.create(options.build());
 
         return new MongoSession(
