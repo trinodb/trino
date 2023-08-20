@@ -757,18 +757,18 @@ public class OracleClient
     public static LongWriteFunction oracleRealWriteFunction()
     {
         return LongWriteFunction.of(Types.REAL, (statement, index, value) ->
-                ((OraclePreparedStatement) statement).setBinaryFloat(index, intBitsToFloat(toIntExact(value))));
+                statement.unwrap(OraclePreparedStatement.class).setBinaryFloat(index, intBitsToFloat(toIntExact(value))));
     }
 
     public static DoubleWriteFunction oracleDoubleWriteFunction()
     {
         return DoubleWriteFunction.of(Types.DOUBLE, (statement, index, value) ->
-                ((OraclePreparedStatement) statement).setBinaryDouble(index, value));
+                statement.unwrap(OraclePreparedStatement.class).setBinaryDouble(index, value));
     }
 
     private SliceWriteFunction oracleCharWriteFunction()
     {
-        return SliceWriteFunction.of(Types.NCHAR, (statement, index, value) -> ((OraclePreparedStatement) statement).setFixedCHAR(index, value.toStringUtf8()));
+        return SliceWriteFunction.of(Types.NCHAR, (statement, index, value) -> statement.unwrap(OraclePreparedStatement.class).setFixedCHAR(index, value.toStringUtf8()));
     }
 
     @Override
