@@ -43,6 +43,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithOpaque
                 .put("http-server.authentication.oauth2.issuer", "https://localhost:4444/")
                 .put("http-server.authentication.oauth2.auth-url", idpUrl + "/oauth2/auth")
                 .put("http-server.authentication.oauth2.token-url", idpUrl + "/oauth2/token")
+                .put("http-server.authentication.oauth2.end-session-url", idpUrl + "/oauth2/sessions/logout")
                 .put("http-server.authentication.oauth2.jwks-url", idpUrl + "/.well-known/jwks.json")
                 .put("http-server.authentication.oauth2.userinfo-url", idpUrl + "/userinfo")
                 .put("http-server.authentication.oauth2.client-id", TRINO_CLIENT_ID)

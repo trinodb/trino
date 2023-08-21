@@ -18,6 +18,10 @@ Set the callback/redirect URL to `https://<trino-coordinator-domain-name>/oauth2
 when configuring an OAuth 2.0 authorization server like an OpenID Connect (OIDC)
 provider.
 
+If Web UI is enabled, set the post-logout callback URL to 
+`https://<trino-coordinator-domain-name>/ui/logout/logout.html` when configuring 
+an OAuth 2.0 authentication server like an OpenID Connect (OIDC) provider.
+
 Using {doc}`TLS <tls>` and {doc}`a configured shared secret
 </security/internal-communication>` is required for OAuth 2.0 authentication.
 
@@ -33,6 +37,7 @@ values to set corresponding OAuth2 authentication configuration properties:
 - `jwks_uri` -> `http-server.authentication.oauth2.jwks-url`
 - `userinfo_endpoint` ->  `http-server.authentication.oauth2.userinfo-url`
 - `access_token_issuer` -> `http-server.authentication.oauth2.access-token-issuer`
+- `end_session_endpoint` -> `http-server.authentication.oauth2.end-session-url`
 
 :::{warning}
 If the authorization server is issuing JSON Web Tokens (JWTs) and the
@@ -157,6 +162,10 @@ The following configuration properties are available:
        validate the OAuth 2.0 access token, and retrieve any associated claims.
        This flag allows ignoring the value provided in the metadata document.
        Default is ``true``.
+   * - ``http-server.authentication.oauth2.end-session-url``
+     - The URL of the endpoint on the authorization server to which user's browser 
+       will be redirected to so that End-User will be logged out from the authorization 
+       server when logging out from Trino.
 ```
 
 (trino-oauth2-refresh-tokens)=
