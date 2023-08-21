@@ -755,7 +755,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @DataProvider
+    @DataProvider(parallel = true)
     public Object[][] columnMappingModeDataProvider()
     {
         return new Object[][] {

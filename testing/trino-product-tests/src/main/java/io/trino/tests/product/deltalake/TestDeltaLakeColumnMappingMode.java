@@ -1084,7 +1084,7 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
-    @DataProvider
+    @DataProvider(parallel = true)
     public Object[][] changeColumnMappingDataProvider()
     {
         // Update testChangeColumnMappingAndShowStatsForColumnMappingMode if Delta Lake changes their behavior
@@ -1474,7 +1474,7 @@ public class TestDeltaLakeColumnMappingMode
                 .containsOnly(expectedRows);
     }
 
-    @DataProvider
+    @DataProvider(parallel = true)
     public Object[][] columnMappingWithTrueAndFalseDataProvider()
     {
         return cartesianProduct(supportedColumnMappingForDmlDataProvider(), trueFalse());
@@ -1917,7 +1917,7 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
-    @DataProvider
+    @DataProvider(parallel = true)
     public Object[][] columnMappingDataProvider()
     {
         return new Object[][] {
@@ -1926,7 +1926,7 @@ public class TestDeltaLakeColumnMappingMode
         };
     }
 
-    @DataProvider
+    @DataProvider(parallel = true)
     public Object[][] supportedColumnMappingForDmlDataProvider()
     {
         return new Object[][] {

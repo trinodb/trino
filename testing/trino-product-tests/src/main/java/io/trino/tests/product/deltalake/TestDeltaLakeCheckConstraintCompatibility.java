@@ -68,7 +68,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
         }
     }
 
-    @DataProvider
+    @DataProvider(parallel = true)
     public static Object[][] checkConstraints()
     {
         return new Object[][] {

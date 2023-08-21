@@ -55,7 +55,7 @@ public class TestDeltaLakeDropTableCompatibility
         s3 = new S3ClientFactory().createS3Client(s3ServerType);
     }
 
-    @DataProvider
+    @DataProvider(parallel = true)
     public static Object[][] engineConfigurations()
     {
         return new Object[][] {
