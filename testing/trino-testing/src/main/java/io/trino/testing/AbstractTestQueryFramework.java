@@ -54,6 +54,9 @@ import io.trino.transaction.TransactionBuilder;
 import io.trino.util.AutoCloseableCloser;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -85,8 +88,10 @@ import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.fail;
 
+@TestInstance(PER_CLASS)
 public abstract class AbstractTestQueryFramework
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
@@ -97,6 +102,7 @@ public abstract class AbstractTestQueryFramework
     private io.trino.sql.query.QueryAssertions queryAssertions;
 
     @BeforeClass
+    @BeforeAll
     public void init()
             throws Exception
     {
@@ -109,6 +115,7 @@ public abstract class AbstractTestQueryFramework
     protected abstract QueryRunner createQueryRunner()
             throws Exception;
 
+    @AfterAll
     @AfterClass(alwaysRun = true)
     public final void close()
             throws Exception
