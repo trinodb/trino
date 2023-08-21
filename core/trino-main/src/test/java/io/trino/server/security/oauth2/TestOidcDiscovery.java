@@ -62,7 +62,8 @@ public class TestOidcDiscovery
                     .put("http-server.authentication.oauth2.oidc.discovery", "false")
                     .put("http-server.authentication.oauth2.auth-url", issuer.resolve("/connect/authorize").toString())
                     .put("http-server.authentication.oauth2.token-url", issuer.resolve("/connect/token").toString())
-                    .put("http-server.authentication.oauth2.jwks-url", issuer.resolve("/jwks.json").toString());
+                    .put("http-server.authentication.oauth2.jwks-url", issuer.resolve("/jwks.json").toString())
+                    .put("http-server.authentication.oauth2.end-session-url", issuer.resolve("/connect/logout").toString());
             accessTokenIssuer.map(URI::toString).ifPresent(uri -> properties.put("http-server.authentication.oauth2.access-token-issuer", uri));
             userinfoUrl.map(URI::toString).ifPresent(uri -> properties.put("http-server.authentication.oauth2.userinfo-url", uri));
             try (TestingTrinoServer server = createServer(properties.buildOrThrow())) {

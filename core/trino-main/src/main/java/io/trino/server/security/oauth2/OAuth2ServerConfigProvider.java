@@ -22,7 +22,7 @@ public interface OAuth2ServerConfigProvider
 {
     OAuth2ServerConfig get();
 
-    record OAuth2ServerConfig(Optional<String> accessTokenIssuer, URI authUrl, URI tokenUrl, URI jwksUrl, Optional<URI> userinfoUrl)
+    record OAuth2ServerConfig(Optional<String> accessTokenIssuer, URI authUrl, URI tokenUrl, URI jwksUrl, Optional<URI> userinfoUrl, Optional<URI> endSessionUrl)
     {
         public OAuth2ServerConfig
         {
@@ -31,6 +31,7 @@ public interface OAuth2ServerConfigProvider
             requireNonNull(tokenUrl, "tokenUrl is null");
             requireNonNull(jwksUrl, "jwksUrl is null");
             requireNonNull(userinfoUrl, "userinfoUrl is null");
+            requireNonNull(endSessionUrl, "endSessionUrl is null");
         }
     }
 }

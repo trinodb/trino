@@ -45,6 +45,7 @@ import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_EN
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
+import static io.trino.server.ui.OAuthIdTokenCookie.ID_TOKEN_COOKIE;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.util.Objects.requireNonNull;
@@ -163,9 +164,14 @@ public class OAuth2WebUiAuthenticationFilter
     {
         OAuth2Client.Response response = client.refreshTokens(refreshToken);
         String serializedToken = tokenPairSerializer.serialize(TokenPair.fromOAuth2Response(response));
-        request.abortWith(Response.temporaryRedirect(request.getUriInfo().getRequestUri())
-                .cookie(OAuthWebUiCookie.create(serializedToken, tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration())))
-                .build());
+        Instant newExpirationTime = tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration());
+        Response.ResponseBuilder builder = Response.temporaryRedirect(request.getUriInfo().getRequestUri())
+                .cookie(OAuthWebUiCookie.create(serializedToken, newExpirationTime));
+
+        OAuthIdTokenCookie.read(request.getCookies().get(ID_TOKEN_COOKIE))
+                .ifPresent(idToken -> builder.cookie(OAuthIdTokenCookie.create(idToken, newExpirationTime)));
+
+        request.abortWith(builder.build());
     }
 
     private void handleAuthenticationFailure(ContainerRequestContext request)
