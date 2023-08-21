@@ -125,6 +125,15 @@ values. Typical usage does not require you to configure them.
         statement performing table writes. The value can be overridden for a
         specific table with the ``checkpoint_interval`` table property.
       - ``10``
+    * - ``delta.default-column-mapping-mode``
+      - Default column mapping mode when creating a new table.
+        Possible values are:
+
+        * ``NAME``
+        * ``ID``
+        * ``NONE``
+
+      - ``NAME``
     * - ``delta.hive-catalog-name``
       - Name of the catalog to which ``SELECT`` queries are redirected when a
         Hive table is detected.
@@ -643,7 +652,7 @@ The following table properties are available for use:
       * ``NAME``
       * ``NONE``
 
-      Defaults to ``NONE``.
+      Defaults to ``NAME``.
 
 The following example uses all available table properties::
 

@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.testng.annotations.Test;
 
@@ -54,6 +55,7 @@ public class TestDeltaLakeConfig
                 .setUnsafeWritesEnabled(false)
                 .setDefaultCheckpointWritingInterval(10)
                 .setCheckpointRowStatisticsWritingEnabled(true)
+                .setDefaultColumnMappingMode(ColumnMappingMode.NAME)
                 .setVacuumMinRetention(new Duration(7, DAYS))
                 .setHiveCatalogName(null)
                 .setDynamicFilteringWaitTimeout(new Duration(0, SECONDS))
@@ -91,6 +93,7 @@ public class TestDeltaLakeConfig
                 .put("delta.enable-non-concurrent-writes", "true")
                 .put("delta.default-checkpoint-writing-interval", "15")
                 .put("delta.checkpoint-row-statistics-writing.enabled", "false")
+                .put("delta.default-column-mapping-mode", "NONE")
                 .put("delta.vacuum.min-retention", "13h")
                 .put("delta.hive-catalog-name", "hive")
                 .put("delta.dynamic-filtering.wait-timeout", "30m")
@@ -125,6 +128,7 @@ public class TestDeltaLakeConfig
                 .setUnsafeWritesEnabled(true)
                 .setDefaultCheckpointWritingInterval(15)
                 .setCheckpointRowStatisticsWritingEnabled(false)
+                .setDefaultColumnMappingMode(ColumnMappingMode.NONE)
                 .setVacuumMinRetention(new Duration(13, HOURS))
                 .setHiveCatalogName("hive")
                 .setDynamicFilteringWaitTimeout(new Duration(30, MINUTES))

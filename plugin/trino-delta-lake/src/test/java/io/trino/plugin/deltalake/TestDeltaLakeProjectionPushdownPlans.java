@@ -133,8 +133,9 @@ public class TestDeltaLakeProjectionPushdownPlans
         String testTable = "test_simple_projection_pushdown" + randomNameSuffix();
         QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, testTable);
 
+        // TODO https://github.com/trinodb/trino/issues/18747 Show logical column names instead of physical names in EXPLAIN result
         getQueryRunner().execute(format(
-                "CREATE TABLE %s (col0, col1) WITH (partitioned_by = ARRAY['col1']) AS" +
+                "CREATE TABLE %s (col0, col1) WITH (column_mapping_mode = 'NONE', partitioned_by = ARRAY['col1']) AS" +
                         " SELECT CAST(row(5, 6) AS row(x bigint, y bigint)) AS col0, 5 AS col1",
                 testTable));
 

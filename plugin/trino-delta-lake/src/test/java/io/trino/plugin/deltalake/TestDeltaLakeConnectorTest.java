@@ -277,6 +277,7 @@ public class TestDeltaLakeConnectorTest
                         "   comment varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   column_mapping_mode = 'NAME',\n" +
                         "   location = \\E'.*/test_schema/orders.*'\n\\Q" +
                         ")");
     }
@@ -390,33 +391,6 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP SCHEMA " + schemaName);
     }
 
-    @Override
-    public void testDropColumn()
-    {
-        // Override because the connector doesn't support dropping columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(super::testDropColumn)
-                .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
-    }
-
-    @Override
-    public void testAddAndDropColumnName(String columnName)
-    {
-        // Override because the connector doesn't support dropping columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
-                .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
-    }
-
-    @Override
-    public void testDropAndAddColumnWithSameName()
-    {
-        // Override because the connector doesn't support dropping columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(super::testDropAndAddColumnWithSameName)
-                .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
-    }
-
     @Test
     public void testDropLastNonPartitionColumn()
     {
@@ -426,33 +400,6 @@ public class TestDeltaLakeConnectorTest
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN data", "Dropping the last non-partition column is unsupported");
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Override
-    public void testRenameColumn()
-    {
-        // Override because the connector doesn't support renaming columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(super::testRenameColumn)
-                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
-    }
-
-    @Override
-    public void testAlterTableRenameColumnToLongName()
-    {
-        // Override because the connector doesn't support renaming columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
-                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
-    }
-
-    @Override
-    public void testRenameColumnName(String columnName)
-    {
-        // Override because the connector doesn't support renaming columns with 'none' column mapping
-        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
-        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
-                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
     }
 
     @Override
@@ -1238,20 +1185,22 @@ public class TestDeltaLakeConnectorTest
         String tableName = "test_projection_pushdown_explain_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, root ROW(f1 BIGINT, f2 BIGINT)) WITH (partitioned_by = ARRAY['id'])");
 
+        // TODO https://github.com/trinodb/trino/issues/18747 Show logical column names instead of physical names in EXPLAIN result
         assertExplain(
                 "EXPLAIN SELECT root.f2 FROM " + tableName,
                 "TableScan\\[table = (.*)]",
-                "root#f2 := root#f2:bigint:REGULAR");
+                "(.*)#(.*) := (.*)#(.*):bigint:REGULAR");
 
         Session sessionWithoutPushdown = Session.builder(getSession())
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "projection_pushdown_enabled", "false")
                 .build();
+        // TODO https://github.com/trinodb/trino/issues/18747 Show logical column names instead of physical names in EXPLAIN result
         assertExplain(
                 sessionWithoutPushdown,
                 "EXPLAIN SELECT root.f2 FROM " + tableName,
                 "ScanProject\\[table = (.*)]",
                 "expr := \"root\"\\[2]",
-                "root := root:row\\(f1 bigint, f2 bigint\\):REGULAR");
+                "root := (.*):row\\(f1 bigint, f2 bigint\\):REGULAR");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1264,15 +1213,16 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("CREATE TABLE " + tableName +
                 " (id BIGINT, _row ROW(child BIGINT), _array ARRAY(ROW(child BIGINT)), _map MAP(BIGINT, BIGINT))");
 
+        // TODO https://github.com/trinodb/trino/issues/18747 Show logical column names instead of physical names in EXPLAIN result
         assertExplain(
                 "EXPLAIN SELECT id, _row.child, _array[1].child, _map[1] FROM " + tableName,
                 "ScanProject\\[table = (.*)]",
                 "expr(.*) := \"_array(.*)\"\\[BIGINT '1']\\[1]",
-                "id(.*) := id:bigint:REGULAR",
+                "id(.*) := (.*):bigint:REGULAR",
                 // _array:array\\(row\\(child bigint\\)\\) is a symbol name, not a dereference expression.
-                "_array(.*) := _array:array\\(row\\(child bigint\\)\\):REGULAR",
-                "_map(.*) := _map:map\\(bigint, bigint\\):REGULAR",
-                "_row#child := _row#child:bigint:REGULAR");
+                "_array(.*) := (.*):array\\(row\\(child bigint\\)\\):REGULAR",
+                "_map(.*) := (.*):map\\(bigint, bigint\\):REGULAR",
+                "(.*)#(.*) := (.*)#(.*):bigint:REGULAR");
     }
 
     @Test(dataProvider = "columnMappingModeDataProvider")

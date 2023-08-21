@@ -483,13 +483,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
-    public void testDropColumnNotSupported()
-    {
-        registerTableFromResources("testdropcolumn", "io/trino/plugin/deltalake/testing/resources/databricks/nation", getQueryRunner());
-        assertQueryFails("ALTER TABLE testdropcolumn DROP COLUMN comment", "Cannot drop column from table using column mapping mode NONE");
-    }
-
-    @Test
     public void testCreatePartitionedTableAs()
     {
         String tableName = "test_create_partitioned_table_as_" + randomNameSuffix();
@@ -505,6 +498,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                                 "   comment varchar\n" +
                                 ")\n" +
                                 "WITH (\n" +
+                                "   column_mapping_mode = 'NAME',\n" +
                                 "   location = '%s',\n" +
                                 "   partitioned_by = ARRAY['regionkey']\n" +
                                 ")",
@@ -1465,6 +1459,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         "   another_string varchar\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   column_mapping_mode = 'NAME',\n" +
                         "   location = '" + newLocation + "'" + (secondPartitioned ? "," : "") + "\n" +
                         (secondPartitioned ? "   partitioned_by = ARRAY['a_number']\n" : "") +
                         ")");

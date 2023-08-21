@@ -20,6 +20,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -31,6 +32,7 @@ import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -62,6 +64,7 @@ public class DeltaLakeConfig
     private boolean unsafeWritesEnabled;
     private boolean checkpointRowStatisticsWritingEnabled = true;
     private long defaultCheckpointWritingInterval = 10;
+    private ColumnMappingMode defaultColumnMappingMode = ColumnMappingMode.NAME;
     private Duration vacuumMinRetention = new Duration(7, DAYS);
     private Optional<String> hiveCatalogName = Optional.empty();
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
@@ -267,6 +270,21 @@ public class DeltaLakeConfig
     public long getDefaultCheckpointWritingInterval()
     {
         return defaultCheckpointWritingInterval;
+    }
+
+    @NotNull
+    public ColumnMappingMode getDefaultColumnMappingMode()
+    {
+        return defaultColumnMappingMode;
+    }
+
+    @Config("delta.default-column-mapping-mode")
+    @ConfigDescription("The default column mapping mode when creating a new table")
+    public DeltaLakeConfig setDefaultColumnMappingMode(ColumnMappingMode columnMappingMode)
+    {
+        checkArgument(columnMappingMode != ColumnMappingMode.UNKNOWN, "UNKNOWN column mapping mode is unsupported");
+        this.defaultColumnMappingMode = columnMappingMode;
+        return this;
     }
 
     @NotNull

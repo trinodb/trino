@@ -77,7 +77,9 @@ public class TestDeltaLakeCreateTableStatistics
         DistributedQueryRunner queryRunner = createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
+                ImmutableMap.of(
+                        "delta.enable-non-concurrent-writes", "true",
+                        "delta.default-column-mapping-mode", "none"), // Use none column mapping mode to simplify the testing logic to get column statistics
                 hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
         this.transactionLogAccess = getConnectorService(queryRunner, TransactionLogAccess.class);
