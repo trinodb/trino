@@ -20,7 +20,6 @@ import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.InternalFunctionBundle;
-import io.trino.metadata.MetadataManager;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
@@ -71,8 +70,7 @@ public class TestIcebergGetTableStatisticsOperations
                 .build();
 
         localQueryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .withMetadataProvider((systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)
-                        -> new TracingMetadata(tracerProvider.get("test"), new MetadataManager(systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)))
+                .withMetadataDecorator(metadata -> new TracingMetadata(tracerProvider.get("test"), metadata))
                 .build();
         localQueryRunner.installPlugin(new TpchPlugin());
         localQueryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
