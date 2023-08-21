@@ -5525,43 +5525,44 @@ public abstract class BaseHiveConnectorTest
     {
         // Verify reordering of subfields between a partition column and a table column is not supported
         // eg. table column: a row(c varchar, b bigint), partition column: a row(b bigint, c varchar)
+        String tableName = "evolve_test_" + randomNameSuffix();
         try {
-            assertUpdate(session, "CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate(session, "INSERT INTO evolve_test values (10, row(1, 'abc'), 1)", 1);
-            assertUpdate(session, "ALTER TABLE evolve_test DROP COLUMN a");
-            assertUpdate(session, "ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
-            assertUpdate(session, "INSERT INTO evolve_test values (20, row('def', 2), 2)", 1);
-            assertQueryFails(session, "SELECT a.b FROM evolve_test where d = 1", ".*There is a mismatch between the table and partition schemas.*");
+            assertUpdate(session, "CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " values (10, row(1, 'abc'), 1)", 1);
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN a");
+            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN a row(c varchar, b bigint)");
+            assertUpdate(session, "INSERT INTO " + tableName + " values (20, row('def', 2), 2)", 1);
+            assertQueryFails(session, "SELECT a.b FROM " + tableName + " where d = 1", ".*There is a mismatch between the table and partition schemas.*");
         }
         finally {
-            assertUpdate(session, "DROP TABLE IF EXISTS evolve_test");
+            assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
         }
 
         // Subfield absent in partition schema is reported as null
         // i.e. "a.c" produces null for rows that were inserted before type of "a" was changed
         try {
-            assertUpdate(session, "CREATE TABLE evolve_test (dummy bigint, a row(b bigint), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate(session, "INSERT INTO evolve_test values (10, row(1), 1)", 1);
-            assertUpdate(session, "ALTER TABLE evolve_test DROP COLUMN a");
-            assertUpdate(session, "ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar)");
-            assertUpdate(session, "INSERT INTO evolve_test values (20, row(2, 'def'), 2)", 1);
-            assertQuery(session, "SELECT a.c FROM evolve_test", "SELECT 'def' UNION SELECT null");
+            assertUpdate(session, "CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " values (10, row(1), 1)", 1);
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN a");
+            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN a row(b bigint, c varchar)");
+            assertUpdate(session, "INSERT INTO " + tableName + " values (20, row(2, 'def'), 2)", 1);
+            assertQuery(session, "SELECT a.c FROM " + tableName, "SELECT 'def' UNION SELECT null");
         }
         finally {
-            assertUpdate(session, "DROP TABLE IF EXISTS evolve_test");
+            assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
         }
 
         // Verify field access when the row evolves without changes to field type
         try {
-            assertUpdate(session, "CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate(session, "INSERT INTO evolve_test values (10, row(1, 'abc'), 1)", 1);
-            assertUpdate(session, "ALTER TABLE evolve_test DROP COLUMN a");
-            assertUpdate(session, "ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar, e int)");
-            assertUpdate(session, "INSERT INTO evolve_test values (20, row(2, 'def', 2), 2)", 1);
-            assertQuery(session, "SELECT a.b FROM evolve_test", "VALUES 1, 2");
+            assertUpdate(session, "CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate(session, "INSERT INTO " + tableName + " values (10, row(1, 'abc'), 1)", 1);
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN a");
+            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN a row(b bigint, c varchar, e int)");
+            assertUpdate(session, "INSERT INTO " + tableName + " values (20, row(2, 'def', 2), 2)", 1);
+            assertQuery(session, "SELECT a.b FROM " + tableName, "VALUES 1, 2");
         }
         finally {
-            assertUpdate(session, "DROP TABLE IF EXISTS evolve_test");
+            assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -5570,33 +5571,34 @@ public abstract class BaseHiveConnectorTest
     {
         // Validate for formats for which subfield access is name based
         List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET, HiveStorageFormat.AVRO);
+        String tableName = "evolve_test_" + randomNameSuffix();
 
         for (HiveStorageFormat format : formats) {
             // Subfields reordered in the file are read correctly. e.g. if partition column type is row(b bigint, c varchar) but the file
             // column type is row(c varchar, b bigint), "a.b" should read the correct field from the file.
             try {
-                assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar)) with (format = '" + format + "')");
-                assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'))", 1);
-                assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
-                assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
-                assertQuery("SELECT a.b FROM evolve_test", "VALUES 1");
+                assertUpdate("CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c varchar)) with (format = '" + format + "')");
+                assertUpdate("INSERT INTO " + tableName + " values (1, row(1, 'abc'))", 1);
+                assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
+                assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a row(c varchar, b bigint)");
+                assertQuery("SELECT a.b FROM " + tableName, "VALUES 1");
             }
             finally {
-                assertUpdate("DROP TABLE IF EXISTS evolve_test");
+                assertUpdate("DROP TABLE IF EXISTS " + tableName);
             }
 
             // Assert that reordered subfields are read correctly for a two-level nesting. This is useful for asserting correct adaptation
             // of residue projections in HivePageSourceProvider
             try {
-                assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c row(x bigint, y varchar))) with (format = '" + format + "')");
-                assertUpdate("INSERT INTO evolve_test values (1, row(1, row(3, 'abc')))", 1);
-                assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
-                assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c row(y varchar, x bigint), b bigint)");
+                assertUpdate("CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c row(x bigint, y varchar))) with (format = '" + format + "')");
+                assertUpdate("INSERT INTO " + tableName + " values (1, row(1, row(3, 'abc')))", 1);
+                assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
+                assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a row(c row(y varchar, x bigint), b bigint)");
                 // TODO: replace the following assertion with assertQuery once h2QueryRunner starts supporting row types
-                assertQuerySucceeds("SELECT a.c.y, a.c FROM evolve_test");
+                assertQuerySucceeds("SELECT a.c.y, a.c FROM " + tableName);
             }
             finally {
-                assertUpdate("DROP TABLE IF EXISTS evolve_test");
+                assertUpdate("DROP TABLE IF EXISTS " + tableName);
             }
         }
     }
@@ -7885,7 +7887,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testColumnPruning(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_schema_evolution_column_pruning_" + storageFormat.name().toLowerCase(ENGLISH);
+        String tableName = "test_schema_evolution_column_pruning_" + storageFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix();
         String evolvedTableName = tableName + "_evolved";
 
         assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
