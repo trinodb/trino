@@ -184,9 +184,12 @@ public class TestDictionaryWriter
         int count = 1000;
         DictionaryFallbackValuesWriter fallbackValuesWriter = newPlainBinaryDictionaryValuesWriter(10000, 10000);
         writeDistinct(count, fallbackValuesWriter, "a");
+        long dictionaryAllocatedSize = fallbackValuesWriter.getInitialWriter().getAllocatedSize();
+        assertThat(fallbackValuesWriter.getAllocatedSize()).isEqualTo(dictionaryAllocatedSize);
         // not efficient so falls back
         BytesInput bytes1 = getBytesAndCheckEncoding(fallbackValuesWriter, PLAIN);
         writeRepeated(count, fallbackValuesWriter, "b");
+        assertThat(fallbackValuesWriter.getAllocatedSize()).isEqualTo(dictionaryAllocatedSize + fallbackValuesWriter.getFallBackWriter().getAllocatedSize());
         // still plain because we fell back on first page
         BytesInput bytes2 = getBytesAndCheckEncoding(fallbackValuesWriter, PLAIN);
 
