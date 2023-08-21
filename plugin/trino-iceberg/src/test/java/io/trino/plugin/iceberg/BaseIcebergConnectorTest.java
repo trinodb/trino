@@ -4870,22 +4870,23 @@ public abstract class BaseIcebergConnectorTest
     public void testSchemaEvolutionWithDereferenceProjections()
     {
         // Fields are identified uniquely based on unique id's. If a column is dropped and recreated with the same name it should not return dropped data.
-        assertUpdate("CREATE TABLE evolve_test (dummy BIGINT, a row(b BIGINT, c VARCHAR))");
-        assertUpdate("INSERT INTO evolve_test VALUES (1, ROW(1, 'abc'))", 1);
-        assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
-        assertUpdate("ALTER TABLE evolve_test ADD COLUMN a ROW(b VARCHAR, c BIGINT)");
-        assertQuery("SELECT a.b FROM evolve_test", "VALUES NULL");
-        assertUpdate("DROP TABLE evolve_test");
+        String tableName = "evolve_test_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (dummy BIGINT, a row(b BIGINT, c VARCHAR))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(1, 'abc'))", 1);
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a ROW(b VARCHAR, c BIGINT)");
+        assertQuery("SELECT a.b FROM " + tableName, "VALUES NULL");
+        assertUpdate("DROP TABLE " + tableName);
 
         // Very changing subfield ordering does not revive dropped data
-        assertUpdate("CREATE TABLE evolve_test (dummy BIGINT, a ROW(b BIGINT, c VARCHAR), d BIGINT) with (partitioning = ARRAY['d'])");
-        assertUpdate("INSERT INTO evolve_test VALUES (1, ROW(2, 'abc'), 3)", 1);
-        assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
-        assertUpdate("ALTER TABLE evolve_test ADD COLUMN a ROW(c VARCHAR, b BIGINT)");
-        assertUpdate("INSERT INTO evolve_test VALUES (4, 5, ROW('def', 6))", 1);
-        assertQuery("SELECT a.b FROM evolve_test WHERE d = 3", "VALUES NULL");
-        assertQuery("SELECT a.b FROM evolve_test WHERE d = 5", "VALUES 6");
-        assertUpdate("DROP TABLE evolve_test");
+        assertUpdate("CREATE TABLE " + tableName + " (dummy BIGINT, a ROW(b BIGINT, c VARCHAR), d BIGINT) with (partitioning = ARRAY['d'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(2, 'abc'), 3)", 1);
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a ROW(c VARCHAR, b BIGINT)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 5, ROW('def', 6))", 1);
+        assertQuery("SELECT a.b FROM " + tableName + " WHERE d = 3", "VALUES NULL");
+        assertQuery("SELECT a.b FROM " + tableName + " WHERE d = 5", "VALUES 6");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
