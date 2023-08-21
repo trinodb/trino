@@ -1,16 +1,13 @@
-==============================
-Hive connector storage caching
-==============================
+# Hive connector storage caching
 
-Querying object storage with the :doc:`/connector/hive` is a
+Querying object storage with the {doc}`/connector/hive` is a
 very common use case for Trino. It often involves the transfer of large amounts
 of data. The objects are retrieved from HDFS, or any other supported object
 storage, by multiple workers and processed on these workers. Repeated queries
 with different parameters, or even different queries from different users, often
 access, and therefore transfer, the same objects.
 
-Benefits
---------
+## Benefits
 
 Enabling caching can result in significant benefits:
 
@@ -53,8 +50,7 @@ significantly reduced network traffic. Network traffic however is a considerable
 cost factor in an setup, specifically also when hosted in public cloud provider
 systems.
 
-Architecture
-------------
+## Architecture
 
 Caching can operate in two modes. The async mode provides the queried data
 directly and caches any objects asynchronously afterwards. Async is the default
@@ -75,17 +71,16 @@ storage.
 The cache chunks are 1MB in size and are well suited for ORC or Parquet file
 formats.
 
-Configuration
--------------
+## Configuration
 
-The caching feature is part of the :doc:`/connector/hive` and
+The caching feature is part of the {doc}`/connector/hive` and
 can be activated in the catalog properties file:
 
-.. code-block:: text
-
-    connector.name=hive
-    hive.cache.enabled=true
-    hive.cache.location=/opt/hive-cache
+```text
+connector.name=hive
+hive.cache.enabled=true
+hive.cache.location=/opt/hive-cache
+```
 
 The cache operates on the coordinator and all workers accessing the object
 storage. The used networking ports for the managing BookKeeper and the data
@@ -94,6 +89,7 @@ transfer, by default 8898 and 8899, need to be available.
 To use caching on multiple catalogs, you need to configure different caching
 directories  and different BookKeeper and data-transfer ports.
 
+```{eval-rst}
 .. list-table:: **Cache Configuration Parameters**
   :widths: 25, 63, 12
   :header-rows: 1
@@ -128,11 +124,11 @@ directories  and different BookKeeper and data-transfer ports.
   * - ``hive.cache.disk-usage-percentage``
     - Percentage of disk space used for cached data.
     - 80
+```
 
-.. _hive-cache-recommendations:
+(hive-cache-recommendations)=
 
-Recommendations
----------------
+## Recommendations
 
 The speed of the local cache storage is crucial to the performance of the cache.
 The most common and cost efficient approach is to attach high performance SSD
@@ -157,45 +153,41 @@ caching. Typically you need to connect a fast storage system, like an SSD drive,
 and ensure that is it mounted on the configured path. Kubernetes, CFT and other
 systems allow this via volumes.
 
-Object storage systems
-----------------------
+## Object storage systems
 
 The following object storage systems are tested:
 
-* HDFS
-* :doc:`Amazon S3 and S3-compatible systems <hive-s3>`
-* :doc:`Azure storage systems <hive-azure>`
-* Google Cloud Storage
+- HDFS
+- {doc}`Amazon S3 and S3-compatible systems <hive-s3>`
+- {doc}`Azure storage systems <hive-azure>`
+- Google Cloud Storage
 
-Metrics
--------
+## Metrics
 
 In order to verify how caching works on your system you can take multiple
 approaches:
 
-* Inspect the disk usage on the cache storage drives on all nodes
-* Query the metrics of the caching system exposed by JMX
+- Inspect the disk usage on the cache storage drives on all nodes
+- Query the metrics of the caching system exposed by JMX
 
-The implementation of the cache exposes a `number of metrics
-<https://rubix.readthedocs.io/en/latest/metrics.html>`_ via JMX. You can
-:doc:`inspect these and other metrics directly in Trino with the JMX connector
+The implementation of the cache exposes a [number of metrics](https://rubix.readthedocs.io/en/latest/metrics.html) via JMX. You can
+{doc}`inspect these and other metrics directly in Trino with the JMX connector
 or in external tools </admin/jmx>`.
 
 Basic caching statistics for the catalog are available in the
-``jmx.current."rubix:catalog=<catalog_name>,name=stats"`` table.
-The table ``jmx.current."rubix:catalog=<catalog_name>,type=detailed,name=stats``
+`jmx.current."rubix:catalog=<catalog_name>,name=stats"` table.
+The table `jmx.current."rubix:catalog=<catalog_name>,type=detailed,name=stats`
 contains more detailed statistics.
 
-The following example query returns the average cache hit ratio for the ``hive`` catalog:
+The following example query returns the average cache hit ratio for the `hive` catalog:
 
-.. code-block:: sql
+```sql
+SELECT avg(cache_hit)
+FROM jmx.current."rubix:catalog=hive,name=stats"
+WHERE NOT is_nan(cache_hit);
+```
 
-  SELECT avg(cache_hit)
-  FROM jmx.current."rubix:catalog=hive,name=stats"
-  WHERE NOT is_nan(cache_hit);
-
-Limitations
------------
+## Limitations
 
 Caching does not support user impersonation and cannot be used with HDFS secured by Kerberos.
 It does not take any user-specific access rights to the object storage into account.

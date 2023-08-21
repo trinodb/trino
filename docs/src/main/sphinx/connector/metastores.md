@@ -1,6 +1,4 @@
-==========
-Metastores
-==========
+# Metastores
 
 Object storage access is mediated through a *metastore*. Metastores provide
 information on directory structure, file format, and metadata about the stored
@@ -11,22 +9,22 @@ Additional configuration is required in order to access tables with Athena
 partition projection metadata or implement first class support for Avro tables.
 These requirements are discussed later in this topic.
 
-.. _general-metastore-properties:
+(general-metastore-properties)=
 
-General metastore configuration properties
-------------------------------------------
+## General metastore configuration properties
 
 The following table describes general metastore configuration properties, most
 of which are used with either metastore.
 
 At a minimum, each Delta Lake, Hive or Hudi object storage catalog file must set
-the ``hive.metastore`` configuration property to define the type of metastore to
-use. Iceberg catalogs instead use the ``iceberg.catalog.type`` configuration
-property to define the type of metastore to use. 
+the `hive.metastore` configuration property to define the type of metastore to
+use. Iceberg catalogs instead use the `iceberg.catalog.type` configuration
+property to define the type of metastore to use.
 
 Additional configuration properties specific to the Thrift and Glue Metastores
 are also available. They are discussed later in this topic.
 
+```{eval-rst}
 .. list-table:: General metastore configuration properties
     :widths: 35, 50, 15
     :header-rows: 1
@@ -47,11 +45,11 @@ are also available. They are discussed later in this topic.
         metastores are called Iceberg metadata catalogs, or just catalogs. The
         examples in each subsection depict the contents of a Trino catalog file
         that uses the the Iceberg connector to configures different Iceberg
-        metadata catalogs. 
-        
+        metadata catalogs.
+
         You must set this property in all Iceberg catalog property files.
         Valid values are ``HIVE_METASTORE``, ``GLUE``, ``JDBC``, and ``REST``.
-      -   
+      -
     * - ``hive.metastore-cache.cache-partitions``
       - Enable caching for partition metadata. You can disable caching to avoid
         inconsistent behavior that results from it.
@@ -82,16 +80,17 @@ are also available. They are discussed later in this topic.
       - Controls whether to hide Delta Lake tables in table listings. Currently
         applies only when using the AWS Glue metastore.
       - ``false``
+```
 
-.. _hive-thrift-metastore:
+(hive-thrift-metastore)=
 
-Thrift metastore configuration properties
------------------------------------------
+## Thrift metastore configuration properties
 
 In order to use a Hive Thrift metastore, you must configure the metastore with
-``hive.metastore=thrift`` and provide further details with the following
+`hive.metastore=thrift` and provide further details with the following
 properties:
 
+```{eval-rst}
 .. list-table:: Thrift metastore configuration properties
    :widths: 35, 50, 15
    :header-rows: 1
@@ -184,18 +183,19 @@ properties:
    * - ``hive.metastore.thrift.txn-lock-max-wait``
      - Maximum time to wait to acquire hive transaction lock.
      - ``10m``
+```
 
-.. _hive-glue-metastore:
+(hive-glue-metastore)=
 
-AWS Glue catalog configuration properties
------------------------------------------
+## AWS Glue catalog configuration properties
 
 In order to use an AWS Glue catalog, you must configure your catalog file as
 follows:
 
-``hive.metastore=glue`` and provide further details with the following
+`hive.metastore=glue` and provide further details with the following
 properties:
 
+```{eval-rst}
 .. list-table:: AWS Glue catalog configuration properties
     :widths: 35, 50, 15
     :header-rows: 1
@@ -274,16 +274,17 @@ properties:
     * - ``hive.metastore.glue.write-statistics-threads``
       - Number of threads for parallel statistic writes to Glue.
       - ``5``
+```
 
-.. _iceberg-glue-catalog:
+(iceberg-glue-catalog)=
 
-Iceberg-specific Glue catalog configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### Iceberg-specific Glue catalog configuration properties
 
 When using the Glue catalog, the Iceberg connector supports the same
-:ref:`general Glue configuration properties <hive-glue-metastore>` as previously
+{ref}`general Glue configuration properties <hive-glue-metastore>` as previously
 described with the following additional property:
 
+```{eval-rst}
 .. list-table:: Iceberg Glue catalog configuration property
   :widths: 35, 50, 15
   :header-rows: 1
@@ -296,9 +297,9 @@ described with the following additional property:
       commit. See `AWS Glue Skip Archive
       <https://iceberg.apache.org/docs/latest/aws/#skip-archive>`_.
     - ``false``
+```
 
-Iceberg-specific metastores
----------------------------
+## Iceberg-specific metastores
 
 The Iceberg table format manages most metadata in metadata files in the object
 storage itself. A small amount of metadata, however, still requires the use of a
@@ -309,15 +310,15 @@ You can use a general metastore such as an HMS or AWS Glue, or you can use the
 Iceberg-specific REST, Nessie or JDBC metadata catalogs, as discussed in this
 section.
 
-.. _iceberg-rest-catalog:
+(iceberg-rest-catalog)=
 
-REST catalog
-^^^^^^^^^^^^
+### REST catalog
 
 In order to use the Iceberg REST catalog, configure the catalog type
-with ``iceberg.catalog.type=rest``, and provide further details with the
+with `iceberg.catalog.type=rest`, and provide further details with the
 following properties:
 
+```{eval-rst}
 .. list-table:: Iceberg REST catalog configuration properties
   :widths: 40, 60
   :header-rows: 1
@@ -344,66 +345,66 @@ following properties:
     - The credential to exchange for a token in the OAuth2 client credentials
       flow with the server. A ``token`` or ``credential`` is required for
       ``OAUTH2`` security. Example: ``AbCdEf123456``
+```
 
 The following example shows a minimal catalog configuration using an Iceberg
 REST metadata catalog:
 
-.. code-block:: properties
+```properties
+connector.name=iceberg
+iceberg.catalog.type=rest
+iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
+```
 
-    connector.name=iceberg
-    iceberg.catalog.type=rest
-    iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
+The REST catalog does not support {doc}`views</sql/create-view>` or
+{doc}`materialized views</sql/create-materialized-view>`.
 
-The REST catalog does not support :doc:`views</sql/create-view>` or
-:doc:`materialized views</sql/create-materialized-view>`.
+(iceberg-jdbc-catalog)=
 
-.. _iceberg-jdbc-catalog:
-
-JDBC catalog
-^^^^^^^^^^^^
+### JDBC catalog
 
 The Iceberg REST catalog is supported for the Iceberg connector.  At a minimum,
-``iceberg.jdbc-catalog.driver-class``, ``iceberg.jdbc-catalog.connection-url``
-and ``iceberg.jdbc-catalog.catalog-name`` must be configured. When using any
+`iceberg.jdbc-catalog.driver-class`, `iceberg.jdbc-catalog.connection-url`
+and `iceberg.jdbc-catalog.catalog-name` must be configured. When using any
 database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
-directory. 
+directory.
 
-.. warning::
+:::{warning}
+The JDBC catalog may have compatibility issues if Iceberg introduces breaking
+changes in the future. Consider the {ref}`REST catalog
+<iceberg-rest-catalog>` as an alternative solution.
+:::
 
-  The JDBC catalog may have compatibility issues if Iceberg introduces breaking
-  changes in the future. Consider the :ref:`REST catalog
-  <iceberg-rest-catalog>` as an alternative solution.
-
-At a minimum, ``iceberg.jdbc-catalog.driver-class``,
-``iceberg.jdbc-catalog.connection-url``, and
-``iceberg.jdbc-catalog.catalog-name`` must be configured. When using any
+At a minimum, `iceberg.jdbc-catalog.driver-class`,
+`iceberg.jdbc-catalog.connection-url`, and
+`iceberg.jdbc-catalog.catalog-name` must be configured. When using any
 database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
 directory. The following example shows a minimal catalog configuration using an
 Iceberg REST metadata catalog:
 
-.. code-block:: text
+```text
+connector.name=iceberg
+iceberg.catalog.type=jdbc
+iceberg.jdbc-catalog.catalog-name=test
+iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
+iceberg.jdbc-catalog.connection-url=jdbc:postgresql://example.net:5432/database
+iceberg.jdbc-catalog.connection-user=admin
+iceberg.jdbc-catalog.connection-password=test
+iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
+```
 
-    connector.name=iceberg
-    iceberg.catalog.type=jdbc
-    iceberg.jdbc-catalog.catalog-name=test
-    iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
-    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://example.net:5432/database
-    iceberg.jdbc-catalog.connection-user=admin
-    iceberg.jdbc-catalog.connection-password=test
-    iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
+The JDBC catalog does not support {doc}`views</sql/create-view>` or
+{doc}`materialized views</sql/create-materialized-view>`.
 
-The JDBC catalog does not support :doc:`views</sql/create-view>` or
-:doc:`materialized views</sql/create-materialized-view>`.
+(iceberg-nessie-catalog)=
 
-.. _iceberg-nessie-catalog:
-
-Nessie catalog
-^^^^^^^^^^^^^^
+### Nessie catalog
 
 In order to use a Nessie catalog, configure the catalog type with
-``iceberg.catalog.type=nessie`` and provide further details with the following
+`iceberg.catalog.type=nessie` and provide further details with the following
 properties:
 
+```{eval-rst}
 .. list-table:: Nessie catalog configuration properties
   :widths: 40, 60
   :header-rows: 1
@@ -418,48 +419,47 @@ properties:
   * - ``iceberg.nessie-catalog.default-warehouse-dir``
     - Default warehouse directory for schemas created without an explicit
       ``location`` property. Example: ``/tmp``
+```
 
-.. code-block:: text
+```text
+connector.name=iceberg
+iceberg.catalog.type=nessie
+iceberg.nessie-catalog.uri=https://localhost:19120/api/v1
+iceberg.nessie-catalog.default-warehouse-dir=/tmp
+```
 
-    connector.name=iceberg
-    iceberg.catalog.type=nessie
-    iceberg.nessie-catalog.uri=https://localhost:19120/api/v1
-    iceberg.nessie-catalog.default-warehouse-dir=/tmp
+(partition-projection)=
 
-.. _partition-projection:
+## Access tables with Athena partition projection metadata
 
-Access tables with Athena partition projection metadata
--------------------------------------------------------
-
-`Partition projection <https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html>`_
+[Partition projection](https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html)
 is a feature of AWS Athena often used to speed up query processing with highly
 partitioned tables when using the Hive connector.
 
 Trino supports partition projection table properties stored in the Hive
 metastore or Glue catalog, and it reimplements this functionality. Currently,
 there is a limitation in comparison to AWS Athena for date projection, as it
-only supports intervals of ``DAYS``, ``HOURS``, ``MINUTES``, and ``SECONDS``.
+only supports intervals of `DAYS`, `HOURS`, `MINUTES`, and `SECONDS`.
 
 If there are any compatibility issues blocking access to a requested table when
 partition projection is enabled, set the
-``partition_projection_ignore`` table property to ``true`` for a table to bypass
+`partition_projection_ignore` table property to `true` for a table to bypass
 any errors.
 
-Refer to :ref:`hive-table-properties` and :ref:`hive-column-properties` for
+Refer to {ref}`hive-table-properties` and {ref}`hive-column-properties` for
 configuration of partition projection.
 
-Configure metastore for Avro
-----------------------------
+## Configure metastore for Avro
 
 For catalogs using the Hive connector, you must add the following property
-definition to the Hive metastore configuration file ``hive-site.xml`` and
+definition to the Hive metastore configuration file `hive-site.xml` and
 restart the metastore service to enable first-class support for Avro tables when
 using Hive 3.x:
 
-.. code-block:: xml
-
-   <property>
-        <!-- https://community.hortonworks.com/content/supportkb/247055/errorjavalangunsupportedoperationexception-storage.html -->
-        <name>metastore.storage.schema.reader.impl</name>
-        <value>org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader</value>
-    </property>
+```xml
+<property>
+     <!-- https://community.hortonworks.com/content/supportkb/247055/errorjavalangunsupportedoperationexception-storage.html -->
+     <name>metastore.storage.schema.reader.impl</name>
+     <value>org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader</value>
+ </property>
+```
