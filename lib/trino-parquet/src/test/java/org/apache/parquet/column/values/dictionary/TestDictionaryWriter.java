@@ -189,7 +189,7 @@ public class TestDictionaryWriter
         // not efficient so falls back
         BytesInput bytes1 = getBytesAndCheckEncoding(fallbackValuesWriter, PLAIN);
         writeRepeated(count, fallbackValuesWriter, "b");
-        assertThat(fallbackValuesWriter.getAllocatedSize()).isEqualTo(dictionaryAllocatedSize + fallbackValuesWriter.getFallBackWriter().getAllocatedSize());
+        assertThat(fallbackValuesWriter.getAllocatedSize()).isEqualTo(fallbackValuesWriter.getFallBackWriter().getAllocatedSize());
         // still plain because we fell back on first page
         BytesInput bytes2 = getBytesAndCheckEncoding(fallbackValuesWriter, PLAIN);
 
