@@ -130,7 +130,7 @@ public class LocalDispatchQueryFactory
                 metadata,
                 warningCollector,
                 planOptimizersStatsCollector,
-                getQueryType(preparedQuery.getStatement()),
+                getQueryType(session, preparedQuery.getStatement()),
                 faultTolerantExecutionExchangeEncryptionEnabled,
                 version);
 

@@ -73,7 +73,7 @@ public class QueryPreparer
         }
         else if (statement instanceof ExplainAnalyze explainAnalyzeStatement) {
             Statement innerStatement = explainAnalyzeStatement.getStatement();
-            Optional<QueryType> innerQueryType = getQueryType(innerStatement);
+            Optional<QueryType> innerQueryType = getQueryType(session, innerStatement);
             if (innerQueryType.isEmpty() || innerQueryType.get() == QueryType.DATA_DEFINITION) {
                 throw new TrinoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
             }

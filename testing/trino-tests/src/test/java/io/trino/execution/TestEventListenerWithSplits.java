@@ -197,7 +197,7 @@ public class TestEventListenerWithSplits
         assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
         assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(queryCreatedEvent.getContext().getQueryType().get(), QueryType.SELECT);
+        assertEquals(queryCreatedEvent.getContext().getQueryType().get(), QueryType.DESCRIBE);
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT 1");
         assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
 
@@ -208,7 +208,7 @@ public class TestEventListenerWithSplits
         assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
         assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getQueryType().get(), QueryType.SELECT);
+        assertEquals(queryCompletedEvent.getContext().getQueryType().get(), QueryType.DESCRIBE);
 
         List<SplitCompletedEvent> splitCompletedEvents = queryEvents.waitForSplitCompletedEvents(1, new Duration(30, SECONDS));
         assertEquals(splitCompletedEvents.get(0).getQueryId(), queryCompletedEvent.getMetadata().getQueryId());

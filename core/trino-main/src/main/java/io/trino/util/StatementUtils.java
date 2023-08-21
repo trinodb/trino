@@ -15,6 +15,8 @@ package io.trino.util;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.execution.AddColumnTask;
 import io.trino.execution.CallTask;
 import io.trino.execution.CommentTask;
@@ -91,6 +93,7 @@ import io.trino.sql.tree.GrantRoles;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.Prepare;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.RenameColumn;
@@ -124,13 +127,18 @@ import io.trino.sql.tree.ShowStats;
 import io.trino.sql.tree.ShowTables;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.Statement;
+import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
+import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TruncateTable;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.Use;
+import io.trino.sql.tree.WithQuery;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -233,11 +241,46 @@ public final class StatementUtils
             .build().stream()
             .collect(toImmutableMap(StatementTypeInfo::getStatementType, identity()));
 
-    public static Optional<QueryType> getQueryType(Statement statement)
+    private static final String INFORMATION_SCHEMA = "information_schema";
+    private static final String SYSTEM_JDBC = "system.jdbc";
+    private static final String SYSTEM_METADATA = "system.metadata";
+    private static final String SYSTEM_RUNTIME = "system.runtime";
+
+    private static final ImmutableSet<String> METADATA_CATALOG_SCHEMAS = ImmutableSet.<String>builder()
+            .add(SYSTEM_JDBC)
+            .add(SYSTEM_METADATA)
+            .add(SYSTEM_RUNTIME)
+            .build();
+
+    public static Optional<QueryType> getQueryType(Session session, Statement statement)
     {
         if (statement instanceof ExplainAnalyze) {
-            return getQueryType(((ExplainAnalyze) statement).getStatement());
+            return getQueryType(session, ((ExplainAnalyze) statement).getStatement());
         }
+
+        if (statement instanceof Query) {
+            boolean isMetadataQuery = false;
+
+            HashSet<Table> tables = getTables(statement, new HashSet<String>());
+
+            if (tables.isEmpty()) {
+                isMetadataQuery = true;
+            }
+            else {
+                isMetadataQuery = true;
+                for (Table t : tables) {
+                    TableQualifiedName tqn = getTableQualifiedName(session, t);
+                    if (!INFORMATION_SCHEMA.equals(tqn.getSchema()) && !METADATA_CATALOG_SCHEMAS.contains(tqn.getCatalogAndSchema())) {
+                        isMetadataQuery = false;
+                        break;
+                    }
+                }
+            }
+            if (isMetadataQuery) {
+                return Optional.ofNullable(DESCRIBE);
+            }
+        }
+
         return Optional.ofNullable(STATEMENT_QUERY_TYPES.get(statement.getClass()))
                 .map(StatementTypeInfo::getQueryType);
     }
@@ -325,6 +368,87 @@ public final class StatementUtils
         public Class<? extends DataDefinitionTask<T>> getTaskType()
         {
             return taskType.orElseThrow(() -> new IllegalStateException(queryType + " does not have a task type"));
+        }
+    }
+
+    private static HashSet<Table> getTables(io.trino.sql.tree.Node node, HashSet<String> withTablesToExclude)
+    {
+        HashSet<Table> queryTables = new HashSet<Table>();
+
+        node.getChildren().forEach(child -> {
+            if (child instanceof TableFunctionInvocation) {
+                queryTables.add(new Table(QualifiedName.of("Table.Function.Invocation")));
+            }
+            else {
+                if (child instanceof WithQuery) {
+                    withTablesToExclude.add(((WithQuery) child).getName().toString());
+                }
+                else if (child instanceof Table && !withTablesToExclude.contains(((Table) child).getName().toString())) {
+                    queryTables.add((Table) child);
+                }
+                queryTables.addAll(getTables(child, withTablesToExclude));
+            }
+        });
+
+        return queryTables;
+    }
+
+    private static TableQualifiedName getTableQualifiedName(Session session, Table table)
+    {
+        List<String> parts = table.getName().getParts();
+        String catalog = null;
+        String schema = null;
+        String tableName = null;
+        if (parts.size() == 3) {
+            catalog = parts.get(0);
+            schema = parts.get(1);
+            tableName = parts.get(2);
+        }
+        else if (parts.size() == 2 && session.getCatalog().isPresent()) {
+            catalog = session.getCatalog().get();
+            schema = parts.get(0);
+            tableName = parts.get(1);
+        }
+        else if (parts.size() == 1 && session.getCatalog().isPresent() && session.getSchema().isPresent()) {
+            catalog = session.getCatalog().get();
+            schema = session.getSchema().get();
+            tableName = parts.get(0);
+        }
+
+        return new TableQualifiedName(catalog, schema, tableName);
+    }
+
+    private static final class TableQualifiedName
+    {
+        private final String catalog;
+        private final String schema;
+        private final String table;
+
+        public TableQualifiedName(String catalog, String schema, String table)
+        {
+            this.catalog = requireNonNull(catalog, "catalog is null");
+            this.schema = requireNonNull(schema, "schema is null");
+            this.table = requireNonNull(table, "table is null");
+        }
+
+        public String getCatalog()
+        {
+            return this.catalog;
+        }
+
+        public String getSchema()
+        {
+            return this.schema;
+        }
+
+        public String getTable()
+        {
+            return this.table;
+        }
+
+        public String getCatalogAndSchema()
+        {
+            return this.catalog + "." + this.schema;
         }
     }
 }
