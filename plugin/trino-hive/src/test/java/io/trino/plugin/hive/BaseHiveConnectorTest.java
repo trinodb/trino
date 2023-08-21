@@ -4220,7 +4220,7 @@ public abstract class BaseHiveConnectorTest
         String tableName = "task_scale_writers_" + randomNameSuffix();
         try {
             @Language("SQL") String createTableSql = format(
-                    "CREATE TABLE %s WITH (format = 'ORC') AS SELECT * FROM tpch.sf5.orders",
+                    "CREATE TABLE %s WITH (format = 'ORC') AS SELECT * FROM tpch.sf2.orders",
                     tableName);
             assertUpdate(
                     Session.builder(session)
@@ -4238,7 +4238,7 @@ public abstract class BaseHiveConnectorTest
                             .setSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE, "2GB")
                             .build(),
                     createTableSql,
-                    (long) computeActual("SELECT count(*) FROM tpch.sf5.orders").getOnlyValue());
+                    3000000);
 
             long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName);
             return assertThat(files);
