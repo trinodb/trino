@@ -136,6 +136,7 @@ public class TestingHydraIdentityProvider
                 .withEnv("SERVE_TLS_KEY_PATH", "/tmp/certs/localhost.pem")
                 .withEnv("SERVE_TLS_CERT_PATH", "/tmp/certs/localhost.pem")
                 .withEnv("TTL_ACCESS_TOKEN", ttlAccessToken.getSeconds() + "s")
+                .withEnv("TTL_ID_TOKEN", ttlAccessToken.getSeconds() + "s")
                 .withEnv("STRATEGIES_ACCESS_TOKEN", useJwt ? "jwt" : null)
                 .withEnv("LOG_LEAK_SENSITIVE_VALUES", "true")
                 .withCommand("serve", "all")
@@ -162,7 +163,8 @@ public class TestingHydraIdentityProvider
             String clientSecret,
             TokenEndpointAuthMethod tokenEndpointAuthMethod,
             List<String> audiences,
-            String callbackUrl)
+            String callbackUrl,
+            String logoutCallbackUrl)
     {
         createHydraContainer()
                 .withCommand("clients", "create",
@@ -175,7 +177,8 @@ public class TestingHydraIdentityProvider
                         "--response-types", "token,code,id_token",
                         "--scope", "openid,offline",
                         "--token-endpoint-auth-method", tokenEndpointAuthMethod.getValue(),
-                        "--callbacks", callbackUrl)
+                        "--callbacks", callbackUrl,
+                        "--post-logout-callbacks", logoutCallbackUrl)
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)))
                 .start();
     }
@@ -348,7 +351,8 @@ public class TestingHydraIdentityProvider
                     "trino-secret",
                     CLIENT_SECRET_BASIC,
                     ImmutableList.of("https://localhost:8443/ui"),
-                    "https://localhost:8443/oauth2/callback");
+                    "https://localhost:8443/oauth2/callback",
+                    "https://localhost:8443/ui/logout/logout.html");
             ImmutableMap.Builder<String, String> config = ImmutableMap.<String, String>builder()
                     .put("web-ui.enabled", "true")
                     .put("web-ui.authentication.type", "oauth2")

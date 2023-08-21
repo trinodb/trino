@@ -34,6 +34,8 @@ public interface OAuth2Client
     Response refreshTokens(String refreshToken)
             throws ChallengeFailedException;
 
+    Optional<URI> getLogoutEndpoint(Optional<String> idToken, URI callbackUrl);
+
     class Request
     {
         private final URI authorizationUri;

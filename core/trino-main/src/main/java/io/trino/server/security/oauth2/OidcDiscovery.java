@@ -37,6 +37,7 @@ import static io.airlift.http.client.HttpStatus.REQUEST_TIMEOUT;
 import static io.airlift.http.client.HttpStatus.TOO_MANY_REQUESTS;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.ACCESS_TOKEN_ISSUER;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.AUTH_URL;
+import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.END_SESSION_URL;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.JWKS_URL;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.TOKEN_URL;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.USERINFO_URL;
@@ -114,6 +115,7 @@ public class OidcDiscovery
             else {
                 userinfoEndpoint = Optional.empty();
             }
+            Optional<URI> endSessionEndpoint = Optional.of(getRequiredField("end_session_endpoint", metadata.getEndSessionEndpointURI(), END_SESSION_URL, Optional.empty()));
             return new OAuth2ServerConfig(
                     // AD FS server can include "access_token_issuer" field in OpenID Provider Metadata.
                     // It's not a part of the OIDC standard thus have to be handled separately.
@@ -122,7 +124,8 @@ public class OidcDiscovery
                     getRequiredField("authorization_endpoint", metadata.getAuthorizationEndpointURI(), AUTH_URL, authUrl),
                     getRequiredField("token_endpoint", metadata.getTokenEndpointURI(), TOKEN_URL, tokenUrl),
                     getRequiredField("jwks_uri", metadata.getJWKSetURI(), JWKS_URL, jwksUrl),
-                    userinfoEndpoint.map(URI::create));
+                    userinfoEndpoint.map(URI::create),
+                    endSessionEndpoint);
         }
         catch (JsonProcessingException e) {
             throw new ParseException("Invalid JSON value", e);

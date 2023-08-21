@@ -61,6 +61,7 @@ import com.nimbusds.openid.connect.sdk.validators.InvalidHashException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.server.security.oauth2.OAuth2ServerConfigProvider.OAuth2ServerConfig;
+import jakarta.ws.rs.core.UriBuilder;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -101,6 +102,7 @@ public class NimbusOAuth2Client
     private URI authUrl;
     private URI tokenUrl;
     private Optional<URI> userinfoUrl;
+    private Optional<URI> endSessionUrl;
     private JWSKeySelector<SecurityContext> jwsKeySelector;
     private JWTProcessor<SecurityContext> accessTokenProcessor;
     private AuthorizationCodeFlow flow;
@@ -131,6 +133,7 @@ public class NimbusOAuth2Client
         this.authUrl = config.authUrl();
         this.tokenUrl = config.tokenUrl();
         this.userinfoUrl = config.userinfoUrl();
+        this.endSessionUrl = config.endSessionUrl();
         try {
             jwsKeySelector = new JWSVerificationKeySelector<>(
                     Stream.concat(JWSAlgorithm.Family.RSA.stream(), JWSAlgorithm.Family.EC.stream()).collect(toImmutableSet()),
@@ -187,6 +190,18 @@ public class NimbusOAuth2Client
     {
         checkState(loaded, "OAuth2 client not initialized");
         return flow.refreshTokens(refreshToken);
+    }
+
+    @Override
+    public Optional<URI> getLogoutEndpoint(Optional<String> idToken, URI callbackUrl)
+    {
+        if (endSessionUrl.isPresent()) {
+            UriBuilder builder = UriBuilder.fromUri(endSessionUrl.get());
+            idToken.ifPresent(token -> builder.queryParam("id_token_hint", token));
+            builder.queryParam("post_logout_redirect_uri", callbackUrl);
+            return Optional.of(builder.build());
+        }
+        return Optional.empty();
     }
 
     private interface AuthorizationCodeFlow
