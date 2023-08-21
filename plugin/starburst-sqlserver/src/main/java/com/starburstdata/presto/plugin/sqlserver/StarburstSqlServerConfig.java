@@ -30,6 +30,7 @@ public class StarburstSqlServerConfig
     private boolean overrideCatalogEnabled;
     @Nullable
     private String overrideCatalogName;
+    private boolean databasePrefixForSchemaEnabled;
     private SqlServerAuthenticationType authenticationType = PASSWORD;
     private int connectionsCount = 1;
 
@@ -106,6 +107,19 @@ public class StarburstSqlServerConfig
     public StarburstSqlServerConfig setConnectionsCount(int connectionsCount)
     {
         this.connectionsCount = connectionsCount;
+        return this;
+    }
+
+    public boolean getDatabasePrefixForSchemaEnabled()
+    {
+        return databasePrefixForSchemaEnabled;
+    }
+
+    @Config("sqlserver.database-prefix-for-schema.enabled")
+    @ConfigDescription("Allow accessing other databases by prefixing schema name with the database name in queries")
+    public StarburstSqlServerConfig setDatabasePrefixForSchemaEnabled(boolean databasePrefixForSchemaEnabled)
+    {
+        this.databasePrefixForSchemaEnabled = databasePrefixForSchemaEnabled;
         return this;
     }
 

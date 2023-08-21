@@ -49,7 +49,18 @@ public class StarburstSqlServerClientModule
 
         configBinder(binder).bindConfig(SqlServerConfig.class);
 
-        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstSqlServerClient.class).in(SINGLETON);
+        install(conditionalModule(
+                StarburstSqlServerConfig.class,
+                StarburstSqlServerConfig::getDatabasePrefixForSchemaEnabled,
+                internalBinder -> internalBinder.bind(JdbcClient.class)
+                        .annotatedWith(ForBaseJdbc.class)
+                        .to(StarburstSqlServerMultiDatabaseClient.class)
+                        .in(SINGLETON),
+                internalBinder -> internalBinder.bind(JdbcClient.class)
+                        .annotatedWith(ForBaseJdbc.class)
+                        .to(StarburstSqlServerClient.class)
+                        .in(SINGLETON)));
+
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);

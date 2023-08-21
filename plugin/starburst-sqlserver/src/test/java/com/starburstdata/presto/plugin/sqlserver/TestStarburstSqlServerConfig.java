@@ -31,6 +31,7 @@ public class TestStarburstSqlServerConfig
                 .setOverrideCatalogEnabled(false)
                 .setOverrideCatalogName(null)
                 .setAuthenticationType(PASSWORD)
+                .setDatabasePrefixForSchemaEnabled(false)
                 .setConnectionsCount(1));
     }
 
@@ -42,6 +43,7 @@ public class TestStarburstSqlServerConfig
                 .put("sqlserver.override-catalog.enabled", "true")
                 .put("sqlserver.override-catalog.name", "catalog")
                 .put("sqlserver.authentication.type", "PASSWORD_PASS_THROUGH")
+                .put("sqlserver.database-prefix-for-schema.enabled", "true")
                 .put("sqlserver.parallel.connections-count", "2")
                 .buildOrThrow();
 
@@ -50,6 +52,7 @@ public class TestStarburstSqlServerConfig
                 .setOverrideCatalogEnabled(true)
                 .setOverrideCatalogName("catalog")
                 .setConnectionsCount(2)
+                .setDatabasePrefixForSchemaEnabled(true)
                 .setAuthenticationType(PASSWORD_PASS_THROUGH);
 
         assertFullMapping(properties, expected);
