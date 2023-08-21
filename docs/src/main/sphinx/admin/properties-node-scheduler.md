@@ -3,7 +3,7 @@
 ## `node-scheduler.include-coordinator`
 
 - **Type:** {ref}`prop-type-boolean`
-- **Default value:** `false`
+- **Default value:** `true`
 
 Allows scheduling work on the coordinator so that a single machine can function
 as both coordinator and worker. For large clusters, processing work on the
