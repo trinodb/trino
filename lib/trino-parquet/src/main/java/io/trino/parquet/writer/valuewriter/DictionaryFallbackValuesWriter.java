@@ -14,6 +14,7 @@
 package io.trino.parquet.writer.valuewriter;
 
 import com.google.common.annotations.VisibleForTesting;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
@@ -21,17 +22,21 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.dictionary.DictionaryValuesWriter;
 import org.apache.parquet.io.api.Binary;
 
+import static com.google.common.base.Verify.verify;
+import static java.util.Objects.requireNonNull;
+
 /**
  * Based on org.apache.parquet.column.values.fallback.FallbackValuesWriter
  */
 public class DictionaryFallbackValuesWriter
         extends ValuesWriter
 {
-    private final DictionaryValuesWriter initialWriter;
     private final ValuesWriter fallBackWriter;
 
     private boolean fellBackAlready;
     private ValuesWriter currentWriter;
+    @Nullable
+    private DictionaryValuesWriter initialWriter;
     private boolean initialUsedAndHadDictionary;
     /* size of raw data, even if dictionary is used, it will not have effect on raw data size, it is used to decide
      * if fall back to plain encoding is better by comparing rawDataByteSize with Encoded data size
@@ -66,6 +71,10 @@ public class DictionaryFallbackValuesWriter
             BytesInput bytes = initialWriter.getBytes();
             if (!initialWriter.isCompressionSatisfying(rawDataByteSize, bytes.size())) {
                 fallBack();
+                // Since fallback happened on first page itself, we can drop the contents of initialWriter
+                initialWriter.close();
+                initialWriter = null;
+                verify(!initialUsedAndHadDictionary, "initialUsedAndHadDictionary should be false when falling back to PLAIN in first page");
             }
             else {
                 return bytes;
@@ -95,7 +104,9 @@ public class DictionaryFallbackValuesWriter
     @Override
     public void close()
     {
-        initialWriter.close();
+        if (initialWriter != null) {
+            initialWriter.close();
+        }
         fallBackWriter.close();
     }
 
@@ -128,7 +139,7 @@ public class DictionaryFallbackValuesWriter
     @Override
     public long getAllocatedSize()
     {
-        return fallBackWriter.getAllocatedSize() + initialWriter.getAllocatedSize();
+        return fallBackWriter.getAllocatedSize() + (initialWriter != null ? initialWriter.getAllocatedSize() : 0);
     }
 
     @Override
@@ -140,7 +151,7 @@ public class DictionaryFallbackValuesWriter
                         + "%s\n"
                         + "%s}\n",
                 prefix,
-                initialWriter.memUsageString(prefix + " initial:"),
+                initialWriter != null ? initialWriter.memUsageString(prefix + " initial:") : "",
                 fallBackWriter.memUsageString(prefix + " fallback:"),
                 prefix);
     }
@@ -198,7 +209,7 @@ public class DictionaryFallbackValuesWriter
     @VisibleForTesting
     public DictionaryValuesWriter getInitialWriter()
     {
-        return initialWriter;
+        return requireNonNull(initialWriter, "initialWriter is null");
     }
 
     @VisibleForTesting
