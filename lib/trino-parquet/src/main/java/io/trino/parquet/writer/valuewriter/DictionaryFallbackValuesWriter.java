@@ -128,7 +128,7 @@ public class DictionaryFallbackValuesWriter
     @Override
     public long getAllocatedSize()
     {
-        return currentWriter.getAllocatedSize();
+        return fallBackWriter.getAllocatedSize() + initialWriter.getAllocatedSize();
     }
 
     @Override
