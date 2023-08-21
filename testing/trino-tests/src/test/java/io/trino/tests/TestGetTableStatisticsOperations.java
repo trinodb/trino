@@ -19,7 +19,6 @@ import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.MetadataManager;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.LocalQueryRunner;
@@ -58,8 +57,7 @@ public class TestGetTableStatisticsOperations
                 .build();
 
         localQueryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .withMetadataProvider((systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)
-                        -> new TracingMetadata(tracerProvider.get("test"), new MetadataManager(systemSecurityMetadata, transactionManager, globalFunctionCatalog, typeManager)))
+                .withMetadataDecorator(metadata -> new TracingMetadata(tracerProvider.get("test"), metadata))
                 .build();
         localQueryRunner.installPlugin(new TpchPlugin());
         localQueryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
