@@ -51,6 +51,7 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.UriBuilder;
 import okhttp3.FormBody;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
@@ -106,6 +107,8 @@ import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
+import static io.trino.server.ui.OAuthIdTokenCookie.ID_TOKEN_COOKIE;
+import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
@@ -115,11 +118,13 @@ import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.function.Predicate.not;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
@@ -662,7 +667,7 @@ public class TestWebUi
                         .setBinding()
                         .toInstance(oauthClient))
                 .build()) {
-            assertAuth2Authentication(server, oauthClient.getAccessToken(), false);
+            assertAuth2Authentication(server, oauthClient.getAccessToken(), oauthClient.getIdToken(), false, true);
         }
         finally {
             jwkServer.stop();
@@ -686,7 +691,7 @@ public class TestWebUi
                         .setBinding()
                         .toInstance(oauthClient))
                 .build()) {
-            assertAuth2Authentication(server, oauthClient.getAccessToken(), false);
+            assertAuth2Authentication(server, oauthClient.getAccessToken(), Optional.empty(), false, true);
         }
         finally {
             jwkServer.stop();
@@ -711,7 +716,7 @@ public class TestWebUi
                         .setBinding()
                         .toInstance(oauthClient))
                 .build()) {
-            assertAuth2Authentication(server, oauthClient.getAccessToken(), true);
+            assertAuth2Authentication(server, oauthClient.getAccessToken(), oauthClient.getIdToken(), true, true);
         }
         finally {
             jwkServer.stop();
@@ -812,6 +817,7 @@ public class TestWebUi
                         .put("preferred_username", "test-user@email.com")
                         .buildOrThrow(),
                 Duration.ofSeconds(5),
+                true,
                 true);
         TestingHttpServer jwkServer = createTestingJwkServer();
         jwkServer.start();
@@ -829,7 +835,7 @@ public class TestWebUi
                     jaxrsBinder(binder).bind(AuthenticatedIdentityCapturingFilter.class);
                 })
                 .build()) {
-            assertAuth2Authentication(server, oauthClient.getAccessToken(), false);
+            assertAuth2Authentication(server, oauthClient.getAccessToken(), oauthClient.getIdToken(), false, true);
             Identity identity = server.getInstance(Key.get(AuthenticatedIdentityCapturingFilter.class)).getAuthenticatedIdentity();
             assertThat(identity.getUser()).isEqualTo("test-user");
             assertThat(identity.getPrincipal()).isEqualTo(Optional.of(new BasicPrincipal("test-user@email.com")));
@@ -839,7 +845,31 @@ public class TestWebUi
         }
     }
 
-    private void assertAuth2Authentication(TestingTrinoServer server, String accessToken, boolean refreshTokensEnabled)
+    @Test
+    public void testOAuth2AuthenticatorWithoutEndSessionEndpoint()
+            throws Exception
+    {
+        OAuth2ClientStub oauthClient = new OAuth2ClientStub(ImmutableMap.of(), Duration.ofSeconds(5), false, false);
+        TestingHttpServer jwkServer = createTestingJwkServer();
+        jwkServer.start();
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(OAUTH2_PROPERTIES)
+                        .put("http-server.authentication.oauth2.jwks-url", jwkServer.getBaseUrl().toString())
+                        .put("http-server.authentication.oauth2.scopes", "")
+                        .buildOrThrow())
+                .setAdditionalModule(binder -> newOptionalBinder(binder, OAuth2Client.class)
+                        .setBinding()
+                        .toInstance(oauthClient))
+                .build()) {
+            assertAuth2Authentication(server, oauthClient.getAccessToken(), oauthClient.getIdToken(), false, false);
+        }
+        finally {
+            jwkServer.stop();
+        }
+    }
+
+    private void assertAuth2Authentication(TestingTrinoServer server, String accessToken, Optional<String> idToken, boolean refreshTokensEnabled, boolean supportsEndSessionEndpoint)
             throws Exception
     {
         CookieManager cookieManager = new CookieManager();
@@ -860,7 +890,7 @@ public class TestWebUi
         assertResponseCode(client, getLocation(baseUri, "/ui/api/unknown"), UNAUTHORIZED.getStatusCode());
 
         loginWithCallbackEndpoint(client, baseUri);
-        HttpCookie cookie = getOnlyElement(cookieManager.getCookieStore().getCookies());
+        HttpCookie cookie = getCookie(cookieManager, OAUTH2_COOKIE);
         if (refreshTokensEnabled) {
             assertCookieWithRefreshToken(server, cookie, accessToken);
         }
@@ -872,6 +902,20 @@ public class TestWebUi
         assertEquals(cookie.getDomain(), baseUri.getHost());
         assertTrue(cookie.isHttpOnly());
 
+        if (idToken.isPresent()) {
+            HttpCookie idTokenCookie = getCookie(cookieManager, ID_TOKEN_COOKIE);
+            assertEquals(idTokenCookie.getValue(), idToken.get());
+            assertEquals(idTokenCookie.getPath(), "/ui/");
+            assertEquals(idTokenCookie.getDomain(), baseUri.getHost());
+            assertTrue(idTokenCookie.getMaxAge() > 0 && cookie.getMaxAge() < MINUTES.toSeconds(5));
+            assertTrue(idTokenCookie.isHttpOnly());
+        }
+        else {
+            assertThatThrownBy(() -> getCookie(cookieManager, ID_TOKEN_COOKIE))
+                    // WebIDTokenCookie should not be set
+                    .hasMessageContaining("No value present");
+        }
+
         // authentication cookie is now set, so UI should work
         testRootRedirect(baseUri, client);
         assertOk(client, getUiLocation(baseUri));
@@ -881,8 +925,26 @@ public class TestWebUi
         assertResponseCode(client, getLocation(baseUri, "/ui/api/unknown"), SC_NOT_FOUND);
 
         // logout
-        assertOk(client, getLogoutLocation(baseUri));
-        assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
+        Request request = new Request.Builder()
+                .url(uriBuilderFrom(baseUri)
+                        .replacePath("/ui/logout/")
+                        .toString())
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            String expectedRedirect = uriBuilderFrom(baseUri).replacePath("ui/logout/logout.html").toString();
+            if (supportsEndSessionEndpoint) {
+                UriBuilder uriBuilder = UriBuilder.fromUri("http://example.com/oauth2/v1/logout");
+                idToken.ifPresent(token -> uriBuilder.queryParam("id_token_hint", token));
+                uriBuilder.queryParam("post_logout_redirect_uri", expectedRedirect);
+                expectedRedirect = uriBuilder.build().toString();
+            }
+
+            assertEquals(response.code(), SC_SEE_OTHER);
+            String locationHeader = response.header(HttpHeaders.LOCATION);
+            assertNotNull(locationHeader);
+            assertEquals(locationHeader, expectedRedirect);
+            assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
+        }
         assertRedirect(client, getUiLocation(baseUri), "http://example.com/authorize", false);
     }
 
@@ -1217,6 +1279,7 @@ public class TestWebUi
         private final Duration accessTokenValidity;
         private final Optional<String> nonce;
         private final Optional<String> idToken;
+        private final boolean supportsEndsessionEndpoint;
 
         public OAuth2ClientStub()
         {
@@ -1225,10 +1288,10 @@ public class TestWebUi
 
         public OAuth2ClientStub(boolean issueIdToken, Duration accessTokenValidity)
         {
-            this(ImmutableMap.of(), accessTokenValidity, issueIdToken);
+            this(ImmutableMap.of(), accessTokenValidity, issueIdToken, true);
         }
 
-        public OAuth2ClientStub(Map<String, String> additionalClaims, Duration accessTokenValidity, boolean issueIdToken)
+        public OAuth2ClientStub(Map<String, String> additionalClaims, Duration accessTokenValidity, boolean issueIdToken, boolean supportsEndsessionEnpoint)
         {
             claims = new DefaultClaims(createClaims());
             claims.putAll(requireNonNull(additionalClaims, "additionalClaims is null"));
@@ -1246,6 +1309,7 @@ public class TestWebUi
                 nonce = Optional.empty();
                 idToken = Optional.empty();
             }
+            this.supportsEndsessionEndpoint = supportsEndsessionEnpoint;
         }
 
         @Override
@@ -1284,9 +1348,26 @@ public class TestWebUi
             throw new ChallengeFailedException("invalid refresh token");
         }
 
+        @Override
+        public Optional<URI> getLogoutEndpoint(Optional<String> idToken, URI callbackUrl)
+        {
+            if (supportsEndsessionEndpoint) {
+                UriBuilder builder = UriBuilder.fromUri("http://example.com/oauth2/v1/logout");
+                idToken.ifPresent(token -> builder.queryParam("id_token_hint", token));
+                builder.queryParam("post_logout_redirect_uri", callbackUrl);
+                return Optional.of(builder.build());
+            }
+            return Optional.empty();
+        }
+
         public String getAccessToken()
         {
             return accessToken;
+        }
+
+        public Optional<String> getIdToken()
+        {
+            return idToken;
         }
 
         private static String issueToken(Claims claims)
@@ -1338,5 +1419,13 @@ public class TestWebUi
         {
             return authenticatedIdentity;
         }
+    }
+
+    private static HttpCookie getCookie(CookieManager cookieManager, String cookieName)
+    {
+        return cookieManager.getCookieStore().getCookies().stream()
+                .filter(cookie -> cookie.getName().equals(cookieName))
+                .findFirst()
+                .orElseThrow();
     }
 }

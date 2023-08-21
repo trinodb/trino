@@ -224,6 +224,12 @@ public class TestJweTokenSerializer
         {
             throw new UnsupportedOperationException("operation is not yet supported");
         }
+
+        @Override
+        public Optional<URI> getLogoutEndpoint(Optional<String> idToken, URI callbackUrl)
+        {
+            return Optional.empty();
+        }
     }
 
     private static class TestingClock
