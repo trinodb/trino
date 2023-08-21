@@ -108,6 +108,8 @@ public class FeaturesConfig
 
     private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
 
+    private boolean flatGroupByHash = true;
+
     public enum DataIntegrityVerification
     {
         NONE,
@@ -511,5 +513,19 @@ public class FeaturesConfig
     public void applyFaultTolerantExecutionDefaults()
     {
         exchangeCompressionEnabled = true;
+    }
+
+    @Deprecated
+    public boolean isFlatGroupByHash()
+    {
+        return flatGroupByHash;
+    }
+
+    @Deprecated
+    @Config("legacy.flat-group-by-hash")
+    public FeaturesConfig setFlatGroupByHash(boolean flatGroupByHash)
+    {
+        this.flatGroupByHash = flatGroupByHash;
+        return this;
     }
 }

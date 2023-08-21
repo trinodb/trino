@@ -5,12 +5,11 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>422-SNAPSHOT</version>
+        <version>425-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-base-jdbc</artifactId>
-    <name>trino-base-jdbc</name>
     <description>Trino - Base JDBC Connector</description>
 
     <properties>
@@ -85,6 +84,11 @@
         </dependency>
 
         <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-cache</artifactId>
         </dependency>
@@ -128,6 +132,12 @@
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>

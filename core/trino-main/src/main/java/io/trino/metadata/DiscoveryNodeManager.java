@@ -40,7 +40,6 @@ import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -210,8 +209,9 @@ public final class DiscoveryNodeManager
     private synchronized void refreshNodesInternal()
     {
         // This is a deny-list.
+        Set<ServiceDescriptor> failed = failureDetector.getFailed();
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
-                .filter(service -> !failureDetector.getFailed().contains(service))
+                .filter(service -> !failed.contains(service))
                 .collect(toImmutableSet());
 
         ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSet.builder();
@@ -387,11 +387,7 @@ public final class DiscoveryNodeManager
     {
         String url = descriptor.getProperties().get(httpsRequired ? "https" : "http");
         if (url != null) {
-            try {
-                return new URI(url);
-            }
-            catch (URISyntaxException ignored) {
-            }
+            return URI.create(url);
         }
         return null;
     }

@@ -5,12 +5,11 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>422-SNAPSHOT</version>
+        <version>425-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-hive</artifactId>
-    <name>trino-hive</name>
     <description>Trino - Hive Connector</description>
 
     <properties>
@@ -70,27 +69,6 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.linkedin.calcite</groupId>
-            <artifactId>calcite-core</artifactId>
-            <classifier>shaded</classifier>
-        </dependency>
-
-        <dependency>
-            <groupId>com.linkedin.coral</groupId>
-            <artifactId>coral-common</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.linkedin.coral</groupId>
-            <artifactId>coral-hive</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.linkedin.coral</groupId>
-            <artifactId>coral-trino</artifactId>
         </dependency>
 
         <dependency>
@@ -159,6 +137,11 @@
         </dependency>
 
         <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-aws-sdk-1.11</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-cache</artifactId>
         </dependency>
@@ -204,6 +187,11 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino.coral</groupId>
+            <artifactId>coral</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>
         </dependency>
@@ -239,11 +227,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.alluxio</groupId>
-            <artifactId>alluxio-shaded-client</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
         </dependency>
@@ -261,6 +244,26 @@
                     <artifactId>avro-ipc-jetty</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-column</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-format-structures</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-hadoop</artifactId>
         </dependency>
 
         <dependency>
@@ -315,6 +318,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hadoop-toolkit</artifactId>
             <scope>runtime</scope>
@@ -323,12 +332,6 @@
         <dependency>
             <groupId>jakarta.xml.bind</groupId>
             <artifactId>jakarta.xml.bind-api</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.xerial.snappy</groupId>
-            <artifactId>snappy-java</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -354,6 +357,24 @@
             </exclusions>
         </dependency>
 
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-trace</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- for benchmark -->
         <dependency>
             <groupId>io.trino</groupId>
@@ -370,6 +391,13 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-exchange-filesystem</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
@@ -525,6 +553,7 @@
                                 <exclude>**/TestTrinoS3FileSystemAwsS3.java</exclude>
                                 <exclude>**/TestS3SelectQueries.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
+                                <exclude>**/TestParquetReader.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
@@ -560,6 +589,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestFullParquetReader.java</include>
+                                <include>**/TestParquetReader.java</include>
                             </includes>
                         </configuration>
                     </plugin>

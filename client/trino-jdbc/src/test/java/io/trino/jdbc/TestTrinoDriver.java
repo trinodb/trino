@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.trino.client.ClientSelectedRole;
+import io.trino.client.DnsResolver;
 import io.trino.execution.QueryState;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -794,7 +795,7 @@ public class TestTrinoDriver
                         .put("KerberosPrincipal", "test")
                         .buildOrThrow())))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'KerberosPrincipal' is not allowed");
+                .hasMessage("Connection property KerberosPrincipal requires KerberosRemoteServiceName to be set");
 
         assertThat(DriverManager.getConnection(jdbcUrl(),
                 toProperties(ImmutableMap.<String, String>builder()
@@ -811,7 +812,7 @@ public class TestTrinoDriver
                         .put("SSLVerification", "NONE")
                         .buildOrThrow())))
                 .isInstanceOf(SQLException.class)
-                .hasMessage("Connection property 'SSLVerification' is not allowed");
+                .hasMessage("Connection property SSLVerification requires TLS/SSL to be enabled");
 
         assertThat(DriverManager.getConnection(jdbcUrl(),
                 toProperties(ImmutableMap.<String, String>builder()

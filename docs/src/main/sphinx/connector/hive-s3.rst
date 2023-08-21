@@ -380,9 +380,9 @@ workload:
 * Your query filters out more than half of the original data set.
 * Your query filter predicates use columns that have a data type supported by
   Trino and S3 Select.
-  The ``TIMESTAMP``, ``REAL``, and ``DOUBLE`` data types are not supported by S3
-  Select Pushdown. We recommend using the decimal data type for numerical data.
-  For more information about supported data types for S3 Select, see the
+  The ``TIMESTAMP``, ``DECIMAL``, ``REAL``, and ``DOUBLE`` data types are not
+  supported by S3 Select Pushdown. For more information about supported data
+  types for S3 Select, see the
   `Data Types documentation <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-glacier-select-sql-reference-data-types.html>`_.
 * Your network connection between Amazon S3 and the Amazon EMR cluster has good
   transfer speed and available bandwidth. Amazon S3 Select does not compress
@@ -391,7 +391,7 @@ workload:
 Considerations and limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* Only objects stored in CSV and JSON format are supported. Objects can be uncompressed,
+* Only objects stored in JSON format are supported. Objects can be uncompressed,
   or optionally compressed with gzip or bzip2.
 * The "AllowQuotedRecordDelimiters" property is not supported. If this property
   is specified, the query fails.
@@ -416,6 +416,10 @@ pushed down to S3 Select. Changes in the Hive connector :ref:`performance tuning
 configuration properties <hive-performance-tuning-configuration>` are likely to impact
 S3 Select pushdown performance.
 
+S3 Select can be enabled for TEXTFILE data using the
+``hive.s3select-pushdown.experimental-textfile-pushdown-enabled`` configuration property,
+however this has been shown to produce incorrect results. For more information see
+`the GitHub Issue. <https://github.com/trinodb/trino/issues/17775>`_
 
 Understanding and tuning the maximum connections
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

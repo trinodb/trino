@@ -20,6 +20,7 @@ import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
+import io.trino.decoder.RowDecoderSpec;
 import io.trino.decoder.avro.AvroBytesDeserializer;
 import io.trino.decoder.avro.AvroRowDecoderFactory;
 import io.trino.plugin.kafka.KafkaColumnHandle;
@@ -46,6 +47,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.decoder.avro.AvroRowDecoderFactory.DATA_SCHEMA;
+import static io.trino.decoder.util.DecoderTestUtil.TESTING_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -154,7 +156,7 @@ public class TestAvroConfluentRowDecoder
     private static RowDecoder getRowDecoder(SchemaRegistryClient schemaRegistryClient, Set<DecoderColumnHandle> columnHandles, Schema schema)
     {
         ImmutableMap<String, String> decoderParams = ImmutableMap.of(DATA_SCHEMA, schema.toString());
-        return getAvroRowDecoderyFactory(schemaRegistryClient).create(decoderParams, columnHandles);
+        return getAvroRowDecoderyFactory(schemaRegistryClient).create(TESTING_SESSION, new RowDecoderSpec(AvroRowDecoderFactory.NAME, decoderParams, columnHandles));
     }
 
     public static AvroRowDecoderFactory getAvroRowDecoderyFactory(SchemaRegistryClient schemaRegistryClient)

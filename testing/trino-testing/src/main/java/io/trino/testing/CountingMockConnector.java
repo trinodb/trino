@@ -14,14 +14,19 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multiset;
+import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.tracing.TracingConnectorMetadata;
+import io.trino.util.AutoCloseableCloser;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -31,33 +36,56 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.MockConnectorFactory.Builder.defaultGetColumns;
 import static io.trino.connector.MockConnectorFactory.Builder.defaultGetTableHandle;
 import static io.trino.spi.security.PrincipalType.USER;
+import static java.util.Map.entry;
+import static java.util.stream.Collectors.joining;
 
 public class CountingMockConnector
+        implements AutoCloseable
 {
     private final Object lock = new Object();
 
-    private final List<String> tablesTestSchema1 = IntStream.range(0, 1000)
+    private final Set<String> tablesTestSchema1 = IntStream.range(0, 1000)
             .mapToObj(i -> "test_table" + i)
-            .collect(toImmutableList());
+            .collect(toImmutableSet());
 
-    private final List<String> tablesTestSchema2 = IntStream.range(0, 2000)
+    private final Set<String> tablesTestSchema2 = IntStream.range(0, 2000)
             .mapToObj(i -> "test_table" + i)
-            .collect(toImmutableList());
+            .collect(toImmutableSet());
 
     private final Set<RoleGrant> roleGrants = IntStream.range(0, 100)
             .mapToObj(i -> new RoleGrant(new TrinoPrincipal(USER, "user" + (i == 0 ? "" : i)), "role" + i / 2, false))
             .collect(toImmutableSet());
 
+    private final AutoCloseableCloser closer = AutoCloseableCloser.create();
+
     private final AtomicLong listSchemasCallsCounter = new AtomicLong();
     private final AtomicLong listTablesCallsCounter = new AtomicLong();
     private final AtomicLong getTableHandleCallsCounter = new AtomicLong();
     private final AtomicLong getColumnsCallsCounter = new AtomicLong();
-    private final ListRoleGrantsCounter listRoleGranstCounter = new ListRoleGrantsCounter();
+    private final ListRoleGrantsCounter listRoleGrantCounter = new ListRoleGrantsCounter();
+
+    private final InMemorySpanExporter spanExporter;
+    private final SdkTracerProvider tracerProvider;
+
+    public CountingMockConnector()
+    {
+        spanExporter = closer.register(InMemorySpanExporter.create());
+        tracerProvider = closer.register(SdkTracerProvider.builder()
+                .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
+                .build());
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        closer.close();
+    }
 
     public Plugin getPlugin()
     {
@@ -80,6 +108,10 @@ public class CountingMockConnector
                         .map(tableName -> new SchemaTableName("test_schema2", tableName)));
     }
 
+    /**
+     * @deprecated Use {@link #runTracing}.
+     */
+    @Deprecated
     public MetadataCallsCount runCounting(Runnable runnable)
     {
         synchronized (lock) {
@@ -87,7 +119,7 @@ public class CountingMockConnector
             listTablesCallsCounter.set(0);
             getTableHandleCallsCounter.set(0);
             getColumnsCallsCounter.set(0);
-            listRoleGranstCounter.reset();
+            listRoleGrantCounter.reset();
 
             runnable.run();
 
@@ -96,16 +128,41 @@ public class CountingMockConnector
                     listTablesCallsCounter.get(),
                     getTableHandleCallsCounter.get(),
                     getColumnsCallsCounter.get(),
-                    listRoleGranstCounter.listRowGrantsCallsCounter.get(),
-                    listRoleGranstCounter.rolesPushedCounter.get(),
-                    listRoleGranstCounter.granteesPushedCounter.get(),
-                    listRoleGranstCounter.limitPushedCounter.get());
+                    listRoleGrantCounter.listRowGrantsCallsCounter.get(),
+                    listRoleGrantCounter.rolesPushedCounter.get(),
+                    listRoleGrantCounter.granteesPushedCounter.get(),
+                    listRoleGrantCounter.limitPushedCounter.get());
+        }
+    }
+
+    public Multiset<String> runTracing(Runnable runnable)
+    {
+        synchronized (lock) {
+            spanExporter.reset();
+
+            runnable.run();
+
+            return spanExporter.getFinishedSpanItems().stream()
+                    .map(span -> {
+                        String attributes = span.getAttributes().asMap().entrySet().stream()
+                                .map(entry -> entry(entry.getKey().getKey(), entry.getValue()))
+                                .filter(entry -> !entry.getKey().equals("trino.catalog"))
+                                .map(entry -> "%s=%s".formatted(entry.getKey().replaceFirst("^trino\\.", ""), entry.getValue()))
+                                .sorted()
+                                .collect(joining(", "));
+                        if (attributes.isEmpty()) {
+                            return span.getName();
+                        }
+                        return "%s(%s)".formatted(span.getName(), attributes);
+                    })
+                    .collect(toImmutableMultiset());
         }
     }
 
     private ConnectorFactory getConnectorFactory()
     {
         MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
+                .withMetadataWrapper(connectorMetadata -> new TracingConnectorMetadata(tracerProvider.get("test"), "mock", connectorMetadata))
                 .withListSchemaNames(connectorSession -> {
                     listSchemasCallsCounter.incrementAndGet();
                     return ImmutableList.of("test_schema1", "test_schema2");
@@ -113,15 +170,30 @@ public class CountingMockConnector
                 .withListTables((connectorSession, schemaName) -> {
                     listTablesCallsCounter.incrementAndGet();
                     if (schemaName.equals("test_schema1")) {
-                        return tablesTestSchema1;
+                        return ImmutableList.copyOf(tablesTestSchema1);
                     }
                     if (schemaName.equals("test_schema2")) {
-                        return tablesTestSchema2;
+                        return ImmutableList.copyOf(tablesTestSchema2);
                     }
                     return ImmutableList.of();
                 })
                 .withGetTableHandle((connectorSession, schemaTableName) -> {
                     getTableHandleCallsCounter.incrementAndGet();
+                    switch (schemaTableName.getSchemaName()) {
+                        case "test_schema1" -> {
+                            if (!tablesTestSchema1.contains(schemaTableName.getTableName())) {
+                                return null;
+                            }
+                        }
+                        case "test_schema2" -> {
+                            if (!tablesTestSchema2.contains(schemaTableName.getTableName())) {
+                                return null;
+                            }
+                        }
+                        default -> {
+                            return null;
+                        }
+                    }
                     return defaultGetTableHandle().apply(connectorSession, schemaTableName);
                 })
                 .withGetColumns(schemaTableName -> {
@@ -129,7 +201,7 @@ public class CountingMockConnector
                     return defaultGetColumns().apply(schemaTableName);
                 })
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> {
-                    listRoleGranstCounter.incrementListRoleGrants(roles, grantees, limit);
+                    listRoleGrantCounter.incrementListRoleGrants(roles, grantees, limit);
                     return roleGrants;
                 })
                 .build();
@@ -137,6 +209,7 @@ public class CountingMockConnector
         return mockConnectorFactory;
     }
 
+    @Deprecated
     public static final class MetadataCallsCount
     {
         private final long listSchemasCount;

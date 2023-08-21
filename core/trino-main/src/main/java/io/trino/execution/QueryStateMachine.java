@@ -567,8 +567,8 @@ public class QueryStateMachine
         int blockedDrivers = 0;
         int completedDrivers = 0;
 
-        long cumulativeUserMemory = 0;
-        long failedCumulativeUserMemory = 0;
+        double cumulativeUserMemory = 0;
+        double failedCumulativeUserMemory = 0;
         long userMemoryReservation = 0;
         long revocableMemoryReservation = 0;
         long totalMemoryReservation = 0;

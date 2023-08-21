@@ -119,7 +119,6 @@ public final class SystemSessionProperties
     public static final String USE_PARTIAL_TOPN = "use_partial_topn";
     public static final String USE_PARTIAL_DISTINCT_LIMIT = "use_partial_distinct_limit";
     public static final String MAX_RECURSION_DEPTH = "max_recursion_depth";
-    public static final String USE_MARK_DISTINCT = "use_mark_distinct";
     public static final String MARK_DISTINCT_STRATEGY = "mark_distinct_strategy";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_RANKING = "optimize_top_n_ranking";
@@ -188,6 +187,9 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT = "fault_tolerant_execution_max_partition_count";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT = "fault_tolerant_execution_min_partition_count";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE = "fault_tolerant_execution_min_partition_count_for_write";
+    public static final String FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_ENABLED = "fault_tolerant_execution_runtime_adaptive_partitioning_enabled";
+    public static final String FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_PARTITION_COUNT = "fault_tolerant_execution_runtime_adaptive_partitioning_partition_count";
+    public static final String FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_MAX_TASK_SIZE = "fault_tolerant_execution_runtime_adaptive_partitioning_max_task_size";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS = "fault_tolerant_execution_min_source_stage_progress";
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_ENABLED = "fault_tolerant_execution_small_stage_estimation_enabled";
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_THRESHOLD = "fault_tolerant_execution_small_stage_estimation_threshold";
@@ -207,6 +209,7 @@ public final class SystemSessionProperties
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED = "fault_tolerant_execution_force_preferred_write_partitioning_enabled";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
+    public static final String FLAT_GROUP_BY_HASH = "flat_group_by_hash";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -573,11 +576,6 @@ public final class SystemSessionProperties
                         false,
                         value -> validateIntegerValue(value, MAX_RECURSION_DEPTH, 1, false),
                         object -> object),
-                booleanProperty(
-                        USE_MARK_DISTINCT,
-                        "Implement DISTINCT aggregations using MarkDistinct",
-                        optimizerConfig.isUseMarkDistinct(),
-                        false),
                 enumProperty(
                         MARK_DISTINCT_STRATEGY,
                         "",
@@ -955,6 +953,22 @@ public final class SystemSessionProperties
                         queryManagerConfig.getFaultTolerantExecutionMinPartitionCountForWrite(),
                         value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
                         false),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_ENABLED,
+                        "Enables change of number of partitions at runtime when intermediate data size is large",
+                        queryManagerConfig.isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(),
+                        true),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_PARTITION_COUNT,
+                        "The partition count to use for runtime adaptive partitioning when enabled",
+                        queryManagerConfig.getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(),
+                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_PARTITION_COUNT, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_MAX_TASK_SIZE,
+                        "Max average task input size when deciding runtime adaptive partitioning",
+                        queryManagerConfig.getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(),
+                        true),
                 doubleProperty(
                         FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS,
                         "Minimal progress of source stage to consider scheduling of parent stage",
@@ -1057,6 +1071,11 @@ public final class SystemSessionProperties
                 integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
+                        true),
+                booleanProperty(
+                        FLAT_GROUP_BY_HASH,
+                        "Enable new flat group by hash",
+                        featuresConfig.isFlatGroupByHash(),
                         true));
     }
 
@@ -1362,19 +1381,7 @@ public final class SystemSessionProperties
 
     public static MarkDistinctStrategy markDistinctStrategy(Session session)
     {
-        MarkDistinctStrategy markDistinctStrategy = session.getSystemProperty(MARK_DISTINCT_STRATEGY, MarkDistinctStrategy.class);
-        if (markDistinctStrategy != null) {
-            // mark_distinct_strategy is set, so it takes precedence over use_mark_distinct
-            return markDistinctStrategy;
-        }
-
-        Boolean useMarkDistinct = session.getSystemProperty(USE_MARK_DISTINCT, Boolean.class);
-        if (useMarkDistinct == null) {
-            // both mark_distinct_strategy and use_mark_distinct have default null values, use AUTOMATIC
-            return MarkDistinctStrategy.AUTOMATIC;
-        }
-        // use_mark_distinct is set but mark_distinct_strategy is not, map use_mark_distinct to mark_distinct_strategy
-        return useMarkDistinct ? MarkDistinctStrategy.AUTOMATIC : MarkDistinctStrategy.NONE;
+        return session.getSystemProperty(MARK_DISTINCT_STRATEGY, MarkDistinctStrategy.class);
     }
 
     public static boolean preferPartialAggregation(Session session)
@@ -1808,6 +1815,21 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, Integer.class);
     }
 
+    public static boolean isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_ENABLED, Boolean.class);
+    }
+
+    public static int getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_PARTITION_COUNT, Integer.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_MAX_TASK_SIZE, DataSize.class);
+    }
+
     public static double getFaultTolerantExecutionMinSourceStageProgress(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS, Double.class);
@@ -1901,5 +1923,10 @@ public final class SystemSessionProperties
     public static int getPagePartitioningBufferPoolSize(Session session)
     {
         return session.getSystemProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE, Integer.class);
+    }
+
+    public static boolean isFlatGroupByHash(Session session)
+    {
+        return session.getSystemProperty(FLAT_GROUP_BY_HASH, Boolean.class);
     }
 }

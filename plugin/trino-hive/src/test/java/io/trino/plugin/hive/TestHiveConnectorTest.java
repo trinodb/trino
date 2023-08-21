@@ -13,7 +13,15 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.testing.QueryRunner;
+
 public class TestHiveConnectorTest
         extends BaseHiveConnectorTest
 {
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return createHiveQueryRunner(HiveQueryRunner.builder());
+    }
 }

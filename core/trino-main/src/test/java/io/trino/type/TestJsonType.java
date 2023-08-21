@@ -17,8 +17,11 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.type.JsonType.JSON;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestJsonType
         extends AbstractTestType
@@ -40,5 +43,28 @@ public class TestJsonType
     protected Object getGreaterValue(Object value)
     {
         return null;
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThatThrownBy(() -> type.getPreviousValue(getSampleValue()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Type is not orderable: " + type);
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThatThrownBy(() -> type.getNextValue(getSampleValue()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Type is not orderable: " + type);
     }
 }

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Resources;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -60,6 +61,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
@@ -67,6 +69,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 import static org.testng.Assert.assertFalse;
 
 public class TestDeltaLakeBasic
@@ -76,7 +79,7 @@ public class TestDeltaLakeBasic
 
     private static final List<String> PERSON_TABLES = ImmutableList.of(
             "person", "person_without_last_checkpoint", "person_without_old_jsons", "person_without_checkpoints");
-    private static final List<String> OTHER_TABLES = ImmutableList.of("no_column_stats");
+    private static final List<String> OTHER_TABLES = ImmutableList.of("no_column_stats", "timestamp_ntz", "timestamp_ntz_partition");
 
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -252,7 +255,11 @@ public class TestDeltaLakeBasic
         assertUpdate("INSERT INTO " + tableName + " VALUES 10", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES 20", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES NULL", 1);
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        assertUpdate(Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty("task_writer_count", "1")
+                        .build(),
+                "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
         // Verify 'add' entry contains the expected physical name in the stats
         List<DeltaLakeTransactionLogEntry> transactionLog = getEntriesFromJson(4, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
@@ -415,6 +422,61 @@ public class TestDeltaLakeBasic
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    /**
+     * @see deltalake.case_sensitive
+     */
+    @Test
+    public void testStatisticsWithColumnCaseSensitivity()
+            throws Exception
+    {
+        String tableName = "test_column_case_sensitivity_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/case_sensitive").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (10, 1), (20, 1), (null, 1)", 3);
+
+        List<DeltaLakeTransactionLogEntry> transactionLog = getEntriesFromJson(1, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
+        assertThat(transactionLog).hasSize(2);
+        AddFileEntry addFileEntry = transactionLog.get(1).getAdd();
+        DeltaLakeFileStatistics stats = addFileEntry.getStats().orElseThrow();
+        assertThat(stats.getMinValues().orElseThrow().get("UPPER_CASE")).isEqualTo(10);
+        assertThat(stats.getMaxValues().orElseThrow().get("UPPER_CASE")).isEqualTo(20);
+        assertThat(stats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
+
+        assertUpdate("UPDATE " + tableName + " SET upper_case = upper_case + 10", 3);
+
+        List<DeltaLakeTransactionLogEntry> transactionLogAfterUpdate = getEntriesFromJson(2, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
+        assertThat(transactionLogAfterUpdate).hasSize(3);
+        AddFileEntry updateAddFileEntry = transactionLogAfterUpdate.get(2).getAdd();
+        DeltaLakeFileStatistics updateStats = updateAddFileEntry.getStats().orElseThrow();
+        assertThat(updateStats.getMinValues().orElseThrow().get("UPPER_CASE")).isEqualTo(20);
+        assertThat(updateStats.getMaxValues().orElseThrow().get("UPPER_CASE")).isEqualTo(30);
+        assertThat(updateStats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('upper_case', null, 2.0, 0.3333333333333333, null, 20, 30),
+                        ('part', null, 1.0, 0.0, null, null, null),
+                        (null, null, null, null, 3.0, null, null)
+                        """);
+
+        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName));
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('upper_case', null, 2.0, 0.3333333333333333, null, 20, 30),
+                        ('part', null, 1.0, 0.0, null, null, null),
+                        (null, null, null, null, 3.0, null, null)
+                        """);
+    }
+
     @DataProvider
     public Object[][] columnMappingModeDataProvider()
     {
@@ -422,6 +484,120 @@ public class TestDeltaLakeBasic
                 {"id"},
                 {"name"},
         };
+    }
+
+    /**
+     * @see databricks.timestamp_ntz
+     */
+    @Test
+    public void testTimestampNtz()
+    {
+        // TODO Move this test to product test once new Databricks LTS or OSS Delta Lake supports timestamp_ntz type
+        assertQuery(
+                "DESCRIBE timestamp_ntz",
+                "VALUES ('x', 'timestamp(6)', '', '')");
+
+        assertThat(query("SELECT * FROM timestamp_ntz"))
+                .matches("""
+                            VALUES
+                            NULL,
+                            TIMESTAMP '-9999-12-31 23:59:59.999999',
+                            TIMESTAMP '-0001-01-01 00:00:00',
+                            TIMESTAMP '0000-01-01 00:00:00',
+                            TIMESTAMP '1582-10-05 00:00:00',
+                            TIMESTAMP '1582-10-14 23:59:59.999999',
+                            TIMESTAMP '2020-12-31 01:02:03.123456',
+                            TIMESTAMP '9999-12-31 23:59:59.999999'
+                            """);
+        assertQuery(
+                "SHOW STATS FOR timestamp_ntz",
+                """
+                            VALUES
+                            ('x', null, null, 0.125, null, null, null),
+                            (null, null, null, null, 8.0, null, null)
+                            """);
+
+        // TODO https://github.com/trinodb/trino/issues/15873 Support writing timestamp_ntz type when upgrading the max writer version to 7
+        assertQueryFails("INSERT INTO timestamp_ntz VALUES NULL", "Table .* requires Delta Lake writer version 7 which is not supported");
+    }
+
+    /**
+     * @see databricks.timestamp_ntz_partition
+     */
+    @Test
+    public void testTimestampNtzPartitioned()
+    {
+        // TODO Move this test to product test once new Databricks LTS or OSS Delta Lake supports timestamp_ntz type
+        assertQuery(
+                "DESCRIBE timestamp_ntz_partition",
+                "VALUES ('id', 'integer', '', ''), ('part', 'timestamp(6)', '', '')");
+        assertThat((String) computeScalar("SHOW CREATE TABLE timestamp_ntz_partition"))
+                .contains("partitioned_by = ARRAY['part']");
+
+        assertThat(query("SELECT * FROM timestamp_ntz_partition"))
+                .matches("""
+                            VALUES
+                            (1, NULL),
+                            (2, TIMESTAMP '-9999-12-31 23:59:59.999999'),
+                            (3, TIMESTAMP '-0001-01-01 00:00:00'),
+                            (4, TIMESTAMP '0000-01-01 00:00:00'),
+                            (5, TIMESTAMP '1582-10-05 00:00:00'),
+                            (6, TIMESTAMP '1582-10-14 23:59:59.999999'),
+                            (7, TIMESTAMP '2020-12-31 01:02:03.123456'),
+                            (8, TIMESTAMP '9999-12-31 23:59:59.999999')
+                            """);
+        assertQuery("SELECT id FROM timestamp_ntz_partition WHERE part = TIMESTAMP '2020-12-31 01:02:03.123456'", "VALUES 7");
+
+        assertQuery(
+                "SHOW STATS FOR timestamp_ntz_partition",
+                """
+                            VALUES
+                            ('id', null, null, 0.0, null, 1, 8),
+                            ('part', null, 7.0, 0.125, null, null, null),
+                            (null, null, null, null, 8.0, null, null)
+                            """);
+
+        // TODO https://github.com/trinodb/trino/issues/15873 Support writing timestamp_ntz type when upgrading the max writer version to 7
+        assertQueryFails(
+                "INSERT INTO timestamp_ntz_partition VALUES (NULL, NULL)",
+                "Table .* requires Delta Lake writer version 7 which is not supported");
+    }
+
+    /**
+     * @see databricks.identity_columns
+     */
+    @Test
+    public void testIdentityColumns()
+            throws Exception
+    {
+        String tableName = "test_identity_columns_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("databricks/identity_columns").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        List<DeltaLakeTransactionLogEntry> transactionLog = getEntriesFromJson(0, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
+        assertThat(transactionLog).hasSize(3);
+        MetadataEntry metadataEntry = transactionLog.get(2).getMetaData();
+        assertThat(getColumnsMetadata(metadataEntry).get("b"))
+                .containsExactly(
+                        entry("delta.identity.start", 1),
+                        entry("delta.identity.step", 1),
+                        entry("delta.identity.allowExplicitInsert", false));
+
+        // Verify a column operation preserves delta.identity.* column properties
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".b IS 'test column comment'");
+
+        List<DeltaLakeTransactionLogEntry> transactionLogAfterComment = getEntriesFromJson(1, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
+        assertThat(transactionLogAfterComment).hasSize(3);
+        MetadataEntry commentMetadataEntry = transactionLogAfterComment.get(2).getMetaData();
+        assertThat(getColumnsMetadata(commentMetadataEntry).get("b"))
+                .containsExactly(
+                        entry("comment", "test column comment"),
+                        entry("delta.identity.start", 1),
+                        entry("delta.identity.step", 1),
+                        entry("delta.identity.allowExplicitInsert", false));
     }
 
     @Test
@@ -460,6 +636,8 @@ public class TestDeltaLakeBasic
 
         // Assert queries fail cleanly
         assertQueryFails("TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("SELECT * FROM \"" + tableName + "$history\"", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("SELECT * FROM \"" + tableName + "$properties\"", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SELECT * FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SELECT 1 FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
         assertQueryFails("SHOW CREATE TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);

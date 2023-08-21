@@ -847,7 +847,7 @@ public class TestTupleDomainParquetPredicate
         checkArgument(precision > MAX_SHORT_PRECISION && precision <= TimestampType.MAX_PRECISION, "Precision is out of range");
         return new LongTimestamp(
                 start.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + start.getLong(MICRO_OF_SECOND),
-                toIntExact(round((start.getNano() % PICOSECONDS_PER_NANOSECOND) * PICOSECONDS_PER_NANOSECOND, toIntExact(TimestampType.MAX_PRECISION - precision))));
+                toIntExact(round((start.getNano() % PICOSECONDS_PER_NANOSECOND) * (long) PICOSECONDS_PER_NANOSECOND, toIntExact(TimestampType.MAX_PRECISION - precision))));
     }
 
     private static List<ByteBuffer> toByteBufferList(Long... values)

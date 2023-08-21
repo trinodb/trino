@@ -468,7 +468,7 @@ public class CheckpointEntryIterator
             throw new TrinoException(DELTA_LAKE_BAD_DATA, "Checkpoint file found without metadata entry");
         }
         // Block ordering is determined by TransactionLogAccess#buildAddColumnHandle, using the same method to ensure blocks are matched with the correct column
-        List<DeltaLakeColumnMetadata> columnsWithMinMaxStats = columnsWithStats(schema, metadataEntry.getCanonicalPartitionColumns());
+        List<DeltaLakeColumnMetadata> columnsWithMinMaxStats = columnsWithStats(schema, metadataEntry.getOriginalPartitionColumns());
 
         long numRecords = getLong(statsRowBlock, 0);
 

@@ -215,6 +215,31 @@ public interface Type
         return Optional.empty();
     }
 
+    /**
+     * Returns the fixed size of this type when written to a flat buffer.
+     */
+    int getFlatFixedSize();
+
+    /**
+     * Returns true if this type is variable width when written to a flat buffer.
+     */
+    boolean isFlatVariableWidth();
+
+    /**
+     * Returns the variable width size of the value at the specified position when written to a flat buffer.
+     */
+    int getFlatVariableWidthSize(Block block, int position);
+
+    /**
+     * Update the variable width offsets recorded in the value.
+     * This method is called after the value has been moved to a new location, and therefore the offsets
+     * need to be updated.
+     * Returns the length of the variable width data, so container types can update their offsets.
+     *
+     * @return the length of the variable width data
+     */
+    int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset);
+
     final class Range
     {
         private final Object min;

@@ -25,7 +25,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
-import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -59,7 +58,6 @@ public class TestHashSemiJoinOperator
     private ScheduledExecutorService scheduledExecutor;
     private TaskContext taskContext;
     private TypeOperators typeOperators;
-    private BlockTypeOperators blockTypeOperators;
 
     @BeforeMethod
     public void setUp()
@@ -68,7 +66,6 @@ public class TestHashSemiJoinOperator
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
         taskContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION);
         typeOperators = new TypeOperators();
-        blockTypeOperators = new BlockTypeOperators(typeOperators);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -115,7 +112,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -180,7 +177,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -235,7 +232,7 @@ public class TestHashSemiJoinOperator
                 Optional.of(1),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
 
         // run test
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(
@@ -275,7 +272,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -331,7 +328,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -391,7 +388,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);
@@ -449,7 +446,7 @@ public class TestHashSemiJoinOperator
                 rowPagesBuilder.getHashChannel(),
                 10,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators);
+                typeOperators);
         Operator setBuilderOperator = setBuilderOperatorFactory.createOperator(driverContext);
 
         Driver driver = Driver.createDriver(driverContext, buildOperator, setBuilderOperator);

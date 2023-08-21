@@ -17,12 +17,13 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlockBuilder;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestRealType
@@ -74,5 +75,26 @@ public class TestRealType
         assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 2));
         assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 3));
         assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 4));
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEmpty();
     }
 }

@@ -29,6 +29,7 @@ public class ObjectIdType
         extends AbstractVariableWidthType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
+            .addOperators(DEFAULT_READ_OPERATORS)
             .addOperators(DEFAULT_COMPARABLE_OPERATORS)
             .addOperators(DEFAULT_ORDERING_OPERATORS)
             .build();

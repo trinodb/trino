@@ -120,7 +120,7 @@ public class MetadataEntry
      * For use in read-path. Returns lowercase partition column names.
      */
     @JsonIgnore
-    public List<String> getCanonicalPartitionColumns()
+    public List<String> getLowercasePartitionColumns()
     {
         return canonicalPartitionColumns;
     }

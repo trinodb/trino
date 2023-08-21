@@ -98,7 +98,6 @@ import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorizati
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
-import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
@@ -567,14 +566,6 @@ public class SqlStandardAccessControl
     {
         if (!isRoleApplicable(new HivePrincipal(USER, context.getIdentity().getUser()), role, hivePrincipal -> metastore.listRoleGrants(context, hivePrincipal))) {
             denySetRole(role);
-        }
-    }
-
-    @Override
-    public void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        if (!isAdmin(context)) {
-            denyShowRoleAuthorizationDescriptors();
         }
     }
 

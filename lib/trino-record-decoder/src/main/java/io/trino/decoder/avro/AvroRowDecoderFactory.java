@@ -14,15 +14,13 @@
 package io.trino.decoder.avro;
 
 import com.google.inject.Inject;
-import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderFactory;
+import io.trino.decoder.RowDecoderSpec;
 import io.trino.decoder.dummy.DummyRowDecoderFactory;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
-
-import java.util.Map;
-import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -45,23 +43,22 @@ public class AvroRowDecoderFactory
     }
 
     @Override
-    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
+    public RowDecoder create(ConnectorSession session, RowDecoderSpec rowDecoderSpec)
     {
-        requireNonNull(columns, "columns is null");
-        if (columns.isEmpty()) {
+        if (rowDecoderSpec.columns().isEmpty()) {
             // For select count(*)
             return DummyRowDecoderFactory.DECODER_INSTANCE;
         }
 
-        String dataSchema = requireNonNull(decoderParams.get(DATA_SCHEMA), format("%s cannot be null", DATA_SCHEMA));
+        String dataSchema = requireNonNull(rowDecoderSpec.decoderParams().get(DATA_SCHEMA), format("%s cannot be null", DATA_SCHEMA));
         Schema parsedSchema = (new Schema.Parser()).parse(dataSchema);
         if (parsedSchema.getType().equals(Schema.Type.RECORD)) {
             AvroReaderSupplier<GenericRecord> avroReaderSupplier = avroReaderSupplierFactory.create(parsedSchema);
             AvroDeserializer<GenericRecord> dataDecoder = avroDeserializerFactory.create(avroReaderSupplier);
-            return new GenericRecordRowDecoder(dataDecoder, columns);
+            return new GenericRecordRowDecoder(dataDecoder, rowDecoderSpec.columns());
         }
         AvroReaderSupplier<Object> avroReaderSupplier = avroReaderSupplierFactory.create(parsedSchema);
         AvroDeserializer<Object> dataDecoder = avroDeserializerFactory.create(avroReaderSupplier);
-        return new SingleValueRowDecoder(dataDecoder, getOnlyElement(columns));
+        return new SingleValueRowDecoder(dataDecoder, getOnlyElement(rowDecoderSpec.columns()));
     }
 }

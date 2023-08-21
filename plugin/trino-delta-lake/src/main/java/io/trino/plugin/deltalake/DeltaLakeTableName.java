@@ -22,7 +22,6 @@ import java.util.regex.Pattern;
 
 import static io.trino.plugin.deltalake.DeltaLakeTableType.DATA;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.util.Objects.requireNonNull;
 
 public final class DeltaLakeTableName
 {
@@ -31,12 +30,6 @@ public final class DeltaLakeTableName
     private static final Pattern TABLE_PATTERN = Pattern.compile("" +
             "(?<table>[^$@]+)" +
             "(?:\\$(?<type>[^@]+))?");
-
-    public static String tableNameWithType(String tableName, DeltaLakeTableType tableType)
-    {
-        requireNonNull(tableName, "tableName is null");
-        return tableName + "$" + tableType.name().toLowerCase(Locale.ENGLISH);
-    }
 
     public static String tableNameFrom(String name)
     {

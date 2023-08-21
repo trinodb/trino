@@ -29,7 +29,7 @@ import java.util.OptionalInt;
 import java.util.Properties;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
-import static io.trino.plugin.hive.util.HiveClassNames.REGEX_HIVE_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.REGEX_SERDE_CLASS;
 
 public class RegexFileWriterFactory
         implements HiveFileWriterFactory
@@ -47,7 +47,7 @@ public class RegexFileWriterFactory
             boolean useAcidSchema,
             WriterKind writerKind)
     {
-        if (REGEX_HIVE_SERDE_CLASS.equals(storageFormat.getSerde())) {
+        if (REGEX_SERDE_CLASS.equals(storageFormat.getSerde())) {
             throw new TrinoException(HIVE_WRITER_OPEN_ERROR, "REGEX format is read-only");
         }
         return Optional.empty();

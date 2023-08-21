@@ -90,4 +90,17 @@ public class TestDeltaLakeSystemTables
             assertUpdate("DROP TABLE IF EXISTS test_checkpoint_table");
         }
     }
+
+    @Test
+    public void testPropertiesTable()
+    {
+        String tableName = "test_simple_properties_table";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (_bigint BIGINT) WITH (change_data_feed_enabled = true, checkpoint_interval = 5)");
+            assertQuery("SELECT * FROM \"" + tableName + "$properties\"", "VALUES ('delta.enableChangeDataFeed', 'true'), ('delta.checkpointInterval', '5'), ('delta.minReaderVersion', '1'), ('delta.minWriterVersion', '4')");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
 }

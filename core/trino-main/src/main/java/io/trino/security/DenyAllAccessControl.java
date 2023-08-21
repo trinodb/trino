@@ -87,7 +87,6 @@ import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowCurrentRoles;
-import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
@@ -488,12 +487,6 @@ public class DenyAllAccessControl
     public void checkCanSetCatalogRole(SecurityContext context, String role, String catalog)
     {
         denySetRole(role);
-    }
-
-    @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SecurityContext context, Optional<String> catalogName)
-    {
-        denyShowRoleAuthorizationDescriptors();
     }
 
     @Override

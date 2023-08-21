@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>422-SNAPSHOT</version>
+        <version>425-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -63,14 +63,7 @@
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-core</artifactId>
-            <version>2.14.0</version>
-            <exclusions>
-                <!--       Change the scope to test         -->
-                <exclusion>
-                    <groupId>org.jetbrains</groupId>
-                    <artifactId>annotations</artifactId>
-                </exclusion>
-            </exclusions>
+            <version>2.15.0</version>
         </dependency>
 
         <dependency>
@@ -135,6 +128,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
             <scope>test</scope>
@@ -194,12 +193,6 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
             <scope>test</scope>
         </dependency>
 

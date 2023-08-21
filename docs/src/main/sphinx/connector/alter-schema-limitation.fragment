@@ -1,5 +1,4 @@
-ALTER SCHEMA
-^^^^^^^^^^^^
+### ALTER SCHEMA
 
-The connector supports renaming a schema with the ``ALTER SCHEMA RENAME``
-statement. ``ALTER SCHEMA SET AUTHORIZATION`` is not supported.
+The connector supports renaming a schema with the `ALTER SCHEMA RENAME`
+statement. `ALTER SCHEMA SET AUTHORIZATION` is not supported.

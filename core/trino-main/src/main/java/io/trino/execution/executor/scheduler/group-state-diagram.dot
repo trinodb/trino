@@ -1,0 +1,24 @@
+digraph Group {
+    node [shape=box];
+
+    start [shape=point];
+    split1 [shape=point];
+    split2 [shape=point];
+
+
+    start -> blocked;
+    blocked -> runnable [label="enqueueTask()"];
+    runnable -> runnable [label="enqueueTask()\nblockTask()"];
+    runnable -> split1 [label="dequeueTask()"];
+    split1 -> runnable [label="queue not empty"];
+    split1 -> running [label="queue empty"];
+    running -> split2 [label="blockTask()"];
+    running -> runnable [label="enqueueTask()"];
+    split2 -> blocked [label="all blocked"];
+    split2 -> running [label="not all blocked"];
+    blocked -> blocked [label="finishTask()"];
+    running -> running [label="finishTask()"];
+    runnable -> split3 [label="finishTask()"];
+    split3 -> blocked [label="all blocked"];
+    split3 -> running [label="all running"];
+}

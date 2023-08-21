@@ -143,13 +143,13 @@ public class TestTimestamp
                 .hasType(createTimestampType(12))
                 .isEqualTo(timestamp(12, 2020, 5, 1, 12, 34, 56, 123_456_789_012L));
 
-        assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890123'").evaluate())
+        assertThatThrownBy(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890123'")::evaluate)
                 .hasMessage("line 1:12: TIMESTAMP precision must be in range [0, 12]: 13");
 
-        assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01'").evaluate())
+        assertThatThrownBy(assertions.expression("TIMESTAMP '2020-13-01'")::evaluate)
                 .hasMessage("line 1:12: '2020-13-01' is not a valid TIMESTAMP literal");
 
-        assertThatThrownBy(() -> assertions.expression("TIMESTAMP 'xxx'").evaluate())
+        assertThatThrownBy(assertions.expression("TIMESTAMP 'xxx'")::evaluate)
                 .hasMessage("line 1:12: 'xxx' is not a valid TIMESTAMP literal");
 
         // negative epoch
@@ -1473,9 +1473,9 @@ public class TestTimestamp
         assertThat(assertions.expression("CAST(TIMESTAMP '-12001-05-01 12:34:56' AS TIMESTAMP(0) WITH TIME ZONE)")).matches("TIMESTAMP '-12001-05-01 12:34:56 Pacific/Apia'");
 
         // Overflow
-        assertThatThrownBy(() -> assertions.expression("CAST(TIMESTAMP '123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST(TIMESTAMP '123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)")::evaluate)
                 .hasMessage("Out of range for timestamp with time zone: 3819379822496000");
-        assertThatThrownBy(() -> assertions.expression("CAST(TIMESTAMP '-123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST(TIMESTAMP '-123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)")::evaluate)
                 .hasMessage("Out of range for timestamp with time zone: -3943693439888000");
     }
 
@@ -1678,85 +1678,85 @@ public class TestTimestamp
         assertThat(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 +01:23' AS TIMESTAMP(12))"))
                 .matches("TIMESTAMP '2020-05-10 12:34:56.111111111111'");
 
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(0))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(0))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(1))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(1))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(2))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(2))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(3))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(3))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(4))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(4))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(5))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(5))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(6))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(6))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(7))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(7))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(8))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(8))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(9))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(9))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(10))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(10))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(11))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(11))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(12))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 12:34:56.111111111111 xxx' AS TIMESTAMP(12))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 12:34:56.111111111111 xxx");
 
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(0))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(0))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(1))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(1))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(2))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(2))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(3))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(3))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(4))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(4))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(5))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(5))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(6))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(6))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(7))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(7))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(8))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(8))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(9))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(9))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(10))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(10))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(11))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(11))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(12))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10 xxx' AS TIMESTAMP(12))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10 xxx");
 
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(0))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(0))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(1))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(1))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(2))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(2))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(3))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(3))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(4))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(4))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(5))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(5))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(6))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(6))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(7))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(7))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(8))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(8))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(9))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(9))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(10))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(10))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(11))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(11))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
-        assertThatThrownBy(() -> assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(12))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2020-05-10T12:34:56' AS TIMESTAMP(12))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2020-05-10T12:34:56");
     }
 
@@ -2792,30 +2792,30 @@ public class TestTimestamp
     @Test
     public void testCastInvalidTimestamp()
     {
-        assertThatThrownBy(() -> assertions.expression("CAST('ABC' AS TIMESTAMP)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('ABC' AS TIMESTAMP)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: ABC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-00 00:00:00' AS TIMESTAMP)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-00 00:00:00' AS TIMESTAMP)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-00 00:00:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-00-01 00:00:00' AS TIMESTAMP)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-00-01 00:00:00' AS TIMESTAMP)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-00-01 00:00:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 25:00:00' AS TIMESTAMP)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 25:00:00' AS TIMESTAMP)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 25:00:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:61:00' AS TIMESTAMP)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 00:61:00' AS TIMESTAMP)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:61:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:61' AS TIMESTAMP)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 00:00:61' AS TIMESTAMP)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:61");
 
-        assertThatThrownBy(() -> assertions.expression("CAST('ABC' AS TIMESTAMP(12))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('ABC' AS TIMESTAMP(12))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: ABC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-00 00:00:00' AS TIMESTAMP(12))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-00 00:00:00' AS TIMESTAMP(12))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-00 00:00:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-00-01 00:00:00' AS TIMESTAMP(12))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-00-01 00:00:00' AS TIMESTAMP(12))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-00-01 00:00:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 25:00:00' AS TIMESTAMP(12))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 25:00:00' AS TIMESTAMP(12))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 25:00:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:61:00' AS TIMESTAMP(12))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 00:61:00' AS TIMESTAMP(12))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:61:00");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:61' AS TIMESTAMP(12))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 00:00:61' AS TIMESTAMP(12))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:61");
     }
 

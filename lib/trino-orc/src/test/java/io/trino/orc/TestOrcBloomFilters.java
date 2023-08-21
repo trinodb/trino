@@ -168,7 +168,7 @@ public class TestOrcBloomFilters
     @Test
     public void testBloomFilterPredicateValuesExisting()
     {
-        BloomFilter bloomFilter = new BloomFilter(TEST_VALUES.size() * 10, 0.01);
+        BloomFilter bloomFilter = new BloomFilter(TEST_VALUES.size() * 10L, 0.01);
 
         for (Map.Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
             Object o = testValue.getKey();
@@ -212,7 +212,7 @@ public class TestOrcBloomFilters
     @Test
     public void testBloomFilterPredicateValuesNonExisting()
     {
-        BloomFilter bloomFilter = new BloomFilter(TEST_VALUES.size() * 10, 0.01);
+        BloomFilter bloomFilter = new BloomFilter(TEST_VALUES.size() * 10L, 0.01);
 
         for (Map.Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
             boolean matched = checkInBloomFilter(bloomFilter, testValue.getKey(), testValue.getValue());

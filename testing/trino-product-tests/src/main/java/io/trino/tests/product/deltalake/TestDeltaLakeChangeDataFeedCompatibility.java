@@ -15,18 +15,23 @@ package io.trino.tests.product.deltalake;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.testng.services.Flaky;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -53,14 +58,15 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         s3Client = new S3ClientFactory().createS3Client(s3ServerType);
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testUpdateTableWithCdf()
+    public void testUpdateTableWithCdf(String columnMappingMode)
     {
         String tableName = "test_updates_to_table_with_cdf_" + randomNameSuffix();
         try {
             onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (col1 VARCHAR, updated_column INT) " +
-                    "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', change_data_feed_enabled = true)");
+                    "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', " +
+                    "change_data_feed_enabled = true, column_mapping_mode = '" + columnMappingMode + "')");
 
             assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + tableName).getOnlyValue().toString()).contains("change_data_feed_enabled = true");
 
@@ -88,9 +94,43 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testUpdatePartitionedTableWithCdf()
+    public void testUpdateCdfTableWithNonLowercaseColumn(String columnMappingMode)
+    {
+        String tableName = "test_updates_cdf_with_non_lowercase_" + randomNameSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName +
+                "(col1 string, Updated_Column int)" +
+                "USING delta " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                "TBLPROPERTIES ('delta.enableChangeDataFeed' = true, 'delta.columnMapping.mode'='" + columnMappingMode + "')");
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES ('testValue1', 1), ('testValue2', 2), ('testValue3', 3)");
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET updated_column = 5 WHERE col1 = 'testValue3'");
+
+            List<Row> expectedRows = ImmutableList.<Row>builder()
+                    .add(row("testValue1", 1, "insert", 1L))
+                    .add(row("testValue2", 2, "insert", 1L))
+                    .add(row("testValue3", 3, "insert", 1L))
+                    .add(row("testValue3", 3, "update_preimage", 2L))
+                    .add(row("testValue3", 5, "update_postimage", 2L))
+                    .build();
+            assertThat(onDelta().executeQuery("SELECT col1, updated_column, _change_type, _commit_version " +
+                    "FROM table_changes('default." + tableName + "', 0)"))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT col1, updated_column, _change_type, _commit_version " +
+                    "FROM TABLE(delta.system.table_changes('default', '" + tableName + "'))"))
+                    .containsOnly(expectedRows);
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testUpdatePartitionedTableWithCdf(String columnMappingMode)
     {
         String tableName = "test_updates_to_partitioned_table_with_cdf_" + randomNameSuffix();
         try {
@@ -98,7 +138,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
                     "USING DELTA " +
                     "PARTITIONED BY (partitioning_column_1, partitioning_column_2) " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true, 'delta.columnMapping.mode'='" + columnMappingMode + "')");
 
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES ('testValue1', 1, 'partition1')");
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES ('testValue2', 2, 'partition2')");
@@ -120,16 +160,16 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testUpdateTableWithManyRowsInsertedInTheSameQueryAndCdfEnabled()
+    public void testUpdateTableWithManyRowsInsertedInTheSameQueryAndCdfEnabled(String columnMappingMode)
     {
         String tableName = "test_updates_to_table_with_many_rows_inserted_in_one_query_cdf_" + randomNameSuffix();
         try {
             onDelta().executeQuery("CREATE TABLE default." + tableName + " (col1 STRING, updated_column INT) " +
                     "USING DELTA " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true, 'delta.columnMapping.mode' = '" + columnMappingMode + "')");
 
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES ('testValue1', 1), ('testValue2', 2), ('testValue3', 3)");
             onTrino().executeQuery("UPDATE delta.default." + tableName + " SET updated_column = 5 WHERE col1 = 'testValue3'");
@@ -148,9 +188,9 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testUpdatePartitionedTableWithManyRowsInsertedInTheSameRequestAndCdfEnabled()
+    public void testUpdatePartitionedTableWithManyRowsInsertedInTheSameRequestAndCdfEnabled(String columnMappingMode)
     {
         String tableName = "test_updates_to_partitioned_table_with_many_rows_inserted_in_one_query_cdf_" + randomNameSuffix();
         try {
@@ -158,7 +198,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
                     "USING DELTA " +
                     "PARTITIONED BY (partitioning_column_1, partitioning_column_2) " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true, 'delta.columnMapping.mode' = '" + columnMappingMode + "')");
 
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES " +
                     "('testValue1', 1, 'partition1'), " +
@@ -181,9 +221,9 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testUpdatePartitionedTableCdfEnabledAndPartitioningColumnUpdated()
+    public void testUpdatePartitionedTableCdfEnabledAndPartitioningColumnUpdated(String columnMappingMode)
     {
         String tableName = "test_updates_partitioning_column_in_table_with_cdf_" + randomNameSuffix();
         try {
@@ -191,7 +231,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
                     "USING DELTA " +
                     "PARTITIONED BY (partitioning_column_1, partitioning_column_2) " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true, 'delta.columnMapping.mode' = '" + columnMappingMode + "')");
 
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES " +
                     "('testValue1', 1, 'partition1'), " +
@@ -219,14 +259,15 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testUpdateTableWithCdfEnabledAfterTableIsAlreadyCreated()
+    public void testUpdateTableWithCdfEnabledAfterTableIsAlreadyCreated(String columnMappingMode)
     {
         String tableName = "test_updates_to_table_with_cdf_enabled_later_" + randomNameSuffix();
         try {
             onDelta().executeQuery("CREATE TABLE default." + tableName + " (col1 STRING, updated_column INT) " +
                     "USING DELTA " +
+                    "TBLPROPERTIES ('delta.columnMapping.mode' = '" + columnMappingMode + "') " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
 
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES ('testValue1', 1)");
@@ -271,16 +312,16 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testDeleteFromTableWithCdf()
+    public void testDeleteFromTableWithCdf(String columnMappingMode)
     {
         String tableName = "test_deletes_from_table_with_cdf_" + randomNameSuffix();
         try {
             onDelta().executeQuery("CREATE TABLE default." + tableName + " (col1 STRING, updated_column INT) " +
                     "USING DELTA " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true, 'delta.columnMapping.mode' = '" + columnMappingMode + "')");
 
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES('testValue1', 1)");
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES('testValue2', 2)");
@@ -300,9 +341,9 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testMergeUpdateIntoTableWithCdfEnabled()
+    public void testMergeUpdateIntoTableWithCdfEnabled(String columnMappingMode)
     {
         String tableName1 = "test_merge_update_into_table_with_cdf_" + randomNameSuffix();
         String tableName2 = "test_merge_update_into_table_with_cdf_data_table_" + randomNameSuffix();
@@ -310,7 +351,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
             onDelta().executeQuery("CREATE TABLE default." + tableName1 + " (nationkey INT, name STRING, regionkey INT) " +
                     "USING DELTA " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName1 + "'" +
-                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true, 'delta.columnMapping.mode' = '" + columnMappingMode + "')");
             onDelta().executeQuery("CREATE TABLE default." + tableName2 + " (nationkey INT, name STRING, regionkey INT) " +
                     "USING DELTA " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName2 + "'" +
@@ -357,9 +398,9 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testMergeDeleteIntoTableWithCdfEnabled()
+    public void testMergeDeleteIntoTableWithCdfEnabled(String columnMappingMode)
     {
         String tableName1 = "test_merge_delete_into_table_with_cdf_" + randomNameSuffix();
         String tableName2 = "test_merge_delete_into_table_with_cdf_data_table_" + randomNameSuffix();
@@ -367,7 +408,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
             onDelta().executeQuery("CREATE TABLE default." + tableName1 + " (nationkey INT, name STRING, regionkey INT) " +
                     "USING DELTA " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName1 + "'" +
-                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true, 'delta.columnMapping.mode' = '" + columnMappingMode + "')");
             onDelta().executeQuery("CREATE TABLE default." + tableName2 + " (nationkey INT, name STRING, regionkey INT) " +
                     "USING DELTA " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName2 + "'" +
@@ -412,9 +453,9 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testMergeMixedDeleteAndUpdateIntoTableWithCdfEnabled()
+    public void testMergeMixedDeleteAndUpdateIntoTableWithCdfEnabled(String columnMappingMode)
     {
         String targetTableName = "test_merge_mixed_delete_and_update_into_table_with_cdf_" + randomNameSuffix();
         String sourceTableName = "test_merge_mixed_delete_and_update_into_table_with_cdf_data_table_" + randomNameSuffix();
@@ -422,7 +463,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
             onDelta().executeQuery("CREATE TABLE default." + targetTableName + " (page_id INT, page_url STRING, views INT) " +
                     "USING DELTA " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + targetTableName + "'" +
-                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true, 'delta.columnMapping.mode' = '" + columnMappingMode + "')");
             onDelta().executeQuery("CREATE TABLE default." + sourceTableName + " (page_id INT, page_url STRING, views INT) " +
                     "USING DELTA " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + sourceTableName + "'");
@@ -474,9 +515,9 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testDeleteFromNullPartitionWithCdfEnabled()
+    public void testDeleteFromNullPartitionWithCdfEnabled(String columnMappingMode)
     {
         String tableName = "test_delete_from_null_partition_with_cdf_enabled" + randomNameSuffix();
         try {
@@ -484,7 +525,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
                     "USING DELTA " +
                     "PARTITIONED BY (partitioning_column_1, partitioning_column_2) " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true, 'delta.columnMapping.mode' = '" + columnMappingMode + "')");
 
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES " +
                     "('testValue1', 1, 'partition1'), " +
@@ -513,14 +554,14 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTurningOnAndOffCdfFromTrino()
+    public void testTurningOnAndOffCdfFromTrino(String columnMappingMode)
     {
         String tableName = "test_turning_cdf_on_and_off_from_trino" + randomNameSuffix();
         try {
             onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (col1 VARCHAR, updated_column INT) " +
-                    "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', change_data_feed_enabled = true)");
+                    "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', change_data_feed_enabled = true, column_mapping_mode = '" + columnMappingMode + "')");
 
             assertThat(onTrino().executeQuery("SHOW CREATE TABLE " + tableName).getOnlyValue().toString()).contains("change_data_feed_enabled = true");
 
@@ -567,7 +608,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testThatCdfDoesntWorkWhenPropertyIsNotSet()
     {
@@ -577,9 +618,9 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         assertThereIsNoCdfFileGenerated(tableName2, "change_data_feed_enabled = false");
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTrinoCanReadCdfEntriesGeneratedByDelta()
+    public void testTrinoCanReadCdfEntriesGeneratedByDelta(String columnMappingMode)
     {
         String targetTableName = "test_trino_can_read_cdf_entries_generated_by_delta_target_" + randomNameSuffix();
         String sourceTableName = "test_trino_can_read_cdf_entries_generated_by_delta_source_" + randomNameSuffix();
@@ -587,7 +628,7 @@ public class TestDeltaLakeChangeDataFeedCompatibility
             onDelta().executeQuery("CREATE TABLE default." + targetTableName + " (page_id INT, page_url STRING, views INT) " +
                     "USING DELTA " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + targetTableName + "'" +
-                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
+                    "TBLPROPERTIES (delta.enableChangeDataFeed = true, 'delta.columnMapping.mode' = '" + columnMappingMode + "')");
             onDelta().executeQuery("CREATE TABLE default." + sourceTableName + " (page_id INT, page_url STRING, views INT) " +
                     "USING DELTA " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + sourceTableName + "'");
@@ -643,6 +684,84 @@ public class TestDeltaLakeChangeDataFeedCompatibility
             dropDeltaTableWithRetry("default." + targetTableName);
             dropDeltaTableWithRetry("default." + sourceTableName);
         }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testDeltaCanReadCdfEntriesGeneratedByTrino(String columnMappingMode)
+    {
+        String targetTableName = "test_delta_can_read_cdf_entries_generated_by_trino_target_" + randomNameSuffix();
+        String sourceTableName = "test_delta_can_read_cdf_entries_generated_by_trino_source_" + randomNameSuffix();
+        try {
+            onTrino().executeQuery("CREATE TABLE delta.default." + targetTableName + " (page_id INT, page_url VARCHAR, views INT) " +
+                    "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + targetTableName +
+                    "', change_data_feed_enabled = true, column_mapping_mode = '" + columnMappingMode + "')");
+
+            onTrino().executeQuery("CREATE TABLE delta.default." + sourceTableName + " (page_id INT, page_url VARCHAR, views INT) " +
+                    "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + sourceTableName +
+                    "', change_data_feed_enabled = true, column_mapping_mode = '" + columnMappingMode + "')");
+
+            onTrino().executeQuery("INSERT INTO delta.default." + targetTableName + " VALUES (1, 'pageUrl1', 100), (2, 'pageUrl2', 200), (3, 'pageUrl3', 300)");
+            onTrino().executeQuery("INSERT INTO delta.default." + targetTableName + " VALUES (4, 'pageUrl4', 400)");
+
+            onTrino().executeQuery("INSERT INTO delta.default." + sourceTableName + " VALUES (1000, 'pageUrl1000', 1000), (2, 'pageUrl2', 20000)");
+            onTrino().executeQuery("INSERT INTO delta.default." + sourceTableName + " VALUES (3000, 'pageUrl3000', 3000), (4, 'pageUrl4000', 4000)");
+
+            onTrino().executeQuery("MERGE INTO delta.default." + targetTableName + " targetTable USING delta.default." + sourceTableName + " sourceTable " +
+                    "ON (targetTable.page_id = sourceTable.page_id) " +
+                    "WHEN MATCHED AND targetTable.page_id = 2 " +
+                    "THEN DELETE " +
+                    "WHEN MATCHED AND targetTable.page_id > 2 " +
+                    "THEN UPDATE SET views = (targetTable.views + sourceTable.views) " +
+                    "WHEN NOT MATCHED " +
+                    "THEN INSERT (page_id, page_url, views) VALUES (sourceTable.page_id, sourceTable.page_url, sourceTable.views)");
+            onTrino().executeQuery("UPDATE delta.default." + targetTableName + " SET page_url = 'pageUrl30' WHERE page_id = 3");
+            onTrino().executeQuery("DELETE FROM delta.default." + targetTableName + " WHERE page_url = 'pageUrl1'");
+
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + targetTableName))
+                    .containsOnly(
+                            row(1000, "pageUrl1000", 1000),
+                            row(3000, "pageUrl3000", 3000),
+                            row(4, "pageUrl4", 4400),
+                            row(3, "pageUrl30", 300));
+
+            List<Row> rows = ImmutableList.<Row>builder()
+                    .add(row(1, "pageUrl1", 100, "insert", 1))
+                    .add(row(2, "pageUrl2", 200, "insert", 1))
+                    .add(row(3, "pageUrl3", 300, "insert", 1))
+                    .add(row(4, "pageUrl4", 400, "insert", 2))
+                    .add(row(1000, "pageUrl1000", 1000, "insert", 3))
+                    .add(row(3000, "pageUrl3000", 3000, "insert", 3))
+                    .add(row(2, "pageUrl2", 200, "delete", 3))
+                    .add(row(4, "pageUrl4", 4400, "update_postimage", 3))
+                    .add(row(4, "pageUrl4", 400, "update_preimage", 3))
+                    .add(row(3, "pageUrl3", 300, "update_preimage", 4))
+                    .add(row(3, "pageUrl30", 300, "update_postimage", 4))
+                    .add(row(1, "pageUrl1", 100, "delete", 5))
+                    .build();
+            assertThat(onTrino().executeQuery(
+                    "SELECT page_id, page_url, views, _change_type, _commit_version " +
+                            "FROM TABLE(delta.system.table_changes('default', '" + targetTableName + "'))"))
+                    .containsOnly(rows);
+
+            assertThat(onDelta().executeQuery(
+                    "SELECT page_id, page_url, views, _change_type, _commit_version " +
+                            "FROM table_changes('default." + targetTableName + "', 0)"))
+                    .containsOnly(rows);
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + targetTableName);
+            dropDeltaTableWithRetry("default." + sourceTableName);
+        }
+    }
+
+    @DataProvider
+    public Object[][] columnMappingModeDataProvider()
+    {
+        return new Object[][] {
+                {"name"},
+                {"id"},
+                {"none"}};
     }
 
     private void assertThereIsNoCdfFileGenerated(String tableName, String tableProperty)

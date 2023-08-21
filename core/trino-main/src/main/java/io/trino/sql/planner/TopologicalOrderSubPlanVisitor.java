@@ -26,7 +26,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
-public class TopologicalOrderSubPlanVisitor
+public final class TopologicalOrderSubPlanVisitor
 {
     private TopologicalOrderSubPlanVisitor() {}
 

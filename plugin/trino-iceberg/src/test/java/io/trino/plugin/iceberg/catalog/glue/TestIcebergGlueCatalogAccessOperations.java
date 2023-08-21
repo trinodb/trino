@@ -13,16 +13,19 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import com.google.common.collect.Sets;
 import com.google.inject.Binder;
 import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
+import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.filesystem.TrackingFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.TableType;
 import io.trino.plugin.iceberg.TestingIcebergPlugin;
@@ -45,12 +48,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verifyNotNull;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.FILES;
@@ -63,18 +69,20 @@ import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_DATABASE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_TABLE;
+import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_TABLES;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.UPDATE_TABLE;
+import static io.trino.plugin.iceberg.catalog.glue.TestIcebergGlueCatalogAccessOperations.FileType.METADATA_JSON;
+import static io.trino.plugin.iceberg.catalog.glue.TestIcebergGlueCatalogAccessOperations.FileType.fromFilePath;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
-import static java.lang.String.join;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.fail;
 
 /*
  * The test currently uses AWS Default Credential Provider Chain,
@@ -85,6 +93,9 @@ import static org.testng.Assert.fail;
 public class TestIcebergGlueCatalogAccessOperations
         extends AbstractTestQueryFramework
 {
+    private static final Logger log = Logger.get(TestIcebergGlueCatalogAccessOperations.class);
+
+    private static final int MAX_PREFIXES_COUNT = 5;
     private final String testSchema = "test_schema_" + randomNameSuffix();
     private final Session testSession = testSessionBuilder()
             .setCatalog("iceberg")
@@ -92,18 +103,23 @@ public class TestIcebergGlueCatalogAccessOperations
             .build();
 
     private GlueMetastoreStats glueStats;
+    private TrackingFileSystemFactory trackingFileSystemFactory;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         File tmp = Files.createTempDirectory("test_iceberg").toFile();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSession).build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSession)
+                .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
+                .build();
+
+        trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
 
         AtomicReference<GlueMetastoreStats> glueStatsReference = new AtomicReference<>();
         queryRunner.installPlugin(new TestingIcebergPlugin(
                 Optional.empty(),
-                Optional.empty(),
+                Optional.of(trackingFileSystemFactory),
                 new StealStatsModule(glueStatsReference)));
         queryRunner.createCatalog("iceberg", "iceberg",
                 ImmutableMap.of(
@@ -302,7 +318,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 6)
+                            .addCopies(GET_TABLE, 5)
                             .addCopies(UPDATE_TABLE, 1)
                             .build());
         }
@@ -451,6 +467,112 @@ public class TestIcebergGlueCatalogAccessOperations
         }
     }
 
+    @Test
+    public void testInformationSchemaColumns()
+    {
+        String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        try {
+            Session session = Session.builder(getSession())
+                    .setSchema(schemaName)
+                    .build();
+            int tablesCreated = 0;
+            try {
+                // Do not use @DataProvider to save test setup time which may be considerable
+                for (int tables : List.of(2, MAX_PREFIXES_COUNT, MAX_PREFIXES_COUNT + 2)) {
+                    log.info("testInformationSchemaColumns: Testing with %s tables", tables);
+                    checkState(tablesCreated < tables);
+
+                    for (int i = tablesCreated; i < tables; i++) {
+                        tablesCreated++;
+                        assertUpdate(session, "CREATE TABLE test_select_i_s_columns" + i + "(id varchar, age integer)");
+                        // Produce multiple snapshots and metadata files
+                        assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('abc', 11)", 1);
+                        assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('xyz', 12)", 1);
+
+                        assertUpdate(session, "CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
+                    }
+
+                    assertInvocations(
+                            session,
+                            "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
+                            ImmutableMultiset.<GlueMetastoreMethod>builder()
+                                    .add(GET_TABLES)
+                                    .build(),
+                            ImmutableMultiset.of());
+                }
+            }
+            finally {
+                for (int i = 0; i < tablesCreated; i++) {
+                    assertUpdate(session, "DROP TABLE IF EXISTS test_select_i_s_columns" + i);
+                    assertUpdate(session, "DROP TABLE IF EXISTS test_other_select_i_s_columns" + i);
+                }
+            }
+        }
+        finally {
+            assertUpdate("DROP SCHEMA " + schemaName);
+        }
+    }
+
+    @Test
+    public void testSystemMetadataTableComments()
+    {
+        String schemaName = "test_s_m_table_comments" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+        try {
+            Session session = Session.builder(getSession())
+                    .setSchema(schemaName)
+                    .build();
+            int tablesCreated = 0;
+            try {
+                // Do not use @DataProvider to save test setup time which may be considerable
+                for (int tables : List.of(2, MAX_PREFIXES_COUNT, MAX_PREFIXES_COUNT + 2)) {
+                    log.info("testSystemMetadataTableComments: Testing with %s tables", tables);
+                    checkState(tablesCreated < tables);
+
+                    for (int i = tablesCreated; i < tables; i++) {
+                        tablesCreated++;
+                        assertUpdate(session, "CREATE TABLE test_select_s_m_t_comments" + i + "(id varchar, age integer)");
+                        // Produce multiple snapshots and metadata files
+                        assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('abc', 11)", 1);
+                        assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('xyz', 12)", 1);
+
+                        assertUpdate(session, "CREATE TABLE test_other_select_s_m_t_comments" + i + "(id varchar, age integer)"); // won't match the filter
+                    }
+
+                    // Bulk retrieval
+                    assertInvocations(
+                            session,
+                            "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments%'",
+                            ImmutableMultiset.<GlueMetastoreMethod>builder()
+                                    .addCopies(GET_TABLES, 1)
+                                    .build(),
+                            ImmutableMultiset.of());
+                }
+
+                // Pointed lookup
+                assertInvocations(
+                        session,
+                        "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name = 'test_select_s_m_t_comments0'",
+                        ImmutableMultiset.<GlueMetastoreMethod>builder()
+                                .addCopies(GET_TABLE, 1)
+                                .build(),
+                        ImmutableMultiset.<FileOperation>builder()
+                                .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                                .build());
+            }
+            finally {
+                for (int i = 0; i < tablesCreated; i++) {
+                    assertUpdate(session, "DROP TABLE IF EXISTS test_select_s_m_t_comments" + i);
+                    assertUpdate(session, "DROP TABLE IF EXISTS test_other_select_s_m_t_comments" + i);
+                }
+            }
+        }
+        finally {
+            assertUpdate("DROP SCHEMA " + schemaName);
+        }
+    }
+
     private void assertGlueMetastoreApiInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
     {
         assertGlueMetastoreApiInvocations(getSession(), query, expectedInvocations);
@@ -458,39 +580,55 @@ public class TestIcebergGlueCatalogAccessOperations
 
     private void assertGlueMetastoreApiInvocations(Session session, @Language("SQL") String query, Multiset<?> expectedInvocations)
     {
+        assertInvocations(
+                session,
+                query,
+                expectedInvocations.stream()
+                        .map(GlueMetastoreMethod.class::cast)
+                        .collect(toImmutableMultiset()),
+                Optional.empty());
+    }
+
+    private void assertInvocations(
+            Session session,
+            @Language("SQL") String query,
+            Multiset<GlueMetastoreMethod> expectedGlueInvocations,
+            Multiset<FileOperation> expectedFileOperations)
+    {
+        assertInvocations(session, query, expectedGlueInvocations, Optional.of(expectedFileOperations));
+    }
+
+    private void assertInvocations(
+            Session session,
+            @Language("SQL") String query,
+            Multiset<GlueMetastoreMethod> expectedGlueInvocations,
+            Optional<Multiset<FileOperation>> expectedFileOperations)
+    {
         Map<GlueMetastoreMethod, Integer> countsBefore = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
+        trackingFileSystemFactory.reset();
 
         getQueryRunner().execute(session, query);
+
         Map<GlueMetastoreMethod, Integer> countsAfter = Arrays.stream(GlueMetastoreMethod.values())
                 .collect(toImmutableMap(Function.identity(), method -> method.getInvocationCount(glueStats)));
+        Multiset<FileOperation> fileOperations = getFileOperations();
 
-        Map<GlueMetastoreMethod, Integer> deltas = Arrays.stream(GlueMetastoreMethod.values())
-                .collect(Collectors.toMap(Function.identity(), method -> countsAfter.get(method) - countsBefore.get(method)));
-        ImmutableMultiset.Builder<GlueMetastoreMethod> builder = ImmutableMultiset.builder();
-        deltas.entrySet().stream().filter(entry -> entry.getValue() > 0).forEach(entry -> builder.setCount(entry.getKey(), entry.getValue()));
-        Multiset<GlueMetastoreMethod> actualInvocations = builder.build();
+        Multiset<GlueMetastoreMethod> actualGlueInvocations = Arrays.stream(GlueMetastoreMethod.values())
+                .collect(toImmutableMultiset(Function.identity(), method -> requireNonNull(countsAfter.get(method)) - requireNonNull(countsBefore.get(method))));
 
-        if (expectedInvocations.equals(actualInvocations)) {
-            return;
-        }
+        assertMultisetsEqual(actualGlueInvocations, expectedGlueInvocations);
+        expectedFileOperations.ifPresent(expected -> assertMultisetsEqual(fileOperations, expected));
+    }
 
-        List<String> mismatchReport = Sets.union(expectedInvocations.elementSet(), actualInvocations.elementSet()).stream()
-                .filter(key -> expectedInvocations.count(key) != actualInvocations.count(key))
-                .flatMap(key -> {
-                    int expectedCount = expectedInvocations.count(key);
-                    int actualCount = actualInvocations.count(key);
-                    if (actualCount < expectedCount) {
-                        return Stream.of(format("%s more occurrences of %s", expectedCount - actualCount, key));
-                    }
-                    if (actualCount > expectedCount) {
-                        return Stream.of(format("%s fewer occurrences of %s", actualCount - expectedCount, key));
-                    }
-                    return Stream.of();
-                })
-                .collect(toImmutableList());
-
-        fail("Expected: \n\t\t" + join(",\n\t\t", mismatchReport));
+    private Multiset<FileOperation> getFileOperations()
+    {
+        return trackingFileSystemFactory.getOperationCounts()
+                .entrySet().stream()
+                .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(
+                        fromFilePath(entry.getKey().location().toString()),
+                        entry.getKey().operationType())).stream())
+                .collect(toCollection(HashMultiset::create));
     }
 
     private static Session withStatsOnWrite(Session session, boolean enabled)
@@ -542,6 +680,45 @@ public class TestIcebergGlueCatalogAccessOperations
             if (!glueStatsReference.compareAndSet(null, ((TrinoGlueCatalogFactory) factory).getStats())) {
                 throw new RuntimeException("glueStatsReference already set");
             }
+        }
+    }
+
+    private record FileOperation(FileType fileType, TrackingFileSystemFactory.OperationType operationType)
+    {
+        public FileOperation
+        {
+            requireNonNull(fileType, "fileType is null");
+            requireNonNull(operationType, "operationType is null");
+        }
+    }
+
+    enum FileType
+    {
+        METADATA_JSON,
+        SNAPSHOT,
+        MANIFEST,
+        STATS,
+        DATA,
+        /**/;
+
+        public static FileType fromFilePath(String path)
+        {
+            if (path.endsWith("metadata.json")) {
+                return METADATA_JSON;
+            }
+            if (path.contains("/snap-")) {
+                return SNAPSHOT;
+            }
+            if (path.endsWith("-m0.avro")) {
+                return MANIFEST;
+            }
+            if (path.endsWith(".stats")) {
+                return STATS;
+            }
+            if (path.contains("/data/") && (path.endsWith(".orc") || path.endsWith(".parquet"))) {
+                return DATA;
+            }
+            throw new IllegalArgumentException("File not recognized: " + path);
         }
     }
 }

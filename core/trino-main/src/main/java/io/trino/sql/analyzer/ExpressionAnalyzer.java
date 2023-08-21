@@ -1230,7 +1230,8 @@ public class ExpressionAnalyzer
 
             if (node.getFilter().isPresent()) {
                 Expression expression = node.getFilter().get();
-                process(expression, context);
+                Type type = process(expression, context);
+                coerceType(expression, type, BOOLEAN, "Filter expression");
             }
 
             List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);

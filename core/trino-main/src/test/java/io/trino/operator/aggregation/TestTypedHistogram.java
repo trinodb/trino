@@ -13,116 +13,92 @@
  */
 package io.trino.operator.aggregation;
 
-import io.trino.block.BlockAssertions;
-import io.trino.operator.aggregation.histogram.SingleTypedHistogram;
 import io.trino.operator.aggregation.histogram.TypedHistogram;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.type.BlockTypeOperators;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.function.IntUnaryOperator;
+import java.util.function.ObjIntConsumer;
 import java.util.stream.IntStream;
 
+import static io.trino.block.BlockAssertions.assertBlockEquals;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypedHistogram
 {
-    private static final BlockTypeOperators BLOCK_TYPE_OPERATORS = new BlockTypeOperators(new TypeOperators());
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
     @Test
     public void testMassive()
     {
-        BlockBuilder inputBlockBuilder = BIGINT.createBlockBuilder(null, 5000);
+        testMassive(false, BIGINT, BIGINT::writeLong);
+        testMassive(false, VARCHAR, (blockBuilder, value) -> VARCHAR.writeString(blockBuilder, String.valueOf(value)));
+        testMassive(true, BIGINT, BIGINT::writeLong);
+        testMassive(true, VARCHAR, (blockBuilder, value) -> VARCHAR.writeString(blockBuilder, String.valueOf(value)));
+    }
 
-        TypedHistogram typedHistogram = new SingleTypedHistogram(
-                BIGINT,
-                BLOCK_TYPE_OPERATORS.getEqualOperator(BIGINT),
-                BLOCK_TYPE_OPERATORS.getHashCodeOperator(BIGINT),
-                1000);
+    private static void testMassive(boolean grouped, Type type, ObjIntConsumer<BlockBuilder> writeData)
+    {
+        BlockBuilder inputBlockBuilder = type.createBlockBuilder(null, 5000);
         IntStream.range(1, 2000)
-                .flatMap(i -> IntStream.iterate(i, IntUnaryOperator.identity()).limit(i))
-                .forEach(j -> BIGINT.writeLong(inputBlockBuilder, j));
-
+                .flatMap(value -> IntStream.iterate(value, IntUnaryOperator.identity()).limit(value))
+                .forEach(value -> writeData.accept(inputBlockBuilder, value));
         Block inputBlock = inputBlockBuilder.build();
-        addInputBlockToTypedHistogram(typedHistogram, inputBlock);
 
-        MapType mapType = mapType(BIGINT, BIGINT);
-        BlockBuilder out = mapType.createBlockBuilder(null, 1);
-        typedHistogram.serialize(out);
-        Block outputBlock = mapType.getObject(out, 0);
-        for (int i = 0; i < outputBlock.getPositionCount(); i += 2) {
-            assertEquals(BIGINT.getLong(outputBlock, i + 1), BIGINT.getLong(outputBlock, i));
+        TypedHistogram typedHistogram = new TypedHistogram(
+                type,
+                TYPE_OPERATORS.getReadValueOperator(type, simpleConvention(BLOCK_BUILDER, FLAT)),
+                TYPE_OPERATORS.getReadValueOperator(type, simpleConvention(FLAT_RETURN, BLOCK_POSITION_NOT_NULL)),
+                TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, FLAT)),
+                TYPE_OPERATORS.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL)),
+                TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)),
+                grouped);
+
+        int groupId = 0;
+        if (grouped) {
+            groupId = 10;
+            typedHistogram.setMaxGroupId(groupId);
         }
-    }
-
-    @Test
-    public void testGetPositionCountBasic()
-    {
-        Block inputBlock = BlockAssertions.createLongsBlock(1, 2, 3);
-
-        SingleTypedHistogram typedHistogram = new SingleTypedHistogram(
-                BIGINT,
-                BLOCK_TYPE_OPERATORS.getEqualOperator(BIGINT),
-                BLOCK_TYPE_OPERATORS.getHashCodeOperator(BIGINT),
-                inputBlock.getPositionCount());
-
-        addInputBlockToTypedHistogram(typedHistogram, inputBlock);
-        assertEquals(typedHistogram.getPositionCount(), 3);
-    }
-
-    @Test
-    public void testGetPositionCountDuplicates()
-    {
-        Block inputBlock = BlockAssertions.createLongsBlock(1, 2, 1);
-
-        SingleTypedHistogram typedHistogram = new SingleTypedHistogram(
-                BIGINT,
-                BLOCK_TYPE_OPERATORS.getEqualOperator(BIGINT),
-                BLOCK_TYPE_OPERATORS.getHashCodeOperator(BIGINT),
-                inputBlock.getPositionCount());
-
-        addInputBlockToTypedHistogram(typedHistogram, inputBlock);
-        assertEquals(typedHistogram.getPositionCount(), 2);
-    }
-
-    @Test
-    public void testGetPositionCountLargeExpected()
-    {
-        Block inputBlock = BlockAssertions.createLongsBlock(1, 2, 3);
-
-        SingleTypedHistogram typedHistogram = new SingleTypedHistogram(
-                BIGINT,
-                BLOCK_TYPE_OPERATORS.getEqualOperator(BIGINT),
-                BLOCK_TYPE_OPERATORS.getHashCodeOperator(BIGINT),
-                99);
-
-        addInputBlockToTypedHistogram(typedHistogram, inputBlock);
-        assertEquals(typedHistogram.getPositionCount(), 3);
-    }
-
-    @Test
-    public void testGetPositionCountEmpty()
-    {
-        Block inputBlock = BIGINT.createBlockBuilder(null, 0).build();
-        SingleTypedHistogram typedHistogram = new SingleTypedHistogram(
-                BIGINT,
-                BLOCK_TYPE_OPERATORS.getEqualOperator(BIGINT),
-                BLOCK_TYPE_OPERATORS.getHashCodeOperator(BIGINT),
-                1);
-
-        addInputBlockToTypedHistogram(typedHistogram, inputBlock);
-        assertEquals(typedHistogram.getPositionCount(), 0);
-    }
-
-    private void addInputBlockToTypedHistogram(TypedHistogram typedHistogram, Block inputBlock)
-    {
         for (int i = 0; i < inputBlock.getPositionCount(); i++) {
-            typedHistogram.add(i, inputBlock, 1);
+            typedHistogram.add(groupId, inputBlock, i, 1);
+        }
+
+        MapType mapType = mapType(type, BIGINT);
+        MapBlockBuilder actualBuilder = mapType.createBlockBuilder(null, 1);
+        typedHistogram.serialize(groupId, actualBuilder);
+        Block actualBlock = actualBuilder.build();
+
+        MapBlockBuilder expectedBuilder = mapType.createBlockBuilder(null, 1);
+        expectedBuilder.buildEntry((keyBuilder, valueBuilder) -> IntStream.range(1, 2000)
+                .forEach(value -> {
+                    writeData.accept(keyBuilder, value);
+                    BIGINT.writeLong(valueBuilder, value);
+                }));
+        Block expectedBlock = expectedBuilder.build();
+        assertBlockEquals(mapType, actualBlock, expectedBlock);
+        assertEquals(typedHistogram.size(), 1999);
+
+        if (grouped) {
+            actualBuilder = mapType.createBlockBuilder(null, 1);
+            typedHistogram.serialize(3, actualBuilder);
+            actualBlock = actualBuilder.build();
+            assertThat(actualBlock.getPositionCount()).isEqualTo(1);
+            assertThat(actualBlock.isNull(0)).isTrue();
         }
     }
 }

@@ -243,7 +243,6 @@ public class TestHiveStorageFormats
         return new StorageFormat[] {
                 storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")),
                 storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_writer_validation_percentage", "100")),
-                storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_writer_enabled", "false")),
                 storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
                 storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
                 storageFormat("SEQUENCEFILE"),
@@ -620,7 +619,7 @@ public class TestHiveStorageFormats
                 if ("AVRO".equals(format)) {
                     // TODO (https://github.com/trinodb/trino/issues/9285) Some versions of Hive cannot read Avro nested structs written by Trino
                     assertThat(e.getCause())
-                            .hasToString("java.sql.SQLException: java.io.IOException: org.apache.avro.AvroTypeException: Found default.record_1, expecting union");
+                            .hasToString("java.sql.SQLException: java.io.IOException: org.apache.avro.AvroTypeException: Found record_1, expecting union");
                 }
                 else {
                     throw e;
@@ -780,19 +779,6 @@ public class TestHiveStorageFormats
         runLargeInsert(storageFormat(
                 "PARQUET",
                 ImmutableMap.of(
-                        "hive.parquet_writer_page_size", reducedRowGroupSize.toBytesValueString(),
-                        "task_scale_writers_enabled", "false",
-                        "task_writer_count", "1")));
-    }
-
-    @Test(groups = STORAGE_FORMATS_DETAILED)
-    public void testLargeParquetInsertWithHiveWriter()
-    {
-        DataSize reducedRowGroupSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE / 4);
-        runLargeInsert(storageFormat(
-                "PARQUET",
-                ImmutableMap.of(
-                        "hive.parquet_optimized_writer_enabled", "false",
                         "hive.parquet_writer_page_size", reducedRowGroupSize.toBytesValueString(),
                         "task_scale_writers_enabled", "false",
                         "task_writer_count", "1")));

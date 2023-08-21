@@ -40,19 +40,15 @@ public class PinotBrokerPageSource
         implements ConnectorPageSource
 {
     private final PinotQueryInfo query;
-    private final PinotClient pinotClient;
-    private final ConnectorSession session;
-    private final List<PinotColumnHandle> columnHandles;
     private final List<Decoder> decoders;
     private final BlockBuilder[] columnBuilders;
+    private final long readTimeNanos;
+    private final Iterator<BrokerResultRow> resultIterator;
 
     private boolean finished;
-    private long readTimeNanos;
     private long completedBytes;
     private final AtomicLong currentRowCount = new AtomicLong();
     private final int limitForBrokerQueries;
-
-    private Iterator<BrokerResultRow> resultIterator;
 
     public PinotBrokerPageSource(
             ConnectorSession session,
@@ -62,9 +58,6 @@ public class PinotBrokerPageSource
             int limitForBrokerQueries)
     {
         this.query = requireNonNull(query, "query is null");
-        this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
-        this.session = requireNonNull(session, "session is null");
-        this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.decoders = createDecoders(columnHandles);
         this.limitForBrokerQueries = limitForBrokerQueries;
 
@@ -72,6 +65,9 @@ public class PinotBrokerPageSource
                 .map(PinotColumnHandle::getDataType)
                 .map(type -> type.createBlockBuilder(null, 1))
                 .toArray(BlockBuilder[]::new);
+        long start = System.nanoTime();
+        resultIterator = pinotClient.createResultIterator(session, query, columnHandles);
+        readTimeNanos = System.nanoTime() - start;
     }
 
     private static List<Decoder> createDecoders(List<PinotColumnHandle> columnHandles)
@@ -107,12 +103,6 @@ public class PinotBrokerPageSource
         if (finished) {
             return null;
         }
-        if (resultIterator == null) {
-            long start = System.nanoTime();
-            resultIterator = pinotClient.createResultIterator(session, query, columnHandles);
-            readTimeNanos = System.nanoTime() - start;
-        }
-
         if (!resultIterator.hasNext()) {
             finished = true;
             return null;

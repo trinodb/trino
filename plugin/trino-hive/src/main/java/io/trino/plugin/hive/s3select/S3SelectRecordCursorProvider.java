@@ -19,6 +19,7 @@ import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveRecordCursorProvider;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.s3select.csv.S3SelectCsvRecordReader;
@@ -43,6 +44,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.s3select.S3SelectDataType.CSV;
 import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeInfosFromTypeString;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.SerdeConstants.COLUMN_NAME_DELIMITER;
@@ -55,12 +57,14 @@ public class S3SelectRecordCursorProvider
 {
     private final HdfsEnvironment hdfsEnvironment;
     private final TrinoS3ClientFactory s3ClientFactory;
+    private final boolean experimentalPushdownEnabled;
 
     @Inject
-    public S3SelectRecordCursorProvider(HdfsEnvironment hdfsEnvironment, TrinoS3ClientFactory s3ClientFactory)
+    public S3SelectRecordCursorProvider(HdfsEnvironment hdfsEnvironment, TrinoS3ClientFactory s3ClientFactory, HiveConfig hiveConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.s3ClientFactory = requireNonNull(s3ClientFactory, "s3ClientFactory is null");
+        this.experimentalPushdownEnabled = hiveConfig.isS3SelectExperimentalPushdownEnabled();
     }
 
     @Override
@@ -106,9 +110,12 @@ public class S3SelectRecordCursorProvider
 
         if (s3SelectDataTypeOptional.isPresent()) {
             S3SelectDataType s3SelectDataType = s3SelectDataTypeOptional.get();
+            if (s3SelectDataType == CSV && !experimentalPushdownEnabled) {
+                return Optional.empty();
+            }
 
             Optional<String> nullCharacterEncoding = Optional.empty();
-            if (s3SelectDataType == S3SelectDataType.CSV) {
+            if (s3SelectDataType == CSV) {
                 nullCharacterEncoding = S3SelectCsvRecordReader.nullCharacterEncoding(schema);
             }
             IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager, s3SelectDataType, nullCharacterEncoding);

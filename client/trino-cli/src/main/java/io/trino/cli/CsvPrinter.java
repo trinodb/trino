@@ -43,8 +43,8 @@ public class CsvPrinter
         NO_QUOTES(true, false),
         NO_HEADER_AND_QUOTES(false, false);
 
-        private boolean header;
-        private boolean quote;
+        private final boolean header;
+        private final boolean quote;
 
         CsvOutputFormat(boolean header, boolean quote)
         {

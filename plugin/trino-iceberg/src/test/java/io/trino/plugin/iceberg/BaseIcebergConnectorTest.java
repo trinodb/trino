@@ -25,7 +25,6 @@ import io.trino.Session;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.hdfs.HdfsContext;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
@@ -58,7 +57,6 @@ import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.io.FileIO;
@@ -108,7 +106,6 @@ import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -232,8 +229,27 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT:
                 return false;
 
+            case SUPPORTS_REPORTING_WRITTEN_BYTES:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Test
+    public void testAddRowFieldCaseInsensitivity()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_add_row_field_case_insensitivity_",
+                "AS SELECT CAST(row(row(2)) AS row(\"CHILD\" row(grandchild_1 integer))) AS col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(CHILD row(grandchild_1 integer))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.child.grandchild_2 integer");
+            assertEquals(getColumnType(table.getName(), "col"), "row(CHILD row(grandchild_1 integer, grandchild_2 integer))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.CHILD.grandchild_3 integer");
+            assertEquals(getColumnType(table.getName(), "col"), "row(CHILD row(grandchild_1 integer, grandchild_2 integer, grandchild_3 integer))");
         }
     }
 
@@ -757,7 +773,7 @@ public abstract class BaseIcebergConnectorTest
                 "  a_timestamp timestamp(6), " +
                 "  a_timestamptz timestamp(6) with time zone, " +
                 "  a_uuid uuid, " +
-                "  a_row row(id integer , vc varchar), " +
+                "  a_row row(id integer, vc varchar), " +
                 "  an_array array(varchar), " +
                 "  a_map map(integer, varchar), " +
                 "  \"a quoted, field\" varchar" +
@@ -1134,7 +1150,7 @@ public abstract class BaseIcebergConnectorTest
                 "  a_timestamp timestamp(6), " +
                 "  a_timestamptz timestamp(6) with time zone, " +
                 "  a_uuid uuid, " +
-                "  a_row row(id integer , vc varchar), " +
+                "  a_row row(id integer, vc varchar, t time(6), ts timestamp(6), tstz timestamp(6) with time zone), " + // not sorted on, but still written to sort temp file, if any
                 "  an_array array(varchar), " +
                 "  a_map map(integer, varchar) " +
                 ") " +
@@ -1163,17 +1179,17 @@ public abstract class BaseIcebergConnectorTest
                 "REAL '3.0', " +
                 "DOUBLE '4.0', " +
                 "DECIMAL '5.00', " +
-                "DECIMAL '6.00', " +
-                "'seven', " +
+                "CAST(DECIMAL '6.00' AS decimal(38,20)), " +
+                "VARCHAR 'seven', " +
                 "X'88888888', " +
                 "DATE '2022-09-09', " +
                 "TIME '10:10:10.000000', " +
                 "TIMESTAMP '2022-11-11 11:11:11.000000', " +
                 "TIMESTAMP '2022-11-11 11:11:11.000000 UTC', " +
                 "UUID '12121212-1212-1212-1212-121212121212', " +
-                "ROW(13, 'thirteen'), " +
-                "ARRAY['four', 'teen'], " +
-                "MAP(ARRAY[15], ARRAY['fifteen']))";
+                "CAST(ROW(13, 'thirteen', TIME '10:10:10.000000', TIMESTAMP '2022-11-11 11:11:11.000000', TIMESTAMP '2022-11-11 11:11:11.000000 UTC') AS row(id integer, vc varchar, t time(6), ts timestamp(6), tstz timestamp(6) with time zone)), " +
+                "ARRAY[VARCHAR 'four', 'teen'], " +
+                "MAP(ARRAY[15], ARRAY[VARCHAR 'fifteen']))";
         String highValues = "(" +
                 "true, " +
                 "999999999, " +
@@ -1189,7 +1205,7 @@ public abstract class BaseIcebergConnectorTest
                 "TIMESTAMP '2099-12-31 23:59:59.000000', " +
                 "TIMESTAMP '2099-12-31 23:59:59.000000 UTC', " +
                 "UUID 'FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF', " +
-                "ROW(999, 'zzzzzzzz'), " +
+                "CAST(ROW(999, 'zzzzzzzz', TIME '23:59:59.999999', TIMESTAMP '2099-12-31 23:59:59.000000', TIMESTAMP '2099-12-31 23:59:59.000000 UTC') AS row(id integer, vc varchar, t time(6), ts timestamp(6), tstz timestamp(6) with time zone)), " +
                 "ARRAY['zzzz', 'zzzz'], " +
                 "MAP(ARRAY[999], ARRAY['zzzz']))";
         String lowValues = "(" +
@@ -1207,11 +1223,22 @@ public abstract class BaseIcebergConnectorTest
                 "TIMESTAMP '2000-01-01 00:00:00.000000', " +
                 "TIMESTAMP '2000-01-01 00:00:00.000000 UTC', " +
                 "UUID '00000000-0000-0000-0000-000000000000', " +
-                "ROW(0, ''), " +
+                "CAST(ROW(0, '', TIME '00:00:00.000000', TIMESTAMP '2000-01-01 00:00:00.000000', TIMESTAMP '2000-01-01 00:00:00.000000 UTC') AS row(id integer, vc varchar, t time(6), ts timestamp(6), tstz timestamp(6) with time zone)), " +
                 "ARRAY['', ''], " +
                 "MAP(ARRAY[0], ARRAY['']))";
 
         assertUpdate("INSERT INTO " + tableName + " VALUES " + values + ", " + highValues + ", " + lowValues, 3);
+        assertThat(query("TABLE " + tableName))
+                .matches("VALUES " + values + ", " + highValues + ", " + lowValues);
+
+        // Insert "large" number of rows, supposedly topping over iceberg.writer-sort-buffer-size so that temporary files are utilized by the sorting writer.
+        assertUpdate("""
+                INSERT INTO %s
+                SELECT v.*
+                FROM (VALUES %s, %s, %s) v
+                CROSS JOIN UNNEST (sequence(1, 10_000)) a(i)
+                """.formatted(tableName, values, highValues, lowValues), 30000);
+
         dropTable(tableName);
     }
 
@@ -1329,7 +1356,8 @@ public abstract class BaseIcebergConnectorTest
             assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 10 AND nationkey < 20", 10);
             assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 20", 5);
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['comment']");
-            assertUpdate(withSmallRowGroups, "ALTER TABLE " + table.getName() + " EXECUTE optimize");
+            // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+            assertUpdate(withSingleWriterPerTask(withSmallRowGroups), "ALTER TABLE " + table.getName() + " EXECUTE optimize");
 
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
                 assertTrue(isFileSorted((String) filePath, "comment"));
@@ -1347,6 +1375,7 @@ public abstract class BaseIcebergConnectorTest
                 "test_sorted_update",
                 "WITH (sorted_by = ARRAY['comment']) AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
             assertUpdate(
+                    withSmallRowGroups,
                     "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",
                     "VALUES 60175");
             assertUpdate(withSmallRowGroups, "UPDATE " + table.getName() + " SET comment = substring(comment, 2)", 60175);
@@ -1940,8 +1969,8 @@ public abstract class BaseIcebergConnectorTest
 
         @Language("SQL") String initialValues =
                 "(TIMESTAMP '1969-12-31 22:22:22.222222', 8)," +
-                "(TIMESTAMP '1969-12-31 23:33:11.456789', 9)," +
-                "(TIMESTAMP '1969-12-31 23:44:55.567890', 10)";
+                        "(TIMESTAMP '1969-12-31 23:33:11.456789', 9)," +
+                        "(TIMESTAMP '1969-12-31 23:44:55.567890', 10)";
         assertUpdate("INSERT INTO " + tableName + " VALUES " + initialValues, 3);
         assertThat(query(selectQuery))
                 .containsAll("VALUES 8, 9, 10")
@@ -1949,8 +1978,8 @@ public abstract class BaseIcebergConnectorTest
 
         @Language("SQL") String hourTransformValues =
                 "(TIMESTAMP '2015-01-01 10:01:23.123456', 1)," +
-                "(TIMESTAMP '2015-01-02 10:10:02.987654', 2)," +
-                "(TIMESTAMP '2015-01-03 10:55:00.456789', 3)";
+                        "(TIMESTAMP '2015-01-02 10:10:02.987654', 2)," +
+                        "(TIMESTAMP '2015-01-03 10:55:00.456789', 3)";
         // While the bucket transform is still used the hour transform still cannot be used for pushdown
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['hour(d)']");
         assertUpdate("INSERT INTO " + tableName + " VALUES " + hourTransformValues, 3);
@@ -1960,6 +1989,7 @@ public abstract class BaseIcebergConnectorTest
 
         // The old partition scheme is no longer used so pushdown using the hour transform is allowed
         assertUpdate("DELETE FROM " + tableName + " WHERE year(d) = 1969", 3);
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
         assertUpdate("INSERT INTO " + tableName + " VALUES " + initialValues, 3);
         assertThat(query(selectQuery))
                 .containsAll("VALUES 1, 8, 9, 10")
@@ -3157,7 +3187,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = -0.05", "VALUES 5");
         assertQuery(
                 select + " WHERE partition.d_trunc = -0.10",
-                 format == AVRO ? "VALUES (-0.10, 1, NULL, NULL, NULL, NULL)" : "VALUES (-0.10, 1, -0.05, -0.05, 5, 5)");
+                format == AVRO ? "VALUES (-0.10, 1, NULL, NULL, NULL, NULL)" : "VALUES (-0.10, 1, -0.05, -0.05, 5, 5)");
 
         // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
@@ -3928,7 +3958,7 @@ public abstract class BaseIcebergConnectorTest
                 ", vb VARBINARY" +
                 ", ts TIMESTAMP(6)" +
                 ", tstz TIMESTAMP(6) WITH TIME ZONE" +
-                ", str ROW(id INTEGER , vc VARCHAR)" +
+                ", str ROW(id INTEGER, vc VARCHAR)" +
                 ", dt DATE)" +
                 " WITH (partitioning = ARRAY['int'])");
 
@@ -4172,13 +4202,8 @@ public abstract class BaseIcebergConnectorTest
         assertNotEquals(dataFile.get("file_size_in_bytes"), alteredValue);
         dataFile.put("file_size_in_bytes", alteredValue);
 
-        // Replace the file through HDFS client. This is required for correct checksums.
-        HdfsContext context = new HdfsContext(getSession().toConnectorSession());
-        org.apache.hadoop.fs.Path manifestFilePath = new org.apache.hadoop.fs.Path(manifestFile);
-        FileSystem fs = HDFS_ENVIRONMENT.getFileSystem(context, manifestFilePath);
-
         // Write altered metadata
-        try (OutputStream out = fs.create(manifestFilePath);
+        try (OutputStream out = fileSystem.newOutputFile(Location.of(manifestFile)).createOrOverwrite();
                 DataFileWriter<GenericData.Record> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
             dataFileWriter.create(schema, out);
             dataFileWriter.append(entry);
@@ -4191,7 +4216,9 @@ public abstract class BaseIcebergConnectorTest
         assertQuery(session, "SELECT * FROM test_iceberg_file_size", "VALUES (123), (456), (758)");
 
         // Using Iceberg provided file size fails the query
-        assertQueryFails("SELECT * FROM test_iceberg_file_size", ".*Error opening Iceberg split.*\\QIncorrect file size (%d) for file (end of stream not reached)\\E.*".formatted(alteredValue));
+        assertQueryFails(
+                "SELECT * FROM test_iceberg_file_size",
+                "(Malformed ORC file\\. Invalid file metadata.*)|(.*Error opening Iceberg split.* Incorrect file size \\(%s\\) for file .*)".formatted(alteredValue));
 
         dropTable("test_iceberg_file_size");
     }
@@ -4251,7 +4278,7 @@ public abstract class BaseIcebergConnectorTest
                 "  a_timestamp timestamp(6), " +
                 "  a_timestamptz timestamp(6) with time zone, " +
                 "  a_uuid uuid, " +
-                "  a_row row(id integer , vc varchar), " +
+                "  a_row row(id integer, vc varchar), " +
                 "  an_array array(varchar), " +
                 "  a_map map(integer, varchar) " +
                 ")");
@@ -4918,7 +4945,7 @@ public abstract class BaseIcebergConnectorTest
         int workerCount = getQueryRunner().getNodeCount();
 
         // optimize an empty table
-        assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertThat(getActiveFiles(tableName)).isEmpty();
 
         assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'eleven')", 1);
@@ -4933,7 +4960,8 @@ public abstract class BaseIcebergConnectorTest
                 // Verify we have sufficiently many test rows with respect to worker count.
                 .hasSizeGreaterThan(workerCount);
 
-        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                 .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
         List<String> updatedFiles = getActiveFiles(tableName);
@@ -4945,7 +4973,8 @@ public abstract class BaseIcebergConnectorTest
                 .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
 
         // optimize with low retention threshold, nothing should change
-        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE (file_size_threshold => '33B')");
+        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE (file_size_threshold => '33B')");
         assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                 .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
         assertThat(getActiveFiles(tableName)).isEqualTo(updatedFiles);
@@ -4975,7 +5004,7 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_repartitiong_during_optimize_" + randomNameSuffix();
         assertUpdate(session, "CREATE TABLE " + tableName + " (key varchar, value integer) WITH (format_version = " + formatVersion + ", partitioning = ARRAY['key'])");
         // optimize an empty table
-        assertQuerySucceeds(session, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertQuerySucceeds(withSingleWriterPerTask(session), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('one', 2)", 1);
@@ -4991,7 +5020,8 @@ public abstract class BaseIcebergConnectorTest
         List<String> initialFiles = getActiveFiles(tableName);
         assertThat(initialFiles).hasSize(10);
 
-        computeActual(session, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        computeActual(withSingleWriterPerTask(session), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
         assertThat(query(session, "SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                 .matches("VALUES (BIGINT '55', VARCHAR 'one one one one one one one three two two')");
@@ -5050,10 +5080,11 @@ public abstract class BaseIcebergConnectorTest
                 .isGreaterThanOrEqualTo(5);
 
         assertUpdate(
+                // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
                 // Use UTC zone so that DATE and TIMESTAMP WITH TIME ZONE comparisons align with partition boundaries.
-                Session.builder(getSession())
+                withSingleWriterPerTask(Session.builder(getSession())
                         .setTimeZoneKey(UTC_KEY)
-                        .build(),
+                        .build()),
                 "ALTER TABLE " + tableName + " EXECUTE optimize WHERE p >= " + optimizeDate);
 
         assertThat((long) computeScalar("SELECT count(DISTINCT \"$path\") FROM " + tableName + " WHERE p < " + optimizeDate))
@@ -5065,9 +5096,10 @@ public abstract class BaseIcebergConnectorTest
 
         // Verify that WHERE CAST(p AS date) ... form works in non-UTC zone
         assertUpdate(
-                Session.builder(getSession())
+                // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+                withSingleWriterPerTask(Session.builder(getSession())
                         .setTimeZoneKey(getTimeZoneKey("Asia/Kathmandu"))
-                        .build(),
+                        .build()),
                 "ALTER TABLE " + tableName + " EXECUTE optimize WHERE CAST(p AS date) >= " + optimizeDate);
 
         // Table state shouldn't change substantially (but files may be rewritten)
@@ -5110,7 +5142,8 @@ public abstract class BaseIcebergConnectorTest
                 "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
                 "VALUES '1'");
 
-        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
         List<String> updatedFiles = getActiveFiles(tableName);
         assertThat(updatedFiles)
@@ -5143,7 +5176,8 @@ public abstract class BaseIcebergConnectorTest
         List<String> allDataFilesAfterDelete = getAllDataFilesFromTableDirectory(tableName);
         assertThat(allDataFilesAfterDelete).hasSize(6);
 
-        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 4");
+        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 4");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
 
@@ -5159,7 +5193,8 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("SELECT * FROM nation WHERE nationkey != 7");
 
-        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
 
@@ -5346,6 +5381,10 @@ public abstract class BaseIcebergConnectorTest
                 .returnsEmptyResult()
                 .isFullyPushedDown();
 
+        assertQuerySucceeds("SHOW STATS FOR (SELECT userid FROM " + tableName + " WHERE \"$path\" = '" + somePath + "')");
+        // EXPLAIN triggers stats calculation and also rendering
+        assertQuerySucceeds("EXPLAIN SELECT userid FROM " + tableName + " WHERE \"$path\" = '" + somePath + "'");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -5368,8 +5407,9 @@ public abstract class BaseIcebergConnectorTest
         List<String> initialFiles = getActiveFiles(tableName);
         assertThat(initialFiles).hasSize(4);
 
-        assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + firstPath + "' OR \"$path\" = '" + secondPath + "'");
-        assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + thirdPath + "' OR \"$path\" = '" + fourthPath + "'");
+        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + firstPath + "' OR \"$path\" = '" + secondPath + "'");
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + thirdPath + "' OR \"$path\" = '" + fourthPath + "'");
 
         List<String> updatedFiles = getActiveFiles(tableName);
         assertThat(updatedFiles)
@@ -5432,6 +5472,10 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IS NULL"))
                     .returnsEmptyResult()
                     .isFullyPushedDown();
+
+            assertQuerySucceeds("SHOW STATS FOR (SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'))");
+            // EXPLAIN triggers stats calculation and also rendering
+            assertQuerySucceeds("EXPLAIN SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
         }
     }
 
@@ -5462,10 +5506,11 @@ public abstract class BaseIcebergConnectorTest
         assertThat(initialFiles).hasSize(4);
 
         storageTimePrecision.sleep(1);
-        assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
                 "\"$file_modified_time\" = from_iso8601_timestamp('" + firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
                 "\"$file_modified_time\" = from_iso8601_timestamp('" + secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
-        assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
                 "\"$file_modified_time\" = from_iso8601_timestamp('" + thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
                 "\"$file_modified_time\" = from_iso8601_timestamp('" + fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
 
@@ -6071,7 +6116,7 @@ public abstract class BaseIcebergConnectorTest
                 .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BOOLEAN))
                 .returnsEmptyResult();
 
-        assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 1 , true)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 1, true)", 1);
         long v2SnapshotId = getCurrentSnapshotId(tableName);
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
                 .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BOOLEAN))
@@ -6390,7 +6435,7 @@ public abstract class BaseIcebergConnectorTest
                 .hasMessage("One MERGE target table row matched more than one source row");
 
         assertUpdate(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
-                "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address",
+                        "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address",
                 1);
         assertQuery("SELECT customer, purchases, address FROM " + targetTable, "VALUES ('Aaron', 5, 'Adelphi'), ('Bill', 7, 'Antioch')");
         assertUpdate("DROP TABLE " + sourceTable);
@@ -6903,10 +6948,59 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Override
+    protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "bigint -> integer":
+            case "decimal(5,3) -> decimal(5,2)":
+            case "varchar -> char(20)":
+            case "time(6) -> time(3)":
+            case "timestamp(6) -> timestamp(3)":
+            case "array(integer) -> array(bigint)":
+            case "row(x integer) -> row(x bigint)":
+            case "row(x integer) -> row(y integer)":
+            case "row(x integer, y integer) -> row(x integer, z integer)":
+            case "row(x integer) -> row(x integer, y integer)":
+            case "row(x integer, y integer) -> row(x integer)":
+            case "row(x integer, y integer) -> row(y integer, x integer)":
+            case "row(x integer, y integer) -> row(z integer, y integer, x integer)":
+            case "row(x row(nested integer)) -> row(x row(nested bigint))":
+            case "row(x row(a integer, b integer)) -> row(x row(b integer, a integer))":
+                // Iceberg allows updating column types if the update is safe. Safe updates are:
+                // - int to bigint
+                // - float to double
+                // - decimal(P,S) to decimal(P2,S) when P2 > P (scale cannot change)
+                // https://iceberg.apache.org/docs/latest/spark-ddl/#alter-table--alter-column
+                return Optional.of(setup.asUnsupported());
+
+            case "varchar(100) -> varchar(50)":
+                // Iceberg connector ignores the varchar length
+                return Optional.empty();
+        }
+        return Optional.of(setup);
+    }
+
+    @Override
+    protected void verifySetFieldTypeFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageMatching(".*(Failed to set field type: Cannot change (column type:|type from .* to )" +
+                "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
+                "|Type not supported for Iceberg: char\\(20\\)" +
+                "|Iceberg doesn't support changing field type (from|to) non-primitive types).*");
+    }
+
+    @Override
     protected boolean supportsPhysicalPushdown()
     {
         // TODO https://github.com/trinodb/trino/issues/17156
         return false;
+    }
+
+    private Session withSingleWriterPerTask(Session session)
+    {
+        return Session.builder(session)
+                .setSystemProperty("task_writer_count", "1")
+                .build();
     }
 
     private Session prepareCleanUpSession()
@@ -6997,7 +7091,7 @@ public abstract class BaseIcebergConnectorTest
     {
         int idField = 0;
         return getQueryRunner().execute(
-                format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at", tableName))
+                        format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at", tableName))
                 .getMaterializedRows().stream()
                 .map(row -> (Long) row.getField(idField))
                 .collect(toList());

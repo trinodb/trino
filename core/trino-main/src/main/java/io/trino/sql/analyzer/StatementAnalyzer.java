@@ -129,6 +129,7 @@ import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
+import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.CreateCatalog;
@@ -455,20 +456,25 @@ class StatementAnalyzer
         this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
     }
 
-    public Scope analyze(Node node, Scope outerQueryScope)
+    public Scope analyze(Node node)
     {
-        return analyze(node, Optional.of(outerQueryScope));
+        return analyze(node, Optional.empty(), true);
     }
 
-    public Scope analyze(Node node, Optional<Scope> outerQueryScope)
+    public Scope analyze(Node node, Scope outerQueryScope)
     {
-        return new Visitor(outerQueryScope, warningCollector, Optional.empty())
+        return analyze(node, Optional.of(outerQueryScope), false);
+    }
+
+    private Scope analyze(Node node, Optional<Scope> outerQueryScope, boolean isTopLevel)
+    {
+        return new Visitor(outerQueryScope, warningCollector, Optional.empty(), isTopLevel)
                 .process(node, Optional.empty());
     }
 
     public Scope analyzeForUpdate(Relation relation, Optional<Scope> outerQueryScope, UpdateKind updateKind)
     {
-        return new Visitor(outerQueryScope, warningCollector, Optional.of(updateKind))
+        return new Visitor(outerQueryScope, warningCollector, Optional.of(updateKind), true)
                 .process(relation, Optional.empty());
     }
 
@@ -487,15 +493,17 @@ class StatementAnalyzer
     private final class Visitor
             extends AstVisitor<Scope, Optional<Scope>>
     {
+        private final boolean isTopLevel;
         private final Optional<Scope> outerQueryScope;
         private final WarningCollector warningCollector;
         private final Optional<UpdateKind> updateKind;
 
-        private Visitor(Optional<Scope> outerQueryScope, WarningCollector warningCollector, Optional<UpdateKind> updateKind)
+        private Visitor(Optional<Scope> outerQueryScope, WarningCollector warningCollector, Optional<UpdateKind> updateKind, boolean isTopLevel)
         {
             this.outerQueryScope = requireNonNull(outerQueryScope, "outerQueryScope is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.updateKind = requireNonNull(updateKind, "updateKind is null");
+            this.isTopLevel = isTopLevel;
         }
 
         @Override
@@ -538,12 +546,12 @@ class StatementAnalyzer
             }
 
             // analyze the query that creates the data
-            Scope queryScope = analyze(insert.getQuery(), createScope(scope));
+            Scope queryScope = analyze(insert.getQuery());
 
             // verify the insert destination columns match the query
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable);
-            Optional<TableHandle> targetTableHandle = redirection.getTableHandle();
-            targetTable = redirection.getRedirectedTableName().orElse(targetTable);
+            Optional<TableHandle> targetTableHandle = redirection.tableHandle();
+            targetTable = redirection.redirectedTableName().orElse(targetTable);
             if (targetTableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, insert, "Table '%s' does not exist", targetTable);
             }
@@ -786,8 +794,8 @@ class StatementAnalyzer
             }
 
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
-            QualifiedObjectName tableName = redirection.getRedirectedTableName().orElse(originalName);
-            TableHandle handle = redirection.getTableHandle()
+            QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
+            TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
@@ -920,7 +928,7 @@ class StatementAnalyzer
             accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable, explicitlySetProperties);
 
             // analyze the query that creates the table
-            Scope queryScope = analyze(node.getQuery(), createScope(scope));
+            Scope queryScope = analyze(node.getQuery());
 
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
 
@@ -996,7 +1004,7 @@ class StatementAnalyzer
             // analyze the query that creates the view
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
-            Scope queryScope = analyzer.analyze(node.getQuery(), scope);
+            Scope queryScope = analyzer.analyze(node.getQuery());
 
             accessControl.checkCanCreateView(session.toSecurityContext(), viewName);
 
@@ -1030,6 +1038,18 @@ class StatementAnalyzer
         @Override
         protected Scope visitAddColumn(AddColumn node, Optional<Scope> scope)
         {
+            ColumnDefinition element = node.getColumn();
+            if (element.getName().getParts().size() > 1) {
+                if (!element.isNullable()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Adding fields with NOT NULL constraint is unsupported");
+                }
+                if (!element.getProperties().isEmpty()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Adding fields with column properties is unsupported");
+                }
+                if (element.getComment().isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Adding fields with COMMENT is unsupported");
+                }
+            }
             return createAndAssignScope(node, scope);
         }
 
@@ -1179,8 +1199,8 @@ class StatementAnalyzer
             }
 
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
-            QualifiedObjectName tableName = redirection.getRedirectedTableName().orElse(originalName);
-            TableHandle tableHandle = redirection.getTableHandle()
+            QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
+            TableHandle tableHandle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             accessControl.checkCanExecuteTableProcedure(
@@ -1199,7 +1219,7 @@ class StatementAnalyzer
                 }
             }
 
-            Scope tableScope = analyze(table, scope);
+            Scope tableScope = analyze(table);
 
             String catalogName = tableName.getCatalogName();
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName);
@@ -1383,7 +1403,7 @@ class StatementAnalyzer
             // analyze the query that creates the view
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
-            Scope queryScope = analyzer.analyze(node.getQuery(), scope);
+            Scope queryScope = analyzer.analyze(node.getQuery());
 
             validateColumns(node, queryScope.getRelationType());
 
@@ -1491,7 +1511,7 @@ class StatementAnalyzer
             if (node.getOrderBy().isPresent()) {
                 orderByExpressions = analyzeOrderBy(node, getSortItemsFromOrderBy(node.getOrderBy()), queryBodyScope);
 
-                if (queryBodyScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
+                if ((queryBodyScope.getOuterQueryParent().isPresent() || !isTopLevel) && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(node.getOrderBy().get());
                     warningCollector.add(new TrinoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
@@ -1577,7 +1597,7 @@ class StatementAnalyzer
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
-            Scope queryScope = analyzer.analyze(node.getQuery(), scope);
+            Scope queryScope = analyzer.analyze(node.getQuery(), scope.orElseThrow());
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
 
@@ -2180,6 +2200,7 @@ class StatementAnalyzer
             Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
             if (optionalMaterializedView.isPresent()) {
                 MaterializedViewDefinition materializedViewDefinition = optionalMaterializedView.get();
+                analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
                 if (isMaterializedViewSufficientlyFresh(session, name, materializedViewDefinition)) {
                     // If materialized view is sufficiently fresh with respect to its grace period, answer the query using the storage table
                     QualifiedName storageName = getMaterializedViewStorageTableName(materializedViewDefinition)
@@ -2203,8 +2224,8 @@ class StatementAnalyzer
 
             // This can only be a table
             RedirectionAwareTableHandle redirection = getTableHandle(table, name, scope);
-            Optional<TableHandle> tableHandle = redirection.getTableHandle();
-            QualifiedObjectName targetTableName = redirection.getRedirectedTableName().orElse(name);
+            Optional<TableHandle> tableHandle = redirection.tableHandle();
+            QualifiedObjectName targetTableName = redirection.redirectedTableName().orElse(name);
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName);
 
             if (tableHandle.isEmpty()) {
@@ -2289,7 +2310,7 @@ class StatementAnalyzer
 
         private void checkStorageTableNotRedirected(QualifiedObjectName source)
         {
-            metadata.getRedirectionAwareTableHandle(session, source).getRedirectedTableName().ifPresent(name -> {
+            metadata.getRedirectionAwareTableHandle(session, source).redirectedTableName().ifPresent(name -> {
                 throw new TrinoException(NOT_SUPPORTED, format("Redirection of materialized view storage table '%s' to '%s' is not supported", source, name));
             });
         }
@@ -2955,7 +2976,7 @@ class StatementAnalyzer
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
-            Scope queryScope = analyzer.analyze(node.getQuery(), scope);
+            Scope queryScope = analyzer.analyze(node.getQuery(), scope.orElseThrow());
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
 
@@ -2986,7 +3007,7 @@ class StatementAnalyzer
 
                 orderByExpressions = analyzeOrderBy(node, orderBy.getSortItems(), orderByScope.get());
 
-                if (sourceScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
+                if ((sourceScope.getOuterQueryParent().isPresent() || !isTopLevel) && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(orderBy);
                     warningCollector.add(new TrinoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
@@ -3238,8 +3259,8 @@ class StatementAnalyzer
             }
 
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
-            QualifiedObjectName tableName = redirection.getRedirectedTableName().orElse(originalName);
-            TableHandle handle = redirection.getTableHandle()
+            QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
+            TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             TableSchema tableSchema = metadata.getTableSchema(session, handle);
@@ -3290,7 +3311,7 @@ class StatementAnalyzer
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.UPDATE);
             update.getWhere().ifPresent(where -> analyzeWhere(update, tableScope, where));
             analyzeCheckConstraints(table, tableName, tableScope, tableSchema.getTableSchema().getCheckConstraints());
-            analysis.registerTable(table, redirection.getTableHandle(), tableName, session.getIdentity().getUser(), tableScope);
+            analysis.registerTable(table, redirection.tableHandle(), tableName, session.getIdentity().getUser(), tableScope);
 
             ImmutableList.Builder<ExpressionAnalysis> analysesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
@@ -3354,8 +3375,8 @@ class StatementAnalyzer
             }
 
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
-            QualifiedObjectName tableName = redirection.getRedirectedTableName().orElse(originalTableName);
-            TableHandle targetTableHandle = redirection.getTableHandle()
+            QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalTableName);
+            TableHandle targetTableHandle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
             StatementAnalyzer analyzer = statementAnalyzerFactory
@@ -3398,9 +3419,10 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with check constraints");
             }
 
-            Scope targetTableScope = analyzer.analyzeForUpdate(relation, scope, UpdateKind.MERGE);
-            Scope sourceTableScope = process(merge.getSource(), scope);
-            Scope joinScope = createAndAssignScope(merge, scope, targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
+            Scope mergeScope = createScope(scope);
+            Scope targetTableScope = analyzer.analyzeForUpdate(relation, Optional.of(mergeScope), UpdateKind.MERGE);
+            Scope sourceTableScope = process(merge.getSource(), mergeScope);
+            Scope joinScope = createAndAssignScope(merge, Optional.of(mergeScope), targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
 
             for (ColumnSchema column : dataColumnSchemas) {
                 if (accessControl.getColumnMask(session.toSecurityContext(), tableName, column.getName(), column.getType()).isPresent()) {
@@ -3988,7 +4010,7 @@ class StatementAnalyzer
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
 
-                List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate));
+                List<Expression> windowExpressions = extractWindowExpressions(ImmutableList.of(predicate), session, metadata);
                 if (!windowExpressions.isEmpty()) {
                     throw semanticException(NESTED_WINDOW, windowExpressions.get(0), "HAVING clause cannot contain window functions or row pattern measures");
                 }
@@ -4567,7 +4589,7 @@ class StatementAnalyzer
                 StatementAnalyzer analyzer = statementAnalyzerFactory
                         .withSpecializedAccessControl(viewAccessControl)
                         .createStatementAnalyzer(analysis, viewSession, warningCollector, CorrelationSupport.ALLOWED);
-                Scope queryScope = analyzer.analyze(query, Scope.create());
+                Scope queryScope = analyzer.analyze(query);
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
             catch (RuntimeException e) {
@@ -4898,7 +4920,7 @@ class StatementAnalyzer
 
                 if (!isRecursive) {
                     Query query = withQuery.getQuery();
-                    process(query, withScopeBuilder.build());
+                    analyze(query, withScopeBuilder.build());
 
                     // check if all or none of the columns are explicitly alias
                     if (withQuery.getColumnNames().isPresent()) {

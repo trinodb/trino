@@ -19,6 +19,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -240,7 +241,7 @@ public class SyncPartitionMetadataProcedure
                     table.getDatabaseName(),
                     table.getTableName(),
                     buildPartitionObject(session, table, name),
-                    new Path(table.getStorage().getLocation(), name),
+                    Location.of(table.getStorage().getLocation()).appendPath(name),
                     Optional.empty(), // no need for failed attempts cleanup
                     PartitionStatistics.empty(),
                     false);

@@ -22,43 +22,42 @@ To connect to Databricks Delta Lake, you need:
 * Deployments using AWS, HDFS, Azure Storage, and Google Cloud Storage (GCS) are
   fully supported.
 * Network access from the coordinator and workers to the Delta Lake storage.
-* Access to the Hive metastore service (HMS) of Delta Lake or a separate HMS.
+* Access to the Hive metastore service (HMS) of Delta Lake or a separate HMS,
+  or a Glue metastore.
 * Network access to the HMS from the coordinator and workers. Port 9083 is the
   default port for the Thrift protocol used by the HMS.
+* Data files stored in the Parquet file format. These can be configured using
+  :ref:`file format configuration properties <hive-parquet-configuration>` per
+  catalog.
 
 General configuration
 ---------------------
 
-The connector requires a Hive metastore for table metadata and supports the same
-metastore configuration properties as the :doc:`Hive connector
-</connector/hive>`. At a minimum, ``hive.metastore.uri`` must be configured.
-
-The connector recognizes Delta tables created in the metastore by the Databricks
-runtime. If non-Delta tables are present in the metastore as well, they are not
-visible to the connector.
-
 To configure the Delta Lake connector, create a catalog properties file
 ``etc/catalog/example.properties`` that references the ``delta_lake``
-connector. Update the ``hive.metastore.uri`` with the URI of your Hive metastore
-Thrift service:
+connector and defines a metastore. You must configure a metastore for table
+metadata.  If you are using a :ref:`Hive metastore <hive-thrift-metastore>`,
+``hive.metastore.uri`` must be configured:
 
 .. code-block:: properties
 
     connector.name=delta_lake
     hive.metastore.uri=thrift://example.net:9083
 
-If you are using AWS Glue as Hive metastore, you can simply set the metastore to
-``glue``:
+If you are using :ref:`AWS Glue <hive-glue-metastore>` as your metastore, you
+must instead set ``hive.metastore`` to ``glue``:
 
 .. code-block:: properties
 
     connector.name=delta_lake
     hive.metastore=glue
 
-The Delta Lake connector reuses certain functionalities from the Hive connector,
-including the metastore :ref:`Thrift <hive-thrift-metastore>` and :ref:`Glue
-<hive-glue-metastore>` configuration, detailed in the :doc:`Hive connector
-documentation </connector/hive>`.
+Each metastore type has specific configuration properties along with
+:ref:`general metastore configuration properties <general-metastore-properties>`. 
+
+The connector recognizes Delta Lake tables created in the metastore by the Databricks
+runtime. If non-Delta Lake tables are present in the metastore as well, they are not
+visible to the connector.
 
 To configure access to S3 and S3-compatible storage, Azure storage, and others,
 consult the appropriate section of the Hive documentation:
@@ -195,10 +194,6 @@ The following table describes :ref:`catalog session properties
     * - Property name
       - Description
       - Default
-    * - ``parquet_optimized_reader_enabled``
-      - Specifies whether batched column readers are used when reading Parquet
-        files for improved performance.
-      - ``true``
     * - ``parquet_max_read_block_size``
       - The maximum block size used when reading Parquet files.
       - ``16MB``
@@ -265,6 +260,8 @@ this table:
     - ``VARBINARY``
   * - ``DATE``
     - ``DATE``
+  * - ``TIMESTAMPNTZ`` (``TIMESTAMP_NTZ``)
+    - ``TIMESTAMP(6)``
   * - ``TIMESTAMP``
     - ``TIMESTAMP(3) WITH TIME ZONE``
   * - ``ARRAY``
@@ -408,7 +405,7 @@ When Delta Lake tables exist in storage but not in the metastore, Trino can be
 used to register the tables::
 
   CREATE TABLE example.default.example_table (
-    dummy bigint
+    dummy BIGINT
   )
   WITH (
     location = '...'
@@ -433,7 +430,7 @@ If the specified location does not already contain a Delta table, the connector
 automatically writes the initial transaction log entries and registers the table
 in the metastore. As a result, any Databricks engine can write to the table::
 
-   CREATE TABLE example.default.new_table (id bigint, address varchar);
+   CREATE TABLE example.default.new_table (id BIGINT, address VARCHAR);
 
 The Delta Lake connector also supports creating tables using the :doc:`CREATE
 TABLE AS </sql/create-table-as>` syntax.
@@ -699,35 +696,55 @@ The output of the query has the following history columns:
     - Type
     - Description
   * - ``version``
-    - ``bigint``
+    - ``BIGINT``
     - The version of the table corresponding to the operation
   * - ``timestamp``
-    - ``timestamp(3) with time zone``
+    - ``TIMESTAMP(3) WITH TIME ZONE``
     - The time when the table version became active
   * - ``user_id``
-    - ``varchar``
+    - ``VARCHAR``
     - The identifier for the user which performed the operation
   * - ``user_name``
-    - ``varchar``
+    - ``VARCHAR``
     - The username for the user which performed the operation
   * - ``operation``
-    - ``varchar``
+    - ``VARCHAR``
     - The name of the operation performed on the table
   * - ``operation_parameters``
-    - ``map(varchar, varchar)``
+    - ``map(VARCHAR, VARCHAR)``
     - Parameters of the operation
   * - ``cluster_id``
-    - ``varchar``
+    - ``VARCHAR``
     - The ID of the cluster which ran the operation
   * - ``read_version``
-    - ``bigint``
+    - ``BIGINT``
     - The version of the table which was read in order to perform the operation
   * - ``isolation_level``
-    - ``varchar``
+    - ``VARCHAR``
     - The level of isolation used to perform the operation
   * - ``is_blind_append``
-    - ``boolean``
+    - ``BOOLEAN``
     - Whether or not the operation appended data
+
+``$properties`` table
+~~~~~~~~~~~~~~~~~~~~~
+
+The ``$properties`` table provides access to Delta Lake table configuration,
+table features and table properties. The table rows are key/value pairs.
+
+You can retrieve the properties of the Delta
+table ``test_table`` by using the following query::
+
+    SELECT * FROM "test_table$properties"
+
+.. code-block:: text
+
+     key                        | value           |
+    ----------------------------+-----------------+
+    delta.minReaderVersion      | 1               |
+    delta.minWriterVersion      | 4               |
+    delta.columnMapping.mode    | name            |
+    delta.feature.columnMapping | supported       |
 
 .. _delta-lake-special-columns:
 
@@ -1116,19 +1133,6 @@ connector.
       - Sets the maximum number of rows read in a batch. The equivalent catalog
         session property is ``parquet_max_read_block_row_count``.
       - ``8192``
-    * - ``parquet.optimized-reader.enabled``
-      - Specifies whether batched column readers are used when reading Parquet
-        files for improved performance. Set this property to ``false`` to
-        disable the optimized parquet reader by default. The equivalent catalog
-        session property is ``parquet_optimized_reader_enabled``.
-      - ``true``
-    * - ``parquet.optimized-nested-reader.enabled``
-      - Specifies whether batched column readers are used when reading ARRAY,
-        MAP, and ROW types from Parquet files for improved performance. Set this
-        property to ``false`` to disable the optimized parquet reader by default
-        for structural data types. The equivalent catalog session property is
-        ``parquet_optimized_nested_reader_enabled``.
-      - ``true``
     * - ``parquet.use-column-index``
       - Skip reading Parquet pages by using Parquet column indices. The equivalent
         catalog session property is ``parquet_use_column_index``.
@@ -1136,3 +1140,8 @@ connector.
     * - ``delta.projection-pushdown-enabled``
       - Read only projected fields from row columns while performing ``SELECT`` queries
       - ``true``
+    * - ``delta.query-partition-filter-required``
+      - Set to ``true`` to force a query to use a partition filter. You can use
+        the ``query_partition_filter_required`` catalog session property for
+        temporary, catalog specific use.
+      - ``false``

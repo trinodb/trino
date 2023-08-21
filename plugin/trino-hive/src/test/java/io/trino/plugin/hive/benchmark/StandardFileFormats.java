@@ -72,7 +72,7 @@ public final class StandardFileFormats
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new RcFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC")));
+            return Optional.of(new RcFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, new HiveConfig().setRcfileTimeZone("UTC")));
         }
 
         @Override
@@ -103,7 +103,7 @@ public final class StandardFileFormats
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new RcFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC")));
+            return Optional.of(new RcFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, new HiveConfig().setRcfileTimeZone("UTC")));
         }
 
         @Override
@@ -206,7 +206,6 @@ public final class StandardFileFormats
                     ParquetWriterOptions.builder().build(),
                     compressionCodec.getParquetCompressionCodec(),
                     "test-version",
-                    false,
                     Optional.of(DateTimeZone.getDefault()),
                     Optional.empty());
         }

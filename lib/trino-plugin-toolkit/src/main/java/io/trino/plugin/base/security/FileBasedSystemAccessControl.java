@@ -107,7 +107,6 @@ import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorizati
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
-import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
 import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
@@ -908,12 +907,6 @@ public class FileBasedSystemAccessControl
             Optional<TrinoPrincipal> grantor)
     {
         denyRevokeRoles(roles, grantees);
-    }
-
-    @Override
-    public void checkCanShowRoleAuthorizationDescriptors(SystemSecurityContext context)
-    {
-        denyShowRoleAuthorizationDescriptors();
     }
 
     @Override

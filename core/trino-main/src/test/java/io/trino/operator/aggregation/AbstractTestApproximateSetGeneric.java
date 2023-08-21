@@ -25,7 +25,7 @@ import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;

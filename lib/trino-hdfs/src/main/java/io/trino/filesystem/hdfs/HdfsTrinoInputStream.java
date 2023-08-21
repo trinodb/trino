@@ -13,62 +13,113 @@
  */
 package io.trino.filesystem.hdfs;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputStream;
 import org.apache.hadoop.fs.FSDataInputStream;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
+import static io.trino.filesystem.hdfs.HdfsFileSystem.withCause;
 import static java.util.Objects.requireNonNull;
 
 class HdfsTrinoInputStream
         extends TrinoInputStream
 {
+    private final Location location;
     private final FSDataInputStream stream;
+    private boolean closed;
 
-    HdfsTrinoInputStream(FSDataInputStream stream)
+    HdfsTrinoInputStream(Location location, FSDataInputStream stream)
     {
+        this.location = requireNonNull(location, "location is null");
         this.stream = requireNonNull(stream, "stream is null");
+    }
+
+    @Override
+    public int available()
+            throws IOException
+    {
+        ensureOpen();
+        try {
+            return stream.available();
+        }
+        catch (IOException e) {
+            throw new IOException("Get available for file %s failed: %s".formatted(location, e.getMessage()), e);
+        }
     }
 
     @Override
     public long getPosition()
             throws IOException
     {
-        return stream.getPos();
+        ensureOpen();
+        try {
+            return stream.getPos();
+        }
+        catch (IOException e) {
+            throw new IOException("Get position for file %s failed: %s".formatted(location, e.getMessage()), e);
+        }
     }
 
     @Override
     public void seek(long position)
             throws IOException
     {
-        stream.seek(position);
+        ensureOpen();
+        try {
+            stream.seek(position);
+        }
+        catch (IOException e) {
+            throw new IOException("Seek to position %s for file %s failed: %s".formatted(position, location, e.getMessage()), e);
+        }
     }
 
     @Override
     public int read()
             throws IOException
     {
-        return stream.read();
-    }
-
-    @Override
-    public int read(byte[] b)
-            throws IOException
-    {
-        return stream.read(b);
+        ensureOpen();
+        try {
+            return stream.read();
+        }
+        catch (FileNotFoundException e) {
+            throw withCause(new FileNotFoundException("File %s not found: %s".formatted(location, e.getMessage())), e);
+        }
+        catch (IOException e) {
+            throw new IOException("Read of file %s failed: %s".formatted(location, e.getMessage()), e);
+        }
     }
 
     @Override
     public int read(byte[] b, int off, int len)
             throws IOException
     {
-        return stream.read(b, off, len);
+        ensureOpen();
+        try {
+            return stream.read(b, off, len);
+        }
+        catch (FileNotFoundException e) {
+            throw withCause(new FileNotFoundException("File %s not found: %s".formatted(location, e.getMessage())), e);
+        }
+        catch (IOException e) {
+            throw new IOException("Read of file %s failed: %s".formatted(location, e.getMessage()), e);
+        }
     }
 
     @Override
     public void close()
             throws IOException
     {
+        closed = true;
         stream.close();
+    }
+
+    private void ensureOpen()
+            throws IOException
+    {
+        if (closed) {
+            throw new IOException("Output stream closed: " + location);
+        }
     }
 }

@@ -15,13 +15,16 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
+import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTablePrefix;
 import org.apache.hadoop.net.NetUtils;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // staging directory is shared mutable state
@@ -64,6 +67,16 @@ public class TestHive
                         "but found.*");
 
         throw new SkipException("not supported");
+    }
+
+    @Test
+    public void testHiveViewsHaveNoColumns()
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            assertThat(listTableColumns(metadata, newSession(), new SchemaTablePrefix(view.getSchemaName(), view.getTableName())))
+                    .isEmpty();
+        }
     }
 
     @Test
@@ -149,5 +162,23 @@ public class TestHive
         // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
         // used to ingest data into partitioned hive tables.
         testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, STATISTICS_1, STATISTICS_2, STATISTICS_1_1, PartitionStatistics.empty());
+    }
+
+    @Override
+    public void testDataColumnProperties()
+    {
+        // Column properties are currently not supported in ThriftHiveMetastore
+        assertThatThrownBy(super::testDataColumnProperties)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Persisting column properties is not supported: Column{name=id, type=bigint}");
+    }
+
+    @Override
+    public void testPartitionColumnProperties()
+    {
+        // Column properties are currently not supported in ThriftHiveMetastore
+        assertThatThrownBy(super::testPartitionColumnProperties)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Persisting column properties is not supported: Column{name=part_key, type=varchar(256)}");
     }
 }

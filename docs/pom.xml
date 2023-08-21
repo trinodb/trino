@@ -5,12 +5,11 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>422-SNAPSHOT</version>
+        <version>425-SNAPSHOT</version>
     </parent>
 
     <artifactId>trino-docs</artifactId>
     <packaging>pom</packaging>
-    <name>trino-docs</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -91,7 +90,7 @@
                             <mainClass>io.trino.sql.ReservedIdentifiers</mainClass>
                             <arguments>
                                 <argument>validateDocs</argument>
-                                <argument>${project.basedir}/src/main/sphinx/language/reserved.rst</argument>
+                                <argument>${project.basedir}/src/main/sphinx/language/reserved.md</argument>
                             </arguments>
                         </configuration>
                     </execution>

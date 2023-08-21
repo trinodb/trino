@@ -72,6 +72,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
@@ -82,6 +83,7 @@ import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.FunctionProvider;
@@ -111,6 +113,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -131,9 +134,11 @@ public class MockConnector
     private static final String UPDATE_ROW_ID = "update_row_id";
     private static final String MERGE_ROW_ID = "merge_row_id";
 
+    private final Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper;
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<String>> listTables;
     private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns;
+    private final Optional<MockConnectorFactory.StreamRelationColumns> streamRelationColumns;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
     private final Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
@@ -174,12 +179,15 @@ public class MockConnector
     private final Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources;
     private final OptionalInt maxWriterTasks;
     private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
+    private final WriterScalingOptions writerScalingOptions;
 
     MockConnector(
+            Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper,
             List<PropertyMetadata<?>> sessionProperties,
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<String>> listTables,
             Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns,
+            Optional<MockConnectorFactory.StreamRelationColumns> streamRelationColumns,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
             Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
@@ -218,12 +226,15 @@ public class MockConnector
             Supplier<List<PropertyMetadata<?>>> columnProperties,
             Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources,
             OptionalInt maxWriterTasks,
-            BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute)
+            BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute,
+            WriterScalingOptions writerScalingOptions)
     {
+        this.metadataWrapper = requireNonNull(metadataWrapper, "metadataWrapper is null");
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.streamTableColumns = requireNonNull(streamTableColumns, "streamTableColumns is null");
+        this.streamRelationColumns = requireNonNull(streamRelationColumns, "streamRelationColumns is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
         this.getMaterializedViewProperties = requireNonNull(getMaterializedViewProperties, "getMaterializedViewProperties is null");
         this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
@@ -263,6 +274,7 @@ public class MockConnector
         this.tableFunctionSplitsSources = requireNonNull(tableFunctionSplitsSources, "tableFunctionSplitsSources is null");
         this.maxWriterTasks = requireNonNull(maxWriterTasks, "maxWriterTasks is null");
         this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
+        this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
     }
 
     @Override
@@ -280,7 +292,7 @@ public class MockConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
-        return new MockConnectorMetadata();
+        return metadataWrapper.apply(new MockConnectorMetadata());
     }
 
     @Override
@@ -567,6 +579,15 @@ public class MockConnector
         }
 
         @Override
+        public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+        {
+            if (streamRelationColumns.isPresent()) {
+                return streamRelationColumns.get().apply(session, schemaName, relationFilter);
+            }
+            return ConnectorMetadata.super.streamRelationColumns(session, schemaName, relationFilter);
+        }
+
+        @Override
         public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting) {}
 
         @Override
@@ -597,10 +618,22 @@ public class MockConnector
         public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type) {}
 
         @Override
+        public void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, Type type)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal) {}
 
         @Override
         public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target) {}
+
+        @Override
+        public void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+        {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
         public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column) {}
@@ -841,6 +874,18 @@ public class MockConnector
         public BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> beginTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorTableHandle updatedSourceTableHandle)
         {
             return new BeginTableExecuteResult<>(tableExecuteHandle, updatedSourceTableHandle);
+        }
+
+        @Override
+        public WriterScalingOptions getNewTableWriterScalingOptions(ConnectorSession session, SchemaTableName tableName, Map<String, Object> tableProperties)
+        {
+            return writerScalingOptions;
+        }
+
+        @Override
+        public WriterScalingOptions getInsertWriterScalingOptions(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            return writerScalingOptions;
         }
 
         private MockConnectorAccessControl getMockAccessControl()

@@ -28,13 +28,11 @@ import io.trino.hive.formats.line.LineDeserializerFactory;
 import io.trino.hive.formats.line.LineReader;
 import io.trino.hive.formats.line.LineReaderFactory;
 import io.trino.plugin.hive.AcidInfo;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.fs.MonitoredInputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
@@ -67,20 +65,17 @@ public abstract class LinePageSourceFactory
     private static final DataSize SMALL_FILE_SIZE = DataSize.of(8, Unit.MEGABYTE);
 
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final FileFormatDataSourceStats stats;
     private final LineDeserializerFactory lineDeserializerFactory;
     private final LineReaderFactory lineReaderFactory;
     private final Predicate<ConnectorSession> activation;
 
     protected LinePageSourceFactory(
             TrinoFileSystemFactory fileSystemFactory,
-            FileFormatDataSourceStats stats,
             LineDeserializerFactory lineDeserializerFactory,
             LineReaderFactory lineReaderFactory,
             Predicate<ConnectorSession> activation)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.stats = requireNonNull(stats, "stats is null");
         this.lineDeserializerFactory = requireNonNull(lineDeserializerFactory, "lineDeserializerFactory is null");
         this.activation = requireNonNull(activation, "activation is null");
         this.lineReaderFactory = requireNonNull(lineReaderFactory, "lineReaderFactory is null");
@@ -140,7 +135,7 @@ public abstract class LinePageSourceFactory
 
         // buffer file if small
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session.getIdentity());
-        TrinoInputFile inputFile = new MonitoredInputFile(stats, trinoFileSystem.newInputFile(path));
+        TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
         try {
             length = min(inputFile.length() - start, length);
             if (!inputFile.exists()) {

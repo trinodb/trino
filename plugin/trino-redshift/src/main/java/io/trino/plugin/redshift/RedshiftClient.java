@@ -307,6 +307,17 @@ public class RedshiftClient
     }
 
     @Override
+    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
+            throws SQLException
+    {
+        if (cascade) {
+            // Dropping schema with cascade option may lead to other metadata listing operations. Disable until finding the solution.
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
+        }
+        execute(session, connection, "DROP SCHEMA " + quoted(remoteSchemaName));
+    }
+
+    @Override
     protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
@@ -598,8 +609,10 @@ public class RedshiftClient
                         longTimestampWithTimeZoneWriteFunction()));
         }
 
-        // Fall back to default behavior
-        return legacyToColumnMapping(session, type);
+        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+            return mapToUnboundedVarchar(type);
+        }
+        return Optional.empty();
     }
 
     private Optional<ColumnMapping> legacyToColumnMapping(ConnectorSession session, JdbcTypeHandle typeHandle)
@@ -718,10 +731,7 @@ public class RedshiftClient
             return WriteMapping.objectMapping("timestamptz", longTimestampWithTimeZoneWriteFunction());
         }
 
-        // Fall back to legacy behavior
-        // TODO we should not fall back to legacy behavior, the mappings should be explicit (the legacyToWriteMapping
-        //  is just a copy of some generic default mappings that used to exist)
-        return legacyToWriteMapping(type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     @Override

@@ -31,6 +31,7 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
+import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
@@ -50,6 +51,7 @@ import java.util.Set;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
+import static io.trino.decoder.util.DecoderTestUtil.TESTING_SESSION;
 import static io.trino.decoder.util.DecoderTestUtil.checkValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -533,7 +535,7 @@ public class TestProtobufDecoder
     private RowDecoder createRowDecoder(String fileName, Set<DecoderColumnHandle> columns)
             throws Exception
     {
-        return DECODER_FACTORY.create(ImmutableMap.of("dataSchema", ProtobufUtils.getProtoFile("decoder/protobuf/" + fileName)), columns);
+        return DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(ProtobufRowDecoder.NAME, ImmutableMap.of("dataSchema", ProtobufUtils.getProtoFile("decoder/protobuf/" + fileName)), columns));
     }
 
     private Descriptor getDescriptor(String fileName)

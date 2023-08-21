@@ -75,6 +75,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
@@ -252,6 +253,8 @@ public final class HiveTypeTranslator
                 return DATE;
             case TIMESTAMP:
                 return createTimestampType(timestampPrecision.getPrecision());
+            case TIMESTAMPLOCALTZ:
+                return createTimestampWithTimeZoneType(timestampPrecision.getPrecision());
             case BINARY:
                 return VARBINARY;
             case DECIMAL:

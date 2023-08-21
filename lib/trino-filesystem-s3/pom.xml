@@ -5,15 +5,15 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>422-SNAPSHOT</version>
+        <version>425-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-filesystem-s3</artifactId>
-    <name>trino-filesystem-s3</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
     </properties>
 
     <dependencies>
@@ -135,6 +135,18 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-filesystem</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
             <scope>test</scope>
         </dependency>
 

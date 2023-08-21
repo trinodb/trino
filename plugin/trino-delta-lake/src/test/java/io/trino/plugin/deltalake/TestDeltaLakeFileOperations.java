@@ -27,7 +27,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -35,7 +34,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CDF_DATA;
@@ -112,8 +110,6 @@ public class TestDeltaLakeFileOperations
                         .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), 3) // TODO (https://github.com/trinodb/trino/issues/16780) why is last transaction log accessed more times than others?
                         .addCopies(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation(DATA, "key=p1/", INPUT_FILE_GET_LENGTH), 2)
-                        .addCopies(new FileOperation(DATA, "key=p2/", INPUT_FILE_GET_LENGTH), 2)
                         .addCopies(new FileOperation(DATA, "key=p1/", INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(DATA, "key=p2/", INPUT_FILE_NEW_STREAM), 2)
                         .build());
@@ -160,8 +156,66 @@ public class TestDeltaLakeFileOperations
     }
 
     @Test
+    public void testHistorySystemTable()
+    {
+        assertUpdate("CREATE TABLE test_history_system_table (a INT, b INT)");
+        assertUpdate("INSERT INTO test_history_system_table VALUES (1, 2)", 1);
+        assertUpdate("INSERT INTO test_history_system_table VALUES (2, 3)", 1);
+        assertUpdate("INSERT INTO test_history_system_table VALUES (3, 4)", 1);
+        assertUpdate("INSERT INTO test_history_system_table VALUES (4, 5)", 1);
+
+        assertFileSystemAccesses("SELECT * FROM \"test_history_system_table$history\"",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", INPUT_FILE_NEW_STREAM))
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", INPUT_FILE_NEW_STREAM), 2)
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                        .build());
+
+        assertFileSystemAccesses("SELECT * FROM \"test_history_system_table$history\" WHERE version = 3",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                        .build());
+
+        assertFileSystemAccesses("SELECT * FROM \"test_history_system_table$history\" WHERE version > 3",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", INPUT_FILE_NEW_STREAM))
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", INPUT_FILE_NEW_STREAM), 2)
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                        .build());
+
+        assertFileSystemAccesses("SELECT * FROM \"test_history_system_table$history\" WHERE version >= 3 OR version = 1",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", INPUT_FILE_NEW_STREAM))
+                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", INPUT_FILE_NEW_STREAM), 2)
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                        .build());
+
+        assertFileSystemAccesses("SELECT * FROM \"test_history_system_table$history\" WHERE version >= 1 AND version < 3",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                        .build());
+
+        assertFileSystemAccesses("SELECT * FROM \"test_history_system_table$history\" WHERE version > 1 AND version < 2",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", INPUT_FILE_NEW_STREAM))
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                        .build());
+    }
+
+    @Test
     public void testTableChangesFileSystemAccess()
-            throws URISyntaxException
     {
         assertUpdate("CREATE TABLE table_changes_file_system_access (page_url VARCHAR, key VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true, partitioned_by=ARRAY['key'])");
         assertUpdate("INSERT INTO table_changes_file_system_access VALUES('url1', 'domain1', 1)", 1);
@@ -187,15 +241,9 @@ public class TestDeltaLakeFileOperations
                         .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000006.json", INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000007.json", INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation(CDF_DATA, "key=domain1/", INPUT_FILE_GET_LENGTH), 1)
-                        .addCopies(new FileOperation(CDF_DATA, "key=domain2/", INPUT_FILE_GET_LENGTH), cdfFilesForDomain2)
-                        .addCopies(new FileOperation(CDF_DATA, "key=domain3/", INPUT_FILE_GET_LENGTH), cdfFilesForDomain3)
                         .addCopies(new FileOperation(CDF_DATA, "key=domain1/", INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(CDF_DATA, "key=domain2/", INPUT_FILE_NEW_STREAM), cdfFilesForDomain2)
                         .addCopies(new FileOperation(CDF_DATA, "key=domain3/", INPUT_FILE_NEW_STREAM), cdfFilesForDomain3)
-                        .addCopies(new FileOperation(DATA, "key=domain1/", INPUT_FILE_GET_LENGTH), 1)
-                        .addCopies(new FileOperation(DATA, "key=domain2/", INPUT_FILE_GET_LENGTH), 1)
-                        .addCopies(new FileOperation(DATA, "key=domain3/", INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(DATA, "key=domain1/", INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(DATA, "key=domain2/", INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(DATA, "key=domain3/", INPUT_FILE_NEW_STREAM), 1)
@@ -203,12 +251,11 @@ public class TestDeltaLakeFileOperations
     }
 
     private int countCdfFilesForKey(String partitionValue)
-            throws URISyntaxException
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM table_changes_file_system_access WHERE key = '" + partitionValue + "'");
         String partitionKey = "key=" + partitionValue;
         String tableLocation = path.substring(0, path.lastIndexOf(partitionKey));
-        String partitionCdfFolder = new URI(tableLocation).getPath() + "_change_data/" + partitionKey + "/";
+        String partitionCdfFolder = URI.create(tableLocation).getPath() + "_change_data/" + partitionKey + "/";
         return toIntExact(Arrays.stream(new File(partitionCdfFolder).list()).filter(file -> !file.contains(".crc")).count());
     }
 
@@ -224,9 +271,10 @@ public class TestDeltaLakeFileOperations
     {
         return trackingFileSystemFactory.getOperationCounts()
                 .entrySet().stream()
+                .filter(entry -> !entry.getKey().location().path().endsWith(".trinoSchema"))
                 .flatMap(entry -> nCopies(entry.getValue(), FileOperation.create(
-                        entry.getKey().getLocation().path(),
-                        entry.getKey().getOperationType())).stream())
+                        entry.getKey().location().path(),
+                        entry.getKey().operationType())).stream())
                 .collect(toCollection(HashMultiset::create));
     }
 

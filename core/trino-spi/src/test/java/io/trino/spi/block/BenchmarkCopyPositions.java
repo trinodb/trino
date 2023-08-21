@@ -114,10 +114,7 @@ public class BenchmarkCopyPositions
                     generatedValues[position] = null;
                 }
                 else {
-                    int length = random.nextInt(380) + 20;
-                    byte[] buffer = new byte[length];
-                    random.nextBytes(buffer);
-                    generatedValues[position] = Slices.wrappedBuffer(buffer);
+                    generatedValues[position] = Slices.random(random.nextInt(380) + 20);
                 }
             }
             return generatedValues;

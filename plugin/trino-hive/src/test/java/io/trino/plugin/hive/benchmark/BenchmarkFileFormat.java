@@ -22,7 +22,6 @@ public enum BenchmarkFileFormat
     TRINO_RCTEXT(StandardFileFormats.TRINO_RCTEXT),
     TRINO_ORC(StandardFileFormats.TRINO_ORC),
     TRINO_PARQUET(StandardFileFormats.TRINO_PARQUET),
-    TRINO_OPTIMIZED_PARQUET(StandardFileFormats.TRINO_PARQUET),
     /**/;
 
     private final FileFormat format;

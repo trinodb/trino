@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV2;
-import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.Block;
@@ -107,7 +106,7 @@ public class TestInt96Timestamp
                 null,
                 false);
         // Read and assert
-        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(DateTimeZone.UTC, new ParquetReaderOptions().withBatchColumnReaders(true));
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(DateTimeZone.UTC);
         ColumnReader reader = columnReaderFactory.create(field, newSimpleAggregatedMemoryContext());
         reader.setPageReader(
                 new PageReader(UNCOMPRESSED, List.of(dataPage).iterator(), false, false),

@@ -285,7 +285,7 @@ public class StateMachine<T>
 
         // fire state change listener with the current state
         // always fire listener callbacks from a different thread
-        safeExecute(() -> stateChangeListener.stateChanged(currentState));
+        safeExecute(() -> fireStateChangedListener(currentState, stateChangeListener));
     }
 
     @VisibleForTesting

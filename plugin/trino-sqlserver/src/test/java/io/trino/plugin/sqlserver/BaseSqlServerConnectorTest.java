@@ -75,6 +75,7 @@ public abstract class BaseSqlServerConnectorTest
                 return false;
 
             case SUPPORTS_RENAME_SCHEMA:
+            case SUPPORTS_DROP_SCHEMA_CASCADE:
                 return false;
 
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
@@ -605,7 +606,7 @@ public abstract class BaseSqlServerConnectorTest
         assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
         assertQueryFails(
                 "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
-                "Conversion failed when converting date and/or time from character string\\.");
+                ".*\\QConversion failed when converting date and/or time from character string.\\E");
     }
 
     @Override

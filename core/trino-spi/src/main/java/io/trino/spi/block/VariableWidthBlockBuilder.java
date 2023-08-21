@@ -187,12 +187,23 @@ public class VariableWidthBlockBuilder
         return new VariableWidthBlock(0, length, newSlice.slice(), newOffsets, newValueIsNull);
     }
 
-    public void writeEntry(Slice source)
+    public VariableWidthBlockBuilder writeEntry(Slice source)
     {
-        writeEntry(source, 0, source.length());
+        return writeEntry(source, 0, source.length());
     }
 
     public VariableWidthBlockBuilder writeEntry(Slice source, int sourceIndex, int length)
+    {
+        if (!initialized) {
+            initializeCapacity();
+        }
+
+        sliceOutput.writeBytes(source, sourceIndex, length);
+        entryAdded(length, false);
+        return this;
+    }
+
+    public VariableWidthBlockBuilder writeEntry(byte[] source, int sourceIndex, int length)
     {
         if (!initialized) {
             initializeCapacity();

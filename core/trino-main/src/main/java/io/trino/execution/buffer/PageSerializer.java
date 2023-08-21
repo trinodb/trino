@@ -243,6 +243,91 @@ public class PageSerializer
             uncompressedSize += length;
         }
 
+        @Override
+        public void writeShorts(short[] source, int sourceIndex, int length)
+        {
+            WriteBuffer buffer = buffers[0];
+            int currentIndex = sourceIndex;
+            int shortsRemaining = length;
+            while (shortsRemaining > 0) {
+                ensureCapacityFor(min(Long.BYTES, shortsRemaining * Short.BYTES));
+                int bufferCapacity = buffer.remainingCapacity();
+                int shortsToCopy = min(shortsRemaining, bufferCapacity / Short.BYTES);
+                buffer.writeShorts(source, currentIndex, shortsToCopy);
+                currentIndex += shortsToCopy;
+                shortsRemaining -= shortsToCopy;
+            }
+            uncompressedSize += length * Short.BYTES;
+        }
+
+        @Override
+        public void writeInts(int[] source, int sourceIndex, int length)
+        {
+            WriteBuffer buffer = buffers[0];
+            int currentIndex = sourceIndex;
+            int intsRemaining = length;
+            while (intsRemaining > 0) {
+                ensureCapacityFor(min(Long.BYTES, intsRemaining * Integer.BYTES));
+                int bufferCapacity = buffer.remainingCapacity();
+                int intsToCopy = min(intsRemaining, bufferCapacity / Integer.BYTES);
+                buffer.writeInts(source, currentIndex, intsToCopy);
+                currentIndex += intsToCopy;
+                intsRemaining -= intsToCopy;
+            }
+            uncompressedSize += length * Integer.BYTES;
+        }
+
+        @Override
+        public void writeLongs(long[] source, int sourceIndex, int length)
+        {
+            WriteBuffer buffer = buffers[0];
+            int currentIndex = sourceIndex;
+            int longsRemaining = length;
+            while (longsRemaining > 0) {
+                ensureCapacityFor(min(Long.BYTES, longsRemaining * Long.BYTES));
+                int bufferCapacity = buffer.remainingCapacity();
+                int longsToCopy = min(longsRemaining, bufferCapacity / Long.BYTES);
+                buffer.writeLongs(source, currentIndex, longsToCopy);
+                currentIndex += longsToCopy;
+                longsRemaining -= longsToCopy;
+            }
+            uncompressedSize += length * Long.BYTES;
+        }
+
+        @Override
+        public void writeFloats(float[] source, int sourceIndex, int length)
+        {
+            WriteBuffer buffer = buffers[0];
+            int currentIndex = sourceIndex;
+            int floatsRemaining = length;
+            while (floatsRemaining > 0) {
+                ensureCapacityFor(min(Long.BYTES, floatsRemaining * Float.BYTES));
+                int bufferCapacity = buffer.remainingCapacity();
+                int floatsToCopy = min(floatsRemaining, bufferCapacity / Float.BYTES);
+                buffer.writeFloats(source, currentIndex, floatsToCopy);
+                currentIndex += floatsToCopy;
+                floatsRemaining -= floatsToCopy;
+            }
+            uncompressedSize += length * Float.BYTES;
+        }
+
+        @Override
+        public void writeDoubles(double[] source, int sourceIndex, int length)
+        {
+            WriteBuffer buffer = buffers[0];
+            int currentIndex = sourceIndex;
+            int doublesRemaining = length;
+            while (doublesRemaining > 0) {
+                ensureCapacityFor(min(Long.BYTES, doublesRemaining * Double.BYTES));
+                int bufferCapacity = buffer.remainingCapacity();
+                int doublesToCopy = min(doublesRemaining, bufferCapacity / Double.BYTES);
+                buffer.writeDoubles(source, currentIndex, doublesToCopy);
+                currentIndex += doublesToCopy;
+                doublesRemaining -= doublesToCopy;
+            }
+            uncompressedSize += length * Double.BYTES;
+        }
+
         public Slice closePage()
         {
             compress();
@@ -257,7 +342,7 @@ public class PageSerializer
 
             Slice page;
             if (serializedPageSize < slice.length() / 2) {
-                page = Slices.copyOf(slice, 0, serializedPageSize);
+                page = slice.copy(0, serializedPageSize);
             }
             else {
                 page = slice.slice(0, serializedPageSize);
@@ -587,6 +672,36 @@ public class PageSerializer
         {
             slice.setBytes(position, source, sourceIndex, length);
             position += length;
+        }
+
+        public void writeShorts(short[] source, int sourceIndex, int length)
+        {
+            slice.setShorts(position, source, sourceIndex, length);
+            position += length * Short.BYTES;
+        }
+
+        public void writeInts(int[] source, int sourceIndex, int length)
+        {
+            slice.setInts(position, source, sourceIndex, length);
+            position += length * Integer.BYTES;
+        }
+
+        public void writeLongs(long[] source, int sourceIndex, int length)
+        {
+            slice.setLongs(position, source, sourceIndex, length);
+            position += length * Long.BYTES;
+        }
+
+        public void writeFloats(float[] source, int sourceIndex, int length)
+        {
+            slice.setFloats(position, source, sourceIndex, length);
+            position += length * Float.BYTES;
+        }
+
+        public void writeDoubles(double[] source, int sourceIndex, int length)
+        {
+            slice.setDoubles(position, source, sourceIndex, length);
+            position += length * Double.BYTES;
         }
 
         public void skip(int length)

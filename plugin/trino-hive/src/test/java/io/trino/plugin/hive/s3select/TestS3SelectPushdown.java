@@ -21,7 +21,6 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hive.hcatalog.data.JsonSerDe;
 import org.testng.annotations.AfterClass;
@@ -34,13 +33,14 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Properties;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
+import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveType.HIVE_BINARY;
 import static io.trino.plugin.hive.HiveType.HIVE_BOOLEAN;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.s3select.S3SelectPushdown.isCompressionCodecSupported;
 import static io.trino.plugin.hive.s3select.S3SelectPushdown.isSplittable;
@@ -57,7 +57,6 @@ public class TestS3SelectPushdown
 {
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
 
-    private TextInputFormat inputFormat;
     private ConnectorSession session;
     private Table table;
     private Partition partition;
@@ -68,9 +67,6 @@ public class TestS3SelectPushdown
     @BeforeClass
     public void setUp()
     {
-        inputFormat = new TextInputFormat();
-        inputFormat.configure(new JobConf(newEmptyConfiguration()));
-
         session = TestingConnectorSession.builder()
                 .setPropertyMetadata(List.of(booleanProperty(
                         S3_SELECT_PUSHDOWN_ENABLED,
@@ -108,18 +104,17 @@ public class TestS3SelectPushdown
                 Optional.empty(),
                 OptionalLong.empty());
 
-        schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, LazySimpleSerDe.class.getName());
+        schema = getHiveSchema(partition, table);
     }
 
     @Test
     public void testIsCompressionCodecSupported()
     {
-        assertTrue(isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject.gz"));
-        assertTrue(isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject"));
-        assertFalse(isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject.lz4"));
-        assertFalse(isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject.snappy"));
-        assertTrue(isCompressionCodecSupported(inputFormat, "s3://fakeBucket/fakeObject.bz2"));
+        assertTrue(isCompressionCodecSupported(schema, "s3://fakeBucket/fakeObject.gz"));
+        assertTrue(isCompressionCodecSupported(schema, "s3://fakeBucket/fakeObject"));
+        assertFalse(isCompressionCodecSupported(schema, "s3://fakeBucket/fakeObject.lz4"));
+        assertFalse(isCompressionCodecSupported(schema, "s3://fakeBucket/fakeObject.snappy"));
+        assertTrue(isCompressionCodecSupported(schema, "s3://fakeBucket/fakeObject.bz2"));
     }
 
     @Test
@@ -272,26 +267,26 @@ public class TestS3SelectPushdown
     public void testShouldEnableSplits()
     {
         // Uncompressed CSV
-        assertTrue(isSplittable(true, schema, inputFormat, "s3://fakeBucket/fakeObject.csv"));
+        assertTrue(isSplittable(true, schema, "s3://fakeBucket/fakeObject.csv"));
         // Pushdown disabled
-        assertTrue(isSplittable(false, schema, inputFormat, "s3://fakeBucket/fakeObject.csv"));
+        assertTrue(isSplittable(false, schema, "s3://fakeBucket/fakeObject.csv"));
         // JSON
         Properties jsonSchema = new Properties();
+        jsonSchema.setProperty(FILE_INPUT_FORMAT, TextInputFormat.class.getName());
         jsonSchema.setProperty(SERIALIZATION_LIB, JsonSerDe.class.getName());
-        assertTrue(isSplittable(true, jsonSchema, inputFormat, "s3://fakeBucket/fakeObject.json"));
+        assertTrue(isSplittable(true, jsonSchema, "s3://fakeBucket/fakeObject.json"));
     }
 
     @Test
     public void testShouldNotEnableSplits()
     {
         // Compressed file
-        assertFalse(isSplittable(true, schema, inputFormat, "s3://fakeBucket/fakeObject.gz"));
+        assertFalse(isSplittable(true, schema, "s3://fakeBucket/fakeObject.gz"));
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        inputFormat = null;
         session = null;
         table = null;
         partition = null;

@@ -113,10 +113,10 @@ public class TestTimestampWithTimeZone
                 .hasType(createTimestampWithTimeZoneType(12))
                 .isEqualTo(timestampWithTimeZone(12, 2020, 5, 1, 12, 34, 56, 123_456_789_012L, getTimeZoneKey("Asia/Kathmandu")));
 
-        assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890123 Asia/Kathmandu'").evaluate())
+        assertThatThrownBy(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890123 Asia/Kathmandu'")::evaluate)
                 .hasMessage("line 1:12: TIMESTAMP WITH TIME ZONE precision must be in range [0, 12]: 13");
 
-        assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01 Asia/Kathmandu'").evaluate())
+        assertThatThrownBy(assertions.expression("TIMESTAMP '2020-13-01 Asia/Kathmandu'")::evaluate)
                 .hasMessage("line 1:12: '2020-13-01 Asia/Kathmandu' is not a valid TIMESTAMP literal");
 
         // negative epoch
@@ -423,20 +423,20 @@ public class TestTimestampWithTimeZone
                 .isEqualTo(timestampWithTimeZone(0, 2001, 1, 2, 0, 0, 0, 0, getTimeZoneKey("Europe/Berlin")));
 
         // Overflow
-        assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '123001-01-02 03:04:05.321 Europe/Berlin'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("TIMESTAMP '123001-01-02 03:04:05.321 Europe/Berlin'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '123001-01-02 03:04:05.321 Europe/Berlin' is not a valid TIMESTAMP literal");
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '+123001-01-02 03:04:05.321 Europe/Berlin'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("TIMESTAMP '+123001-01-02 03:04:05.321 Europe/Berlin'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '+123001-01-02 03:04:05.321 Europe/Berlin' is not a valid TIMESTAMP literal");
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '-123001-01-02 03:04:05.321 Europe/Berlin'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("TIMESTAMP '-123001-01-02 03:04:05.321 Europe/Berlin'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '-123001-01-02 03:04:05.321 Europe/Berlin' is not a valid TIMESTAMP literal");
 
         // missing space after day
-        assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01-12'").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("TIMESTAMP '2020-13-01-12'")::evaluate)
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '2020-13-01-12' is not a valid TIMESTAMP literal");
     }
@@ -2608,34 +2608,34 @@ public class TestTimestampWithTimeZone
     @Test
     public void testCastInvalidTimestamp()
     {
-        assertThatThrownBy(() -> assertions.expression("CAST('ABC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('ABC' AS TIMESTAMP WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: ABC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-00 00:00:00 UTC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-00 00:00:00 UTC' AS TIMESTAMP WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-00 00:00:00 UTC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-00-01 00:00:00 UTC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-00-01 00:00:00 UTC' AS TIMESTAMP WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-00-01 00:00:00 UTC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 25:00:00 UTC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 25:00:00 UTC' AS TIMESTAMP WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 25:00:00 UTC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:61:00 UTC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 00:61:00 UTC' AS TIMESTAMP WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:61:00 UTC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:61 UTC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 00:00:61 UTC' AS TIMESTAMP WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:61 UTC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:00 ABC' AS TIMESTAMP WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 00:00:00 ABC' AS TIMESTAMP WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:00 ABC");
 
-        assertThatThrownBy(() -> assertions.expression("CAST('ABC' AS TIMESTAMP(12))").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('ABC' AS TIMESTAMP(12))")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: ABC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-00 00:00:00 UTC' AS TIMESTAMP(12) WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-00 00:00:00 UTC' AS TIMESTAMP(12) WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-00 00:00:00 UTC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-00-01 00:00:00 UTC' AS TIMESTAMP(12) WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-00-01 00:00:00 UTC' AS TIMESTAMP(12) WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-00-01 00:00:00 UTC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 25:00:00 UTC' AS TIMESTAMP(12) WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 25:00:00 UTC' AS TIMESTAMP(12) WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 25:00:00 UTC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:61:00 UTC' AS TIMESTAMP(12) WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 00:61:00 UTC' AS TIMESTAMP(12) WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:61:00 UTC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:61 UTC' AS TIMESTAMP(12) WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 00:00:61 UTC' AS TIMESTAMP(12) WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:61 UTC");
-        assertThatThrownBy(() -> assertions.expression("CAST('2022-01-01 00:00:00 ABC' AS TIMESTAMP(12) WITH TIME ZONE)").evaluate())
+        assertThatThrownBy(assertions.expression("CAST('2022-01-01 00:00:00 ABC' AS TIMESTAMP(12) WITH TIME ZONE)")::evaluate)
                 .hasMessage("Value cannot be cast to timestamp: 2022-01-01 00:00:00 ABC");
     }
 

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>422-SNAPSHOT</version>
+        <version>425-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -117,6 +117,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-cache</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-filesystem</artifactId>
         </dependency>
 
@@ -135,13 +140,13 @@
             <artifactId>trino-hive</artifactId>
             <exclusions>
                 <exclusion>
-                    <!-- calcite-core and Iceberg have conflicting versions of org.apache.commons:commons-lang3 -->
-                    <groupId>com.linkedin.calcite</groupId>
-                    <artifactId>calcite-core</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>io.airlift</groupId>
                     <artifactId>http-client</artifactId>
+                </exclusion>
+                <!-- TODO: remove when removed from trino-hive -->
+                <exclusion>
+                    <groupId>io.trino.hive</groupId>
+                    <artifactId>hive-apache</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -164,11 +169,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-plugin-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.hive</groupId>
-            <artifactId>hive-apache</artifactId>
         </dependency>
 
         <dependency>
@@ -232,6 +232,26 @@
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-parquet</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-column</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-format-structures</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-hadoop</artifactId>
         </dependency>
 
         <dependency>
@@ -328,6 +348,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-aws-sdk-1.11</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hadoop-toolkit</artifactId>
             <scope>runtime</scope>
@@ -401,6 +427,30 @@
         </dependency>
 
         <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk-trace</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-blackhole</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-exchange-filesystem</artifactId>
             <scope>test</scope>
@@ -425,12 +475,6 @@
             <artifactId>trino-hive</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.linkedin.calcite</groupId>
-                    <artifactId>calcite-core</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -547,6 +591,19 @@
     </dependencies>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <configuration>
+                        <ignoredNonTestScopedDependencies>
+                            <ignoredNonTestScopedDependency>org.apache.parquet:parquet-common</ignoredNonTestScopedDependency>
+                        </ignoredNonTestScopedDependencies>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.antlr</groupId>

@@ -15,6 +15,7 @@ package io.trino.operator.aggregation.minmaxbyn;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
 
@@ -43,7 +44,7 @@ public abstract class MinMaxByNStateSerializer<T extends MinMaxByNState>
     @Override
     public void deserialize(Block block, int index, T state)
     {
-        Block rowBlock = (Block) serializedType.getObject(block, index);
-        state.deserialize(rowBlock);
+        SingleRowBlock rowBlock = (SingleRowBlock) serializedType.getObject(block, index);
+        ((MinMaxByNStateFactory.SingleMinMaxByNState) state).setTempSerializedState(rowBlock);
     }
 }

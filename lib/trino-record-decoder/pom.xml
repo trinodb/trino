@@ -5,12 +5,11 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>422-SNAPSHOT</version>
+        <version>425-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-record-decoder</artifactId>
-    <name>trino-record-decoder</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

@@ -76,7 +76,6 @@ import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowCurrentRoles;
-import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
@@ -584,16 +583,6 @@ public interface ConnectorAccessControl
     default void checkCanSetRole(ConnectorSecurityContext context, String role)
     {
         denySetRole(role);
-    }
-
-    /**
-     * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
-     *
-     * @throws io.trino.spi.security.AccessDeniedException if not allowed
-     */
-    default void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context)
-    {
-        denyShowRoleAuthorizationDescriptors();
     }
 
     /**

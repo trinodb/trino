@@ -20,7 +20,6 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.filesystem.Locations.appendPath;
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.canonicalizeColumnName;
 
 public final class TransactionLogUtil
 {
@@ -42,8 +41,7 @@ public final class TransactionLogUtil
     {
         return partitionValues.entrySet().stream()
                 .collect(toImmutableMap(
-                        // canonicalize partition keys to lowercase so they match column names used in DeltaLakeColumnHandle
-                        entry -> canonicalizeColumnName(entry.getKey()),
+                        Map.Entry::getKey,
                         entry -> {
                             String value = entry.getValue();
                             if (value == null || value.isEmpty()) {

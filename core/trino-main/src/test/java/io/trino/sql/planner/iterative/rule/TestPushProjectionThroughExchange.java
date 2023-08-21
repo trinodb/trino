@@ -61,8 +61,8 @@ public class TestPushProjectionThroughExchange
 
                     return p.project(
                             Assignments.builder()
-                                    .put(a, a.toSymbolReference())
-                                    .put(b, b.toSymbolReference())
+                                    .putIdentity(a)
+                                    .putIdentity(b)
                                     .build(),
                             p.exchange(e -> e
                                     .addSource(p.values(a, b, c))

@@ -48,7 +48,7 @@ public class TestFailureFunction
     public void testFailure()
     {
         String failure = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(new RuntimeException("fail me")).toFailureInfo());
-        assertTrinoExceptionThrownBy(() -> assertions.function("fail", "json_parse('" + failure + "')").evaluate())
+        assertTrinoExceptionThrownBy(assertions.function("fail", "json_parse('" + failure + "')")::evaluate)
                 .hasErrorCode(GENERIC_USER_ERROR)
                 .hasMessage("fail me");
     }

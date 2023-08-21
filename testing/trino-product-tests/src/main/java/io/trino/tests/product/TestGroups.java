@@ -28,6 +28,7 @@ public final class TestGroups
     public static final String BLACKHOLE_CONNECTOR = "blackhole";
     public static final String SMOKE = "smoke";
     public static final String JDBC = "jdbc";
+    public static final String JDBC_KERBEROS_CONSTRAINED_DELEGATION = "jdbc_kerberos_constrained_delegation";
     public static final String OAUTH2 = "oauth2";
     public static final String OAUTH2_REFRESH = "oauth2_refresh";
     public static final String MYSQL = "mysql";

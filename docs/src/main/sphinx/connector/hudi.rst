@@ -15,27 +15,29 @@ To use the Hudi connector, you need:
 
 * Hudi version 0.12.3 or higher.
 * Network access from the Trino coordinator and workers to the Hudi storage.
-* Access to the Hive metastore service (HMS).
+* Access to a Hive metastore service (HMS).
 * Network access from the Trino coordinator to the HMS.
+* Data files stored in the Parquet file format. These can be configured using
+  :ref:`file format configuration properties <hive-parquet-configuration>` per
+  catalog.
 
 General configuration
 ---------------------
 
-The connector requires a Hive metastore for table metadata and supports the same
-metastore configuration properties as the :doc:`Hive connector
-</connector/hive>`. At a minimum, ``hive.metastore.uri`` must be configured.
-The connector recognizes Hudi tables synced to the metastore by the
-`Hudi sync tool <https://hudi.apache.org/docs/syncing_metastore>`_.
-
-To create a catalog that uses the Hudi connector, create a catalog properties
-file ``etc/catalog/example.properties`` that references the ``hudi`` connector.
-Update the ``hive.metastore.uri`` with the URI of your Hive metastore Thrift
-service:
+To configure the Hive connector, create a catalog properties file
+``etc/catalog/example.properties`` that references the ``hudi``
+connector and defines the HMS to use with the ``hive.metastore.uri``
+configuration property:
 
 .. code-block:: properties
 
     connector.name=hudi
     hive.metastore.uri=thrift://example.net:9083
+    
+There are :ref:`HMS configuration properties <general-metastore-properties>`
+available for use with the Hudi connector. The connector recognizes Hudi tables
+synced to the metastore by the `Hudi sync tool
+<https://hudi.apache.org/docs/syncing_metastore>`_.
 
 Additionally, following configuration properties can be set depending on the use-case:
 
@@ -56,19 +58,6 @@ Additionally, following configuration properties can be set depending on the use
     * - ``hudi.parquet.use-column-names``
       - Access Parquet columns using names from the file. If disabled, then columns
         are accessed using the index. Only applicable to Parquet file format.
-      - ``true``
-    * - ``parquet.optimized-reader.enabled``
-      - Whether batched column readers must be used when reading Parquet files
-        for improved performance. Set this property to ``false`` to disable the
-        optimized parquet reader by default. The equivalent catalog session
-        property is ``parquet_optimized_reader_enabled``.
-      - ``true``
-    * - ``parquet.optimized-nested-reader.enabled``
-      - Whether batched column readers must be used when reading ARRAY, MAP
-        and ROW types from Parquet files for improved performance. Set this
-        property to ``false`` to disable the optimized parquet reader by default
-        for structural data types. The equivalent catalog session property is
-        ``parquet_optimized_nested_reader_enabled``.
       - ``true``
     * - ``hudi.split-generator-parallelism``
       - Number of threads to generate splits from partitions.
@@ -216,16 +205,11 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``timestamp``
-    - ``varchar``
-    - Instant time is typically a timestamp when the actions performed
+    - ``VARCHAR``
+    - Instant time is typically a timestamp when the actions performed.
   * - ``action``
-    - ``varchar``
-    - `Type of action <https://hudi.apache.org/docs/concepts/#timeline>`_ performed on the table
+    - ``VARCHAR``
+    - `Type of action <https://hudi.apache.org/docs/concepts/#timeline>`_ performed on the table.
   * - ``state``
-    - ``varchar``
-    - Current state of the instant
-
-File formats
-------------
-
-The connector supports Parquet file format.
+    - ``VARCHAR``
+    - Current state of the instant.

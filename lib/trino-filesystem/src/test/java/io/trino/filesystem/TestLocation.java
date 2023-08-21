@@ -124,6 +124,9 @@ class TestLocation
         assertThatThrownBy(() -> Location.of("x"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("No scheme for file system location: x");
+        assertThatThrownBy(() -> Location.of("dev/null"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No scheme for file system location: dev/null");
         assertThatThrownBy(() -> Location.of("scheme://host:invalid/path"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Invalid port in file system location: scheme://host:invalid/path");
@@ -311,17 +314,18 @@ class TestLocation
     {
         Location.of("scheme://userInfo@host/name").verifyValidFileLocation();
         Location.of("scheme://userInfo@host/path/name").verifyValidFileLocation();
+        Location.of("scheme://userInfo@host/name ").verifyValidFileLocation();
 
         Location.of("/name").verifyValidFileLocation();
         Location.of("/path/name").verifyValidFileLocation();
+        Location.of("/path/name ").verifyValidFileLocation();
+        Location.of("/name ").verifyValidFileLocation();
 
         assertInvalidFileLocation("scheme://userInfo@host/", "File location must contain a path: scheme://userInfo@host/");
         assertInvalidFileLocation("scheme://userInfo@host/name/", "File location cannot end with '/': scheme://userInfo@host/name/");
-        assertInvalidFileLocation("scheme://userInfo@host/name ", "File location cannot end with whitespace: scheme://userInfo@host/name ");
 
         assertInvalidFileLocation("/", "File location must contain a path: /");
         assertInvalidFileLocation("/name/", "File location cannot end with '/': /name/");
-        assertInvalidFileLocation("/name ", "File location cannot end with whitespace: /name ");
     }
 
     private static void assertInvalidFileLocation(String locationString, String expectedErrorMessage)
@@ -360,6 +364,49 @@ class TestLocation
         Location location = Location.of(locationString);
         location.verifyValidFileLocation();
         assertThat(location.fileName()).isEqualTo(fileName);
+    }
+
+    @Test
+    void testSibling()
+    {
+        assertSiblingFailure("/", "sibling", IllegalStateException.class, "File location must contain a path: /");
+        assertSiblingFailure("//", "sibling", IllegalStateException.class, "File location must contain a path: /");
+        assertSiblingFailure("file:/", "sibling", IllegalStateException.class, "File location must contain a path: file:/");
+        assertSiblingFailure("file://", "sibling", IllegalStateException.class, "File location must contain a path: file://");
+        assertSiblingFailure("file:///", "sibling", IllegalStateException.class, "File location must contain a path: file:///");
+        assertSiblingFailure("s3://bucket/", "sibling", IllegalStateException.class, "File location must contain a path: s3://bucket/");
+        assertSiblingFailure("scheme://userInfo@host/path/", "sibling", IllegalStateException.class, "File location cannot end with '/'");
+
+        assertSiblingFailure("scheme://userInfo@host/path/filename", null, NullPointerException.class, "name is null");
+        assertSiblingFailure("scheme://userInfo@host/path/filename", "", IllegalArgumentException.class, "name is empty");
+
+        assertSibling("scheme://userInfo@host/path/name", "sibling", "scheme://userInfo@host/path/sibling");
+        assertSibling("scheme://userInfo@host/path//name", "sibling", "scheme://userInfo@host/path//sibling");
+        assertSibling("scheme://userInfo@host/path///name", "sibling", "scheme://userInfo@host/path///sibling");
+        assertSibling("scheme://userInfo@host/level1/level2/name", "sibling", "scheme://userInfo@host/level1/level2/sibling");
+        assertSibling("scheme://userInfo@host/level1//level2/name", "sibling", "scheme://userInfo@host/level1//level2/sibling");
+
+        assertSibling("file:/path/name", "sibling", "file:/path/sibling");
+        assertSibling("s3://bucket/directory/filename with spaces", "sibling", "s3://bucket/directory/sibling");
+        assertSibling("/path/name", "sibling", "/path/sibling");
+        assertSibling("/name", "sibling", "/sibling");
+    }
+
+    private static void assertSiblingFailure(String locationString, String siblingName, Class<?> exceptionClass, String exceptionMessage)
+    {
+        assertThatThrownBy(() -> Location.of(locationString).sibling(siblingName))
+                .isInstanceOf(exceptionClass)
+                .hasMessageContaining(exceptionMessage);
+    }
+
+    private static void assertSibling(String locationString, String siblingName, String expectedLocationString)
+    {
+        // fileName method only works with valid file locations
+        Location location = Location.of(locationString);
+        location.verifyValidFileLocation();
+        Location siblingLocation = location.sibling(siblingName);
+
+        assertLocation(siblingLocation, Location.of(expectedLocationString));
     }
 
     @Test

@@ -18,7 +18,7 @@ configuration, custom properties, and snapshots of the table contents.
 
 Iceberg data files are stored in either Parquet, ORC, or Avro format, as
 determined by the ``format`` property in the table definition.  The default
-``format`` value is ``ORC``.
+``format`` value is ``PARQUET``.
 
 Iceberg is designed to improve on the known scalability limitations of Hive,
 which stores table metadata in a metastore that is backed by a relational
@@ -38,18 +38,39 @@ To use Iceberg, you need:
 
 * Network access from the Trino coordinator and workers to the distributed
   object storage.
-* Access to a :ref:`Hive metastore service (HMS)<iceberg-hive-catalog>`, an
-  :ref:`AWS Glue catalog<iceberg-glue-catalog>`, a :ref:`JDBC catalog
-  <iceberg-jdbc-catalog>`, a :ref:`REST catalog<iceberg-rest-catalog>`, or a
-  :ref:`Nessie server<iceberg-nessie-catalog>`.
-* Network access from the Trino coordinator to the HMS. Hive metastore access
-  with the Thrift protocol defaults to using port 9083.
+* Access to a :ref:`Hive metastore service (HMS) <hive-thrift-metastore>`, an
+  :ref:`AWS Glue catalog <iceberg-glue-catalog>`, a :ref:`JDBC catalog
+  <iceberg-jdbc-catalog>`, a :ref:`REST catalog <iceberg-rest-catalog>`, or a
+  :ref:`Nessie server <iceberg-nessie-catalog>`.
+* Data files stored in a supported file format. These can be configured using
+  file format configuration properties per catalog:
+  
+  - :ref:`ORC <hive-orc-configuration>`
+  - :ref:`Parquet <hive-parquet-configuration>` (default)
 
 General configuration
 ---------------------
 
-These configuration properties are independent of which catalog implementation
-is used.
+To configure the Iceberg connector, create a catalog properties file
+``etc/catalog/example.properties`` that references the ``iceberg``
+connector and defines a metastore type. The Hive metastore catalog is the
+default implementation. To use a :ref:`Hive metastore <hive-thrift-metastore>`,
+``iceberg.catalog.type`` must be set to ``hive_metastore`` and
+``hive.metastore.uri`` must be configured:
+
+.. code-block:: properties
+
+    connector.name=iceberg
+    iceberg.catalog.type=hive_metastore
+    hive.metastore.uri=thrift://example.net:9083
+
+Other metadata catalog types as listed in the requirements section of this topic
+are available. Each metastore type has specific configuration properties along
+with :ref:`general metastore configuration properties
+<general-metastore-properties>`.
+
+The following configuration properties are independent of which catalog
+implementation is used:
 
 .. list-table:: Iceberg general configuration properties
   :widths: 30, 58, 12
@@ -58,6 +79,15 @@ is used.
   * - Property name
     - Description
     - Default
+  * - ``iceberg.catalog.type``
+    - Define the metastore type to use. Possible values are:
+
+      * ``hive_metastore``
+      * ``glue``
+      * ``jdbc``
+      * ``rest``
+      * ``nessie``
+    -
   * - ``iceberg.file-format``
     - Define the data storage file format for Iceberg tables.
       Possible values are:
@@ -65,7 +95,7 @@ is used.
       * ``PARQUET``
       * ``ORC``
       * ``AVRO``
-    - ``ORC``
+    - ``PARQUET``
   * - ``iceberg.compression-codec``
     - The compression codec used when writing files.
       Possible values are:
@@ -128,170 +158,6 @@ is used.
   * - ``iceberg.register-table-procedure.enabled``
     - Enable to allow user to call ``register_table`` procedure.
     - ``false``
-
-Metastores
-----------
-
-The Iceberg table format manages most metadata in metadata files in the object
-storage itself. A small amount of metadata, however, still requires the use of a
-metastore. In the Iceberg ecosystem, these smaller metastores are called Iceberg
-metadata catalogs, or just catalogs. The examples in each subsection depict the
-contents of a Trino catalog file that uses the the Iceberg connector to
-configures different Iceberg metadata catalogs.
-
-The connector supports multiple Iceberg catalog types; you can use either a Hive
-metastore service (HMS), AWS Glue, a REST catalog, or Nessie. The catalog type
-is determined by the ``iceberg.catalog.type`` property. It can be set to
-``HIVE_METASTORE``, ``GLUE``, ``JDBC``, ``REST``, or ``NESSIE``.
-
-.. _iceberg-hive-catalog:
-
-Hive metastore catalog
-^^^^^^^^^^^^^^^^^^^^^^
-
-The Hive metastore catalog is the default implementation. When using it, the
-Iceberg connector supports the same metastore configuration properties as the
-Hive connector. At a minimum, ``hive.metastore.uri`` must be configured. See
-:ref:`Thrift metastore configuration<hive-thrift-metastore>`.
-
-.. code-block:: text
-
-    connector.name=iceberg
-    hive.metastore.uri=thrift://localhost:9083
-
-.. _iceberg-glue-catalog:
-
-Glue catalog
-^^^^^^^^^^^^
-
-When using the Glue catalog, the Iceberg connector supports the same
-configuration properties as the Hive connector's Glue setup. See :ref:`AWS Glue
-metastore configuration<hive-glue-metastore>`.
-
-.. code-block:: text
-
-    connector.name=iceberg
-    iceberg.catalog.type=glue
-
-.. list-table:: Iceberg Glue catalog configuration properties
-  :widths: 35, 50, 15
-  :header-rows: 1
-
-  * - Property name
-    - Description
-    - Default
-  * - ``iceberg.glue.skip-archive``
-    - Skip archiving an old table version when creating a new version in a
-      commit. See `AWS Glue Skip Archive
-      <https://iceberg.apache.org/docs/latest/aws/#skip-archive>`_.
-    - ``false``
-
-.. _iceberg-rest-catalog:
-
-REST catalog
-^^^^^^^^^^^^^^
-
-In order to use the Iceberg REST catalog, ensure to configure the catalog type
-with ``iceberg.catalog.type=rest`` and provide further details with the
-following properties:
-
-.. list-table:: Iceberg REST catalog configuration properties
-  :widths: 40, 60
-  :header-rows: 1
-
-  * - Property name
-    - Description
-  * - ``iceberg.rest-catalog.uri``
-    - REST server API endpoint URI (required).
-      Example: ``http://iceberg-with-rest:8181``
-  * - ``iceberg.rest-catalog.warehouse``
-    - Warehouse identifier/location for the catalog (optional). Example:
-      ``s3://my_bucket/warehouse_location``
-  * - ``iceberg.rest-catalog.security``
-    - The type of security to use (default: ``NONE``).  ``OAUTH2`` requires
-      either a ``token`` or ``credential``. Example: ``OAUTH2``
-  * - ``iceberg.rest-catalog.session``
-    - Session information included when communicating with the REST Catalog.
-      Options are ``NONE`` or ``USER`` (default: ``NONE``).
-  * - ``iceberg.rest-catalog.oauth2.token``
-    - The bearer token used for interactions with the server. A ``token`` or
-      ``credential`` is required for ``OAUTH2`` security. Example:
-      ``AbCdEf123456``
-  * - ``iceberg.rest-catalog.oauth2.credential``
-    - The credential to exchange for a token in the OAuth2 client credentials
-      flow with the server. A ``token`` or ``credential`` is required for
-      ``OAUTH2`` security. Example: ``AbCdEf123456``
-
-.. code-block:: text
-
-    connector.name=iceberg
-    iceberg.catalog.type=rest
-    iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
-
-REST catalog does not support :doc:`views</sql/create-view>` or
-:doc:`materialized views</sql/create-materialized-view>`.
-
-.. _iceberg-nessie-catalog:
-
-Nessie catalog
-^^^^^^^^^^^^^^
-
-In order to use a Nessie catalog, ensure to configure the catalog type with
-``iceberg.catalog.type=nessie`` and provide further details with the following
-properties:
-
-.. list-table:: Nessie catalog configuration properties
-  :widths: 40, 60
-  :header-rows: 1
-
-  * - Property name
-    - Description
-  * - ``iceberg.nessie-catalog.uri``
-    - Nessie API endpoint URI (required).
-      Example: ``https://localhost:19120/api/v1``
-  * - ``iceberg.nessie-catalog.ref``
-    - The branch/tag to use for Nessie, defaults to ``main``.
-  * - ``iceberg.nessie-catalog.default-warehouse-dir``
-    - Default warehouse directory for schemas created without an explicit
-      ``location`` property. Example: ``/tmp``
-
-.. code-block:: text
-
-    connector.name=iceberg
-    iceberg.catalog.type=nessie
-    iceberg.nessie-catalog.uri=https://localhost:19120/api/v1
-    iceberg.nessie-catalog.default-warehouse-dir=/tmp
-
-.. _iceberg-jdbc-catalog:
-
-JDBC catalog
-^^^^^^^^^^^^
-
-.. warning::
-
-  The JDBC catalog could face the compatibility issue if Iceberg introduces
-  breaking changes in the future. Consider the :ref:`REST catalog
-  <iceberg-rest-catalog>` as an alternative solution.
-
-At a minimum, ``iceberg.jdbc-catalog.driver-class``,
-``iceberg.jdbc-catalog.connection-url``, and
-``iceberg.jdbc-catalog.catalog-name`` must be configured. When using any
-database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
-directory.
-
-.. code-block:: text
-
-    connector.name=iceberg
-    iceberg.catalog.type=jdbc
-    iceberg.jdbc-catalog.catalog-name=test
-    iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
-    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://example.net:5432/database
-    iceberg.jdbc-catalog.connection-user=admin
-    iceberg.jdbc-catalog.connection-password=test
-    iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
-
-JDBC catalog does not support :doc:`views</sql/create-view>` or
-:doc:`materialized views</sql/create-materialized-view>`.
 
 Type mapping
 ------------
@@ -497,9 +363,9 @@ The Iceberg connector supports creating tables using the :doc:`CREATE TABLE
 <iceberg-table-properties>` supported by this connector::
 
     CREATE TABLE example_table (
-        c1 integer,
-        c2 date,
-        c3 double
+        c1 INTEGER,
+        c2 DATE,
+        c3 DOUBLE
     )
     WITH (
         format = 'PARQUET',
@@ -840,9 +706,9 @@ The table definition below specifies format Parquet, partitioning by columns
 ``/var/example_tables/test_table``::
 
     CREATE TABLE test_table (
-        c1 integer,
-        c2 date,
-        c3 double)
+        c1 INTEGER,
+        c2 DATE,
+        c3 DOUBLE)
     WITH (
         format = 'PARQUET',
         partitioning = ARRAY['c1', 'c2'],
@@ -853,9 +719,9 @@ The table definition below specifies format ORC, bloom filter index by columns
 ``/var/example_tables/test_table``::
 
     CREATE TABLE test_table (
-        c1 integer,
-        c2 date,
-        c3 double)
+        c1 INTEGER,
+        c2 DATE,
+        c3 DOUBLE)
     WITH (
         format = 'ORC',
         location = '/var/example_tables/test_table',
@@ -920,16 +786,16 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``made_current_at``
-    - ``timestamp(3) with time zone``
+    - ``TIMESTAMP(3) WITH TIME ZONE``
     - The time when the snapshot became active.
   * - ``snapshot_id``
-    - ``bigint``
+    - ``BIGINT``
     - The identifier of the snapshot.
   * - ``parent_id``
-    - ``bigint``
+    - ``BIGINT``
     - The identifier of the parent snapshot.
   * - ``is_current_ancestor``
-    - ``boolean``
+    - ``BOOLEAN``
     - Whether or not this snapshot is an ancestor of the current snapshot.
 
 ``$snapshots`` table
@@ -961,16 +827,16 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``committed_at``
-    - ``timestamp(3) with time zone``
+    - ``TIMESTAMP(3) WITH TIME ZONE``
     - The time when the snapshot became active.
   * - ``snapshot_id``
-    - ``bigint``
+    - ``BIGINT``
     - The identifier for the snapshot.
   * - ``parent_id``
-    - ``bigint``
+    - ``BIGINT``
     - The identifier for the parent snapshot.
   * - ``operation``
-    - ``varchar``
+    - ``VARCHAR``
     - The type of operation performed on the Iceberg table. The supported
       operation types in Iceberg are:
 
@@ -980,11 +846,11 @@ The output of the query has the following columns:
       * ``overwrite`` when new data is added to overwrite existing data.
       * ``delete`` when data is deleted from the table and no new data is added.
   * - ``manifest_list``
-    - ``varchar``
+    - ``VARCHAR``
     - The list of Avro manifest files containing the detailed information about
       the snapshot changes.
   * - ``summary``
-    - ``map(varchar, varchar)``
+    - ``map(VARCHAR, VARCHAR)``
     - A summary of the changes made from the previous snapshot to the current
       snapshot.
 
@@ -1015,42 +881,42 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``path``
-    - ``varchar``
+    - ``VARCHAR``
     - The manifest file location.
   * - ``length``
-    - ``bigint``
+    - ``BIGINT``
     - The manifest file length.
   * - ``partition_spec_id``
-    - ``integer``
+    - ``INTEGER``
     - The identifier for the partition specification used to write the manifest
       file.
   * - ``added_snapshot_id``
-    - ``bigint``
+    - ``BIGINT``
     - The identifier of the snapshot during which this manifest entry has been
       added.
   * - ``added_data_files_count``
-    - ``integer``
+    - ``INTEGER``
     - The number of data files with status ``ADDED`` in the manifest file.
   * - ``added_rows_count``
-    - ``bigint``
+    - ``BIGINT``
     - The total number of rows in all data files with status ``ADDED`` in the
       manifest file.
   * - ``existing_data_files_count``
-    - ``integer``
+    - ``INTEGER``
     - The number of data files with status ``EXISTING`` in the manifest file.
   * - ``existing_rows_count``
-    - ``bigint``
+    - ``BIGINT``
     - The total number of rows in all data files with status ``EXISTING`` in the
       manifest file.
   * - ``deleted_data_files_count``
-    - ``integer``
+    - ``INTEGER``
     - The number of data files with status ``DELETED`` in the manifest file.
   * - ``deleted_rows_count``
-    - ``bigint``
+    - ``BIGINT``
     - The total number of rows in all data files with status ``DELETED`` in the
       manifest file.
   * - ``partitions``
-    - ``array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))``
+    - ``ARRAY(row(contains_null BOOLEAN, contains_nan BOOLEAN, lower_bound VARCHAR, upper_bound VARCHAR))``
     - Partition range metadata.
 
 ``$partitions`` table
@@ -1081,20 +947,20 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``partition``
-    - ``row(...)``
+    - ``ROW(...)``
     - A row that contains the mapping of the partition column names to the
-      partition column values
+      partition column values.
   * - ``record_count``
-    - ``bigint``
+    - ``BIGINT``
     - The number of records in the partition.
   * - ``file_count``
-    - ``bigint``
+    - ``BIGINT``
     - The number of files mapped in the partition.
   * - ``total_size``
-    - ``bigint``
+    - ``BIGINT``
     - The size of all the files in the partition.
   * - ``data``
-    - ``row(... row (min ..., max ... , null_count bigint, nan_count bigint))``
+    - ``ROW(... ROW (min ..., max ... , null_count BIGINT, nan_count BIGINT))``
     - Partition range metadata.
 
 ``$files`` table
@@ -1124,7 +990,7 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``content``
-    - ``integer``
+    - ``INTEGER``
     - Type of content stored in the file. The supported content types in Iceberg
       are:
 
@@ -1132,49 +998,49 @@ The output of the query has the following columns:
       * ``POSITION_DELETES(1)``
       * ``EQUALITY_DELETES(2)``
   * - ``file_path``
-    - ``varchar``
+    - ``VARCHAR``
     - The data file location.
   * - ``file_format``
-    - ``varchar``
+    - ``VARCHAR``
     - The format of the data file.
   * - ``record_count``
-    - ``bigint``
+    - ``BIGINT``
     - The number of entries contained in the data file.
   * - ``file_size_in_bytes``
-    - ``bigint``
+    - ``BIGINT``
     - The data file size
   * - ``column_sizes``
-    - ``map(integer, bigint)``
+    - ``map(INTEGER, BIGINT)``
     - Mapping between the Iceberg column ID and its corresponding size in the
       file.
   * - ``value_counts``
-    - ``map(integer, bigint)``
+    - ``map(INTEGER, BIGINT)``
     - Mapping between the Iceberg column ID and its corresponding count of
       entries in the file.
   * - ``null_value_counts``
-    - ``map(integer, bigint)``
+    - ``map(INTEGER, BIGINT)``
     - Mapping between the Iceberg column ID and its corresponding count of
       ``NULL`` values in the file.
   * - ``nan_value_counts``
-    - ``map(integer, bigint)``
+    - ``map(INTEGER, BIGINT)``
     - Mapping between the Iceberg column ID and its corresponding count of non-
       numerical values in the file.
   * - ``lower_bounds``
-    - ``map(integer, bigint)``
+    - ``map(INTEGER, BIGINT)``
     - Mapping between the Iceberg column ID and its corresponding lower bound in
       the file.
   * - ``upper_bounds``
-    - ``map(integer, bigint)``
+    - ``map(INTEGER, BIGINT)``
     - Mapping between the Iceberg column ID and its corresponding upper bound in
       the file.
   * - ``key_metadata``
-    - ``varbinary``
+    - ``VARBINARY``
     - Metadata about the encryption key used to encrypt this file, if applicable.
   * - ``split_offsets``
-    - ``array(bigint)``
+    - ``array(BIGINT)``
     - List of recommended split locations.
   * - ``equality_ids``
-    - ``array(integer)``
+    - ``array(INTEGER)``
     - The set of field IDs used for equality comparison in equality delete files.
 
 ``$refs`` table
@@ -1205,22 +1071,22 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``name``
-    - ``varchar``
+    - ``VARCHAR``
     - Name of the reference.
   * - ``type``
-    - ``varchar``
+    - ``VARCHAR``
     - Type of the reference, either ``BRANCH`` or ``TAG``.
   * - ``snapshot_id``
-    - ``bigint``
+    - ``BIGINT``
     - The snapshot ID of the reference.
   * - ``max_reference_age_in_ms``
-    - ``bigint``
+    - ``BIGINT``
     - The maximum age of the reference before it could be expired.
   * - ``min_snapshots_to_keep``
-    - ``integer``
+    - ``INTEGER``
     - For branch only, the minimum number of snapshots to keep in a branch.
   * - ``max_snapshot_age_in_ms``
-    - ``bigint``
+    - ``BIGINT``
     - For branch only, the max snapshot age allowed in a branch. Older snapshots
       in the branch will be expired.
 
@@ -1255,7 +1121,7 @@ Retrieve all records that belong to a specific file using
 
     SELECT *
     FROM example.web.page_views
-    WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS timestamp with time zone)
+    WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS TIMESTAMP WIOTH TIMEZONE)
 
 DROP TABLE
 """"""""""
@@ -1277,6 +1143,7 @@ The Iceberg connector supports setting comments on the following objects:
 - tables
 - views
 - table columns
+- materialized view columns
 
 The ``COMMENT`` option is supported on both the table and the table columns for
 the :doc:`/sql/create-table` operation.
@@ -1551,65 +1418,3 @@ Table redirection
 
 The connector supports redirection from Iceberg tables to Hive tables with the
 ``iceberg.hive-catalog-name`` catalog configuration property.
-
-File formats
-------------
-
-The following file types and formats are supported for the Iceberg connector:
-
-* ORC
-* Parquet
-* Avro
-
-ORC format configuration
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-The following properties are used to configure the read and write operations
-with ORC files performed by the Iceberg connector.
-
-.. list-table:: ORC format configuration properties
-  :widths: 30, 58, 12
-  :header-rows: 1
-
-  * - Property name
-    - Description
-    - Default
-  * - ``hive.orc.bloom-filters.enabled``
-    - Enable bloom filters for predicate pushdown.
-    - ``false``
-
-Parquet format configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The following properties are used to configure the read and write operations
-with Parquet files performed by the Iceberg connector.
-
-.. list-table:: Parquet format configuration properties
-    :widths: 30, 50, 20
-    :header-rows: 1
-
-    * - Property Name
-      - Description
-      - Default
-    * - ``parquet.max-read-block-row-count``
-      - Sets the maximum number of rows read in a batch.
-      - ``8192``
-    * - ``parquet.optimized-reader.enabled``
-      - Whether batched column readers are used when reading Parquet files for
-        improved performance. Set this property to ``false`` to disable the
-        optimized parquet reader by default. The equivalent catalog session
-        property is ``parquet_optimized_reader_enabled``.
-      - ``true``
-    * - ``parquet.optimized-nested-reader.enabled``
-      - Whether batched column readers are used when reading ARRAY, MAP, and ROW
-        types from Parquet files for improved performance. Set this property to
-        ``false`` to disable the optimized parquet reader by default for
-        structural data types. The equivalent catalog session property is
-        ``parquet_optimized_nested_reader_enabled``.
-      - ``true``
-    * - ``parquet.use-bloom-filter``
-      - Whether bloom filters are used for predicate pushdown when reading
-        Parquet files. Set this property to ``false`` to disable the usage of
-        bloom filters by default. The equivalent catalog session property is
-        ``parquet_use_bloom_filter``.
-      - ``true``

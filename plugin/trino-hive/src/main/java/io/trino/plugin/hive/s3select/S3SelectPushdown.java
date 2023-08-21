@@ -14,15 +14,11 @@
 package io.trino.plugin.hive.s3select;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.type.DecimalTypeInfo;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.io.compress.BZip2Codec;
-import org.apache.hadoop.io.compress.GzipCodec;
-import org.apache.hadoop.mapred.InputFormat;
-import org.apache.hadoop.mapred.TextInputFormat;
 
 import java.util.List;
 import java.util.Objects;
@@ -34,9 +30,7 @@ import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveSessionProperties.isS3SelectPushdownEnabled;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
-import static io.trino.plugin.hive.s3select.S3SelectSerDeDataTypeMapper.getDataType;
 import static io.trino.plugin.hive.util.HiveClassNames.TEXT_INPUT_FORMAT_CLASS;
-import static io.trino.plugin.hive.util.HiveUtil.getCompressionCodec;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
 import static java.util.Objects.requireNonNull;
@@ -50,7 +44,8 @@ public final class S3SelectPushdown
     private static final Set<String> SUPPORTED_S3_PREFIXES = ImmutableSet.of("s3://", "s3a://", "s3n://");
 
     /*
-     * Double and Real Types lose precision. Thus, they are not pushed down to S3. Please use Decimal Type if push down is desired.
+     * Double and Real Types lose precision. Thus, they are not pushed down to S3.
+     * Correctness problems have also been observed with Decimal columns.
      *
      * When S3 select support was added, Trino did not properly implement TIMESTAMP semantic. This was fixed in 2020, and TIMESTAMPS may be supportable now
      * (https://github.com/trinodb/trino/issues/10962). Pushing down timestamps to s3select maybe still be problematic due to ION SQL comparing timestamps
@@ -63,7 +58,6 @@ public final class S3SelectPushdown
             "smallint",
             "bigint",
             "string",
-            "decimal",
             "date");
 
     private S3SelectPushdown() {}
@@ -76,57 +70,49 @@ public final class S3SelectPushdown
 
     private static boolean isInputFormatSupported(Properties schema)
     {
-        String inputFormat = getInputFormatName(schema);
-
-        if (TEXT_INPUT_FORMAT_CLASS.equals(inputFormat)) {
+        if (isTextInputFormat(schema)) {
             if (!Objects.equals(schema.getProperty(SKIP_HEADER_COUNT_KEY, "0"), "0")) {
                 // S3 Select supports skipping one line of headers, but it was returning incorrect results for trino-hive-hadoop2/conf/files/test_table_with_header.csv.gz
                 // TODO https://github.com/trinodb/trino/issues/2349
                 return false;
             }
-            if (!Objects.equals(schema.getProperty(SKIP_FOOTER_COUNT_KEY, "0"), "0")) {
-                // S3 Select does not support skipping footers
-                return false;
-            }
-            return true;
+
+            // S3 Select does not support skipping footers
+            return Objects.equals(schema.getProperty(SKIP_FOOTER_COUNT_KEY, "0"), "0");
         }
 
         return false;
     }
 
-    public static boolean isCompressionCodecSupported(InputFormat<?, ?> inputFormat, String path)
+    public static boolean isCompressionCodecSupported(Properties schema, String path)
     {
-        if (inputFormat instanceof TextInputFormat textInputFormat) {
+        if (isTextInputFormat(schema)) {
             // S3 Select supports the following formats: uncompressed, GZIP and BZIP2.
-            return getCompressionCodec(textInputFormat, path)
-                    .map(codec -> (codec instanceof GzipCodec) || (codec instanceof BZip2Codec))
+            return CompressionKind.forFile(path)
+                    .map(kind -> kind == CompressionKind.GZIP || kind == CompressionKind.BZIP2)
                     .orElse(true);
         }
 
         return false;
     }
 
-    public static boolean isSplittable(boolean s3SelectPushdownEnabled, Properties schema, InputFormat<?, ?> inputFormat, String path)
+    public static boolean isSplittable(boolean s3SelectPushdownEnabled, Properties schema, String path)
     {
         if (!s3SelectPushdownEnabled) {
             return true;
         }
 
-        if (isUncompressed(inputFormat, path)) {
-            return getDataType(getDeserializerClassName(schema)).isPresent();
+        // S3 Select supports splitting uncompressed files
+        if (isTextInputFormat(schema) && CompressionKind.forFile(path).isEmpty()) {
+            return isSerDeSupported(schema);
         }
 
         return false;
     }
 
-    private static boolean isUncompressed(InputFormat<?, ?> inputFormat, String path)
+    private static boolean isTextInputFormat(Properties schema)
     {
-        if (inputFormat instanceof TextInputFormat textInputFormat) {
-            // S3 Select supports splitting uncompressed files
-            return getCompressionCodec(textInputFormat, path).isEmpty();
-        }
-
-        return false;
+        return TEXT_INPUT_FORMAT_CLASS.equals(getInputFormatName(schema).orElse(null));
     }
 
     private static boolean areColumnTypesSupported(List<Column> columns)
@@ -138,12 +124,7 @@ public final class S3SelectPushdown
         }
 
         for (Column column : columns) {
-            String type = column.getType().getHiveTypeName().toString();
-            if (column.getType().getTypeInfo() instanceof DecimalTypeInfo) {
-                // skip precision and scale when check decimal type
-                type = "decimal";
-            }
-            if (!SUPPORTED_COLUMN_TYPES.contains(type)) {
+            if (!SUPPORTED_COLUMN_TYPES.contains(column.getType().getHiveTypeName().toString())) {
                 return false;
             }
         }

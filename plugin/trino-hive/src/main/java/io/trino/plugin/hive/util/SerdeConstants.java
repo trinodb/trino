@@ -17,7 +17,6 @@ public final class SerdeConstants
 {
     public static final String SERIALIZATION_LIB = "serialization.lib";
     public static final String SERIALIZATION_FORMAT = "serialization.format";
-    public static final String SERIALIZATION_DDL = "serialization.ddl";
     public static final String SERIALIZATION_NULL_FORMAT = "serialization.null.format";
     public static final String SERIALIZATION_LAST_COLUMN_TAKES_REST = "serialization.last.column.takes.rest";
 

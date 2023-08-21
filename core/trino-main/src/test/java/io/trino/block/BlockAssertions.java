@@ -326,19 +326,19 @@ public final class BlockAssertions
     private static Block createRandomVarbinariesBlock(int positionCount, float nullRate)
     {
         Random random = random();
-        return createSlicesBlock(VARBINARY, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(random.nextLong(), random.nextLong())));
+        return createSlicesBlock(VARBINARY, generateListWithNulls(positionCount, nullRate, () -> Slices.random(16, random)));
     }
 
     private static Block createRandomUUIDsBlock(int positionCount, float nullRate)
     {
         Random random = random();
-        return createSlicesBlock(UUID, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(random.nextLong(), random.nextLong())));
+        return createSlicesBlock(UUID, generateListWithNulls(positionCount, nullRate, () -> Slices.random(16, random)));
     }
 
     private static Block createRandomIpAddressesBlock(int positionCount, float nullRate)
     {
         Random random = random();
-        return createSlicesBlock(IPADDRESS, generateListWithNulls(positionCount, nullRate, () -> Slices.wrappedLongArray(random.nextLong(), random.nextLong())));
+        return createSlicesBlock(IPADDRESS, generateListWithNulls(positionCount, nullRate, () -> Slices.random(16, random)));
     }
 
     private static Block createRandomTinyintsBlock(int positionCount, float nullRate)

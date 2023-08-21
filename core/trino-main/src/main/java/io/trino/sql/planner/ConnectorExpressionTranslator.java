@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
-import io.trino.likematcher.LikeMatcher;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.plugin.base.expression.ConnectorExpressions;
@@ -64,6 +63,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.JoniRegexp;
 import io.trino.type.LikeFunctions;
+import io.trino.type.LikePattern;
 import io.trino.type.Re2JRegexp;
 import io.trino.type.Re2JRegexpType;
 
@@ -706,7 +706,7 @@ public final class ConnectorExpressionTranslator
             Expression patternArgument = node.getArguments().get(1);
             if (isEffectivelyLiteral(plannerContext, session, patternArgument)) {
                 // the pattern argument has been constant folded, so extract the underlying pattern and escape
-                LikeMatcher matcher = (LikeMatcher) evaluateConstantExpression(
+                LikePattern matcher = (LikePattern) evaluateConstantExpression(
                         patternArgument,
                         typeOf(patternArgument),
                         plannerContext,

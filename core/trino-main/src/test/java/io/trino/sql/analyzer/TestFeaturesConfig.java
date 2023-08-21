@@ -36,7 +36,6 @@ public class TestFeaturesConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(FeaturesConfig.class)
-                .setLegacyCatalogRoles(false)
                 .setRedistributeWrites(true)
                 .setScaleWriters(true)
                 .setWriterScalingMinDataProcessed(DataSize.of(120, MEGABYTE))
@@ -65,7 +64,8 @@ public class TestFeaturesConfig
                 .setLegacyMaterializedViewGracePeriod(false)
                 .setHideInaccessibleColumns(false)
                 .setForceSpillingJoin(false)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
+                .setFaultTolerantExecutionExchangeEncryptionEnabled(true)
+                .setFlatGroupByHash(true));
     }
 
     @Test
@@ -101,6 +101,7 @@ public class TestFeaturesConfig
                 .put("hide-inaccessible-columns", "true")
                 .put("force-spilling-join-operator", "true")
                 .put("fault-tolerant-execution.exchange-encryption-enabled", "false")
+                .put("legacy.flat-group-by-hash", "false")
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -132,7 +133,8 @@ public class TestFeaturesConfig
                 .setLegacyMaterializedViewGracePeriod(true)
                 .setHideInaccessibleColumns(true)
                 .setForceSpillingJoin(true)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
+                .setFaultTolerantExecutionExchangeEncryptionEnabled(false)
+                .setFlatGroupByHash(false);
         assertFullMapping(properties, expected);
     }
 }

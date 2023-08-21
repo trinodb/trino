@@ -17,7 +17,6 @@ import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -37,6 +36,7 @@ import java.util.Properties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.util.HiveReaderUtil.createRecordReader;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -94,7 +94,7 @@ public class GenericHiveRecordCursorProvider
                 .orElse(columns);
 
         RecordCursor cursor = hdfsEnvironment.doAs(session.getIdentity(), () -> {
-            RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(
+            RecordReader<?, ?> recordReader = createRecordReader(
                     configuration,
                     path,
                     start,

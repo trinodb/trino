@@ -233,7 +233,7 @@ public final class TrinoDataInputStream
         int availableBytes = availableBytes();
         // is skip within the current buffer?
         if (availableBytes >= length) {
-            bufferPosition += length;
+            bufferPosition = checkedCast(bufferPosition + length);
             return length;
         }
 

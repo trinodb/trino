@@ -207,7 +207,7 @@ public interface JdbcClient
 
     void createSchema(ConnectorSession session, String schemaName);
 
-    void dropSchema(ConnectorSession session, String schemaName);
+    void dropSchema(ConnectorSession session, String schemaName, boolean cascade);
 
     void renameSchema(ConnectorSession session, String schemaName, String newSchemaName);
 

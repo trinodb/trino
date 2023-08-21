@@ -165,6 +165,21 @@ public class MemoryFileSystem
         return Optional.empty();
     }
 
+    @Override
+    public void createDirectory(Location location)
+            throws IOException
+    {
+        validateMemoryLocation(location);
+        // memory file system does not have directories
+    }
+
+    @Override
+    public void renameDirectory(Location source, Location target)
+            throws IOException
+    {
+        throw new IOException("Memory file system does not support directory renames");
+    }
+
     private static String toBlobKey(Location location)
     {
         validateMemoryLocation(location);

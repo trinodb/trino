@@ -54,7 +54,6 @@ import io.trino.plugin.hive.metastore.TablesWithParameterCacheKey;
 import io.trino.plugin.hive.metastore.UserTableKey;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
@@ -591,12 +590,6 @@ public class CachingHiveMetastore
         return delegate.getAllDatabases();
     }
 
-    private Table getExistingTable(String databaseName, String tableName)
-    {
-        return getTable(databaseName, tableName)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
-    }
-
     @Override
     public Optional<Table> getTable(String databaseName, String tableName)
     {
@@ -634,12 +627,6 @@ public class CachingHiveMetastore
                     return delegate.getTableStatistics(tableWithOnlyMissingColumns);
                 },
                 CachingHiveMetastore::mergePartitionColumnStatistics);
-    }
-
-    private PartitionStatistics loadTableColumnStatistics(HiveTableName tableName)
-    {
-        Table table = getExistingTable(tableName.getDatabaseName(), tableName.getTableName());
-        return delegate.getTableStatistics(table);
     }
 
     /**

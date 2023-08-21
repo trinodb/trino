@@ -19,7 +19,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.VarcharType;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hive.HivePageSource.narrowerThan;
+import static io.trino.plugin.hive.coercions.CoercionUtils.narrowerThan;
 import static io.trino.spi.type.Varchars.truncateToLength;
 
 public class VarcharCoercer

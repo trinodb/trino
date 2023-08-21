@@ -352,6 +352,11 @@ public class QueryAssertions
             return matches(expected);
         }
 
+        public QueryAssert succeeds()
+        {
+            return satisfies(actual -> {});
+        }
+
         public QueryAssert ordered()
         {
             ordered = true;
@@ -639,54 +644,53 @@ public class QueryAssertions
             if (bindings.isEmpty()) {
                 return run("VALUES ROW(%s)".formatted(expression));
             }
-            else {
-                List<Map.Entry<String, String>> entries = ImmutableList.copyOf(bindings.entrySet());
 
-                List<String> columns = entries.stream()
-                        .map(Map.Entry::getKey)
-                        .collect(toList());
+            List<Map.Entry<String, String>> entries = ImmutableList.copyOf(bindings.entrySet());
 
-                List<String> values = entries.stream()
-                        .map(Map.Entry::getValue)
-                        .collect(toList());
+            List<String> columns = entries.stream()
+                    .map(Map.Entry::getKey)
+                    .collect(toList());
 
-                // Evaluate the expression using two modes:
-                //  1. Avoid constant folding -> exercises the compiler and evaluation engine
-                //  2. Force constant folding -> exercises the interpreter
+            List<String> values = entries.stream()
+                    .map(Map.Entry::getValue)
+                    .collect(toList());
 
-                Result full = run("""
-                        SELECT %s
-                        FROM (
-                            VALUES ROW(%s)
-                        ) t(%s)
-                        WHERE rand() >= 0
-                        """
-                        .formatted(
-                                expression,
-                                Joiner.on(",").join(values),
-                                Joiner.on(",").join(columns)));
+            // Evaluate the expression using two modes:
+            //  1. Avoid constant folding -> exercises the compiler and evaluation engine
+            //  2. Force constant folding -> exercises the interpreter
 
-                Result withConstantFolding = run("""
-                        SELECT %s
-                        FROM (
-                            VALUES ROW(%s)
-                        ) t(%s)
-                        """
-                        .formatted(
-                                expression,
-                                Joiner.on(",").join(values),
-                                Joiner.on(",").join(columns)));
+            Result full = run("""
+                    SELECT %s
+                    FROM (
+                        VALUES ROW(%s)
+                    ) t(%s)
+                    WHERE rand() >= 0
+                    """
+                    .formatted(
+                            expression,
+                            Joiner.on(",").join(values),
+                            Joiner.on(",").join(columns)));
 
-                if (!full.type().equals(withConstantFolding.type())) {
-                    fail("Mismatched types between interpreter and evaluation engine: %s vs %s".formatted(full.type(), withConstantFolding.type()));
-                }
+            Result withConstantFolding = run("""
+                    SELECT %s
+                    FROM (
+                        VALUES ROW(%s)
+                    ) t(%s)
+                    """
+                    .formatted(
+                            expression,
+                            Joiner.on(",").join(values),
+                            Joiner.on(",").join(columns)));
 
-                if (!Objects.equals(full.value(), withConstantFolding.value())) {
-                    fail("Mismatched results between interpreter and evaluation engine: %s vs %s".formatted(full.value(), withConstantFolding.value()));
-                }
-
-                return new Result(full.type(), full.value);
+            if (!full.type().equals(withConstantFolding.type())) {
+                fail("Mismatched types between interpreter and evaluation engine: %s vs %s".formatted(full.type(), withConstantFolding.type()));
             }
+
+            if (!Objects.equals(full.value(), withConstantFolding.value())) {
+                fail("Mismatched results between interpreter and evaluation engine: %s vs %s".formatted(full.value(), withConstantFolding.value()));
+            }
+
+            return new Result(full.type(), full.value);
         }
 
         private Result run(String query)
@@ -703,7 +707,7 @@ public class QueryAssertions
                     .withRepresentation(ExpressionAssert.TYPE_RENDERER);
         }
 
-        record Result(Type type, Object value) {}
+        public record Result(Type type, Object value) {}
     }
 
     public static class ExpressionAssert

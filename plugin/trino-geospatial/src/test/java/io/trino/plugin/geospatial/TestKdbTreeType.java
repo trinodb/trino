@@ -19,11 +19,14 @@ import io.trino.geospatial.Rectangle;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.type.AbstractTestType;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.trino.plugin.geospatial.KdbTreeType.KDB_TREE;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestKdbTreeType
         extends AbstractTestType
@@ -50,5 +53,40 @@ public class TestKdbTreeType
     protected Object getGreaterValue(Object value)
     {
         return null;
+    }
+
+    @Test
+    public void testRange()
+    {
+        assertThat(type.getRange())
+                .isEmpty();
+    }
+
+    @Test
+    public void testPreviousValue()
+    {
+        Object sampleValue = getSampleValue();
+        if (!type.isOrderable()) {
+            assertThatThrownBy(() -> type.getPreviousValue(sampleValue))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Type is not orderable: " + type);
+            return;
+        }
+        assertThat(type.getPreviousValue(sampleValue))
+                .isEmpty();
+    }
+
+    @Test
+    public void testNextValue()
+    {
+        Object sampleValue = getSampleValue();
+        if (!type.isOrderable()) {
+            assertThatThrownBy(() -> type.getNextValue(sampleValue))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Type is not orderable: " + type);
+            return;
+        }
+        assertThat(type.getNextValue(sampleValue))
+                .isEmpty();
     }
 }

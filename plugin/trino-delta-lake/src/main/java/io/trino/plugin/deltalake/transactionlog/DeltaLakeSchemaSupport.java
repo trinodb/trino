@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
@@ -68,6 +69,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -87,9 +89,10 @@ public final class DeltaLakeSchemaSupport
     public static final String MAX_COLUMN_ID_CONFIGURATION_KEY = "delta.columnMapping.maxColumnId";
 
     // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#valid-feature-names-in-table-features
-    // TODO: Add support for 'deletionVectors' and 'timestampNTZ' reader features
+    // TODO: Add support for 'deletionVectors' reader features
     private static final Set<String> SUPPORTED_READER_FEATURES = ImmutableSet.<String>builder()
             .add("columnMapping")
+            .add("timestampNtz")
             .build();
 
     public enum ColumnMappingMode
@@ -136,16 +139,16 @@ public final class DeltaLakeSchemaSupport
 
     public static List<DeltaLakeColumnHandle> extractPartitionColumns(MetadataEntry metadataEntry, TypeManager typeManager)
     {
-        return extractPartitionColumns(extractSchema(metadataEntry, typeManager), metadataEntry.getCanonicalPartitionColumns());
+        return extractPartitionColumns(extractSchema(metadataEntry, typeManager), metadataEntry.getOriginalPartitionColumns());
     }
 
-    public static List<DeltaLakeColumnHandle> extractPartitionColumns(List<DeltaLakeColumnMetadata> schema, List<String> canonicalPartitionColumns)
+    public static List<DeltaLakeColumnHandle> extractPartitionColumns(List<DeltaLakeColumnMetadata> schema, List<String> originalPartitionColumns)
     {
-        if (canonicalPartitionColumns.isEmpty()) {
+        if (originalPartitionColumns.isEmpty()) {
             return ImmutableList.of();
         }
         return schema.stream()
-                .filter(entry -> canonicalPartitionColumns.contains(entry.getName()))
+                .filter(entry -> originalPartitionColumns.contains(entry.getName()))
                 .map(entry -> new DeltaLakeColumnHandle(entry.getName(), entry.getType(), OptionalInt.empty(), entry.getPhysicalName(), entry.getPhysicalColumnType(), PARTITION_KEY, Optional.empty()))
                 .collect(toImmutableList());
     }
@@ -418,7 +421,7 @@ public final class DeltaLakeSchemaSupport
                 .setNullable(nullable)
                 .setComment(Optional.ofNullable(getComment(node)))
                 .build();
-        return new DeltaLakeColumnMetadata(columnMetadata, fieldId, physicalName, physicalColumnType);
+        return new DeltaLakeColumnMetadata(columnMetadata, fieldName, fieldId, physicalName, physicalColumnType);
     }
 
     public static Map<String, Object> getColumnTypes(MetadataEntry metadataEntry)
@@ -441,6 +444,17 @@ public final class DeltaLakeSchemaSupport
     public static Map<String, Boolean> getColumnsNullability(MetadataEntry metadataEntry)
     {
         return getColumnProperties(metadataEntry, node -> node.get("nullable").asBoolean());
+    }
+
+    public static Map<String, Boolean> getColumnIdentities(MetadataEntry metadataEntry)
+    {
+        return getColumnProperties(metadataEntry, DeltaLakeSchemaSupport::isIdentityColumn);
+    }
+
+    private static boolean isIdentityColumn(JsonNode node)
+    {
+        return Streams.stream(node.get("metadata").fieldNames())
+                .anyMatch(name -> name.startsWith("delta.identity."));
     }
 
     public static Map<String, String> getColumnInvariants(MetadataEntry metadataEntry)
@@ -576,6 +590,9 @@ public final class DeltaLakeSchemaSupport
                 return VARBINARY;
             case "date":
                 return DATE;
+            case "timestamp_ntz":
+                // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#timestamp-without-timezone-timestampntz
+                return TIMESTAMP_MICROS;
             case "timestamp":
                 // Spark/DeltaLake stores timestamps in UTC, but renders them in session time zone.
                 // For more info, see https://delta-users.slack.com/archives/GKTUWT03T/p1585760533005400

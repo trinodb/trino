@@ -591,7 +591,7 @@ public class TestDoubleOperators
                 .hasMessage("Value -0.0 (-0E0) cannot be represented as varchar(3)")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 
-        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(0e0 / 0e0 AS varchar(2))").evaluate())
+        assertTrinoExceptionThrownBy(assertions.expression("cast(0e0 / 0e0 AS varchar(2))")::evaluate)
                 .hasMessage("Value NaN (NaN) cannot be represented as varchar(2)")
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
 

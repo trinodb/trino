@@ -39,6 +39,7 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.minio.MinioClient;
+import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -1948,6 +1949,26 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
     }
 
+    @Test
+    public void testHistoryTable()
+    {
+        String tableName = "test_history_table_" + randomNameSuffix();
+        try (TestTable table = new TestTable(getQueryRunner()::execute, tableName, "(int_col INTEGER)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 4, 5, 6", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE int_col = 1", 1);
+            assertUpdate("UPDATE " + table.getName() + " SET int_col = int_col * 2 WHERE int_col = 6", 1);
+
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\"",
+                    "VALUES (0, 'CREATE TABLE'), (1, 'WRITE'), (2, 'WRITE'), (3, 'MERGE'), (4, 'MERGE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version = 3", "VALUES (3, 'MERGE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version > 3", "VALUES (4, 'MERGE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version >= 3 OR version = 1", "VALUES (1, 'WRITE'), (3, 'MERGE'), (4, 'MERGE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version >= 1 AND version < 3", "VALUES (1, 'WRITE'), (2, 'WRITE')");
+            assertThat(query("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version > 1 AND version < 2")).returnsEmptyResult();
+        }
+    }
+
     /**
      * @see BaseDeltaLakeRegisterTableProcedureTest for more detailed tests
      */
@@ -2131,6 +2152,23 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertQuery("SELECT nested2.child2, nested1.child3 FROM " + tableName, "VALUES (true, 100), (false, 200), (NULL, 400), (true, NULL)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testPartitionFilterIncluded()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
+                .build();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_no_partition_filter",
+                "(x varchar, part varchar) WITH (PARTITIONED_BY = ARRAY['part'])",
+                ImmutableList.of("'a', 'part_a'", "'b', 'part_b'"))) {
+            assertQueryFails(session, "SELECT * FROM %s WHERE x='a'".formatted(table.getName()), "Filter required on .*" + table.getName() + " for at least one partition column:.*");
+            assertQuery(session, "SELECT * FROM %s WHERE part='part_a'".formatted(table.getName()), "VALUES ('a', 'part_a')");
+        }
     }
 
     private Set<String> getActiveFiles(String tableName)

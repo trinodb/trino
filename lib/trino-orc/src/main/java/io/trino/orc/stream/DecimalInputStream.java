@@ -184,7 +184,7 @@ public class DecimalInputStream
                 middle |= (value & 0x7F) << ((offset - 8) * 7);
             }
             else if (offset < 19) {
-                high |= (value & 0x7F) << ((offset - 16) * 7);
+                high = (int) (high | (value & 0x7F) << ((offset - 16) * 7));
             }
             else {
                 throw new OrcCorruptionException(chunkLoader.getOrcDataSourceId(), "Decimal exceeds 128 bits");

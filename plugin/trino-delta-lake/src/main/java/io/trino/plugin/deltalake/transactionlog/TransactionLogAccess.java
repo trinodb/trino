@@ -269,7 +269,7 @@ public class TransactionLogAccess
 
     public static List<DeltaLakeColumnMetadata> columnsWithStats(MetadataEntry metadataEntry, TypeManager typeManager)
     {
-        return columnsWithStats(DeltaLakeSchemaSupport.extractSchema(metadataEntry, typeManager), metadataEntry.getCanonicalPartitionColumns());
+        return columnsWithStats(DeltaLakeSchemaSupport.extractSchema(metadataEntry, typeManager), metadataEntry.getOriginalPartitionColumns());
     }
 
     public static ImmutableList<DeltaLakeColumnMetadata> columnsWithStats(List<DeltaLakeColumnMetadata> schema, List<String> partitionColumns)
@@ -321,6 +321,13 @@ public class TransactionLogAccess
                 session,
                 fileSystemFactory.create(session),
                 fileFormatDataSourceStats);
+    }
+
+    public ProtocolEntry getProtocolEntry(ConnectorSession session, TableSnapshot tableSnapshot)
+    {
+        return getProtocolEntries(tableSnapshot, session)
+                .reduce((first, second) -> second)
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
     }
 
     public Stream<ProtocolEntry> getProtocolEntries(TableSnapshot tableSnapshot, ConnectorSession session)

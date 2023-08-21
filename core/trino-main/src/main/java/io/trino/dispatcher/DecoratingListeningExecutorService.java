@@ -19,8 +19,8 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import jakarta.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -32,6 +32,7 @@ import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
 public class DecoratingListeningExecutorService
@@ -49,14 +50,9 @@ public class DecoratingListeningExecutorService
         catch (NoSuchMethodException e) {
             closeMethod = null;
         }
-        try {
-            CLOSE_METHOD = closeMethod != null
-                    ? MethodHandles.lookup().unreflect(closeMethod)
-                    : null;
-        }
-        catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
+        CLOSE_METHOD = closeMethod != null
+                ? methodHandle(closeMethod)
+                : null;
     }
 
     private final ListeningExecutorService delegate;
@@ -119,6 +115,17 @@ public class DecoratingListeningExecutorService
     }
 
     @Override
+    public <T> List<Future<T>> invokeAll(Collection<? extends Callable<T>> tasks, Duration timeout)
+            throws InterruptedException
+    {
+        return delegate.invokeAll(
+                tasks.stream()
+                        .map(decorator::decorate)
+                        .collect(toImmutableList()),
+                timeout);
+    }
+
+    @Override
     public <T> T invokeAny(Collection<? extends Callable<T>> tasks)
             throws InterruptedException, ExecutionException
     {
@@ -136,6 +143,17 @@ public class DecoratingListeningExecutorService
                         .map(decorator::decorate)
                         .collect(toImmutableList()),
                 timeout, unit);
+    }
+
+    @Override
+    public <T> T invokeAny(Collection<? extends Callable<T>> tasks, Duration timeout)
+            throws InterruptedException, ExecutionException, TimeoutException
+    {
+        return delegate.invokeAny(
+                tasks.stream()
+                        .map(decorator::decorate)
+                        .collect(toImmutableList()),
+                timeout);
     }
 
     @Override
@@ -167,6 +185,13 @@ public class DecoratingListeningExecutorService
             throws InterruptedException
     {
         return super.awaitTermination(timeout, unit);
+    }
+
+    @Override
+    public boolean awaitTermination(Duration duration)
+            throws InterruptedException
+    {
+        return super.awaitTermination(duration);
     }
 
     // TODO This is temporary, until Guava's ForwardingExecutorService has the method in their interface. See https://github.com/google/guava/issues/6296
