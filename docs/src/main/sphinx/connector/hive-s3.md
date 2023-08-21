@@ -1,20 +1,18 @@
-=============================
-Hive connector with Amazon S3
-=============================
+# Hive connector with Amazon S3
 
-The :doc:`hive` can read and write tables that are stored in
-`Amazon S3  <https://aws.amazon.com/s3/>`_ or S3-compatible systems.
+The {doc}`hive` can read and write tables that are stored in
+[Amazon S3](https://aws.amazon.com/s3/) or S3-compatible systems.
 This is accomplished by having a table or database location that
 uses an S3 prefix, rather than an HDFS prefix.
 
 Trino uses its own S3 filesystem for the URI prefixes
-``s3://``, ``s3n://`` and  ``s3a://``.
+`s3://`, `s3n://` and  `s3a://`.
 
-.. _hive-s3-configuration:
+(hive-s3-configuration)=
 
-S3 configuration properties
----------------------------
+## S3 configuration properties
 
+```{eval-rst}
 .. list-table::
     :widths: 35, 65
     :header-rows: 1
@@ -115,45 +113,42 @@ S3 configuration properties
     * - ``hive.s3.sts.region``
       - Optional override for the sts region given that IAM role based
         authentication via sts is used.
+```
 
-.. _hive-s3-credentials:
+(hive-s3-credentials)=
 
-S3 credentials
---------------
+## S3 credentials
 
 If you are running Trino on Amazon EC2, using EMR or another facility,
 it is recommended that you use IAM Roles for EC2 to govern access to S3.
 To enable this, your EC2 instances need to be assigned an IAM Role which
 grants appropriate access to the data stored in the S3 bucket(s) you wish
-to use. It is also possible to configure an IAM role with ``hive.s3.iam-role``
+to use. It is also possible to configure an IAM role with `hive.s3.iam-role`
 that is used for accessing any S3 bucket. This is much cleaner than
-setting AWS access and secret keys in the ``hive.s3.aws-access-key``
-and ``hive.s3.aws-secret-key`` settings, and also allows EC2 to automatically
+setting AWS access and secret keys in the `hive.s3.aws-access-key`
+and `hive.s3.aws-secret-key` settings, and also allows EC2 to automatically
 rotate credentials on a regular basis without any additional work on your part.
 
-Custom S3 credentials provider
-------------------------------
+## Custom S3 credentials provider
 
 You can configure a custom S3 credentials provider by setting the configuration
-property ``trino.s3.credentials-provider`` to the fully qualified class name of
+property `trino.s3.credentials-provider` to the fully qualified class name of
 a custom AWS credentials provider implementation. The property must be set in
-the Hadoop configuration files referenced by the ``hive.config.resources`` Hive
+the Hadoop configuration files referenced by the `hive.config.resources` Hive
 connector property.
 
 The class must implement the
-`AWSCredentialsProvider <http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/AWSCredentialsProvider.html>`_
+[AWSCredentialsProvider](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/AWSCredentialsProvider.html)
 interface and provide a two-argument constructor that takes a
-``java.net.URI`` and a Hadoop ``org.apache.hadoop.conf.Configuration``
+`java.net.URI` and a Hadoop `org.apache.hadoop.conf.Configuration`
 as arguments. A custom credentials provider can be used to provide
-temporary credentials from STS (using ``STSSessionCredentialsProvider``),
-IAM role-based credentials (using ``STSAssumeRoleSessionCredentialsProvider``),
+temporary credentials from STS (using `STSSessionCredentialsProvider`),
+IAM role-based credentials (using `STSAssumeRoleSessionCredentialsProvider`),
 or credentials for a specific use case (e.g., bucket/user specific credentials).
 
+(hive-s3-security-mapping)=
 
-.. _hive-s3-security-mapping:
-
-S3 security mapping
--------------------
+## S3 security mapping
 
 Trino supports flexible security mapping for S3, allowing for separate
 credentials or IAM roles for specific users or buckets/paths. The IAM role
@@ -163,206 +158,171 @@ it as an *extra credential*.
 Each security mapping entry may specify one or more match criteria. If multiple
 criteria are specified, all criteria must match. Available match criteria:
 
-* ``user``: Regular expression to match against username. Example: ``alice|bob``
-
-* ``group``: Regular expression to match against any of the groups that the user
-  belongs to. Example: ``finance|sales``
-
-* ``prefix``: S3 URL prefix. It can specify an entire bucket or a path within a
-  bucket. The URL must start with ``s3://`` but will also match ``s3a`` or ``s3n``.
-  Example: ``s3://bucket-name/abc/xyz/``
+- `user`: Regular expression to match against username. Example: `alice|bob`
+- `group`: Regular expression to match against any of the groups that the user
+  belongs to. Example: `finance|sales`
+- `prefix`: S3 URL prefix. It can specify an entire bucket or a path within a
+  bucket. The URL must start with `s3://` but will also match `s3a` or `s3n`.
+  Example: `s3://bucket-name/abc/xyz/`
 
 The security mapping must provide one or more configuration settings:
 
-* ``accessKey`` and ``secretKey``: AWS access key and secret key. This overrides
+- `accessKey` and `secretKey`: AWS access key and secret key. This overrides
   any globally configured credentials, such as access key or instance credentials.
-
-* ``iamRole``: IAM role to use if no user provided role is specified as an
+- `iamRole`: IAM role to use if no user provided role is specified as an
   extra credential. This overrides any globally configured IAM role. This role
   is allowed to be specified as an extra credential, although specifying it
   explicitly has no effect, as it would be used anyway.
-
-* ``roleSessionName``: Optional role session name to use with ``iamRole``. This can only
-  be used when ``iamRole`` is specified. If ``roleSessionName`` includes the string
-  ``${USER}``, then the ``${USER}`` portion of the string will be replaced with the
-  current session's username. If ``roleSessionName`` is not specified, it defaults
-  to ``trino-session``.
-
-* ``allowedIamRoles``: IAM roles that are allowed to be specified as an extra
+- `roleSessionName`: Optional role session name to use with `iamRole`. This can only
+  be used when `iamRole` is specified. If `roleSessionName` includes the string
+  `${USER}`, then the `${USER}` portion of the string will be replaced with the
+  current session's username. If `roleSessionName` is not specified, it defaults
+  to `trino-session`.
+- `allowedIamRoles`: IAM roles that are allowed to be specified as an extra
   credential. This is useful because a particular AWS account may have permissions
   to use many roles, but a specific user should only be allowed to use a subset
   of those roles.
-
-* ``kmsKeyId``: ID of KMS-managed key to be used for client-side encryption.
-
-* ``allowedKmsKeyIds``: KMS-managed key IDs that are allowed to be specified as an extra
-  credential. If list cotains "*", then any key can be specified via extra credential.
+- `kmsKeyId`: ID of KMS-managed key to be used for client-side encryption.
+- `allowedKmsKeyIds`: KMS-managed key IDs that are allowed to be specified as an extra
+  credential. If list cotains "\*", then any key can be specified via extra credential.
 
 The security mapping entries are processed in the order listed in the configuration
 JSON. More specific mappings should thus be specified before less specific mappings.
-For example, the mapping list might have URL prefix ``s3://abc/xyz/`` followed by
-``s3://abc/`` to allow different configuration for a specific path within a bucket
+For example, the mapping list might have URL prefix `s3://abc/xyz/` followed by
+`s3://abc/` to allow different configuration for a specific path within a bucket
 than for other paths within the bucket. You can set default configuration by not
 including any match criteria for the last entry in the list.
 
 In addition to the rules above, the default mapping can contain the optional
-``useClusterDefault`` boolean property with the following behavior:
+`useClusterDefault` boolean property with the following behavior:
 
-- ``false`` - (is set by default) property is ignored.
-- ``true`` - This causes the default cluster role to be used as a fallback option.
+- `false` - (is set by default) property is ignored.
+
+- `true` - This causes the default cluster role to be used as a fallback option.
   It can not be used with the following configuration properties:
 
-  - ``accessKey``
-  - ``secretKey``
-  - ``iamRole``
-  - ``allowedIamRoles``
+  - `accessKey`
+  - `secretKey`
+  - `iamRole`
+  - `allowedIamRoles`
 
 If no mapping entry matches and no default is configured, the access is denied.
 
 The configuration JSON can either be retrieved from a file or REST-endpoint specified via
-``hive.s3.security-mapping.config-file``.
+`hive.s3.security-mapping.config-file`.
 
 Example JSON configuration:
 
-.. code-block:: json
-
+```json
+{
+  "mappings": [
     {
-      "mappings": [
-        {
-          "prefix": "s3://bucket-name/abc/",
-          "iamRole": "arn:aws:iam::123456789101:role/test_path"
-        },
-        {
-          "user": "bob|charlie",
-          "iamRole": "arn:aws:iam::123456789101:role/test_default",
-          "allowedIamRoles": [
-            "arn:aws:iam::123456789101:role/test1",
-            "arn:aws:iam::123456789101:role/test2",
-            "arn:aws:iam::123456789101:role/test3"
-          ]
-        },
-        {
-          "prefix": "s3://special-bucket/",
-          "accessKey": "AKIAxxxaccess",
-          "secretKey": "iXbXxxxsecret"
-        },
-        {
-          "prefix": "s3://encrypted-bucket/",
-          "kmsKeyId": "kmsKey_10",
-        },
-        {
-          "user": "test.*",
-          "iamRole": "arn:aws:iam::123456789101:role/test_users"
-        },
-        {
-          "group": "finance",
-          "iamRole": "arn:aws:iam::123456789101:role/finance_users"
-        },
-        {
-          "iamRole": "arn:aws:iam::123456789101:role/default"
-        }
+      "prefix": "s3://bucket-name/abc/",
+      "iamRole": "arn:aws:iam::123456789101:role/test_path"
+    },
+    {
+      "user": "bob|charlie",
+      "iamRole": "arn:aws:iam::123456789101:role/test_default",
+      "allowedIamRoles": [
+        "arn:aws:iam::123456789101:role/test1",
+        "arn:aws:iam::123456789101:role/test2",
+        "arn:aws:iam::123456789101:role/test3"
       ]
+    },
+    {
+      "prefix": "s3://special-bucket/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret"
+    },
+    {
+      "prefix": "s3://encrypted-bucket/",
+      "kmsKeyId": "kmsKey_10",
+    },
+    {
+      "user": "test.*",
+      "iamRole": "arn:aws:iam::123456789101:role/test_users"
+    },
+    {
+      "group": "finance",
+      "iamRole": "arn:aws:iam::123456789101:role/finance_users"
+    },
+    {
+      "iamRole": "arn:aws:iam::123456789101:role/default"
     }
+  ]
+}
+```
 
-======================================================= =================================================================
-Property name                                           Description
-======================================================= =================================================================
-``hive.s3.security-mapping.config-file``                The JSON configuration file or REST-endpoint URI containing
-                                                        security mappings.
-``hive.s3.security-mapping.json-pointer``               A JSON pointer (RFC 6901) to mappings inside the JSON retrieved from
-                                                        the config file or REST-endpont. The whole document ("") by default.
+| Property name                                         | Description                                                                                                                                                                                                                                                                                        |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hive.s3.security-mapping.config-file`                | The JSON configuration file or REST-endpoint URI containing security mappings.                                                                                                                                                                                                                     |
+| `hive.s3.security-mapping.json-pointer`               | A JSON pointer (RFC 6901) to mappings inside the JSON retrieved from the config file or REST-endpont. The whole document ("") by default.                                                                                                                                                          |
+| `hive.s3.security-mapping.iam-role-credential-name`   | The name of the *extra credential* used to provide the IAM role.                                                                                                                                                                                                                                   |
+| `hive.s3.security-mapping.kms-key-id-credential-name` | The name of the *extra credential* used to provide the KMS-managed key ID.                                                                                                                                                                                                                         |
+| `hive.s3.security-mapping.refresh-period`             | How often to refresh the security mapping configuration.                                                                                                                                                                                                                                           |
+| `hive.s3.security-mapping.colon-replacement`          | The character or characters to be used in place of the colon (`:`) character when specifying an IAM role name as an extra credential. Any instances of this replacement value in the extra credential value will be converted to a colon. Choose a value that is not used in any of your IAM ARNs. |
 
-``hive.s3.security-mapping.iam-role-credential-name``   The name of the *extra credential* used to provide the IAM role.
+(hive-s3-tuning-configuration)=
 
-``hive.s3.security-mapping.kms-key-id-credential-name`` The name of the *extra credential* used to provide the
-                                                        KMS-managed key ID.
-
-``hive.s3.security-mapping.refresh-period``             How often to refresh the security mapping configuration.
-
-``hive.s3.security-mapping.colon-replacement``          The character or characters to be used in place of the colon
-                                                        (``:``) character when specifying an IAM role name as an
-                                                        extra credential. Any instances of this replacement value in the
-                                                        extra credential value will be converted to a colon. Choose a
-                                                        value that is not used in any of your IAM ARNs.
-======================================================= =================================================================
-
-.. _hive-s3-tuning-configuration:
-
-Tuning properties
------------------
+## Tuning properties
 
 The following tuning properties affect the behavior of the client
 used by the Trino S3 filesystem when communicating with S3.
-Most of these parameters affect settings on the ``ClientConfiguration``
-object associated with the ``AmazonS3Client``.
+Most of these parameters affect settings on the `ClientConfiguration`
+object associated with the `AmazonS3Client`.
 
-===================================== =========================================================== ==========================
-Property name                         Description                                                 Default
-===================================== =========================================================== ==========================
-``hive.s3.max-error-retries``         Maximum number of error retries, set on the S3 client.      ``10``
+| Property name                     | Description                                                                                       | Default                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------- |
+| `hive.s3.max-error-retries`       | Maximum number of error retries, set on the S3 client.                                            | `10`                       |
+| `hive.s3.max-client-retries`      | Maximum number of read attempts to retry.                                                         | `5`                        |
+| `hive.s3.max-backoff-time`        | Use exponential backoff starting at 1 second up to this maximum value when communicating with S3. | `10 minutes`               |
+| `hive.s3.max-retry-time`          | Maximum time to retry communicating with S3.                                                      | `10 minutes`               |
+| `hive.s3.connect-timeout`         | TCP connect timeout.                                                                              | `5 seconds`                |
+| `hive.s3.connect-ttl`             | TCP connect TTL, which affects connection reusage.                                                | Connections do not expire. |
+| `hive.s3.socket-timeout`          | TCP socket read timeout.                                                                          | `5 seconds`                |
+| `hive.s3.max-connections`         | Maximum number of simultaneous open connections to S3.                                            | `500`                      |
+| `hive.s3.multipart.min-file-size` | Minimum file size before multi-part upload to S3 is used.                                         | `16 MB`                    |
+| `hive.s3.multipart.min-part-size` | Minimum multi-part upload part size.                                                              | `5 MB`                     |
 
-``hive.s3.max-client-retries``        Maximum number of read attempts to retry.                   ``5``
+(hive-s3-data-encryption)=
 
-``hive.s3.max-backoff-time``          Use exponential backoff starting at 1 second up to          ``10 minutes``
-                                      this maximum value when communicating with S3.
-
-``hive.s3.max-retry-time``            Maximum time to retry communicating with S3.                ``10 minutes``
-
-``hive.s3.connect-timeout``           TCP connect timeout.                                        ``5 seconds``
-
-``hive.s3.connect-ttl``               TCP connect TTL, which affects connection reusage.          Connections do not expire.
-
-``hive.s3.socket-timeout``            TCP socket read timeout.                                    ``5 seconds``
-
-``hive.s3.max-connections``           Maximum number of simultaneous open connections to S3.      ``500``
-
-``hive.s3.multipart.min-file-size``   Minimum file size before multi-part upload to S3 is used.   ``16 MB``
-
-``hive.s3.multipart.min-part-size``   Minimum multi-part upload part size.                        ``5 MB``
-===================================== =========================================================== ==========================
-
-.. _hive-s3-data-encryption:
-
-S3 data encryption
-------------------
+## S3 data encryption
 
 Trino supports reading and writing encrypted data in S3 using both
 server-side encryption with S3 managed keys and client-side encryption using
 either the Amazon KMS or a software plugin to manage AES encryption keys.
 
-With `S3 server-side encryption <http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html>`_,
+With [S3 server-side encryption](http://docs.aws.amazon.com/AmazonS3/latest/dev/serv-side-encryption.html),
 called *SSE-S3* in the Amazon documentation, the S3 infrastructure takes care of all encryption and decryption
-work. One exception is SSL to the client, assuming you have ``hive.s3.ssl.enabled`` set to ``true``.
-S3 also manages all the encryption keys for you. To enable this, set ``hive.s3.sse.enabled`` to ``true``.
+work. One exception is SSL to the client, assuming you have `hive.s3.ssl.enabled` set to `true`.
+S3 also manages all the encryption keys for you. To enable this, set `hive.s3.sse.enabled` to `true`.
 
-With `S3 client-side encryption <http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html>`_,
+With [S3 client-side encryption](http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html),
 S3 stores encrypted data and the encryption keys are managed outside of the S3 infrastructure. Data is encrypted
 and decrypted by Trino instead of in the S3 infrastructure. In this case, encryption keys can be managed
 either by using the AWS KMS, or your own key management system. To use the AWS KMS for key management, set
-``hive.s3.kms-key-id`` to the UUID of a KMS key. Your AWS credentials or EC2 IAM role will need to be
+`hive.s3.kms-key-id` to the UUID of a KMS key. Your AWS credentials or EC2 IAM role will need to be
 granted permission to use the given key as well.
 
-To use a custom encryption key management system, set ``hive.s3.encryption-materials-provider`` to the
+To use a custom encryption key management system, set `hive.s3.encryption-materials-provider` to the
 fully qualified name of a class which implements the
-`EncryptionMaterialsProvider <http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/services/s3/model/EncryptionMaterialsProvider.html>`_
+[EncryptionMaterialsProvider](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/services/s3/model/EncryptionMaterialsProvider.html)
 interface from the AWS Java SDK. This class has to be accessible to the Hive Connector through the
 classpath and must be able to communicate with your custom key management system. If this class also implements
-the ``org.apache.hadoop.conf.Configurable`` interface from the Hadoop Java API, then the Hadoop configuration
+the `org.apache.hadoop.conf.Configurable` interface from the Hadoop Java API, then the Hadoop configuration
 is passed in after the object instance is created, and before it is asked to provision or retrieve any
 encryption keys.
 
-.. _s3selectpushdown:
+(s3selectpushdown)=
 
-S3 Select pushdown
-------------------
+## S3 Select pushdown
 
 S3 Select pushdown enables pushing down projection (SELECT) and predicate (WHERE)
-processing to `S3 Select <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectSELECTContent.html>`_.
+processing to [S3 Select](https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectSELECTContent.html).
 With S3 Select Pushdown, Trino only retrieves the required data from S3 instead
 of entire S3 objects, reducing both latency and network usage.
 
-Is S3 Select a good fit for my workload?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### Is S3 Select a good fit for my workload?
 
 Performance of S3 Select pushdown depends on the amount of data filtered by the
 query. Filtering a large number of rows should result in better performance. If
@@ -372,68 +332,65 @@ benchmark your workloads with and without S3 Select to see if using it may be
 suitable for your workload. By default, S3 Select Pushdown is disabled and you
 should enable it in production after proper benchmarking and cost analysis. For
 more information on S3 Select request cost, please see
-`Amazon S3 Cloud Storage Pricing <https://aws.amazon.com/s3/pricing/>`_.
+[Amazon S3 Cloud Storage Pricing](https://aws.amazon.com/s3/pricing/).
 
 Use the following guidelines to determine if S3 Select is a good fit for your
 workload:
 
-* Your query filters out more than half of the original data set.
-* Your query filter predicates use columns that have a data type supported by
+- Your query filters out more than half of the original data set.
+- Your query filter predicates use columns that have a data type supported by
   Trino and S3 Select.
-  The ``TIMESTAMP``, ``DECIMAL``, ``REAL``, and ``DOUBLE`` data types are not
+  The `TIMESTAMP`, `DECIMAL`, `REAL`, and `DOUBLE` data types are not
   supported by S3 Select Pushdown. For more information about supported data
   types for S3 Select, see the
-  `Data Types documentation <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-glacier-select-sql-reference-data-types.html>`_.
-* Your network connection between Amazon S3 and the Amazon EMR cluster has good
+  [Data Types documentation](https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-glacier-select-sql-reference-data-types.html).
+- Your network connection between Amazon S3 and the Amazon EMR cluster has good
   transfer speed and available bandwidth. Amazon S3 Select does not compress
   HTTP responses, so the response size may increase for compressed input files.
 
-Considerations and limitations
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### Considerations and limitations
 
-* Only objects stored in JSON format are supported. Objects can be uncompressed,
+- Only objects stored in JSON format are supported. Objects can be uncompressed,
   or optionally compressed with gzip or bzip2.
-* The "AllowQuotedRecordDelimiters" property is not supported. If this property
+- The "AllowQuotedRecordDelimiters" property is not supported. If this property
   is specified, the query fails.
-* Amazon S3 server-side encryption with customer-provided encryption keys
+- Amazon S3 server-side encryption with customer-provided encryption keys
   (SSE-C) and client-side encryption are not supported.
-* S3 Select Pushdown is not a substitute for using columnar or compressed file
+- S3 Select Pushdown is not a substitute for using columnar or compressed file
   formats such as ORC and Parquet.
 
-Enabling S3 Select pushdown
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### Enabling S3 Select pushdown
 
-You can enable S3 Select Pushdown using the ``s3_select_pushdown_enabled``
-Hive session property, or using the ``hive.s3select-pushdown.enabled``
+You can enable S3 Select Pushdown using the `s3_select_pushdown_enabled`
+Hive session property, or using the `hive.s3select-pushdown.enabled`
 configuration property. The session property overrides the config
 property, allowing you enable or disable on a per-query basis. Non-filtering
-queries (``SELECT * FROM table``) are not pushed down to S3 Select,
+queries (`SELECT * FROM table`) are not pushed down to S3 Select,
 as they retrieve the entire object content.
 
 For uncompressed files, S3 Select scans ranges of bytes in parallel. The scan range
 requests run across the byte ranges of the internal Hive splits for the query fragments
-pushed down to S3 Select. Changes in the Hive connector :ref:`performance tuning
+pushed down to S3 Select. Changes in the Hive connector {ref}`performance tuning
 configuration properties <hive-performance-tuning-configuration>` are likely to impact
 S3 Select pushdown performance.
 
 S3 Select can be enabled for TEXTFILE data using the
-``hive.s3select-pushdown.experimental-textfile-pushdown-enabled`` configuration property,
+`hive.s3select-pushdown.experimental-textfile-pushdown-enabled` configuration property,
 however this has been shown to produce incorrect results. For more information see
-`the GitHub Issue. <https://github.com/trinodb/trino/issues/17775>`_
+[the GitHub Issue.](https://github.com/trinodb/trino/issues/17775)
 
-Understanding and tuning the maximum connections
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### Understanding and tuning the maximum connections
 
 Trino can use its native S3 file system or EMRFS. When using the native FS, the
-maximum connections is configured via the ``hive.s3.max-connections``
+maximum connections is configured via the `hive.s3.max-connections`
 configuration property. When using EMRFS, the maximum connections is configured
-via the ``fs.s3.maxConnections`` Hadoop configuration property.
+via the `fs.s3.maxConnections` Hadoop configuration property.
 
 S3 Select Pushdown bypasses the file systems, when accessing Amazon S3 for
 predicate operations. In this case, the value of
-``hive.s3select-pushdown.max-connections`` determines the maximum number of
+`hive.s3select-pushdown.max-connections` determines the maximum number of
 client connections allowed for those operations from worker nodes.
 
 If your workload experiences the error *Timeout waiting for connection from
-pool*, increase the value of both ``hive.s3select-pushdown.max-connections`` and
+pool*, increase the value of both `hive.s3select-pushdown.max-connections` and
 the maximum connections configuration for the file system you are using.
