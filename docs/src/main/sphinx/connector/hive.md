@@ -1,56 +1,54 @@
-==============
-Hive connector
-==============
+# Hive connector
 
-.. raw:: html
+```{raw} html
+<img src="../_static/img/hive.png" class="connector-logo">
+```
 
-  <img src="../_static/img/hive.png" class="connector-logo">
+```{toctree}
+:hidden: true
+:maxdepth: 1
 
-.. toctree::
-    :maxdepth: 1
-    :hidden:
-
-    Metastores <metastores>
-    Security <hive-security>
-    Amazon S3 <hive-s3>
-    Azure Storage <hive-azure>
-    Google Cloud Storage <hive-gcs-tutorial>
-    IBM Cloud Object Storage <hive-cos>
-    Storage Caching <hive-caching>
-    Alluxio <hive-alluxio>
-    Object storage file formats <object-storage-file-formats>
+Metastores <metastores>
+Security <hive-security>
+Amazon S3 <hive-s3>
+Azure Storage <hive-azure>
+Google Cloud Storage <hive-gcs-tutorial>
+IBM Cloud Object Storage <hive-cos>
+Storage Caching <hive-caching>
+Alluxio <hive-alluxio>
+Object storage file formats <object-storage-file-formats>
+```
 
 The Hive connector allows querying data stored in an
-`Apache Hive <https://hive.apache.org/>`_
+[Apache Hive](https://hive.apache.org/)
 data warehouse. Hive is a combination of three components:
 
-* Data files in varying formats, that are typically stored in the
+- Data files in varying formats, that are typically stored in the
   Hadoop Distributed File System (HDFS) or in object storage systems
   such as Amazon S3.
-* Metadata about how the data files are mapped to schemas and tables. This
+- Metadata about how the data files are mapped to schemas and tables. This
   metadata is stored in a database, such as MySQL, and is accessed via the Hive
   metastore service.
-* A query language called HiveQL. This query language is executed on a
+- A query language called HiveQL. This query language is executed on a
   distributed computing framework such as MapReduce or Tez.
 
 Trino only uses the first two components: the data and the metadata.
 It does not use HiveQL or any part of Hive's execution environment.
 
-Requirements
-------------
+## Requirements
 
 The Hive connector requires a
-:ref:`Hive metastore service <hive-thrift-metastore>` (HMS), or a compatible
-implementation of the Hive metastore, such as 
-:ref:`AWS Glue <hive-glue-metastore>`.
+{ref}`Hive metastore service <hive-thrift-metastore>` (HMS), or a compatible
+implementation of the Hive metastore, such as
+{ref}`AWS Glue <hive-glue-metastore>`.
 
 Apache Hadoop HDFS 2.x and 3.x are supported.
 
 Many distributed storage systems including HDFS,
-:doc:`Amazon S3 <hive-s3>` or S3-compatible systems,
-`Google Cloud Storage <#google-cloud-storage-configuration>`__,
-:doc:`Azure Storage <hive-azure>`, and
-:doc:`IBM Cloud Object Storage<hive-cos>` can be queried with the Hive
+{doc}`Amazon S3 <hive-s3>` or S3-compatible systems,
+[Google Cloud Storage](hive-gcs-tutorial),
+{doc}`Azure Storage <hive-azure>`, and
+{doc}`IBM Cloud Object Storage<hive-cos>` can be queried with the Hive
 connector.
 
 The coordinator and all workers must have network access to the Hive metastore
@@ -60,62 +58,59 @@ to using port 9083.
 Data files must be in a supported file format. Some file formats can be
 configured using file format configuration properties per catalog:
 
-* :ref:`ORC <hive-orc-configuration>`
-* :ref:`Parquet <hive-parquet-configuration>`
-* Avro
-* RCText (RCFile using ColumnarSerDe)
-* RCBinary (RCFile using LazyBinaryColumnarSerDe)
-* SequenceFile
-* JSON (using org.apache.hive.hcatalog.data.JsonSerDe)
-* CSV (using org.apache.hadoop.hive.serde2.OpenCSVSerde)
-* TextFile
+- {ref}`ORC <hive-orc-configuration>`
+- {ref}`Parquet <hive-parquet-configuration>`
+- Avro
+- RCText (RCFile using ColumnarSerDe)
+- RCBinary (RCFile using LazyBinaryColumnarSerDe)
+- SequenceFile
+- JSON (using org.apache.hive.hcatalog.data.JsonSerDe)
+- CSV (using org.apache.hadoop.hive.serde2.OpenCSVSerde)
+- TextFile
 
-General configuration
----------------------
+## General configuration
 
 To configure the Hive connector, create a catalog properties file
-``etc/catalog/example.properties`` that references the ``hive``
+`etc/catalog/example.properties` that references the `hive`
 connector and defines a metastore. You must configure a metastore for table
-metadata. If you are using a :ref:`Hive metastore <hive-thrift-metastore>`,
-``hive.metastore.uri`` must be configured: 
+metadata. If you are using a {ref}`Hive metastore <hive-thrift-metastore>`,
+`hive.metastore.uri` must be configured:
 
-.. code-block:: properties
+```properties
+connector.name=hive
+hive.metastore.uri=thrift://example.net:9083
+```
 
-    connector.name=hive
-    hive.metastore.uri=thrift://example.net:9083
+If you are using {ref}`AWS Glue <hive-glue-metastore>` as your metastore, you
+must instead set `hive.metastore` to `glue`:
 
-If you are using :ref:`AWS Glue <hive-glue-metastore>` as your metastore, you
-must instead set ``hive.metastore`` to ``glue``:
-
-.. code-block:: properties
-
-    connector.name=hive
-    hive.metastore=glue
+```properties
+connector.name=hive
+hive.metastore=glue
+```
 
 Each metastore type has specific configuration properties along with
-:ref:`general metastore configuration properties <general-metastore-properties>`. 
+{ref}`general metastore configuration properties <general-metastore-properties>`.
 
-Multiple Hive clusters
-^^^^^^^^^^^^^^^^^^^^^^
+### Multiple Hive clusters
 
 You can have as many catalogs as you need, so if you have additional
-Hive clusters, simply add another properties file to ``etc/catalog``
-with a different name, making sure it ends in ``.properties``. For
-example, if you name the property file ``sales.properties``, Trino
-creates a catalog named ``sales`` using the configured connector.
+Hive clusters, simply add another properties file to `etc/catalog`
+with a different name, making sure it ends in `.properties`. For
+example, if you name the property file `sales.properties`, Trino
+creates a catalog named `sales` using the configured connector.
 
-HDFS configuration
-^^^^^^^^^^^^^^^^^^
+### HDFS configuration
 
 For basic setups, Trino configures the HDFS client automatically and
 does not require any configuration files. In some cases, such as when using
 federated HDFS or NameNode high availability, it is necessary to specify
 additional HDFS client options in order to access your HDFS cluster. To do so,
-add the ``hive.config.resources`` property to reference your HDFS config files:
+add the `hive.config.resources` property to reference your HDFS config files:
 
-.. code-block:: text
-
-    hive.config.resources=/etc/hadoop/conf/core-site.xml,/etc/hadoop/conf/hdfs-site.xml
+```text
+hive.config.resources=/etc/hadoop/conf/core-site.xml,/etc/hadoop/conf/hdfs-site.xml
+```
 
 Only specify additional configuration files if necessary for your setup.
 We recommend reducing the configuration files to have the minimum
@@ -125,43 +120,42 @@ The configuration files must exist on all Trino nodes. If you are
 referencing existing Hadoop config files, make sure to copy them to
 any Trino nodes that are not running Hadoop.
 
-HDFS username and permissions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### HDFS username and permissions
 
-Before running any ``CREATE TABLE`` or ``CREATE TABLE AS`` statements
+Before running any `CREATE TABLE` or `CREATE TABLE AS` statements
 for Hive tables in Trino, you must check that the user Trino is
 using to access HDFS has access to the Hive warehouse directory. The Hive
 warehouse directory is specified by the configuration variable
-``hive.metastore.warehouse.dir`` in ``hive-site.xml``, and the default
-value is ``/user/hive/warehouse``.
+`hive.metastore.warehouse.dir` in `hive-site.xml`, and the default
+value is `/user/hive/warehouse`.
 
 When not using Kerberos with HDFS, Trino accesses HDFS using the
 OS user of the Trino process. For example, if Trino is running as
-``nobody``, it accesses HDFS as ``nobody``. You can override this
-username by setting the ``HADOOP_USER_NAME`` system property in the
-Trino :ref:`jvm-config`, replacing ``hdfs_user`` with the
+`nobody`, it accesses HDFS as `nobody`. You can override this
+username by setting the `HADOOP_USER_NAME` system property in the
+Trino {ref}`jvm-config`, replacing `hdfs_user` with the
 appropriate username:
 
-.. code-block:: text
+```text
+-DHADOOP_USER_NAME=hdfs_user
+```
 
-    -DHADOOP_USER_NAME=hdfs_user
-
-The ``hive`` user generally works, since Hive is often started with
-the ``hive`` user and this user has access to the Hive warehouse.
+The `hive` user generally works, since Hive is often started with
+the `hive` user and this user has access to the Hive warehouse.
 
 Whenever you change the user Trino is using to access HDFS, remove
-``/tmp/presto-*`` on HDFS, as the new user may not have access to
+`/tmp/presto-*` on HDFS, as the new user may not have access to
 the existing temporary directories.
 
-.. _hive-configuration-properties:
+(hive-configuration-properties)=
 
-Hive general configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### Hive general configuration properties
 
 The following table lists general configuration properties for the Hive
 connector. There are additional sets of configuration properties throughout the
 Hive connector documentation.
 
+```{eval-rst}
 .. list-table:: Hive general configuration properties
     :widths: 35, 50, 15
     :header-rows: 1
@@ -361,286 +355,306 @@ Hive connector documentation.
       - Enables auto-commit for all writes. This can be used to disallow
         multi-statement write transactions.
       - ``false``
+```
 
-Storage
--------
+## Storage
 
 The Hive connector supports the following storage options:
 
-* :doc:`Amazon S3 <hive-s3>`
-* :doc:`Azure Storage <hive-azure>`
-* :doc:`Google Cloud Storage <hive-gcs-tutorial>`
-* :doc:`IBM Cloud Object Storage <hive-cos>`
+- {doc}`Amazon S3 <hive-s3>`
+- {doc}`Azure Storage <hive-azure>`
+- {doc}`Google Cloud Storage <hive-gcs-tutorial>`
+- {doc}`IBM Cloud Object Storage <hive-cos>`
 
-The Hive connector also supports :doc:`storage caching <hive-caching>`.
+The Hive connector also supports {doc}`storage caching <hive-caching>`.
 
-Security
---------
+## Security
 
-Please see the :doc:`/connector/hive-security` section for information on the
+Please see the {doc}`/connector/hive-security` section for information on the
 security options available for the Hive connector.
 
-.. _hive-sql-support:
+(hive-sql-support)=
 
-SQL support
------------
+## SQL support
 
 The connector provides read access and write access to data and metadata in the
 configured object storage system and metadata stores:
 
-* :ref:`Globally available statements <sql-globally-available>`; see also
-  :ref:`Globally available statements <hive-procedures>`
-* :ref:`Read operations <sql-read-operations>`
-* :ref:`sql-write-operations`:
+- {ref}`Globally available statements <sql-globally-available>`; see also
+  {ref}`Globally available statements <hive-procedures>`
 
-  * :ref:`sql-data-management`; see also
-    :ref:`Hive-specific data management <hive-data-management>`
-  * :ref:`sql-schema-table-management`; see also
-    :ref:`Hive-specific schema and table management <hive-schema-and-table-management>`
-  * :ref:`sql-view-management`; see also
-    :ref:`Hive-specific view management <hive-sql-view-management>`
+- {ref}`Read operations <sql-read-operations>`
 
-* :ref:`sql-security-operations`: see also
-  :ref:`SQL standard-based authorization for object storage <hive-sql-standard-based-authorization>`
-* :ref:`sql-transactions`
+- {ref}`sql-write-operations`:
 
-Refer to :doc:`the migration guide </appendix/from-hive>` for practical advice
+  - {ref}`sql-data-management`; see also
+    {ref}`Hive-specific data management <hive-data-management>`
+  - {ref}`sql-schema-table-management`; see also
+    {ref}`Hive-specific schema and table management <hive-schema-and-table-management>`
+  - {ref}`sql-view-management`; see also
+    {ref}`Hive-specific view management <hive-sql-view-management>`
+
+- {ref}`sql-security-operations`: see also
+  {ref}`SQL standard-based authorization for object storage <hive-sql-standard-based-authorization>`
+
+- {ref}`sql-transactions`
+
+Refer to {doc}`the migration guide </appendix/from-hive>` for practical advice
 on migrating from Hive to Trino.
 
 The following sections provide Hive-specific information regarding SQL support.
 
-.. _hive-examples:
+(hive-examples)=
 
-Basic usage examples
-^^^^^^^^^^^^^^^^^^^^
+### Basic usage examples
 
-The examples shown here work on Google Cloud Storage by replacing ``s3://`` with
-``gs://``.
+The examples shown here work on Google Cloud Storage by replacing `s3://` with
+`gs://`.
 
-Create a new Hive table named ``page_views`` in the ``web`` schema
+Create a new Hive table named `page_views` in the `web` schema
 that is stored using the ORC file format, partitioned by date and
-country, and bucketed by user into ``50`` buckets. Note that Hive
-requires the partition columns to be the last columns in the table::
+country, and bucketed by user into `50` buckets. Note that Hive
+requires the partition columns to be the last columns in the table:
 
-    CREATE TABLE example.web.page_views (
-      view_time TIMESTAMP,
-      user_id BIGINT,
-      page_url VARCHAR,
-      ds DATE,
-      country VARCHAR
-    )
-    WITH (
-      format = 'ORC',
-      partitioned_by = ARRAY['ds', 'country'],
-      bucketed_by = ARRAY['user_id'],
-      bucket_count = 50
-    )
+```
+CREATE TABLE example.web.page_views (
+  view_time TIMESTAMP,
+  user_id BIGINT,
+  page_url VARCHAR,
+  ds DATE,
+  country VARCHAR
+)
+WITH (
+  format = 'ORC',
+  partitioned_by = ARRAY['ds', 'country'],
+  bucketed_by = ARRAY['user_id'],
+  bucket_count = 50
+)
+```
 
-Create a new Hive schema named ``web`` that stores tables in an
-S3 bucket named ``my-bucket``::
+Create a new Hive schema named `web` that stores tables in an
+S3 bucket named `my-bucket`:
 
-    CREATE SCHEMA example.web
-    WITH (location = 's3://my-bucket/')
+```
+CREATE SCHEMA example.web
+WITH (location = 's3://my-bucket/')
+```
 
-Drop a schema::
+Drop a schema:
 
-    DROP SCHEMA example.web
+```
+DROP SCHEMA example.web
+```
 
-Drop a partition from the ``page_views`` table::
+Drop a partition from the `page_views` table:
 
-    DELETE FROM example.web.page_views
-    WHERE ds = DATE '2016-08-09'
-      AND country = 'US'
+```
+DELETE FROM example.web.page_views
+WHERE ds = DATE '2016-08-09'
+  AND country = 'US'
+```
 
-Query the ``page_views`` table::
+Query the `page_views` table:
 
-    SELECT * FROM example.web.page_views
+```
+SELECT * FROM example.web.page_views
+```
 
-List the partitions of the ``page_views`` table::
+List the partitions of the `page_views` table:
 
-    SELECT * FROM example.web."page_views$partitions"
+```
+SELECT * FROM example.web."page_views$partitions"
+```
 
-Create an external Hive table named ``request_logs`` that points at
-existing data in S3::
+Create an external Hive table named `request_logs` that points at
+existing data in S3:
 
-    CREATE TABLE example.web.request_logs (
-      request_time TIMESTAMP,
-      url VARCHAR,
-      ip VARCHAR,
-      user_agent VARCHAR
-    )
-    WITH (
-      format = 'TEXTFILE',
-      external_location = 's3://my-bucket/data/logs/'
-    )
+```
+CREATE TABLE example.web.request_logs (
+  request_time TIMESTAMP,
+  url VARCHAR,
+  ip VARCHAR,
+  user_agent VARCHAR
+)
+WITH (
+  format = 'TEXTFILE',
+  external_location = 's3://my-bucket/data/logs/'
+)
+```
 
-Collect statistics for the ``request_logs`` table::
+Collect statistics for the `request_logs` table:
 
-    ANALYZE example.web.request_logs;
+```
+ANALYZE example.web.request_logs;
+```
 
-Drop the external table ``request_logs``. This only drops the metadata
-for the table. The referenced data directory is not deleted::
+Drop the external table `request_logs`. This only drops the metadata
+for the table. The referenced data directory is not deleted:
 
-    DROP TABLE example.web.request_logs
+```
+DROP TABLE example.web.request_logs
+```
 
-* :doc:`/sql/create-table-as` can be used to create transactional tables in ORC format like this::
+- {doc}`/sql/create-table-as` can be used to create transactional tables in ORC format like this:
 
-      CREATE TABLE <name>
-      WITH (
-          format='ORC',
-          transactional=true
-      )
-      AS <query>
+  ```
+  CREATE TABLE <name>
+  WITH (
+      format='ORC',
+      transactional=true
+  )
+  AS <query>
+  ```
 
+Add an empty partition to the `page_views` table:
 
-Add an empty partition to the ``page_views`` table::
+```
+CALL system.create_empty_partition(
+    schema_name => 'web',
+    table_name => 'page_views',
+    partition_columns => ARRAY['ds', 'country'],
+    partition_values => ARRAY['2016-08-09', 'US']);
+```
 
-    CALL system.create_empty_partition(
-        schema_name => 'web',
-        table_name => 'page_views',
-        partition_columns => ARRAY['ds', 'country'],
-        partition_values => ARRAY['2016-08-09', 'US']);
+Drop stats for a partition of the `page_views` table:
 
-Drop stats for a partition of the ``page_views`` table::
+```
+CALL system.drop_stats(
+    schema_name => 'web',
+    table_name => 'page_views',
+    partition_values => ARRAY[ARRAY['2016-08-09', 'US']]);
+```
 
-    CALL system.drop_stats(
-        schema_name => 'web',
-        table_name => 'page_views',
-        partition_values => ARRAY[ARRAY['2016-08-09', 'US']]);
+(hive-procedures)=
 
-.. _hive-procedures:
+### Procedures
 
-Procedures
-^^^^^^^^^^
-
-Use the :doc:`/sql/call` statement to perform data manipulation or
+Use the {doc}`/sql/call` statement to perform data manipulation or
 administrative tasks. Procedures must include a qualified catalog name, if your
-Hive catalog is called ``web``::
+Hive catalog is called `web`:
 
-    CALL web.system.example_procedure()
+```
+CALL web.system.example_procedure()
+```
 
 The following procedures are available:
 
-* ``system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)``
+- `system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)`
 
   Create an empty partition in the specified table.
 
-* ``system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive)``
+- `system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive)`
 
   Check and update partitions list in metastore. There are three modes available:
 
-  * ``ADD`` : add any partitions that exist on the file system, but not in the metastore.
-  * ``DROP``: drop any partitions that exist in the metastore, but not on the file system.
-  * ``FULL``: perform both ``ADD`` and ``DROP``.
+  - `ADD` : add any partitions that exist on the file system, but not in the metastore.
+  - `DROP`: drop any partitions that exist in the metastore, but not on the file system.
+  - `FULL`: perform both `ADD` and `DROP`.
 
-  The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
-  with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
-  file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
-  not conforming to this convention are ignored, unless the argument is set to ``false``.
+  The `case_sensitive` argument is optional. The default value is `true` for compatibility
+  with Hive's `MSCK REPAIR TABLE` behavior, which expects the partition column names in
+  file system paths to use lowercase (e.g. `col_x=SomeValue`). Partitions on the file system
+  not conforming to this convention are ignored, unless the argument is set to `false`.
 
-* ``system.drop_stats(schema_name, table_name, partition_values)``
+- `system.drop_stats(schema_name, table_name, partition_values)`
 
   Drops statistics for a subset of partitions or the entire table. The partitions are specified as an
-  array whose elements are arrays of partition values (similar to the ``partition_values`` argument in
-  ``create_empty_partition``). If ``partition_values`` argument is omitted, stats are dropped for the
+  array whose elements are arrays of partition values (similar to the `partition_values` argument in
+  `create_empty_partition`). If `partition_values` argument is omitted, stats are dropped for the
   entire table.
 
-.. _register-partition:
+(register-partition)=
 
-* ``system.register_partition(schema_name, table_name, partition_columns, partition_values, location)``
+- `system.register_partition(schema_name, table_name, partition_columns, partition_values, location)`
 
   Registers existing location as a new partition in the metastore for the specified table.
 
-  When the ``location`` argument is omitted, the partition location is
-  constructed using ``partition_columns`` and ``partition_values``.
+  When the `location` argument is omitted, the partition location is
+  constructed using `partition_columns` and `partition_values`.
 
-  Due to security reasons, the procedure is enabled only when ``hive.allow-register-partition-procedure``
-  is set to ``true``.
+  Due to security reasons, the procedure is enabled only when `hive.allow-register-partition-procedure`
+  is set to `true`.
 
-.. _unregister-partition:
+(unregister-partition)=
 
-* ``system.unregister_partition(schema_name, table_name, partition_columns, partition_values)``
+- `system.unregister_partition(schema_name, table_name, partition_columns, partition_values)`
 
   Unregisters given, existing partition in the metastore for the specified table.
   The partition data is not deleted.
 
-.. _hive-flush-metadata-cache:
+(hive-flush-metadata-cache)=
 
-* ``system.flush_metadata_cache()``
+- `system.flush_metadata_cache()`
 
   Flush all Hive metadata caches.
 
-* ``system.flush_metadata_cache(schema_name => ..., table_name => ...)``
+- `system.flush_metadata_cache(schema_name => ..., table_name => ...)`
 
   Flush Hive metadata caches entries connected with selected table.
   Procedure requires named parameters to be passed
 
-* ``system.flush_metadata_cache(schema_name => ..., table_name => ..., partition_columns => ARRAY[...], partition_values => ARRAY[...])``
+- `system.flush_metadata_cache(schema_name => ..., table_name => ..., partition_columns => ARRAY[...], partition_values => ARRAY[...])`
 
   Flush Hive metadata cache entries connected with selected partition.
   Procedure requires named parameters to be passed.
 
-.. _hive-data-management:
+(hive-data-management)=
 
-Data management
-^^^^^^^^^^^^^^^
+### Data management
 
-Some :ref:`data management <sql-data-management>` statements may be affected by
-the Hive catalog's authorization check policy. In the default ``legacy`` policy,
-some statements are disabled by default. See :doc:`hive-security` for more
+Some {ref}`data management <sql-data-management>` statements may be affected by
+the Hive catalog's authorization check policy. In the default `legacy` policy,
+some statements are disabled by default. See {doc}`hive-security` for more
 information.
 
-The :ref:`sql-data-management` functionality includes support for ``INSERT``,
-``UPDATE``, ``DELETE``, and ``MERGE`` statements, with the exact support
+The {ref}`sql-data-management` functionality includes support for `INSERT`,
+`UPDATE`, `DELETE`, and `MERGE` statements, with the exact support
 depending on the storage system, file format, and metastore.
 
 When connecting to a Hive metastore version 3.x, the Hive connector supports
 reading from and writing to insert-only and ACID tables, with full support for
 partitioning and bucketing.
 
-:doc:`/sql/delete` applied to non-transactional tables is only supported if the
-table is partitioned and the ``WHERE`` clause matches entire partitions.
+{doc}`/sql/delete` applied to non-transactional tables is only supported if the
+table is partitioned and the `WHERE` clause matches entire partitions.
 Transactional Hive tables with ORC format support "row-by-row" deletion, in
-which the ``WHERE`` clause may match arbitrary sets of rows.
+which the `WHERE` clause may match arbitrary sets of rows.
 
-:doc:`/sql/update` is only supported for transactional Hive tables with format
-ORC. ``UPDATE`` of partition or bucket columns is not supported.
+{doc}`/sql/update` is only supported for transactional Hive tables with format
+ORC. `UPDATE` of partition or bucket columns is not supported.
 
-:doc:`/sql/merge` is only supported for ACID tables.
+{doc}`/sql/merge` is only supported for ACID tables.
 
-ACID tables created with `Hive Streaming Ingest <https://cwiki.apache.org/confluence/display/Hive/Streaming+Data+Ingest>`_
+ACID tables created with [Hive Streaming Ingest](https://cwiki.apache.org/confluence/display/Hive/Streaming+Data+Ingest)
 are not supported.
 
-.. _hive-schema-and-table-management:
+(hive-schema-and-table-management)=
 
-Schema and table management
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### Schema and table management
 
 The Hive connector supports querying and manipulating Hive tables and schemas
 (databases). While some uncommon operations must be performed using
 Hive directly, most operations can be performed using Trino.
 
-Schema evolution
-""""""""""""""""
+#### Schema evolution
 
 Hive allows the partitions in a table to have a different schema than the
 table. This occurs when the column types of a table are changed after
 partitions already exist (that use the original column types). The Hive
 connector supports this by allowing the same conversions as Hive:
 
-* ``VARCHAR`` to and from ``TINYINT``, ``SMALLINT``, ``INTEGER`` and ``BIGINT``
-* ``REAL`` to ``DOUBLE``
-* Widening conversions for integers, such as ``TINYINT`` to ``SMALLINT``
+- `VARCHAR` to and from `TINYINT`, `SMALLINT`, `INTEGER` and `BIGINT`
+- `REAL` to `DOUBLE`
+- Widening conversions for integers, such as `TINYINT` to `SMALLINT`
 
 Any conversion failure results in null, which is the same behavior
-as Hive. For example, converting the string ``'foo'`` to a number,
-or converting the string ``'1234'`` to a ``TINYINT`` (which has a
-maximum value of ``127``).
+as Hive. For example, converting the string `'foo'` to a number,
+or converting the string `'1234'` to a `TINYINT` (which has a
+maximum value of `127`).
 
-.. _hive-avro-schema:
+(hive-avro-schema)=
 
-Avro schema evolution
-"""""""""""""""""""""
+#### Avro schema evolution
 
 Trino supports querying and manipulating Hive tables with the Avro storage
 format, which has the schema set based on an Avro schema file/literal. Trino is
@@ -648,36 +662,38 @@ also capable of creating the tables in Trino by infering the schema from a
 valid Avro schema file located locally, or remotely in HDFS/Web server.
 
 To specify that the Avro schema should be used for interpreting table data, use
-the ``avro_schema_url`` table property.
+the `avro_schema_url` table property.
 
 The schema can be placed in the local file system or remotely in the following
 locations:
 
-- HDFS (e.g. ``avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'``)
-- S3 (e.g. ``avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'``)
-- A web server (e.g. ``avro_schema_url = 'http://example.org/schema/avro_data.avsc'``)
+- HDFS (e.g. `avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'`)
+- S3 (e.g. `avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'`)
+- A web server (e.g. `avro_schema_url = 'http://example.org/schema/avro_data.avsc'`)
 
 The URL, where the schema is located, must be accessible from the Hive metastore
 and Trino coordinator/worker nodes.
 
-Alternatively, you can use the table property ``avro_schema_literal`` to define
+Alternatively, you can use the table property `avro_schema_literal` to define
 the Avro schema.
 
-The table created in Trino using the ``avro_schema_url`` or
-``avro_schema_literal`` property behaves the same way as a Hive table with
-``avro.schema.url`` or ``avro.schema.literal`` set.
+The table created in Trino using the `avro_schema_url` or
+`avro_schema_literal` property behaves the same way as a Hive table with
+`avro.schema.url` or `avro.schema.literal` set.
 
-Example::
+Example:
 
-   CREATE TABLE example.avro.avro_data (
-      id BIGINT
-    )
-   WITH (
-      format = 'AVRO',
-      avro_schema_url = '/usr/local/avro_data.avsc'
-   )
+```
+CREATE TABLE example.avro.avro_data (
+   id BIGINT
+ )
+WITH (
+   format = 'AVRO',
+   avro_schema_url = '/usr/local/avro_data.avsc'
+)
+```
 
-The columns listed in the DDL (``id`` in the above example) is ignored if ``avro_schema_url`` is specified.
+The columns listed in the DDL (`id` in the above example) is ignored if `avro_schema_url` is specified.
 The table schema matches the schema in the Avro schema file. Before any read operation, the Avro schema is
 accessed so the query result reflects any changes in schema. Thus Trino takes advantage of Avro's backward compatibility abilities.
 
@@ -686,100 +702,97 @@ Newly added/renamed fields *must* have a default value in the Avro schema file.
 
 The schema evolution behavior is as follows:
 
-* Column added in new schema:
+- Column added in new schema:
   Data created with an older schema produces a *default* value when table is using the new schema.
-
-* Column removed in new schema:
+- Column removed in new schema:
   Data created with an older schema no longer outputs the data from the column that was removed.
-
-* Column is renamed in the new schema:
+- Column is renamed in the new schema:
   This is equivalent to removing the column and adding a new one, and data created with an older schema
   produces a *default* value when table is using the new schema.
-
-* Changing type of column in the new schema:
+- Changing type of column in the new schema:
   If the type coercion is supported by Avro or the Hive connector, then the conversion happens.
   An error is thrown for incompatible types.
 
-Limitations
-~~~~~~~~~~~
+##### Limitations
 
-The following operations are not supported when ``avro_schema_url`` is set:
+The following operations are not supported when `avro_schema_url` is set:
 
-* ``CREATE TABLE AS`` is not supported.
-* Bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
-* ``ALTER TABLE`` commands modifying columns are not supported.
+- `CREATE TABLE AS` is not supported.
+- Bucketing(`bucketed_by`) columns are not supported in `CREATE TABLE`.
+- `ALTER TABLE` commands modifying columns are not supported.
 
-.. _hive-alter-table-execute:
+(hive-alter-table-execute)=
 
-ALTER TABLE EXECUTE
-"""""""""""""""""""
+#### ALTER TABLE EXECUTE
 
-The connector supports the ``optimize`` command for use with
-:ref:`ALTER TABLE EXECUTE <alter-table-execute>`.
+The connector supports the `optimize` command for use with
+{ref}`ALTER TABLE EXECUTE <alter-table-execute>`.
 
-The ``optimize`` command is used for rewriting the content
+The `optimize` command is used for rewriting the content
 of the specified non-transactional table so that it is merged
 into fewer but larger files.
 In case that the table is partitioned, the data compaction
 acts separately on each partition selected for optimization.
 This operation improves read performance.
 
-All files with a size below the optional ``file_size_threshold``
-parameter (default value for the threshold is ``100MB``) are
+All files with a size below the optional `file_size_threshold`
+parameter (default value for the threshold is `100MB`) are
 merged:
 
-.. code-block:: sql
-
-    ALTER TABLE test_table EXECUTE optimize
+```sql
+ALTER TABLE test_table EXECUTE optimize
+```
 
 The following statement merges files in a table that are
 under 10 megabytes in size:
 
-.. code-block:: sql
+```sql
+ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
+```
 
-    ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
-
-You can use a ``WHERE`` clause with the columns used to partition the table,
+You can use a `WHERE` clause with the columns used to partition the table,
 to filter which partitions are optimized:
 
-.. code-block:: sql
+```sql
+ALTER TABLE test_partitioned_table EXECUTE optimize
+WHERE partition_key = 1
+```
 
-    ALTER TABLE test_partitioned_table EXECUTE optimize
-    WHERE partition_key = 1
-
-The ``optimize`` command is disabled by default, and can be enabled for a
-catalog with the ``<catalog-name>.non_transactional_optimize_enabled``
+The `optimize` command is disabled by default, and can be enabled for a
+catalog with the `<catalog-name>.non_transactional_optimize_enabled`
 session property:
 
-.. code-block:: sql
+```sql
+SET SESSION <catalog_name>.non_transactional_optimize_enabled=true
+```
 
-    SET SESSION <catalog_name>.non_transactional_optimize_enabled=true
+:::{warning}
+Because Hive tables are non-transactional, take note of the following possible
+outcomes:
 
-.. warning::
+- If queries are run against tables that are currently being optimized,
+  duplicate rows may be read.
+- In rare cases where exceptions occur during the `optimize` operation,
+  a manual cleanup of the table directory is needed. In this situation, refer
+  to the Trino logs and query failure messages to see which files must be
+  deleted.
+:::
 
-  Because Hive tables are non-transactional, take note of the following possible
-  outcomes:
+(hive-table-properties)=
 
-  * If queries are run against tables that are currently being optimized,
-    duplicate rows may be read.
-  * In rare cases where exceptions occur during the ``optimize`` operation,
-    a manual cleanup of the table directory is needed. In this situation, refer
-    to the Trino logs and query failure messages to see which files must be
-    deleted.
-
-.. _hive-table-properties:
-
-Table properties
-""""""""""""""""
+#### Table properties
 
 Table properties supply or set metadata for the underlying tables. This
-is key for :doc:`/sql/create-table-as` statements. Table properties are passed
-to the connector using a :doc:`WITH </sql/create-table-as>` clause::
+is key for {doc}`/sql/create-table-as` statements. Table properties are passed
+to the connector using a {doc}`WITH </sql/create-table-as>` clause:
 
-  CREATE TABLE tablename
-  WITH (format='CSV',
-        csv_escape = '"')
+```
+CREATE TABLE tablename
+WITH (format='CSV',
+      csv_escape = '"')
+```
 
+```{eval-rst}
 .. list-table:: Hive connector table properties
   :widths: 20, 60, 20
   :header-rows: 1
@@ -890,59 +903,60 @@ to the connector using a :doc:`WITH </sql/create-table-as>` clause::
       and are available in the ``$properties`` metadata table.
       The properties are not included in the output of ``SHOW CREATE TABLE`` statements.
     -
+```
 
-.. _hive-special-tables:
+(hive-special-tables)=
 
-Metadata tables
-"""""""""""""""
+#### Metadata tables
 
 The raw Hive table properties are available as a hidden table, containing a
 separate column per table property, with a single row containing the property
 values.
 
-``$properties`` table
-~~~~~~~~~~~~~~~~~~~~~
+##### `$properties` table
 
-The properties table name is composed with the table name and ``$properties`` appended.
+The properties table name is composed with the table name and `$properties` appended.
 It exposes the parameters of the table in the metastore.
 
-You can inspect the property names and values with a simple query::
+You can inspect the property names and values with a simple query:
 
-    SELECT * FROM example.web."page_views$properties";
+```
+SELECT * FROM example.web."page_views$properties";
+```
 
+```text
+       stats_generated_via_stats_task        | auto.purge |       presto_query_id       | presto_version | transactional
+---------------------------------------------+------------+-----------------------------+----------------+---------------
+ workaround for potential lack of HIVE-12730 | false      | 20230705_152456_00001_nfugi | 423            | false
+```
 
-.. code-block:: text
+##### `$partitions` table
 
-            stats_generated_via_stats_task        | auto.purge |       presto_query_id       | presto_version | transactional
-     ---------------------------------------------+------------+-----------------------------+----------------+---------------
-      workaround for potential lack of HIVE-12730 | false      | 20230705_152456_00001_nfugi | 423            | false
-
-``$partitions`` table
-~~~~~~~~~~~~~~~~~~~~~
-
-The ``$partitions`` table provides a list of all partition values
+The `$partitions` table provides a list of all partition values
 of a partitioned table.
 
 The following example query returns all partition values from the
-``page_views`` table in the ``web`` schema of the ``example`` catalog::
+`page_views` table in the `web` schema of the `example` catalog:
 
-    SELECT * FROM example.web."page_views$partitions";
+```
+SELECT * FROM example.web."page_views$partitions";
+```
 
-.. code-block:: text
+```text
+     day    | country
+------------+---------
+ 2023-07-01 | POL
+ 2023-07-02 | POL
+ 2023-07-03 | POL
+ 2023-03-01 | USA
+ 2023-03-02 | USA
+```
 
-          day    | country
-     ------------+---------
-      2023-07-01 | POL
-      2023-07-02 | POL
-      2023-07-03 | POL
-      2023-03-01 | USA
-      2023-03-02 | USA
+(hive-column-properties)=
 
-.. _hive-column-properties:
+#### Column properties
 
-Column properties
-"""""""""""""""""
-
+```{eval-rst}
 .. list-table:: Hive connector column properties
   :widths: 20, 60, 20
   :header-rows: 1
@@ -1003,57 +1017,54 @@ Column properties
       Mapped from the AWS Athena table property
       `projection.${columnName}.interval.unit <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
     -
+```
 
-.. _hive-special-columns:
+(hive-special-columns)=
 
-Metadata columns
-""""""""""""""""
+#### Metadata columns
 
 In addition to the defined columns, the Hive connector automatically exposes
 metadata in a number of hidden columns in each table:
 
-* ``$bucket``: Bucket number for this row
-
-* ``$path``: Full file system path name of the file for this row
-
-* ``$file_modified_time``: Date and time of the last modification of the file for this row
-
-* ``$file_size``: Size of the file for this row
-
-* ``$partition``: Partition name for this row
+- `$bucket`: Bucket number for this row
+- `$path`: Full file system path name of the file for this row
+- `$file_modified_time`: Date and time of the last modification of the file for this row
+- `$file_size`: Size of the file for this row
+- `$partition`: Partition name for this row
 
 You can use these columns in your SQL statements like any other column. They
 can be selected directly, or used in conditional statements. For example, you
-can inspect the file size, location and partition for each record::
+can inspect the file size, location and partition for each record:
 
-    SELECT *, "$path", "$file_size", "$partition"
-    FROM example.web.page_views;
+```
+SELECT *, "$path", "$file_size", "$partition"
+FROM example.web.page_views;
+```
 
 Retrieve all records that belong to files stored in the partition
-``ds=2016-08-09/country=US``::
+`ds=2016-08-09/country=US`:
 
-    SELECT *, "$path", "$file_size"
-    FROM example.web.page_views
-    WHERE "$partition" = 'ds=2016-08-09/country=US'
+```
+SELECT *, "$path", "$file_size"
+FROM example.web.page_views
+WHERE "$partition" = 'ds=2016-08-09/country=US'
+```
 
-.. _hive-sql-view-management:
+(hive-sql-view-management)=
 
-View management
-^^^^^^^^^^^^^^^
+### View management
 
 Trino allows reading from Hive materialized views, and can be configured to
 support reading Hive views.
 
-Materialized views
-""""""""""""""""""
+#### Materialized views
 
 The Hive connector supports reading from Hive materialized views.
 In Trino, these views are presented as regular, read-only tables.
 
-.. _hive-views:
+(hive-views)=
 
-Hive views
-""""""""""
+#### Hive views
 
 Hive views are defined in HiveQL and stored in the Hive Metastore Service. They
 are analyzed to allow read access to the data.
@@ -1061,15 +1072,15 @@ are analyzed to allow read access to the data.
 The Hive connector includes support for reading Hive views with three different
 modes.
 
-* Disabled
-* Legacy
-* Experimental
+- Disabled
+- Legacy
+- Experimental
 
 You can configure the behavior in your catalog properties file.
 
-By default, Hive views are executed with the ``RUN AS DEFINER`` security mode.
-Set the  ``hive.hive-views.run-as-invoker`` catalog configuration property to
-``true`` to use ``RUN AS INVOKER`` semantics.
+By default, Hive views are executed with the `RUN AS DEFINER` security mode.
+Set the  `hive.hive-views.run-as-invoker` catalog configuration property to
+`true` to use `RUN AS INVOKER` semantics.
 
 **Disabled**
 
@@ -1080,12 +1091,12 @@ logic and data encoded in the views is not available in Trino.
 
 A very simple implementation to execute Hive views, and therefore allow read
 access to the data in Trino, can be enabled with
-``hive.hive-views.enabled=true`` and
-``hive.hive-views.legacy-translation=true``.
+`hive.hive-views.enabled=true` and
+`hive.hive-views.legacy-translation=true`.
 
 For temporary usage of the legacy behavior for a specific catalog, you can set
-the ``hive_views_legacy_translation`` :doc:`catalog session property
-</sql/set-session>` to ``true``.
+the `hive_views_legacy_translation` {doc}`catalog session property
+</sql/set-session>` to `true`.
 
 This legacy behavior interprets any HiveQL query that defines a view as if it
 is written in SQL. It does not do any translation, but instead relies on the
@@ -1105,58 +1116,56 @@ rewrite Hive views and contained expressions and statements.
 
 It supports the following Hive view functionality:
 
-* ``UNION [DISTINCT]`` and ``UNION ALL`` against Hive views
-* Nested ``GROUP BY`` clauses
-* ``current_user()``
-* ``LATERAL VIEW OUTER EXPLODE``
-* ``LATERAL VIEW [OUTER] EXPLODE`` on array of struct
-* ``LATERAL VIEW json_tuple``
+- `UNION [DISTINCT]` and `UNION ALL` against Hive views
+- Nested `GROUP BY` clauses
+- `current_user()`
+- `LATERAL VIEW OUTER EXPLODE`
+- `LATERAL VIEW [OUTER] EXPLODE` on array of struct
+- `LATERAL VIEW json_tuple`
 
 You can enable the experimental behavior with
-``hive.hive-views.enabled=true``. Remove the
-``hive.hive-views.legacy-translation`` property or set it to ``false`` to make
+`hive.hive-views.enabled=true`. Remove the
+`hive.hive-views.legacy-translation` property or set it to `false` to make
 sure legacy is not enabled.
 
 Keep in mind that numerous features are not yet implemented when experimenting
 with this feature. The following is an incomplete list of **missing**
 functionality:
 
-* HiveQL ``current_date``, ``current_timestamp``, and others
-* Hive function calls including ``translate()``, window functions, and others
-* Common table expressions and simple case expressions
-* Honor timestamp precision setting
-* Support all Hive data types and correct mapping to Trino types
-* Ability to process custom UDFs
+- HiveQL `current_date`, `current_timestamp`, and others
+- Hive function calls including `translate()`, window functions, and others
+- Common table expressions and simple case expressions
+- Honor timestamp precision setting
+- Support all Hive data types and correct mapping to Trino types
+- Ability to process custom UDFs
 
-.. _hive-fte-support:
+(hive-fte-support)=
 
-Fault-tolerant execution support
---------------------------------
+## Fault-tolerant execution support
 
-The connector supports :doc:`/admin/fault-tolerant-execution` of query
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
 processing. Read and write operations are both supported with any retry policy
 on non-transactional tables.
 
 Read operations are supported with any retry policy on transactional tables.
-Write operations and ``CREATE TABLE ... AS`` operations are not supported with
+Write operations and `CREATE TABLE ... AS` operations are not supported with
 any retry policy on transactional tables.
 
-Performance
------------
+## Performance
 
 The connector includes a number of performance improvements, detailed in the
 following sections.
 
-Table statistics
-^^^^^^^^^^^^^^^^
+### Table statistics
 
-The Hive connector supports collecting and managing :doc:`table statistics
+The Hive connector supports collecting and managing {doc}`table statistics
 </optimizer/statistics>` to improve query processing performance.
 
 When writing data, the Hive connector always collects basic statistics
-(``numFiles``, ``numRows``, ``rawDataSize``, ``totalSize``)
+(`numFiles`, `numRows`, `rawDataSize`, `totalSize`)
 and by default will also collect column level statistics:
 
+```{eval-rst}
 .. list-table:: Available table statistics
     :widths: 35, 65
     :header-rows: 1
@@ -1189,58 +1198,65 @@ and by default will also collect column level statistics:
       - Number of nulls
     * - ``BOOLEAN``
       - Number of nulls, number of true/false values
+```
 
-.. _hive-analyze:
+(hive-analyze)=
 
-Updating table and partition statistics
-"""""""""""""""""""""""""""""""""""""""
+#### Updating table and partition statistics
 
 If your queries are complex and include joining large data sets,
-running :doc:`/sql/analyze` on tables/partitions may improve query performance
+running {doc}`/sql/analyze` on tables/partitions may improve query performance
 by collecting statistical information about the data.
 
 When analyzing a partitioned table, the partitions to analyze can be specified
-via the optional ``partitions`` property, which is an array containing
-the values of the partition keys in the order they are declared in the table schema::
+via the optional `partitions` property, which is an array containing
+the values of the partition keys in the order they are declared in the table schema:
 
-    ANALYZE table_name WITH (
-        partitions = ARRAY[
-            ARRAY['p1_value1', 'p1_value2'],
-            ARRAY['p2_value1', 'p2_value2']])
+```
+ANALYZE table_name WITH (
+    partitions = ARRAY[
+        ARRAY['p1_value1', 'p1_value2'],
+        ARRAY['p2_value1', 'p2_value2']])
+```
 
 This query will collect statistics for two partitions with keys
-``p1_value1, p1_value2`` and ``p2_value1, p2_value2``.
+`p1_value1, p1_value2` and `p2_value1, p2_value2`.
 
 On wide tables, collecting statistics for all columns can be expensive and can have a
 detrimental effect on query planning. It is also typically unnecessary - statistics are
 only useful on specific columns, like join keys, predicates, grouping keys. One can
-specify a subset of columns to be analyzed via the optional ``columns`` property::
+specify a subset of columns to be analyzed via the optional `columns` property:
 
-    ANALYZE table_name WITH (
-        partitions = ARRAY[ARRAY['p2_value1', 'p2_value2']],
-        columns = ARRAY['col_1', 'col_2'])
+```
+ANALYZE table_name WITH (
+    partitions = ARRAY[ARRAY['p2_value1', 'p2_value2']],
+    columns = ARRAY['col_1', 'col_2'])
+```
 
-This query collects statistics for columns ``col_1`` and ``col_2`` for the partition
-with keys ``p2_value1, p2_value2``.
+This query collects statistics for columns `col_1` and `col_2` for the partition
+with keys `p2_value1, p2_value2`.
 
 Note that if statistics were previously collected for all columns, they must be dropped
-before re-analyzing just a subset::
+before re-analyzing just a subset:
 
-    CALL system.drop_stats('schema_name', 'table_name')
+```
+CALL system.drop_stats('schema_name', 'table_name')
+```
 
-You can also drop statistics for selected partitions only::
+You can also drop statistics for selected partitions only:
 
-    CALL system.drop_stats(
-        schema_name => 'schema',
-        table_name => 'table',
-        partition_values => ARRAY[ARRAY['p2_value1', 'p2_value2']])
+```
+CALL system.drop_stats(
+    schema_name => 'schema',
+    table_name => 'table',
+    partition_values => ARRAY[ARRAY['p2_value1', 'p2_value2']])
+```
 
-.. _hive-dynamic-filtering:
+(hive-dynamic-filtering)=
 
-Dynamic filtering
-^^^^^^^^^^^^^^^^^
+### Dynamic filtering
 
-The Hive connector supports the :doc:`dynamic filtering </admin/dynamic-filtering>` optimization.
+The Hive connector supports the {doc}`dynamic filtering </admin/dynamic-filtering>` optimization.
 Dynamic partition pruning is supported for partitioned tables stored in any file format
 for broadcast as well as partitioned joins.
 Dynamic bucket pruning is supported for bucketed tables stored in any file format for
@@ -1255,8 +1271,7 @@ This is because grouping similar data within the same stripe or row-group
 greatly improves the selectivity of the min/max indexes maintained at stripe or
 row-group level.
 
-Delaying execution for dynamic filters
-""""""""""""""""""""""""""""""""""""""
+#### Delaying execution for dynamic filters
 
 It can often be beneficial to wait for the collection of dynamic filters before starting
 a table scan. This extra wait time can potentially result in significant overall savings
@@ -1264,36 +1279,36 @@ in query and CPU time, if dynamic filtering is able to reduce the amount of scan
 
 For the Hive connector, a table scan can be delayed for a configured amount of
 time until the collection of dynamic filters by using the configuration property
-``hive.dynamic-filtering.wait-timeout`` in the catalog file or the catalog
-session property ``<hive-catalog>.dynamic_filtering_wait_timeout``.
+`hive.dynamic-filtering.wait-timeout` in the catalog file or the catalog
+session property `<hive-catalog>.dynamic_filtering_wait_timeout`.
 
-.. _hive-table-redirection:
+(hive-table-redirection)=
 
-Table redirection
-^^^^^^^^^^^^^^^^^
+### Table redirection
 
-.. include:: table-redirection.fragment
+```{include} table-redirection.fragment
+```
 
 The connector supports redirection from Hive tables to Iceberg
 and Delta Lake tables with the following catalog configuration properties:
 
-- ``hive.iceberg-catalog-name`` for redirecting the query to :doc:`/connector/iceberg`
-- ``hive.delta-lake-catalog-name`` for redirecting the query to :doc:`/connector/delta-lake`
+- `hive.iceberg-catalog-name` for redirecting the query to {doc}`/connector/iceberg`
+- `hive.delta-lake-catalog-name` for redirecting the query to {doc}`/connector/delta-lake`
 
-.. _hive-performance-tuning-configuration:
+(hive-performance-tuning-configuration)=
 
-Performance tuning configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### Performance tuning configuration properties
 
 The following table describes performance tuning properties for the Hive
 connector.
 
-.. warning::
+:::{warning}
+Performance tuning configuration properties are considered expert-level
+features. Altering these properties from their default values is likely to
+cause instability and performance degradation.
+:::
 
-   Performance tuning configuration properties are considered expert-level
-   features. Altering these properties from their default values is likely to
-   cause instability and performance degradation.
-
+```{eval-rst}
 .. list-table::
     :widths: 30, 50, 20
     :header-rows: 1
@@ -1330,23 +1345,20 @@ connector.
         splits result in more parallelism and thus can decrease latency, but
         also have more overhead and increase load on the system.
       - ``64 MB``
+```
 
-Hive 3-related limitations
---------------------------
+## Hive 3-related limitations
 
-* For security reasons, the ``sys`` system catalog is not accessible.
-
-* Hive's ``timestamp with local zone`` data type is mapped to
-  ``timestamp with time zone`` with UTC timezone. It only supports reading
+- For security reasons, the `sys` system catalog is not accessible.
+- Hive's `timestamp with local zone` data type is mapped to
+  `timestamp with time zone` with UTC timezone. It only supports reading
   values - writing to tables with columns of this type is not supported.
-
-* Due to Hive issues `HIVE-21002 <https://issues.apache.org/jira/browse/HIVE-21002>`_
-  and `HIVE-22167 <https://issues.apache.org/jira/browse/HIVE-22167>`_, Trino does
-  not correctly read ``TIMESTAMP`` values from Parquet, RCBinary, or Avro
+- Due to Hive issues [HIVE-21002](https://issues.apache.org/jira/browse/HIVE-21002)
+  and [HIVE-22167](https://issues.apache.org/jira/browse/HIVE-22167), Trino does
+  not correctly read `TIMESTAMP` values from Parquet, RCBinary, or Avro
   file formats created by Hive 3.1 or later. When reading from these file formats,
   Trino returns different results than Hive.
-
-* Trino does not support gathering table statistics for Hive transactional tables.
+- Trino does not support gathering table statistics for Hive transactional tables.
   You must use Hive to gather table statistics with
-  `ANALYZE statement <https://cwiki.apache.org/confluence/display/hive/statsdev#StatsDev-ExistingTables%E2%80%93ANALYZE>`_
+  [ANALYZE statement](https://cwiki.apache.org/confluence/display/hive/statsdev#StatsDev-ExistingTables%E2%80%93ANALYZE)
   after table creation.

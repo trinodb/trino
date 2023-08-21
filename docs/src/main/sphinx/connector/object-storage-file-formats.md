@@ -1,26 +1,24 @@
-===========================
-Object storage file formats
-===========================
+# Object storage file formats
 
 Object storage connectors support one or more file formats specified by the
 underlying data source.
 
 In the case of serializable formats, only specific
-`SerDes <https://www.wikipedia.org/wiki/SerDes>`_ are allowed:
+[SerDes](https://www.wikipedia.org/wiki/SerDes) are allowed:
 
-* RCText - RCFile ``ColumnarSerDe``
-* RCBinary - RCFile ``LazyBinaryColumnarSerDe``
-* JSON - ``org.apache.hive.hcatalog.data.JsonSerDe``
-* CSV - ``org.apache.hadoop.hive.serde2.OpenCSVSerde``
+- RCText - RCFile `ColumnarSerDe`
+- RCBinary - RCFile `LazyBinaryColumnarSerDe`
+- JSON - `org.apache.hive.hcatalog.data.JsonSerDe`
+- CSV - `org.apache.hadoop.hive.serde2.OpenCSVSerde`
 
-.. _hive-orc-configuration:
+(hive-orc-configuration)=
 
-ORC format configuration properties
------------------------------------
+## ORC format configuration properties
 
 The following properties are used to configure the read and write operations
 with ORC files performed by supported object storage connectors:
 
+```{eval-rst}
 .. list-table:: ORC format configuration properties
     :widths: 30, 50, 20
     :header-rows: 1
@@ -43,15 +41,16 @@ with ORC files performed by supported object storage connectors:
     * - ``hive.orc.read-legacy-short-zone-id``
       - Allow reads on ORC files with short zone ID in the stripe footer.
       - ``false``
+```
 
-.. _hive-parquet-configuration:
+(hive-parquet-configuration)=
 
-Parquet format configuration properties
----------------------------------------
+## Parquet format configuration properties
 
 The following properties are used to configure the read and write operations
 with Parquet files performed by supported object storage connectors:
 
+```{eval-rst}
 .. list-table:: Parquet format configuration properties
     :widths: 30, 50, 20
     :header-rows: 1
@@ -92,3 +91,4 @@ with Parquet files performed by supported object storage connectors:
     * - ``parquet.max-read-block-row-count``
       - Sets the maximum number of rows read in a batch.
       - ``8192``
+```
