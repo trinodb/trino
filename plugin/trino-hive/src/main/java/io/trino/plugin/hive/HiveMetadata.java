@@ -952,9 +952,36 @@ public class HiveMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
-        metastore.dropDatabase(session, schemaName);
+        if (cascade) {
+            // List all objects first because such operations after adding/dropping/altering tables/views in a transaction is disallowed
+            List<SchemaTableName> views = listViews(session, Optional.of(schemaName));
+            List<SchemaTableName> tables = listTables(session, Optional.of(schemaName)).stream()
+                    .filter(table -> !views.contains(table))
+                    .collect(toImmutableList());
+
+            for (SchemaTableName viewName : views) {
+                dropView(session, viewName);
+            }
+
+            for (SchemaTableName tableName : tables) {
+                ConnectorTableHandle table = getTableHandle(session, tableName);
+                if (table == null) {
+                    log.debug("Table disappeared during DROP SCHEMA CASCADE: %s", tableName);
+                    continue;
+                }
+                dropTable(session, table);
+            }
+
+            // Commit and then drop database with raw metastore because exclusive operation after dropping object is disallowed in SemiTransactionalHiveMetastore
+            metastore.commit();
+            boolean deleteData = metastore.shouldDeleteDatabaseData(session, schemaName);
+            metastore.unsafeGetRawHiveMetastoreClosure().dropDatabase(schemaName, deleteData);
+        }
+        else {
+            metastore.dropDatabase(session, schemaName);
+        }
     }
 
     @Override
