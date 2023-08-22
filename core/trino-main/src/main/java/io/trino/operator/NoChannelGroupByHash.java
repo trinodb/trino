@@ -59,12 +59,6 @@ public class NoChannelGroupByHash
     }
 
     @Override
-    public boolean contains(int position, Page page)
-    {
-        throw new UnsupportedOperationException("NoChannelGroupByHash does not support getHashCollisions");
-    }
-
-    @Override
     public long getRawHash(int groupId)
     {
         throw new UnsupportedOperationException("NoChannelGroupByHash does not support getHashCollisions");

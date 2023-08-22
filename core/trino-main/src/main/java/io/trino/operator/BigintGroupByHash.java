@@ -163,32 +163,6 @@ public class BigintGroupByHash
     }
 
     @Override
-    public boolean contains(int position, Page page)
-    {
-        Block block = page.getBlock(0);
-        if (block.isNull(position)) {
-            return nullGroupId >= 0;
-        }
-
-        long value = BIGINT.getLong(block, position);
-        int hashPosition = getHashPosition(value, mask);
-
-        // look for an empty slot or a slot containing this key
-        while (true) {
-            int groupId = groupIds[hashPosition];
-            if (groupId == -1) {
-                return false;
-            }
-            if (value == values[hashPosition]) {
-                return true;
-            }
-
-            // increment position and mask to handle wrap around
-            hashPosition = (hashPosition + 1) & mask;
-        }
-    }
-
-    @Override
     public long getRawHash(int groupId)
     {
         return BigintType.hash(valuesByGroupId[groupId]);
