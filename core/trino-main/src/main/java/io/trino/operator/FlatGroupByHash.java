@@ -161,32 +161,6 @@ public class FlatGroupByHash
         return new GetNonDictionaryGroupIdsWork(blocks);
     }
 
-    @Override
-    public boolean contains(int position, Page page)
-    {
-        return flatHash.contains(getBlocksForContainsPage(page), position);
-    }
-
-    @Override
-    public boolean contains(int position, Page page, long hash)
-    {
-        return flatHash.contains(getBlocksForContainsPage(page), position, hash);
-    }
-
-    private Block[] getBlocksForContainsPage(Page page)
-    {
-        // contains page only has the group by channels as the optional hash is passed directly
-        checkArgument(page.getChannelCount() == groupByChannelCount);
-        Block[] blocks = currentBlocks;
-        for (int i = 0; i < page.getChannelCount(); i++) {
-            blocks[i] = page.getBlock(i);
-        }
-        if (hasPrecomputedHash) {
-            blocks[blocks.length - 1] = null;
-        }
-        return blocks;
-    }
-
     @VisibleForTesting
     @Override
     public int getCapacity()
@@ -442,7 +416,7 @@ public class FlatGroupByHash
         {
             for (int i = 0; i < blocks.length; i++) {
                 // GroupBy blocks are guaranteed to be RLE, but hash block might not be an RLE due to bugs
-                // use getSingleValueBlock here which for RLE is a no-op, but will still work if hash block is not RLE
+                // use getSingleValueBlock here, which for RLE is a no-op, but will still work if hash block is not RLE
                 blocks[i] = blocks[i].getSingleValueBlock(0);
             }
             this.blocks = blocks;
@@ -639,7 +613,7 @@ public class FlatGroupByHash
             positionCount = blocks[0].getPositionCount();
             for (int i = 0; i < blocks.length; i++) {
                 // GroupBy blocks are guaranteed to be RLE, but hash block might not be an RLE due to bugs
-                // use getSingleValueBlock here which for RLE is a no-op, but will still work if hash block is not RLE
+                // use getSingleValueBlock here, which for RLE is a no-op, but will still work if hash block is not RLE
                 blocks[i] = blocks[i].getSingleValueBlock(0);
             }
             this.blocks = blocks;

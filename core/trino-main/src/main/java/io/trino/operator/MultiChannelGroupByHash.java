@@ -219,31 +219,6 @@ public class MultiChannelGroupByHash
         return new GetNonDictionaryGroupIdsWork(page);
     }
 
-    @Override
-    public boolean contains(int position, Page page)
-    {
-        long rawHash = hashStrategy.hashRow(position, page);
-        return contains(position, page, rawHash);
-    }
-
-    @Override
-    public boolean contains(int position, Page page, long rawHash)
-    {
-        int hashPosition = getHashPosition(rawHash, mask);
-
-        // look for a slot containing this key
-        while (groupIdsByHash[hashPosition] != -1) {
-            if (positionNotDistinctFromCurrentRow(groupIdsByHash[hashPosition], hashPosition, position, page, (byte) rawHash, channels)) {
-                // found an existing slot for this key
-                return true;
-            }
-            // increment position and mask to handle wrap around
-            hashPosition = (hashPosition + 1) & mask;
-        }
-
-        return false;
-    }
-
     @VisibleForTesting
     @Override
     public int getCapacity()

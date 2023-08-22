@@ -79,13 +79,6 @@ public interface GroupByHash
      */
     Work<int[]> getGroupIds(Page page);
 
-    boolean contains(int position, Page page);
-
-    default boolean contains(int position, Page page, long rawHash)
-    {
-        return contains(position, page);
-    }
-
     long getRawHash(int groupId);
 
     @VisibleForTesting

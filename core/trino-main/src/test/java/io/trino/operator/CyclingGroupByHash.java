@@ -72,12 +72,6 @@ public class CyclingGroupByHash
     }
 
     @Override
-    public boolean contains(int position, Page page)
-    {
-        throw new UnsupportedOperationException("Not yet supported");
-    }
-
-    @Override
     public long getRawHash(int groupId)
     {
         throw new UnsupportedOperationException("Not yet supported");
