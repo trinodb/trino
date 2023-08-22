@@ -18,8 +18,6 @@ import io.airlift.testing.Closeables;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 
-import java.io.IOException;
-
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 
@@ -47,7 +45,7 @@ public class TestOraclePoolConnectorSmokeTest
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
-            throws IOException
+            throws Exception
     {
         Closeables.closeAll(oracleServer);
         oracleServer = null;
