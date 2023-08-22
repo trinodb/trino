@@ -61,6 +61,13 @@
             <artifactId>aether-api</artifactId>
         </dependency>
 
+        <!-- TODO: move it to airlift -->
+        <dependency>
+            <groupId>org.codehaus.plexus</groupId>
+            <artifactId>plexus-xml</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
