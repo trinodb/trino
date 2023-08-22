@@ -149,7 +149,6 @@ public class TestDeltaLakeConnectorTest
                     SUPPORTS_AGGREGATION_PUSHDOWN,
                     SUPPORTS_CREATE_MATERIALIZED_VIEW,
                     SUPPORTS_DROP_FIELD,
-                    SUPPORTS_DROP_SCHEMA_CASCADE,
                     SUPPORTS_LIMIT_PUSHDOWN,
                     SUPPORTS_PREDICATE_PUSHDOWN,
                     SUPPORTS_RENAME_FIELD,
