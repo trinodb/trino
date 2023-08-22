@@ -109,6 +109,7 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
@@ -775,8 +776,32 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
+        if (cascade) {
+            for (SchemaTableName viewName : listViews(session, Optional.of(schemaName))) {
+                try {
+                    dropView(session, viewName);
+                }
+                catch (ViewNotFoundException e) {
+                    LOG.debug("View disappeared during DROP SCHEMA CASCADE: %s", viewName);
+                }
+            }
+            for (SchemaTableName tableName : listTables(session, Optional.of(schemaName))) {
+                ConnectorTableHandle table = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+                if (table == null) {
+                    LOG.debug("Table disappeared during DROP SCHEMA CASCADE: %s", tableName);
+                    continue;
+                }
+                try {
+                    dropTable(session, table);
+                }
+                catch (TableNotFoundException e) {
+                    LOG.debug("Table disappeared during DROP SCHEMA CASCADE: %s", tableName);
+                }
+            }
+        }
+
         Optional<String> location = metastore.getDatabase(schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName))
                 .getLocation();
