@@ -268,7 +268,6 @@ public class JdbcRecordCursor
         }
     }
 
-    @SuppressWarnings("UnusedDeclaration")
     @Override
     public void close()
     {

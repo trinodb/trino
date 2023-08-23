@@ -92,7 +92,6 @@ public class CsvColumnDecoder
                 return tokens[columnIndex].isEmpty();
             }
 
-            @SuppressWarnings("SimplifiableConditionalExpression")
             @Override
             public boolean getBoolean()
             {

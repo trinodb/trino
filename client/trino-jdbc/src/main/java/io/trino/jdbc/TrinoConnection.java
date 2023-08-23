@@ -325,7 +325,6 @@ public class TrinoConnection
         isolationLevel.set(level);
     }
 
-    @SuppressWarnings("MagicConstant")
     @Override
     public int getTransactionIsolation()
             throws SQLException
