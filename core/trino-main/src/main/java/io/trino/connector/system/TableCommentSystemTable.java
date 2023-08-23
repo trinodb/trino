@@ -137,12 +137,10 @@ public class TableCommentSystemTable
                 }
                 else {
                     try {
-                        // TODO (https://github.com/trinodb/trino/issues/18514) this should consult accessControl on redirected name. Leaving for now as-is.
-                        metadata.getRedirectionAwareTableHandle(session, new QualifiedObjectName(catalog, name.getSchemaName(), name.getTableName()))
-                                .tableHandle().ifPresent(tableHandle -> {
-                                    Optional<String> comment = metadata.getTableMetadata(session, tableHandle).getMetadata().getComment();
-                                    table.addRow(catalog, name.getSchemaName(), name.getTableName(), comment.orElse(null));
-                                });
+                        RelationComment relationComment = getTableCommentRedirectionAware(session, new QualifiedObjectName(catalog, name.getSchemaName(), name.getTableName()));
+                        if (relationComment.found()) {
+                            table.addRow(catalog, name.getSchemaName(), name.getTableName(), relationComment.comment().orElse(null));
+                        }
                     }
                     catch (RuntimeException e) {
                         LOG.warn(e, "Failed to get metadata for table: %s", name);
@@ -164,13 +162,26 @@ public class TableCommentSystemTable
             return new RelationComment(true, view.get().getComment());
         }
 
+        return getTableCommentRedirectionAware(session, relationName);
+    }
+
+    private RelationComment getTableCommentRedirectionAware(Session session, QualifiedObjectName relationName)
+    {
         RedirectionAwareTableHandle redirectionAware = metadata.getRedirectionAwareTableHandle(session, relationName);
-        if (redirectionAware.tableHandle().isPresent()) {
-            // TODO (https://github.com/trinodb/trino/issues/18514) this should consult accessControl on redirected name. Leaving for now as-is.
-            return new RelationComment(true, metadata.getTableMetadata(session, redirectionAware.tableHandle().get()).getMetadata().getComment());
+
+        if (redirectionAware.tableHandle().isEmpty()) {
+            return new RelationComment(false, Optional.empty());
         }
 
-        return new RelationComment(false, Optional.empty());
+        if (redirectionAware.redirectedTableName().isPresent()) {
+            QualifiedObjectName redirectedRelationName = redirectionAware.redirectedTableName().get();
+            SchemaTableName redirectedTableName = redirectedRelationName.asSchemaTableName();
+            if (!accessControl.filterTables(session.toSecurityContext(), redirectedRelationName.getCatalogName(), ImmutableSet.of(redirectedTableName)).contains(redirectedTableName)) {
+                return new RelationComment(false, Optional.empty());
+            }
+        }
+
+        return new RelationComment(true, metadata.getTableMetadata(session, redirectionAware.tableHandle().get()).getMetadata().getComment());
     }
 
     private record RelationComment(boolean found, Optional<String> comment)
