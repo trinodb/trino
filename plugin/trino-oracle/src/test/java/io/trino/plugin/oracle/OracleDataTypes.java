@@ -29,7 +29,6 @@ public final class OracleDataTypes
 {
     private OracleDataTypes() {}
 
-    @SuppressWarnings("MisusedWeekYear")
     public static DataType<ZonedDateTime> oracleTimestamp3TimeZoneDataType()
     {
         return dataType(

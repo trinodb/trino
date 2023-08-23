@@ -782,7 +782,6 @@ public abstract class BaseRaptorConnectorTest
         assertEquals(computeActual("SELECT * FROM system.tables WHERE table_schema IN ('foo', 'bar')").getRowCount(), 0);
     }
 
-    @SuppressWarnings("OverlyStrongTypeCast")
     @Test
     public void testTableStatsSystemTable()
     {
