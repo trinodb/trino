@@ -307,11 +307,13 @@ public class TupleDomainParquetPredicate
         }
 
         try {
+            Object min = statistics.genericGetMin();
+            Object max = statistics.genericGetMax();
             return getDomain(
                     column,
                     type,
-                    ImmutableList.of(statistics.genericGetMin()),
-                    ImmutableList.of(statistics.genericGetMax()),
+                    ImmutableList.of(min instanceof Binary ? Slices.wrappedBuffer(((Binary) min).getBytes()) : min),
+                    ImmutableList.of(max instanceof Binary ? Slices.wrappedBuffer(((Binary) max).getBytes()) : max),
                     hasNullValue,
                     timeZone);
         }
@@ -372,8 +374,8 @@ public class TupleDomainParquetPredicate
                     Object min = minimums.get(i);
                     Object max = maximums.get(i);
 
-                    long minValue = min instanceof Binary ? getShortDecimalValue(((Binary) min).getBytes()) : asLong(min);
-                    long maxValue = max instanceof Binary ? getShortDecimalValue(((Binary) max).getBytes()) : asLong(max);
+                    long minValue = min instanceof Slice ? getShortDecimalValue(((Slice) min).getBytes()) : asLong(min);
+                    long maxValue = max instanceof Slice ? getShortDecimalValue(((Slice) max).getBytes()) : asLong(max);
 
                     if (isStatisticsOverflow(type, minValue, maxValue)) {
                         return Domain.create(ValueSet.all(type), hasNullValue);
@@ -384,8 +386,8 @@ public class TupleDomainParquetPredicate
             }
             else {
                 for (int i = 0; i < minimums.size(); i++) {
-                    Int128 min = Int128.fromBigEndian(((Binary) minimums.get(i)).getBytes());
-                    Int128 max = Int128.fromBigEndian(((Binary) maximums.get(i)).getBytes());
+                    Int128 min = Int128.fromBigEndian(((Slice) minimums.get(i)).getBytes());
+                    Int128 max = Int128.fromBigEndian(((Slice) maximums.get(i)).getBytes());
 
                     rangesBuilder.addRangeInclusive(min, max);
                 }
@@ -427,8 +429,8 @@ public class TupleDomainParquetPredicate
         if (type instanceof VarcharType) {
             SortedRangeSet.Builder rangesBuilder = SortedRangeSet.builder(type, minimums.size());
             for (int i = 0; i < minimums.size(); i++) {
-                Slice min = Slices.wrappedHeapBuffer(((Binary) minimums.get(i)).toByteBuffer());
-                Slice max = Slices.wrappedHeapBuffer(((Binary) maximums.get(i)).toByteBuffer());
+                Slice min = (Slice) minimums.get(i);
+                Slice max = (Slice) maximums.get(i);
                 rangesBuilder.addRangeInclusive(min, max);
             }
             return Domain.create(rangesBuilder.build(), hasNullValue);
@@ -446,11 +448,11 @@ public class TupleDomainParquetPredicate
                     // PARQUET-1065 deprecated them. The result is that any writer that produced stats was producing unusable incorrect values, except
                     // the special case where min == max and an incorrect ordering would not be material to the result. PARQUET-1026 made binary stats
                     // available and valid in that special case
-                    if (!(min instanceof Binary) || !(max instanceof Binary) || !min.equals(max)) {
+                    if (!(min instanceof Slice) || !(max instanceof Slice) || !min.equals(max)) {
                         return Domain.create(ValueSet.all(type), hasNullValue);
                     }
 
-                    rangesBuilder.addValue(timestampEncoder.getTimestamp(decodeInt96Timestamp((Binary) min)));
+                    rangesBuilder.addValue(timestampEncoder.getTimestamp(decodeInt96Timestamp(Binary.fromConstantByteArray(((Slice) min).getBytes()))));
                 }
                 return Domain.create(rangesBuilder.build(), hasNullValue);
             }
@@ -732,11 +734,13 @@ public class TupleDomainParquetPredicate
                 return false;
             }
 
+            T min = statistic.getMin();
+            T max = statistic.getMax();
             Domain domain = getDomain(
                     columnDescriptor,
                     columnDomain.getType(),
-                    ImmutableList.of(statistic.getMin()),
-                    ImmutableList.of(statistic.getMax()),
+                    ImmutableList.of(min instanceof Binary ? Slices.wrappedBuffer(((Binary) min).getBytes()) : min),
+                    ImmutableList.of(max instanceof Binary ? Slices.wrappedBuffer(((Binary) max).getBytes()) : max),
                     true,
                     timeZone);
             return !columnDomain.overlaps(domain);
@@ -774,7 +778,7 @@ public class TupleDomainParquetPredicate
                 case BINARY:
                 case INT96:
                 default:
-                    return buffer -> Binary.fromReusedByteBuffer(buffer);
+                    return Slices::wrappedHeapBuffer;
             }
         }
     }
@@ -796,7 +800,7 @@ public class TupleDomainParquetPredicate
                 case INT64 -> (i) -> dictionary.decodeToLong(i);
                 case FLOAT -> (i) -> dictionary.decodeToFloat(i);
                 case DOUBLE -> (i) -> dictionary.decodeToDouble(i);
-                case FIXED_LEN_BYTE_ARRAY, BINARY, INT96 -> (i) -> dictionary.decodeToBinary(i);
+                case FIXED_LEN_BYTE_ARRAY, BINARY, INT96 -> (i) -> dictionary.decodeToSlice(i);
             };
         }
     }
