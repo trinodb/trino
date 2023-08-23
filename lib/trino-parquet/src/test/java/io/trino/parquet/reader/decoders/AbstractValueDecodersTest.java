@@ -241,7 +241,7 @@ public abstract class AbstractValueDecodersTest
     static ValuesReader getApacheParquetReader(ParquetEncoding encoding, PrimitiveField field, Optional<Dictionary> dictionary)
     {
         if (encoding == RLE_DICTIONARY || encoding == PLAIN_DICTIONARY) {
-            return encoding.getDictionaryBasedValuesReader(field.getDescriptor(), VALUES, dictionary.orElseThrow());
+            return new DictionaryReader(dictionary.orElseThrow());
         }
         checkArgument(dictionary.isEmpty(), "dictionary should be empty");
         return encoding.getValuesReader(field.getDescriptor(), VALUES);
