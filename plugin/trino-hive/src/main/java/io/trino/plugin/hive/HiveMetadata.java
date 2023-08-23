@@ -124,6 +124,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaParseException;
 import org.apache.hadoop.fs.Path;
@@ -3412,6 +3413,15 @@ public class HiveMetadata
                         .addAll(partitionedBy)
                         .build(),
                 multipleWritersPerPartitionSupported));
+    }
+
+    @Override
+    public Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    {
+        if (type instanceof VarcharType varcharType && !varcharType.isUnbounded() && varcharType.getBoundedLength() == 0) {
+            return Optional.of(VarcharType.createVarcharType(1));
+        }
+        return Optional.empty();
     }
 
     @Override

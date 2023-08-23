@@ -7988,6 +7988,41 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testCoercingVarchar0ToVarchar1()
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_create_table_varchar",
+                "(var_column_0 varchar(0), var_column_1 varchar(1), var_column_10 varchar(10))")) {
+            assertEquals(getColumnType(testTable.getName(), "var_column_0"), "varchar(1)");
+            assertEquals(getColumnType(testTable.getName(), "var_column_1"), "varchar(1)");
+            assertEquals(getColumnType(testTable.getName(), "var_column_10"), "varchar(10)");
+        }
+    }
+
+    @Test
+    public void testCoercingVarchar0ToVarchar1WithCTAS()
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_ctas_varchar",
+                "AS SELECT '' AS var_column")) {
+            assertEquals(getColumnType(testTable.getName(), "var_column"), "varchar(1)");
+        }
+    }
+
+    @Test
+    public void testCoercingVarchar0ToVarchar1WithCTASNoData()
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_ctas_nd_varchar",
+                "AS SELECT '' AS var_column WITH NO DATA")) {
+            assertEquals(getColumnType(testTable.getName(), "var_column"), "varchar(1)");
+        }
+    }
+
+    @Test
     public void testOptimize()
     {
         String tableName = "test_optimize_" + randomNameSuffix();
