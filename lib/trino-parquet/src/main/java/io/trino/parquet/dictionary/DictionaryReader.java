@@ -50,7 +50,7 @@ public class DictionaryReader
     @Override
     public Binary readBytes()
     {
-        return dictionary.decodeToBinary(readInt());
+        return Binary.fromConstantByteArray(dictionary.decodeToSlice(readInt()).getBytes());
     }
 
     @Override
