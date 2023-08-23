@@ -16,6 +16,7 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.spi.connector.SchemaTableName;
+import org.apache.thrift.transport.TTransportException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -38,6 +39,19 @@ public class TestHiveWithDisabledBatchFetch
     public void testBatchDisabled()
     {
         ThriftMetastore thriftMetastore = prepareThriftMetastore(false);
+        assertThat(thriftMetastore.getAllTables()).isEmpty();
+        assertThat(thriftMetastore.getAllViews()).isEmpty();
+    }
+
+    @Test
+    public void testFallbackInCaseOfMetastoreFailure()
+    {
+        ThriftMetastore thriftMetastore = testingThriftHiveMetastoreBuilder()
+                .thriftMetastoreConfig(new ThriftMetastoreConfig().setBatchMetadataFetchEnabled(true))
+                .metastoreClient(createFailingMetastoreClient())
+                .hiveConfig(new HiveConfig().setTranslateHiveViews(true))
+                .build();
+
         assertThat(thriftMetastore.getAllTables()).isEmpty();
         assertThat(thriftMetastore.getAllViews()).isEmpty();
     }
@@ -65,6 +79,26 @@ public class TestHiveWithDisabledBatchFetch
             public Optional<List<SchemaTableName>> getAllViews()
             {
                 return Optional.of(ImmutableList.of(new SchemaTableName("test_schema", "test_view")));
+            }
+        };
+    }
+
+    private static ThriftMetastoreClient createFailingMetastoreClient()
+    {
+        return new MockThriftMetastoreClient()
+        {
+            @Override
+            public Optional<List<SchemaTableName>> getAllTables()
+                    throws TTransportException
+            {
+                throw new TTransportException();
+            }
+
+            @Override
+            public Optional<List<SchemaTableName>> getAllViews()
+                    throws TTransportException
+            {
+                throw new TTransportException();
             }
         };
     }
