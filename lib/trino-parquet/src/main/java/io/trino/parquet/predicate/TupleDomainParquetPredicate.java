@@ -763,23 +763,14 @@ public class TupleDomainParquetPredicate
 
         private Function<ByteBuffer, Object> getConverter(PrimitiveType primitiveType)
         {
-            switch (primitiveType.getPrimitiveTypeName()) {
-                case BOOLEAN:
-                    return buffer -> buffer.get(0) != 0;
-                case INT32:
-                    return buffer -> buffer.order(LITTLE_ENDIAN).getInt(0);
-                case INT64:
-                    return buffer -> buffer.order(LITTLE_ENDIAN).getLong(0);
-                case FLOAT:
-                    return buffer -> buffer.order(LITTLE_ENDIAN).getFloat(0);
-                case DOUBLE:
-                    return buffer -> buffer.order(LITTLE_ENDIAN).getDouble(0);
-                case FIXED_LEN_BYTE_ARRAY:
-                case BINARY:
-                case INT96:
-                default:
-                    return Slices::wrappedHeapBuffer;
-            }
+            return switch (primitiveType.getPrimitiveTypeName()) {
+                case BOOLEAN -> buffer -> buffer.get(0) != 0;
+                case INT32 -> buffer -> buffer.order(LITTLE_ENDIAN).getInt(0);
+                case INT64 -> buffer -> buffer.order(LITTLE_ENDIAN).getLong(0);
+                case FLOAT -> buffer -> buffer.order(LITTLE_ENDIAN).getFloat(0);
+                case DOUBLE -> buffer -> buffer.order(LITTLE_ENDIAN).getDouble(0);
+                case FIXED_LEN_BYTE_ARRAY, BINARY, INT96 -> Slices::wrappedHeapBuffer;
+            };
         }
     }
 
