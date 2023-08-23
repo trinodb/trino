@@ -191,7 +191,13 @@ public class MongoPageSource
                     type.writeLong(output, floatToIntBits(((float) ((Number) value).doubleValue())));
                 }
                 else if (type instanceof DecimalType) {
-                    type.writeLong(output, encodeShortScaledValue(((Decimal128) value).bigDecimalValue(), ((DecimalType) type).getScale()));
+                    Decimal128 decimal = (Decimal128) value;
+                    if (decimal.compareTo(Decimal128.NEGATIVE_ZERO) == 0) {
+                        type.writeLong(output, encodeShortScaledValue(BigDecimal.ZERO, ((DecimalType) type).getScale()));
+                    }
+                    else {
+                        type.writeLong(output, encodeShortScaledValue(decimal.bigDecimalValue(), ((DecimalType) type).getScale()));
+                    }
                 }
                 else if (type.equals(DATE)) {
                     long utcMillis = ((Date) value).getTime();
@@ -218,8 +224,14 @@ public class MongoPageSource
             else if (javaType == Int128.class) {
                 DecimalType decimalType = (DecimalType) type;
                 verify(!decimalType.isShort(), "The type should be long decimal");
-                BigDecimal decimal = ((Decimal128) value).bigDecimalValue();
-                type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
+                Decimal128 decimal = (Decimal128) value;
+                if (decimal.compareTo(Decimal128.NEGATIVE_ZERO) == 0) {
+                    type.writeObject(output, Decimals.encodeScaledValue(BigDecimal.ZERO, decimalType.getScale()));
+                }
+                else {
+                    BigDecimal result = decimal.bigDecimalValue();
+                    type.writeObject(output, Decimals.encodeScaledValue(result, decimalType.getScale()));
+                }
             }
             else if (javaType == Slice.class) {
                 writeSlice(output, type, value);

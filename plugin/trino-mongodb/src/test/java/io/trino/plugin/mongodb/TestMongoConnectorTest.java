@@ -544,6 +544,37 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
+    @Test
+    public void testNegativeZeroDecimal()
+    {
+        String tableName = "test_negative_zero" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + "(id int, short_decimal decimal(1), long_decimal decimal(38))");
+        client.getDatabase("test").getCollection(tableName)
+                .insertOne(new Document(ImmutableMap.<String, Object>builder()
+                        .put("id", 1)
+                        .put("short_decimal", Decimal128.NEGATIVE_ZERO)
+                        .put("long_decimal", Decimal128.NEGATIVE_ZERO)
+                        .buildOrThrow()));
+        client.getDatabase("test").getCollection(tableName)
+                .insertOne(new Document(ImmutableMap.<String, Object>builder()
+                        .put("id", 2)
+                        .put("short_decimal", Decimal128.parse("-0.000"))
+                        .put("long_decimal", Decimal128.parse("-0.000"))
+                        .buildOrThrow()));
+
+        assertThat(query("SELECT * FROM test." + tableName))
+                .matches("VALUES (1, CAST('0' AS decimal(1)), CAST('0' AS decimal(38))), (2, CAST('0' AS decimal(1)), CAST('0' AS decimal(38)))");
+
+        assertThat(query("SELECT id FROM test." + tableName + " WHERE short_decimal = decimal '0'"))
+                .matches("VALUES 1, 2");
+
+        assertThat(query("SELECT id FROM test." + tableName + " WHERE long_decimal = decimal '0'"))
+                .matches("VALUES 1, 2");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
     @Test(dataProvider = "dbRefProvider")
     public void testDBRef(Object objectId, String expectedValue, String expectedType)
     {
