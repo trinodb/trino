@@ -83,6 +83,7 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
 import org.apache.thrift.TException;
+import org.apache.thrift.transport.TTransportException;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -900,6 +901,11 @@ public class ThriftHiveMetastore
                         }
                     }));
         }
+        catch (TTransportException e) {
+            log.warn(e, "Failed to get all views");
+            // fallback in case of HMS error
+            return Optional.empty();
+        }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
@@ -930,6 +936,11 @@ public class ThriftHiveMetastore
                             return client.getAllViews();
                         }
                     }));
+        }
+        catch (TTransportException e) {
+            log.warn(e, "Failed to get all tables");
+            // fallback in case of HMS error
+            return Optional.empty();
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
