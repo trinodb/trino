@@ -155,8 +155,7 @@ public class TestDeltaLakeConnectorTest
                     SUPPORTS_RENAME_FIELD,
                     SUPPORTS_RENAME_SCHEMA,
                     SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_TRUNCATE -> false;
+                    SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

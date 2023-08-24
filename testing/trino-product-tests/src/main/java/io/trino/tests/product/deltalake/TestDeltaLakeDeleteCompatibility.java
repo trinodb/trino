@@ -90,10 +90,36 @@ public class TestDeltaLakeDeleteCompatibility
         // Whole table deletes should be disallowed as well
         assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM default." + tableName))
                 .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
+        assertQueryFailure(() -> onTrino().executeQuery("TRUNCATE TABLE delta.default." + tableName))
+                .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
 
         assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                 .containsOnly(row(1, 11), row(2, 12));
         onTrino().executeQuery("DROP TABLE " + tableName);
+    }
+
+    // OSS Delta doesn't support TRUNCATE TABLE statement
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testTruncateTable()
+    {
+        String tableName = "test_truncate_table_" + randomNameSuffix();
+        onTrino().executeQuery("" +
+                "CREATE TABLE delta.default." + tableName +
+                "(a INT)" +
+                "WITH (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')");
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES 1, 2, 3");
+            onTrino().executeQuery("TRUNCATE TABLE delta.default." + tableName);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).hasNoRows();
+
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES 4, 5, 6");
+            onDelta().executeQuery("TRUNCATE TABLE default." + tableName);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).hasNoRows();
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
     }
 
     // Databricks 12.1 and OSS Delta 2.4.0 added support for deletion vectors

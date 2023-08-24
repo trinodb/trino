@@ -317,6 +317,7 @@ public class DeltaLakeMetadata
     public static final String MERGE_OPERATION = "MERGE";
     public static final String UPDATE_OPERATION = "UPDATE"; // used by old Trino versions and Spark
     public static final String DELETE_OPERATION = "DELETE"; // used Trino for whole table/partition deletes as well as Spark
+    public static final String TRUNCATE_OPERATION = "TRUNCATE";
     public static final String OPTIMIZE_OPERATION = "OPTIMIZE";
     public static final String SET_TBLPROPERTIES_OPERATION = "SET TBLPROPERTIES";
     public static final String CHANGE_COLUMN_OPERATION = "CHANGE COLUMN";
@@ -3264,6 +3265,12 @@ public class DeltaLakeMetadata
     }
 
     @Override
+    public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        executeDelete(session, checkValidTableHandle(tableHandle), TRUNCATE_OPERATION);
+    }
+
+    @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) handle;
@@ -3277,6 +3284,11 @@ public class DeltaLakeMetadata
 
     @Override
     public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        return executeDelete(session, handle, DELETE_OPERATION);
+    }
+
+    private OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle handle, String operation)
     {
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) handle;
         if (isAppendOnly(tableHandle.getMetadataEntry())) {
@@ -3298,7 +3310,7 @@ public class DeltaLakeMetadata
                 throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", tableHandle.getReadVersion(), currentVersion));
             }
             long commitVersion = currentVersion + 1;
-            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, writeTimestamp, DELETE_OPERATION, tableHandle.getReadVersion()));
+            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, writeTimestamp, operation, tableHandle.getReadVersion()));
 
             long deletedRecords = 0L;
             boolean allDeletedFilesStatsPresent = true;
