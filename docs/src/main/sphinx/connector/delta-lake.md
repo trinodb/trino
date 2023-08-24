@@ -367,7 +367,7 @@ statements, the connector supports the following features:
 - {doc}`/sql/create-table`, see also {ref}`delta-lake-sql-basic-usage`
 - {doc}`/sql/create-table-as`
 - {doc}`/sql/drop-table`
-- {doc}`/sql/alter-table`
+- {doc}`/sql/alter-table`, see also {ref}`delta-lake-alter-table`
 - {doc}`/sql/drop-schema`
 - {doc}`/sql/show-create-schema`
 - {doc}`/sql/show-create-table`
@@ -615,6 +615,17 @@ to filter which partitions are optimized:
 ALTER TABLE test_partitioned_table EXECUTE optimize
 WHERE partition_key = 1
 ```
+
+(delta-lake-alter-table)=
+
+#### ALTER TABLE RENAME TO
+
+The connector only supports the `ALTER TABLE RENAME TO` statement when met with
+one of the following conditions:
+
+* The table type is external.
+* The table is backed by a metastore that does not perform object storage
+  operations, for example, AWS Glue or Thrift.
 
 #### Table properties
 
