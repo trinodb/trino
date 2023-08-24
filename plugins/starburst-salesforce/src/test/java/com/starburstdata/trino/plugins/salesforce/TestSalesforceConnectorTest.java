@@ -132,6 +132,12 @@ public class TestSalesforceConnectorTest
     // running the expected queries against H2
     private static final Map<String, String> TABLE_COLUMN_SUFFIX_REGEXES;
 
+    private final String salesforceCustomerTableName = "customer__c";
+    private final String salesforceLineitemTableName = "lineitem__c";
+    private final String salesforceNationTableName = "nation__c";
+    private final String salesforceOrdersTableName = "orders__c";
+    private final String salesforceRegionTableName = "region__c";
+
     static {
         Map<String, String> tableRegexes = TpchTable.getTables().stream()
                 .map(table -> Pair.of(table.getTableName() + "__c", table.getTableName()))
@@ -240,21 +246,22 @@ public class TestSalesforceConnectorTest
     public void testAggregationOverUnknown()
     {
         assertQuery("SELECT clerk__c, min(totalprice__c), max(totalprice__c), min(nullvalue), max(nullvalue) " +
-                "FROM (SELECT clerk__c, totalprice__c, null AS nullvalue FROM orders__c) " +
-                "GROUP BY clerk__c");
+                "FROM (SELECT clerk__c, totalprice__c, null AS nullvalue FROM " +
+                salesforceOrdersTableName +
+                ") GROUP BY clerk__c");
     }
 
     @Test
     public void testLimitMax()
     {
         // max int
-        assertQuery("SELECT orderkey__c FROM orders__c LIMIT " + Integer.MAX_VALUE);
-        assertQuery("SELECT orderkey__c FROM orders__c ORDER BY orderkey__c LIMIT " + Integer.MAX_VALUE);
+        assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " LIMIT " + Integer.MAX_VALUE);
+        assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c LIMIT " + Integer.MAX_VALUE);
 
         // max long; a connector may attempt a pushdown while remote system may not accept such high limit values
-        assertQuery("SELECT nationkey__c FROM nation__c LIMIT " + Long.MAX_VALUE, "SELECT nationkey FROM nation");
+        assertQuery("SELECT nationkey__c FROM " + salesforceNationTableName + " LIMIT " + Long.MAX_VALUE, "SELECT nationkey FROM nation");
         // Currently this is not supported but once it's supported, it should be tested with connectors as well
-        assertQueryFails("SELECT nationkey__c FROM nation__c ORDER BY nationkey__c LIMIT " + Long.MAX_VALUE, "ORDER BY LIMIT > 2147483647 is not supported");
+        assertQueryFails("SELECT nationkey__c FROM " + salesforceNationTableName + " ORDER BY nationkey__c LIMIT " + Long.MAX_VALUE, "ORDER BY LIMIT > 2147483647 is not supported");
     }
 
     @Test
@@ -262,8 +269,9 @@ public class TestSalesforceConnectorTest
     {
         assertQueryOrdered(
                 "SELECT sum(orderkey__c), row_number() OVER (ORDER BY orderkey__c) " +
-                        "FROM orders__c " +
-                        "WHERE orderkey__c <= 10 " +
+                        "FROM " +
+                        salesforceOrdersTableName +
+                        " WHERE orderkey__c <= 10 " +
                         "GROUP BY orderkey__c " +
                         "HAVING sum(orderkey__c) >= 3 " +
                         "ORDER BY orderkey__c DESC " +
@@ -274,19 +282,19 @@ public class TestSalesforceConnectorTest
     @Test
     public void testDistinctMultipleFields()
     {
-        assertQuery("SELECT DISTINCT custkey__c, orderstatus__c FROM orders__c");
+        assertQuery("SELECT DISTINCT custkey__c, orderstatus__c FROM " + salesforceOrdersTableName);
     }
 
     @Test
     public void testArithmeticNegation()
     {
-        assertQuery("SELECT -custkey__c FROM orders__c");
+        assertQuery("SELECT -custkey__c FROM " + salesforceOrdersTableName);
     }
 
     @Test
     public void testDistinct()
     {
-        assertQuery("SELECT DISTINCT custkey__c FROM orders__c");
+        assertQuery("SELECT DISTINCT custkey__c FROM " + salesforceOrdersTableName);
     }
 
     @Test
@@ -296,8 +304,9 @@ public class TestSalesforceConnectorTest
         // The assertion below on the orders table will fail, so we try a smaller table
         // See https://help.salesforce.com/articleView?id=000331769&type=1&mode=1
         assertQuery("SELECT COUNT(DISTINCT regionkey__c) AS count " +
-                "FROM nation__c " +
-                "GROUP BY name__c " +
+                "FROM " +
+                salesforceNationTableName +
+                " GROUP BY name__c " +
                 "HAVING COUNT(DISTINCT regionkey__c) > 1");
 
         // Then we'll disable aggregation pushdown and run the query
@@ -306,8 +315,9 @@ public class TestSalesforceConnectorTest
                         .setCatalogSessionProperty(getSession().getCatalog().get(), AGGREGATION_PUSHDOWN_ENABLED, "false")
                         .build(),
                 "SELECT COUNT(DISTINCT clerk__c) AS count " +
-                        "FROM orders__c " +
-                        "GROUP BY orderdate__c " +
+                        "FROM " +
+                        salesforceOrdersTableName +
+                        " GROUP BY orderdate__c " +
                         "HAVING COUNT(DISTINCT clerk__c) > 1");
     }
 
@@ -316,10 +326,10 @@ public class TestSalesforceConnectorTest
     {
         assertQuery("" +
                 "SELECT DISTINCT orderstatus__c, custkey__c " +
-                "FROM (SELECT orderstatus__c, custkey__c FROM orders__c ORDER BY orderkey__c LIMIT 10) " +
+                "FROM (SELECT orderstatus__c, custkey__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c LIMIT 10) " +
                 "LIMIT 10");
-        assertQuery("SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus__c, custkey__c FROM orders__c LIMIT 10)");
-        assertQuery("SELECT DISTINCT custkey__c, orderstatus__c FROM orders__c WHERE custkey__c = 1268 LIMIT 2");
+        assertQuery("SELECT COUNT(*) FROM (SELECT DISTINCT orderstatus__c, custkey__c FROM " + salesforceOrdersTableName + " LIMIT 10)");
+        assertQuery("SELECT DISTINCT custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " WHERE custkey__c = 1268 LIMIT 2");
 
         assertQuery("" +
                         "SELECT DISTINCT x " +
@@ -331,19 +341,19 @@ public class TestSalesforceConnectorTest
     @Test
     public void testDistinctWithOrderBy()
     {
-        assertQueryOrdered("SELECT DISTINCT custkey__c FROM orders__c ORDER BY custkey__c LIMIT 10");
+        assertQueryOrdered("SELECT DISTINCT custkey__c FROM " + salesforceOrdersTableName + " ORDER BY custkey__c LIMIT 10");
     }
 
     @Test
     public void testRepeatedAggregations()
     {
-        assertQuery("SELECT SUM(orderkey__c), SUM(orderkey__c) FROM orders__c");
+        assertQuery("SELECT SUM(orderkey__c), SUM(orderkey__c) FROM " + salesforceOrdersTableName);
     }
 
     @Test
     public void testLimit()
     {
-        MaterializedResult actual = computeActual("SELECT orderkey__c FROM orders__c LIMIT 10");
+        MaterializedResult actual = computeActual("SELECT orderkey__c FROM " + salesforceOrdersTableName + " LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
         assertThat(actual.getMaterializedRows()).hasSize(10);
@@ -353,7 +363,7 @@ public class TestSalesforceConnectorTest
     @Test
     public void testLimitWithAggregation()
     {
-        MaterializedResult actual = computeActual("SELECT custkey__c, SUM(CAST(totalprice__c * 100 AS BIGINT)) FROM orders__c GROUP BY custkey__c LIMIT 10");
+        MaterializedResult actual = computeActual("SELECT custkey__c, SUM(CAST(totalprice__c * 100 AS BIGINT)) FROM " + salesforceOrdersTableName + " GROUP BY custkey__c LIMIT 10");
         MaterializedResult all = computeExpected("SELECT custkey, SUM(CAST(totalprice * 100 AS BIGINT)) FROM orders GROUP BY custkey", actual.getTypes());
 
         assertThat(actual.getMaterializedRows()).hasSize(10);
@@ -363,7 +373,7 @@ public class TestSalesforceConnectorTest
     @Test
     public void testLimitInInlineView()
     {
-        MaterializedResult actual = computeActual("SELECT orderkey__c FROM (SELECT orderkey__c FROM orders__c LIMIT 100) T LIMIT 10");
+        MaterializedResult actual = computeActual("SELECT orderkey__c FROM (SELECT orderkey__c FROM " + salesforceOrdersTableName + " LIMIT 100) T LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
         assertThat(actual.getMaterializedRows()).hasSize(10);
@@ -373,37 +383,37 @@ public class TestSalesforceConnectorTest
     @Test
     public void testCountAll()
     {
-        assertQuery("SELECT COUNT(*) FROM orders__c");
-        assertQuery("SELECT COUNT(42) FROM orders__c", "SELECT COUNT(*) FROM orders");
-        assertQuery("SELECT COUNT(42 + 42) FROM orders__c", "SELECT COUNT(*) FROM orders");
-        assertQuery("SELECT COUNT(null) FROM orders__c", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM " + salesforceOrdersTableName);
+        assertQuery("SELECT COUNT(42) FROM " + salesforceOrdersTableName, "SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT COUNT(42 + 42) FROM " + salesforceOrdersTableName, "SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT COUNT(null) FROM " + salesforceOrdersTableName, "SELECT 0");
     }
 
     @Test
     public void testCountColumn()
     {
-        assertQuery("SELECT COUNT(orderkey__c) FROM orders__c");
-        assertQuery("SELECT COUNT(orderstatus__c) FROM orders__c");
-        assertQuery("SELECT COUNT(orderdate__c) FROM orders__c");
-        assertQuery("SELECT COUNT(1) FROM orders__c");
+        assertQuery("SELECT COUNT(orderkey__c) FROM " + salesforceOrdersTableName);
+        assertQuery("SELECT COUNT(orderstatus__c) FROM " + salesforceOrdersTableName);
+        assertQuery("SELECT COUNT(orderdate__c) FROM " + salesforceOrdersTableName);
+        assertQuery("SELECT COUNT(1) FROM " + salesforceOrdersTableName);
 
-        assertQuery("SELECT COUNT(NULLIF(orderstatus__c, 'F')) FROM orders__c");
-        assertQuery("SELECT COUNT(CAST(NULL AS BIGINT)) FROM orders__c"); // todo: make COUNT(null) work
+        assertQuery("SELECT COUNT(NULLIF(orderstatus__c, 'F')) FROM " + salesforceOrdersTableName);
+        assertQuery("SELECT COUNT(CAST(NULL AS BIGINT)) FROM " + salesforceOrdersTableName); // todo: make COUNT(null) work
     }
 
     @Test
     public void testSelectWithComparison()
     {
-        assertQuery("SELECT orderkey__c FROM lineitem__c WHERE tax__c < discount__c");
+        assertQuery("SELECT orderkey__c FROM " + salesforceLineitemTableName + " WHERE tax__c < discount__c");
     }
 
     @Test
     public void testIn()
     {
-        assertQuery("SELECT orderkey__c FROM orders__c WHERE orderkey__c IN (1, 2, 3)");
-        assertQuery("SELECT orderkey__c FROM orders__c WHERE orderkey__c IN (1.5, 2.3)", "SELECT orderkey FROM orders LIMIT 0"); // H2 incorrectly matches rows
-        assertQuery("SELECT orderkey__c FROM orders__c WHERE orderkey__c IN (1, 2E0, 3)");
-        assertQuery("SELECT orderkey__c FROM orders__c WHERE totalprice__c IN (1, 2, 3)");
+        assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c IN (1, 2, 3)");
+        assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c IN (1.5, 2.3)", "SELECT orderkey FROM orders LIMIT 0"); // H2 incorrectly matches rows
+        assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c IN (1, 2E0, 3)");
+        assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE totalprice__c IN (1, 2, 3)");
     }
 
     @Test(dataProvider = "largeInValuesCount")
@@ -412,11 +422,11 @@ public class TestSalesforceConnectorTest
         String longValues = range(0, valuesCount)
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
-        assertQuery("SELECT orderkey__c FROM orders__c WHERE orderkey__c IN (" + longValues + ")");
-        assertQuery("SELECT orderkey__c FROM orders__c WHERE orderkey__c NOT IN (" + longValues + ")");
+        assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c IN (" + longValues + ")");
+        assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c NOT IN (" + longValues + ")");
 
-        assertQuery("SELECT orderkey__c FROM orders__c WHERE orderkey__c IN (mod(1000, orderkey__c), " + longValues + ")");
-        assertQuery("SELECT orderkey__c FROM orders__c WHERE orderkey__c NOT IN (mod(1000, orderkey__c), " + longValues + ")");
+        assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c IN (mod(1000, orderkey__c), " + longValues + ")");
+        assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c NOT IN (mod(1000, orderkey__c), " + longValues + ")");
     }
 
     @DataProvider
@@ -479,14 +489,14 @@ public class TestSalesforceConnectorTest
     public void testShowTablesLike()
     {
         assertThat(computeActual("SHOW TABLES LIKE 'or%'").getOnlyColumnAsSet())
-                .contains("orders__c")
+                .contains(salesforceOrdersTableName)
                 .allMatch(tableName -> ((String) tableName).startsWith("or"));
     }
 
     @Test
     public void testShowColumns()
     {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders__c");
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM " + salesforceOrdersTableName);
         MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("id", "varchar(18)", "", "Label Record ID corresponds to this field.")
                 .row("ownerid", "varchar(18)", "", "Label Owner ID corresponds to this field.")
@@ -517,13 +527,13 @@ public class TestSalesforceConnectorTest
     public void testInformationSchemaFiltering()
     {
         assertQuery(
-                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders__c' LIMIT 1",
-                "SELECT 'orders__c' table_name");
+                "SELECT table_name FROM information_schema.tables WHERE table_name = " + "'%s'".formatted(salesforceOrdersTableName) + "LIMIT 1",
+                "SELECT " + "'%s'".formatted(salesforceOrdersTableName) + " table_name");
 
         // Salesforce data type for custkey column is double
         assertQuery(
-                "SELECT table_name FROM information_schema.columns WHERE data_type = 'double' AND table_name = 'customer__c' and column_name = 'custkey__c' LIMIT 1",
-                "SELECT 'customer__c' table_name");
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'double' AND table_name = '%s' and column_name = 'custkey__c' LIMIT 1".formatted(salesforceCustomerTableName),
+                "SELECT '%s' table_name".formatted(salesforceCustomerTableName));
     }
 
     @Test
@@ -543,61 +553,61 @@ public class TestSalesforceConnectorTest
     @Test
     public void testTopN()
     {
-        assertQueryOrdered("SELECT n.name__c, r.name__c FROM nation__c n LEFT JOIN region__c r ON n.regionkey__c = r.regionkey__c ORDER BY n.name__c LIMIT 1");
+        assertQueryOrdered("SELECT n.name__c, r.name__c FROM " + salesforceNationTableName + " n LEFT JOIN " + salesforceRegionTableName + " r ON n.regionkey__c = r.regionkey__c ORDER BY n.name__c LIMIT 1");
 
-        assertQueryOrdered("SELECT orderkey__c FROM orders__c ORDER BY orderkey__c LIMIT 10");
-        assertQueryOrdered("SELECT orderkey__c FROM orders__c ORDER BY orderkey__c DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c DESC LIMIT 10");
 
-        // multiple sort columns with different sort orders__c
-        assertQueryOrdered("SELECT orderpriority__c, totalprice__c FROM orders__c ORDER BY orderpriority__c DESC, totalprice__c ASC LIMIT 10");
+        // multiple sort columns with different sort ORDERS_TABLE_NAME
+        assertQueryOrdered("SELECT orderpriority__c, totalprice__c FROM " + salesforceOrdersTableName + " ORDER BY orderpriority__c DESC, totalprice__c ASC LIMIT 10");
 
         // TopN with Filter
-        assertQueryOrdered("SELECT orderkey__c FROM orders__c WHERE orderkey__c > 10 ORDER BY orderkey__c DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c > 10 ORDER BY orderkey__c DESC LIMIT 10");
 
         // TopN over aggregation column
-        assertQueryOrdered("SELECT sum(totalprice__c), clerk__c FROM orders__c GROUP BY clerk__c ORDER BY sum(totalprice__c) LIMIT 10");
+        assertQueryOrdered("SELECT sum(totalprice__c), clerk__c FROM " + salesforceOrdersTableName + " GROUP BY clerk__c ORDER BY sum(totalprice__c) LIMIT 10");
 
         // TopN over TopN
-        assertQueryOrdered("SELECT orderkey__c, totalprice__c FROM (SELECT orderkey__c, totalprice__c FROM orders__c ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5");
+        assertQueryOrdered("SELECT orderkey__c, totalprice__c FROM (SELECT orderkey__c, totalprice__c FROM " + salesforceOrdersTableName + " ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5");
 
         // TopN over complex query
         assertQueryOrdered(
                 "SELECT totalprice__c_sum, clerk__c " +
-                        "FROM (SELECT SUM(totalprice__c) as totalprice__c_sum, clerk__c FROM orders__c WHERE orderpriority__c='1-URGENT' GROUP BY clerk__c ORDER BY totalprice__c_sum DESC LIMIT 10)" +
+                        "FROM (SELECT SUM(totalprice__c) as totalprice__c_sum, clerk__c FROM " + salesforceOrdersTableName + " WHERE orderpriority__c='1-URGENT' GROUP BY clerk__c ORDER BY totalprice__c_sum DESC LIMIT 10)" +
                         "ORDER BY clerk__c DESC LIMIT 5");
 
         // TopN over aggregation with filter
         assertQueryOrdered(
                 "SELECT * " +
-                        "FROM (SELECT SUM(totalprice__c) as sum, custkey__c AS total FROM orders__c GROUP BY custkey__c HAVING COUNT(*) > 3) " +
+                        "FROM (SELECT SUM(totalprice__c) as sum, custkey__c AS total FROM " + salesforceOrdersTableName + " GROUP BY custkey__c HAVING COUNT(*) > 3) " +
                         "ORDER BY sum DESC LIMIT 10");
     }
 
     @Test
     public void testTopNByMultipleFields()
     {
-        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY orderkey__c ASC, custkey__c ASC LIMIT 10");
-        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY orderkey__c ASC, custkey__c DESC LIMIT 10");
-        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY orderkey__c DESC, custkey__c ASC LIMIT 10");
-        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY orderkey__c DESC, custkey__c DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c ASC, custkey__c ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c ASC, custkey__c DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c DESC, custkey__c ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c DESC, custkey__c DESC LIMIT 10");
 
         // now try with order by fields swapped
-        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY custkey__c ASC, orderkey__c ASC LIMIT 10");
-        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY custkey__c ASC, orderkey__c DESC LIMIT 10");
-        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY custkey__c DESC, orderkey__c ASC LIMIT 10");
-        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY custkey__c DESC, orderkey__c DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY custkey__c ASC, orderkey__c ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY custkey__c ASC, orderkey__c DESC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY custkey__c DESC, orderkey__c ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY custkey__c DESC, orderkey__c DESC LIMIT 10");
 
         // nulls first
-        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY nullif(orderkey__c, 3) ASC NULLS FIRST, custkey__c ASC LIMIT 10");
-        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY nullif(orderkey__c, 3) DESC NULLS FIRST, custkey__c ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY nullif(orderkey__c, 3) ASC NULLS FIRST, custkey__c ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY nullif(orderkey__c, 3) DESC NULLS FIRST, custkey__c ASC LIMIT 10");
 
         // nulls last
-        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY nullif(orderkey__c, 3) ASC NULLS LAST LIMIT 10");
-        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY nullif(orderkey__c, 3) DESC NULLS LAST, custkey__c ASC LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY nullif(orderkey__c, 3) ASC NULLS LAST LIMIT 10");
+        assertQueryOrdered("SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY nullif(orderkey__c, 3) DESC NULLS LAST, custkey__c ASC LIMIT 10");
 
         // assure that default is nulls last
         assertQueryOrdered(
-                "SELECT orderkey__c, custkey__c, orderstatus__c FROM orders__c ORDER BY nullif(orderkey__c, 3) ASC, custkey__c ASC LIMIT 10",
+                "SELECT orderkey__c, custkey__c, orderstatus__c FROM " + salesforceOrdersTableName + " ORDER BY nullif(orderkey__c, 3) ASC, custkey__c ASC LIMIT 10",
                 "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS LAST, custkey ASC LIMIT 10");
     }
 
@@ -615,18 +625,18 @@ public class TestSalesforceConnectorTest
         assertQuery("""
                 SELECT *
                 FROM (
-                  SELECT orderkey__c+1 AS a FROM orders__c WHERE orderstatus__c = 'F' UNION ALL
-                  SELECT orderkey__c FROM orders__c WHERE orderkey__c % 2 = 0 UNION ALL
-                  (SELECT orderkey__c+custkey__c FROM orders__c ORDER BY orderkey__c LIMIT 10))
+                  SELECT orderkey__c+1 AS a FROM %s WHERE orderstatus__c = 'F' UNION ALL
+                  SELECT orderkey__c FROM %s WHERE orderkey__c %% 2 = 0 UNION ALL
+                  (SELECT orderkey__c+custkey__c FROM %s ORDER BY orderkey__c LIMIT 10))
                 WHERE a < 20 OR a > 100
-                ORDER BY a""");
+                ORDER BY a""".formatted(salesforceOrdersTableName, salesforceOrdersTableName, salesforceOrdersTableName));
     }
 
     @Test
     public void testTableSampleBernoulliBoundaryValues()
     {
-        MaterializedResult fullSample = computeActual("SELECT orderkey__c FROM orders__c TABLESAMPLE BERNOULLI (100)");
-        MaterializedResult emptySample = computeActual("SELECT orderkey__c FROM orders__c TABLESAMPLE BERNOULLI (0)");
+        MaterializedResult fullSample = computeActual("SELECT orderkey__c FROM " + salesforceOrdersTableName + " TABLESAMPLE BERNOULLI (100)");
+        MaterializedResult emptySample = computeActual("SELECT orderkey__c FROM " + salesforceOrdersTableName + " TABLESAMPLE BERNOULLI (0)");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", fullSample.getTypes());
 
         assertContains(all, fullSample);
@@ -641,7 +651,7 @@ public class TestSalesforceConnectorTest
         int total = computeExpected("SELECT orderkey FROM orders", ImmutableList.of(BIGINT)).getMaterializedRows().size();
 
         for (int i = 0; i < 100; i++) {
-            List<MaterializedRow> values = computeActual("SELECT orderkey__c FROM orders__c TABLESAMPLE BERNOULLI (50)").getMaterializedRows();
+            List<MaterializedRow> values = computeActual("SELECT orderkey__c FROM " + salesforceOrdersTableName + " TABLESAMPLE BERNOULLI (50)").getMaterializedRows();
 
             org.testng.Assert.assertEquals(values.size(), ImmutableSet.copyOf(values).size(), "TABLESAMPLE produced duplicate rows");
             stats.addValue(values.size() * 1.0 / total);
@@ -654,8 +664,8 @@ public class TestSalesforceConnectorTest
     @Test
     public void testFilterPushdownWithAggregation()
     {
-        assertQuery("SELECT * FROM (SELECT count(*) FROM orders__c) WHERE 0=1");
-        assertQuery("SELECT * FROM (SELECT count(*) FROM orders__c) WHERE null");
+        assertQuery("SELECT * FROM (SELECT count(*) FROM " + salesforceOrdersTableName + ") WHERE 0=1");
+        assertQuery("SELECT * FROM (SELECT count(*) FROM " + salesforceOrdersTableName + ") WHERE null");
     }
 
     // AbstractTestDistributedQueries
@@ -726,31 +736,31 @@ public class TestSalesforceConnectorTest
     {
         String tableName = "test_ctas" + randomNameSuffix();
         if (!supportsCreateTable()) {
-            assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name__c, regionkey__c FROM nation__c", "This connector does not support creating tables with data");
+            assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name__c, regionkey__c FROM " + salesforceNationTableName, "This connector does not support creating tables with data");
             return;
         }
-        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name__c, regionkey__c FROM nation__c", "SELECT count(*) FROM nation__c");
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name__c, regionkey__c FROM " + salesforceNationTableName, "SELECT count(*) FROM " + salesforceNationTableName);
         assertTableColumnNames(tableName, "name__c", "regionkey__c");
         assertUpdate("DROP TABLE " + tableName);
 
         // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
-        assertUpdate("CREATE TABLE IF NOT EXISTS nation__c AS SELECT custkey__c, acctbal FROM customer__c", 0);
-        assertTableColumnNames("nation__c", "nationkey__c", "name__c", "regionkey__c", "comment__c");
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + salesforceNationTableName + " AS SELECT custkey__c, acctbal FROM %s".formatted(salesforceCustomerTableName), 0);
+        assertTableColumnNames(salesforceNationTableName, "nationkey__c", "name__c", "regionkey__c", "comment__c");
 
         assertCreateTableAsSelect(
-                "SELECT custkey__c, address, acctbal FROM customer__c",
-                "SELECT count(*) FROM customer__c");
+                "SELECT custkey__c, address, acctbal FROM " + salesforceCustomerTableName,
+                "SELECT count(*) FROM " + salesforceCustomerTableName);
 
         assertCreateTableAsSelect(
-                "SELECT mktsegment, sum(acctbal) x FROM customer__c GROUP BY mktsegment",
-                "SELECT count(DISTINCT mktsegment) FROM customer__c");
+                "SELECT mktsegment, sum(acctbal) x FROM " + salesforceCustomerTableName + " GROUP BY mktsegment",
+                "SELECT count(DISTINCT mktsegment) FROM " + salesforceCustomerTableName);
 
         assertCreateTableAsSelect(
-                "SELECT count(*) x FROM customer__c JOIN nation__c ON customer__c.nationkey__c = nation__c.nationkey__c",
+                "SELECT count(*) x FROM " + salesforceCustomerTableName + " JOIN " + salesforceNationTableName + " ON " + salesforceCustomerTableName + ".nationkey__c = " + salesforceNationTableName + ".nationkey__c",
                 "SELECT 1");
 
         assertCreateTableAsSelect(
-                "SELECT custkey__c FROM customer__c ORDER BY custkey__c LIMIT 10",
+                "SELECT custkey__c FROM " + salesforceCustomerTableName + " ORDER BY custkey__c LIMIT 10",
                 "SELECT 10");
 
         assertCreateTableAsSelect(
@@ -758,41 +768,41 @@ public class TestSalesforceConnectorTest
                 "SELECT 1");
 
         assertCreateTableAsSelect(
-                "SELECT * FROM customer__c WITH DATA",
-                "SELECT * FROM customer__c",
-                "SELECT count(*) FROM customer__c");
+                "SELECT * FROM " + salesforceCustomerTableName + " WITH DATA",
+                "SELECT * FROM " + salesforceCustomerTableName,
+                "SELECT count(*) FROM " + salesforceCustomerTableName);
 
         assertCreateTableAsSelect(
-                "SELECT * FROM customer__c WITH NO DATA",
-                "SELECT * FROM customer__c LIMIT 0",
+                "SELECT * FROM " + salesforceCustomerTableName + " WITH NO DATA",
+                "SELECT * FROM " + salesforceCustomerTableName + " LIMIT 0",
                 "SELECT 0");
 
         // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
 
         assertCreateTableAsSelect(
-                "SELECT name__c, custkey__c, acctbal FROM customer__c WHERE custkey__c % 2 = 0 UNION ALL " +
-                        "SELECT name__c, custkey__c, acctbal FROM customer__c WHERE custkey__c % 2 = 1",
-                "SELECT name__c, custkey__c, acctbal FROM customer__c",
-                "SELECT count(*) FROM customer__c");
+                "SELECT name__c, custkey__c, acctbal FROM " + salesforceCustomerTableName + " WHERE custkey__c % 2 = 0 UNION ALL " +
+                        "SELECT name__c, custkey__c, acctbal FROM " + salesforceCustomerTableName + " WHERE custkey__c % 2 = 1",
+                "SELECT name__c, custkey__c, acctbal FROM " + salesforceCustomerTableName,
+                "SELECT count(*) FROM " + salesforceCustomerTableName);
 
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
-                "SELECT CAST(custkey__c AS BIGINT) custkey__c, acctbal FROM customer__c UNION ALL " +
+                "SELECT CAST(custkey__c AS BIGINT) custkey__c, acctbal FROM " + salesforceCustomerTableName + " UNION ALL " +
                         "SELECT 1234567890, 1.23",
-                "SELECT custkey__c, acctbal FROM customer__c UNION ALL " +
+                "SELECT custkey__c, acctbal FROM " + salesforceCustomerTableName + " UNION ALL " +
                         "SELECT 1234567890, 1.23",
-                "SELECT count(*) + 1 FROM customer__c");
+                "SELECT count(*) + 1 FROM " + salesforceCustomerTableName);
 
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
-                "SELECT CAST(custkey__c AS BIGINT) custkey__c, acctbal FROM customer__c UNION ALL " +
+                "SELECT CAST(custkey__c AS BIGINT) custkey__c, acctbal FROM " + salesforceCustomerTableName + " UNION ALL " +
                         "SELECT 1234567890, 1.23",
-                "SELECT custkey__c, acctbal FROM customer__c UNION ALL " +
+                "SELECT custkey__c, acctbal FROM " + salesforceCustomerTableName + " UNION ALL " +
                         "SELECT 1234567890, 1.23",
-                "SELECT count(*) + 1 FROM customer__c");
+                "SELECT count(*) + 1 FROM " + salesforceCustomerTableName);
 
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT mktsegment FROM customer__c");
-        assertQuery("SELECT * from " + tableName, "SELECT mktsegment FROM customer__c");
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT mktsegment FROM " + salesforceCustomerTableName);
+        assertQuery("SELECT * from " + tableName, "SELECT mktsegment FROM " + salesforceCustomerTableName);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -852,7 +862,7 @@ public class TestSalesforceConnectorTest
     public void testCommentTable()
     {
         if (!supportsCommentOnTable()) {
-            assertQueryFails("COMMENT ON TABLE nation__c IS 'new comment__c'", "This connector does not support setting table comments");
+            assertQueryFails("COMMENT ON TABLE " + salesforceNationTableName + " IS 'new comment__c'", "This connector does not support setting table comments");
             return;
         }
 
@@ -901,7 +911,7 @@ public class TestSalesforceConnectorTest
     public void testCommentColumn()
     {
         if (!supportsCommentOnColumn()) {
-            assertQueryFails("COMMENT ON COLUMN nation__c.nationkey__c IS 'new comment__c'", "This connector does not support setting column comments");
+            assertQueryFails("COMMENT ON COLUMN " + salesforceNationTableName + ".nationkey__c IS 'new comment__c'", "This connector does not support setting column comments");
             return;
         }
 
@@ -1044,17 +1054,17 @@ public class TestSalesforceConnectorTest
     public void testInsert()
     {
         if (!supportsInsert()) {
-            assertQueryFails("INSERT INTO nation__c(nationkey__c) VALUES (42)", "This connector does not support inserts");
+            assertQueryFails("INSERT INTO " + salesforceNationTableName + "(nationkey__c) VALUES (42)", "This connector does not support inserts");
             return;
         }
 
-        String query = "SELECT phone, custkey__c, acctbal FROM customer__c";
+        String query = "SELECT phone, custkey__c, acctbal FROM " + salesforceCustomerTableName;
 
         String tableName = "test_insert_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS " + query + " WITH NO DATA", 0);
         assertQuery("SELECT count(*) FROM " + tableName + "", "SELECT 0");
 
-        assertUpdate("INSERT INTO " + tableName + " " + query, "SELECT count(*) FROM customer__c");
+        assertUpdate("INSERT INTO " + tableName + " " + query, "SELECT count(*) FROM " + salesforceCustomerTableName);
 
         assertQuery("SELECT * FROM " + tableName + "", query);
 
@@ -1077,10 +1087,10 @@ public class TestSalesforceConnectorTest
         // of how they are declared in the table schema
         assertUpdate(
                 "INSERT INTO " + tableName + " (custkey__c, phone, acctbal) " +
-                        "SELECT custkey__c, phone, acctbal FROM customer__c " +
+                        "SELECT custkey__c, phone, acctbal FROM %s ".formatted(salesforceCustomerTableName) +
                         "UNION ALL " +
-                        "SELECT custkey__c, phone, acctbal FROM customer__c",
-                "SELECT 2 * count(*) FROM customer__c");
+                        "SELECT custkey__c, phone, acctbal FROM " + salesforceCustomerTableName,
+                "SELECT 2 * count(*) FROM " + salesforceCustomerTableName);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1143,127 +1153,127 @@ public class TestSalesforceConnectorTest
     public void testDelete()
     {
         if (!supportsDelete()) {
-            assertQueryFails("DELETE FROM nation__c", "This connector does not support deletes");
+            assertQueryFails("DELETE FROM " + salesforceNationTableName, "This connector does not support deletes");
             return;
         }
 
         String tableName = "test_delete_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders__c", "SELECT count(*) FROM orders__c");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM " + salesforceOrdersTableName, "SELECT count(*) FROM " + salesforceOrdersTableName);
 
         // delete half the table, then delete the rest
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey__c % 2 = 0", "SELECT count(*) FROM orders__c WHERE orderkey__c % 2 = 0");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders__c WHERE orderkey__c % 2 <> 0");
+        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey__c % 2 = 0", "SELECT count(*) FROM " + salesforceOrdersTableName + " WHERE orderkey__c % 2 = 0");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM " + salesforceOrdersTableName + " WHERE orderkey__c % 2 <> 0");
 
-        assertUpdate("DELETE FROM " + tableName, "SELECT count(*) FROM orders__c WHERE orderkey__c % 2 <> 0");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders__c LIMIT 0");
+        assertUpdate("DELETE FROM " + tableName, "SELECT count(*) FROM " + salesforceOrdersTableName + " WHERE orderkey__c % 2 <> 0");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM " + salesforceOrdersTableName + " LIMIT 0");
 
         assertUpdate("DROP TABLE " + tableName);
 
         // delete successive parts of the table
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders__c", "SELECT count(*) FROM orders__c");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM " + salesforceOrdersTableName, "SELECT count(*) FROM " + salesforceOrdersTableName);
 
-        assertUpdate("DELETE FROM " + tableName + " WHERE custkey__c <= 100", "SELECT count(*) FROM orders__c WHERE custkey__c <= 100");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders__c WHERE custkey__c > 100");
+        assertUpdate("DELETE FROM " + tableName + " WHERE custkey__c <= 100", "SELECT count(*) FROM " + salesforceOrdersTableName + " WHERE custkey__c <= 100");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM " + salesforceOrdersTableName + " WHERE custkey__c > 100");
 
-        assertUpdate("DELETE FROM " + tableName + " WHERE custkey__c <= 300", "SELECT count(*) FROM orders__c WHERE custkey__c > 100 AND custkey__c <= 300");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders__c WHERE custkey__c > 300");
+        assertUpdate("DELETE FROM " + tableName + " WHERE custkey__c <= 300", "SELECT count(*) FROM " + salesforceOrdersTableName + " WHERE custkey__c > 100 AND custkey__c <= 300");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM " + salesforceOrdersTableName + " WHERE custkey__c > 300");
 
-        assertUpdate("DELETE FROM " + tableName + " WHERE custkey__c <= 500", "SELECT count(*) FROM orders__c WHERE custkey__c > 300 AND custkey__c <= 500");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders__c WHERE custkey__c > 500");
+        assertUpdate("DELETE FROM " + tableName + " WHERE custkey__c <= 500", "SELECT count(*) FROM " + salesforceOrdersTableName + " WHERE custkey__c > 300 AND custkey__c <= 500");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM " + salesforceOrdersTableName + " WHERE custkey__c > 500");
 
         assertUpdate("DROP TABLE " + tableName);
 
         // delete using a constant property
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders__c", "SELECT count(*) FROM orders__c");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM " + salesforceOrdersTableName, "SELECT count(*) FROM " + salesforceOrdersTableName);
 
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderstatus__c = 'O'", "SELECT count(*) FROM orders__c WHERE orderstatus__c = 'O'");
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders__c WHERE orderstatus__c <> 'O'");
+        assertUpdate("DELETE FROM " + tableName + " WHERE orderstatus__c = 'O'", "SELECT count(*) FROM " + salesforceOrdersTableName + " WHERE orderstatus__c = 'O'");
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM " + salesforceOrdersTableName + " WHERE orderstatus__c <> 'O'");
 
         assertUpdate("DROP TABLE " + tableName);
 
         // delete without matching any rows
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders__c", "SELECT count(*) FROM orders__c");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM " + salesforceOrdersTableName, "SELECT count(*) FROM " + salesforceOrdersTableName);
         assertUpdate("DELETE FROM " + tableName + " WHERE rand() < 0", 0);
         assertUpdate("DELETE FROM " + tableName + " WHERE orderkey__c < 0", 0);
         assertUpdate("DROP TABLE " + tableName);
 
         // delete with a predicate that optimizes to false
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders__c", "SELECT count(*) FROM orders__c");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM " + salesforceOrdersTableName, "SELECT count(*) FROM " + salesforceOrdersTableName);
         assertUpdate("DELETE FROM " + tableName + " WHERE orderkey__c > 5 AND orderkey__c < 4", 0);
         assertUpdate("DROP TABLE " + tableName);
 
         // delete using a subquery
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM lineitem__c", "SELECT count(*) FROM lineitem__c");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM " + salesforceLineitemTableName, "SELECT count(*) FROM " + salesforceLineitemTableName);
 
         assertUpdate(
-                "DELETE FROM " + tableName + " WHERE orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE orderstatus__c = 'F')",
-                "SELECT count(*) FROM lineitem__c WHERE orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE orderstatus__c = 'F')");
+                "DELETE FROM " + tableName + " WHERE orderkey__c IN (SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderstatus__c = 'F')",
+                "SELECT count(*) FROM " + salesforceLineitemTableName + " WHERE orderkey__c IN (SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderstatus__c = 'F')");
         assertQuery(
                 "SELECT * FROM " + tableName,
-                "SELECT * FROM lineitem__c WHERE orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE orderstatus__c <> 'F')");
+                "SELECT * FROM " + salesforceLineitemTableName + " WHERE orderkey__c IN (SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderstatus__c <> 'F')");
 
         assertUpdate("DROP TABLE " + tableName);
 
         // delete with multiple SemiJoin
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM lineitem__c", "SELECT count(*) FROM lineitem__c");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM " + salesforceLineitemTableName, "SELECT count(*) FROM " + salesforceLineitemTableName);
 
         assertUpdate(
                 "DELETE FROM " + tableName + "\n" +
-                        "WHERE orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE orderstatus__c = 'F')\n" +
-                        "  AND orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE custkey__c % 5 = 0)\n",
+                        "WHERE orderkey__c IN (SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderstatus__c = 'F')\n" +
+                        "  AND orderkey__c IN (SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE custkey__c % 5 = 0)\n",
                 """
-                        SELECT count(*) FROM lineitem__c
-                        WHERE orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE orderstatus__c = 'F')
-                          AND orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE custkey__c % 5 = 0)""");
+                        SELECT count(*) FROM %s
+                        WHERE orderkey__c IN (SELECT orderkey__c FROM %s WHERE orderstatus__c = 'F')
+                          AND orderkey__c IN (SELECT orderkey__c FROM %s WHERE custkey__c %% 5 = 0)""".formatted(salesforceLineitemTableName, salesforceOrdersTableName, salesforceOrdersTableName));
         assertQuery(
                 "SELECT * FROM " + tableName,
                 """
-                        SELECT * FROM lineitem__c
-                        WHERE orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE orderstatus__c <> 'F')
-                          OR orderkey__c IN (SELECT orderkey__c FROM orders__c WHERE custkey__c % 5 <> 0)""");
+                        SELECT * FROM %s
+                        WHERE orderkey__c IN (SELECT orderkey__c FROM %s WHERE orderstatus__c <> 'F')
+                          OR orderkey__c IN (SELECT orderkey__c FROM %s WHERE custkey__c %% 5 <> 0)""".formatted(salesforceLineitemTableName, salesforceOrdersTableName, salesforceOrdersTableName));
 
         assertUpdate("DROP TABLE " + tableName);
 
         // delete with SemiJoin null handling
 
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders__c", "SELECT count(*) FROM orders__c");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM " + salesforceOrdersTableName, "SELECT count(*) FROM " + salesforceOrdersTableName);
 
         assertUpdate(
                 "DELETE FROM " + tableName + "\n" +
-                        "WHERE (orderkey__c IN (SELECT CASE WHEN orderkey__c % 3 = 0 THEN NULL ELSE orderkey__c END FROM lineitem__c)) IS NULL\n",
+                        "WHERE (orderkey__c IN (SELECT CASE WHEN orderkey__c %% 3 = 0 THEN NULL ELSE orderkey__c END FROM %s)) IS NULL\n".formatted(salesforceLineitemTableName),
                 """
-                        SELECT count(*) FROM orders__c
-                        WHERE (orderkey__c IN (SELECT CASE WHEN orderkey__c % 3 = 0 THEN NULL ELSE orderkey__c END FROM lineitem__c)) IS NULL
-                        """);
+                        SELECT count(*) FROM %s
+                        WHERE (orderkey__c IN (SELECT CASE WHEN orderkey__c %% 3 = 0 THEN NULL ELSE orderkey__c END FROM %s)) IS NULL
+                        """.formatted(salesforceOrdersTableName, salesforceLineitemTableName));
         assertQuery(
                 "SELECT * FROM " + tableName,
                 """
-                        SELECT * FROM orders__c
-                        WHERE (orderkey__c IN (SELECT CASE WHEN orderkey__c % 3 = 0 THEN NULL ELSE orderkey__c END FROM lineitem__c)) IS NOT NULL
-                        """);
+                        SELECT * FROM %s
+                        WHERE (orderkey__c IN (SELECT CASE WHEN orderkey__c %% 3 = 0 THEN NULL ELSE orderkey__c END FROM %s)) IS NOT NULL
+                        """.formatted(salesforceOrdersTableName, salesforceLineitemTableName));
 
         assertUpdate("DROP TABLE " + tableName);
 
         // delete using a scalar and EXISTS subquery
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders__c", "SELECT count(*) FROM orders__c");
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey__c = (SELECT orderkey__c FROM orders__c ORDER BY orderkey__c LIMIT 1)", 1);
-        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey__c = (SELECT orderkey__c FROM orders__c WHERE false)", 0);
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM " + salesforceOrdersTableName, "SELECT count(*) FROM " + salesforceOrdersTableName);
+        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey__c = (SELECT orderkey__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c LIMIT 1)", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE orderkey__c = (SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE false)", 0);
         assertUpdate("DELETE FROM " + tableName + " WHERE EXISTS(SELECT 1 WHERE false)", 0);
-        assertUpdate("DELETE FROM " + tableName + " WHERE EXISTS(SELECT 1)", "SELECT count(*) - 1 FROM orders__c");
+        assertUpdate("DELETE FROM " + tableName + " WHERE EXISTS(SELECT 1)", "SELECT count(*) - 1 FROM " + salesforceOrdersTableName);
         assertUpdate("DROP TABLE " + tableName);
 
         // test EXPLAIN ANALYZE with CTAS
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT CAST(orderstatus__c AS VARCHAR(15)) orderstatus__c FROM orders__c");
-        assertQuery("SELECT * from " + tableName, "SELECT orderstatus__c FROM orders__c");
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT CAST(orderstatus__c AS VARCHAR(15)) orderstatus__c FROM " + salesforceOrdersTableName);
+        assertQuery("SELECT * from " + tableName, "SELECT orderstatus__c FROM " + salesforceOrdersTableName);
         // check that INSERT works also
-        assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO " + tableName + " SELECT clerk__c FROM orders__c");
-        assertQuery("SELECT * from " + tableName, "SELECT orderstatus__c FROM orders__c UNION ALL SELECT clerk__c FROM orders__c");
+        assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO " + tableName + " SELECT clerk__c FROM " + salesforceOrdersTableName);
+        assertQuery("SELECT * from " + tableName, "SELECT orderstatus__c FROM " + salesforceOrdersTableName + " UNION ALL SELECT clerk__c FROM " + salesforceOrdersTableName);
         // check DELETE works with EXPLAIN ANALYZE
         assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE TRUE");
         assertQuery("SELECT COUNT(*) from " + tableName, "SELECT 0");
@@ -1283,18 +1293,18 @@ public class TestSalesforceConnectorTest
     {
         skipTestUnless(supportsViews());
 
-        @Language("SQL") String query = "SELECT orderkey__c, orderstatus__c, totalprice__c / 2 half FROM orders__c";
+        @Language("SQL") String query = "SELECT orderkey__c, orderstatus__c, totalprice__c / 2 half FROM " + salesforceOrdersTableName;
 
         String testView = "test_view_" + randomNameSuffix();
         String testViewWithComment = "test_view_with_comment_" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + testView + " AS SELECT 123 x");
         assertUpdate("CREATE OR REPLACE VIEW " + testView + " AS " + query);
 
-        assertUpdate("CREATE VIEW " + testViewWithComment + " COMMENT 'orders__c' AS SELECT 123 x");
-        assertUpdate("CREATE OR REPLACE VIEW " + testViewWithComment + " COMMENT 'orders__c' AS " + query);
+        assertUpdate("CREATE VIEW " + testViewWithComment + " COMMENT '%s' AS SELECT 123 x".formatted(salesforceOrdersTableName));
+        assertUpdate("CREATE OR REPLACE VIEW " + testViewWithComment + " COMMENT '%s' AS ".formatted(salesforceOrdersTableName) + query);
 
         MaterializedResult materializedRows = computeActual("SHOW CREATE VIEW " + testViewWithComment);
-        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT 'orders__c'");
+        assertThat((String) materializedRows.getOnlyValue()).contains("COMMENT '%s'".formatted(salesforceOrdersTableName));
 
         assertQuery("SELECT * FROM " + testView, query);
         assertQuery("SELECT * FROM " + testViewWithComment, query);
@@ -1303,7 +1313,7 @@ public class TestSalesforceConnectorTest
                 "SELECT * FROM " + testView + " a JOIN " + testView + " b on a.orderkey__c = b.orderkey__c",
                 format("SELECT * FROM (%s) a JOIN (%s) b ON a.orderkey__c = b.orderkey__c", query, query));
 
-        assertQuery("WITH orders__c AS (SELECT * FROM orders__c LIMIT 0) SELECT * FROM " + testView, query);
+        assertQuery("WITH " + salesforceOrdersTableName + " AS (SELECT * FROM " + salesforceOrdersTableName + " LIMIT 0) SELECT * FROM " + testView, query);
 
         String name = format("%s.%s." + testView, getSession().getCatalog().get(), getSession().getSchema().get());
         assertQuery("SELECT * FROM " + name, query);
@@ -1391,12 +1401,12 @@ public class TestSalesforceConnectorTest
                 getSession().getSchema().get()));
 
         MaterializedResult expected = resultBuilder(getSession(), actual.getTypes())
-                .row("customer__c", "BASE TABLE")
-                .row("lineitem__c", "BASE TABLE")
+                .row(salesforceCustomerTableName, "BASE TABLE")
+                .row(salesforceLineitemTableName, "BASE TABLE")
                 .row(viewName, "VIEW")
-                .row("nation__c", "BASE TABLE")
-                .row("orders__c", "BASE TABLE")
-                .row("region__c", "BASE TABLE")
+                .row(salesforceNationTableName, "BASE TABLE")
+                .row(salesforceOrdersTableName, "BASE TABLE")
+                .row(salesforceRegionTableName, "BASE TABLE")
                 .build();
 
         assertContains(actual, expected);
@@ -1570,7 +1580,7 @@ public class TestSalesforceConnectorTest
         skipTestUnless(supportsInsert());
 
         String tableName = "test_written_stats_" + randomNameSuffix();
-        String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation__c";
+        String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM " + salesforceNationTableName;
         MaterializedResultWithQueryId resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
         QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
@@ -1578,7 +1588,7 @@ public class TestSalesforceConnectorTest
         org.testng.Assert.assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
         assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
 
-        sql = "INSERT INTO " + tableName + " SELECT * FROM nation__c LIMIT 10";
+        sql = "INSERT INTO " + tableName + " SELECT * FROM " + salesforceNationTableName + " LIMIT 10";
         resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
         queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
@@ -2002,110 +2012,110 @@ public class TestSalesforceConnectorTest
     @Test
     public void testColumnsInReverseOrder()
     {
-        assertQuery("SELECT shippriority__c, clerk__c, totalprice__c FROM orders__c");
+        assertQuery("SELECT shippriority__c, clerk__c, totalprice__c FROM " + salesforceOrdersTableName);
     }
 
     @Test
     public void testAggregation()
     {
-        assertQuery("SELECT sum(orderkey__c) FROM orders__c", "SELECT sum(orderkey) FROM orders");
-        assertQuery("SELECT sum(totalprice__c) FROM orders__c", "SELECT sum(totalprice) FROM orders");
-        assertQuery("SELECT max(comment__c) FROM nation__c");
+        assertQuery("SELECT sum(orderkey__c) FROM " + salesforceOrdersTableName, "SELECT sum(orderkey) FROM orders");
+        assertQuery("SELECT sum(totalprice__c) FROM " + salesforceOrdersTableName, "SELECT sum(totalprice) FROM orders");
+        assertQuery("SELECT max(comment__c) FROM " + salesforceNationTableName);
 
-        assertQuery("SELECT count(*) FROM orders__c");
-        assertQuery("SELECT count(*) FROM orders__c WHERE orderkey__c > 10");
-        assertQuery("SELECT count(*) FROM (SELECT * FROM orders__c LIMIT 10)");
-        assertQuery("SELECT count(*) FROM (SELECT * FROM orders__c WHERE orderkey__c > 10 LIMIT 10)");
+        assertQuery("SELECT count(*) FROM " + salesforceOrdersTableName);
+        assertQuery("SELECT count(*) FROM " + salesforceOrdersTableName + " WHERE orderkey__c > 10");
+        assertQuery("SELECT count(*) FROM (SELECT * FROM " + salesforceOrdersTableName + " LIMIT 10)");
+        assertQuery("SELECT count(*) FROM (SELECT * FROM " + salesforceOrdersTableName + " WHERE orderkey__c > 10 LIMIT 10)");
 
-        assertQuery("SELECT DISTINCT regionkey__c FROM nation__c");
-        assertQuery("SELECT regionkey__c FROM nation__c GROUP BY regionkey__c");
+        assertQuery("SELECT DISTINCT regionkey__c FROM " + salesforceNationTableName);
+        assertQuery("SELECT regionkey__c FROM " + salesforceNationTableName + " GROUP BY regionkey__c");
 
         // TODO support aggregation pushdown with GROUPING SETS
         assertQuery(
-                "SELECT regionkey__c, nationkey__c FROM nation__c GROUP BY GROUPING SETS ((regionkey__c), (nationkey__c))",
+                "SELECT regionkey__c, nationkey__c FROM " + salesforceNationTableName + " GROUP BY GROUPING SETS ((regionkey__c), (nationkey__c))",
                 "SELECT NULL, nationkey FROM nation " +
                         "UNION ALL SELECT DISTINCT regionkey, NULL FROM nation");
         assertQuery(
-                "SELECT regionkey__c, nationkey__c, count(*) FROM nation__c GROUP BY GROUPING SETS ((), (regionkey__c), (nationkey__c), (regionkey__c, nationkey__c))",
+                "SELECT regionkey__c, nationkey__c, count(*) FROM " + salesforceNationTableName + " GROUP BY GROUPING SETS ((), (regionkey__c), (nationkey__c), (regionkey__c, nationkey__c))",
                 "SELECT NULL, NULL, count(*) FROM nation " +
                         "UNION ALL SELECT NULL, nationkey, 1 FROM nation " +
                         "UNION ALL SELECT regionkey, NULL, count(*) FROM nation GROUP BY regionkey " +
                         "UNION ALL SELECT regionkey, nationkey, 1 FROM nation");
 
-        assertQuery("SELECT count(regionkey__c) FROM nation__c");
-        assertQuery("SELECT count(DISTINCT regionkey__c) FROM nation__c");
-        assertQuery("SELECT regionkey__c, count(*) FROM nation__c GROUP BY regionkey__c");
+        assertQuery("SELECT count(regionkey__c) FROM " + salesforceNationTableName);
+        assertQuery("SELECT count(DISTINCT regionkey__c) FROM " + salesforceNationTableName);
+        assertQuery("SELECT regionkey__c, count(*) FROM " + salesforceNationTableName + " GROUP BY regionkey__c");
 
-        assertQuery("SELECT min(regionkey__c), max(regionkey__c) FROM nation__c");
-        assertQuery("SELECT min(DISTINCT regionkey__c), max(DISTINCT regionkey__c) FROM nation__c");
-        assertQuery("SELECT regionkey__c, min(regionkey__c), min(name__c), max(regionkey__c), max(name__c) FROM nation__c GROUP BY regionkey__c");
+        assertQuery("SELECT min(regionkey__c), max(regionkey__c) FROM " + salesforceNationTableName);
+        assertQuery("SELECT min(DISTINCT regionkey__c), max(DISTINCT regionkey__c) FROM " + salesforceNationTableName);
+        assertQuery("SELECT regionkey__c, min(regionkey__c), min(name__c), max(regionkey__c), max(name__c) FROM " + salesforceNationTableName + " GROUP BY regionkey__c");
 
-        assertQuery("SELECT sum(regionkey__c) FROM nation__c");
-        assertQuery("SELECT sum(DISTINCT regionkey__c) FROM nation__c");
-        assertQuery("SELECT regionkey__c, sum(regionkey__c) FROM nation__c GROUP BY regionkey__c");
+        assertQuery("SELECT sum(regionkey__c) FROM " + salesforceNationTableName);
+        assertQuery("SELECT sum(DISTINCT regionkey__c) FROM " + salesforceNationTableName);
+        assertQuery("SELECT regionkey__c, sum(regionkey__c) FROM " + salesforceNationTableName + " GROUP BY regionkey__c");
 
         assertQuery(
-                "SELECT avg(nationkey__c) FROM nation__c",
+                "SELECT avg(nationkey__c) FROM " + salesforceNationTableName,
                 "SELECT avg(CAST(nationkey AS double)) FROM nation");
         assertQuery(
-                "SELECT avg(DISTINCT nationkey__c) FROM nation__c",
+                "SELECT avg(DISTINCT nationkey__c) FROM " + salesforceNationTableName,
                 "SELECT avg(DISTINCT CAST(nationkey AS double)) FROM nation");
         assertQuery(
-                "SELECT regionkey__c, avg(nationkey__c) FROM nation__c GROUP BY regionkey__c",
+                "SELECT regionkey__c, avg(nationkey__c) FROM " + salesforceNationTableName + " GROUP BY regionkey__c",
                 "SELECT regionkey, avg(CAST(nationkey AS double)) FROM nation GROUP BY regionkey");
     }
 
     @Test
     public void testExactPredicate()
     {
-        assertQueryReturnsEmptyResult("SELECT * FROM orders__c WHERE orderkey__c = 10");
+        assertQueryReturnsEmptyResult("SELECT * FROM " + salesforceOrdersTableName + " WHERE orderkey__c = 10");
 
         // filtered column is selected
-        assertQuery("SELECT custkey__c, orderkey__c FROM orders__c WHERE orderkey__c = 32", "VALUES (1301, 32)");
+        assertQuery("SELECT custkey__c, orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c = 32", "VALUES (1301, 32)");
 
         // filtered column is not selected
-        assertQuery("SELECT custkey__c FROM orders__c WHERE orderkey__c = 32", "VALUES (1301)");
+        assertQuery("SELECT custkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c = 32", "VALUES (1301)");
     }
 
     @Test
     public void testInListPredicate()
     {
-        assertQueryReturnsEmptyResult("SELECT * FROM orders__c WHERE orderkey__c IN (10, 11, 20, 21)");
+        assertQueryReturnsEmptyResult("SELECT * FROM " + salesforceOrdersTableName + " WHERE orderkey__c IN (10, 11, 20, 21)");
 
         // filtered column is selected
-        assertQuery("SELECT custkey__c, orderkey__c FROM orders__c WHERE orderkey__c IN (7, 10, 32, 33)", "VALUES (392, 7), (1301, 32), (670, 33)");
+        assertQuery("SELECT custkey__c, orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c IN (7, 10, 32, 33)", "VALUES (392, 7), (1301, 32), (670, 33)");
 
         // filtered column is not selected
-        assertQuery("SELECT custkey__c FROM orders__c WHERE orderkey__c IN (7, 10, 32, 33)", "VALUES (392), (1301), (670)");
+        assertQuery("SELECT custkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c IN (7, 10, 32, 33)", "VALUES (392), (1301), (670)");
     }
 
     @Test
     public void testIsNullPredicate()
     {
-        assertQueryReturnsEmptyResult("SELECT * FROM orders__c WHERE orderkey__c IS NULL");
-        assertQueryReturnsEmptyResult("SELECT * FROM orders__c WHERE orderkey__c = 10 OR orderkey__c IS NULL");
+        assertQueryReturnsEmptyResult("SELECT * FROM " + salesforceOrdersTableName + " WHERE orderkey__c IS NULL");
+        assertQueryReturnsEmptyResult("SELECT * FROM " + salesforceOrdersTableName + "  WHERE orderkey__c = 10 OR orderkey__c IS NULL");
 
         // filtered column is selected
-        assertQuery("SELECT custkey__c, orderkey__c FROM orders__c WHERE orderkey__c = 32 OR orderkey__c IS NULL", "VALUES (1301, 32)");
+        assertQuery("SELECT custkey__c, orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c = 32 OR orderkey__c IS NULL", "VALUES (1301, 32)");
 
         // filtered column is not selected
-        assertQuery("SELECT custkey__c FROM orders__c WHERE orderkey__c = 32 OR orderkey__c IS NULL", "VALUES (1301)");
+        assertQuery("SELECT custkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c = 32 OR orderkey__c IS NULL", "VALUES (1301)");
     }
 
     @Test
     public void testLikePredicate()
     {
         // filtered column is not selected
-        assertQuery("SELECT orderkey__c FROM orders__c WHERE orderpriority__c LIKE '5-L%'");
+        assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderpriority__c LIKE '5-L%'");
 
         // filtered column is selected
-        assertQuery("SELECT orderkey__c, orderpriority__c FROM orders__c WHERE orderpriority__c LIKE '5-L%'");
+        assertQuery("SELECT orderkey__c, orderpriority__c FROM " + salesforceOrdersTableName + " WHERE orderpriority__c LIKE '5-L%'");
 
         // filtered column is not selected
-        assertQuery("SELECT orderkey__c FROM orders__c WHERE orderpriority__c LIKE '5-L__'");
+        assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderpriority__c LIKE '5-L__'");
 
         // filtered column is selected
-        assertQuery("SELECT orderkey__c, orderpriority__c FROM orders__c WHERE orderpriority__c LIKE '5-L__'");
+        assertQuery("SELECT orderkey__c, orderpriority__c FROM " + salesforceOrdersTableName + " WHERE orderpriority__c LIKE '5-L__'");
     }
 
     @Test
@@ -2114,8 +2124,9 @@ public class TestSalesforceConnectorTest
         // Salesforce is stripping leading whitespace from the comments
         assertQuery("" +
                 "SELECT orderkey__c, custkey__c, orderstatus__c, totalprice__c, orderdate__c, orderpriority__c, clerk__c, shippriority__c, TRIM(comment__c) " +
-                "FROM orders__c " +
-                "WHERE orderkey__c BETWEEN 10 AND 50");
+                "FROM " +
+                salesforceOrdersTableName +
+                " WHERE orderkey__c BETWEEN 10 AND 50");
     }
 
     @Test
@@ -2124,8 +2135,9 @@ public class TestSalesforceConnectorTest
         // Salesforce is stripping leading whitespace from the comments
         assertQuery("" +
                 "SELECT orderkey__c, custkey__c, orderstatus__c, totalprice__c, orderdate__c, orderpriority__c, clerk__c, shippriority__c, TRIM(comment__c) " +
-                "FROM orders__c " +
-                "WHERE orderkey__c BETWEEN 10 AND 50");
+                "FROM " +
+                salesforceOrdersTableName +
+                " WHERE orderkey__c BETWEEN 10 AND 50");
     }
 
     @Test
@@ -2133,7 +2145,7 @@ public class TestSalesforceConnectorTest
     {
         // Even if the predicate is pushed down into the table scan, it should still be reflected in EXPLAIN (via ConnectorTableHandle.toString)
         assertExplain(
-                "EXPLAIN SELECT name__c FROM nation__c WHERE nationkey__c = 42",
+                "EXPLAIN SELECT name__c FROM " + salesforceNationTableName + " WHERE nationkey__c = 42",
                 "(predicate|filterPredicate|constraint).{0,10}(nationkey__c|NATIONKEY)");
     }
 
@@ -2143,7 +2155,7 @@ public class TestSalesforceConnectorTest
         // Salesforce has a hard limit of 10 concurrent queries, otherwise you'll get a INVALID_QUERY_LOCATOR error
         // We do five copies to leave room for the other thread that is running test
         // See https://help.salesforce.com/articleView?id=000323582&type=1&mode=1
-        String unionMultipleTimes = join(" UNION ALL ", nCopies(5, "SELECT * FROM orders__c"));
+        String unionMultipleTimes = join(" UNION ALL ", nCopies(5, "SELECT * FROM " + salesforceOrdersTableName));
         assertQuery("SELECT sum(if(rand() >= 0, orderkey__c)) FROM (" + unionMultipleTimes + ")", "VALUES 2249362500");
     }
 
@@ -2163,11 +2175,11 @@ public class TestSalesforceConnectorTest
     {
         Session session = noJoinReordering(joinDistributionType);
         // empty build side
-        assertQuery(session, "SELECT count(*) FROM nation__c JOIN region__c ON nation__c.regionkey__c = region__c.regionkey__c AND region__c.name__c = ''", "VALUES 0");
-        assertQuery(session, "SELECT count(*) FROM nation__c JOIN region__c ON nation__c.regionkey__c = region__c.regionkey__c AND region__c.regionkey__c < 0", "VALUES 0");
+        assertQuery(session, "SELECT count(*) FROM " + salesforceNationTableName + " JOIN " + salesforceRegionTableName + " ON " + salesforceNationTableName + ".regionkey__c = " + salesforceRegionTableName + ".regionkey__c AND " + salesforceRegionTableName + ".name__c = ''", "VALUES 0");
+        assertQuery(session, "SELECT count(*) FROM " + salesforceNationTableName + " JOIN " + salesforceRegionTableName + " ON " + salesforceNationTableName + ".regionkey__c = " + salesforceRegionTableName + ".regionkey__c AND " + salesforceRegionTableName + ".regionkey__c < 0", "VALUES 0");
         // empty probe side
-        assertQuery(session, "SELECT count(*) FROM region__c JOIN nation__c ON nation__c.regionkey__c = region__c.regionkey__c AND region__c.name__c = ''", "VALUES 0");
-        assertQuery(session, "SELECT count(*) FROM nation__c JOIN region__c ON nation__c.regionkey__c = region__c.regionkey__c AND region__c.regionkey__c < 0", "VALUES 0");
+        assertQuery(session, "SELECT count(*) FROM " + salesforceRegionTableName + " JOIN " + salesforceNationTableName + " ON " + salesforceNationTableName + ".regionkey__c = " + salesforceRegionTableName + ".regionkey__c AND " + salesforceRegionTableName + ".name__c = ''", "VALUES 0");
+        assertQuery(session, "SELECT count(*) FROM " + salesforceNationTableName + " JOIN " + salesforceRegionTableName + " ON " + salesforceNationTableName + ".regionkey__c = " + salesforceRegionTableName + ".regionkey__c AND " + salesforceRegionTableName + ".regionkey__c < 0", "VALUES 0");
     }
 
     @DataProvider
@@ -2191,26 +2203,26 @@ public class TestSalesforceConnectorTest
         assertQuery(
                 session,
                 "SELECT c.name__c, n.name__c, r.name__c " +
-                        "FROM nation__c n " +
-                        "JOIN customer__c c ON c.nationkey__c = n.nationkey__c " +
-                        "JOIN region__c r ON n.regionkey__c = r.regionkey__c");
+                        "FROM %s n ".formatted(salesforceNationTableName) +
+                        "JOIN " + salesforceCustomerTableName + " c ON c.nationkey__c = n.nationkey__c " +
+                        "JOIN " + salesforceRegionTableName + " r ON n.regionkey__c = r.regionkey__c");
 
         // 2 inner joins, eligible for join reodering, where one table has a filter
         assertQuery(
                 session,
                 "SELECT c.name__c, n.name__c, r.name__c " +
-                        "FROM nation__c n " +
-                        "JOIN customer__c c ON c.nationkey__c = n.nationkey__c " +
-                        "JOIN region__c r ON n.regionkey__c = r.regionkey__c " +
+                        "FROM %s n ".formatted(salesforceNationTableName) +
+                        "JOIN " + salesforceCustomerTableName + " c ON c.nationkey__c = n.nationkey__c " +
+                        "JOIN " + salesforceRegionTableName + " r ON n.regionkey__c = r.regionkey__c " +
                         "WHERE n.name__c = 'ARGENTINA'");
 
         // 2 inner joins, eligible for join reodering, on top of aggregation
         assertQuery(
                 session,
                 "SELECT c.name__c, n.name__c, n.count, r.name__c " +
-                        "FROM (SELECT name__c, regionkey__c, nationkey__c, count(*) count FROM nation__c GROUP BY name__c, regionkey__c, nationkey__c) n " +
-                        "JOIN customer__c c ON c.nationkey__c = n.nationkey__c " +
-                        "JOIN region__c r ON n.regionkey__c = r.regionkey__c");
+                        "FROM (SELECT name__c, regionkey__c, nationkey__c, count(*) count FROM " + salesforceNationTableName + " GROUP BY name__c, regionkey__c, nationkey__c) n " +
+                        "JOIN " + salesforceCustomerTableName + " c ON c.nationkey__c = n.nationkey__c " +
+                        "JOIN " + salesforceRegionTableName + " r ON n.regionkey__c = r.regionkey__c");
     }
 
     @Test
@@ -2237,24 +2249,24 @@ public class TestSalesforceConnectorTest
                 .row("orderpriority__c", "varchar(15)", "", "Label orderpriority corresponds to this field.")
                 .row("clerk__c", "varchar(15)", "", "Label clerk corresponds to this field.")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders__c");
+        MaterializedResult actualColumns = computeActual("DESCRIBE " + salesforceOrdersTableName);
         assertThat(actualColumns).containsExactlyElementsOf(expectedColumns);
     }
 
     @Test
     public void testExplainAnalyze()
     {
-        assertExplainAnalyze("EXPLAIN ANALYZE SELECT * FROM orders__c");
-        assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk__c FROM orders__c GROUP BY clerk__c");
+        assertExplainAnalyze("EXPLAIN ANALYZE SELECT * FROM " + salesforceOrdersTableName);
+        assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk__c FROM " + salesforceOrdersTableName + " GROUP BY clerk__c");
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT x + y FROM (" +
-                        "   SELECT orderdate__c, COUNT(*) x FROM orders__c GROUP BY orderdate__c) a JOIN (" +
-                        "   SELECT orderdate__c, COUNT(*) y FROM orders__c GROUP BY orderdate__c) b ON a.orderdate__c = b.orderdate__c");
-        assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk__c FROM orders__c GROUP BY clerk__c UNION ALL SELECT sum(orderkey__c), clerk__c FROM orders__c GROUP BY clerk__c");
+                        "   SELECT orderdate__c, COUNT(*) x FROM " + salesforceOrdersTableName + " GROUP BY orderdate__c) a JOIN (" +
+                        "   SELECT orderdate__c, COUNT(*) y FROM " + salesforceOrdersTableName + " GROUP BY orderdate__c) b ON a.orderdate__c = b.orderdate__c");
+        assertExplainAnalyze("EXPLAIN ANALYZE SELECT count(*), clerk__c FROM " + salesforceOrdersTableName + " GROUP BY clerk__c UNION ALL SELECT sum(orderkey__c), clerk__c FROM " + salesforceOrdersTableName + " GROUP BY clerk__c");
 
-        assertExplainAnalyze("EXPLAIN ANALYZE SHOW COLUMNS FROM orders__c");
-        assertExplainAnalyze("EXPLAIN ANALYZE EXPLAIN SELECT count(*) FROM orders__c");
-        assertExplainAnalyze("EXPLAIN ANALYZE EXPLAIN ANALYZE SELECT count(*) FROM orders__c");
+        assertExplainAnalyze("EXPLAIN ANALYZE SHOW COLUMNS FROM " + salesforceOrdersTableName);
+        assertExplainAnalyze("EXPLAIN ANALYZE EXPLAIN SELECT count(*) FROM " + salesforceOrdersTableName);
+        assertExplainAnalyze("EXPLAIN ANALYZE EXPLAIN ANALYZE SELECT count(*) FROM " + salesforceOrdersTableName);
         assertExplainAnalyze("EXPLAIN ANALYZE SHOW FUNCTIONS");
         assertExplainAnalyze("EXPLAIN ANALYZE SHOW TABLES");
         assertExplainAnalyze("EXPLAIN ANALYZE SHOW SCHEMAS");
@@ -2265,18 +2277,18 @@ public class TestSalesforceConnectorTest
     @Test
     public void testExplainAnalyzeVerbose()
     {
-        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM orders__c");
-        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey__c ORDER BY clerk__c DESC) FROM orders__c");
-        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey__c ORDER BY clerk__c DESC) FROM orders__c WHERE orderkey__c < 0");
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM " + salesforceOrdersTableName);
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey__c ORDER BY clerk__c DESC) FROM " + salesforceOrdersTableName);
+        assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey__c ORDER BY clerk__c DESC) FROM " + salesforceOrdersTableName + " WHERE orderkey__c < 0");
     }
 
     @Test
     public void testTableSampleSystem()
     {
-        MaterializedResult fullSample = computeActual("SELECT orderkey__c FROM orders__c TABLESAMPLE SYSTEM (100)");
-        MaterializedResult emptySample = computeActual("SELECT orderkey__c FROM orders__c TABLESAMPLE SYSTEM (0)");
-        MaterializedResult randomSample = computeActual("SELECT orderkey__c FROM orders__c TABLESAMPLE SYSTEM (50)");
-        MaterializedResult all = computeActual("SELECT orderkey__c FROM orders__c");
+        MaterializedResult fullSample = computeActual("SELECT orderkey__c FROM " + salesforceOrdersTableName + " TABLESAMPLE SYSTEM (100)");
+        MaterializedResult emptySample = computeActual("SELECT orderkey__c FROM " + salesforceOrdersTableName + " TABLESAMPLE SYSTEM (0)");
+        MaterializedResult randomSample = computeActual("SELECT orderkey__c FROM " + salesforceOrdersTableName + " TABLESAMPLE SYSTEM (50)");
+        MaterializedResult all = computeActual("SELECT orderkey__c FROM " + salesforceOrdersTableName);
 
         assertContains(all, fullSample);
         assertThat(emptySample.getMaterializedRows()).isEmpty();
@@ -2286,9 +2298,9 @@ public class TestSalesforceConnectorTest
     @Test
     public void testTableSampleWithFiltering()
     {
-        MaterializedResult emptySample = computeActual("SELECT DISTINCT orderkey__c, orderdate__c FROM orders__c TABLESAMPLE SYSTEM (99) WHERE orderkey__c BETWEEN 0 AND 0");
-        MaterializedResult halfSample = computeActual("SELECT DISTINCT orderkey__c, orderdate__c FROM orders__c TABLESAMPLE SYSTEM (50) WHERE orderkey__c BETWEEN 0 AND 9999999999");
-        MaterializedResult all = computeActual("SELECT orderkey__c, orderdate__c FROM orders__c");
+        MaterializedResult emptySample = computeActual("SELECT DISTINCT orderkey__c, orderdate__c FROM " + salesforceOrdersTableName + " TABLESAMPLE SYSTEM (99) WHERE orderkey__c BETWEEN 0 AND 0");
+        MaterializedResult halfSample = computeActual("SELECT DISTINCT orderkey__c, orderdate__c FROM " + salesforceOrdersTableName + " TABLESAMPLE SYSTEM (50) WHERE orderkey__c BETWEEN 0 AND 9999999999");
+        MaterializedResult all = computeActual("SELECT orderkey__c, orderdate__c FROM " + salesforceOrdersTableName);
 
         assertThat(emptySample.getMaterializedRows()).isEmpty();
         // Assertions need to be loose here because SYSTEM sampling random selects data on split boundaries. In this case either all the data will be selected, or
@@ -2299,10 +2311,10 @@ public class TestSalesforceConnectorTest
     @Test
     public void testShowCreateTable()
     {
-        assertThat((String) computeActual("SHOW CREATE TABLE orders__c").getOnlyValue())
+        assertThat((String) computeActual("SHOW CREATE TABLE " + salesforceOrdersTableName).getOnlyValue())
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
                 .matches("""
-                        CREATE TABLE \\w+\\.\\w+\\.orders__c \\Q(
+                        CREATE TABLE \\w+\\.\\w+\\.%s \\Q(
                            id varchar(18) NOT NULL COMMENT 'Label Record ID corresponds to this field.',
                            ownerid varchar(18) NOT NULL COMMENT 'Label Owner ID corresponds to this field.',
                            isdeleted boolean NOT NULL COMMENT 'Label Deleted corresponds to this field.',
@@ -2322,7 +2334,7 @@ public class TestSalesforceConnectorTest
                            orderdate__c date COMMENT 'Label orderdate corresponds to this field.',
                            orderpriority__c varchar(15) COMMENT 'Label orderpriority corresponds to this field.',
                            clerk__c varchar(15) COMMENT 'Label clerk corresponds to this field.'
-                        )""");
+                        )""".formatted(salesforceOrdersTableName));
     }
 
     @Test
@@ -2332,13 +2344,13 @@ public class TestSalesforceConnectorTest
         String schema = getSession().getSchema().get();
         String schemaPattern = schema.replaceAll("^.", "_");
 
-        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = '" + schema + "' AND table_name = 'orders__c'", "VALUES 'orders__c'");
-        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema LIKE '" + schema + "' AND table_name LIKE '%rders__c'", "VALUES 'orders__c'");
-        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '%rders__c'", "VALUES 'orders__c'");
+        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = '" + schema + "' AND table_name = '%s'".formatted(salesforceOrdersTableName), "VALUES '%s'".formatted(salesforceOrdersTableName));
+        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema LIKE '" + schema + "' AND table_name LIKE '%rders__c'", "VALUES '%s'".formatted(salesforceOrdersTableName));
+        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '%rders__c'", "VALUES '%s'".formatted(salesforceOrdersTableName));
         assertQuery(
                 "SELECT table_name FROM information_schema.tables " +
-                        "WHERE table_catalog = '" + catalog + "' AND table_schema LIKE '" + schema + "' AND table_name LIKE '%orders__c'",
-                "VALUES 'orders__c'");
+                        "WHERE table_catalog = '" + catalog + "' AND table_schema LIKE '" + schema + "' AND table_name LIKE '%%%s'".formatted(salesforceOrdersTableName),
+                "VALUES '%s'".formatted(salesforceOrdersTableName));
         assertQuery("SELECT table_name FROM information_schema.tables WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
 
         assertQuery(
@@ -2365,34 +2377,34 @@ public class TestSalesforceConnectorTest
         String schemaPattern = schema.replaceAll(".$", "_");
 
         @Language("SQL") String ordersTableWithColumns = "VALUES " +
-                "('orders__c', 'id'), " +
-                "('orders__c', 'ownerid'), " +
-                "('orders__c', 'isdeleted'), " +
-                "('orders__c', 'name'), " +
-                "('orders__c', 'createddate'), " +
-                "('orders__c', 'createdbyid'), " +
-                "('orders__c', 'lastmodifieddate'), " +
-                "('orders__c', 'lastmodifiedbyid'), " +
-                "('orders__c', 'systemmodstamp'), " +
-                "('orders__c', 'lastactivitydate'), " +
-                "('orders__c', 'orderkey__c'), " +
-                "('orders__c', 'custkey__c'), " +
-                "('orders__c', 'orderstatus__c'), " +
-                "('orders__c', 'totalprice__c'), " +
-                "('orders__c', 'orderdate__c'), " +
-                "('orders__c', 'orderpriority__c'), " +
-                "('orders__c', 'clerk__c'), " +
-                "('orders__c', 'shippriority__c'), " +
-                "('orders__c', 'comment__c')";
+                "('%s', 'id'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'ownerid'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'isdeleted'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'name'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'createddate'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'createdbyid'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'lastmodifieddate'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'lastmodifiedbyid'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'systemmodstamp'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'lastactivitydate'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'orderkey__c'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'custkey__c'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'orderstatus__c'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'totalprice__c'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'orderdate__c'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'orderpriority__c'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'clerk__c'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'shippriority__c'), ".formatted(salesforceOrdersTableName) +
+                "('%s', 'comment__c')".formatted(salesforceOrdersTableName);
 
         assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
-        assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders__c' GROUP BY table_name", "VALUES 'orders__c'");
-        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'orders__c'", ordersTableWithColumns);
+        assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = '%s' GROUP BY table_name".formatted(salesforceOrdersTableName), "VALUES '%s'".formatted(salesforceOrdersTableName));
+        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = '%s'".formatted(salesforceOrdersTableName), ordersTableWithColumns);
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%rders__c'", ordersTableWithColumns);
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '_rders___'", ordersTableWithColumns);
         assertQuery(
                 "SELECT table_name, column_name FROM information_schema.columns " +
-                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%orders__c%'",
+                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%%%s%%'".formatted(salesforceOrdersTableName),
                 ordersTableWithColumns);
 
         assertQuerySucceeds("SELECT * FROM information_schema.columns");
@@ -2479,7 +2491,7 @@ public class TestSalesforceConnectorTest
         Session topNPushdownDisabled = Session.builder(getSession())
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "topn_pushdown_enabled", "false")
                 .build();
-        assertThat(query(topNPushdownDisabled, "SELECT orderkey__c FROM orders__c ORDER BY orderkey__c LIMIT 10"))
+        assertThat(query(topNPushdownDisabled, "SELECT orderkey__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c LIMIT 10"))
                 .ordered()
                 .isNotFullyPushedDown(TopNNode.class);
     }
@@ -2488,51 +2500,51 @@ public class TestSalesforceConnectorTest
     public void testTopNPushdown()
     {
         if (!hasBehavior(SUPPORTS_TOPN_PUSHDOWN)) {
-            assertThat(query("SELECT orderkey__c FROM orders__c ORDER BY orderkey__c LIMIT 10"))
+            assertThat(query("SELECT orderkey__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c LIMIT 10"))
                     .ordered()
                     .isNotFullyPushedDown(TopNNode.class);
             return;
         }
 
-        assertThat(query("SELECT orderkey__c FROM orders__c ORDER BY orderkey__c LIMIT 10"))
+        assertThat(query("SELECT orderkey__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c LIMIT 10"))
                 .ordered()
                 .isFullyPushedDown();
 
-        assertThat(query("SELECT orderkey__c FROM orders__c ORDER BY orderkey__c DESC LIMIT 10"))
+        assertThat(query("SELECT orderkey__c FROM " + salesforceOrdersTableName + " ORDER BY orderkey__c DESC LIMIT 10"))
                 .ordered()
                 .isFullyPushedDown();
 
-        // multiple sort columns with different orders__c
-        assertThat(query("SELECT * FROM orders__c ORDER BY shippriority__c DESC, totalprice__c ASC LIMIT 10"))
+        // multiple sort columns with different ORDERS_TABLE_NAME
+        assertThat(query("SELECT * FROM " + salesforceOrdersTableName + " ORDER BY shippriority__c DESC, totalprice__c ASC LIMIT 10"))
                 .ordered()
                 .isFullyPushedDown();
 
         // TopN over aggregation column
-        assertThat(query("SELECT sum(totalprice__c) AS total FROM orders__c GROUP BY custkey__c ORDER BY total DESC LIMIT 10"))
+        assertThat(query("SELECT sum(totalprice__c) AS total FROM " + salesforceOrdersTableName + " GROUP BY custkey__c ORDER BY total DESC LIMIT 10"))
                 .ordered()
                 .isFullyPushedDown();
 
         // TopN over TopN
-        assertThat(query("SELECT orderkey__c, totalprice__c FROM (SELECT orderkey__c, totalprice__c FROM orders__c ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5"))
+        assertThat(query("SELECT orderkey__c, totalprice__c FROM (SELECT orderkey__c, totalprice__c FROM " + salesforceOrdersTableName + " ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5"))
                 .ordered()
                 .isFullyPushedDown();
 
         assertThat(query("" +
                 "SELECT orderkey__c, totalprice__c " +
-                "FROM (SELECT orderkey__c, totalprice__c FROM (SELECT orderkey__c, totalprice__c FROM orders__c ORDER BY 1, 2 LIMIT 10) " +
+                "FROM (SELECT orderkey__c, totalprice__c FROM (SELECT orderkey__c, totalprice__c FROM " + salesforceOrdersTableName + " ORDER BY 1, 2 LIMIT 10) " +
                 "ORDER BY 2, 1 LIMIT 5) ORDER BY 1, 2 LIMIT 3"))
                 .ordered()
                 .isFullyPushedDown();
 
         // TopN over limit
-        assertThat(query("SELECT orderkey__c, totalprice__c FROM (SELECT orderkey__c, totalprice__c FROM orders__c LIMIT 20) ORDER BY totalprice__c ASC LIMIT 5"))
+        assertThat(query("SELECT orderkey__c, totalprice__c FROM (SELECT orderkey__c, totalprice__c FROM " + salesforceOrdersTableName + " LIMIT 20) ORDER BY totalprice__c ASC LIMIT 5"))
                 .ordered()
                 .isFullyPushedDown();
 
         // TopN over limit with filter
         assertThat(query("" +
                 "SELECT orderkey__c, totalprice__c " +
-                "FROM (SELECT orderkey__c, totalprice__c FROM orders__c WHERE orderpriority__c = '1-URGENT' LIMIT 20) " +
+                "FROM (SELECT orderkey__c, totalprice__c FROM " + salesforceOrdersTableName + " WHERE orderpriority__c = '1-URGENT' LIMIT 20) " +
                 "ORDER BY totalprice__c ASC LIMIT 5"))
                 .ordered()
                 .isFullyPushedDown();
@@ -2540,7 +2552,7 @@ public class TestSalesforceConnectorTest
         // TopN over aggregation with filter
         assertThat(query("" +
                 "SELECT * " +
-                "FROM (SELECT SUM(totalprice__c) as sum, custkey__c AS total FROM orders__c GROUP BY custkey__c HAVING COUNT(*) > 3) " +
+                "FROM (SELECT SUM(totalprice__c) as sum, custkey__c AS total FROM " + salesforceOrdersTableName + " GROUP BY custkey__c HAVING COUNT(*) > 3) " +
                 "ORDER BY sum DESC LIMIT 10"))
                 .ordered()
                 .isFullyPushedDown();
@@ -2587,7 +2599,7 @@ public class TestSalesforceConnectorTest
                 .setSystemProperty("optimize_hash_generation", "false")
                 .build();
 
-        assertThat(query(noJoinPushdown, "SELECT r.name__c, n.name__c FROM nation__c n JOIN region__c r ON n.regionkey__c = r.regionkey__c"))
+        assertThat(query(noJoinPushdown, "SELECT r.name__c, n.name__c FROM " + salesforceNationTableName + " n JOIN " + salesforceRegionTableName + " r ON n.regionkey__c = r.regionkey__c"))
                 .isNotFullyPushedDown(
                         node(JoinNode.class,
                                 anyTree(node(TableScanNode.class)),
@@ -2605,7 +2617,7 @@ public class TestSalesforceConnectorTest
             return;
         }
 
-        assertThat(query(joinPushdownEnabled(getSession()), "SELECT r.name__c, n.name__c FROM nation__c n JOIN region__c r ON n.regionkey__c = r.regionkey__c"))
+        assertThat(query(joinPushdownEnabled(getSession()), "SELECT r.name__c, n.name__c FROM " + salesforceNationTableName + " n JOIN " + salesforceRegionTableName + " r ON n.regionkey__c = r.regionkey__c"))
                 .isNotFullyPushedDown(
                         node(JoinNode.class,
                                 anyTree(node(TableScanNode.class)),
@@ -2628,7 +2640,7 @@ public class TestSalesforceConnectorTest
                                         node(TableScanNode.class))));
 
         if (!hasBehavior(SUPPORTS_JOIN_PUSHDOWN)) {
-            assertThat(query("SELECT r.name__c, n.name__c FROM nation__c n JOIN region__c r ON n.regionkey__c = r.regionkey__c"))
+            assertThat(query("SELECT r.name__c, n.name__c FROM " + salesforceNationTableName + " n JOIN " + salesforceRegionTableName + " r ON n.regionkey__c = r.regionkey__c"))
                     .isNotFullyPushedDown(joinOverTableScans);
             return;
         }
@@ -2652,34 +2664,34 @@ public class TestSalesforceConnectorTest
                 // If a connector supports Join pushdown, but does not allow CTAS, we need to make the table creation here overridable.
                 getQueryRunner()::execute,
                 "nation_lowercase",
-                "AS SELECT nationkey__c, lower(name__c) name__c, regionkey__c FROM nation__c")) {
+                "AS SELECT nationkey__c, lower(name__c) name__c, regionkey__c FROM " + salesforceNationTableName)) {
             // basic case
-            assertThat(query(session, "SELECT r.name__c, n.name__c FROM nation__c n JOIN region__c r ON n.regionkey__c = r.regionkey__c")).isFullyPushedDown();
+            assertThat(query(session, "SELECT r.name__c, n.name__c FROM " + salesforceNationTableName + " n JOIN " + salesforceRegionTableName + " r ON n.regionkey__c = r.regionkey__c")).isFullyPushedDown();
 
             // join over different columns
-            assertThat(query(session, "SELECT r.name__c, n.name__c FROM nation__c n JOIN region__c r ON n.nationkey__c = r.regionkey__c")).isFullyPushedDown();
+            assertThat(query(session, "SELECT r.name__c, n.name__c FROM " + salesforceNationTableName + " n JOIN " + salesforceRegionTableName + " r ON n.nationkey__c = r.regionkey__c")).isFullyPushedDown();
 
             // pushdown when using USING
-            assertThat(query(session, "SELECT r.name__c, n.name__c FROM nation__c n JOIN region__c r USING(regionkey__c)")).isFullyPushedDown();
+            assertThat(query(session, "SELECT r.name__c, n.name__c FROM " + salesforceNationTableName + " n JOIN " + salesforceRegionTableName + " r USING(regionkey__c)")).isFullyPushedDown();
 
             // varchar equality predicate
-            assertThat(query(session, "SELECT n.name__c, n2.regionkey__c FROM nation__c n JOIN nation__c n2 ON n.name__c = n2.name__c")).isFullyPushedDown();
-            assertThat(query(session, format("SELECT n.name__c, nl.regionkey__c FROM nation__c n JOIN %s nl ON n.name__c = nl.name__c", nationLowercaseTable.getName())))
+            assertThat(query(session, "SELECT n.name__c, n2.regionkey__c FROM " + salesforceNationTableName + " n JOIN " + salesforceNationTableName + " n2 ON n.name__c = n2.name__c")).isFullyPushedDown();
+            assertThat(query(session, format("SELECT n.name__c, nl.regionkey__c FROM " + salesforceNationTableName + " n JOIN %s nl ON n.name__c = nl.name__c", nationLowercaseTable.getName())))
                     .isFullyPushedDown();
 
             // multiple bigint predicates
-            assertThat(query(session, "SELECT n.name__c, c.name__c FROM nation__c n JOIN customer__c c ON n.nationkey__c = c.nationkey__c and n.regionkey__c = c.custkey__c"))
+            assertThat(query(session, "SELECT n.name__c, c.name__c FROM " + salesforceNationTableName + " n JOIN " + salesforceCustomerTableName + " c ON n.nationkey__c = c.nationkey__c and n.regionkey__c = c.custkey__c"))
                     .isFullyPushedDown();
 
             // inequality
             for (String operator : nonEqualities) {
                 // bigint inequality predicate
-                assertThat(query(withoutDynamicFiltering, format("SELECT r.name__c, n.name__c FROM nation__c n JOIN region__c r ON n.regionkey__c %s r.regionkey__c", operator)))
+                assertThat(query(withoutDynamicFiltering, format("SELECT r.name__c, n.name__c FROM " + salesforceNationTableName + " n JOIN " + salesforceRegionTableName + " r ON n.regionkey__c %s r.regionkey__c", operator)))
                         // Currently no pushdown as inequality predicate is removed from Join to maintain Cross Join and Filter as separate nodes
                         .isNotFullyPushedDown(broadcastJoinOverTableScans);
 
                 // varchar inequality predicate
-                assertThat(query(withoutDynamicFiltering, format("SELECT n.name__c, nl.name__c FROM nation__c n JOIN %s nl ON n.name__c %s nl.name__c", nationLowercaseTable.getName(), operator)))
+                assertThat(query(withoutDynamicFiltering, format("SELECT n.name__c, nl.name__c FROM " + salesforceNationTableName + " n JOIN %s nl ON n.name__c %s nl.name__c", nationLowercaseTable.getName(), operator)))
                         // Currently no pushdown as inequality predicate is removed from Join to maintain Cross Join and Filter as separate nodes
                         .isNotFullyPushedDown(broadcastJoinOverTableScans);
             }
@@ -2688,7 +2700,7 @@ public class TestSalesforceConnectorTest
             for (String operator : nonEqualities) {
                 assertConditionallyPushedDown(
                         session,
-                        format("SELECT n.name__c, c.name__c FROM nation__c n JOIN customer__c c ON n.nationkey__c = c.nationkey__c AND n.regionkey__c %s c.custkey__c", operator),
+                        format("SELECT n.name__c, c.name__c FROM " + salesforceNationTableName + " n JOIN " + salesforceCustomerTableName + " c ON n.nationkey__c = c.nationkey__c AND n.regionkey__c %s c.custkey__c", operator),
                         expectJoinPushdown(operator),
                         joinOverTableScans);
             }
@@ -2697,62 +2709,62 @@ public class TestSalesforceConnectorTest
             for (String operator : nonEqualities) {
                 assertConditionallyPushedDown(
                         session,
-                        format("SELECT n.name__c, nl.name__c FROM nation__c n JOIN %s nl ON n.regionkey__c = nl.regionkey__c AND n.name__c %s nl.name__c", nationLowercaseTable.getName(), operator),
+                        format("SELECT n.name__c, nl.name__c FROM " + salesforceNationTableName + " n JOIN %s nl ON n.regionkey__c = nl.regionkey__c AND n.name__c %s nl.name__c", nationLowercaseTable.getName(), operator),
                         expectVarcharJoinPushdown(operator),
                         joinOverTableScans);
             }
 
             // LEFT JOIN
-            assertThat(query(session, "SELECT r.name__c, n.name__c FROM nation__c n LEFT JOIN region__c r ON n.nationkey__c = r.regionkey__c")).isFullyPushedDown();
-            assertThat(query(session, "SELECT r.name__c, n.name__c FROM region__c r LEFT JOIN nation__c n ON n.nationkey__c = r.regionkey__c")).isFullyPushedDown();
+            assertThat(query(session, "SELECT r.name__c, n.name__c FROM " + salesforceNationTableName + " n LEFT JOIN " + salesforceRegionTableName + " r ON n.nationkey__c = r.regionkey__c")).isFullyPushedDown();
+            assertThat(query(session, "SELECT r.name__c, n.name__c FROM " + salesforceRegionTableName + " r LEFT JOIN " + salesforceNationTableName + " n ON n.nationkey__c = r.regionkey__c")).isFullyPushedDown();
 
             // RIGHT JOIN
-            assertThat(query(session, "SELECT r.name__c, n.name__c FROM nation__c n RIGHT JOIN region__c r ON n.nationkey__c = r.regionkey__c")).isFullyPushedDown();
-            assertThat(query(session, "SELECT r.name__c, n.name__c FROM region__c r RIGHT JOIN nation__c n ON n.nationkey__c = r.regionkey__c")).isFullyPushedDown();
+            assertThat(query(session, "SELECT r.name__c, n.name__c FROM " + salesforceNationTableName + " n RIGHT JOIN " + salesforceRegionTableName + " r ON n.nationkey__c = r.regionkey__c")).isFullyPushedDown();
+            assertThat(query(session, "SELECT r.name__c, n.name__c FROM " + salesforceRegionTableName + " r RIGHT JOIN " + salesforceNationTableName + " n ON n.nationkey__c = r.regionkey__c")).isFullyPushedDown();
 
             // FULL JOIN
-            assertThat(query(session, "SELECT r.name__c, n.name__c FROM nation__c n FULL JOIN region__c r ON n.nationkey__c = r.regionkey__c"))
+            assertThat(query(session, "SELECT r.name__c, n.name__c FROM " + salesforceNationTableName + " n FULL JOIN " + salesforceRegionTableName + " r ON n.nationkey__c = r.regionkey__c"))
                     .isNotFullyPushedDown(joinOverTableScans);
 
             // Join over a (double) predicate
             assertThat(query(session, "" +
                     "SELECT c.name__c, n.name__c " +
-                    "FROM (SELECT * FROM customer__c WHERE acctbal > 8000) c " +
-                    "JOIN nation__c n ON c.custkey__c = n.nationkey__c"))
+                    "FROM (SELECT * FROM " + salesforceCustomerTableName + " WHERE acctbal > 8000) c " +
+                    "JOIN " + salesforceNationTableName + " n ON c.custkey__c = n.nationkey__c"))
                     .isFullyPushedDown();
 
             // Join over a varchar equality predicate
             assertThat(query(session,
-                    "SELECT c.name__c, n.name__c FROM (SELECT * FROM customer__c WHERE address = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
-                            "JOIN nation__c n ON c.custkey__c = n.nationkey__c"))
+                    "SELECT c.name__c, n.name__c FROM (SELECT * FROM " + salesforceCustomerTableName + " WHERE address = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
+                            "JOIN " + salesforceNationTableName + " n ON c.custkey__c = n.nationkey__c"))
                     .isFullyPushedDown();
 
             // Join over a varchar inequality predicate
             assertThat(query(session,
-                    "SELECT c.name__c, n.name__c FROM (SELECT * FROM customer__c WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
-                            "JOIN nation__c n ON c.custkey__c = n.nationkey__c"))
+                    "SELECT c.name__c, n.name__c FROM (SELECT * FROM " + salesforceCustomerTableName + " WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea') c " +
+                            "JOIN " + salesforceNationTableName + " n ON c.custkey__c = n.nationkey__c"))
                     .isFullyPushedDown();
 
             // join over aggregation
             assertThat(query(session,
-                    "SELECT * FROM (SELECT regionkey__c rk, count(nationkey__c) c FROM nation__c GROUP BY regionkey__c) n " +
-                            "JOIN region__c r ON n.rk = r.regionkey__c"))
+                    "SELECT * FROM (SELECT regionkey__c rk, count(nationkey__c) c FROM " + salesforceNationTableName + " GROUP BY regionkey__c) n " +
+                            "JOIN " + salesforceRegionTableName + " r ON n.rk = r.regionkey__c"))
                     .isNotFullyPushedDown(joinOverTableScans);
 
             // join over LIMIT
             assertThat(query(session,
-                    "SELECT * FROM (SELECT nationkey__c FROM nation__c LIMIT 30) n " +
-                            "JOIN region__c r ON n.nationkey__c = r.regionkey__c"))
+                    "SELECT * FROM (SELECT nationkey__c FROM " + salesforceNationTableName + " LIMIT 30) n " +
+                            "JOIN " + salesforceRegionTableName + " r ON n.nationkey__c = r.regionkey__c"))
                     .isNotFullyPushedDown(joinOverTableScans);
 
             // join over TopN
             assertThat(query(session,
-                    "SELECT * FROM (SELECT nationkey__c FROM nation__c ORDER BY regionkey__c LIMIT 5) n " +
-                            "JOIN region__c r ON n.nationkey__c = r.regionkey__c"))
+                    "SELECT * FROM (SELECT nationkey__c FROM " + salesforceNationTableName + " ORDER BY regionkey__c LIMIT 5) n " +
+                            "JOIN " + salesforceRegionTableName + " r ON n.nationkey__c = r.regionkey__c"))
                     .isNotFullyPushedDown(joinOverTableScans);
 
             // join over join
-            assertThat(query(session, "SELECT * FROM nation__c n, region__c r, customer__c c WHERE n.regionkey__c = r.regionkey__c AND r.regionkey__c = c.custkey__c"))
+            assertThat(query(session, "SELECT * FROM " + salesforceNationTableName + " n, " + salesforceRegionTableName + " r, " + salesforceCustomerTableName + " c WHERE n.regionkey__c = r.regionkey__c AND r.regionkey__c = c.custkey__c"))
                     .isFullyPushedDown();
         }
     }
@@ -2767,7 +2779,7 @@ public class TestSalesforceConnectorTest
     public void testDynamicFiltering(JoinDistributionType joinDistributionType)
     {
         assertDynamicFiltering(
-                "SELECT * FROM orders__c a JOIN orders__c b ON a.orderkey__c = b.orderkey__c AND b.totalprice__c  < 1000",
+                "SELECT * FROM " + salesforceOrdersTableName + " a JOIN " + salesforceOrdersTableName + " b ON a.orderkey__c = b.orderkey__c AND b.totalprice__c  < 1000",
                 joinDistributionType);
     }
 
@@ -2775,7 +2787,7 @@ public class TestSalesforceConnectorTest
     public void testDynamicFilteringWithAggregationGroupingColumn()
     {
         assertDynamicFiltering(
-                "SELECT * FROM (SELECT orderkey__c, count(*) FROM orders__c GROUP BY 1) a JOIN orders__c b " +
+                "SELECT * FROM (SELECT orderkey__c, count(*) FROM " + salesforceOrdersTableName + " GROUP BY 1) a JOIN " + salesforceOrdersTableName + " b " +
                         "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000",
                 PARTITIONED);
     }
@@ -2785,7 +2797,7 @@ public class TestSalesforceConnectorTest
     {
         // Salesforce connector doesn't support aggregate pushdown
         assertNoDynamicFiltering(
-                "SELECT * FROM (SELECT orderkey__c, count(*) count FROM orders__c GROUP BY 1) a JOIN orders__c b " +
+                "SELECT * FROM (SELECT orderkey__c, count(*) count FROM " + salesforceOrdersTableName + " GROUP BY 1) a JOIN " + salesforceOrdersTableName + " b " +
                         "ON a.count = b.orderkey__c AND b.totalprice__c < 1000");
     }
 
@@ -2794,7 +2806,7 @@ public class TestSalesforceConnectorTest
     {
         // DF pushdown is not supported for grouping column that is not part of every grouping set
         assertNoDynamicFiltering(
-                "SELECT * FROM (SELECT orderkey__c, count(*) FROM orders__c GROUP BY GROUPING SETS ((orderkey__c), ())) a JOIN orders__c b " +
+                "SELECT * FROM (SELECT orderkey__c, count(*) FROM " + salesforceOrdersTableName + " GROUP BY GROUPING SETS ((orderkey__c), ())) a JOIN  " + salesforceOrdersTableName + " b " +
                         "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000");
     }
 
@@ -2803,7 +2815,7 @@ public class TestSalesforceConnectorTest
     {
         // DF pushdown is not supported for limit queries
         assertNoDynamicFiltering(
-                "SELECT * FROM (SELECT orderkey__c FROM orders__c LIMIT 10000000) a JOIN orders__c b " +
+                "SELECT * FROM (SELECT orderkey__c FROM " + salesforceOrdersTableName + " LIMIT 10000000) a JOIN " + salesforceOrdersTableName + " b " +
                         "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000");
     }
 
@@ -2825,7 +2837,7 @@ public class TestSalesforceConnectorTest
             assertThat(results.getOnlyColumnAsSet()).containsExactlyElementsOf(ImmutableSet.of(30000.0, 60000.0));
         }
 
-        @Language("SQL") String query = "SELECT * FROM orders__c a JOIN " + tableName + "__c b ON a.orderkey__c = b.orderkey__c";
+        @Language("SQL") String query = "SELECT * FROM " + salesforceOrdersTableName + " a JOIN " + tableName + "__c b ON a.orderkey__c = b.orderkey__c";
 
         MaterializedResultWithQueryId dynamicFilteringResult = getDistributedQueryRunner().executeWithQueryId(
                 dynamicFiltering(PARTITIONED, true),
