@@ -32,7 +32,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 
-final class SwitchingFileSystem
+public final class SwitchingFileSystem
         implements TrinoFileSystem
 {
     private final Optional<ConnectorSession> session;
@@ -130,7 +130,7 @@ final class SwitchingFileSystem
         fileSystem(source).renameDirectory(source, target);
     }
 
-    private TrinoFileSystem fileSystem(Location location)
+    public TrinoFileSystem fileSystem(Location location)
     {
         return createFileSystem(determineFactory(location));
     }

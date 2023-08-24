@@ -28,7 +28,7 @@ import java.util.Optional;
 import static io.trino.filesystem.tracing.Tracing.withTracing;
 import static java.util.Objects.requireNonNull;
 
-final class TracingFileSystem
+public final class TracingFileSystem
         implements TrinoFileSystem
 {
     private final Tracer tracer;
@@ -136,5 +136,11 @@ final class TracingFileSystem
                 .setAttribute(FileSystemAttributes.FILE_LOCATION, source.toString())
                 .startSpan();
         withTracing(span, () -> delegate.renameDirectory(source, target));
+    }
+
+    @Deprecated // Marking as deprecated to discourage using this method
+    public TrinoFileSystem getDelegate()
+    {
+        return delegate;
     }
 }

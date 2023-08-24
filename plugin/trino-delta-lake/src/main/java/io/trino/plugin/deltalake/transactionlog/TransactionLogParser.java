@@ -20,9 +20,14 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
+import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.manager.SwitchingFileSystem;
+import io.trino.filesystem.s3.S3FileSystem;
+import io.trino.filesystem.tracing.TracingFileSystem;
 import io.trino.plugin.base.util.JsonUtils;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
@@ -273,6 +278,28 @@ public final class TransactionLogParser
         long version = readLastCheckpoint(fileSystem, tableLocation).map(LastCheckpoint::getVersion).orElse(0L);
 
         String transactionLogDir = getTransactionLogDir(tableLocation);
+
+        if (fileSystem instanceof TracingFileSystem tracingFileSystem &&
+                tracingFileSystem.getDelegate() instanceof SwitchingFileSystem switchingFileSystem &&
+                switchingFileSystem.fileSystem(Location.of(transactionLogDir)) instanceof S3FileSystem s3FileSystem) {
+            String startAfter = getTransactionLogJsonEntryPath(transactionLogDir, version).path();
+            FileIterator files = s3FileSystem.listFiles(Location.of(transactionLogDir), startAfter);
+
+            while (files.hasNext()) {
+                FileEntry file = files.next();
+                if (!file.location().fileName().endsWith(".json")) {
+                    // _delta_log directory may contain unrelated files, e.g. crc file for json
+                    continue;
+                }
+                Location entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version + 1);
+                if (!entryPath.equals(file.location())) {
+                    return version;
+                }
+                version++;
+            }
+            return version;
+        }
+
         while (true) {
             Location entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version + 1);
             if (!fileSystem.newInputFile(entryPath).exists()) {

@@ -20,6 +20,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import jakarta.annotation.Nullable;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -44,7 +45,7 @@ import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static java.util.Objects.requireNonNull;
 
-final class S3FileSystem
+public final class S3FileSystem
         implements TrinoFileSystem
 {
     private final S3Client client;
@@ -165,6 +166,12 @@ final class S3FileSystem
     public FileIterator listFiles(Location location)
             throws IOException
     {
+        return listFiles(location, null);
+    }
+
+    public FileIterator listFiles(Location location, @Nullable String startAfter)
+            throws IOException
+    {
         S3Location s3Location = new S3Location(location);
 
         String key = s3Location.key();
@@ -175,6 +182,7 @@ final class S3FileSystem
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .bucket(s3Location.bucket())
                 .prefix(key)
+                .startAfter(startAfter)
                 .build();
 
         try {
