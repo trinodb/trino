@@ -2602,6 +2602,15 @@ public final class MetadataManager
     }
 
     @Override
+    public boolean isColumnarTableScan(Session session, TableHandle tableHandle)
+    {
+        CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+        return catalogMetadata.getMetadata(session).isColumnarTableScan(connectorSession, tableHandle.getConnectorHandle());
+    }
+
+    @Override
     public WriterScalingOptions getNewTableWriterScalingOptions(Session session, QualifiedObjectName tableName, Map<String, Object> tableProperties)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());

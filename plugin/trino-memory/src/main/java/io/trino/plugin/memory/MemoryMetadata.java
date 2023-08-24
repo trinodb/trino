@@ -559,6 +559,12 @@ public class MemoryMetadata
     }
 
     @Override
+    public boolean isColumnarTableScan(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return true;
+    }
+
+    @Override
     public synchronized Collection<LanguageFunction> listLanguageFunctions(ConnectorSession session, String schemaName)
     {
         return functions.entrySet().stream()
