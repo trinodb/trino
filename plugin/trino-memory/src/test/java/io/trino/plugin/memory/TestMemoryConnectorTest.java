@@ -81,40 +81,26 @@ public class TestMemoryConnectorTest
                         .build());
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_MERGE:
-                return false;
-
-            case SUPPORTS_PREDICATE_PUSHDOWN:
-            case SUPPORTS_LIMIT_PUSHDOWN:
-            case SUPPORTS_TOPN_PUSHDOWN:
-            case SUPPORTS_AGGREGATION_PUSHDOWN:
-            case SUPPORTS_DEREFERENCE_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
-            case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-                return false;
-
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_ADD_COLUMN,
+                    SUPPORTS_AGGREGATION_PUSHDOWN,
+                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_DELETE,
+                    SUPPORTS_DEREFERENCE_PUSHDOWN,
+                    SUPPORTS_LIMIT_PUSHDOWN,
+                    SUPPORTS_MERGE,
+                    SUPPORTS_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_PREDICATE_PUSHDOWN,
+                    SUPPORTS_RENAME_COLUMN,
+                    SUPPORTS_RENAME_SCHEMA,
+                    SUPPORTS_SET_COLUMN_TYPE,
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_UPDATE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Override

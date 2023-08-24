@@ -59,43 +59,28 @@ public class TestClickHouseConnectorTest
 {
     private TestingClickHouseServer clickhouseServer;
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
-                return false;
-            case SUPPORTS_TRUNCATE:
-                return true;
-
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
-                return false;
-
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_ROW_TYPE:
-            case SUPPORTS_NEGATIVE_DATE:
-                return false;
-
-            case SUPPORTS_NATIVE_QUERY:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_TRUNCATE -> true;
+            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
+                    SUPPORTS_ARRAY,
+                    SUPPORTS_DELETE,
+                    SUPPORTS_NATIVE_QUERY,
+                    SUPPORTS_NEGATIVE_DATE,
+                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                    SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                    SUPPORTS_ROW_TYPE,
+                    SUPPORTS_SET_COLUMN_TYPE,
+                    SUPPORTS_TOPN_PUSHDOWN -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Override

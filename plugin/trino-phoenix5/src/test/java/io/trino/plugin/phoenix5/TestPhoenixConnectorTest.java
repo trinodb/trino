@@ -79,55 +79,31 @@ public class TestPhoenixConnectorTest
         return createPhoenixQueryRunner(testingPhoenixServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_LIMIT_PUSHDOWN:
-            case SUPPORTS_TOPN_PUSHDOWN:
-            case SUPPORTS_AGGREGATION_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN:
-                return true;
-
-            case SUPPORTS_RENAME_SCHEMA:
-            case SUPPORTS_DROP_SCHEMA_CASCADE:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-            case SUPPORTS_RENAME_TABLE:
-                return false;
-
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                return false;
-
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
-                return false;
-
-            case SUPPORTS_TRUNCATE:
-                return false;
-
-            case SUPPORTS_ROW_TYPE:
-                return false;
-
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_MERGE:
-                return true;
-
-            case SUPPORTS_NATIVE_QUERY:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_MERGE,
+                    SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
+                    SUPPORTS_UPDATE -> true;
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                    SUPPORTS_AGGREGATION_PUSHDOWN,
+                    SUPPORTS_COMMENT_ON_COLUMN,
+                    SUPPORTS_COMMENT_ON_TABLE,
+                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
+                    SUPPORTS_DROP_SCHEMA_CASCADE,
+                    SUPPORTS_LIMIT_PUSHDOWN,
+                    SUPPORTS_NATIVE_QUERY,
+                    SUPPORTS_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_RENAME_SCHEMA,
+                    SUPPORTS_RENAME_TABLE,
+                    SUPPORTS_ROW_TYPE,
+                    SUPPORTS_SET_COLUMN_TYPE,
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_TRUNCATE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     // TODO: wait https://github.com/trinodb/trino/pull/14939 done and then remove this test

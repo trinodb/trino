@@ -64,46 +64,27 @@ public class TestRedshiftConnectorTest
     }
 
     @Override
-    @SuppressWarnings("DuplicateBranchesInSwitch") // options here are grouped per-feature
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_DROP_SCHEMA_CASCADE:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                return true;
-
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-                return false;
-
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-            case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT:
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_ARRAY:
-            case SUPPORTS_ROW_TYPE:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-                return false;
-
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
-                return false;
-
-            case SUPPORTS_JOIN_PUSHDOWN:
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY:
-                return true;
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_COMMENT_ON_COLUMN,
+                    SUPPORTS_JOIN_PUSHDOWN,
+                    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY -> true;
+            case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
+                    SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
+                    SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
+                    SUPPORTS_ARRAY,
+                    SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_DROP_SCHEMA_CASCADE,
+                    SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
+                    SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                    SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                    SUPPORTS_ROW_TYPE,
+                    SUPPORTS_SET_COLUMN_TYPE -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Test
