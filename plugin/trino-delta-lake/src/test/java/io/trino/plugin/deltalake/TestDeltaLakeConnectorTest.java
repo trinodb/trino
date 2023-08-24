@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
@@ -64,7 +65,9 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSA
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
+import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_FUNCTION;
@@ -76,6 +79,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1145,6 +1149,386 @@ public class TestDeltaLakeConnectorTest
                 .matches("VALUES (1, CAST(row(11) AS row(x integer)))");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingWithTrueAndFalseDataProvider")
+    public void testDeltaColumnMappingModeAllDataTypes(ColumnMappingMode mode, boolean partitioned)
+    {
+        String tableName = "test_column_mapping_mode_name_all_types_" + randomNameSuffix();
+
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "    a_boolean BOOLEAN," +
+                "    a_tinyint TINYINT," +
+                "    a_smallint SMALLINT," +
+                "    a_int INT," +
+                "    a_bigint BIGINT," +
+                "    a_decimal_5_2 DECIMAL(5,2)," +
+                "    a_decimal_21_3 DECIMAL(21,3)," +
+                "    a_double DOUBLE," +
+                "    a_float REAL," +
+                "    a_string VARCHAR," +
+                "    a_date DATE," +
+                "    a_timestamp TIMESTAMP(3) WITH TIME ZONE," +
+                "    a_binary VARBINARY," +
+                "    a_string_array ARRAY(VARCHAR)," +
+                "    a_struct_array ARRAY(ROW(a_string VARCHAR))," +
+                "    a_map MAP(VARCHAR, VARCHAR)," +
+                "    a_complex_map MAP(VARCHAR, ROW(a_string VARCHAR))," +
+                "    a_struct ROW(a_string VARCHAR, a_int INT)," +
+                "    a_complex_struct ROW(nested_struct ROW(a_string VARCHAR), a_int INT)" +
+                (partitioned ? ", part VARCHAR" : "") +
+                ")" +
+                "WITH (" +
+                (partitioned ? " partitioned_by = ARRAY['part']," : "") +
+                "column_mapping_mode = '" + mode + "'" +
+                ")");
+
+        assertUpdate("" +
+                "INSERT INTO " + tableName +
+                " VALUES " +
+                "(" +
+                "   true, " +
+                "   1, " +
+                "   10," +
+                "   100, " +
+                "   1000, " +
+                "   CAST('123.12' AS DECIMAL(5,2)), " +
+                "   CAST('123456789012345678.123' AS DECIMAL(21,3)), " +
+                "   DOUBLE '0', " +
+                "   REAL '0', " +
+                "   'a', " +
+                "   DATE '2020-08-21', " +
+                "   TIMESTAMP '2020-10-21 01:00:00.123 UTC', " +
+                "   X'abcd', " +
+                "   ARRAY['element 1'], " +
+                "   ARRAY[ROW('nested 1')], " +
+                "   MAP(ARRAY['key'], ARRAY['value1']), " +
+                "   MAP(ARRAY['key'], ARRAY[ROW('nested value1')]), " +
+                "   ROW('item 1', 1), " +
+                "   ROW(ROW('nested item 1'), 11) " +
+                (partitioned ? ", 'part1'" : "") +
+                "), " +
+                "(" +
+                "   true, " +
+                "   2, " +
+                "   20," +
+                "   200, " +
+                "   2000, " +
+                "   CAST('223.12' AS DECIMAL(5,2)), " +
+                "   CAST('223456789012345678.123' AS DECIMAL(21,3)), " +
+                "   DOUBLE '0', " +
+                "   REAL '0', " +
+                "   'b', " +
+                "   DATE '2020-08-22', " +
+                "   TIMESTAMP '2020-10-22 02:00:00.456 UTC', " +
+                "   X'abcd', " +
+                "   ARRAY['element 2'], " +
+                "   ARRAY[ROW('nested 2')], " +
+                "   MAP(ARRAY['key'], ARRAY[null]), " +
+                "   MAP(ARRAY['key'], ARRAY[null]), " +
+                "   ROW('item 2', 2), " +
+                "   ROW(ROW('nested item 2'), 22) " +
+                (partitioned ? ", 'part2'" : "") +
+                ")", 2);
+
+        String selectTrinoValues = "SELECT " +
+                "a_boolean, a_tinyint, a_smallint, a_int, a_bigint, a_decimal_5_2, a_decimal_21_3, a_double , a_float, a_string, a_date, a_binary, a_string_array[1], a_struct_array[1].a_string, a_map['key'], a_complex_map['key'].a_string, a_struct.a_string, a_struct.a_int, a_complex_struct.nested_struct.a_string, a_complex_struct.a_int " +
+                "FROM " + tableName;
+
+        assertThat(query(selectTrinoValues))
+                .skippingTypesCheck()
+                .matches("VALUES" +
+                        "(true, tinyint '1', smallint '10', integer '100', bigint '1000', decimal '123.12', decimal '123456789012345678.123', double '0', real '0', 'a', date '2020-08-21', X'abcd', 'element 1', 'nested 1', 'value1', 'nested value1', 'item 1', 1, 'nested item 1', 11)," +
+                        "(true, tinyint '2', smallint '20', integer '200', bigint '2000', decimal '223.12', decimal '223456789012345678.123', double '0.0', real '0.0', 'b', date '2020-08-22', X'abcd', 'element 2', 'nested 2', null, null, 'item 2', 2, 'nested item 2', 22)");
+
+        assertQuery(
+                "SELECT format('%1$tF %1$tT.%1$tL', a_timestamp) FROM " + tableName,
+                "VALUES '2020-10-21 01:00:00.123', '2020-10-22 02:00:00.456'");
+
+        assertUpdate("UPDATE " + tableName + " SET a_boolean = false where a_tinyint = 1", 1);
+        assertThat(query(selectTrinoValues))
+                .skippingTypesCheck()
+                .matches("VALUES" +
+                        "(false, tinyint '1', smallint '10', integer '100', bigint '1000', decimal '123.12', decimal '123456789012345678.123', double '0', real '0', 'a', date '2020-08-21', X'abcd', 'element 1', 'nested 1', 'value1', 'nested value1', 'item 1', 1, 'nested item 1', 11)," +
+                        "(true, tinyint '2', smallint '20', integer '200', bigint '2000', decimal '223.12', decimal '223456789012345678.123', double '0.0', real '0.0', 'b', date '2020-08-22', X'abcd', 'element 2', 'nested 2', null, null, 'item 2', 2, 'nested item 2', 22)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_tinyint = 2", 1);
+        assertThat(query(selectTrinoValues))
+                .skippingTypesCheck()
+                .matches("VALUES" +
+                        "(false, tinyint '1', smallint '10', integer '100', bigint '1000', decimal '123.12', decimal '123456789012345678.123', double '0', real '0', 'a', date '2020-08-21', X'abcd', 'element 1', 'nested 1', 'value1', 'nested value1', 'item 1', 1, 'nested item 1', 11)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "columnMappingWithTrueAndFalseDataProvider")
+    public void testOptimizeProcedureColumnMappingMode(ColumnMappingMode mode, boolean partitioned)
+    {
+        String tableName = "test_optimize_column_mapping_mode_" + randomNameSuffix();
+
+        assertUpdate("" +
+                "CREATE TABLE " + tableName +
+                "(a_number INT, a_struct ROW(x INT), a_string VARCHAR) " +
+                "WITH (" +
+                (partitioned ? "partitioned_by=ARRAY['a_string']," : "") +
+                "location='s3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'," +
+                "column_mapping_mode='" + mode + "')");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(11), 'a')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, row(22), 'b')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, row(33), 'c')", 1);
+
+        Double stringColumnSize = partitioned ? null : 3.0;
+        String expectedStats = "VALUES" +
+                "('a_number', null, 3.0, 0.0, null, '1', '3')," +
+                "('a_struct', null, null, null, null, null, null)," +
+                "('a_string', " + stringColumnSize + ", 3.0, 0.0, null, null, null)," +
+                "(null, null, null, null, 3.0, null, null)";
+        assertQuery("SHOW STATS FOR " + tableName, expectedStats);
+
+        // Execute OPTIMIZE procedure and verify that the statistics is preserved and the table is still writable and readable
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+
+        assertQuery("SHOW STATS FOR " + tableName, expectedStats);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, row(44), 'd')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, row(55), 'e')", 1);
+
+        assertQuery(
+                "SELECT a_number, a_struct.x, a_string FROM " + tableName,
+                "VALUES" +
+                        "(1, 11, 'a')," +
+                        "(2, 22, 'b')," +
+                        "(3, 33, 'c')," +
+                        "(4, 44, 'd')," +
+                        "(5, 55, 'e')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.write_stats_as_json_column_mapping_id
+     */
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testSupportedNonPartitionedColumnMappingIdWrites(boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_id", statsAsJsonEnabled);
+    }
+
+    /**
+     * @see deltalake.write_stats_as_json_column_mapping_name
+     */
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testSupportedNonPartitionedColumnMappingNameWrites(boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_name", statsAsJsonEnabled);
+    }
+
+    /**
+     * @see deltalake.write_stats_as_json_column_mapping_none
+     */
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testSupportedNonPartitionedColumnMappingNoneWrites(boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        testSupportedNonPartitionedColumnMappingWrites("write_stats_as_json_column_mapping_none", statsAsJsonEnabled);
+    }
+
+    private void testSupportedNonPartitionedColumnMappingWrites(String resourceName, boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        String tableName = "test_column_mapping_mode_" + randomNameSuffix();
+
+        String entry = Resources.toString(Resources.getResource("deltalake/%s/_delta_log/00000000000000000000.json".formatted(resourceName)), UTF_8)
+                .replace("%WRITE_STATS_AS_JSON%", Boolean.toString(statsAsJsonEnabled))
+                .replace("%WRITE_STATS_AS_STRUCT%", Boolean.toString(!statsAsJsonEnabled));
+
+        String targetPath = "%s/%s/_delta_log/00000000000000000000.json".formatted(SCHEMA, tableName);
+        minioClient.putObject(bucketName, entry.getBytes(UTF_8), targetPath);
+        String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(SCHEMA, tableName, tableLocation));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, 'first value', ARRAY[ROW('nested 1')], ROW('databricks 1'))," +
+                        "(2, 'two', ARRAY[ROW('nested 2')], ROW('databricks 2'))," +
+                        "(3, 'third value', ARRAY[ROW('nested 3')], ROW('databricks 3'))," +
+                        "(4, 'four', ARRAY[ROW('nested 4')], ROW('databricks 4'))",
+                4);
+
+        assertQuery(
+                "SELECT a_number, a_string, array_col[1].array_struct_element, nested.field1 FROM " + tableName,
+                "VALUES" +
+                        "(1, 'first value', 'nested 1', 'databricks 1')," +
+                        "(2, 'two', 'nested 2', 'databricks 2')," +
+                        "(3, 'third value', 'nested 3', 'databricks 3')," +
+                        "(4, 'four', 'nested 4', 'databricks 4')");
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES" +
+                        "('a_number', null, 4.0, 0.0, null, '1', '4')," +
+                        "('a_string', 29.0, 4.0, 0.0, null, null, null)," +
+                        "('array_col', null, null, null, null, null, null)," +
+                        "('nested', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 4.0, null, null)");
+
+        assertUpdate("UPDATE " + tableName + " SET a_number = a_number + 10 WHERE a_number in (3, 4)", 2);
+        assertUpdate("UPDATE " + tableName + " SET a_number = a_number + 20 WHERE a_number in (1, 2)", 2);
+        assertQuery(
+                "SELECT a_number, a_string, array_col[1].array_struct_element, nested.field1 FROM " + tableName,
+                "VALUES" +
+                        "(21, 'first value', 'nested 1', 'databricks 1')," +
+                        "(22, 'two', 'nested 2', 'databricks 2')," +
+                        "(13, 'third value', 'nested 3', 'databricks 3')," +
+                        "(14, 'four', 'nested 4', 'databricks 4')");
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES" +
+                        "('a_number', null, 4.0, 0.0, null, '13', '22')," +
+                        "('a_string', 29.0, 4.0, 0.0, null, null, null)," +
+                        "('array_col', null, null, null, null, null, null)," +
+                        "('nested', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 4.0, null, null)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_number = 22", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_number = 13", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_number = 21", 1);
+        assertQuery(
+                "SELECT a_number, a_string, array_col[1].array_struct_element, nested.field1 FROM " + tableName,
+                "VALUES (14, 'four', 'nested 4', 'databricks 4')");
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES" +
+                        "('a_number', null, 1.0, 0.0, null, '14', '14')," +
+                        "('a_string', 29.0, 1.0, 0.0, null, null, null)," +
+                        "('array_col', null, null, null, null, null, null)," +
+                        "('nested', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 1.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.write_stats_as_json_partition_column_mapping_id
+     */
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testSupportedPartitionedColumnMappingIdWrites(boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_id", statsAsJsonEnabled);
+    }
+
+    /**
+     * @see deltalake.write_stats_as_json_partition_column_mapping_name
+     */
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testSupportedPartitionedColumnMappingNameWrites(boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_name", statsAsJsonEnabled);
+    }
+
+    /**
+     * @see deltalake.write_stats_as_json_partition_column_mapping_none
+     */
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testSupportedPartitionedColumnMappingNoneWrites(boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        testSupportedPartitionedColumnMappingWrites("write_stats_as_json_partition_column_mapping_none", statsAsJsonEnabled);
+    }
+
+    private void testSupportedPartitionedColumnMappingWrites(String resourceName, boolean statsAsJsonEnabled)
+            throws Exception
+    {
+        String tableName = "test_column_mapping_mode_" + randomNameSuffix();
+
+        String entry = Resources.toString(Resources.getResource("deltalake/%s/_delta_log/00000000000000000000.json".formatted(resourceName)), UTF_8)
+                .replace("%WRITE_STATS_AS_JSON%", Boolean.toString(statsAsJsonEnabled))
+                .replace("%WRITE_STATS_AS_STRUCT%", Boolean.toString(!statsAsJsonEnabled));
+
+        String targetPath = "%s/%s/_delta_log/00000000000000000000.json".formatted(SCHEMA, tableName);
+        minioClient.putObject(bucketName, entry.getBytes(UTF_8), targetPath);
+        String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(SCHEMA, tableName, tableLocation));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES" +
+                        "(1, 'first value', ARRAY[ROW('nested 1')], ROW('databricks 1'))," +
+                        "(2, 'two', ARRAY[ROW('nested 2')], ROW('databricks 2'))," +
+                        "(3, 'third value', ARRAY[ROW('nested 3')], ROW('databricks 3'))," +
+                        "(4, 'four', ARRAY[ROW('nested 4')], ROW('databricks 4'))",
+                4);
+
+        assertQuery(
+                "SELECT a_number, a_string, array_col[1].array_struct_element, nested.field1 FROM " + tableName,
+                "VALUES" +
+                        "(1, 'first value', 'nested 1', 'databricks 1')," +
+                        "(2, 'two', 'nested 2', 'databricks 2')," +
+                        "(3, 'third value', 'nested 3', 'databricks 3')," +
+                        "(4, 'four', 'nested 4', 'databricks 4')");
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES" +
+                        "('a_number', null, 4.0, 0.0, null, '1', '4')," +
+                        "('a_string', null, 4.0, 0.0, null, null, null)," +
+                        "('array_col', null, null, null, null, null, null)," +
+                        "('nested', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 4.0, null, null)");
+
+        assertUpdate("UPDATE " + tableName + " SET a_number = a_number + 10 WHERE a_number in (3, 4)", 2);
+        assertUpdate("UPDATE " + tableName + " SET a_number = a_number + 20 WHERE a_number in (1, 2)", 2);
+        assertQuery(
+                "SELECT a_number, a_string, array_col[1].array_struct_element, nested.field1 FROM " + tableName,
+                "VALUES" +
+                        "(21, 'first value', 'nested 1', 'databricks 1')," +
+                        "(22, 'two', 'nested 2', 'databricks 2')," +
+                        "(13, 'third value', 'nested 3', 'databricks 3')," +
+                        "(14, 'four', 'nested 4', 'databricks 4')");
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES" +
+                        "('a_number', null, 4.0, 0.0, null, '13', '22')," +
+                        "('a_string', null, 4.0, 0.0, null, null, null)," +
+                        "('array_col', null, null, null, null, null, null)," +
+                        "('nested', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 4.0, null, null)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_number = 22", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_number = 13", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a_number = 21", 1);
+        assertQuery(
+                "SELECT a_number, a_string, array_col[1].array_struct_element, nested.field1 FROM " + tableName,
+                "VALUES (14, 'four', 'nested 4', 'databricks 4')");
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES" +
+                        "('a_number', null, 1.0, 0.0, null, '14', '14')," +
+                        "('a_string', null, 1.0, 0.0, null, null, null)," +
+                        "('array_col', null, null, null, null, null, null)," +
+                        "('nested', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 1.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] columnMappingWithTrueAndFalseDataProvider()
+    {
+        return cartesianProduct(columnMappingModeDataProvider(), trueFalse());
     }
 
     @DataProvider
