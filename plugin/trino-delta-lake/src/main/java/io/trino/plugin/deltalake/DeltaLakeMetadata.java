@@ -3278,6 +3278,8 @@ public class DeltaLakeMetadata
         if (isAppendOnly(tableHandle.getMetadataEntry())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot modify rows from a table with '" + APPEND_ONLY_CONFIGURATION_KEY + "' set to true");
         }
+        checkWriteAllowed(session, tableHandle);
+        checkWriteSupported(session, tableHandle);
 
         String tableLocation = tableHandle.location();
         List<AddFileEntry> activeFiles = getAddFileEntriesMatchingEnforcedPartitionConstraint(session, tableHandle);
