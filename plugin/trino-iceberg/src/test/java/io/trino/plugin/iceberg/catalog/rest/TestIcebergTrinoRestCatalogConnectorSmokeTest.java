@@ -53,14 +53,16 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         super(new IcebergConfig().getFileFormat().toIceberg());
     }
 
-    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_RENAME_SCHEMA -> false;
-            case SUPPORTS_CREATE_VIEW, SUPPORTS_COMMENT_ON_VIEW, SUPPORTS_COMMENT_ON_VIEW_COLUMN -> false;
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW, SUPPORTS_RENAME_MATERIALIZED_VIEW -> false;
+            case SUPPORTS_COMMENT_ON_VIEW,
+                    SUPPORTS_COMMENT_ON_VIEW_COLUMN,
+                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_CREATE_VIEW,
+                    SUPPORTS_RENAME_MATERIALIZED_VIEW,
+                    SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
