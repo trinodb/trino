@@ -68,7 +68,7 @@ public final class SalesforceQueryRunner
             Map<String, String> extraProperties,
             String catalogName,
             Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables,
+            Map<String, TpchTable<?>> tableNameMapper,
             boolean enableWrites)
             throws Exception
     {
@@ -79,7 +79,7 @@ public final class SalesforceQueryRunner
         // As the CI builds times, the sandbox would quickly fill up and then the builds will fail
         // We also don't want to hit our API limit, so instead we just create the tables once but will assert
         // all the data is in the tables each CI run
-        copyTpchTablesIfNotExists(extraProperties, catalogName, connectorProperties, tables);
+        copyTpchTablesIfNotExists(extraProperties, catalogName, connectorProperties, tableNameMapper);
 
         DistributedQueryRunner queryRunner = null;
         try {
@@ -149,7 +149,7 @@ public final class SalesforceQueryRunner
         }
     }
 
-    private static void copyTpchTablesIfNotExists(Map<String, String> extraProperties, String catalogName, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
+    private static void copyTpchTablesIfNotExists(Map<String, String> extraProperties, String catalogName, Map<String, String> connectorProperties, Map<String, TpchTable<?>> tableNameMapper)
             throws Exception
     {
         DistributedQueryRunner.Builder<?> builder = DistributedQueryRunner.builder(createSession(catalogName));
@@ -163,7 +163,7 @@ public final class SalesforceQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            copyTpchTablesIfNotExists(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(catalogName), tables);
+            copyTpchTablesIfNotExists(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(catalogName), tableNameMapper);
         }
     }
 
@@ -172,19 +172,20 @@ public final class SalesforceQueryRunner
             String sourceCatalog,
             String sourceSchema,
             Session session,
-            Iterable<TpchTable<?>> tables)
+            Map<String, TpchTable<?>> tableNameMapper)
     {
         log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
         long startTime = System.nanoTime();
-        for (TpchTable<?> table : tables) {
-            QualifiedObjectName qualifiedTable = new QualifiedObjectName(sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH));
-            copyTableIfNotExists(queryRunner, table, qualifiedTable, session);
+        for (Map.Entry<String, TpchTable<?>> tableEntry : tableNameMapper.entrySet()) {
+            QualifiedObjectName salesforceQualifiedTable = new QualifiedObjectName(sourceCatalog, sourceSchema, tableEntry.getKey().toLowerCase(ENGLISH));
+            QualifiedObjectName tpchQualifiedTable = new QualifiedObjectName(sourceCatalog, sourceSchema, tableEntry.getValue().getTableName().toLowerCase(ENGLISH));
+            copyTableIfNotExists(queryRunner, tableEntry.getValue(), tpchQualifiedTable, salesforceQualifiedTable, session);
         }
 
         log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
-    private static void copyTableIfNotExists(QueryRunner queryRunner, TpchTable<?> table, QualifiedObjectName qualifiedTable, Session session)
+    private static void copyTableIfNotExists(QueryRunner queryRunner, TpchTable<?> table, QualifiedObjectName tpchQualifiedTable, QualifiedObjectName salesforceQualifiedTable, Session session)
     {
         // Check if the table exists rather than running CREATE TABLE IF NOT EXISTS because the Salesforce table name has the suffix
         // The SQL query would fail because the e.g. 'customer' table doesn't exist, but then you get an error
@@ -194,43 +195,43 @@ public final class SalesforceQueryRunner
         // If not, the table is truncated and then re-loaded
 
         @Language("SQL") String sql;
-        if (!queryRunner.tableExists(session, qualifiedTable.getObjectName() + "__c")) {
-            log.info("Table %s does not exist, running CTAS", qualifiedTable.getObjectName());
-            sql = format("CREATE TABLE %s AS SELECT * FROM %s", qualifiedTable.getObjectName(), qualifiedTable);
+        if (!queryRunner.tableExists(session, salesforceQualifiedTable.getObjectName() + "__c")) {
+            log.info("Table %s does not exist, running CTAS", salesforceQualifiedTable.getObjectName());
+            sql = format("CREATE TABLE %s AS SELECT * FROM %s", salesforceQualifiedTable.getObjectName(), tpchQualifiedTable);
         }
         else {
-            log.info("Table %s exists, checking row count", qualifiedTable.getObjectName());
-            long expectedCount = (long) queryRunner.execute(session, "SELECT count(*) FROM " + qualifiedTable).getOnlyValue();
-            long actualCount = (long) queryRunner.execute(session, "SELECT count(*) FROM " + qualifiedTable.getObjectName() + "__c").getOnlyValue();
+            log.info("Table %s exists, checking row count", salesforceQualifiedTable.getObjectName());
+            long expectedCount = (long) queryRunner.execute(session, "SELECT count(*) FROM " + tpchQualifiedTable).getOnlyValue();
+            long actualCount = (long) queryRunner.execute(session, "SELECT count(*) FROM " + salesforceQualifiedTable.getObjectName() + "__c").getOnlyValue();
 
             if (expectedCount == actualCount) {
-                log.info("Table %s already exists and is loaded correctly", qualifiedTable.getObjectName());
+                log.info("Table %s already exists and is loaded correctly", salesforceQualifiedTable.getObjectName());
                 return;
             }
 
-            log.info("Table %s exists, truncating table and reloading data", qualifiedTable.getObjectName());
-            truncateTable(qualifiedTable.getObjectName().toLowerCase(ENGLISH));
+            log.info("Table %s exists, truncating table and reloading data", salesforceQualifiedTable.getObjectName());
+            truncateTable(salesforceQualifiedTable.getObjectName().toLowerCase(ENGLISH));
 
             String columnDefinition = table.getColumns().stream().map(TpchColumn::getSimplifiedColumnName).collect(joining("__c, ", "", "__c"));
             String columnMappings = table.getColumns().stream().map(TpchColumn::getSimplifiedColumnName).map(name -> format("%s AS %s__c", name, name)).collect(joining(", "));
-            sql = format("INSERT INTO %s__c (%s) SELECT %s FROM %s", qualifiedTable.getObjectName(), columnDefinition, columnMappings, qualifiedTable);
+            sql = format("INSERT INTO %s__c (%s) SELECT %s FROM %s", salesforceQualifiedTable.getObjectName(), columnDefinition, columnMappings, tpchQualifiedTable);
         }
 
         // Run either the CREATE or INSERT and assert that it is loaded correctly, failing if it is not
         long start = System.nanoTime();
-        log.info("Running import for %s", qualifiedTable.getObjectName());
+        log.info("Running import for %s", salesforceQualifiedTable.getObjectName());
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-        log.info("Imported %s rows for %s in %s", rows, qualifiedTable.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Imported %s rows for %s in %s", rows, salesforceQualifiedTable.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
 
-        log.info("Running assertion for %s", qualifiedTable.getObjectName());
-        assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + qualifiedTable).getOnlyValue())
-                .as("Table is not loaded properly: %s", qualifiedTable)
-                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + qualifiedTable.getObjectName() + "__c").getOnlyValue());
+        log.info("Running assertion for %s", salesforceQualifiedTable.getObjectName());
+        assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + tpchQualifiedTable).getOnlyValue())
+                .as("Table is not loaded properly: %s", salesforceQualifiedTable)
+                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + salesforceQualifiedTable.getObjectName() + "__c").getOnlyValue());
     }
 
     public static class Builder
     {
-        private Iterable<TpchTable<?>> tables = TpchTable.getTables();
+        private Map<String, TpchTable<?>> tableNameMapper = Map.of();
         private String catalogName = "salesforce";
         private Map<String, String> connectorProperties;
         private Map<String, String> extraProperties;
@@ -265,9 +266,9 @@ public final class SalesforceQueryRunner
             return this;
         }
 
-        public Builder setTables(Iterable<TpchTable<?>> tables)
+        public Builder setTableNameMapper(Map<String, TpchTable<?>> tableNameMapper)
         {
-            this.tables = requireNonNull(tables, "tables is null");
+            this.tableNameMapper = requireNonNull(tableNameMapper, "tableNameMapper is null");
             return this;
         }
 
@@ -290,7 +291,7 @@ public final class SalesforceQueryRunner
                     extraProperties,
                     catalogName,
                     connectorProperties,
-                    tables,
+                    tableNameMapper,
                     enableWrites);
         }
 

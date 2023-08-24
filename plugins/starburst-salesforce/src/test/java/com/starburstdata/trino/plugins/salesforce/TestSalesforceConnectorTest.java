@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -118,6 +119,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -130,37 +132,34 @@ public class TestSalesforceConnectorTest
 {
     // This map is used for replacing tables and columns ending in __c with their non-__c counterpart when
     // running the expected queries against H2
-    private static final Map<String, String> TABLE_COLUMN_SUFFIX_REGEXES;
+    private final Map<String, String> tableColumnSuffixRegexes = ImmutableMap.<String, String>builder()
+            .putAll(TpchTable.getTables().stream()
+                    .map(table -> Pair.of(getRepositorySpecificSalesforceTableName(table.getTableName()), table.getTableName()))
+                    .collect(Collectors.toMap(Pair::first, Pair::second)))
+            .putAll(TpchTable.getTables().stream()
+                    .map(TpchTable::getColumns)
+                    .flatMap(List::stream)
+                    .map(column -> Pair.of(getSalesforceObjectName(column.getSimplifiedColumnName()), column.getSimplifiedColumnName()))
+                    .distinct()
+                    .collect(Collectors.toMap(Pair::first, Pair::second)))
+            .buildOrThrow();
 
-    private final String salesforceCustomerTableName = "customer__c";
-    private final String salesforceLineitemTableName = "lineitem__c";
-    private final String salesforceNationTableName = "nation__c";
-    private final String salesforceOrdersTableName = "orders__c";
-    private final String salesforceRegionTableName = "region__c";
-
-    static {
-        Map<String, String> tableRegexes = TpchTable.getTables().stream()
-                .map(table -> Pair.of(table.getTableName() + "__c", table.getTableName()))
-                .collect(Collectors.toMap(Pair::first, Pair::second));
-
-        Map<String, String> columnRegexes = TpchTable.getTables().stream()
-                .map(TpchTable::getColumns)
-                .flatMap(List::stream)
-                .map(column -> Pair.of(column.getSimplifiedColumnName() + "__c", column.getSimplifiedColumnName()))
-                .distinct()
-                .collect(Collectors.toMap(Pair::first, Pair::second));
-
-        TABLE_COLUMN_SUFFIX_REGEXES = ImmutableMap.<String, String>builder()
-                .putAll(tableRegexes)
-                .putAll(columnRegexes)
-                .buildOrThrow();
-    }
+    protected final String salesforceCustomerTableName = getRepositorySpecificSalesforceTableName("customer");
+    protected final String salesforceLineitemTableName = getRepositorySpecificSalesforceTableName("lineitem");
+    protected final String salesforceNationTableName = getRepositorySpecificSalesforceTableName("nation");
+    protected final String salesforceOrdersTableName = getRepositorySpecificSalesforceTableName("orders");
+    protected final String salesforceRegionTableName = getRepositorySpecificSalesforceTableName("region");
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return SalesforceQueryRunner.builder().build();
+        // Salesforce sandbox is shared across multiple repositories'(starburst-trino-plugins, galaxy-trino, stargate) CI jobs.
+        // Tables names are suffixed with repository identifier to uniquely identify tables from respective repository through `getRepositorySpecificTableName`.
+        Map<String, TpchTable<?>> tableNameMapper = TpchTable.getTables().stream().collect(toMap((table) -> getRepositorySpecificTableName(table.getTableName()), Function.identity()));
+        return SalesforceQueryRunner.builder()
+                .setTableNameMapper(tableNameMapper)
+                .build();
     }
 
     // Override these assertions in order to change the expected SQL ran against H2
@@ -169,7 +168,7 @@ public class TestSalesforceConnectorTest
     protected void assertQuery(@Language("SQL") String sql)
     {
         @Language("SQL") String expectedSql = sql;
-        for (Map.Entry<String, String> regex : TABLE_COLUMN_SUFFIX_REGEXES.entrySet()) {
+        for (Map.Entry<String, String> regex : tableColumnSuffixRegexes.entrySet()) {
             expectedSql = expectedSql.replaceAll(regex.getKey(), regex.getValue());
         }
 
@@ -180,7 +179,7 @@ public class TestSalesforceConnectorTest
     protected void assertQuery(Session session, @Language("SQL") String sql)
     {
         @Language("SQL") String expectedSql = sql;
-        for (Map.Entry<String, String> regex : TABLE_COLUMN_SUFFIX_REGEXES.entrySet()) {
+        for (Map.Entry<String, String> regex : tableColumnSuffixRegexes.entrySet()) {
             expectedSql = expectedSql.replaceAll(regex.getKey(), regex.getValue());
         }
 
@@ -191,7 +190,7 @@ public class TestSalesforceConnectorTest
     protected void assertQueryOrdered(@Language("SQL") String sql)
     {
         @Language("SQL") String expectedSql = sql;
-        for (Map.Entry<String, String> regex : TABLE_COLUMN_SUFFIX_REGEXES.entrySet()) {
+        for (Map.Entry<String, String> regex : tableColumnSuffixRegexes.entrySet()) {
             expectedSql = expectedSql.replaceAll(regex.getKey(), regex.getValue());
         }
 
@@ -2345,8 +2344,8 @@ public class TestSalesforceConnectorTest
         String schemaPattern = schema.replaceAll("^.", "_");
 
         assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = '" + schema + "' AND table_name = '%s'".formatted(salesforceOrdersTableName), "VALUES '%s'".formatted(salesforceOrdersTableName));
-        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema LIKE '" + schema + "' AND table_name LIKE '%rders__c'", "VALUES '%s'".formatted(salesforceOrdersTableName));
-        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '%rders__c'", "VALUES '%s'".formatted(salesforceOrdersTableName));
+        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema LIKE '" + schema + "' AND table_name LIKE '%%%s'".formatted(getRepositorySpecificSalesforceTableName("rders")), "VALUES '%s'".formatted(salesforceOrdersTableName));
+        assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '%%%s'".formatted(getRepositorySpecificSalesforceTableName("rders")), "VALUES '%s'".formatted(salesforceOrdersTableName));
         assertQuery(
                 "SELECT table_name FROM information_schema.tables " +
                         "WHERE table_catalog = '" + catalog + "' AND table_schema LIKE '" + schema + "' AND table_name LIKE '%%%s'".formatted(salesforceOrdersTableName),
@@ -2400,18 +2399,18 @@ public class TestSalesforceConnectorTest
         assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
         assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = '%s' GROUP BY table_name".formatted(salesforceOrdersTableName), "VALUES '%s'".formatted(salesforceOrdersTableName));
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = '%s'".formatted(salesforceOrdersTableName), ordersTableWithColumns);
-        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%rders__c'", ordersTableWithColumns);
-        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '_rders___'", ordersTableWithColumns);
+        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%%%s'".formatted(getRepositorySpecificSalesforceTableName("rders")), ordersTableWithColumns);
+        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '_%s___'".formatted(getRepositorySpecificTableName("rders")), ordersTableWithColumns);
         assertQuery(
                 "SELECT table_name, column_name FROM information_schema.columns " +
                         "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%%%s%%'".formatted(salesforceOrdersTableName),
                 ordersTableWithColumns);
 
         assertQuerySucceeds("SELECT * FROM information_schema.columns");
-        assertQuery("SELECT DISTINCT table_name, column_name FROM information_schema.columns WHERE table_name LIKE '_rders__c'", ordersTableWithColumns);
+        assertQuery("SELECT DISTINCT table_name, column_name FROM information_schema.columns WHERE table_name LIKE '_%s__c'".formatted(getRepositorySpecificTableName("rders")), ordersTableWithColumns);
         assertQuerySucceeds("SELECT * FROM information_schema.columns WHERE table_catalog = '" + catalog + "'");
         assertQuerySucceeds("SELECT * FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "'");
-        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '_rders__c'", ordersTableWithColumns);
+        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '_%s__c'".formatted(getRepositorySpecificTableName("rders")), ordersTableWithColumns);
         assertQuerySucceeds("SELECT * FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_name LIKE '%'");
         assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
 
@@ -3039,5 +3038,22 @@ public class TestSalesforceConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_enabled", "true")
                 .build();
+    }
+
+    private String getRepositorySpecificSalesforceTableName(String tableName)
+    {
+        return getSalesforceObjectName(getRepositorySpecificTableName(tableName));
+    }
+
+    private static String getSalesforceObjectName(String objectName)
+    {
+        return  objectName + "__c";
+    }
+
+    // Salesforce sandbox is shared across multiple repositories'(starburst-trino-plugins, galaxy-trino, stargate) CI jobs.
+    // Tables names are suffixed with repository identifier to uniquely identify tables from respective repository.
+    protected String getRepositorySpecificTableName(String tableName)
+    {
+        return tableName + "_plugins";
     }
 }

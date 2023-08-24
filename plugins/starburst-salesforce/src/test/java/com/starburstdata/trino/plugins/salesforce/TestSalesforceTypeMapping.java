@@ -32,6 +32,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -88,7 +89,7 @@ public class TestSalesforceTypeMapping
         this.jdbcUrl = new SalesforceModule.PasswordConnectionUrlProvider(config, passwordConfig).get();
         return SalesforceQueryRunner.builder()
                 .enableWrites() // Enable writes so we can create tables and write data to them
-                .setTables(ImmutableList.of()) // No tables needed for type mapping tests
+                .setTableNameMapper(Map.of()) // No tables needed for type mapping tests
                 .build();
     }
 
