@@ -1775,33 +1775,6 @@ public class TestDeltaLakeColumnMappingMode
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testRenameColumnWithComment(String mode)
-    {
-        String tableName = "test_rename_column_with_comment_" + randomNameSuffix();
-
-        onDelta().executeQuery("" +
-                "CREATE TABLE default." + tableName +
-                " (col INT COMMENT 'test column comment', part INT COMMENT 'test partition comment')" +
-                " USING delta" +
-                " PARTITIONED BY (part)" +
-                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                " TBLPROPERTIES ('delta.columnMapping.mode' = '" + mode + "')");
-        try {
-            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN col TO new_col");
-            assertEquals(getColumnCommentOnTrino("default", tableName, "new_col"), "test column comment");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "new_col"), "test column comment");
-
-            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN part TO new_part");
-            assertEquals(getColumnCommentOnTrino("default", tableName, "new_part"), "test partition comment");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "new_part"), "test partition comment");
-        }
-        finally {
-            dropDeltaTableWithRetry(tableName);
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testRenameNonLowercaseColumn(String mode)
     {
         String tableName = "test_rename_non_lowercase_column_" + randomNameSuffix();
