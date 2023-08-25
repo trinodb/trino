@@ -176,8 +176,8 @@ public class TestMarkdownTablePrinter
         return asList(rows);
     }
 
-    static byte[] bytes(String s)
+    static byte[] bytes(String value)
     {
-        return s.getBytes(UTF_8);
+        return value.getBytes(UTF_8);
     }
 }
