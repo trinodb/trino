@@ -126,6 +126,12 @@ public class IcebergNessieTableOperations
         shouldRefresh = true;
     }
 
+    @Override
+    protected void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     private static ContentKey toKey(SchemaTableName tableName)
     {
         return ContentKey.of(Namespace.parse(tableName.getSchemaName()), tableName.getTableName());
