@@ -172,7 +172,7 @@
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.confluent.version>7.3.1</dep.confluent.version>
         <dep.kafka-clients.version>3.3.2</dep.kafka-clients.version>
-        <dep.casandra.version>4.14.0</dep.casandra.version>
+        <dep.casandra.version>4.17.0</dep.casandra.version>
         <dep.minio.version>8.5.5</dep.minio.version>
         <dep.iceberg.version>1.3.0</dep.iceberg.version>
         <dep.protobuf.version>3.23.2</dep.protobuf.version>
