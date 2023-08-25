@@ -427,6 +427,15 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Override
+    public void testRenameColumnWithComment()
+    {
+        // Override because the connector doesn't support renaming columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(super::testRenameColumnWithComment)
+                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
+    }
+
+    @Override
     public void testAlterTableRenameColumnToLongName()
     {
         // Override because the connector doesn't support renaming columns with 'none' column mapping
