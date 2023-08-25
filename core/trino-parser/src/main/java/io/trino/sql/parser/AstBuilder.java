@@ -680,15 +680,8 @@ class AstBuilder
         return new MergeInsert(
                 getLocation(context),
                 visitIfPresent(context.condition, Expression.class),
-                visitIdentifiers(context.targets),
+                visit(context.targets, Identifier.class),
                 visit(context.values, Expression.class));
-    }
-
-    private List<Identifier> visitIdentifiers(List<SqlBaseParser.IdentifierContext> identifiers)
-    {
-        return identifiers.stream()
-                .map(identifier -> (Identifier) visit(identifier))
-                .collect(toImmutableList());
     }
 
     @Override
