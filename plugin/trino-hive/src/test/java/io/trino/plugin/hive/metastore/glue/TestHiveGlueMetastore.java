@@ -308,7 +308,7 @@ public class TestHiveGlueMetastore
             createDummyPartitionedTable(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS);
             testUpdatePartitionStatistics(
                     tableName,
-                    PartitionStatistics.empty(),
+                    EMPTY_ROWCOUNT_STATISTICS,
                     ImmutableList.of(BASIC_STATISTICS_1, BASIC_STATISTICS_2),
                     ImmutableList.of(BASIC_STATISTICS_2, BASIC_STATISTICS_1));
         }
@@ -329,7 +329,7 @@ public class TestHiveGlueMetastore
             // used to ingest data into partitioned hive tables.
             testUpdatePartitionStatistics(
                     tableName,
-                    PartitionStatistics.empty(),
+                    EMPTY_ROWCOUNT_STATISTICS,
                     ImmutableList.of(STATISTICS_1_1, STATISTICS_1_2, STATISTICS_2),
                     ImmutableList.of(STATISTICS_1_2, STATISTICS_1_1, STATISTICS_2));
         }
@@ -345,7 +345,7 @@ public class TestHiveGlueMetastore
         // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
         // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
         // used to ingest data into partitioned hive tables.
-        testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, BASIC_STATISTICS_1, BASIC_STATISTICS_2, BASIC_STATISTICS_1, PartitionStatistics.empty());
+        testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, BASIC_STATISTICS_1, BASIC_STATISTICS_2, BASIC_STATISTICS_1, EMPTY_ROWCOUNT_STATISTICS);
     }
 
     @Override

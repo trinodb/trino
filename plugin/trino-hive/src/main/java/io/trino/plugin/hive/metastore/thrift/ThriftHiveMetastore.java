@@ -403,8 +403,11 @@ public class ThriftHiveMetastore
             // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
             // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
             // used to ingest data into partitioned hive tables.
-            partitionBasicStatistics = partitionBasicStatistics.keySet().stream()
-                    .map(partitionName -> new SimpleEntry<>(partitionName, HiveBasicStatistics.createEmptyStatistics()))
+            // https://github.com/trinodb/trino/issues/18798 Hive Metastore assumes any new partition statistics to at least have all parameters that the partition used to have
+            partitionBasicStatistics = partitionBasicStatistics.entrySet().stream()
+                    .map(entry -> new SimpleEntry<>(
+                            entry.getKey(),
+                            entry.getValue().withEmptyRowCount()))
                     .collect(toImmutableMap(SimpleEntry::getKey, SimpleEntry::getValue));
         }
 
