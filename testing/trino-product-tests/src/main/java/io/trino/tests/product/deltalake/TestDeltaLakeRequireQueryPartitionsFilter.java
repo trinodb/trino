@@ -16,7 +16,6 @@ package io.trino.tests.product.deltalake;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
@@ -31,36 +30,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeRequireQueryPartitionsFilter
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testRequiresQueryPartitionFilter()
-    {
-        String tableName = "test_require_partition_filter_" + randomNameSuffix();
-
-        onDelta().executeQuery("" +
-                               "CREATE TABLE default." + tableName + " " +
-                               "USING DELTA " +
-                               "PARTITIONED BY (part) " +
-                               "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
-                               "AS VALUES (1, 11), (2, 22) AS data(x, part)");
-
-        try {
-            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName)).containsOnly(row(1, 11), row(2, 22));
-            assertThat(onDelta().executeQuery("SELECT * FROM " + tableName)).containsOnly(row(1, 11), row(2, 22));
-
-            onTrino().executeQuery("SET SESSION delta.query_partition_filter_required = true");
-
-            assertQueryFailure(() -> onTrino().executeQuery("SELECT COUNT(*) FROM " + tableName))
-                    .hasMessageMatching(format("Query failed \\(#\\w+\\): Filter required on default\\.%s for at least one partition column: part", tableName));
-            assertThat(onDelta().executeQuery("SELECT * FROM " + tableName)).containsOnly(row(1, 11), row(2, 22));
-
-            assertThat(onTrino().executeQuery(format("SELECT * FROM %s WHERE part = 11", tableName))).containsOnly(row(1, 11));
-            assertThat(onDelta().executeQuery(format("SELECT * FROM %s WHERE part = 11", tableName))).containsOnly(row(1, 11));
-        }
-        finally {
-            dropDeltaTableWithRetry(tableName);
-        }
-    }
-
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testRequiresQueryPartitionFilterWithUppercaseColumnName()
     {
