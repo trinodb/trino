@@ -333,8 +333,10 @@ public class GlueHiveMetastore
             // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
             // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
             // used to ingest data into partitioned hive tables.
-            partitionBasicStatistics = partitionBasicStatistics.keySet().stream()
-                    .map(key -> new SimpleEntry<>(key, PartitionStatistics.empty()))
+            partitionBasicStatistics = partitionBasicStatistics.entrySet().stream()
+                    .map(entry -> new SimpleEntry<>(
+                                entry.getKey(),
+                                entry.getValue().withBasicStatistics(entry.getValue().getBasicStatistics().withEmptyRowCount())))
                     .collect(toImmutableMap(SimpleEntry::getKey, SimpleEntry::getValue));
         }
 
