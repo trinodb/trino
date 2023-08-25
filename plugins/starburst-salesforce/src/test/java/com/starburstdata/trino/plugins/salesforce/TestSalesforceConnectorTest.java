@@ -2310,30 +2310,33 @@ public class TestSalesforceConnectorTest
     @Test
     public void testShowCreateTable()
     {
-        assertThat((String) computeActual("SHOW CREATE TABLE " + salesforceOrdersTableName).getOnlyValue())
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        assertThat(computeScalar("SHOW CREATE TABLE " + salesforceOrdersTableName))
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
-                .matches("""
-                        CREATE TABLE \\w+\\.\\w+\\.%s \\Q(
-                           id varchar(18) NOT NULL COMMENT 'Label Record ID corresponds to this field.',
-                           ownerid varchar(18) NOT NULL COMMENT 'Label Owner ID corresponds to this field.',
-                           isdeleted boolean NOT NULL COMMENT 'Label Deleted corresponds to this field.',
-                           name varchar(80) COMMENT 'Label Name corresponds to this field.',
-                           createddate timestamp(0) NOT NULL COMMENT 'Label Created Date corresponds to this field.',
-                           createdbyid varchar(18) NOT NULL COMMENT 'Label Created By ID corresponds to this field.',
-                           lastmodifieddate timestamp(0) COMMENT 'Label Last Modified Date corresponds to this field.',
-                           lastmodifiedbyid varchar(18) COMMENT 'Label Last Modified By ID corresponds to this field.',
-                           systemmodstamp timestamp(0) NOT NULL COMMENT 'Label System Modstamp corresponds to this field.',
-                           lastactivitydate date COMMENT 'Label Last Activity Date corresponds to this field.',
-                           orderkey__c double COMMENT 'Label orderkey corresponds to this field.',
-                           custkey__c double COMMENT 'Label custkey corresponds to this field.',
-                           shippriority__c double COMMENT 'Label shippriority corresponds to this field.',
-                           comment__c varchar(79) COMMENT 'Label comment corresponds to this field.',
-                           orderstatus__c varchar(1) COMMENT 'Label orderstatus corresponds to this field.',
-                           orderpriority__c varchar(15) COMMENT 'Label orderpriority corresponds to this field.',
-                           clerk__c varchar(15) COMMENT 'Label clerk corresponds to this field.'
-                           totalprice__c double COMMENT 'Label totalprice corresponds to this field.',
-                           orderdate__c date COMMENT 'Label orderdate corresponds to this field.',
-                        )""".formatted(salesforceOrdersTableName));
+                .isEqualTo(format("""
+                                 CREATE TABLE %s.%s.%s (
+                                    id varchar(18) NOT NULL COMMENT 'Label Record ID corresponds to this field.',
+                                    ownerid varchar(18) NOT NULL COMMENT 'Label Owner ID corresponds to this field.',
+                                    isdeleted boolean NOT NULL COMMENT 'Label Deleted corresponds to this field.',
+                                    name varchar(80) COMMENT 'Label Name corresponds to this field.',
+                                    createddate timestamp(0) NOT NULL COMMENT 'Label Created Date corresponds to this field.',
+                                    createdbyid varchar(18) NOT NULL COMMENT 'Label Created By ID corresponds to this field.',
+                                    lastmodifieddate timestamp(0) COMMENT 'Label Last Modified Date corresponds to this field.',
+                                    lastmodifiedbyid varchar(18) COMMENT 'Label Last Modified By ID corresponds to this field.',
+                                    systemmodstamp timestamp(0) NOT NULL COMMENT 'Label System Modstamp corresponds to this field.',
+                                    lastactivitydate date COMMENT 'Label Last Activity Date corresponds to this field.',
+                                    orderkey__c double COMMENT 'Label orderkey corresponds to this field.',
+                                    custkey__c double COMMENT 'Label custkey corresponds to this field.',
+                                    shippriority__c double COMMENT 'Label shippriority corresponds to this field.',
+                                    comment__c varchar(79) COMMENT 'Label comment corresponds to this field.',
+                                    orderstatus__c varchar(1) COMMENT 'Label orderstatus corresponds to this field.',
+                                    orderpriority__c varchar(15) COMMENT 'Label orderpriority corresponds to this field.',
+                                    clerk__c varchar(15) COMMENT 'Label clerk corresponds to this field.',
+                                    totalprice__c double COMMENT 'Label totalprice corresponds to this field.',
+                                    orderdate__c date COMMENT 'Label orderdate corresponds to this field.'
+                                 )""",
+                        catalog, schema, salesforceOrdersTableName));
     }
 
     @Test
