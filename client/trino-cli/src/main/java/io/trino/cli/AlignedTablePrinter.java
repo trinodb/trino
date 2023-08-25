@@ -52,7 +52,7 @@ public class AlignedTablePrinter
     private final List<Boolean> numericFields;
     private final Writer writer;
 
-    private boolean headerOutput;
+    private boolean headerRendered;
     private long rowCount;
 
     public AlignedTablePrinter(List<Column> columns, Writer writer)
@@ -84,26 +84,26 @@ public class AlignedTablePrinter
         rowCount += rows.size();
         int columns = fieldNames.size();
 
-        int[] maxWidth = new int[columns];
+        int[] columnWidth = new int[columns];
         for (int i = 0; i < columns; i++) {
-            maxWidth[i] = max(1, consoleWidth(fieldNames.get(i)));
+            columnWidth[i] = max(1, consoleWidth(fieldNames.get(i)));
         }
+
         for (List<?> row : rows) {
             for (int i = 0; i < row.size(); i++) {
-                String s = formatValue(row.get(i));
-                maxWidth[i] = max(maxWidth[i], maxLineLength(s));
+                String value = formatValue(row.get(i));
+                columnWidth[i] = max(columnWidth[i], maxLineLength(value));
             }
         }
 
-        if (!headerOutput) {
-            headerOutput = true;
+        if (!headerRendered) {
+            headerRendered = true;
 
             for (int i = 0; i < columns; i++) {
                 if (i > 0) {
                     writer.append('|');
                 }
-                String name = fieldNames.get(i);
-                writer.append(center(name, maxWidth[i], 1));
+                writer.append(center(fieldNames.get(i), columnWidth[i], 1));
             }
             writer.append('\n');
 
@@ -111,7 +111,7 @@ public class AlignedTablePrinter
                 if (i > 0) {
                     writer.append('+');
                 }
-                writer.append(repeat("-", maxWidth[i] + 2));
+                writer.append(repeat("-", columnWidth[i] + 2));
             }
             writer.append('\n');
         }
@@ -120,8 +120,8 @@ public class AlignedTablePrinter
             List<List<String>> columnLines = new ArrayList<>(columns);
             int maxLines = 1;
             for (int i = 0; i < columns; i++) {
-                String s = formatValue(row.get(i));
-                ImmutableList<String> lines = ImmutableList.copyOf(LINE_SPLITTER.split(s));
+                String value = formatValue(row.get(i));
+                ImmutableList<String> lines = ImmutableList.copyOf(LINE_SPLITTER.split(value));
                 columnLines.add(lines);
                 maxLines = max(maxLines, lines.size());
             }
@@ -132,9 +132,9 @@ public class AlignedTablePrinter
                         writer.append('|');
                     }
                     List<String> lines = columnLines.get(column);
-                    String s = (line < lines.size()) ? lines.get(line) : "";
+                    String value = (line < lines.size()) ? lines.get(line) : "";
                     boolean numeric = numericFields.get(column);
-                    String out = align(s, maxWidth[column], 1, numeric);
+                    String out = align(value, columnWidth[column], 1, numeric);
                     if ((!complete || (rowCount > 1)) && ((line + 1) < lines.size())) {
                         out = out.substring(0, out.length() - 1) + "+";
                     }
@@ -147,40 +147,40 @@ public class AlignedTablePrinter
         writer.flush();
     }
 
-    private static String center(String s, int maxWidth, int padding)
+    private static String center(String value, int maxWidth, int padding)
     {
-        int width = consoleWidth(s);
-        checkState(width <= maxWidth, "string width is greater than max width");
+        int width = consoleWidth(value);
+        checkState(width <= maxWidth, format("Variable width %d is greater than column width %d", width, maxWidth));
         int left = (maxWidth - width) / 2;
         int right = maxWidth - (left + width);
-        return repeat(" ", left + padding) + s + repeat(" ", right + padding);
+        return repeat(" ", left + padding) + value + repeat(" ", right + padding);
     }
 
-    private static String align(String s, int maxWidth, int padding, boolean right)
+    private static String align(String value, int maxWidth, int padding, boolean right)
     {
-        int width = consoleWidth(s);
-        checkState(width <= maxWidth, "string width is greater than max width");
-        String large = repeat(" ", (maxWidth - width) + padding);
+        int width = consoleWidth(value);
+        checkState(width <= maxWidth, format("Variable width %d is greater than column width %d", width, maxWidth));
+        String large = repeat(" ", maxWidth - width + padding);
         String small = repeat(" ", padding);
-        return right ? (large + s + small) : (small + s + large);
+        return right ? (large + value + small) : (small + value + large);
     }
 
-    static int maxLineLength(String s)
+    static int maxLineLength(String value)
     {
-        int n = 0;
-        for (String line : LINE_SPLITTER.split(s)) {
-            n = max(n, consoleWidth(line));
+        int result = 0;
+        for (String line : LINE_SPLITTER.split(value)) {
+            result = max(result, consoleWidth(line));
         }
-        return n;
+        return result;
     }
 
-    static int consoleWidth(String s)
+    static int consoleWidth(String value)
     {
-        CharSequence plain = stripAnsi(s);
-        int n = 0;
+        CharSequence plain = stripAnsi(value);
+        int result = 0;
         for (int i = 0; i < plain.length(); i++) {
-            n += max(wcwidth(plain.charAt(i)), 0);
+            result += max(wcwidth(plain.charAt(i)), 0);
         }
-        return n;
+        return result;
     }
 }
