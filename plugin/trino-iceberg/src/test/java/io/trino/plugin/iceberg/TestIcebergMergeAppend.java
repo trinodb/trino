@@ -62,7 +62,8 @@ public class TestIcebergMergeAppend
                 tableOperationsProvider,
                 false,
                 false,
-                false);
+                false,
+                new IcebergConfig().isHideMaterializedViewStorageTable());
 
         return queryRunner;
     }

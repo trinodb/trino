@@ -15,32 +15,32 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.metadata.MaterializedViewDefinition;
-import io.trino.metadata.QualifiedObjectName;
-import io.trino.spi.connector.SchemaTableName;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.local.LocalFileSystem;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.spi.QueryId;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
-import io.trino.transaction.TransactionId;
-import io.trino.transaction.TransactionManager;
+import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
 import org.assertj.core.api.Condition;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
-import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_MATERIALIZED_VIEW;
-import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.REFRESH_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_MATERIALIZED_VIEW;
-import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
-import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -52,9 +52,9 @@ import static org.testng.Assert.assertEquals;
 public abstract class BaseIcebergMaterializedViewTest
         extends AbstractTestQueryFramework
 {
-    protected final String storageSchemaName = "testing_storage_schema_" + randomNameSuffix();
-
     protected abstract String getSchemaDirectory();
+
+    protected abstract String getStorageMetadataLocation(String materializedViewName);
 
     @BeforeClass
     public void setUp()
@@ -65,17 +65,13 @@ public abstract class BaseIcebergMaterializedViewTest
 
         assertUpdate("CREATE TABLE base_table2 (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
         assertUpdate("INSERT INTO base_table2 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
-
-        assertUpdate("CREATE SCHEMA " + storageSchemaName);
     }
 
     @Test
     public void testShowTables()
     {
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_show_tables_test AS SELECT * FROM base_table1");
-        SchemaTableName storageTableName = getStorageTable("materialized_view_show_tables_test");
-
-        Set<String> expectedTables = ImmutableSet.of("base_table1", "base_table2", "materialized_view_show_tables_test", storageTableName.getTableName());
+        Set<String> expectedTables = ImmutableSet.of("base_table1", "base_table2", "materialized_view_show_tables_test");
         Set<String> actualTables = computeActual("SHOW TABLES").getOnlyColumnAsSet().stream()
                 .map(String.class::cast)
                 .collect(toImmutableSet());
@@ -106,20 +102,6 @@ public abstract class BaseIcebergMaterializedViewTest
 
         computeActual("CREATE TABLE small_region AS SELECT * FROM tpch.tiny.region LIMIT 1");
         computeActual(format("CREATE MATERIALIZED VIEW %s AS SELECT * FROM small_region LIMIT 1", materializedViewName));
-
-        // test storage table name
-        assertQuery(
-                format(
-                        "SELECT storage_catalog, storage_schema, CONCAT(storage_schema, '.', storage_table)" +
-                                "FROM system.metadata.materialized_views WHERE schema_name = '%s' AND name = '%s'",
-                        // TODO (https://github.com/trinodb/trino/issues/9039) remove redundant schema_name filter
-                        schemaName,
-                        materializedViewName),
-                format(
-                        "VALUES ('%s', '%s', '%s')",
-                        catalogName,
-                        schemaName,
-                        getStorageTable(catalogName, schemaName, materializedViewName)));
 
         // test freshness update
         assertQuery(
@@ -182,7 +164,7 @@ public abstract class BaseIcebergMaterializedViewTest
                                 "WITH (\n" +
                                 "   format = 'ORC',\n" +
                                 "   format_version = 2,\n" +
-                                "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+-[0-9a-f]+\\Q',\n" +
+                                "   location = '" + getSchemaDirectory() + "/test_mv_show_create-\\E[0-9a-f]+\\Q',\n" +
                                 "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
                                 "   orc_bloom_filter_fpp = 1E-1,\n" +
                                 "   partitioning = ARRAY['_date'],\n" +
@@ -267,22 +249,6 @@ public abstract class BaseIcebergMaterializedViewTest
                 privilege("materialized_view_refresh_deny", REFRESH_MATERIALIZED_VIEW));
 
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_refresh_deny");
-    }
-
-    @Test
-    public void testRefreshAllowedWithRestrictedStorageTable()
-    {
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh AS SELECT * FROM base_table1");
-        SchemaTableName storageTable = getStorageTable("materialized_view_refresh");
-
-        assertAccessAllowed(
-                "REFRESH MATERIALIZED VIEW materialized_view_refresh",
-                privilege(storageTable.getTableName(), INSERT_TABLE),
-                privilege(storageTable.getTableName(), DELETE_TABLE),
-                privilege(storageTable.getTableName(), UPDATE_TABLE),
-                privilege(storageTable.getTableName(), SELECT_COLUMN));
-
-        assertUpdate("DROP MATERIALIZED VIEW materialized_view_refresh");
     }
 
     @Test
@@ -524,7 +490,7 @@ public abstract class BaseIcebergMaterializedViewTest
                         "WITH (\n" +
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
-                        "   location = '" + getSchemaDirectory() + "/st_\\E[0-9a-f]+-[0-9a-f]+\\Q',\n" +
+                        "   location = '" + getSchemaDirectory() + "/materialized_view_window-\\E[0-9a-f]+\\Q',\n" +
                         "   partitioning = ARRAY['_date'],\n" +
                         "   storage_schema = '" + schema + "'\n" +
                         ") AS\n" +
@@ -632,47 +598,6 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level2");
     }
 
-    @Test
-    public void testStorageSchemaProperty()
-    {
-        String schemaName = getSession().getSchema().orElseThrow();
-        String viewName = "storage_schema_property_test";
-        assertUpdate(
-                "CREATE MATERIALIZED VIEW " + viewName + " " +
-                        "WITH (storage_schema = '" + storageSchemaName + "') AS " +
-                        "SELECT * FROM base_table1");
-        SchemaTableName storageTable = getStorageTable(viewName);
-        assertThat(storageTable.getSchemaName()).isEqualTo(storageSchemaName);
-
-        assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 6);
-        assertThat(computeActual("SELECT * FROM " + viewName).getRowCount()).isEqualTo(6);
-        assertThat(getExplainPlan("SELECT * FROM " + viewName, ExplainType.Type.IO))
-                .doesNotContain("base_table1")
-                .contains(storageSchemaName);
-
-        assertThat((String) computeScalar("SHOW CREATE MATERIALIZED VIEW " + viewName))
-                .contains("storage_schema = '" + storageSchemaName + "'");
-
-        Set<String> storageSchemaTables = computeActual("SHOW TABLES IN " + storageSchemaName).getOnlyColumnAsSet().stream()
-                .map(String.class::cast)
-                .collect(toImmutableSet());
-        assertThat(storageSchemaTables).contains(storageTable.getTableName());
-
-        assertUpdate("DROP MATERIALIZED VIEW " + viewName);
-        storageSchemaTables = computeActual("SHOW TABLES IN " + storageSchemaName).getOnlyColumnAsSet().stream()
-                .map(String.class::cast)
-                .collect(toImmutableSet());
-        assertThat(storageSchemaTables).doesNotContain(storageTable.getTableName());
-
-        assertThatThrownBy(() -> query(
-                "CREATE MATERIALIZED VIEW " + viewName + " " +
-                        "WITH (storage_schema = 'non_existent') AS " +
-                        "SELECT * FROM base_table1"))
-                .hasMessageContaining("non_existent not found");
-        assertThatThrownBy(() -> query("DESCRIBE " + viewName))
-                .hasMessageContaining(format("'iceberg.%s.%s' does not exist", schemaName, viewName));
-    }
-
     @Test(dataProvider = "testBucketPartitioningDataProvider")
     public void testBucketPartitioning(String dataType, String exampleValue)
     {
@@ -683,9 +608,11 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE MATERIALIZED VIEW test_bucket_partitioning WITH (partitioning=ARRAY['bucket(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
                 .formatted(dataType, exampleValue));
         try {
-            SchemaTableName storageTable = getStorageTable("test_bucket_partitioning");
-            assertThat((String) computeScalar("SHOW CREATE TABLE " + storageTable))
-                    .contains("partitioning = ARRAY['bucket(col, 4)']");
+            TableMetadata storageMetadata = getStorageTableMetadata( "test_bucket_partitioning");
+            assertThat(storageMetadata.spec().fields()).hasSize(1);
+            PartitionField bucketPartitionField = getOnlyElement(storageMetadata.spec().fields());
+            assertThat(bucketPartitionField.name()).isEqualTo("col_bucket");
+            assertThat(bucketPartitionField.transform().toString()).isEqualTo("bucket[4]");
 
             assertThat(query("SELECT * FROM test_bucket_partitioning WHERE col = " + exampleValue))
                     .matches("SELECT " + exampleValue);
@@ -724,9 +651,11 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE MATERIALIZED VIEW test_truncate_partitioning WITH (partitioning=ARRAY['truncate(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
                 .formatted(dataType, exampleValue));
         try {
-            SchemaTableName storageTable = getStorageTable("test_truncate_partitioning");
-            assertThat((String) computeScalar("SHOW CREATE TABLE " + storageTable))
-                    .contains("partitioning = ARRAY['truncate(col, 4)']");
+            TableMetadata storageMetadata = getStorageTableMetadata("test_truncate_partitioning");
+            assertThat(storageMetadata.spec().fields()).hasSize(1);
+            PartitionField bucketPartitionField = getOnlyElement(storageMetadata.spec().fields());
+            assertThat(bucketPartitionField.name()).isEqualTo("col_trunc");
+            assertThat(bucketPartitionField.transform().toString()).isEqualTo("truncate[4]");
 
             assertThat(query("SELECT * FROM test_truncate_partitioning WHERE col = " + exampleValue))
                     .matches("SELECT " + exampleValue);
@@ -759,9 +688,11 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE MATERIALIZED VIEW test_temporal_partitioning WITH (partitioning=ARRAY['%s(col)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
                 .formatted(partitioning, dataType, exampleValue));
         try {
-            SchemaTableName storageTable = getStorageTable("test_temporal_partitioning");
-            assertThat((String) computeScalar("SHOW CREATE TABLE " + storageTable))
-                    .contains("partitioning = ARRAY['%s(col)']".formatted(partitioning));
+            TableMetadata storageMetadata = getStorageTableMetadata("test_temporal_partitioning");
+            assertThat(storageMetadata.spec().fields()).hasSize(1);
+            PartitionField bucketPartitionField = getOnlyElement(storageMetadata.spec().fields());
+            assertThat(bucketPartitionField.name()).isEqualTo("col_" + partitioning);
+            assertThat(bucketPartitionField.transform().toString()).isEqualTo(partitioning);
 
             assertThat(query("SELECT * FROM test_temporal_partitioning WHERE col = " + exampleValue))
                     .matches("SELECT " + exampleValue);
@@ -789,25 +720,40 @@ public abstract class BaseIcebergMaterializedViewTest
         };
     }
 
+    @Test
+    public void testMaterializedViewSnapshotSummariesHaveTrinoQueryId()
+    {
+        String materializedViewName = "test_materialized_view_snapshot_query_ids" + randomNameSuffix();
+        String sourceTableName = "test_source_table_for_mat_view" + randomNameSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
+        QueryId matViewCreateQueryId = getDistributedQueryRunner()
+                .executeWithQueryId(getSession(), format("CREATE MATERIALIZED VIEW %s WITH (partitioning = ARRAY['a']) AS SELECT * FROM %s", materializedViewName, sourceTableName))
+                .getQueryId();
+
+        try {
+            assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (2, 2)", sourceTableName), 3);
+
+            QueryId refreshQueryId = getDistributedQueryRunner()
+                    .executeWithQueryId(getSession(), format("REFRESH MATERIALIZED VIEW %s", materializedViewName))
+                    .getQueryId();
+            String savedQueryId = getStorageTableMetadata(materializedViewName).currentSnapshot().summary().get("trino_query_id");
+            assertThat(savedQueryId).isEqualTo(refreshQueryId.getId());
+        }
+        finally {
+            assertUpdate("DROP TABLE " + sourceTableName);
+            assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
+        }
+    }
+
     protected String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
     }
 
-    private SchemaTableName getStorageTable(String materializedViewName)
+    private TableMetadata getStorageTableMetadata(String materializedViewName)
     {
-        return getStorageTable(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), materializedViewName);
-    }
-
-    private SchemaTableName getStorageTable(String catalogName, String schemaName, String materializedViewName)
-    {
-        TransactionManager transactionManager = getQueryRunner().getTransactionManager();
-        TransactionId transactionId = transactionManager.beginTransaction(false);
-        Session session = getSession().beginTransactionId(transactionId, transactionManager, getQueryRunner().getAccessControl());
-        Optional<MaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
-                .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, materializedViewName));
-        assertThat(materializedView).isPresent();
-        return materializedView.get().getStorageTable().get().getSchemaTableName();
+        Location metadataLocation = Location.of(getStorageMetadataLocation(materializedViewName));
+        return TableMetadataParser.read(new ForwardingFileIo(new LocalFileSystem(Path.of(metadataLocation.parentDirectory().toString()))), "local:///" + metadataLocation);
     }
 
     private long getLatestSnapshotId(String tableName)
