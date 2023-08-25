@@ -224,6 +224,9 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsO
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isQueryPartitionFilterRequired;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
+import static io.trino.plugin.iceberg.IcebergTableName.isDataTable;
+import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
+import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
@@ -265,6 +268,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN;
@@ -383,7 +387,21 @@ public class IcebergMetadata
             throw new TrinoException(NOT_SUPPORTED, "Read table with start version is not supported");
         }
 
-        if (!IcebergTableName.isDataTable(tableName.getTableName())) {
+        if (isMaterializedViewStorage(tableName.getTableName())) {
+            verify(endVersion.isEmpty(), "Materialized views do not support versioned queries");
+
+            SchemaTableName materializedViewName = new SchemaTableName(tableName.getSchemaName(), tableNameFrom(tableName.getTableName()));
+            if (getMaterializedView(session, materializedViewName).isEmpty()) {
+                throw new TableNotFoundException(tableName);
+            }
+
+            BaseTable storageTable = catalog.getMaterializedViewStorageTable(session, materializedViewName)
+                    .orElseThrow(() -> new TrinoException(TABLE_NOT_FOUND, "Storage table metadata not found for materialized view " + tableName));
+
+            return tableHandleForCurrentSnapshot(tableName, storageTable);
+        }
+
+        if (!isDataTable(tableName.getTableName())) {
             // Pretend the table does not exist to produce better error message in case of table redirects to Hive
             return null;
         }
@@ -404,23 +422,36 @@ public class IcebergMetadata
             throw e;
         }
 
-        Optional<Long> tableSnapshotId;
-        Schema tableSchema;
-        Optional<PartitionSpec> partitionSpec;
         if (endVersion.isPresent()) {
             long snapshotId = getSnapshotIdFromVersion(session, table, endVersion.get());
-            tableSnapshotId = Optional.of(snapshotId);
-            tableSchema = schemaFor(table, snapshotId);
-            partitionSpec = Optional.empty();
+            return tableHandleForSnapshot(
+                    tableName,
+                    table,
+                    Optional.of(snapshotId),
+                    schemaFor(table, snapshotId),
+                    Optional.empty());
         }
-        else {
-            tableSnapshotId = Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId);
-            tableSchema = table.schema();
-            partitionSpec = Optional.of(table.spec());
-        }
+        return tableHandleForCurrentSnapshot(tableName, table);
+    }
 
+    private IcebergTableHandle tableHandleForCurrentSnapshot(SchemaTableName tableName, BaseTable table)
+    {
+        return tableHandleForSnapshot(
+                tableName,
+                table,
+                Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId),
+                table.schema(),
+                Optional.of(table.spec()));
+    }
+
+    private IcebergTableHandle tableHandleForSnapshot(
+            SchemaTableName tableName,
+            BaseTable table,
+            Optional<Long> tableSnapshotId,
+            Schema tableSchema,
+            Optional<PartitionSpec> partitionSpec)
+    {
         Map<String, String> tableProperties = table.properties();
-        String nameMappingJson = tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING);
         return new IcebergTableHandle(
                 trinoCatalogHandle,
                 tableName.getSchemaName(),
@@ -434,7 +465,7 @@ public class IcebergMetadata
                 TupleDomain.all(),
                 OptionalLong.empty(),
                 ImmutableSet.of(),
-                Optional.ofNullable(nameMappingJson),
+                Optional.ofNullable(tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING)),
                 table.location(),
                 table.properties(),
                 false,
@@ -516,12 +547,12 @@ public class IcebergMetadata
 
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        if (IcebergTableName.isDataTable(tableName.getTableName())) {
+        if (isDataTable(tableName.getTableName()) || isMaterializedViewStorage(tableName.getTableName())) {
             return Optional.empty();
         }
 
         // Only when dealing with an actual system table proceed to retrieve the base table for the system table
-        String name = IcebergTableName.tableNameFrom(tableName.getTableName());
+        String name = tableNameFrom(tableName.getTableName());
         Table table;
         try {
             table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name));
@@ -548,6 +579,7 @@ public class IcebergMetadata
             case FILES -> Optional.of(new FilesTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
             case PROPERTIES -> Optional.of(new PropertiesTable(systemTableName, table));
             case REFS -> Optional.of(new RefsTable(systemTableName, table));
+            case MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected MATERIALIZED_VIEW_STORAGE table type");
         };
     }
 
@@ -2898,9 +2930,12 @@ public class IcebergMetadata
                 .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + materializedViewName));
 
         Table icebergTable = catalog.loadTable(session, storageTableName);
-        String dependsOnTables = icebergTable.currentSnapshot().summary().getOrDefault(DEPENDS_ON_TABLES, "");
+        String dependsOnTables = Optional.ofNullable(icebergTable.currentSnapshot())
+                .map(snapshot -> snapshot.summary().getOrDefault(DEPENDS_ON_TABLES, ""))
+                .orElse("");
         if (dependsOnTables.isEmpty()) {
-            // Information missing. While it's "unknown" whether storage is stale, we return "stale": under no normal circumstances dependsOnTables should be missing.
+            // Information missing. While it's "unknown" whether storage is stale, we return "stale".
+            // Normally dependsOnTables may be missing only when there was no refresh yet.
             return new MaterializedViewFreshness(STALE, Optional.empty());
         }
         Instant refreshTime = Optional.ofNullable(icebergTable.currentSnapshot().summary().get(TRINO_QUERY_START_TIME))

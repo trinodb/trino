@@ -17,6 +17,7 @@ import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.BatchDeleteTableRequest;
 import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
+import com.amazonaws.services.glue.model.GetTableRequest;
 import com.amazonaws.services.glue.model.GetTablesRequest;
 import com.amazonaws.services.glue.model.GetTablesResult;
 import com.amazonaws.services.glue.model.Table;
@@ -36,7 +37,9 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 
 public class TestIcebergGlueCatalogMaterializedView
         extends BaseIcebergMaterializedViewTest
@@ -71,11 +74,21 @@ public class TestIcebergGlueCatalogMaterializedView
         return new File(schemaDirectory, schemaName + ".db").getPath();
     }
 
+    @Override
+    protected String getStorageMetadataLocation(String materializedViewName)
+    {
+        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+        Table table = glueClient.getTable(new GetTableRequest()
+                .withDatabaseName(schemaName)
+                .withName(materializedViewName))
+                .getTable();
+        return getTableParameters(table).get(METADATA_LOCATION_PROP);
+    }
+
     @AfterClass(alwaysRun = true)
     public void cleanup()
     {
         cleanUpSchema(schemaName);
-        cleanUpSchema(storageSchemaName);
     }
 
     private static void cleanUpSchema(String schema)

@@ -18,6 +18,7 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
@@ -78,6 +79,7 @@ public class TestTrinoHiveCatalogWithFileMetastore
                 new FileMetastoreTableOperationsProvider(fileSystemFactory),
                 useUniqueTableLocations,
                 false,
-                false);
+                false,
+                new IcebergConfig().isHideMaterializedViewStorageTable());
     }
 }

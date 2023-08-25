@@ -6702,30 +6702,6 @@ public abstract class BaseIcebergConnectorTest
                 "WHEN MATCHED THEN UPDATE SET b = t.b * 50", tableName, sourceTableName)));
     }
 
-    @Test
-    public void testMaterializedViewSnapshotSummariesHaveTrinoQueryId()
-    {
-        String matViewName = "test_materialized_view_snapshot_query_ids" + randomNameSuffix();
-        String sourceTableName = "test_source_table_for_mat_view" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
-        assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (2, 2)", sourceTableName), 3);
-
-        // create a materialized view
-        QueryId matViewCreateQueryId = getDistributedQueryRunner()
-                .executeWithQueryId(getSession(), format("CREATE MATERIALIZED VIEW %s WITH (partitioning = ARRAY['a']) AS SELECT * FROM %s", matViewName, sourceTableName))
-                .getQueryId();
-
-        // fetch the underlying storage table name so we can inspect its snapshot summary after the REFRESH
-        // running queries against "materialized_view$snapshots" is not supported
-        String storageTable = (String) getDistributedQueryRunner()
-                .execute(getSession(), format("SELECT storage_table FROM system.metadata.materialized_views WHERE name = '%s'", matViewName))
-                .getOnlyValue();
-
-        assertQueryIdStored(storageTable, matViewCreateQueryId);
-
-        assertQueryIdStored(storageTable, executeWithQueryId(format("REFRESH MATERIALIZED VIEW %s", matViewName)));
-    }
-
     @Override
     protected OptionalInt maxTableNameLength()
     {

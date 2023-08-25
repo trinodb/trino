@@ -98,7 +98,8 @@ public class TestIcebergOrcMetricsCollection
                 tableOperationsProvider,
                 false,
                 false,
-                false);
+                false,
+                new IcebergConfig().isHideMaterializedViewStorageTable());
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

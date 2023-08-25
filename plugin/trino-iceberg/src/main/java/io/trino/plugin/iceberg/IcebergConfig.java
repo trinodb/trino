@@ -20,6 +20,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
+import jakarta.validation.constraints.AssertFalse;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -71,6 +72,7 @@ public class IcebergConfig
     // to avoid deleting those files if Trino is unable to check.
     private boolean deleteSchemaLocationsFallback;
     private double minimumAssignedSplitWeight = 0.05;
+    private boolean hideMaterializedViewStorageTable = true;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
     private boolean sortedWritingEnabled = true;
     private boolean queryPartitionFilterRequired;
@@ -342,6 +344,19 @@ public class IcebergConfig
         return minimumAssignedSplitWeight;
     }
 
+    public boolean isHideMaterializedViewStorageTable()
+    {
+        return hideMaterializedViewStorageTable;
+    }
+
+    @Config("iceberg.materialized-views.hide-storage-table")
+    @ConfigDescription("Hide materialized view storage tables in metastore")
+    public IcebergConfig setHideMaterializedViewStorageTable(boolean hideMaterializedViewStorageTable)
+    {
+        this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
+        return this;
+    }
+
     @NotNull
     public Optional<String> getMaterializedViewsStorageSchema()
     {
@@ -380,5 +395,11 @@ public class IcebergConfig
     public boolean isQueryPartitionFilterRequired()
     {
         return queryPartitionFilterRequired;
+    }
+
+    @AssertFalse(message = "iceberg.materialized-views.storage-schema may only be set when iceberg.materialized-views.hide-storage-table is set to false")
+    public boolean isStorageSchemaSetWhenHidingIsEnabled()
+    {
+        return hideMaterializedViewStorageTable && materializedViewsStorageSchema.isPresent();
     }
 }
