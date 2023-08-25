@@ -24,6 +24,8 @@ import io.trino.tests.product.launcher.env.EnvironmentProvider;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.tests.product.launcher.Configurations.nameForEnvironmentClass;
@@ -39,6 +41,8 @@ public class SuiteTestRun
     private static final String TEMPTO_GROUP_ARG = "-g";
     private static final String TEMPTO_EXCLUDE_GROUP_ARG = "-x";
     private static final String TEMPTO_EXCLUDE_TEST_ARG = "-e";
+    private static final String TEMPTO_THREAD_COUNT_ARG = "-thread-count";
+    private static final String TEMPTO_PARALLEL_ARG = "-parallel";
 
     private final Class<? extends EnvironmentProvider> environment;
     private final Map<String, String> extraOptions;
@@ -46,6 +50,8 @@ public class SuiteTestRun
     private final List<String> excludedGroups;
     private final List<String> tests;
     private final List<String> excludedTests;
+    private final OptionalInt threadCount;
+    private final Optional<String> parallel;
 
     public SuiteTestRun(
             Class<? extends EnvironmentProvider> environment,
@@ -53,7 +59,9 @@ public class SuiteTestRun
             List<String> groups,
             List<String> excludedGroups,
             List<String> tests,
-            List<String> excludedTests)
+            List<String> excludedTests,
+            OptionalInt threadCount,
+            Optional<String> parallel)
     {
         this.environment = requireNonNull(environment, "environment is null");
         this.extraOptions = ImmutableMap.copyOf(requireNonNull(extraOptions, "extraOptions is null"));
@@ -61,6 +69,8 @@ public class SuiteTestRun
         this.excludedGroups = requireNonNull(excludedGroups, "excludedGroups is null");
         this.tests = requireNonNull(tests, "tests is null");
         this.excludedTests = requireNonNull(excludedTests, "excludedTests is null");
+        this.threadCount = requireNonNull(threadCount, "threadCount is null");
+        this.parallel = requireNonNull(parallel, "parallel is null");
     }
 
     public Class<? extends EnvironmentProvider> getEnvironment()
@@ -125,6 +135,10 @@ public class SuiteTestRun
             arguments.add(TEMPTO_EXCLUDE_TEST_ARG, joiner.join(excludedTests));
         }
 
+        threadCount.ifPresent(value -> arguments.add(TEMPTO_THREAD_COUNT_ARG, String.valueOf(value)));
+
+        parallel.ifPresent(value -> arguments.add(TEMPTO_PARALLEL_ARG, value));
+
         return arguments.build();
     }
 
@@ -136,7 +150,9 @@ public class SuiteTestRun
                 getGroups(),
                 merge(getExcludedGroups(), config.getExcludedGroups()),
                 getTests(),
-                merge(getExcludedTests(), config.getExcludedTests()));
+                merge(getExcludedTests(), config.getExcludedTests()),
+                threadCount,
+                parallel);
     }
 
     private static List<String> merge(List<String> first, List<String> second)
@@ -186,6 +202,8 @@ public class SuiteTestRun
         private List<String> excludedGroups = ImmutableList.of();
         private List<String> excludedTests = ImmutableList.of();
         private List<String> tests = ImmutableList.of();
+        private OptionalInt threadCount = OptionalInt.empty();
+        private Optional<String> parallel = Optional.empty();
 
         private Builder(Class<? extends EnvironmentProvider> environment, Map<String, String> extraOptions)
         {
@@ -217,9 +235,21 @@ public class SuiteTestRun
             return this;
         }
 
+        public Builder withThreadCount(int threadCount)
+        {
+            this.threadCount = OptionalInt.of(threadCount);
+            return this;
+        }
+
+        public Builder withParallel(String parallel)
+        {
+            this.parallel = Optional.of(parallel);
+            return this;
+        }
+
         public SuiteTestRun build()
         {
-            return new SuiteTestRun(environment, extraOptions, groups, excludedGroups, tests, excludedTests);
+            return new SuiteTestRun(environment, extraOptions, groups, excludedGroups, tests, excludedTests, threadCount, parallel);
         }
     }
 }
