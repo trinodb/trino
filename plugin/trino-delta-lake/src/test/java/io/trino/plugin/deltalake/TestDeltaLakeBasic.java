@@ -425,6 +425,35 @@ public class TestDeltaLakeBasic
      * @see deltalake.case_sensitive
      */
     @Test
+    public void testRequiresQueryPartitionFilterWithUppercaseColumnName()
+            throws Exception
+    {
+        String tableName = "test_require_partition_filter_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/case_sensitive").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 11), (2, 22)", 2);
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (2, 22)");
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
+                .build();
+
+        assertQuery(format("SELECT * FROM %s WHERE \"part\" = 11", tableName), "VALUES (1, 11)");
+        assertQuery(format("SELECT * FROM %s WHERE \"PART\" = 11", tableName), "VALUES (1, 11)");
+        assertQuery(format("SELECT * FROM %s WHERE \"Part\" = 11", tableName), "VALUES (1, 11)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.case_sensitive
+     */
+    @Test
     public void testStatisticsWithColumnCaseSensitivity()
             throws Exception
     {
