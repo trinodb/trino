@@ -435,6 +435,31 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
     }
 
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testDeltaRenameColumnWithComment(ColumnMappingMode mode)
+    {
+        if (mode == ColumnMappingMode.NONE) {
+            throw new SkipException("The connector doesn't support renaming columns with 'none' column mapping");
+        }
+
+        String tableName = "test_rename_column_" + randomNameSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName +
+                "(col INT COMMENT 'test column comment', part INT COMMENT 'test partition comment')" +
+                "WITH (" +
+                "partitioned_by = ARRAY['part']," +
+                "location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'," +
+                "column_mapping_mode = '" + mode + "')");
+
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN col TO new_col");
+        assertEquals(getColumnComment(tableName, "new_col"), "test column comment");
+
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN part TO new_part");
+        assertEquals(getColumnComment(tableName, "new_part"), "test partition comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Override
     public void testAlterTableRenameColumnToLongName()
     {
