@@ -1313,12 +1313,19 @@ public class ExpressionAnalyzer
 
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            FunctionMetadata functionMetadata = plannerContext.getMetadata().getFunctionMetadata(session, function);
-            if (functionMetadata.isDeprecated()) {
-                warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION,
-                        format("Use of deprecated function: %s: %s",
-                                functionMetadata.getSignature().getName(),
-                                functionMetadata.getDescription())));
+            // FunctionMetadata should only be fetched on the coordinator, as workers do not have FunctionMetadata for all functions
+            // Since warning collector is also only set on the coordinator, this check is sufficient
+            // TODO remove this when workers no longer reanalyze expressions
+            if (warningCollector != WarningCollector.NOOP) {
+                FunctionMetadata functionMetadata = plannerContext.getMetadata().getFunctionMetadata(session, function);
+                if (functionMetadata.isDeprecated()) {
+                    warningCollector.add(new TrinoWarning(
+                            DEPRECATED_FUNCTION,
+                            format(
+                                    "Use of deprecated function: %s: %s",
+                                    functionMetadata.getSignature().getName(),
+                                    functionMetadata.getDescription())));
+                }
             }
 
             Type type = signature.getReturnType();
