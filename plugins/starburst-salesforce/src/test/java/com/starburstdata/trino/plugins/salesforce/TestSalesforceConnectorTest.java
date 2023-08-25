@@ -507,15 +507,15 @@ public class TestSalesforceConnectorTest
                 .row("lastmodifiedbyid", "varchar(18)", "", "Label Last Modified By ID corresponds to this field.")
                 .row("systemmodstamp", "timestamp(0)", "", "Label System Modstamp corresponds to this field.")
                 .row("lastactivitydate", "date", "", "Label Last Activity Date corresponds to this field.")
-                .row("shippriority__c", "double", "", "Label shippriority corresponds to this field.")
-                .row("custkey__c", "double", "", "Label custkey corresponds to this field.")
-                .row("orderstatus__c", "varchar(1)", "", "Label orderstatus corresponds to this field.")
-                .row("totalprice__c", "double", "", "Label totalprice corresponds to this field.")
                 .row("orderkey__c", "double", "", "Label orderkey corresponds to this field.")
+                .row("custkey__c", "double", "", "Label custkey corresponds to this field.")
+                .row("shippriority__c", "double", "", "Label shippriority corresponds to this field.")
                 .row("comment__c", "varchar(79)", "", "Label comment corresponds to this field.")
-                .row("orderdate__c", "date", "", "Label orderdate corresponds to this field.")
+                .row("orderstatus__c", "varchar(1)", "", "Label orderstatus corresponds to this field.")
                 .row("orderpriority__c", "varchar(15)", "", "Label orderpriority corresponds to this field.")
                 .row("clerk__c", "varchar(15)", "", "Label clerk corresponds to this field.")
+                .row("totalprice__c", "double", "", "Label totalprice corresponds to this field.")
+                .row("orderdate__c", "date", "", "Label orderdate corresponds to this field.")
                 .build();
 
         // Until we migrate all connectors to parametrized varchar we check two options
@@ -2238,15 +2238,15 @@ public class TestSalesforceConnectorTest
                 .row("lastmodifiedbyid", "varchar(18)", "", "Label Last Modified By ID corresponds to this field.")
                 .row("systemmodstamp", "timestamp(0)", "", "Label System Modstamp corresponds to this field.")
                 .row("lastactivitydate", "date", "", "Label Last Activity Date corresponds to this field.")
-                .row("shippriority__c", "double", "", "Label shippriority corresponds to this field.")
-                .row("custkey__c", "double", "", "Label custkey corresponds to this field.")
-                .row("orderstatus__c", "varchar(1)", "", "Label orderstatus corresponds to this field.")
-                .row("totalprice__c", "double", "", "Label totalprice corresponds to this field.")
                 .row("orderkey__c", "double", "", "Label orderkey corresponds to this field.")
+                .row("custkey__c", "double", "", "Label custkey corresponds to this field.")
+                .row("shippriority__c", "double", "", "Label shippriority corresponds to this field.")
                 .row("comment__c", "varchar(79)", "", "Label comment corresponds to this field.")
-                .row("orderdate__c", "date", "", "Label orderdate corresponds to this field.")
+                .row("orderstatus__c", "varchar(1)", "", "Label orderstatus corresponds to this field.")
                 .row("orderpriority__c", "varchar(15)", "", "Label orderpriority corresponds to this field.")
                 .row("clerk__c", "varchar(15)", "", "Label clerk corresponds to this field.")
+                .row("totalprice__c", "double", "", "Label totalprice corresponds to this field.")
+                .row("orderdate__c", "date", "", "Label orderdate corresponds to this field.")
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE " + salesforceOrdersTableName);
         assertThat(actualColumns).containsExactlyElementsOf(expectedColumns);
@@ -2324,15 +2324,15 @@ public class TestSalesforceConnectorTest
                            lastmodifiedbyid varchar(18) COMMENT 'Label Last Modified By ID corresponds to this field.',
                            systemmodstamp timestamp(0) NOT NULL COMMENT 'Label System Modstamp corresponds to this field.',
                            lastactivitydate date COMMENT 'Label Last Activity Date corresponds to this field.',
-                           shippriority__c double COMMENT 'Label shippriority corresponds to this field.',
-                           custkey__c double COMMENT 'Label custkey corresponds to this field.',
-                           orderstatus__c varchar(1) COMMENT 'Label orderstatus corresponds to this field.',
-                           totalprice__c double COMMENT 'Label totalprice corresponds to this field.',
                            orderkey__c double COMMENT 'Label orderkey corresponds to this field.',
+                           custkey__c double COMMENT 'Label custkey corresponds to this field.',
+                           shippriority__c double COMMENT 'Label shippriority corresponds to this field.',
                            comment__c varchar(79) COMMENT 'Label comment corresponds to this field.',
-                           orderdate__c date COMMENT 'Label orderdate corresponds to this field.',
+                           orderstatus__c varchar(1) COMMENT 'Label orderstatus corresponds to this field.',
                            orderpriority__c varchar(15) COMMENT 'Label orderpriority corresponds to this field.',
                            clerk__c varchar(15) COMMENT 'Label clerk corresponds to this field.'
+                           totalprice__c double COMMENT 'Label totalprice corresponds to this field.',
+                           orderdate__c date COMMENT 'Label orderdate corresponds to this field.',
                         )""".formatted(salesforceOrdersTableName));
     }
 
