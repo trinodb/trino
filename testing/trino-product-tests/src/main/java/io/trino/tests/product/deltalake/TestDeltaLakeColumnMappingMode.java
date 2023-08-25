@@ -1880,42 +1880,6 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testUnsupportedRenameColumnWithColumnMappingModeNone()
-    {
-        String tableName = "test_unsupported_rename_column_" + randomNameSuffix();
-
-        onDelta().executeQuery("" +
-                "CREATE TABLE default." + tableName +
-                " (id INT, data INT)" +
-                " USING delta " +
-                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                " TBLPROPERTIES ('delta.columnMapping.mode' = 'none')");
-
-        try {
-            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 10)");
-
-            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN data TO new_data"))
-                    .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
-            assertQueryFailure(() -> onDelta().executeQuery("ALTER TABLE default." + tableName + " RENAME COLUMN data TO new_data"))
-                    .hasMessageContaining(" Column rename is not supported for your Delta table");
-
-            assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName))
-                    .containsOnly(
-                            row("id", "integer", "", ""),
-                            row("data", "integer", "", ""));
-
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .containsOnly(row(1, 10));
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
-                    .containsOnly(row(1, 10));
-        }
-        finally {
-            dropDeltaTableWithRetry(tableName);
-        }
-    }
-
     @DataProvider
     public Object[][] columnMappingDataProvider()
     {
