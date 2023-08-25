@@ -3315,14 +3315,24 @@ class StatementAnalyzer
 
             ImmutableList.Builder<ExpressionAnalysis> analysesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
+            ImmutableMap.Builder<String, Set<SourceColumn>> sourceColumnsByColumnNameBuilder = ImmutableMap.builder();
             for (UpdateAssignment assignment : update.getAssignments()) {
+                String targetColumnName = assignment.getName().getValue();
                 Expression expression = assignment.getValue();
-                ExpressionAnalysis analysis = analyzeExpression(expression, tableScope);
-                analysesBuilder.add(analysis);
-                expressionTypesBuilder.add(analysis.getType(expression));
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, tableScope);
+                analysesBuilder.add(expressionAnalysis);
+                expressionTypesBuilder.add(expressionAnalysis.getType(expression));
+
+                Set<SourceColumn> sourceColumns = expressionAnalysis.getSubqueries().stream()
+                        .map(query -> analyze(query.getNode(), tableScope))
+                        .flatMap(subqueryScope -> subqueryScope.getRelationType().getVisibleFields().stream())
+                        .flatMap(field -> analysis.getSourceColumns(field).stream())
+                        .collect(toImmutableSet());
+                sourceColumnsByColumnNameBuilder.put(targetColumnName, sourceColumns);
             }
             List<ExpressionAnalysis> analyses = analysesBuilder.build();
             List<Type> expressionTypes = expressionTypesBuilder.build();
+            Map<String, Set<SourceColumn>> sourceColumnsByColumnName = sourceColumnsByColumnNameBuilder.buildOrThrow();
 
             List<Type> tableTypes = update.getAssignments().stream()
                     .map(assignment -> requireNonNull(columns.get(assignment.getName().getValue())))
@@ -3353,7 +3363,9 @@ class StatementAnalyzer
                     tableName,
                     Optional.of(table),
                     Optional.of(updatedColumnSchemas.stream()
-                            .map(column -> new OutputColumn(new Column(column.getName(), column.getType().toString()), ImmutableSet.of()))
+                            .map(column -> new OutputColumn(
+                                    new Column(column.getName(), column.getType().toString()),
+                                    sourceColumnsByColumnName.getOrDefault(column.getName(), ImmutableSet.of())))
                             .collect(toImmutableList())));
 
             createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles));
