@@ -13,6 +13,8 @@
  */
 package io.trino.spi.function;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -53,24 +55,38 @@ public class FunctionDependencyDeclaration
         this.castDependencies = Set.copyOf(requireNonNull(castDependencies, "castDependencies is null"));
     }
 
+    @JsonProperty
     public Set<TypeSignature> getTypeDependencies()
     {
         return typeDependencies;
     }
 
+    @JsonProperty
     public Set<FunctionDependency> getFunctionDependencies()
     {
         return functionDependencies;
     }
 
+    @JsonProperty
     public Set<OperatorDependency> getOperatorDependencies()
     {
         return operatorDependencies;
     }
 
+    @JsonProperty
     public Set<CastDependency> getCastDependencies()
     {
         return castDependencies;
+    }
+
+    @JsonCreator
+    public static FunctionDependencyDeclaration fromJson(
+            @JsonProperty Set<TypeSignature> typeDependencies,
+            @JsonProperty Set<FunctionDependency> functionDependencies,
+            @JsonProperty Set<OperatorDependency> operatorDependencies,
+            @JsonProperty Set<CastDependency> castDependencies)
+    {
+        return new FunctionDependencyDeclaration(typeDependencies, functionDependencies, operatorDependencies, castDependencies);
     }
 
     public static final class FunctionDependencyDeclarationBuilder
@@ -197,19 +213,31 @@ public class FunctionDependencyDeclaration
             this.optional = optional;
         }
 
+        @JsonProperty
         public CatalogSchemaFunctionName getName()
         {
             return name;
         }
 
+        @JsonProperty
         public List<TypeSignature> getArgumentTypes()
         {
             return argumentTypes;
         }
 
+        @JsonProperty
         public boolean isOptional()
         {
             return optional;
+        }
+
+        @JsonCreator
+        public static FunctionDependency fromJson(
+                @JsonProperty CatalogSchemaFunctionName name,
+                @JsonProperty List<TypeSignature> argumentTypes,
+                @JsonProperty boolean optional)
+        {
+            return new FunctionDependency(name, argumentTypes, optional);
         }
 
         @Override
@@ -254,19 +282,31 @@ public class FunctionDependencyDeclaration
             this.optional = optional;
         }
 
+        @JsonProperty
         public OperatorType getOperatorType()
         {
             return operatorType;
         }
 
+        @JsonProperty
         public List<TypeSignature> getArgumentTypes()
         {
             return argumentTypes;
         }
 
+        @JsonProperty
         public boolean isOptional()
         {
             return optional;
+        }
+
+        @JsonCreator
+        public static OperatorDependency fromJson(
+                @JsonProperty OperatorType operatorType,
+                @JsonProperty List<TypeSignature> argumentTypes,
+                @JsonProperty boolean optional)
+        {
+            return new OperatorDependency(operatorType, argumentTypes, optional);
         }
 
         @Override
@@ -311,19 +351,31 @@ public class FunctionDependencyDeclaration
             this.optional = optional;
         }
 
+        @JsonProperty
         public TypeSignature getFromType()
         {
             return fromType;
         }
 
+        @JsonProperty
         public TypeSignature getToType()
         {
             return toType;
         }
 
+        @JsonProperty
         public boolean isOptional()
         {
             return optional;
+        }
+
+        @JsonCreator
+        public static CastDependency fromJson(
+                @JsonProperty TypeSignature fromType,
+                @JsonProperty TypeSignature toType,
+                @JsonProperty boolean optional)
+        {
+            return new CastDependency(fromType, toType, optional);
         }
 
         @Override
