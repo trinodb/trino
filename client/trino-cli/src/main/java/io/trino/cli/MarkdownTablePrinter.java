@@ -44,7 +44,7 @@ public class MarkdownTablePrinter
     private final List<Align> alignments;
     private final Writer writer;
 
-    private boolean headerOutput;
+    private boolean headerRendered;
 
     public MarkdownTablePrinter(List<Column> columns, Writer writer)
     {
@@ -71,29 +71,30 @@ public class MarkdownTablePrinter
     {
         int columns = fieldNames.size();
 
-        int[] maxWidth = new int[columns];
+        int[] columnWidth = new int[columns];
         for (int i = 0; i < columns; i++) {
-            maxWidth[i] = max(1, consoleWidth(fieldNames.get(i)));
+            columnWidth[i] = max(1, consoleWidth(fieldNames.get(i)));
         }
+
         for (List<?> row : rows) {
             for (int i = 0; i < row.size(); i++) {
                 String s = formatValue(row.get(i));
-                maxWidth[i] = max(maxWidth[i], consoleWidth(s));
+                columnWidth[i] = max(columnWidth[i], consoleWidth(s));
             }
         }
 
-        if (!headerOutput) {
-            headerOutput = true;
+        if (!headerRendered) {
+            headerRendered = true;
 
             for (int i = 0; i < columns; i++) {
                 writer.append('|');
-                writer.append(align(fieldNames.get(i), maxWidth[i], alignments.get(i)));
+                writer.append(align(fieldNames.get(i), columnWidth[i], alignments.get(i)));
             }
             writer.append("|\n");
 
             for (int i = 0; i < columns; i++) {
                 writer.append("| ");
-                writer.append(repeat("-", maxWidth[i]));
+                writer.append(repeat("-", columnWidth[i]));
                 writer.write(alignments.get(i) == Align.RIGHT ? ':' : ' ');
             }
             writer.append("|\n");
@@ -102,7 +103,7 @@ public class MarkdownTablePrinter
         for (List<?> row : rows) {
             for (int column = 0; column < columns; column++) {
                 writer.append('|');
-                writer.append(align(formatValue(row.get(column)), maxWidth[column], alignments.get(column)));
+                writer.append(align(formatValue(row.get(column)), columnWidth[column], alignments.get(column)));
             }
             writer.append("|\n");
         }
@@ -127,9 +128,8 @@ public class MarkdownTablePrinter
     {
         int width = consoleWidth(value);
         checkState(width <= maxWidth, "Variable width %s is greater than column width %s", width, maxWidth);
-        String large = repeat(" ", (maxWidth - width) + 1);
-        String small = repeat(" ", 1);
-        return align == Align.RIGHT ? (large + value + small) : (small + value + large);
+        String padding = repeat(" ", (maxWidth - width) + 1);
+        return align == Align.RIGHT ? (padding + value + " ") : (" " + value + padding);
     }
 
     static int consoleWidth(String value)
