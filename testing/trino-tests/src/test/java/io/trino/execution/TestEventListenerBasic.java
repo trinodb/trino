@@ -1078,6 +1078,65 @@ public class TestEventListenerBasic
     }
 
     @Test
+    public void testOutputColumnsForUpdatingColumnWithSelectQuery()
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents("UPDATE mock.default.table_for_output SET test_varchar = (SELECT name from nation LIMIT 1)").getQueryEvents();
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))));
+    }
+
+    @Test
+    public void testOutputColumnsForUpdatingColumnWithSelectQueryWithAliasedField()
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents("UPDATE mock.default.table_for_output SET test_varchar = (SELECT name AS aliased_name from nation LIMIT 1)").getQueryEvents();
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))));
+    }
+
+    @Test
+    public void testOutputColumnsForUpdatingColumnsWithSelectQueries()
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents("""
+                UPDATE mock.default.table_for_output SET test_varchar = (SELECT name AS aliased_name from nation LIMIT 1), test_bigint = (SELECT nationkey FROM nation LIMIT 1)
+                """).getQueryEvents();
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactlyInAnyOrder(
+                        new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsForUpdatingColumnsWithSelectQueryAndRawValue()
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents("""
+                UPDATE mock.default.table_for_output SET test_varchar = (SELECT name AS aliased_name from nation LIMIT 1), test_bigint = 1
+                """).getQueryEvents();
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactlyInAnyOrder(
+                        new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of()));
+    }
+
+    @Test
+    public void testOutputColumnsForUpdatingColumnWithSelectQueryAndWhereClauseWithOuterColumn()
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents("""
+                UPDATE mock.default.table_for_output SET test_varchar = (SELECT name from nation WHERE test_bigint = nationkey)""").getQueryEvents();
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))));
+    }
+
+    @Test
     public void testCreateTable()
             throws Exception
     {
