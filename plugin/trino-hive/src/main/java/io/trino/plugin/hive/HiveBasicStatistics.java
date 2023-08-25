@@ -83,6 +83,11 @@ public class HiveBasicStatistics
         return onDiskDataSizeInBytes;
     }
 
+    public HiveBasicStatistics withEmptyRowCount()
+    {
+        return new HiveBasicStatistics(fileCount, OptionalLong.empty(), inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
+    }
+
     @Override
     public boolean equals(Object o)
     {

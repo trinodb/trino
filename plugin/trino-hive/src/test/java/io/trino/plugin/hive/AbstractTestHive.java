@@ -543,6 +543,7 @@ public abstract class AbstractTestHive
             .build();
 
     protected static final PartitionStatistics ZERO_TABLE_STATISTICS = new PartitionStatistics(createZeroStatistics(), ImmutableMap.of());
+    protected static final PartitionStatistics EMPTY_ROWCOUNT_STATISTICS = ZERO_TABLE_STATISTICS.withBasicStatistics(ZERO_TABLE_STATISTICS.getBasicStatistics().withEmptyRowCount());
     protected static final PartitionStatistics BASIC_STATISTICS_1 = new PartitionStatistics(new HiveBasicStatistics(0, 20, 3, 0), ImmutableMap.of());
     protected static final PartitionStatistics BASIC_STATISTICS_2 = new PartitionStatistics(new HiveBasicStatistics(0, 30, 2, 0), ImmutableMap.of());
 
