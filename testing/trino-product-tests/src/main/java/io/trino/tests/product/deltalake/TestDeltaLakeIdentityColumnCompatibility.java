@@ -295,7 +295,7 @@ public class TestDeltaLakeIdentityColumnCompatibility
         }
     }
 
-    @DataProvider(parallel = true)
+    @DataProvider
     public Object[][] columnMappingDataProvider()
     {
         return new Object[][] {

@@ -412,7 +412,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
         }
     }
 
-    @DataProvider(name = "partition_column_names", parallel = true)
+    @DataProvider(name = "partition_column_names")
     public static Object[][] partitionColumns()
     {
         return new Object[][] {{"downpart"}, {"UPPART"}};

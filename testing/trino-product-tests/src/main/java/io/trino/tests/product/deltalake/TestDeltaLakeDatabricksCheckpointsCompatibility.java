@@ -554,7 +554,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         }
     }
 
-    @DataProvider(parallel = true)
+    @DataProvider
     public Object[][] testTrinoCheckpointWriteStatsAsJson()
     {
         return new Object[][] {
@@ -577,7 +577,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         };
     }
 
-    @DataProvider(parallel = true)
+    @DataProvider
     public Object[][] testDeltaCheckpointWriteStatsAsJson()
     {
         return new Object[][] {

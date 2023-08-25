@@ -443,7 +443,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                                         .collect(toImmutableList())));
     }
 
-    @DataProvider(parallel = true)
+    @DataProvider
     public Object[][] compressionCodecs()
     {
         return new Object[][] {
