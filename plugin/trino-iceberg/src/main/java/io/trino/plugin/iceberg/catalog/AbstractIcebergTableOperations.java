@@ -48,6 +48,7 @@ import static io.trino.plugin.hive.util.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
+import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
@@ -152,6 +153,11 @@ public abstract class AbstractIcebergTableOperations
             return;
         }
 
+        if (isMaterializedViewStorage(tableName)) {
+            commitMaterializedViewRefresh(base, metadata);
+            return;
+        }
+
         if (base == null) {
             if (PROVIDER_PROPERTY_VALUE.equals(metadata.properties().get(PROVIDER_PROPERTY_KEY))) {
                 // Assume this is a table executing migrate procedure
@@ -175,6 +181,8 @@ public abstract class AbstractIcebergTableOperations
     protected abstract void commitNewTable(TableMetadata metadata);
 
     protected abstract void commitToExistingTable(TableMetadata base, TableMetadata metadata);
+
+    protected abstract void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata);
 
     @Override
     public FileIO io()

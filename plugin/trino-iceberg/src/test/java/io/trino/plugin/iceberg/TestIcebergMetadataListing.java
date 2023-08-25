@@ -107,7 +107,6 @@ public class TestIcebergMetadataListing
                         "iceberg_table1",
                         "iceberg_table2",
                         "iceberg_materialized_view",
-                        storageTable.getTableName(),
                         "iceberg_view",
                         "hive_table",
                         "hive_view");
@@ -118,7 +117,6 @@ public class TestIcebergMetadataListing
                         "'iceberg_table1', " +
                         "'iceberg_table2', " +
                         "'iceberg_materialized_view', " +
-                        "'" + storageTable.getTableName() + "', " +
                         "'iceberg_view', " +
                         "'hive_table', " +
                         "'hive_view'");
@@ -136,8 +134,6 @@ public class TestIcebergMetadataListing
                         "('iceberg_table2', '_double'), " +
                         "('iceberg_materialized_view', '_string'), " +
                         "('iceberg_materialized_view', '_integer'), " +
-                        "('" + storageTable.getTableName() + "', '_string'), " +
-                        "('" + storageTable.getTableName() + "', '_integer'), " +
                         "('iceberg_view', '_string'), " +
                         "('iceberg_view', '_integer'), " +
                         "('hive_view', '_double')");

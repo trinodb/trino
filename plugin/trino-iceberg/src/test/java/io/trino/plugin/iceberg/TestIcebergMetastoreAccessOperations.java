@@ -45,6 +45,7 @@ import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.plugin.iceberg.TableType.HISTORY;
 import static io.trino.plugin.iceberg.TableType.MANIFESTS;
+import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.plugin.iceberg.TableType.PARTITIONS;
 import static io.trino.plugin.iceberg.TableType.PROPERTIES;
 import static io.trino.plugin.iceberg.TableType.REFS;
@@ -223,7 +224,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_mview_view",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 3)
+                        .addCopies(GET_TABLE, 2)
                         .build());
     }
 
@@ -235,7 +236,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_mview_where_view WHERE age = 2",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 3)
+                        .addCopies(GET_TABLE, 2)
                         .build());
     }
 
@@ -247,7 +248,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 6)
+                        .addCopies(GET_TABLE, 2)
                         .addCopies(REPLACE_TABLE, 1)
                         .build());
     }
@@ -349,9 +350,12 @@ public class TestIcebergMetastoreAccessOperations
                         .addCopies(GET_TABLE, 1)
                         .build());
 
+        assertQueryFails("SELECT * FROM \"test_select_snapshots$materialized_view_storage\"",
+                "Table 'test_schema.test_select_snapshots\\$materialized_view_storage' not found");
+
         // This test should get updated if a new system table is added.
         assertThat(TableType.values())
-                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES, REFS);
+                .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES, REFS, MATERIALIZED_VIEW_STORAGE);
     }
 
     @Test
@@ -491,33 +495,33 @@ public class TestIcebergMetastoreAccessOperations
         assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
                 ImmutableMultiset.builder()
                         .add(GET_TABLES_WITH_PARAMETER)
-                        .addCopies(GET_TABLE, 6)
+                        .addCopies(GET_TABLE, 4)
                         .build());
 
         // Bulk retrieval without selecting freshness
         assertMetastoreInvocations(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
                 ImmutableMultiset.builder()
                         .add(GET_TABLES_WITH_PARAMETER)
-                        .addCopies(GET_TABLE, 4)
+                        .addCopies(GET_TABLE, 2)
                         .build());
 
         // Bulk retrieval for two schemas
         assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent')",
                 ImmutableMultiset.builder()
                         .addCopies(GET_TABLES_WITH_PARAMETER, 2)
-                        .addCopies(GET_TABLE, 6)
+                        .addCopies(GET_TABLE, 4)
                         .build());
 
         // Pointed lookup
         assertMetastoreInvocations(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = 'mv1'",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 4)
+                        .addCopies(GET_TABLE, 3)
                         .build());
 
         // Pointed lookup without selecting freshness
         assertMetastoreInvocations(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = 'mv1'",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 2)
+                        .add(GET_TABLE)
                         .build());
 
         assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
