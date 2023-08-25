@@ -2819,6 +2819,19 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testRenameColumnWithComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_RENAME_COLUMN) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_column_", "(col INT COMMENT 'test column comment')")) {
+            assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test column comment");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col TO renamed_col");
+            assertThat(getColumnComment(table.getName(), "renamed_col")).isEqualTo("test column comment");
+        }
+    }
+
+    @Test
     public void testRenameRowField()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));

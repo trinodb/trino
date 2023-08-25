@@ -112,6 +112,20 @@ public class TestClickHouseConnectorTest
     }
 
     @Override
+    public void testRenameColumnWithComment()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_rename_column_",
+                "(id INT NOT NULL, col INT COMMENT 'test column comment') WITH (engine = 'MergeTree', order_by = ARRAY['id'])")) {
+            assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test column comment");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN col TO renamed_col");
+            assertThat(getColumnComment(table.getName(), "renamed_col")).isEqualTo("test column comment");
+        }
+    }
+
+    @Override
     public void testAddColumnWithCommentSpecialCharacter(String comment)
     {
         // Override because default storage engine doesn't support renaming columns
