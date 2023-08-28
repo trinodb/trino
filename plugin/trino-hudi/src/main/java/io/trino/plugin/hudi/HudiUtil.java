@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
@@ -147,7 +148,9 @@ public final class HudiUtil
         for (int i = 0; i < keys.size(); i++) {
             String name = keys.get(i).getName();
             String value = values.get(i);
-            partitionKeys.add(new HivePartitionKey(name, value));
+            if (!value.equals(HIVE_DEFAULT_DYNAMIC_PARTITION)) {
+                partitionKeys.add(new HivePartitionKey(name, value));
+            }
         }
         return partitionKeys.build();
     }
