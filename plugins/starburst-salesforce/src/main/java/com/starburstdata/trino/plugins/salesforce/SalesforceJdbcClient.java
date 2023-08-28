@@ -235,7 +235,7 @@ public class SalesforceJdbcClient
             tableName = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName().orElseGet(handle::getTableName));
         }
         else {
-            tableName = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName() + "__c");
+            tableName = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName().orElseGet(handle::getTableName) + "__c");
         }
 
         String columnNames = handle.getColumnNames().stream()
