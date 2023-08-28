@@ -39,6 +39,18 @@
             <artifactId>trino-base-jdbc</artifactId>
         </dependency>
 
+        <!-- TODO Use org.apache.ignite:ignite-core:2.15.0 instead when new Ignite is released -->
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-ignite-patched</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.ignite</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-matching</artifactId>
@@ -58,12 +70,6 @@
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-core</artifactId>
-            <version>2.15.0</version>
         </dependency>
 
         <dependency>
@@ -214,4 +220,29 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <!--
+      TODO convert this back into normal dependency
+      The Ignite code actually comes from trino-ignite-patched dependency, but IntelliJ does not support multi-module
+      projects with module using shading (as trino-ignite-patched does). See e.g. https://youtrack.jetbrains.com/issue/IDEA-266746
+      This dependency is here only to fool IntelliJ into compiling the project. -->
+    <profiles>
+        <profile>
+            <id>lib/tools.jar</id>
+            <activation>
+                <property>
+                    <name>idea.maven.embedder.version</name>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.apache.ignite</groupId>
+                    <artifactId>ignite-core</artifactId>
+                    <version>2.15.0</version>
+                    <scope>provided</scope>
+                    <optional>true</optional>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 </project>
