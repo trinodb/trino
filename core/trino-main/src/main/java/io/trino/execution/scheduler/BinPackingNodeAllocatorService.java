@@ -411,7 +411,7 @@ public class BinPackingNodeAllocatorService
         public void setExecutionClass(TaskExecutionClass newExecutionClass)
         {
             TaskExecutionClass changedFrom = this.executionClass.getAndUpdate(oldExecutionClass -> {
-                checkArgument(newExecutionClass != SPECULATIVE, "cannot make non-speculative task speculative");
+                checkArgument(oldExecutionClass.canTransitionTo(newExecutionClass), "cannot change execution class from %s to %s", oldExecutionClass, newExecutionClass);
                 return newExecutionClass;
             });
 
