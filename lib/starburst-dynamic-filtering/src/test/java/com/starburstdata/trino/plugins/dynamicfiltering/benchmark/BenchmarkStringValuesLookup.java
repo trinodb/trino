@@ -69,20 +69,10 @@ public class BenchmarkStringValuesLookup
             "ORDERS_CLERK",
             "CUSTOMER_MARKET_SEGMENT"
     })
-    private InputData inputData = InputData.RANDOM_36_300K;
+    public InputData inputData;
 
     @Param("0.2")
-    private double selectivity = 0.2;
-
-    public BenchmarkStringValuesLookup()
-    {
-    }
-
-    public BenchmarkStringValuesLookup(InputData inputData, double selectivity)
-    {
-        this.inputData = requireNonNull(inputData, "inputData is null");
-        this.selectivity = selectivity;
-    }
+    public double selectivity;
 
     public enum InputData
     {
@@ -120,7 +110,7 @@ public class BenchmarkStringValuesLookup
             return uniqueValues.stream()
                     .limit(selectedValuesCount)
                     // Copy Slice to ensure that we don't reuse cached hashCode
-                    .map(Slices::copyOf)
+                    .map(Slice::copy)
                     .collect(toImmutableList());
         }
 

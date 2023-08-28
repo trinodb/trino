@@ -11,8 +11,8 @@ package com.starburstdata.trino.plugins.dynamicfiltering;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.starburstdata.trino.plugins.dynamicfiltering.benchmark.TypedSet;
 import io.airlift.slice.Slices;
-import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -52,8 +52,8 @@ import static com.starburstdata.trino.plugins.dynamicfiltering.BenchmarkDynamicP
 import static com.starburstdata.trino.plugins.dynamicfiltering.BenchmarkDynamicPageFilter.DataSet.REAL_RANDOM;
 import static com.starburstdata.trino.plugins.dynamicfiltering.BenchmarkDynamicPageFilter.DataSet.VARCHAR_DICTIONARY;
 import static com.starburstdata.trino.plugins.dynamicfiltering.BenchmarkDynamicPageFilter.DataSet.VARCHAR_RANDOM;
+import static com.starburstdata.trino.plugins.dynamicfiltering.benchmark.TypedSet.createEqualityTypedSet;
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.trino.spi.predicate.Domain.DiscreteSet;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -90,7 +90,7 @@ public class BenchmarkDynamicPageFilter
     private int filterSize = 100;
 
     @Param("false")
-    private boolean nullsAllowed;
+    private boolean nullsAllowed = true;
 
     @Param({
             "INT32_RANDOM",
@@ -101,19 +101,10 @@ public class BenchmarkDynamicPageFilter
             "VARCHAR_RANDOM",
             "VARCHAR_DICTIONARY"
     })
-    private DataSet inputDataSet;
+    public DataSet inputDataSet;
 
     private TestData inputData;
     private DynamicPageFilter.BlockFilter[] blockFilters;
-
-    public BenchmarkDynamicPageFilter()
-    {
-    }
-
-    public BenchmarkDynamicPageFilter(DataSet inputDataSet)
-    {
-        this.inputDataSet = inputDataSet;
-    }
 
     public enum DataSet
     {

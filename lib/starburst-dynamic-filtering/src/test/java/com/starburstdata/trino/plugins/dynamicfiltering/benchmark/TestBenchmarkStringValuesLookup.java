@@ -33,7 +33,9 @@ public class TestBenchmarkStringValuesLookup
                 selectivities = ImmutableList.of(0.005, 0.01, 0.05, 0.1, 0.2, 0.5, 0.75);
             }
             for (double selectivity : selectivities) {
-                BenchmarkStringValuesLookup benchMark = new BenchmarkStringValuesLookup(input, selectivity);
+                BenchmarkStringValuesLookup benchMark = new BenchmarkStringValuesLookup();
+                benchMark.inputData = input;
+                benchMark.selectivity = selectivity;
                 benchMark.setup();
                 int inputSize = benchMark.getInputSize();
                 double actualSelectivityFromSet = (double) benchMark.lookupInFastHashSet() / inputSize;
@@ -57,7 +59,9 @@ public class TestBenchmarkStringValuesLookup
     {
         for (InputData input : InputData.values()) {
             for (double selectivity : ImmutableList.of(0.2, 0.4, 0.6)) {
-                BenchmarkStringValuesLookup benchMark = new BenchmarkStringValuesLookup(input, selectivity);
+                BenchmarkStringValuesLookup benchMark = new BenchmarkStringValuesLookup();
+                benchMark.inputData = input;
+                benchMark.selectivity = selectivity;
                 benchMark.setup();
                 int inputSize = benchMark.getInputSize();
                 double actualSelectivityFromSet = (double) benchMark.lookupInFastHashSet() / inputSize;

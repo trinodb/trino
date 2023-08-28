@@ -25,7 +25,8 @@ public class TestDynamicRowFilteringBenchmark
 
     private static void executeBenchmark(DataSet dataSet)
     {
-        BenchmarkDynamicPageFilter benchmark = new BenchmarkDynamicPageFilter(dataSet);
+        BenchmarkDynamicPageFilter benchmark = new BenchmarkDynamicPageFilter();
+        benchmark.inputDataSet = dataSet;
         benchmark.setup();
         benchmark.filterPages();
     }
