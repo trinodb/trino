@@ -34,7 +34,7 @@ import static java.lang.Math.min;
 public class TestTaskManagerConfig
 {
     private static final int DEFAULT_PROCESSOR_COUNT = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32);
-    private static final int DEFAULT_SCALE_WRITERS_MAX_WRITER_COUNT = min(getAvailablePhysicalProcessorCount(), 32);
+    private static final int DEFAULT_SCALE_WRITERS_MAX_WRITER_COUNT = min(getAvailablePhysicalProcessorCount(), 32) * 2;
 
     @Test
     public void testDefaults()
@@ -66,7 +66,7 @@ public class TestTaskManagerConfig
                 .setScaleWritersEnabled(true)
                 .setScaleWritersMaxWriterCount(DEFAULT_SCALE_WRITERS_MAX_WRITER_COUNT)
                 .setWriterCount(1)
-                .setPartitionedWriterCount(DEFAULT_PROCESSOR_COUNT)
+                .setPartitionedWriterCount(DEFAULT_PROCESSOR_COUNT * 2)
                 .setTaskConcurrency(DEFAULT_PROCESSOR_COUNT)
                 .setHttpResponseThreads(100)
                 .setHttpTimeoutThreads(3)
