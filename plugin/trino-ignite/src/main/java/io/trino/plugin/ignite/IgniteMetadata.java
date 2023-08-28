@@ -16,6 +16,7 @@ package io.trino.plugin.ignite;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.trino.plugin.jdbc.ColumnWithAliasFormatter;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -57,9 +58,10 @@ public class IgniteMetadata
     private final JdbcClient igniteClient;
 
     @Inject
-    public IgniteMetadata(JdbcClient igniteClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public IgniteMetadata(JdbcClient igniteClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners,
+            ColumnWithAliasFormatter aliasFormatter)
     {
-        super(igniteClient, false, jdbcQueryEventListeners);
+        super(igniteClient, false, jdbcQueryEventListeners, aliasFormatter);
         this.igniteClient = requireNonNull(igniteClient, "igniteClient is null");
     }
 

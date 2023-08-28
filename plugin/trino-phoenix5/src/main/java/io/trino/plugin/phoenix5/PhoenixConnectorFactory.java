@@ -18,6 +18,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.jdbc.ColumnWithAliasFormatterModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
@@ -56,6 +57,7 @@ public class PhoenixConnectorFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new PhoenixClientModule(catalogName),
+                    new ColumnWithAliasFormatterModule(),
                     binder -> {
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                         binder.bind(ClassLoader.class).toInstance(PhoenixConnectorFactory.class.getClassLoader());

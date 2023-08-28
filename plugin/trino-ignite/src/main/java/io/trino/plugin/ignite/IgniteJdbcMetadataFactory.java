@@ -15,6 +15,7 @@ package io.trino.plugin.ignite;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.trino.plugin.jdbc.ColumnWithAliasFormatter;
 import io.trino.plugin.jdbc.DefaultJdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadata;
@@ -30,15 +31,16 @@ public class IgniteJdbcMetadataFactory
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     @Inject
-    public IgniteJdbcMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public IgniteJdbcMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners,
+            ColumnWithAliasFormatter aliasFormatter)
     {
-        super(jdbcClient, jdbcQueryEventListeners);
+        super(jdbcClient, jdbcQueryEventListeners, aliasFormatter);
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "jdbcQueryEventListeners is null"));
     }
 
     @Override
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new IgniteMetadata(transactionCachingJdbcClient, jdbcQueryEventListeners);
+        return new IgniteMetadata(transactionCachingJdbcClient, jdbcQueryEventListeners, aliasFormatter);
     }
 }
