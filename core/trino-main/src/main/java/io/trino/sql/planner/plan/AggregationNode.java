@@ -54,6 +54,10 @@ public class AggregationNode
     private final Optional<Symbol> hashSymbol;
     private final Optional<Symbol> groupIdSymbol;
     private final List<Symbol> outputs;
+    /**
+     * Indicates whether aggregation is potentially reducing rows that are propagated though exchange operator.
+     */
+    private final Optional<Boolean> exchangeInputAggregation;
 
     public static AggregationNode singleAggregation(
             PlanNodeId id,
@@ -62,6 +66,19 @@ public class AggregationNode
             GroupingSetDescriptor groupingSets)
     {
         return new AggregationNode(id, source, aggregations, groupingSets, ImmutableList.of(), SINGLE, Optional.empty(), Optional.empty());
+    }
+
+    public AggregationNode(
+            PlanNodeId id,
+            PlanNode source,
+            Map<Symbol, Aggregation> aggregations,
+            GroupingSetDescriptor groupingSets,
+            List<Symbol> preGroupedSymbols,
+            Step step,
+            Optional<Symbol> hashSymbol,
+            Optional<Symbol> groupIdSymbol)
+    {
+        this(id, source, aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol, Optional.empty());
     }
 
     @JsonCreator
@@ -73,7 +90,8 @@ public class AggregationNode
             @JsonProperty("preGroupedSymbols") List<Symbol> preGroupedSymbols,
             @JsonProperty("step") Step step,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
-            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
+            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol,
+            @JsonProperty("exchangeInputAggregation") Optional<Boolean> exchangeInputAggregation)
     {
         super(id);
 
@@ -105,6 +123,7 @@ public class AggregationNode
         outputs.addAll(aggregations.keySet());
 
         this.outputs = outputs.build();
+        this.exchangeInputAggregation = requireNonNull(exchangeInputAggregation, "exchangeInputAggregation is null");
     }
 
     public List<Symbol> getGroupingKeys()
@@ -206,6 +225,12 @@ public class AggregationNode
     public Optional<Symbol> getGroupIdSymbol()
     {
         return groupIdSymbol;
+    }
+
+    @JsonProperty("exchangeInputAggregation")
+    public boolean isExchangeInputAggregation()
+    {
+        return exchangeInputAggregation.orElse(false);
     }
 
     public boolean hasOrderings()
@@ -514,6 +539,7 @@ public class AggregationNode
         private Step step;
         private Optional<Symbol> hashSymbol;
         private Optional<Symbol> groupIdSymbol;
+        private Optional<Boolean> exchangeInputAggregation;
 
         public Builder(AggregationNode node)
         {
@@ -526,6 +552,7 @@ public class AggregationNode
             this.step = node.getStep();
             this.hashSymbol = node.getHashSymbol();
             this.groupIdSymbol = node.getGroupIdSymbol();
+            this.exchangeInputAggregation = node.exchangeInputAggregation;
         }
 
         public Builder setId(PlanNodeId id)
@@ -576,6 +603,12 @@ public class AggregationNode
             return this;
         }
 
+        public Builder setExchangeInputAggregation(boolean exchangeInputAggregation)
+        {
+            this.exchangeInputAggregation = Optional.of(exchangeInputAggregation);
+            return this;
+        }
+
         public AggregationNode build()
         {
             return new AggregationNode(
@@ -586,7 +619,8 @@ public class AggregationNode
                     preGroupedSymbols,
                     step,
                     hashSymbol,
-                    groupIdSymbol);
+                    groupIdSymbol,
+                    exchangeInputAggregation);
         }
     }
 }
