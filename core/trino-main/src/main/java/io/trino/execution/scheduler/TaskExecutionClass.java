@@ -23,4 +23,12 @@ public enum TaskExecutionClass
     // Picked to kill if worker runs out of memory to prevent deadlock.
     SPECULATIVE,
     /**/;
+
+    boolean canTransitionTo(TaskExecutionClass targetExecutionClass)
+    {
+        return switch (this) {
+            case STANDARD -> targetExecutionClass == STANDARD;
+            case SPECULATIVE -> targetExecutionClass == SPECULATIVE || targetExecutionClass == STANDARD;
+        };
+    }
 }
