@@ -1076,6 +1076,11 @@ modes.
 - Legacy
 - Experimental
 
+If using Hive views from Trino is required, you must compare results in Hive and
+Trino for each view definition to ensure identical results. Use the experimental
+mode whenever possible. Avoid using the legacy mode. Leave Hive views support
+disabled, if you are not accessing any Hive views from Trino.
+
 You can configure the behavior in your catalog properties file.
 
 By default, Hive views are executed with the `RUN AS DEFINER` security mode.
