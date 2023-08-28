@@ -40,6 +40,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "query.max-pending-splits-per-node",
         "query.queue-config-file",
         "experimental.big-query-initial-hash-partitions",
+        "experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled",
         "experimental.max-concurrent-big-queries",
         "experimental.max-queued-big-queries",
         "query-manager.initialization-required-workers",
@@ -1007,18 +1008,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize(DataSize faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize)
     {
         this.faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize = faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize;
-        return this;
-    }
-
-    public boolean isFaultTolerantExecutionForcePreferredWritePartitioningEnabled()
-    {
-        return faultTolerantExecutionForcePreferredWritePartitioningEnabled;
-    }
-
-    @Config("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled")
-    public QueryManagerConfig setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled)
-    {
-        this.faultTolerantExecutionForcePreferredWritePartitioningEnabled = faultTolerantExecutionForcePreferredWritePartitioningEnabled;
         return this;
     }
 
