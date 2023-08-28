@@ -71,6 +71,8 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemo
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.execution.scheduler.ErrorCodes.isWorkerCrashAssociatedError;
+import static io.trino.execution.scheduler.TaskExecutionClass.SPECULATIVE;
+import static io.trino.execution.scheduler.TaskExecutionClass.STANDARD;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.lang.Math.max;
 import static java.lang.Thread.currentThread;
@@ -204,14 +206,14 @@ public class BinPackingNodeAllocatorService
     @VisibleForTesting
     synchronized void processPendingAcquires()
     {
-        processPendingAcquires(false);
+        processPendingAcquires(STANDARD);
         boolean hasNonSpeculativePendingAcquires = pendingAcquires.stream().anyMatch(pendingAcquire -> !pendingAcquire.isSpeculative());
         if (!hasNonSpeculativePendingAcquires) {
-            processPendingAcquires(true);
+            processPendingAcquires(SPECULATIVE);
         }
     }
 
-    private void processPendingAcquires(boolean processSpeculative)
+    private void processPendingAcquires(TaskExecutionClass executionClass)
     {
         // synchronized only for sake manual triggering in test code. In production code it should only be called by single thread
         Iterator<PendingAcquire> iterator = pendingAcquires.iterator();
@@ -222,7 +224,7 @@ public class BinPackingNodeAllocatorService
                 fulfilledAcquires,
                 scheduleOnCoordinator,
                 taskRuntimeMemoryEstimationOverhead,
-                !processSpeculative); // if we are processing non-speculative pending acquires we are ignoring speculative acquired ones
+                executionClass == STANDARD); // if we are processing non-speculative pending acquires we are ignoring speculative acquired ones
 
         while (iterator.hasNext()) {
             PendingAcquire pendingAcquire = iterator.next();
@@ -233,7 +235,7 @@ public class BinPackingNodeAllocatorService
                 continue;
             }
 
-            if (pendingAcquire.isSpeculative() != processSpeculative) {
+            if (pendingAcquire.getExecutionClass() != executionClass) {
                 continue;
             }
 
@@ -284,9 +286,9 @@ public class BinPackingNodeAllocatorService
     }
 
     @Override
-    public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, boolean speculative)
+    public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass)
     {
-        BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), speculative);
+        BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), executionClass);
         PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, memoryRequirement, nodeLease, ticker);
         pendingAcquires.add(pendingAcquire);
         wakeupProcessPendingAcquires();
@@ -353,6 +355,11 @@ public class BinPackingNodeAllocatorService
         {
             return lease.isSpeculative();
         }
+
+        public TaskExecutionClass getExecutionClass()
+        {
+            return lease.getExecutionClass();
+        }
     }
 
     private class BinPackingNodeLease
@@ -362,12 +369,13 @@ public class BinPackingNodeAllocatorService
         private final AtomicBoolean released = new AtomicBoolean();
         private final long memoryLease;
         private final AtomicReference<TaskId> taskId = new AtomicReference<>();
-        private final AtomicBoolean speculative;
+        private final AtomicReference<TaskExecutionClass> executionClass;
 
-        private BinPackingNodeLease(long memoryLease, boolean speculative)
+        private BinPackingNodeLease(long memoryLease, TaskExecutionClass executionClass)
         {
             this.memoryLease = memoryLease;
-            this.speculative = new AtomicBoolean(speculative);
+            requireNonNull(executionClass, "executionClass is null");
+            this.executionClass = new AtomicReference<>(executionClass);
         }
 
         @Override
@@ -400,18 +408,26 @@ public class BinPackingNodeAllocatorService
         }
 
         @Override
-        public void setSpeculative(boolean speculative)
+        public void setExecutionClass(TaskExecutionClass newExecutionClass)
         {
-            checkArgument(!speculative, "cannot make non-speculative task speculative");
-            boolean changed = this.speculative.compareAndSet(true, false);
-            if (changed) {
+            TaskExecutionClass changedFrom = this.executionClass.getAndUpdate(oldExecutionClass -> {
+                checkArgument(newExecutionClass != SPECULATIVE, "cannot make non-speculative task speculative");
+                return newExecutionClass;
+            });
+
+            if (changedFrom != newExecutionClass) {
                 wakeupProcessPendingAcquires();
             }
         }
 
         public boolean isSpeculative()
         {
-            return speculative.get();
+            return executionClass.get() == SPECULATIVE;
+        }
+
+        public TaskExecutionClass getExecutionClass()
+        {
+            return executionClass.get();
         }
 
         public Optional<TaskId> getAttachedTaskId()
