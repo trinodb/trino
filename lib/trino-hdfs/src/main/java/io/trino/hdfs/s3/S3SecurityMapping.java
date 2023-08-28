@@ -46,6 +46,7 @@ public class S3SecurityMapping
     private final boolean useClusterDefault;
     private final Optional<String> endpoint;
     private final Optional<String> roleSessionName;
+    private final Optional<String> region;
 
     @JsonCreator
     public S3SecurityMapping(
@@ -60,7 +61,8 @@ public class S3SecurityMapping
             @JsonProperty("accessKey") Optional<String> accessKey,
             @JsonProperty("secretKey") Optional<String> secretKey,
             @JsonProperty("useClusterDefault") Optional<Boolean> useClusterDefault,
-            @JsonProperty("endpoint") Optional<String> endpoint)
+            @JsonProperty("endpoint") Optional<String> endpoint,
+            @JsonProperty("region") Optional<String> region)
     {
         this.user = user
                 .map(S3SecurityMapping::toPredicate)
@@ -95,6 +97,7 @@ public class S3SecurityMapping
         checkArgument(!(this.useClusterDefault && this.kmsKeyId.isPresent()), "KMS key ID cannot be provided together with useClusterDefault");
 
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
+        this.region = requireNonNull(region, "region is null");
     }
 
     public boolean matches(ConnectorIdentity identity, URI uri)
@@ -139,6 +142,11 @@ public class S3SecurityMapping
         return endpoint;
     }
 
+    public Optional<String> getRegion()
+    {
+        return region;
+    }
+
     public Optional<String> getRoleSessionName()
     {
         return roleSessionName;
@@ -159,6 +167,7 @@ public class S3SecurityMapping
                 .add("credentials", credentials)
                 .add("useClusterDefault", useClusterDefault)
                 .add("endpoint", endpoint.orElse(null))
+                .add("region", region.orElse(null))
                 .toString();
     }
 
