@@ -36,6 +36,7 @@ public class JdbcMetadataSessionProperties
     public static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     public static final String TOPN_PUSHDOWN_ENABLED = "topn_pushdown_enabled";
     public static final String DOMAIN_COMPACTION_THRESHOLD = "domain_compaction_threshold";
+    public static final String COLUMN_ALIAS_MAX_CHARS = "column_alias_max_chars";
 
     private final List<PropertyMetadata<?>> properties;
 
@@ -69,6 +70,11 @@ public class JdbcMetadataSessionProperties
                         TOPN_PUSHDOWN_ENABLED,
                         "Enable TopN pushdown",
                         jdbcMetadataConfig.isTopNPushdownEnabled(),
+                        false))
+                .add(integerProperty(
+                        COLUMN_ALIAS_MAX_CHARS,
+                        "Maximum number of characters allowed in a column alias",
+                        jdbcMetadataConfig.getColumnAliasMaxChars(),
                         false))
                 .build();
     }
