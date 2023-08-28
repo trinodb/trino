@@ -2626,6 +2626,7 @@ public class TestSalesforceConnectorTest
                                 anyTree(node(TableScanNode.class))));
     }
 
+    @SuppressWarnings({"deprecation", "DeprecatedApi"})
     @Test
     public void testJoinPushdown()
     {
@@ -2985,6 +2986,7 @@ public class TestSalesforceConnectorTest
         }
     }
 
+    @SuppressWarnings({"deprecation", "DeprecatedApi"})
     private boolean expectJoinPushdown(String operator)
     {
         if ("IS NOT DISTINCT FROM".equals(operator)) {
@@ -3005,6 +3007,7 @@ public class TestSalesforceConnectorTest
         throw new AssertionError(); // unreachable
     }
 
+    @SuppressWarnings({"deprecation", "DeprecatedApi"})
     private boolean expectVarcharJoinPushdown(String operator)
     {
         if ("IS NOT DISTINCT FROM".equals(operator)) {
@@ -3026,6 +3029,7 @@ public class TestSalesforceConnectorTest
         throw new AssertionError(); // unreachable
     }
 
+    @SuppressWarnings({"deprecation", "DeprecatedApi"})
     private JoinCondition.Operator toJoinConditionOperator(String operator)
     {
         return Stream.of(JoinCondition.Operator.values())
