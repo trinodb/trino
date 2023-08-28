@@ -210,9 +210,10 @@ This property is optional; the default is `0`.
 MongoDB maintains table definitions on the special collection where `mongodb.schema-collection` configuration value specifies.
 
 :::{note}
-There's no way for the plugin to detect a collection is deleted.
-You need to delete the entry by `db.getCollection("_schema").remove( { table: deleted_table_name })` in the Mongo Shell.
-Or drop a collection by running `DROP TABLE table_name` using Trino.
+The plugin cannot detect that a collection has been deleted. You must
+delete the entry by executing `db.getCollection("_schema").remove( { table:
+deleted_table_name })` in the MongoDB Shell. You can also drop a collection in
+Trino by running `DROP TABLE table_name`.
 :::
 
 A schema collection consists of a MongoDB document for a table.
@@ -230,9 +231,12 @@ A schema collection consists of a MongoDB document for a table.
 }
 ```
 
-The connector quotes the fields for a row type when auto-generating the schema.
-However, if the schema is being fixed manually in the collection then
-the fields need to be explicitly quoted. `row("UpperCase" varchar)`
+The connector quotes the fields for a row type when auto-generating the schema;
+however, the auto-generated schema must be corrected manually in the collection
+to match the information in the tables.
+
+Manually altered fields must be explicitly quoted, for example, `row("UpperCase"
+varchar)`.
 
 | Field    | Required | Type   | Description                                                                                 |
 | -------- | -------- | ------ | ------------------------------------------------------------------------------------------- |
