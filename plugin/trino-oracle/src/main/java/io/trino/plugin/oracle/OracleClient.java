@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.oracle;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -89,6 +90,7 @@ import java.time.temporal.ChronoField;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.BiFunction;
 
@@ -157,6 +159,9 @@ import static java.util.concurrent.TimeUnit.DAYS;
 public class OracleClient
         extends BaseJdbcClient
 {
+    @VisibleForTesting
+    public static final int ORACLE_MAXIMUM_IDENTIFIER_LENGTH = 30;
+
     public static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
 
     private static final int MAX_ORACLE_TIMESTAMP_PRECISION = 9;
@@ -250,6 +255,12 @@ public class OracleClient
                         .add(new ImplementCovarianceSamp())
                         .add(new ImplementCovariancePop())
                         .build());
+    }
+
+    @Override
+    public OptionalInt getMaximumIdentifierLength()
+    {
+        return OptionalInt.of(ORACLE_MAXIMUM_IDENTIFIER_LENGTH);
     }
 
     @Override

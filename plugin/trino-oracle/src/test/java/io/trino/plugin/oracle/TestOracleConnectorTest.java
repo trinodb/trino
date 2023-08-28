@@ -17,15 +17,19 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import static io.trino.plugin.oracle.OracleClient.ORACLE_MAXIMUM_IDENTIFIER_LENGTH;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 
 public class TestOracleConnectorTest
         extends BaseOracleConnectorTest
@@ -82,5 +86,26 @@ public class TestOracleConnectorTest
     protected SqlExecutor onRemoteDatabase()
     {
         return oracleServer::execute;
+    }
+
+    @Test
+    public void testJoinPushdownWithLongIdentifiers()
+    {
+        String maximumColumnIdentifier = "a".repeat(ORACLE_MAXIMUM_IDENTIFIER_LENGTH);
+
+        // Verify that the ORACLE_MAXIMUM_IDENTIFIER_LENGTH is correct for the Oracle version
+        // used in the test.
+        oracleServer.execute("SELECT 1 AS " + maximumColumnIdentifier + " FROM DUAL");
+        assertThatThrownBy(() -> {
+            oracleServer.execute("SELECT 1 AS " + maximumColumnIdentifier + "a FROM DUAL");
+        }).hasMessageContaining("ORA-00972: identifier is too long");
+
+        try (TestTable table = new TestTable(onRemoteDatabase(), "join_long_", "(%s decimal(19, 0))".formatted(maximumColumnIdentifier))) {
+            assertThat(query(joinPushdownEnabled(getSession()), """
+                SELECT c.custkey, o.%s, n.nationkey
+                FROM %s o JOIN customer c ON c.custkey = o.%s
+                JOIN nation n ON c.nationkey = n.nationkey""".formatted(maximumColumnIdentifier, table.getName(), maximumColumnIdentifier)))
+            .isFullyPushedDown();
+        }
     }
 }

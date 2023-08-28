@@ -232,4 +232,9 @@ public interface JdbcClient
     void truncateTable(ConnectorSession session, JdbcTableHandle handle);
 
     OptionalInt getMaxWriteParallelism(ConnectorSession session);
+
+    default OptionalInt getMaximumIdentifierLength()
+    {
+        return OptionalInt.empty();
+    }
 }

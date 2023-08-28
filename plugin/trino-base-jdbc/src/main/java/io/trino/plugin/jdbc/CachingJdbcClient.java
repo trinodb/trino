@@ -603,6 +603,12 @@ public class CachingJdbcClient
         onDataChanged(handle.getRequiredNamedRelation().getSchemaTableName());
     }
 
+    @Override
+    public OptionalInt getMaximumIdentifierLength()
+    {
+        return delegate.getMaximumIdentifierLength();
+    }
+
     @Managed
     public void flushCache()
     {

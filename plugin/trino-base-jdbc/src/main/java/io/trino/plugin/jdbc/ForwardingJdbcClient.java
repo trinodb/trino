@@ -438,4 +438,10 @@ public abstract class ForwardingJdbcClient
     {
         return delegate().getMaxWriteParallelism(session);
     }
+
+    @Override
+    public OptionalInt getMaximumIdentifierLength()
+    {
+        return delegate().getMaximumIdentifierLength();
+    }
 }
