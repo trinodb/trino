@@ -959,7 +959,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private IsReadyForExecutionResult isReadyForExecution(SubPlan subPlan)
         {
-            boolean nonSpeculativeTasksInQueue = schedulingQueue.getNonSpeculativeTaskCount() > 0;
+            boolean nonSpeculativeTasksInQueue = schedulingQueue.getTaskCount(STANDARD) > 0;
             boolean nonSpeculativeTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
                     .anyMatch(task -> task.getExecutionClass() == STANDARD && !task.getNodeLease().getNode().isDone());
 
@@ -1225,23 +1225,27 @@ public class EventDrivenFaultTolerantQueryScheduler
             long speculativeTasksWaitingForNode = getWaitingForNodeTasksCount(SPECULATIVE);
 
             while (!schedulingQueue.isEmpty()) {
-                if (standardTasksWaitingForNode >= maxTasksWaitingForNode) {
-                    break;
+                PrioritizedScheduledTask scheduledTask;
+                if (schedulingQueue.getTaskCount(STANDARD) > 0) {
+                    // schedule STANDARD tasks if available
+                    if (standardTasksWaitingForNode >= maxTasksWaitingForNode) {
+                        break;
+                    }
+                    scheduledTask = schedulingQueue.pollOrThrow(STANDARD);
                 }
-
-                PrioritizedScheduledTask scheduledTask = schedulingQueue.peekOrThrow();
-
-                if (scheduledTask.getExecutionClass() == SPECULATIVE && standardTasksWaitingForNode > 0) {
-                    // do not handle any speculative tasks if there are non-speculative waiting
-                    break;
+                else {
+                    verify(schedulingQueue.getTaskCount(SPECULATIVE) > 0);
+                    if (standardTasksWaitingForNode > 0) {
+                        // do not handle any speculative tasks if there are non-speculative waiting
+                        break;
+                    }
+                    if (speculativeTasksWaitingForNode >= maxTasksWaitingForNode) {
+                        // too many speculative tasks waiting for node
+                        break;
+                    }
+                    // we can schedule one more speculative task
+                    scheduledTask = schedulingQueue.pollOrThrow(SPECULATIVE);
                 }
-
-                if (scheduledTask.getExecutionClass() == SPECULATIVE && speculativeTasksWaitingForNode >= maxTasksWaitingForNode) {
-                    // too many speculative tasks waiting for node
-                    break;
-                }
-
-                verify(schedulingQueue.pollOrThrow().equals(scheduledTask));
 
                 StageExecution stageExecution = getStageExecution(scheduledTask.task().stageId());
                 if (stageExecution.getState().isDone()) {
@@ -1384,7 +1388,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void loadMoreTaskDescriptorsIfNecessary()
         {
-            boolean schedulingQueueIsFull = schedulingQueue.getNonSpeculativeTaskCount() >= maxTasksWaitingForExecution;
+            boolean schedulingQueueIsFull = schedulingQueue.getTaskCount(STANDARD) >= maxTasksWaitingForExecution;
             for (StageExecution stageExecution : stageExecutions.values()) {
                 if (!schedulingQueueIsFull || stageExecution.hasOpenTaskRunning()) {
                     stageExecution.loadMoreTaskDescriptors().ifPresent(future -> Futures.addCallback(future, new FutureCallback<>()
@@ -2578,92 +2582,75 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
     }
 
-    private record PrioritizedScheduledTask(ScheduledTask task, int priority)
+    private record PrioritizedScheduledTask(ScheduledTask task, TaskExecutionClass executionClass, int priority)
     {
-        private static final int SPECULATIVE_EXECUTION_PRIORITY = 1_000_000_000;
-
         private PrioritizedScheduledTask
         {
             requireNonNull(task, "task is null");
+            requireNonNull(executionClass, "executionClass is null");
             checkArgument(priority >= 0, "priority must be greater than or equal to zero: %s", priority);
         }
 
         public static PrioritizedScheduledTask create(StageId stageId, int partitionId, int priority)
         {
-            checkArgument(priority < SPECULATIVE_EXECUTION_PRIORITY, "priority is expected to be less than %s: %s", SPECULATIVE_EXECUTION_PRIORITY, priority);
-            return new PrioritizedScheduledTask(new ScheduledTask(stageId, partitionId), priority);
+            return new PrioritizedScheduledTask(new ScheduledTask(stageId, partitionId), STANDARD, priority);
         }
 
         public static PrioritizedScheduledTask createSpeculative(StageId stageId, int partitionId, int priority)
         {
-            checkArgument(priority < SPECULATIVE_EXECUTION_PRIORITY, "priority is expected to be less than %s: %s", SPECULATIVE_EXECUTION_PRIORITY, priority);
-            return new PrioritizedScheduledTask(new ScheduledTask(stageId, partitionId), priority + SPECULATIVE_EXECUTION_PRIORITY);
+            return new PrioritizedScheduledTask(new ScheduledTask(stageId, partitionId), SPECULATIVE, priority);
         }
 
         public TaskExecutionClass getExecutionClass()
         {
-            return priority >= SPECULATIVE_EXECUTION_PRIORITY ? SPECULATIVE : STANDARD;
+            return executionClass;
         }
 
         @Override
         public String toString()
         {
-            return task.stageId() + "/" + task.partitionId() + "[" + priority + "]";
+            return task.stageId() + "/" + task.partitionId() + "[" + executionClass + "/" + priority + "]";
         }
     }
 
     private static class SchedulingQueue
     {
-        private final IndexedPriorityQueue<ScheduledTask> queue = new IndexedPriorityQueue<>(LOW_TO_HIGH);
-        private int nonSpeculativeTaskCount;
+        private final Map<TaskExecutionClass, IndexedPriorityQueue<ScheduledTask>> queues;
 
         public boolean isEmpty()
         {
-            return queue.isEmpty();
+            return queues.values().stream().allMatch(IndexedPriorityQueue::isEmpty);
         }
 
-        public int getNonSpeculativeTaskCount()
+        private int getTaskCount(TaskExecutionClass executionClass)
         {
-            return nonSpeculativeTaskCount;
+            return queues.get(executionClass).size();
         }
 
-        public PrioritizedScheduledTask pollOrThrow()
+        public SchedulingQueue()
         {
-            IndexedPriorityQueue.Prioritized<ScheduledTask> task = queue.pollPrioritized();
-            checkState(task != null, "queue is empty");
-            PrioritizedScheduledTask prioritizedTask = getPrioritizedTask(task);
-            if (prioritizedTask.getExecutionClass() == STANDARD) {
-                nonSpeculativeTaskCount--;
-            }
-            return prioritizedTask;
+            this.queues = ImmutableMap.<TaskExecutionClass, IndexedPriorityQueue<ScheduledTask>>builder()
+                    .put(STANDARD, new IndexedPriorityQueue<>(LOW_TO_HIGH))
+                    .put(SPECULATIVE, new IndexedPriorityQueue<>(LOW_TO_HIGH))
+                    .buildOrThrow();
         }
 
-        public PrioritizedScheduledTask peekOrThrow()
+        public PrioritizedScheduledTask pollOrThrow(TaskExecutionClass executionClass)
         {
-            IndexedPriorityQueue.Prioritized<ScheduledTask> task = queue.peekPrioritized();
-            checkState(task != null, "queue is empty");
-            return getPrioritizedTask(task);
+            IndexedPriorityQueue.Prioritized<ScheduledTask> task = queues.get(executionClass).pollPrioritized();
+            checkState(task != null, "queue for %s is empty", executionClass);
+            return getPrioritizedTask(executionClass, task);
         }
 
         public void addOrUpdate(PrioritizedScheduledTask prioritizedTask)
         {
-            IndexedPriorityQueue.Prioritized<ScheduledTask> previousTask = queue.getPrioritized(prioritizedTask.task());
-            PrioritizedScheduledTask previousPrioritizedTask = null;
-            if (previousTask != null) {
-                previousPrioritizedTask = getPrioritizedTask(previousTask);
-            }
-
-            if (prioritizedTask.getExecutionClass() == STANDARD && (previousPrioritizedTask == null || previousPrioritizedTask.getExecutionClass() == SPECULATIVE)) {
-                // number of non-speculative tasks increased
-                nonSpeculativeTaskCount++;
-            }
-
-            queue.addOrUpdate(prioritizedTask.task(), prioritizedTask.priority());
+            queues.values().forEach(queue -> queue.remove(prioritizedTask.task()));
+            queues.get(prioritizedTask.getExecutionClass()).addOrUpdate(prioritizedTask.task(), prioritizedTask.priority());
         }
 
-        private static PrioritizedScheduledTask getPrioritizedTask(IndexedPriorityQueue.Prioritized<ScheduledTask> task)
+        private static PrioritizedScheduledTask getPrioritizedTask(TaskExecutionClass executionClass, IndexedPriorityQueue.Prioritized<ScheduledTask> task)
         {
-            return new PrioritizedScheduledTask(task.getValue(), toIntExact(task.getPriority()));
+            return new PrioritizedScheduledTask(task.getValue(), executionClass, toIntExact(task.getPriority()));
         }
     }
 
