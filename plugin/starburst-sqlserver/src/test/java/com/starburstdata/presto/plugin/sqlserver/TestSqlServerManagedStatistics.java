@@ -56,11 +56,20 @@ public class TestSqlServerManagedStatistics
                 .addRoundTrip("bit", "1", new ColumnStatistics("null", "1.0", "0.0", "null"))
                 .addRoundTrip("bit", "null", NULL_STATISTICS)
 
-                .addRoundTrip("float", "1234567890123456789.0123456789", new ColumnStatistics("null", "1.0", "0.0", "1.23456789012345677E18"))
+                .addRoundTrip("float", "1234567890123456789.0123456789", new ColumnStatistics("null", "1.0", "0.0",
+                        Runtime.version().feature() >= 19
+                                ? "1.2345678901234568E18"
+                                : "1.23456789012345677E18"))
                 .addRoundTrip("float", "null", NULL_STATISTICS)
-                .addRoundTrip("float(24)", "1234567890123456789.0123456789", new ColumnStatistics("null", "1.0", "0.0", "1.23456794E18"))
+                .addRoundTrip("float(24)", "1234567890123456789.0123456789", new ColumnStatistics("null", "1.0", "0.0",
+                        Runtime.version().feature() >= 19
+                                ? "1.234568E18"
+                                : "1.23456794E18"))
                 .addRoundTrip("float(24)", "null", NULL_STATISTICS)
-                .addRoundTrip("float(53)", "1234567890123456789.0123456789", new ColumnStatistics("null", "1.0", "0.0", "1.23456789012345677E18"))
+                .addRoundTrip("float(53)", "1234567890123456789.0123456789", new ColumnStatistics("null", "1.0", "0.0",
+                        Runtime.version().feature() >= 19
+                                ? "1.2345678901234568E18"
+                                : "1.23456789012345677E18"))
                 .addRoundTrip("float(53)", "null", NULL_STATISTICS)
 
                 .addRoundTrip("double precision", "123.456E10", new ColumnStatistics("null", "1.0", "0.0", "1.23456E12"))
