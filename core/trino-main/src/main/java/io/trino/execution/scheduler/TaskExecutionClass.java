@@ -22,6 +22,14 @@ public enum TaskExecutionClass
     // To be scheduled only if no STANDARD tasks can fit.
     // Picked to kill if worker runs out of memory to prevent deadlock.
     SPECULATIVE,
+
+    // Tasks from stages with some upstream stages still running but with high priority.
+    // Will be scheduled even if there are resources to schedule STANDARD tasks on cluster.
+    // Tasks of EAGER_SPECULATIVE are used to implement early termination of queries, when it
+    // is probable that we do not need to run whole downstream stages to produce final query result.
+    // EAGER_SPECULATIVE will not prevent STANDARD tasks from being scheduled and will still be picked
+    // to kill if needed when worker runs out of memory; this is needed to prevent deadlocks.
+    EAGER_SPECULATIVE,
     /**/;
 
     boolean canTransitionTo(TaskExecutionClass targetExecutionClass)
@@ -29,6 +37,7 @@ public enum TaskExecutionClass
         return switch (this) {
             case STANDARD -> targetExecutionClass == STANDARD;
             case SPECULATIVE -> targetExecutionClass == SPECULATIVE || targetExecutionClass == STANDARD;
+            case EAGER_SPECULATIVE -> targetExecutionClass == EAGER_SPECULATIVE || targetExecutionClass == STANDARD;
         };
     }
 
@@ -36,7 +45,7 @@ public enum TaskExecutionClass
     {
         return switch (this) {
             case STANDARD -> false;
-            case SPECULATIVE -> true;
+            case SPECULATIVE, EAGER_SPECULATIVE -> true;
         };
     }
 }

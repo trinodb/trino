@@ -71,6 +71,7 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemo
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.execution.scheduler.ErrorCodes.isWorkerCrashAssociatedError;
+import static io.trino.execution.scheduler.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.TaskExecutionClass.SPECULATIVE;
 import static io.trino.execution.scheduler.TaskExecutionClass.STANDARD;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -206,6 +207,10 @@ public class BinPackingNodeAllocatorService
     @VisibleForTesting
     synchronized void processPendingAcquires()
     {
+        // Process EAGER_SPECULATIVE first; it increases the chance that tasks which have potential to end query early get scheduled to worker nodes.
+        // Even though EAGER_SPECULATIVE tasks depend on upstream STANDARD tasks this logic will not lead to deadlock.
+        // When processing STANDARD acquires below, we will ignore EAGER_SPECULATIVE (and SPECULATIVE) tasks when assessing if node has enough resources for processing task.
+        processPendingAcquires(EAGER_SPECULATIVE);
         processPendingAcquires(STANDARD);
         boolean hasNonSpeculativePendingAcquires = pendingAcquires.stream().anyMatch(pendingAcquire -> !pendingAcquire.isSpeculative());
         if (!hasNonSpeculativePendingAcquires) {

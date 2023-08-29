@@ -43,6 +43,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.trino.execution.scheduler.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.TaskExecutionClass.SPECULATIVE;
 import static io.trino.execution.scheduler.TaskExecutionClass.STANDARD;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
@@ -730,6 +731,47 @@ public class TestBinPackingNodeAllocator
             // extra standard task should no longer fit
             NodeAllocator.NodeLease acquireStandard2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
             assertNotAcquired(acquireStandard2);
+        }
+    }
+
+    @Test(timeOut = TEST_TIMEOUT)
+    public void testAllocateEagerSpeculative()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            NodeAllocator.NodeLease acquireStandard1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD);
+            assertAcquired(acquireStandard1, NODE_1);
+            NodeAllocator.NodeLease acquireStandard2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            assertAcquired(acquireStandard2, NODE_2);
+
+            // not enough space for acquireStandard3
+            NodeAllocator.NodeLease acquireStandard3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD);
+            assertNotAcquired(acquireStandard3);
+
+            // acquireSpeculative3 cannot be acquired because there is pending acquireStandard3
+            NodeAllocator.NodeLease acquireSpeculative3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), SPECULATIVE);
+            assertNotAcquired(acquireSpeculative3);
+
+            // acquireEagerSpeculative1 can be acquired despite acquireStandard3 pending
+            NodeAllocator.NodeLease acquireEagerSpeculative1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), EAGER_SPECULATIVE);
+            assertAcquired(acquireEagerSpeculative1, NODE_2);
+
+            // cancel acquireStandard3
+            acquireStandard3.release();
+
+            // acquireSpeculative3 still not eligible - all cluster memory used 64+32 STANDARD and 32 SPECULATIVE
+            nodeAllocatorService.processPendingAcquires();
+            assertNotAcquired(acquireSpeculative3);
+
+            // no place for another one acquireEagerSpeculative2
+            NodeAllocator.NodeLease acquireEagerSpeculative2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(20, GIGABYTE), EAGER_SPECULATIVE);
+            assertNotAcquired(acquireEagerSpeculative2);
+
+            // acquireStandard4 can be acquired despite acquireEagerSpeculative1 on NODE_2
+            NodeAllocator.NodeLease acquireStandard4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            assertAcquired(acquireStandard4, NODE_2);
         }
     }
 
