@@ -28,7 +28,6 @@ import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Pair;
-import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.Arrays;
@@ -83,7 +82,7 @@ public final class PathParser
                 parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
                 tree = parser.path();
             }
-            catch (ParseCancellationException ex) {
+            catch (ParsingException ex) {
                 // if we fail, parse with LL mode
                 tokenStream.seek(0); // rewind input stream
                 parser.reset();

@@ -21,7 +21,6 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.atn.PredictionMode;
-import org.antlr.v4.runtime.misc.ParseCancellationException;
 
 import java.util.function.Function;
 
@@ -76,7 +75,7 @@ public final class SparkExpressionParser
                 parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
                 tree = parseFunction.apply(parser);
             }
-            catch (ParseCancellationException ex) {
+            catch (ParsingException ex) {
                 // if we fail, parse with LL mode
                 tokenStream.seek(0); // rewind input stream
                 parser.reset();

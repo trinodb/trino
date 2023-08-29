@@ -32,7 +32,6 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.atn.PredictionMode;
-import org.antlr.v4.runtime.misc.ParseCancellationException;
 
 import java.math.BigInteger;
 import java.util.Map;
@@ -92,7 +91,7 @@ public final class TypeCalculation
             parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
             tree = parser.typeCalculation();
         }
-        catch (ParseCancellationException ex) {
+        catch (ParsingException ex) {
             // if we fail, parse with LL mode
             tokenStream.seek(0); // rewind input stream
             parser.reset();
