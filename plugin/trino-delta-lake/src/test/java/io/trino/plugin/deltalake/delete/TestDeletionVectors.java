@@ -38,7 +38,7 @@ public class TestDeletionVectors
             throws Exception
     {
         // The deletion vector has a deleted row at position 1
-        Path path = new File(Resources.getResource("databricks/deletion_vectors").toURI()).toPath();
+        Path path = new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath();
         TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
         DeletionVectorEntry deletionVector = new DeletionVectorEntry("u", "R7QFX3rGXPFLhHGq&7g<", OptionalInt.of(1), 34, 1);
 
