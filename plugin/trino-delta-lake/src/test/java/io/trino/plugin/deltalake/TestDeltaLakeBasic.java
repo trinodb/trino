@@ -76,9 +76,15 @@ public class TestDeltaLakeBasic
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
-    private static final List<String> PERSON_TABLES = ImmutableList.of(
-            "person", "person_without_last_checkpoint", "person_without_old_jsons", "person_without_checkpoints");
-    private static final List<String> OTHER_TABLES = ImmutableList.of("no_column_stats", "timestamp_ntz", "timestamp_ntz_partition");
+    private static final List<ResourceTable> PERSON_TABLES = ImmutableList.of(
+            new ResourceTable("person", "databricks73/person"),
+            new ResourceTable("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint"),
+            new ResourceTable("person_without_old_jsons", "databricks73/person_without_old_jsons"),
+            new ResourceTable("person_without_checkpoints", "databricks73/person_without_checkpoints"));
+    private static final List<ResourceTable> OTHER_TABLES = ImmutableList.of(
+            new ResourceTable("no_column_stats", "databricks73/no_column_stats"),
+            new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
+            new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"));
 
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -97,32 +103,32 @@ public class TestDeltaLakeBasic
     @BeforeClass
     public void registerTables()
     {
-        for (String table : Iterables.concat(PERSON_TABLES, OTHER_TABLES)) {
-            String dataPath = getTableLocation(table).toExternalForm();
+        for (ResourceTable table : Iterables.concat(PERSON_TABLES, OTHER_TABLES)) {
+            String dataPath = getTableLocation(table.resourcePath()).toExternalForm();
             getQueryRunner().execute(
-                    format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), table, dataPath));
+                    format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), table.tableName(), dataPath));
         }
     }
 
-    private URL getTableLocation(String table)
+    private URL getTableLocation(String resourcePath)
     {
-        return getClass().getClassLoader().getResource("databricks/" + table);
+        return getClass().getClassLoader().getResource(resourcePath);
     }
 
     @DataProvider
-    public Object[][] tableNames()
+    public Object[][] tables()
     {
         return PERSON_TABLES.stream()
                 .map(table -> new Object[] {table})
                 .toArray(Object[][]::new);
     }
 
-    @Test(dataProvider = "tableNames")
-    public void testDescribeTable(String tableName)
+    @Test(dataProvider = "tables")
+    public void testDescribeTable(ResourceTable table)
     {
         // the schema is actually defined in the transaction log
         assertQuery(
-                format("DESCRIBE %s", tableName),
+                format("DESCRIBE %s", table.tableName()),
                 "VALUES " +
                         "('name', 'varchar', '', ''), " +
                         "('age', 'integer', '', ''), " +
@@ -133,15 +139,15 @@ public class TestDeltaLakeBasic
                         "('income', 'double', '', '')");
     }
 
-    @Test(dataProvider = "tableNames")
-    public void testSimpleQueries(String tableName)
+    @Test(dataProvider = "tables")
+    public void testSimpleQueries(ResourceTable table)
     {
-        assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "VALUES 12");
-        assertQuery(format("SELECT income FROM %s WHERE name = 'Bob'", tableName), "VALUES 99000.00");
-        assertQuery(format("SELECT name FROM %s WHERE name LIKE 'B%%'", tableName), "VALUES ('Bob'), ('Betty')");
-        assertQuery(format("SELECT DISTINCT gender FROM %s", tableName), "VALUES ('M'), ('F'), (null)");
-        assertQuery(format("SELECT DISTINCT age FROM %s", tableName), "VALUES (21), (25), (28), (29), (30), (42)");
-        assertQuery(format("SELECT name FROM %s WHERE age = 42", tableName), "VALUES ('Alice'), ('Emma')");
+        assertQuery(format("SELECT COUNT(*) FROM %s", table.tableName()), "VALUES 12");
+        assertQuery(format("SELECT income FROM %s WHERE name = 'Bob'", table.tableName()), "VALUES 99000.00");
+        assertQuery(format("SELECT name FROM %s WHERE name LIKE 'B%%'", table.tableName()), "VALUES ('Bob'), ('Betty')");
+        assertQuery(format("SELECT DISTINCT gender FROM %s", table.tableName()), "VALUES ('M'), ('F'), (null)");
+        assertQuery(format("SELECT DISTINCT age FROM %s", table.tableName()), "VALUES (21), (25), (28), (29), (30), (42)");
+        assertQuery(format("SELECT name FROM %s WHERE age = 42", table.tableName()), "VALUES ('Alice'), ('Emma')");
     }
 
     @Test
@@ -565,7 +571,7 @@ public class TestDeltaLakeBasic
     {
         String tableName = "test_identity_columns_" + randomNameSuffix();
         Path tableLocation = Files.createTempFile(tableName, null);
-        copyDirectoryContents(new File(Resources.getResource("databricks/identity_columns").toURI()).toPath(), tableLocation);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/identity_columns").toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
         assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
@@ -610,7 +616,7 @@ public class TestDeltaLakeBasic
         // create a bad_person table which is based on person table in temporary location
         String tableName = "bad_person_" + randomNameSuffix();
         Path tableLocation = Files.createTempFile(tableName, null);
-        copyDirectoryContents(Path.of(getTableLocation("person").toURI()), tableLocation);
+        copyDirectoryContents(Path.of(getTableLocation("databricks73/person").toURI()), tableLocation);
         getQueryRunner().execute(
                 format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), tableName, tableLocation));
         testCorruptedTableLocation(tableName, tableLocation, false);

@@ -70,7 +70,7 @@ public class TestTableSnapshot
             throws URISyntaxException
     {
         checkpointSchemaManager = new CheckpointSchemaManager(TESTING_TYPE_MANAGER);
-        tableLocation = getClass().getClassLoader().getResource("databricks/person").toURI().toString();
+        tableLocation = getClass().getClassLoader().getResource("databricks73/person").toURI().toString();
 
         trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
         trackingFileSystem = trackingFileSystemFactory.create(SESSION);

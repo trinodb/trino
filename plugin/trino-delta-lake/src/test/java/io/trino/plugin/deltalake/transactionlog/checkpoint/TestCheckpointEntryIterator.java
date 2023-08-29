@@ -63,7 +63,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCheckpointEntryIterator
 {
-    private static final String TEST_CHECKPOINT = "databricks/person/_delta_log/00000000000000000010.checkpoint.parquet";
+    private static final String TEST_CHECKPOINT = "databricks73/person/_delta_log/00000000000000000010.checkpoint.parquet";
 
     private CheckpointSchemaManager checkpointSchemaManager;
 
