@@ -40,10 +40,10 @@ public class SnowflakeArrowPageSource
     private static final RootAllocator ROOT_ALLOCATOR = new RootAllocator();
     private final BufferAllocator bufferAllocator;
     private final PageBuilder pageBuilder;
-    private final SnowflakeArrowSplit split;
     private final List<JdbcColumnHandle> columns;
     private final StarburstDataConversionContext conversionContext;
     private final ChunkFileFetcher fetcher;
+    private final long splitRetainedSize;
     private List<List<ValueVector>> batchOfVectors;
     private CompletableFuture<List<List<ValueVector>>> future;
     private long completedBytes;
@@ -51,7 +51,7 @@ public class SnowflakeArrowPageSource
 
     public SnowflakeArrowPageSource(SnowflakeArrowSplit split, List<JdbcColumnHandle> columns, StarburstResultStreamProvider streamProvider)
     {
-        this.split = requireNonNull(split, "split is null");
+        this.splitRetainedSize = requireNonNull(split, "split is null").getRetainedSizeInBytes();
         this.columns = requireNonNull(columns, "columns is null");
 
         this.pageBuilder = new PageBuilder(columns.stream()
@@ -150,7 +150,7 @@ public class SnowflakeArrowPageSource
     @Override
     public long getMemoryUsage()
     {
-        return bufferAllocator.getAllocatedMemory() + split.getRetainedSizeInBytes() + pageBuilder.getSizeInBytes();
+        return bufferAllocator.getAllocatedMemory() + splitRetainedSize + pageBuilder.getSizeInBytes();
     }
 
     @Override
