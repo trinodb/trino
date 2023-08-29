@@ -499,7 +499,7 @@ public class MockConnector
         public void setSchemaAuthorization(ConnectorSession session, String schemaName, TrinoPrincipal principal) {}
 
         @Override
-        public void dropSchema(ConnectorSession session, String schemaName) {}
+        public void dropSchema(ConnectorSession session, String schemaName, boolean cascade) {}
 
         @Override
         public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
