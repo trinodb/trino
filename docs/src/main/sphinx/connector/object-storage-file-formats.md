@@ -88,7 +88,13 @@ with Parquet files performed by supported object storage connectors:
         bloom filters by default. The equivalent catalog session property is
         ``parquet_use_bloom_filter``.
       - ``true``
+    * - ``parquet.use-column-index``
+      - Skip reading Parquet pages by using Parquet column indices. The
+        equivalent catalog session property is ``parquet_use_column_index``.
+        Only supported by the Delta Lake and Hive connectors.
+      - ``true``
     * - ``parquet.max-read-block-row-count``
-      - Sets the maximum number of rows read in a batch.
+      - Sets the maximum number of rows read in a batch. The equivalent catalog
+        session property is named ``parquet_max_read_block_row_count`` and
+        supported by the Delta Lake, Hive, and Iceberg connectors.
       - ``8192``
-```
