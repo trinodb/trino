@@ -19,6 +19,7 @@ import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.toolkit.security.multiple.tokens.TokenPassThroughConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.jdbc.TrinoDriver;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -135,7 +136,8 @@ public class StargateAuthenticationModule
                 StargateConfig connectorConfig,
                 StargateSslConfig sslConfig,
                 AuthToLocal authToLocal,
-                CredentialProvider credentialProvider)
+                CredentialProvider credentialProvider,
+                OpenTelemetry openTelemetry)
         {
             Properties properties = new Properties();
             if (connectorConfig.isSslEnabled()) {
@@ -146,7 +148,8 @@ public class StargateAuthenticationModule
                     new TrinoDriver(),
                     config.getConnectionUrl(),
                     properties,
-                    new StargateImpersonatingCredentialPropertiesProvider(credentialProvider, authToLocal));
+                    new StargateImpersonatingCredentialPropertiesProvider(credentialProvider, authToLocal),
+                    openTelemetry);
         }
     }
 
@@ -164,7 +167,8 @@ public class StargateAuthenticationModule
                 StargateConfig connectorConfig,
                 StargateSslConfig sslConfig,
                 StargateKerberosConfig kerberosConfig,
-                CredentialPropertiesProvider<String, String> credentialPropertiesProvider)
+                CredentialPropertiesProvider<String, String> credentialPropertiesProvider,
+                OpenTelemetry openTelemetry)
         {
             checkState(connectorConfig.isSslEnabled(), "SSL must be enabled when using Kerberos authentication");
 
@@ -176,7 +180,8 @@ public class StargateAuthenticationModule
                     new TrinoDriver(),
                     connectionUrl,
                     properties,
-                    credentialPropertiesProvider);
+                    credentialPropertiesProvider,
+                    openTelemetry);
         }
 
         private static void setKerberosProperties(Properties properties, StargateKerberosConfig kerberosConfig)
@@ -209,7 +214,8 @@ public class StargateAuthenticationModule
                 StargateConfig connectorConfig,
                 StargateSslConfig sslConfig,
                 StargateKerberosConfig kerberosConfig,
-                CredentialConfig credentialConfig)
+                CredentialConfig credentialConfig,
+                OpenTelemetry openTelemetry)
         {
             checkState(credentialConfig.getConnectionPassword().isEmpty(), "connection-password should not be set when using Kerberos authentication");
             String user = credentialConfig.getConnectionUser().orElse(kerberosConfig.getClientPrincipal());
@@ -219,7 +225,8 @@ public class StargateAuthenticationModule
                     connectorConfig,
                     sslConfig,
                     kerberosConfig,
-                    new DefaultCredentialPropertiesProvider(new StaticCredentialProvider(Optional.of(user), Optional.empty())));
+                    new DefaultCredentialPropertiesProvider(new StaticCredentialProvider(Optional.of(user), Optional.empty())),
+                    openTelemetry);
         }
     }
 
@@ -242,7 +249,8 @@ public class StargateAuthenticationModule
                 StargateConfig connectorConfig,
                 StargateSslConfig sslConfig,
                 StargateKerberosConfig kerberosConfig,
-                AuthToLocal authToLocal)
+                AuthToLocal authToLocal,
+                OpenTelemetry openTelemetry)
         {
             return setupDriverConnectionFactory(
                     baseJdbcConfig.getConnectionUrl(),
@@ -251,7 +259,8 @@ public class StargateAuthenticationModule
                     kerberosConfig,
                     new StargateImpersonatingCredentialPropertiesProvider(
                             new StaticCredentialProvider(Optional.of(kerberosConfig.getClientPrincipal()), Optional.empty()),
-                            authToLocal));
+                            authToLocal),
+                    openTelemetry);
         }
     }
 
@@ -272,7 +281,8 @@ public class StargateAuthenticationModule
                 BaseJdbcConfig baseJdbcConfig,
                 StargateConfig connectorConfig,
                 StargateSslConfig sslConfig,
-                TokenPassThroughConfig tokenPassThroughConfig)
+                TokenPassThroughConfig tokenPassThroughConfig,
+                OpenTelemetry openTelemetry)
         {
             Properties properties = new Properties();
             if (connectorConfig.isSslEnabled()) {
@@ -283,7 +293,8 @@ public class StargateAuthenticationModule
                     new TrinoDriver(),
                     baseJdbcConfig.getConnectionUrl(),
                     properties,
-                    new StargateOAuth2TokenPassthroughProvider(tokenPassThroughConfig));
+                    new StargateOAuth2TokenPassthroughProvider(tokenPassThroughConfig),
+                    openTelemetry);
         }
     }
 
