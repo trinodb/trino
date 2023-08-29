@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.expression;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.antlr.v4.runtime.ANTLRErrorListener;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -28,7 +29,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 
 public final class SparkExpressionParser
 {
-    private static final BaseErrorListener ERROR_LISTENER = new BaseErrorListener()
+    private static final ANTLRErrorListener ERROR_LISTENER = new BaseErrorListener()
     {
         @Override
         public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
