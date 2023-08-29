@@ -81,7 +81,7 @@ public class TestDeltaLakeAdlsStorage
                 .withNetwork(Network.newNetwork())
                 .withImage(HADOOP_BASE_IMAGE)
                 .withFilesToMount(ImmutableMap.of(
-                        "/tmp/tpch-tiny", getPathFromClassPathResource("io/trino/plugin/deltalake/testing/resources/databricks"),
+                        "/tmp/tpch-tiny", getPathFromClassPathResource("io/trino/plugin/deltalake/testing/resources/databricks73"),
                         "/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.toString()))
                 .build());
         hiveHadoop.start();
