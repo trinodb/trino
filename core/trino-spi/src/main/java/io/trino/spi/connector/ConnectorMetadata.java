@@ -439,21 +439,6 @@ public interface ConnectorMetadata
      */
     default void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
-        if (!cascade) {
-            dropSchema(session, schemaName);
-            return;
-        }
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
-    }
-
-    /**
-     * Drops the specified schema.
-     *
-     * @deprecated use {@link #dropSchema(ConnectorSession, String, boolean)}
-     */
-    @Deprecated
-    default void dropSchema(ConnectorSession session, String schemaName)
-    {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 

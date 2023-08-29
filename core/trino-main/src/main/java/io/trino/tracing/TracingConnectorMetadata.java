@@ -348,15 +348,6 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
-    {
-        Span span = startSpan("dropSchema", schemaName);
-        try (var ignored = scopedSpan(span)) {
-            delegate.dropSchema(session, schemaName);
-        }
-    }
-
-    @Override
     public void renameSchema(ConnectorSession session, String source, String target)
     {
         Span span = startSpan("renameSchema", source);
