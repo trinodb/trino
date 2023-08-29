@@ -1959,6 +1959,36 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         }
     }
 
+    @Test
+    public void testHistoryTableWithDeletedTransactionLog()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_history_table_with_deleted_transaction_log",
+                "(int_col INTEGER) WITH (checkpoint_interval = 3)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 4, 5, 6", 3);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE int_col = 1", 1);
+            assertUpdate("UPDATE " + table.getName() + " SET int_col = int_col * 2 WHERE int_col = 6", 1);
+
+            String tableLocation = getTableLocation(table.getName());
+            // Remove first two transaction logs to mimic log retention duration exceeds
+            String key = tableLocation.substring(bucketUrl().length());
+            MinioClient minio = hiveMinioDataLake.getMinioClient();
+            minio.removeObject(bucketName, "%s/_delta_log/%020d.json".formatted(key, 0));
+            minio.removeObject(bucketName, "%s/_delta_log/%020d.json".formatted(key, 1));
+
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\"", "VALUES (2, 'WRITE'), (3, 'MERGE'), (4, 'MERGE')");
+            assertThat(query("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version = 1")).returnsEmptyResult();
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version = 3", "VALUES (3, 'MERGE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version > 3", "VALUES (4, 'MERGE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version < 3", "VALUES (2, 'WRITE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version >= 3 OR version = 1", "VALUES (3, 'MERGE'), (4, 'MERGE')");
+            assertQuery("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version >= 1 AND version < 3", "VALUES (2, 'WRITE')");
+            assertThat(query("SELECT version, operation FROM \"" + table.getName() + "$history\" WHERE version > 1 AND version < 2")).returnsEmptyResult();
+        }
+    }
+
     /**
      * @see BaseDeltaLakeRegisterTableProcedureTest for more detailed tests
      */
