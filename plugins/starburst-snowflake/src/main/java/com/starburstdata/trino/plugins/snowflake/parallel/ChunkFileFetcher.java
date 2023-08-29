@@ -29,18 +29,18 @@ import static java.util.Objects.requireNonNull;
 
 public class ChunkFileFetcher
 {
-    private final StarburstResultStreamProvider starburstResultStreamProvider;
+    private final StarburstResultStreamProvider streamProvider;
     private final BufferAllocator bufferAllocator;
     private final SnowflakeArrowSplit split;
     private long readTimeNanos;
     private CompletableFuture<List<List<ValueVector>>> future;
 
     public ChunkFileFetcher(
-            StarburstResultStreamProvider starburstResultStreamProvider,
+            StarburstResultStreamProvider streamProvider,
             BufferAllocator bufferAllocator,
             SnowflakeArrowSplit split)
     {
-        this.starburstResultStreamProvider = starburstResultStreamProvider;
+        this.streamProvider = streamProvider;
         this.bufferAllocator = bufferAllocator;
         this.split = split;
     }
@@ -61,7 +61,7 @@ public class ChunkFileFetcher
         future = CompletableFuture.supplyAsync(() -> {
             try {
                 long start = System.nanoTime();
-                InputStream inputStream = split.getInputStream(requireNonNull(starburstResultStreamProvider, "starburstResultStreamProvider is null"));
+                InputStream inputStream = split.getInputStream(requireNonNull(streamProvider, "starburstResultStreamProvider is null"));
                 List<List<ValueVector>> batchOfVectors = readArrowStream(inputStream);
                 readTimeNanos = System.nanoTime() - start;
                 return batchOfVectors;

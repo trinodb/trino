@@ -107,9 +107,9 @@ public class SnowflakeArrowSplit
         throw new IllegalStateException("Security headers or query master key must be present if there is a chunk URL");
     }
 
-    public InputStream getInputStream(StarburstResultStreamProvider starburstResultStreamProvider)
+    public InputStream getInputStream(StarburstResultStreamProvider streamProvider)
     {
-        return fileUrl.map(url -> starburstResultStreamProvider.getInputStream(this))
+        return fileUrl.map(url -> streamProvider.getInputStream(this))
                 .orElseGet(() -> new ByteArrayInputStream(
                         Base64.getDecoder().decode(encodedArrowValue
                                 .orElseThrow(() -> new IllegalStateException("Either fileUrl or encodedArrowValue must be present in the split, but both are null!")))));

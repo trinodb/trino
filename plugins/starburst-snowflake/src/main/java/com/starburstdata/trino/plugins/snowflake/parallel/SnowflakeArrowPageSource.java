@@ -50,7 +50,7 @@ public class SnowflakeArrowPageSource
     private long completedBytes;
     private boolean finished;
 
-    public SnowflakeArrowPageSource(SnowflakeArrowSplit split, List<JdbcColumnHandle> columns, StarburstResultStreamProvider starburstResultStreamProvider)
+    public SnowflakeArrowPageSource(SnowflakeArrowSplit split, List<JdbcColumnHandle> columns, StarburstResultStreamProvider streamProvider)
     {
         this.split = requireNonNull(split, "split is null");
         this.columns = requireNonNull(columns, "columns is null");
@@ -63,7 +63,7 @@ public class SnowflakeArrowPageSource
                 Long.MAX_VALUE);
         int[] decimalColumnScales = columns.stream().map(column -> column.getJdbcTypeHandle().getDecimalDigits().orElse(0)).mapToInt(Integer::intValue).toArray();
         this.conversionContext = new StarburstDataConversionContext(split.getSnowflakeSessionParameters(), decimalColumnScales, split.getResultVersion());
-        this.fetcher = new ChunkFileFetcher(requireNonNull(starburstResultStreamProvider, "starburstResultStreamProvider is null"), bufferAllocator, split);
+        this.fetcher = new ChunkFileFetcher(requireNonNull(streamProvider, "streamProvider is null"), bufferAllocator, split);
     }
 
     @Override

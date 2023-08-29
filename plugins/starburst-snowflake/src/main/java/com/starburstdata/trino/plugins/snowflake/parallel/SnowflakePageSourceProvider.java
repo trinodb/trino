@@ -33,13 +33,13 @@ public class SnowflakePageSourceProvider
 {
     private static final Logger log = Logger.get(SnowflakePageSourceProvider.class);
     private final ConnectorRecordSetProvider recordSetProvider;
-    private final StarburstResultStreamProvider starburstResultStreamProvider;
+    private final StarburstResultStreamProvider streamProvider;
 
     @Inject
-    public SnowflakePageSourceProvider(ConnectorRecordSetProvider recordSetProvider, StarburstResultStreamProvider starburstResultStreamProvider)
+    public SnowflakePageSourceProvider(ConnectorRecordSetProvider recordSetProvider, StarburstResultStreamProvider streamProvider)
     {
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-        this.starburstResultStreamProvider = requireNonNull(starburstResultStreamProvider, "starburstResultStreamProvider is null");
+        this.streamProvider = requireNonNull(streamProvider, "streamProvider is null");
     }
 
     @Override
@@ -59,7 +59,7 @@ public class SnowflakePageSourceProvider
             return new SnowflakeArrowPageSource(
                     snowflakeArrowSplit,
                     jdbcColumnHandles,
-                    starburstResultStreamProvider);
+                    streamProvider);
         }
         return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, table, columns));
     }

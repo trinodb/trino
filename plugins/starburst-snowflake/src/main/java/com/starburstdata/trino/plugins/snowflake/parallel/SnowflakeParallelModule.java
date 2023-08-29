@@ -44,7 +44,7 @@ public class SnowflakeParallelModule
 
     @Provides
     @Singleton
-    public static StarburstResultStreamProvider createStarburstResultStreamProvider()
+    public static StarburstResultStreamProvider createStreamProvider()
     {
         return new StarburstResultStreamProvider(HttpUtil.getHttpClient(new HttpClientSettingsKey(OCSPMode.FAIL_OPEN)));
     }
