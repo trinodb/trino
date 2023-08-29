@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -189,6 +190,56 @@ public class SnowflakeArrowSplit
                 + sizeOf(encodedArrowValue, SizeOf::estimatedSizeOf)
                 + estimatedSizeOf(headers, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf)
                 + snowflakeSessionParameters.getRetainedSizeInBytes();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        SnowflakeArrowSplit that = (SnowflakeArrowSplit) o;
+
+        if (uncompressedByteSize != that.uncompressedByteSize) {
+            return false;
+        }
+        if (compressedByteSize != that.compressedByteSize) {
+            return false;
+        }
+        if (rowCount != that.rowCount) {
+            return false;
+        }
+        if (resultVersion != that.resultVersion) {
+            return false;
+        }
+        if (!fileUrl.equals(that.fileUrl)) {
+            return false;
+        }
+        if (!encodedArrowValue.equals(that.encodedArrowValue)) {
+            return false;
+        }
+        if (!Objects.equals(headers, that.headers)) {
+            return false;
+        }
+        return Objects.equals(snowflakeSessionParameters, that.snowflakeSessionParameters);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = fileUrl.hashCode();
+        result = 31 * result + encodedArrowValue.hashCode();
+        result = 31 * result + uncompressedByteSize;
+        result = 31 * result + compressedByteSize;
+        result = 31 * result + rowCount;
+        result = 31 * result + (int) (resultVersion ^ (resultVersion >>> 32));
+        result = 31 * result + (headers != null ? headers.hashCode() : 0);
+        result = 31 * result + (snowflakeSessionParameters != null ? snowflakeSessionParameters.hashCode() : 0);
+        return result;
     }
 
     private static Map<String, String> buildMasterKeyAuthHeaders(String queryMasterKey)

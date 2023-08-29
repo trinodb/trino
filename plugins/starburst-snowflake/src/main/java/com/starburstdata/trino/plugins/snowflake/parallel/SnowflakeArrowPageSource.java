@@ -26,7 +26,6 @@ import net.snowflake.client.jdbc.internal.apache.arrow.vector.ValueVector;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -60,7 +59,7 @@ public class SnowflakeArrowPageSource
                 .collect(toImmutableList()));
 
         this.bufferAllocator = ROOT_ALLOCATOR.newChildAllocator(
-                "pageSourceAllocator" + new Random().nextInt(Integer.MAX_VALUE),
+                "snowflakeArrowSplit" + split.hashCode(),
                 split.getUncompressedByteSize() == 0 ? 1024 : split.getUncompressedByteSize(),
                 Long.MAX_VALUE);
 
