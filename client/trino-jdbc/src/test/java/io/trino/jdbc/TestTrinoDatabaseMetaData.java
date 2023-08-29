@@ -1518,7 +1518,6 @@ public class TestTrinoDatabaseMetaData
 
     @Test
     public void testFailedBothEscapeLiteralParameters()
-            throws SQLException
     {
         assertThatThrownBy(() -> DriverManager.getConnection(
                 format("jdbc:trino://%s?%s", server.getAddress(), "assumeLiteralNamesInMetadataCallsForNonConformingClients=true&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true"),
@@ -1530,7 +1529,6 @@ public class TestTrinoDatabaseMetaData
 
     @Test
     public void testEscapeIfNecessary()
-            throws SQLException
     {
         assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, null), null);
         assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "a"), "a");
