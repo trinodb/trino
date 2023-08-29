@@ -44,9 +44,6 @@ Additionally, following configuration properties can be set depending on the use
     * - Property name
       - Description
       - Default
-    * - ``hudi.metadata-enabled``
-      - Fetch the list of file names and sizes from metadata rather than storage.
-      - ``false``
     * - ``hudi.columns-to-hide``
       - List of column names that are hidden from the query output.
         It can be used to hide Hudi meta fields. By default, no fields are hidden.
