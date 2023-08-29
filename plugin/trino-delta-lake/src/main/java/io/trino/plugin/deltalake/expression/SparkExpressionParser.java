@@ -86,7 +86,7 @@ public final class SparkExpressionParser
             return new SparkExpressionBuilder().visit(tree);
         }
         catch (StackOverflowError e) {
-            throw new IllegalArgumentException("expression is too large (stack overflow while parsing)");
+            throw new ParsingException("expression is too large (stack overflow while parsing)");
         }
     }
 }
