@@ -35,10 +35,7 @@ public class ChunkFileFetcher
     private long readTimeNanos;
     private CompletableFuture<List<List<ValueVector>>> future;
 
-    public ChunkFileFetcher(
-            StarburstResultStreamProvider streamProvider,
-            BufferAllocator bufferAllocator,
-            SnowflakeArrowSplit split)
+    public ChunkFileFetcher(StarburstResultStreamProvider streamProvider, BufferAllocator bufferAllocator, SnowflakeArrowSplit split)
     {
         this.streamProvider = streamProvider;
         this.bufferAllocator = bufferAllocator;
