@@ -1508,7 +1508,7 @@ public class TestTrinoDatabaseMetaData
     @DataProvider
     public Object[][] escapeLiteralParameters()
     {
-        return new Object[][]{
+        return new Object[][] {
                 {"assumeLiteralNamesInMetadataCallsForNonConformingClients=true"},
                 {"assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true"},
                 {"assumeLiteralNamesInMetadataCallsForNonConformingClients=false&assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true"},
