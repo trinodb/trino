@@ -33,6 +33,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class PathParser
@@ -43,8 +44,8 @@ public final class PathParser
     {
         requireNonNull(startLocation, "startLocation is null");
 
-        int pathStartLine = startLocation.line;
-        int pathStartColumn = startLocation.column;
+        int pathStartLine = startLocation.line();
+        int pathStartColumn = startLocation.column();
         this.errorListener = new BaseErrorListener()
         {
             @Override
@@ -134,33 +135,12 @@ public final class PathParser
         }
     }
 
-    public static class Location
+    public record Location(int line, int column)
     {
-        private final int line;
-        private final int column;
-
-        public Location(int line, int column)
+        public Location
         {
-            if (line < 1) {
-                throw new IllegalArgumentException("line must be at least 1");
-            }
-
-            if (column < 0) {
-                throw new IllegalArgumentException("column must be at least 0");
-            }
-
-            this.line = line;
-            this.column = column;
-        }
-
-        public int getLine()
-        {
-            return line;
-        }
-
-        public int getColumn()
-        {
-            return column;
+            checkArgument(line >= 1, "line must be at least 1");
+            checkArgument(column >= 0, "column must be at least 0");
         }
     }
 }
