@@ -43,7 +43,7 @@ public class ChunkFileFetcher
         checkState(future == null, "future is not null at the beginning of fetching");
         future = CompletableFuture.supplyAsync(() -> {
             long start = System.nanoTime();
-            InputStream inputStream = split.getInputStream(requireNonNull(streamProvider, "starburstResultStreamProvider is null"));
+            InputStream inputStream = split.getInputStream(streamProvider);
             readTimeNanos = System.nanoTime() - start;
             return inputStream;
         });
