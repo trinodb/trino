@@ -31,6 +31,7 @@ import io.trino.sql.tree.AnchorPattern;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
+import io.trino.sql.tree.AssignmentStatement;
 import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
@@ -38,14 +39,20 @@ import io.trino.sql.tree.BindExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
+import io.trino.sql.tree.CaseStatement;
+import io.trino.sql.tree.CaseStatementWhenClause;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
+import io.trino.sql.tree.CommentCharacteristic;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CompoundStatement;
+import io.trino.sql.tree.ControlStatement;
 import io.trino.sql.tree.CreateCatalog;
+import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
@@ -69,14 +76,18 @@ import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
+import io.trino.sql.tree.DeterministicCharacteristic;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropFunction;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
+import io.trino.sql.tree.ElseClause;
+import io.trino.sql.tree.ElseIfClause;
 import io.trino.sql.tree.EmptyPattern;
 import io.trino.sql.tree.EmptyTableTreatment;
 import io.trino.sql.tree.EmptyTableTreatment.Treatment;
@@ -97,6 +108,7 @@ import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.FunctionCall.NullTreatment;
+import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Grant;
@@ -109,6 +121,7 @@ import io.trino.sql.tree.GroupingOperation;
 import io.trino.sql.tree.GroupingSets;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfExpression;
+import io.trino.sql.tree.IfStatement;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.Insert;
@@ -118,6 +131,7 @@ import io.trino.sql.tree.IntervalLiteral;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Isolation;
+import io.trino.sql.tree.IterateStatement;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinCriteria;
 import io.trino.sql.tree.JoinOn;
@@ -141,12 +155,15 @@ import io.trino.sql.tree.JsonTableSpecificPlan;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.LanguageCharacteristic;
 import io.trino.sql.tree.Lateral;
+import io.trino.sql.tree.LeaveStatement;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.LoopStatement;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
@@ -159,6 +176,7 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
+import io.trino.sql.tree.NullInputCharacteristic;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.Offset;
@@ -166,6 +184,7 @@ import io.trino.sql.tree.OneOrMoreQuantifier;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.ParameterDeclaration;
 import io.trino.sql.tree.PathElement;
 import io.trino.sql.tree.PathSpecification;
 import io.trino.sql.tree.PatternAlternation;
@@ -199,17 +218,22 @@ import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
+import io.trino.sql.tree.RepeatStatement;
 import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.ResetSessionAuthorization;
+import io.trino.sql.tree.ReturnStatement;
+import io.trino.sql.tree.ReturnsClause;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
+import io.trino.sql.tree.RoutineCharacteristic;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SaveMode;
 import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SetColumnType;
@@ -266,8 +290,10 @@ import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Use;
 import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.Values;
+import io.trino.sql.tree.VariableDeclaration;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
+import io.trino.sql.tree.WhileStatement;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.WindowFrame;
@@ -378,6 +404,12 @@ class AstBuilder
     public Node visitStandaloneRowPattern(SqlBaseParser.StandaloneRowPatternContext context)
     {
         return visit(context.rowPattern());
+    }
+
+    @Override
+    public Node visitStandaloneFunctionSpecification(SqlBaseParser.StandaloneFunctionSpecificationContext context)
+    {
+        return visit(context.functionSpecification());
     }
 
     // ******************* statements **********************
@@ -520,7 +552,7 @@ class AstBuilder
         return new CreateTableAsSelect(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
-                (Query) visit(context.query()),
+                (Query) visit(context.rootQuery()),
                 toSaveMode(context.REPLACE(), context.EXISTS()),
                 properties,
                 context.NO() == null,
@@ -572,7 +604,7 @@ class AstBuilder
         return new CreateMaterializedView(
                 Optional.of(getLocation(context)),
                 getQualifiedName(context.qualifiedName()),
-                (Query) visit(context.query()),
+                (Query) visit(context.rootQuery()),
                 context.REPLACE() != null,
                 context.EXISTS() != null,
                 gracePeriod,
@@ -624,7 +656,7 @@ class AstBuilder
         return new Insert(
                 new Table(getQualifiedName(context.qualifiedName())),
                 columnAliases,
-                (Query) visit(context.query()));
+                (Query) visit(context.rootQuery()));
     }
 
     @Override
@@ -856,7 +888,7 @@ class AstBuilder
         return new CreateView(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
-                (Query) visit(context.query()),
+                (Query) visit(context.rootQuery()),
                 context.REPLACE() != null,
                 comment,
                 security);
@@ -891,6 +923,25 @@ class AstBuilder
                 SetProperties.Type.MATERIALIZED_VIEW,
                 getQualifiedName(context.qualifiedName()),
                 visit(context.propertyAssignments().property(), Property.class));
+    }
+
+    @Override
+    public Node visitCreateFunction(SqlBaseParser.CreateFunctionContext context)
+    {
+        return new CreateFunction(
+                getLocation(context),
+                (FunctionSpecification) visit(context.functionSpecification()),
+                context.REPLACE() != null);
+    }
+
+    @Override
+    public Node visitDropFunction(SqlBaseParser.DropFunctionContext context)
+    {
+        return new DropFunction(
+                getLocation(context),
+                getQualifiedName(context.functionDeclaration().qualifiedName()),
+                visit(context.functionDeclaration().parameterDeclaration(), ParameterDeclaration.class),
+                context.EXISTS() != null);
     }
 
     @Override
@@ -1023,12 +1074,31 @@ class AstBuilder
     // ********************** query expressions ********************
 
     @Override
+    public Node visitRootQuery(SqlBaseParser.RootQueryContext context)
+    {
+        Query query = (Query) visit(context.query());
+
+        return new Query(
+                getLocation(context),
+                Optional.ofNullable(context.withFunction())
+                        .map(SqlBaseParser.WithFunctionContext::functionSpecification)
+                        .map(contexts -> visit(contexts, FunctionSpecification.class))
+                        .orElseGet(ImmutableList::of),
+                query.getWith(),
+                query.getQueryBody(),
+                query.getOrderBy(),
+                query.getOffset(),
+                query.getLimit());
+    }
+
+    @Override
     public Node visitQuery(SqlBaseParser.QueryContext context)
     {
         Query body = (Query) visit(context.queryNoWith());
 
         return new Query(
                 getLocation(context),
+                ImmutableList.of(),
                 visitIfPresent(context.with(), With.class),
                 body.getQueryBody(),
                 body.getOrderBy(),
@@ -1124,6 +1194,7 @@ class AstBuilder
 
             return new Query(
                     getLocation(context),
+                    ImmutableList.of(),
                     Optional.empty(),
                     new QuerySpecification(
                             getLocation(context),
@@ -1143,6 +1214,7 @@ class AstBuilder
 
         return new Query(
                 getLocation(context),
+                ImmutableList.of(),
                 Optional.empty(),
                 term,
                 orderBy,
@@ -1391,7 +1463,7 @@ class AstBuilder
     @Override
     public Node visitShowStatsForQuery(SqlBaseParser.ShowStatsForQueryContext context)
     {
-        Query query = (Query) visit(context.query());
+        Query query = (Query) visit(context.rootQuery());
         return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query));
     }
 
@@ -3645,6 +3717,215 @@ class AstBuilder
         }
 
         return new JsonTableDefaultPlan(getLocation(context), parentChildPlanType, siblingsPlanType);
+    }
+
+    // ***************** functions & stored procedures *****************
+
+    @Override
+    public Node visitFunctionSpecification(SqlBaseParser.FunctionSpecificationContext context)
+    {
+        ControlStatement statement = (ControlStatement) visit(context.controlStatement());
+        if (!(statement instanceof ReturnStatement || statement instanceof CompoundStatement)) {
+            throw parseError("Function body must start with RETURN or BEGIN", context.controlStatement());
+        }
+        return new FunctionSpecification(
+                getLocation(context),
+                getQualifiedName(context.functionDeclaration().qualifiedName()),
+                visit(context.functionDeclaration().parameterDeclaration(), ParameterDeclaration.class),
+                (ReturnsClause) visit(context.returnsClause()),
+                visit(context.routineCharacteristic(), RoutineCharacteristic.class),
+                statement);
+    }
+
+    @Override
+    public Node visitParameterDeclaration(SqlBaseParser.ParameterDeclarationContext context)
+    {
+        return new ParameterDeclaration(
+                getLocation(context),
+                getIdentifierIfPresent(context.identifier()),
+                (DataType) visit(context.type()));
+    }
+
+    @Override
+    public Node visitReturnsClause(SqlBaseParser.ReturnsClauseContext context)
+    {
+        return new ReturnsClause(getLocation(context), (DataType) visit(context.type()));
+    }
+
+    @Override
+    public Node visitLanguageCharacteristic(SqlBaseParser.LanguageCharacteristicContext context)
+    {
+        return new LanguageCharacteristic(getLocation(context), (Identifier) visit(context.identifier()));
+    }
+
+    @Override
+    public Node visitDeterministicCharacteristic(SqlBaseParser.DeterministicCharacteristicContext context)
+    {
+        return new DeterministicCharacteristic(getLocation(context), context.NOT() == null);
+    }
+
+    @Override
+    public Node visitReturnsNullOnNullInputCharacteristic(SqlBaseParser.ReturnsNullOnNullInputCharacteristicContext context)
+    {
+        return NullInputCharacteristic.returnsNullOnNullInput(getLocation(context));
+    }
+
+    @Override
+    public Node visitCalledOnNullInputCharacteristic(SqlBaseParser.CalledOnNullInputCharacteristicContext context)
+    {
+        return NullInputCharacteristic.calledOnNullInput(getLocation(context));
+    }
+
+    @Override
+    public Node visitSecurityCharacteristic(SqlBaseParser.SecurityCharacteristicContext context)
+    {
+        return new SecurityCharacteristic(getLocation(context), (context.INVOKER() != null)
+                ? SecurityCharacteristic.Security.INVOKER
+                : SecurityCharacteristic.Security.DEFINER);
+    }
+
+    @Override
+    public Node visitCommentCharacteristic(SqlBaseParser.CommentCharacteristicContext context)
+    {
+        return new CommentCharacteristic(getLocation(context), ((StringLiteral) visit(context.string())).getValue());
+    }
+
+    @Override
+    public Node visitReturnStatement(SqlBaseParser.ReturnStatementContext context)
+    {
+        return new ReturnStatement(getLocation(context), (Expression) visit(context.valueExpression()));
+    }
+
+    @Override
+    public Node visitAssignmentStatement(SqlBaseParser.AssignmentStatementContext context)
+    {
+        return new AssignmentStatement(
+                getLocation(context),
+                (Identifier) visit(context.identifier()),
+                (Expression) visit(context.expression()));
+    }
+
+    @Override
+    public Node visitSimpleCaseStatement(SqlBaseParser.SimpleCaseStatementContext context)
+    {
+        return new CaseStatement(
+                getLocation(context),
+                visitIfPresent(context.expression(), Expression.class),
+                visit(context.caseStatementWhenClause(), CaseStatementWhenClause.class),
+                visitIfPresent(context.elseClause(), ElseClause.class));
+    }
+
+    @Override
+    public Node visitSearchedCaseStatement(SqlBaseParser.SearchedCaseStatementContext context)
+    {
+        return new CaseStatement(
+                getLocation(context),
+                Optional.empty(),
+                visit(context.caseStatementWhenClause(), CaseStatementWhenClause.class),
+                visitIfPresent(context.elseClause(), ElseClause.class));
+    }
+
+    @Override
+    public Node visitCaseStatementWhenClause(SqlBaseParser.CaseStatementWhenClauseContext context)
+    {
+        return new CaseStatementWhenClause(
+                getLocation(context),
+                (Expression) visit(context.expression()),
+                visit(context.sqlStatementList().controlStatement(), ControlStatement.class));
+    }
+
+    @Override
+    public Node visitIfStatement(SqlBaseParser.IfStatementContext context)
+    {
+        return new IfStatement(
+                getLocation(context),
+                (Expression) visit(context.expression()),
+                visit(context.sqlStatementList().controlStatement(), ControlStatement.class),
+                visit(context.elseIfClause(), ElseIfClause.class),
+                visitIfPresent(context.elseClause(), ElseClause.class));
+    }
+
+    @Override
+    public Node visitElseIfClause(SqlBaseParser.ElseIfClauseContext context)
+    {
+        return new ElseIfClause(
+                getLocation(context),
+                (Expression) visit(context.expression()),
+                visit(context.sqlStatementList().controlStatement(), ControlStatement.class));
+    }
+
+    @Override
+    public Node visitElseClause(SqlBaseParser.ElseClauseContext context)
+    {
+        return new ElseClause(
+                getLocation(context),
+                visit(context.sqlStatementList().controlStatement(), ControlStatement.class));
+    }
+
+    @Override
+    public Node visitIterateStatement(SqlBaseParser.IterateStatementContext context)
+    {
+        return new IterateStatement(
+                getLocation(context),
+                (Identifier) visit(context.identifier()));
+    }
+
+    @Override
+    public Node visitLeaveStatement(SqlBaseParser.LeaveStatementContext context)
+    {
+        return new LeaveStatement(
+                getLocation(context),
+                (Identifier) visit(context.identifier()));
+    }
+
+    @Override
+    public Node visitVariableDeclaration(SqlBaseParser.VariableDeclarationContext context)
+    {
+        return new VariableDeclaration(
+                getLocation(context),
+                visit(context.identifier(), Identifier.class),
+                (DataType) visit(context.type()),
+                visitIfPresent(context.valueExpression(), Expression.class));
+    }
+
+    @Override
+    public Node visitCompoundStatement(SqlBaseParser.CompoundStatementContext context)
+    {
+        return new CompoundStatement(
+                getLocation(context),
+                visit(context.variableDeclaration(), VariableDeclaration.class),
+                visit(Optional.ofNullable(context.sqlStatementList())
+                        .map(SqlBaseParser.SqlStatementListContext::controlStatement)
+                        .orElse(ImmutableList.of()), ControlStatement.class));
+    }
+
+    @Override
+    public Node visitLoopStatement(SqlBaseParser.LoopStatementContext context)
+    {
+        return new LoopStatement(
+                getLocation(context),
+                getIdentifierIfPresent(context.label),
+                visit(context.sqlStatementList().controlStatement(), ControlStatement.class));
+    }
+
+    @Override
+    public Node visitWhileStatement(SqlBaseParser.WhileStatementContext context)
+    {
+        return new WhileStatement(
+                getLocation(context),
+                getIdentifierIfPresent(context.label),
+                (Expression) visit(context.expression()),
+                visit(context.sqlStatementList().controlStatement(), ControlStatement.class));
+    }
+
+    @Override
+    public Node visitRepeatStatement(SqlBaseParser.RepeatStatementContext context)
+    {
+        return new RepeatStatement(
+                getLocation(context),
+                getIdentifierIfPresent(context.label),
+                visit(context.sqlStatementList().controlStatement(), ControlStatement.class),
+                (Expression) visit(context.expression()));
     }
 
     // ***************** helpers *****************
