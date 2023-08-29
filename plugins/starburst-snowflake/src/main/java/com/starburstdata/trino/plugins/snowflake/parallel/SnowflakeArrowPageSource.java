@@ -197,10 +197,10 @@ public class SnowflakeArrowPageSource
         bufferAllocator.close();
     }
 
-    private CloseableArrowBatch decodeArrowInputStream(InputStream is)
+    private CloseableArrowBatch decodeArrowInputStream(InputStream inputStream)
             throws IOException
     {
-        try (ArrowStreamReader reader = new ArrowStreamReader(is, bufferAllocator); VectorSchemaRoot vectorSchemaRoot = reader.getVectorSchemaRoot()) {
+        try (ArrowStreamReader reader = new ArrowStreamReader(inputStream, bufferAllocator); VectorSchemaRoot vectorSchemaRoot = reader.getVectorSchemaRoot()) {
             ImmutableList.Builder<List<ValueVector>> batchBuilder = ImmutableList.builder();
             while (reader.loadNextBatch()) {
                 ImmutableList.Builder<ValueVector> vectorBuilder = ImmutableList.builderWithExpectedSize(vectorSchemaRoot.getFieldVectors().size());
