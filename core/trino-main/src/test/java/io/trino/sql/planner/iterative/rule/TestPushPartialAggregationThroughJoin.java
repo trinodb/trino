@@ -16,6 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.cost.SymbolStatsEstimate;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -26,7 +28,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
@@ -35,8 +36,10 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static java.lang.Double.NaN;
 
 public class TestPushPartialAggregationThroughJoin
         extends BaseRuleTest
@@ -45,10 +48,10 @@ public class TestPushPartialAggregationThroughJoin
     private static final PlanNodeId CHILD_ID = new PlanNodeId("child_id");
 
     @Test
-    public void testPushesPartialAggregationThroughJoinWithoutProjection()
+    public void testPushesPartialAggregationThroughJoinToLeftChildWithoutProjection()
     {
+        // push to left child
         tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
-                .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -80,30 +83,44 @@ public class TestPushPartialAggregationThroughJoin
                                 .right(
                                         values("RIGHT_EQUI", "RIGHT_NON_EQUI")))));
 
-        // partial aggregation should not be pushed down because it would require extra grouping symbols
+        // push to right child
         tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
-                .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
                                         INNER,
-                                        p.values(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
-                                        p.values(p.symbol("RIGHT_EQUI"), p.symbol("RIGHT_NON_EQUI")),
+                                        p.values(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI")),
+                                        p.values(p.symbol("RIGHT_EQUI"), p.symbol("RIGHT_NON_EQUI"), p.symbol("RIGHT_GROUP_BY"), p.symbol("RIGHT_AGGR")),
                                         ImmutableList.of(new EquiJoinClause(p.symbol("LEFT_EQUI"), p.symbol("RIGHT_EQUI"))),
-                                        ImmutableList.of(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
                                         ImmutableList.of(),
+                                        ImmutableList.of(p.symbol("RIGHT_EQUI"), p.symbol("RIGHT_NON_EQUI"), p.symbol("RIGHT_GROUP_BY"), p.symbol("RIGHT_AGGR")),
                                         Optional.of(expression("LEFT_NON_EQUI <= RIGHT_NON_EQUI"))))
-                        .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(LEFT_AGGR)"), ImmutableList.of(DOUBLE))
-                        .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_EQUI"))
+                        .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(RIGHT_AGGR)"), ImmutableList.of(DOUBLE))
+                        .singleGroupingSet(p.symbol("RIGHT_GROUP_BY"), p.symbol("RIGHT_EQUI"), p.symbol("RIGHT_NON_EQUI"))
                         .step(PARTIAL)))
-                .doesNotFire();
+                .matches(project(ImmutableMap.of(
+                                "RIGHT_GROUP_BY", PlanMatchPattern.expression("RIGHT_GROUP_BY"),
+                                "RIGHT_EQUI", PlanMatchPattern.expression("RIGHT_EQUI"),
+                                "RIGHT_NON_EQUI", PlanMatchPattern.expression("RIGHT_NON_EQUI"),
+                                "AVG", PlanMatchPattern.expression("AVG")),
+                        join(INNER, builder -> builder
+                                .equiCriteria("LEFT_EQUI", "RIGHT_EQUI")
+                                .filter("LEFT_NON_EQUI <= RIGHT_NON_EQUI")
+                                .left(
+                                        values("LEFT_EQUI", "LEFT_NON_EQUI"))
+                                .right(
+                                        aggregation(
+                                                singleGroupingSet("RIGHT_GROUP_BY", "RIGHT_EQUI", "RIGHT_NON_EQUI"),
+                                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("RIGHT_AGGR"))),
+                                                Optional.empty(),
+                                                PARTIAL,
+                                                values("RIGHT_EQUI", "RIGHT_NON_EQUI", "RIGHT_GROUP_BY", "RIGHT_AGGR"))))));
     }
 
     @Test
     public void testDoesNotPushPartialAggregationForExpandingJoin()
     {
         tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
-                .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
                 .overrideStats(CHILD_ID.toString(), new PlanNodeStatsEstimate(10.0, ImmutableMap.of()))
                 .overrideStats(JOIN_ID.toString(), new PlanNodeStatsEstimate(20.0, ImmutableMap.of()))
                 .on(p -> p.aggregation(ab -> ab
@@ -127,10 +144,182 @@ public class TestPushPartialAggregationThroughJoin
     }
 
     @Test
+    public void testDoesNotPushPartialAggregationIfPushedGroupingSetIsLarger()
+    {
+        // partial aggregation should not be pushed down because it would require extra grouping symbols
+        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
+                                p.join(
+                                        INNER,
+                                        p.values(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
+                                        p.values(p.symbol("RIGHT_EQUI"), p.symbol("RIGHT_NON_EQUI")),
+                                        ImmutableList.of(new EquiJoinClause(p.symbol("LEFT_EQUI"), p.symbol("RIGHT_EQUI"))),
+                                        ImmutableList.of(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
+                                        ImmutableList.of(),
+                                        Optional.of(expression("LEFT_NON_EQUI <= RIGHT_NON_EQUI"))))
+                        .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(LEFT_AGGR)"), ImmutableList.of(DOUBLE))
+                        .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_EQUI"))
+                        .step(PARTIAL)))
+                .doesNotFire();
+
+        // partial aggregation should not be pushed down because it would require extra grouping symbols (with projection)
+        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithProjection())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
+                                p.project(
+                                        Assignments.builder()
+                                                .put(p.symbol("LEFT_AGGR_PRJ"), PlanBuilder.expression("LEFT_AGGR + LEFT_AGGR"))
+                                                .putIdentity(p.symbol("LEFT_GROUP_BY"))
+                                                .putIdentity(p.symbol("LEFT_EQUI"))
+                                                .putIdentity(p.symbol("LEFT_NON_EQUI"))
+                                                .build(),
+                                        p.join(
+                                                INNER,
+                                                p.values(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
+                                                p.values(p.symbol("RIGHT_EQUI"), p.symbol("RIGHT_NON_EQUI")),
+                                                ImmutableList.of(new EquiJoinClause(p.symbol("LEFT_EQUI"), p.symbol("RIGHT_EQUI"))),
+                                                ImmutableList.of(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
+                                                ImmutableList.of(),
+                                                Optional.of(expression("LEFT_NON_EQUI <= RIGHT_NON_EQUI")))))
+                        .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(LEFT_AGGR_PRJ)"), ImmutableList.of(DOUBLE))
+                        .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_EQUI"))
+                        .step(PARTIAL)))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotPushPartialAggregationIfPushedGroupingSetIsSame()
+    {
+        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
+                                p.join(
+                                        INNER,
+                                        p.values(p.symbol("FACT_DATE_ID"), p.symbol("AMOUNT")),
+                                        p.values(p.symbol("DATE_DIM_DATE_ID"), p.symbol("DATE_DIM_YEAR")),
+                                        ImmutableList.of(new EquiJoinClause(p.symbol("FACT_DATE_ID"), p.symbol("DATE_DIM_DATE_ID"))),
+                                        ImmutableList.of(p.symbol("FACT_DATE_ID"), p.symbol("AMOUNT")),
+                                        ImmutableList.of(p.symbol("DATE_DIM_YEAR")),
+                                        Optional.empty()))
+                        .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(AMOUNT)"), ImmutableList.of(DOUBLE))
+                        .singleGroupingSet(p.symbol("DATE_DIM_YEAR"))
+                        .step(PARTIAL)))
+                .matches(project(ImmutableMap.of(
+                                "DATE_DIM_YEAR", PlanMatchPattern.expression("DATE_DIM_YEAR"),
+                                "AVG", PlanMatchPattern.expression("AVG")),
+                        join(INNER, builder -> builder
+                                .equiCriteria("FACT_DATE_ID", "DATE_DIM_DATE_ID")
+                                .left(
+                                        aggregation(
+                                                singleGroupingSet("FACT_DATE_ID"),
+                                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("AMOUNT"))),
+                                                Optional.empty(),
+                                                PARTIAL,
+                                                values("FACT_DATE_ID", "AMOUNT")))
+                                .right(
+                                        values("DATE_DIM_DATE_ID", "DATE_DIM_YEAR")))));
+    }
+
+    @Test
+    public void testDoesNotPushPartialAggregationIfGroupingSymbolHasBigNDV()
+    {
+        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+                .overrideStats(
+                        CHILD_ID.toString(),
+                        new PlanNodeStatsEstimate(10.0, ImmutableMap.of(
+                                new Symbol("FACT_DATE_ID"), new SymbolStatsEstimate(NaN, NaN, 0.0, NaN, 10.0))))
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
+                                p.join(
+                                        INNER,
+                                        p.values(CHILD_ID, p.symbol("FACT_DATE_ID"), p.symbol("AMOUNT")),
+                                        p.values(p.symbol("DATE_DIM_DATE_ID"), p.symbol("DATE_DIM_YEAR")),
+                                        ImmutableList.of(new EquiJoinClause(p.symbol("FACT_DATE_ID"), p.symbol("DATE_DIM_DATE_ID"))),
+                                        ImmutableList.of(p.symbol("FACT_DATE_ID"), p.symbol("AMOUNT")),
+                                        ImmutableList.of(p.symbol("DATE_DIM_YEAR")),
+                                        Optional.empty()))
+                        .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(AMOUNT)"), ImmutableList.of(DOUBLE))
+                        .singleGroupingSet(p.symbol("DATE_DIM_YEAR"))
+                        .step(PARTIAL)))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testKeepsIntermediateAggregation()
+    {
+        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
+                                p.join(
+                                        INNER,
+                                        p.values(p.symbol("FACT_DATE_ID"), p.symbol("AMOUNT")),
+                                        p.values(p.symbol("DATE_DIM_DATE_ID"), p.symbol("DATE_DIM_YEAR")),
+                                        ImmutableList.of(new EquiJoinClause(p.symbol("FACT_DATE_ID"), p.symbol("DATE_DIM_DATE_ID"))),
+                                        ImmutableList.of(p.symbol("FACT_DATE_ID"), p.symbol("AMOUNT")),
+                                        ImmutableList.of(p.symbol("DATE_DIM_YEAR")),
+                                        Optional.empty()))
+                        .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(AMOUNT)"), ImmutableList.of(DOUBLE))
+                        .singleGroupingSet(p.symbol("DATE_DIM_YEAR"))
+                        .step(PARTIAL)
+                        .exchangeInputAggregation(true)))
+                .matches(
+                        aggregation(
+                                singleGroupingSet("DATE_DIM_YEAR"),
+                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("AVG"))),
+                                Optional.empty(),
+                                INTERMEDIATE,
+                                project(ImmutableMap.of(
+                                                "DATE_DIM_YEAR", PlanMatchPattern.expression("DATE_DIM_YEAR"),
+                                                "AVG", PlanMatchPattern.expression("AVG")),
+                                        join(INNER, builder -> builder
+                                                .equiCriteria("FACT_DATE_ID", "DATE_DIM_DATE_ID")
+                                                .left(
+                                                        aggregation(
+                                                                singleGroupingSet("FACT_DATE_ID"),
+                                                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("AMOUNT"))),
+                                                                Optional.empty(),
+                                                                PARTIAL,
+                                                                values("FACT_DATE_ID", "AMOUNT")))
+                                                .right(
+                                                        values("DATE_DIM_DATE_ID", "DATE_DIM_YEAR"))))));
+
+        // intermediate aggregation should not be added if pushed aggregation has same (in terms of symbols) or smaller grouping set
+        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithoutProjection())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
+                                p.join(
+                                        INNER,
+                                        p.values(p.symbol("FACT_DATE_ID"), p.symbol("AMOUNT")),
+                                        p.values(p.symbol("DATE_DIM_DATE_ID"), p.symbol("DATE_DIM_YEAR")),
+                                        ImmutableList.of(new EquiJoinClause(p.symbol("FACT_DATE_ID"), p.symbol("DATE_DIM_DATE_ID"))),
+                                        ImmutableList.of(p.symbol("FACT_DATE_ID"), p.symbol("AMOUNT")),
+                                        ImmutableList.of(p.symbol("DATE_DIM_YEAR")),
+                                        Optional.empty()))
+                        .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(AMOUNT)"), ImmutableList.of(DOUBLE))
+                        .singleGroupingSet(p.symbol("FACT_DATE_ID"))
+                        .step(PARTIAL)
+                        .exchangeInputAggregation(true)))
+                .matches(project(ImmutableMap.of(
+                                "FACT_DATE_ID", PlanMatchPattern.expression("FACT_DATE_ID"),
+                                "AVG", PlanMatchPattern.expression("AVG")),
+                        join(INNER, builder -> builder
+                                .equiCriteria("FACT_DATE_ID", "DATE_DIM_DATE_ID")
+                                .left(
+                                        aggregation(
+                                                singleGroupingSet("FACT_DATE_ID"),
+                                                ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("AMOUNT"))),
+                                                Optional.empty(),
+                                                PARTIAL,
+                                                values("FACT_DATE_ID", "AMOUNT")))
+                                .right(
+                                        values("DATE_DIM_DATE_ID", "DATE_DIM_YEAR")))));
+    }
+
+    @Test
     public void testPushesPartialAggregationThroughJoinWithProjection()
     {
         tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithProjection())
-                .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.project(
@@ -171,30 +360,5 @@ public class TestPushPartialAggregationThroughJoin
                                 .right(
                                         project(
                                                 values("RIGHT_EQUI", "RIGHT_NON_EQUI"))))));
-
-        // partial aggregation should not be pushed down because it would require extra grouping symbols
-        tester().assertThat(new PushPartialAggregationThroughJoin(tester().getPlannerContext(), tester().getTypeAnalyzer()).pushPartialAggregationThroughJoinWithProjection())
-                .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
-                .on(p -> p.aggregation(ab -> ab
-                        .source(
-                                p.project(
-                                        Assignments.builder()
-                                                .put(p.symbol("LEFT_AGGR_PRJ"), PlanBuilder.expression("LEFT_AGGR + LEFT_AGGR"))
-                                                .putIdentity(p.symbol("LEFT_GROUP_BY"))
-                                                .putIdentity(p.symbol("LEFT_EQUI"))
-                                                .putIdentity(p.symbol("LEFT_NON_EQUI"))
-                                                .build(),
-                                        p.join(
-                                                INNER,
-                                                p.values(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
-                                                p.values(p.symbol("RIGHT_EQUI"), p.symbol("RIGHT_NON_EQUI")),
-                                                ImmutableList.of(new EquiJoinClause(p.symbol("LEFT_EQUI"), p.symbol("RIGHT_EQUI"))),
-                                                ImmutableList.of(p.symbol("LEFT_EQUI"), p.symbol("LEFT_NON_EQUI"), p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_AGGR")),
-                                                ImmutableList.of(),
-                                                Optional.of(expression("LEFT_NON_EQUI <= RIGHT_NON_EQUI")))))
-                        .addAggregation(p.symbol("AVG", DOUBLE), expression("AVG(LEFT_AGGR_PRJ)"), ImmutableList.of(DOUBLE))
-                        .singleGroupingSet(p.symbol("LEFT_GROUP_BY"), p.symbol("LEFT_EQUI"))
-                        .step(PARTIAL)))
-                .doesNotFire();
     }
 }

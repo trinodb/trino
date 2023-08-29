@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -32,8 +33,11 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.LambdaExpression;
 import org.assertj.core.util.VisibleForTesting;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -41,11 +45,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.SystemSessionProperties.isPushPartialAggregationThroughJoin;
 import static io.trino.sql.planner.iterative.rule.PushProjectionThroughJoin.pushProjectionThroughJoin;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
+import static io.trino.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -187,13 +193,13 @@ public class PushPartialAggregationThroughJoin
     private Optional<PlanNode> pushPartialToLeftChild(AggregationNode node, JoinNode child, Context context)
     {
         return getPushedAggregation(node, child, child.getLeft(), context)
-                .map(pushedAggregation -> replaceJoin(node, child, pushedAggregation, child.getRight(), context));
+                .map(pushedAggregation -> replaceJoin(node, pushedAggregation, child, pushedAggregation, child.getRight(), context));
     }
 
     private Optional<PlanNode> pushPartialToRightChild(AggregationNode node, JoinNode child, Context context)
     {
         return getPushedAggregation(node, child, child.getRight(), context)
-                .map(pushedAggregation -> replaceJoin(node, child, child.getLeft(), pushedAggregation, context));
+                .map(pushedAggregation -> replaceJoin(node, pushedAggregation, child, child.getLeft(), pushedAggregation, context));
     }
 
     private Optional<AggregationNode> getPushedAggregation(AggregationNode node, JoinNode child, PlanNode joinSource, Context context)
@@ -227,8 +233,32 @@ public class PushPartialAggregationThroughJoin
             return true;
         }
 
-        // only push partial aggregation down if pushed grouping set is same or less granular
-        return !ImmutableSet.copyOf(originalAggregation.getGroupingKeys()).containsAll(ImmutableSet.copyOf(pushedAggregation.getGroupingKeys()));
+        // Only push aggregation down if pushed grouping set is of same size or smaller. This is because
+        // we want pushdown to happen for star schema queries like:
+        //
+        // select sum(sales) from fact, date_dim where fact.date_id = date_dim.date_id group by date_dim.year
+        //
+        // In such case partial aggregation on date_dim.year can be pushed
+        // below join with grouping key of "date_id". This can greatly reduce number
+        // of rows before join operator.
+        if (ImmutableSet.copyOf(originalAggregation.getGroupingKeys()).size() < ImmutableSet.copyOf(pushedAggregation.getGroupingKeys()).size()) {
+            return true;
+        }
+
+        // Do not push aggregation down if any pushed grouping symbol has NDV that has the
+        // same order of magnitude as number of source rows (because then partial aggregation is ineffective).
+        // Ideally we should use estimated aggregation row count. However, we assume lack of correlation
+        // between group by columns in stats calculations. Therefore, if we used estimated aggregation row count
+        // then we would miss good improvement opportunities. Even if partial aggregation is pushed down incorrectly,
+        // it should be adaptively turned off, hence potential performance penalty is not that significant.
+        for (Symbol symbol : pushedAggregation.getGroupingKeys()) {
+            double ndv = sourceStats.getSymbolStatistics(symbol).getDistinctValuesCount();
+            if (isNaN(ndv) || ndv * 2 > sourceRowCount) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private Set<Symbol> getJoinRequiredSymbols(JoinNode node)
@@ -269,11 +299,14 @@ public class PushPartialAggregationThroughJoin
                 .setSource(source)
                 .setGroupingSets(singleGroupingSet(groupingKeys))
                 .setPreGroupedSymbols(ImmutableList.of())
+                // aggregation below join might not be as effective in reducing rows before exchange
+                .setExchangeInputAggregation(false)
                 .build();
     }
 
     private PlanNode replaceJoin(
             AggregationNode aggregation,
+            AggregationNode pushedAggregation,
             JoinNode child,
             PlanNode leftChild,
             PlanNode rightChild,
@@ -295,6 +328,51 @@ public class PushPartialAggregationThroughJoin
                 child.isSpillable(),
                 child.getDynamicFilters(),
                 child.getReorderJoinStatsAndCost());
-        return restrictOutputs(context.getIdAllocator(), joinNode, ImmutableSet.copyOf(aggregation.getOutputSymbols())).orElse(joinNode);
+        PlanNode result = restrictOutputs(context.getIdAllocator(), joinNode, ImmutableSet.copyOf(aggregation.getOutputSymbols())).orElse(joinNode);
+        // Keep intermediate aggregation below remote exchange to reduce network traffic.
+        // Intermediate aggregation can be skipped if pushed aggregation has subset of grouping
+        // symbols as join is not expanding.
+        if (aggregation.isExchangeInputAggregation() && !ImmutableSet.copyOf(aggregation.getGroupingKeys()).containsAll(pushedAggregation.getGroupingKeys())) {
+            result = toIntermediateAggregation(aggregation, result, context);
+        }
+        return result;
+    }
+
+    private PlanNode toIntermediateAggregation(AggregationNode partialAggregation, PlanNode source, Context context)
+    {
+        Map<Symbol, AggregationNode.Aggregation> intermediateAggregation = new HashMap<>();
+        for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : partialAggregation.getAggregations().entrySet()) {
+            AggregationNode.Aggregation aggregation = entry.getValue();
+            ResolvedFunction resolvedFunction = aggregation.getResolvedFunction();
+
+            // rewrite partial aggregation in terms of intermediate function
+            intermediateAggregation.put(
+                    entry.getKey(),
+                    new AggregationNode.Aggregation(
+                            resolvedFunction,
+                            ImmutableList.<Expression>builder()
+                                    .add(entry.getKey().toSymbolReference())
+                                    .addAll(aggregation.getArguments().stream()
+                                            .filter(LambdaExpression.class::isInstance)
+                                            .collect(toImmutableList()))
+                                    .build(),
+                            false,
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty()));
+        }
+
+        return new AggregationNode(
+                context.getIdAllocator().getNextId(),
+                source,
+                intermediateAggregation,
+                partialAggregation.getGroupingSets(),
+                // preGroupedSymbols reflect properties of the input. Splitting the aggregation and pushing partial aggregation
+                // through the join may or may not preserve these properties. Hence, it is safest to drop preGroupedSymbols here.
+                ImmutableList.of(),
+                INTERMEDIATE,
+                // hash symbol is not supported by this rule
+                Optional.empty(),
+                partialAggregation.getGroupIdSymbol());
     }
 }

@@ -418,6 +418,7 @@ public class PlanBuilder
         private Optional<Symbol> hashSymbol = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
         private Optional<PlanNodeId> nodeId = Optional.empty();
+        private Optional<Boolean> exchangeInputAggregation = Optional.empty();
 
         public AggregationBuilder source(PlanNode source)
         {
@@ -505,6 +506,12 @@ public class PlanBuilder
             return this;
         }
 
+        public AggregationBuilder exchangeInputAggregation(boolean exchangeInputAggregation)
+        {
+            this.exchangeInputAggregation = Optional.of(exchangeInputAggregation);
+            return this;
+        }
+
         protected AggregationNode build()
         {
             checkState(groupingSets != null, "No grouping sets defined; use globalGrouping/groupingKeys method");
@@ -516,7 +523,8 @@ public class PlanBuilder
                     preGroupedSymbols,
                     step,
                     hashSymbol,
-                    groupIdSymbol);
+                    groupIdSymbol,
+                    exchangeInputAggregation);
         }
     }
 

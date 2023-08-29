@@ -5,10 +5,11 @@ local exchange (GATHER, SINGLE, [])
                 final aggregation over (i_current_price, i_item_desc, i_item_id)
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["i_current_price", "i_item_desc", "i_item_id"])
-                            partial aggregation over (i_current_price, i_item_desc, i_item_id)
+                            intermediate aggregation over (i_current_price, i_item_desc, i_item_id)
                                 join (INNER, REPLICATED, can skip output duplicates):
-                                    dynamic filter (["ss_item_sk"])
-                                        scan store_sales
+                                    partial aggregation over (ss_item_sk)
+                                        dynamic filter (["ss_item_sk"])
+                                            scan store_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             join (INNER, REPLICATED, can skip output duplicates):
