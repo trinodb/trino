@@ -134,6 +134,7 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
@@ -464,15 +465,7 @@ public class GlueHiveMetastore
     private List<String> getTableNames(String databaseName, Predicate<com.amazonaws.services.glue.model.Table> filter)
     {
         try {
-            List<String> tableNames = getPaginatedResults(
-                    glueClient::getTables,
-                    new GetTablesRequest()
-                            .withDatabaseName(databaseName),
-                    GetTablesRequest::setNextToken,
-                    GetTablesResult::getNextToken,
-                    stats.getGetTables())
-                    .map(GetTablesResult::getTableList)
-                    .flatMap(List::stream)
+            List<String> tableNames = getGlueTables(databaseName)
                     .filter(filter)
                     .map(com.amazonaws.services.glue.model.Table::getName)
                     .collect(toImmutableList());
@@ -1164,6 +1157,19 @@ public class GlueHiveMetastore
     public void checkSupportsTransactions()
     {
         throw new TrinoException(NOT_SUPPORTED, "Glue does not support ACID tables");
+    }
+
+    private Stream<com.amazonaws.services.glue.model.Table> getGlueTables(String databaseName)
+    {
+        return getPaginatedResults(
+                glueClient::getTables,
+                new GetTablesRequest()
+                        .withDatabaseName(databaseName),
+                GetTablesRequest::setNextToken,
+                GetTablesResult::getNextToken,
+                stats.getGetTables())
+                .map(GetTablesResult::getTableList)
+                .flatMap(List::stream);
     }
 
     static class StatsRecordingAsyncHandler<Request extends AmazonWebServiceRequest, Result>
