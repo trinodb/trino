@@ -9,7 +9,6 @@
  */
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
-import java.io.InputStream;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -20,7 +19,7 @@ public class ChunkFileFetcher
     private final StarburstResultStreamProvider streamProvider;
     private final SnowflakeArrowSplit split;
     private long readTimeNanos;
-    private CompletableFuture<InputStream> future;
+    private CompletableFuture<byte[]> future;
 
     public ChunkFileFetcher(StarburstResultStreamProvider streamProvider, SnowflakeArrowSplit split)
     {
@@ -38,14 +37,14 @@ public class ChunkFileFetcher
         return future != null;
     }
 
-    public CompletableFuture<InputStream> startFetching()
+    public CompletableFuture<byte[]> startFetching()
     {
         checkState(future == null, "future is not null at the beginning of fetching");
         future = CompletableFuture.supplyAsync(() -> {
             long start = System.nanoTime();
-            InputStream inputStream = split.getInputStream(streamProvider);
+            byte[] data = split.getInputStream(streamProvider);
             readTimeNanos = System.nanoTime() - start;
-            return inputStream;
+            return data;
         });
         return future;
     }

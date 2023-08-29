@@ -21,8 +21,10 @@ import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpGet;
 import net.snowflake.client.jdbc.internal.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.client.utils.URIBuilder;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
@@ -50,7 +52,7 @@ public class StarburstResultStreamProvider
         this.httpClient = requireNonNull(httpClient, "httpClient are null");
     }
 
-    public InputStream getInputStream(SnowflakeArrowSplit split)
+    public byte[] getInputStream(SnowflakeArrowSplit split)
     {
         HttpResponse response;
         try {
@@ -75,7 +77,12 @@ public class StarburstResultStreamProvider
                     "Failed to detect encoding and get the data stream: %s".formatted(response));
         }
 
-        return inputStream;
+        try (Closeable ignored = inputStream) {
+            return inputStream.readAllBytes();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private HttpResponse getResultChunk(SnowflakeArrowSplit split)

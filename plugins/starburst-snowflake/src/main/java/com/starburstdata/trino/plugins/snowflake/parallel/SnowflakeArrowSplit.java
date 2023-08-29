@@ -16,8 +16,6 @@ import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -109,18 +106,18 @@ public class SnowflakeArrowSplit
         throw new IllegalStateException("Security headers or query master key must be present if there is a chunk URL");
     }
 
-    public InputStream getInputStream(StarburstResultStreamProvider streamProvider)
+    public byte[] getInputStream(StarburstResultStreamProvider streamProvider)
     {
-        return fileUrl
-                .map(url -> streamProvider.getInputStream(this))
-                .orElseGet(decodeInlineData());
+        if (fileUrl.isPresent()) {
+            return streamProvider.getInputStream(this);
+        }
+        return decodeInlineData();
     }
 
-    private Supplier<InputStream> decodeInlineData()
+    private byte[] decodeInlineData()
     {
-        return () -> new ByteArrayInputStream(
-                Base64.getDecoder().decode(encodedArrowValue
-                        .orElseThrow(() -> new IllegalStateException("Either fileUrl or encodedArrowValue must be present in the split, but both are null!"))));
+        return Base64.getDecoder().decode(encodedArrowValue
+                        .orElseThrow(() -> new IllegalStateException("Either fileUrl or encodedArrowValue must be present in the split, but both are null!")));
     }
 
     @JsonProperty

@@ -26,10 +26,11 @@ import net.snowflake.client.jdbc.internal.apache.arrow.vector.FieldVector;
 import net.snowflake.client.jdbc.internal.apache.arrow.vector.ValueVector;
 import net.snowflake.client.jdbc.internal.apache.arrow.vector.VectorSchemaRoot;
 import net.snowflake.client.jdbc.internal.apache.arrow.vector.ipc.ArrowStreamReader;
+import net.snowflake.client.jdbc.internal.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 import net.snowflake.client.jdbc.internal.apache.arrow.vector.util.TransferPair;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.nio.channels.SeekableByteChannel;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +52,7 @@ public class SnowflakeArrowPageSource
     private final StarburstDataConversionContext conversionContext;
     private final ChunkFileFetcher fetcher;
     private final long splitRetainedSize;
-    private CompletableFuture<InputStream> downloadFuture;
+    private CompletableFuture<byte[]> downloadFuture;
     private long completedBytes;
     private boolean finished;
 
@@ -165,7 +166,9 @@ public class SnowflakeArrowPageSource
     public void close()
     {
         if (downloadFuture != null) {
-            downloadFuture.cancel(true);
+            if (!downloadFuture.isDone()) {
+                downloadFuture.cancel(true);
+            }
             downloadFuture = null;
         }
         closeAllocator();
@@ -197,10 +200,10 @@ public class SnowflakeArrowPageSource
         bufferAllocator.close();
     }
 
-    private CloseableArrowBatch decodeArrowInputStream(InputStream inputStream)
+    private CloseableArrowBatch decodeArrowInputStream(byte[] data)
             throws IOException
     {
-        try (ArrowStreamReader reader = new ArrowStreamReader(inputStream, bufferAllocator); VectorSchemaRoot vectorSchemaRoot = reader.getVectorSchemaRoot()) {
+        try (ArrowStreamReader reader = new ArrowStreamReader(wrap(data), bufferAllocator); VectorSchemaRoot vectorSchemaRoot = reader.getVectorSchemaRoot()) {
             ImmutableList.Builder<List<ValueVector>> batchBuilder = ImmutableList.builder();
             while (reader.loadNextBatch()) {
                 ImmutableList.Builder<ValueVector> vectorBuilder = ImmutableList.builderWithExpectedSize(vectorSchemaRoot.getFieldVectors().size());
@@ -216,6 +219,11 @@ public class SnowflakeArrowPageSource
             }
             return new CloseableArrowBatch(batchBuilder.build());
         }
+    }
+
+    private SeekableByteChannel wrap(byte[] data)
+    {
+        return new ByteArrayReadableSeekableByteChannel(data);
     }
 
     @SuppressWarnings("UnusedVariable") // error-prone false positive
