@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -110,10 +111,16 @@ public class SnowflakeArrowSplit
 
     public InputStream getInputStream(StarburstResultStreamProvider streamProvider)
     {
-        return fileUrl.map(url -> streamProvider.getInputStream(this))
-                .orElseGet(() -> new ByteArrayInputStream(
-                        Base64.getDecoder().decode(encodedArrowValue
-                                .orElseThrow(() -> new IllegalStateException("Either fileUrl or encodedArrowValue must be present in the split, but both are null!")))));
+        return fileUrl
+                .map(url -> streamProvider.getInputStream(this))
+                .orElseGet(decodeInlineData());
+    }
+
+    private Supplier<InputStream> decodeInlineData()
+    {
+        return () -> new ByteArrayInputStream(
+                Base64.getDecoder().decode(encodedArrowValue
+                        .orElseThrow(() -> new IllegalStateException("Either fileUrl or encodedArrowValue must be present in the split, but both are null!"))));
     }
 
     @JsonProperty
