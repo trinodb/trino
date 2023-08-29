@@ -36,7 +36,6 @@ import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Pair;
-import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.Arrays;
@@ -152,17 +151,19 @@ public class SqlParser
 
             ParserRuleContext tree;
             try {
-                // first, try parsing with potentially faster SLL mode
-                parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
-                tree = parseFunction.apply(parser);
-            }
-            catch (ParseCancellationException ex) {
-                // if we fail, parse with LL mode
-                tokenStream.seek(0); // rewind input stream
-                parser.reset();
+                try {
+                    // first, try parsing with potentially faster SLL mode
+                    parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
+                    tree = parseFunction.apply(parser);
+                }
+                catch (ParsingException ex) {
+                    // if we fail, parse with LL mode
+                    tokenStream.seek(0); // rewind input stream
+                    parser.reset();
 
-                parser.getInterpreter().setPredictionMode(PredictionMode.LL);
-                tree = parseFunction.apply(parser);
+                    parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+                    tree = parseFunction.apply(parser);
+                }
             }
             catch (ParsingException e) {
                 location.ifPresent(statementLocation -> {
