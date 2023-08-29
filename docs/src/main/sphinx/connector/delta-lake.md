@@ -1064,8 +1064,8 @@ with the `delta.hive-catalog-name` catalog configuration property.
 
 ### Performance tuning configuration properties
 
-The following table describes performance tuning catalog properties for the
-connector.
+The following table describes performance tuning catalog properties specific to
+the Delta Lake connector.
 
 :::{warning}
 Performance tuning configuration properties are considered expert-level
@@ -1125,14 +1125,6 @@ keep a backup of the original values if you change them.
         with small files. A higher value might improve performance for queries
         with highly skewed aggregations or joins.
       - ``0.05``
-    * - ``parquet.max-read-block-row-count``
-      - Sets the maximum number of rows read in a batch. The equivalent catalog
-        session property is ``parquet_max_read_block_row_count``.
-      - ``8192``
-    * - ``parquet.use-column-index``
-      - Skip reading Parquet pages by using Parquet column indices. The equivalent
-        catalog session property is ``parquet_use_column_index``.
-      - ``true``
     * - ``delta.projection-pushdown-enabled``
       - Read only projected fields from row columns while performing ``SELECT`` queries
       - ``true``
