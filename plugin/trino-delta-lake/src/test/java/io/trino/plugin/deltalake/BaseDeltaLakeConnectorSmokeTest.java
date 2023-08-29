@@ -440,7 +440,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         testDropTable(
                 "testdrop_databricks",
-                "io/trino/plugin/deltalake/testing/resources/databricks/nation");
+                "io/trino/plugin/deltalake/testing/resources/databricks73/nation");
     }
 
     @Test
@@ -476,7 +476,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testDropColumnNotSupported()
     {
-        registerTableFromResources("testdropcolumn", "io/trino/plugin/deltalake/testing/resources/databricks/nation", getQueryRunner());
+        registerTableFromResources("testdropcolumn", "io/trino/plugin/deltalake/testing/resources/databricks73/nation", getQueryRunner());
         assertQueryFails("ALTER TABLE testdropcolumn DROP COLUMN comment", "Cannot drop column from table using column mapping mode NONE");
     }
 
