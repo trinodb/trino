@@ -20,13 +20,20 @@ import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.Analyze;
+import io.trino.sql.tree.AssignmentStatement;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
+import io.trino.sql.tree.CaseStatement;
+import io.trino.sql.tree.CaseStatementWhenClause;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
+import io.trino.sql.tree.CommentCharacteristic;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.CompoundStatement;
+import io.trino.sql.tree.ControlStatement;
 import io.trino.sql.tree.CreateCatalog;
+import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
@@ -38,13 +45,17 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DeterministicCharacteristic;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropFunction;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
+import io.trino.sql.tree.ElseClause;
+import io.trino.sql.tree.ElseIfClause;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.ExecuteImmediate;
@@ -55,13 +66,16 @@ import io.trino.sql.tree.ExplainOption;
 import io.trino.sql.tree.ExplainType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FetchFirst;
+import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GrantRoles;
 import io.trino.sql.tree.GrantorSpecification;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.IfStatement;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.Intersect;
 import io.trino.sql.tree.Isolation;
+import io.trino.sql.tree.IterateStatement;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinCriteria;
 import io.trino.sql.tree.JoinOn;
@@ -69,9 +83,12 @@ import io.trino.sql.tree.JoinUsing;
 import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.JsonTableColumnDefinition;
 import io.trino.sql.tree.JsonTableDefaultPlan;
+import io.trino.sql.tree.LanguageCharacteristic;
 import io.trino.sql.tree.Lateral;
+import io.trino.sql.tree.LeaveStatement;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.Limit;
+import io.trino.sql.tree.LoopStatement;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
 import io.trino.sql.tree.MergeDelete;
@@ -80,9 +97,11 @@ import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.NestedColumns;
 import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NullInputCharacteristic;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.OrdinalityColumn;
+import io.trino.sql.tree.ParameterDeclaration;
 import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.PlanLeaf;
 import io.trino.sql.tree.PlanParentChild;
@@ -102,14 +121,19 @@ import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
+import io.trino.sql.tree.RepeatStatement;
 import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.ResetSessionAuthorization;
+import io.trino.sql.tree.ReturnStatement;
+import io.trino.sql.tree.ReturnsClause;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
+import io.trino.sql.tree.RoutineCharacteristic;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
+import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SetColumnType;
@@ -151,6 +175,8 @@ import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.Values;
+import io.trino.sql.tree.VariableDeclaration;
+import io.trino.sql.tree.WhileStatement;
 import io.trino.sql.tree.WithQuery;
 
 import java.util.ArrayList;
@@ -170,6 +196,7 @@ import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
 import static io.trino.sql.RowPatternFormatter.formatPattern;
 import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
+import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -613,6 +640,18 @@ public final class SqlFormatter
         @Override
         protected Void visitQuery(Query node, Integer indent)
         {
+            if (!node.getFunctions().isEmpty()) {
+                builder.append("WITH\n");
+                Iterator<FunctionSpecification> functions = node.getFunctions().iterator();
+                while (functions.hasNext()) {
+                    process(functions.next(), indent + 1);
+                    if (functions.hasNext()) {
+                        builder.append(',');
+                    }
+                    builder.append('\n');
+                }
+            }
+
             node.getWith().ifPresent(with -> {
                 append(indent, "WITH");
                 if (with.isRecursive()) {
@@ -2094,7 +2133,7 @@ public final class SqlFormatter
             builder.append("GRANT ");
 
             builder.append(node.getPrivileges()
-                    .map(privileges -> String.join(", ", privileges))
+                    .map(privileges -> join(", ", privileges))
                     .orElse("ALL PRIVILEGES"));
 
             builder.append(" ON ");
@@ -2117,7 +2156,7 @@ public final class SqlFormatter
             builder.append("DENY ");
 
             if (node.getPrivileges().isPresent()) {
-                builder.append(String.join(", ", node.getPrivileges().get()));
+                builder.append(join(", ", node.getPrivileges().get()));
             }
             else {
                 builder.append("ALL PRIVILEGES");
@@ -2145,7 +2184,7 @@ public final class SqlFormatter
             }
 
             builder.append(node.getPrivileges()
-                    .map(privileges -> String.join(", ", privileges))
+                    .map(privileges -> join(", ", privileges))
                     .orElse("ALL PRIVILEGES"));
 
             builder.append(" ON ");
@@ -2216,6 +2255,301 @@ public final class SqlFormatter
             return null;
         }
 
+        @Override
+        protected Void visitCreateFunction(CreateFunction node, Integer indent)
+        {
+            builder.append("CREATE ");
+            if (node.isReplace()) {
+                builder.append("OR REPLACE ");
+            }
+            process(node.getSpecification(), indent);
+            return null;
+        }
+
+        @Override
+        protected Void visitDropFunction(DropFunction node, Integer indent)
+        {
+            builder.append("DROP FUNCTION ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getName()));
+            processParameters(node.getParameters(), indent);
+            return null;
+        }
+
+        @Override
+        protected Void visitFunctionSpecification(FunctionSpecification node, Integer indent)
+        {
+            append(indent, "FUNCTION ")
+                    .append(formatName(node.getName()));
+            processParameters(node.getParameters(), indent);
+            builder.append("\n");
+            process(node.getReturnsClause(), indent);
+            builder.append("\n");
+            for (RoutineCharacteristic characteristic : node.getRoutineCharacteristics()) {
+                process(characteristic, indent);
+                builder.append("\n");
+            }
+            process(node.getStatement(), indent);
+            return null;
+        }
+
+        @Override
+        protected Void visitParameterDeclaration(ParameterDeclaration node, Integer indent)
+        {
+            node.getName().ifPresent(value ->
+                    builder.append(formatName(value)).append(" "));
+            builder.append(formatExpression(node.getType()));
+            return null;
+        }
+
+        @Override
+        protected Void visitLanguageCharacteristic(LanguageCharacteristic node, Integer indent)
+        {
+            append(indent, "LANGUAGE ")
+                    .append(formatName(node.getLanguage()));
+            return null;
+        }
+
+        @Override
+        protected Void visitDeterministicCharacteristic(DeterministicCharacteristic node, Integer indent)
+        {
+            append(indent, (node.isDeterministic() ? "" : "NOT ") + "DETERMINISTIC");
+            return null;
+        }
+
+        @Override
+        protected Void visitNullInputCharacteristic(NullInputCharacteristic node, Integer indent)
+        {
+            if (node.isCalledOnNull()) {
+                append(indent, "CALLED ON NULL INPUT");
+            }
+            else {
+                append(indent, "RETURNS NULL ON NULL INPUT");
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitSecurityCharacteristic(SecurityCharacteristic node, Integer indent)
+        {
+            append(indent, "SECURITY ")
+                    .append(node.getSecurity().name());
+            return null;
+        }
+
+        @Override
+        protected Void visitCommentCharacteristic(CommentCharacteristic node, Integer indent)
+        {
+            append(indent, "COMMENT ")
+                    .append(formatStringLiteral(node.getComment()));
+            return null;
+        }
+
+        @Override
+        protected Void visitReturnClause(ReturnsClause node, Integer indent)
+        {
+            append(indent, "RETURNS ")
+                    .append(formatExpression(node.getReturnType()));
+            return null;
+        }
+
+        @Override
+        protected Void visitReturnStatement(ReturnStatement node, Integer indent)
+        {
+            append(indent, "RETURN ")
+                    .append(formatExpression(node.getValue()));
+            return null;
+        }
+
+        @Override
+        protected Void visitCompoundStatement(CompoundStatement node, Integer indent)
+        {
+            append(indent, "BEGIN\n");
+            for (VariableDeclaration variableDeclaration : node.getVariableDeclarations()) {
+                process(variableDeclaration, indent + 1);
+                builder.append(";\n");
+            }
+            for (ControlStatement statement : node.getStatements()) {
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "END");
+            return null;
+        }
+
+        @Override
+        protected Void visitVariableDeclaration(VariableDeclaration node, Integer indent)
+        {
+            append(indent, "DECLARE ")
+                    .append(node.getNames().stream()
+                            .map(SqlFormatter::formatName)
+                            .collect(joining(", ")))
+                    .append(" ")
+                    .append(formatExpression(node.getType()));
+            if (node.getDefaultValue().isPresent()) {
+                builder.append(" DEFAULT ")
+                        .append(formatExpression(node.getDefaultValue().get()));
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitAssignmentStatement(AssignmentStatement node, Integer indent)
+        {
+            append(indent, "SET ");
+            builder.append(formatName(node.getTarget()))
+                    .append(" = ")
+                    .append(formatExpression(node.getValue()));
+            return null;
+        }
+
+        @Override
+        protected Void visitCaseStatement(CaseStatement node, Integer indent)
+        {
+            append(indent, "CASE");
+            if (node.getExpression().isPresent()) {
+                builder.append(" ")
+                        .append(formatExpression(node.getExpression().get()));
+            }
+            builder.append("\n");
+            for (CaseStatementWhenClause whenClause : node.getWhenClauses()) {
+                process(whenClause, indent + 1);
+            }
+            if (node.getElseClause().isPresent()) {
+                process(node.getElseClause().get(), indent + 1);
+            }
+            append(indent, "END CASE");
+            return null;
+        }
+
+        @Override
+        protected Void visitCaseStatementWhenClause(CaseStatementWhenClause node, Integer indent)
+        {
+            append(indent, "WHEN ")
+                    .append(formatExpression(node.getExpression()))
+                    .append(" THEN\n");
+            for (ControlStatement statement : node.getStatements()) {
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitIfStatement(IfStatement node, Integer indent)
+        {
+            append(indent, "IF ")
+                    .append(formatExpression(node.getExpression()))
+                    .append(" THEN\n");
+            for (ControlStatement statement : node.getStatements()) {
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            for (ElseIfClause elseIfClause : node.getElseIfClauses()) {
+                process(elseIfClause, indent);
+            }
+            if (node.getElseClause().isPresent()) {
+                process(node.getElseClause().get(), indent);
+            }
+            append(indent, "END IF");
+            return null;
+        }
+
+        @Override
+        protected Void visitElseIfClause(ElseIfClause node, Integer indent)
+        {
+            append(indent, "ELSEIF ")
+                    .append(formatExpression(node.getExpression()))
+                    .append(" THEN\n");
+            for (ControlStatement statement : node.getStatements()) {
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitElseClause(ElseClause node, Integer indent)
+        {
+            append(indent, "ELSE\n");
+            for (ControlStatement statement : node.getStatements()) {
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitIterateStatement(IterateStatement node, Integer indent)
+        {
+            append(indent, "ITERATE ")
+                    .append(formatName(node.getLabel()));
+            return null;
+        }
+
+        @Override
+        protected Void visitLeaveStatement(LeaveStatement node, Integer indent)
+        {
+            append(indent, "LEAVE ")
+                    .append(formatName(node.getLabel()));
+            return null;
+        }
+
+        @Override
+        protected Void visitLoopStatement(LoopStatement node, Integer indent)
+        {
+            builder.append(indentString(indent));
+            appendBeginLabel(node.getLabel());
+            builder.append("LOOP\n");
+            for (ControlStatement statement : node.getStatements()) {
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "END LOOP");
+            return null;
+        }
+
+        @Override
+        protected Void visitWhileStatement(WhileStatement node, Integer indent)
+        {
+            builder.append(indentString(indent));
+            appendBeginLabel(node.getLabel());
+            builder.append("WHILE ")
+                    .append(formatExpression(node.getExpression()))
+                    .append(" DO\n");
+            for (ControlStatement statement : node.getStatements()) {
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "END WHILE");
+            return null;
+        }
+
+        @Override
+        protected Void visitRepeatStatement(RepeatStatement node, Integer indent)
+        {
+            builder.append(indentString(indent));
+            appendBeginLabel(node.getLabel());
+            builder.append("REPEAT\n");
+            for (ControlStatement statement : node.getStatements()) {
+                process(statement, indent + 1);
+                builder.append(";\n");
+            }
+            append(indent, "UNTIL ")
+                    .append(formatExpression(node.getCondition()))
+                    .append("\n");
+            append(indent, "END REPEAT");
+            return null;
+        }
+
+        private void appendBeginLabel(Optional<Identifier> label)
+        {
+            label.ifPresent(value ->
+                    builder.append(formatName(value)).append(": "));
+        }
+
         private void processRelation(Relation relation, Integer indent)
         {
             // TODO: handle this properly
@@ -2227,6 +2561,19 @@ public final class SqlFormatter
             else {
                 process(relation, indent);
             }
+        }
+
+        private void processParameters(List<ParameterDeclaration> parameters, Integer indent)
+        {
+            builder.append("(");
+            Iterator<ParameterDeclaration> iterator = parameters.iterator();
+            while (iterator.hasNext()) {
+                process(iterator.next(), indent);
+                if (iterator.hasNext()) {
+                    builder.append(", ");
+                }
+            }
+            builder.append(")");
         }
 
         private SqlBuilder append(int indent, String value)

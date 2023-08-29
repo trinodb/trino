@@ -1517,6 +1517,8 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
+            verify(node.getFunctions().isEmpty(), "Inline functions not yet supported");
+
             Scope withScope = analyzeWith(node, scope);
             Scope queryBodyScope = process(node.getQueryBody(), withScope);
 

@@ -18,6 +18,7 @@ import io.trino.grammar.sql.SqlBaseLexer;
 import io.trino.grammar.sql.SqlBaseParser;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.PathSpecification;
@@ -112,6 +113,11 @@ public class SqlParser
     public RowPattern createRowPattern(String pattern)
     {
         return (RowPattern) invokeParser("row pattern", pattern, SqlBaseParser::standaloneRowPattern);
+    }
+
+    public FunctionSpecification createFunctionSpecification(String sql)
+    {
+        return (FunctionSpecification) invokeParser("function specification", sql, SqlBaseParser::standaloneFunctionSpecification);
     }
 
     private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction)
