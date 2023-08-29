@@ -19,6 +19,7 @@ sql/analyze
 sql/call
 sql/comment
 sql/commit
+sql/create-function
 sql/create-materialized-view
 sql/create-role
 sql/create-schema
@@ -31,6 +32,7 @@ sql/deny
 sql/describe
 sql/describe-input
 sql/describe-output
+sql/drop-function
 sql/drop-materialized-view
 sql/drop-role
 sql/drop-schema
