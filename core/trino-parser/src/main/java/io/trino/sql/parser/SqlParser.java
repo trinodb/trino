@@ -23,6 +23,7 @@ import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.PathSpecification;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.Statement;
+import org.antlr.v4.runtime.ANTLRErrorListener;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonToken;
@@ -48,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 
 public class SqlParser
 {
-    private static final BaseErrorListener LEXER_ERROR_LISTENER = new BaseErrorListener()
+    private static final ANTLRErrorListener LEXER_ERROR_LISTENER = new BaseErrorListener()
     {
         @Override
         public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
