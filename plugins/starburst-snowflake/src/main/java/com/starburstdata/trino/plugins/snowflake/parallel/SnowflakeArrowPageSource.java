@@ -21,8 +21,15 @@ import net.snowflake.client.core.SFException;
 import net.snowflake.client.core.arrow.ArrowVectorConverter;
 import net.snowflake.client.jdbc.internal.apache.arrow.memory.BufferAllocator;
 import net.snowflake.client.jdbc.internal.apache.arrow.memory.RootAllocator;
+import net.snowflake.client.jdbc.internal.apache.arrow.vector.FieldVector;
 import net.snowflake.client.jdbc.internal.apache.arrow.vector.ValueVector;
+import net.snowflake.client.jdbc.internal.apache.arrow.vector.VectorSchemaRoot;
+import net.snowflake.client.jdbc.internal.apache.arrow.vector.ipc.ArrowStreamReader;
+import net.snowflake.client.jdbc.internal.apache.arrow.vector.util.TransferPair;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,8 +51,7 @@ public class SnowflakeArrowPageSource
     private final StarburstDataConversionContext conversionContext;
     private final ChunkFileFetcher fetcher;
     private final long splitRetainedSize;
-    private List<List<ValueVector>> batchOfVectors;
-    private CompletableFuture<List<List<ValueVector>>> future;
+    private CompletableFuture<InputStream> downloadFuture;
     private long completedBytes;
     private boolean finished;
 
@@ -74,7 +80,7 @@ public class SnowflakeArrowPageSource
                 decimalColumnScales,
                 split.getResultVersion());
 
-        this.fetcher = new ChunkFileFetcher(requireNonNull(streamProvider, "streamProvider is null"), bufferAllocator, split);
+        this.fetcher = new ChunkFileFetcher(requireNonNull(streamProvider, "streamProvider is null"), split);
     }
 
     @Override
@@ -98,7 +104,7 @@ public class SnowflakeArrowPageSource
     @Override
     public CompletableFuture<?> isBlocked()
     {
-        return future == null ? NOT_BLOCKED : future;
+        return downloadFuture == null ? NOT_BLOCKED : downloadFuture;
     }
 
     @Override
@@ -108,18 +114,17 @@ public class SnowflakeArrowPageSource
 
         // getNextPage is not called concurrently hence there is no need for synchronization here
         if (!fetcher.startedFetching()) {
-            this.future = fetcher.startFetching();
+            this.downloadFuture = fetcher.startFetching();
             return null;
         }
-        if (!future.isDone()) {
+        if (!downloadFuture.isDone()) {
             return null;
         }
 
-        try {
-            batchOfVectors = future.get();
-            for (List<ValueVector> vectors : batchOfVectors) {
+        try (CloseableArrowBatch batch = decodeArrowInputStream(downloadFuture.get())) {
+            for (List<ValueVector> vectors : batch.batch()) {
                 int columnCount = columns.size();
-                checkState(vectors.size() > 0, "There must be at least one vector in the batch of vectors");
+                checkState(!vectors.isEmpty(), "There must be at least one vector in the batch of vectors");
                 pageBuilder.declarePositions(vectors.get(0).getValueCount());
                 Map<Integer, Integer> columnToVectorOrder = buildColumnOrder(vectors);
                 for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
@@ -128,6 +133,9 @@ public class SnowflakeArrowPageSource
                 }
             }
         }
+        catch (IOException e) {
+            throw new TrinoException(JDBC_ERROR, "Failed reading Arrow stream", e);
+        }
         catch (SFException e) {
             throw new TrinoException(JDBC_ERROR, "Couldn't write Snowflake blocks", e);
         }
@@ -135,7 +143,7 @@ public class SnowflakeArrowPageSource
             throw new TrinoException(JDBC_ERROR, "Couldn't fetch chunk files", e);
         }
         finally {
-            freeData();
+            closeAllocator();
         }
 
         Page page = pageBuilder.build();
@@ -156,19 +164,11 @@ public class SnowflakeArrowPageSource
     @Override
     public void close()
     {
-        if (future != null) {
-            future.cancel(true);
+        if (downloadFuture != null) {
+            downloadFuture.cancel(true);
+            downloadFuture = null;
         }
-        freeData();
-    }
-
-    private void freeData()
-    {
-        if (batchOfVectors != null) {
-            batchOfVectors.forEach(list -> list.forEach(ValueVector::close));
-            batchOfVectors.clear();
-        }
-        bufferAllocator.close();
+        closeAllocator();
     }
 
     private BlockWriter createWriter(ValueVector vector, int columnIndex)
@@ -190,5 +190,44 @@ public class SnowflakeArrowPageSource
             columnToVectorOrder.put(columns.indexOf(column), vectors.indexOf(vector));
         }
         return columnToVectorOrder;
+    }
+
+    private void closeAllocator()
+    {
+        bufferAllocator.close();
+    }
+
+    private CloseableArrowBatch decodeArrowInputStream(InputStream is)
+            throws IOException
+    {
+        List<List<ValueVector>> batchOfVectors = new ArrayList<>();
+        try (ArrowStreamReader reader = new ArrowStreamReader(is, bufferAllocator); VectorSchemaRoot vectorSchemaRoot = reader.getVectorSchemaRoot()) {
+            while (reader.loadNextBatch()) {
+                ArrayList<ValueVector> valueVectors = new ArrayList<>();
+                for (FieldVector fieldVector : vectorSchemaRoot.getFieldVectors()) {
+                    // transfer will not copy data but transfer ownership of memory, otherwise values will be gone
+                    // once reader is gone
+                    TransferPair transferPair = fieldVector.getTransferPair(bufferAllocator);
+                    transferPair.transfer();
+                    valueVectors.add(transferPair.getTo());
+                }
+                batchOfVectors.add(valueVectors);
+                vectorSchemaRoot.clear();
+            }
+            return new CloseableArrowBatch(batchOfVectors);
+        }
+    }
+
+    @SuppressWarnings("UnusedVariable") // error-prone false positive
+    private record CloseableArrowBatch(List<List<ValueVector>> batch)
+            implements AutoCloseable
+    {
+        @Override
+        public void close()
+        {
+            for (List<ValueVector> vectors : batch) {
+                vectors.forEach(ValueVector::close);
+            }
+        }
     }
 }

@@ -9,36 +9,22 @@
  */
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
-import io.trino.spi.TrinoException;
-import net.snowflake.client.jdbc.internal.apache.arrow.memory.BufferAllocator;
-import net.snowflake.client.jdbc.internal.apache.arrow.vector.FieldVector;
-import net.snowflake.client.jdbc.internal.apache.arrow.vector.ValueVector;
-import net.snowflake.client.jdbc.internal.apache.arrow.vector.VectorSchemaRoot;
-import net.snowflake.client.jdbc.internal.apache.arrow.vector.ipc.ArrowStreamReader;
-import net.snowflake.client.jdbc.internal.apache.arrow.vector.util.TransferPair;
-
-import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class ChunkFileFetcher
 {
     private final StarburstResultStreamProvider streamProvider;
-    private final BufferAllocator bufferAllocator;
     private final SnowflakeArrowSplit split;
     private long readTimeNanos;
-    private CompletableFuture<List<List<ValueVector>>> future;
+    private CompletableFuture<InputStream> future;
 
-    public ChunkFileFetcher(StarburstResultStreamProvider streamProvider, BufferAllocator bufferAllocator, SnowflakeArrowSplit split)
+    public ChunkFileFetcher(StarburstResultStreamProvider streamProvider, SnowflakeArrowSplit split)
     {
         this.streamProvider = requireNonNull(streamProvider, "streamProvider is null");
-        this.bufferAllocator = requireNonNull(bufferAllocator, "bufferAllocator is null");
         this.split = requireNonNull(split, "split is null");
     }
 
@@ -52,43 +38,15 @@ public class ChunkFileFetcher
         return future != null;
     }
 
-    public CompletableFuture<List<List<ValueVector>>> startFetching()
+    public CompletableFuture<InputStream> startFetching()
     {
         checkState(future == null, "future is not null at the beginning of fetching");
         future = CompletableFuture.supplyAsync(() -> {
-            try {
-                long start = System.nanoTime();
-                InputStream inputStream = split.getInputStream(requireNonNull(streamProvider, "starburstResultStreamProvider is null"));
-                List<List<ValueVector>> batchOfVectors = readArrowStream(inputStream);
-                readTimeNanos = System.nanoTime() - start;
-                return batchOfVectors;
-            }
-            catch (IOException e) {
-                throw new TrinoException(JDBC_ERROR, "Failed reading Arrow stream", e);
-            }
+            long start = System.nanoTime();
+            InputStream inputStream = split.getInputStream(requireNonNull(streamProvider, "starburstResultStreamProvider is null"));
+            readTimeNanos = System.nanoTime() - start;
+            return inputStream;
         });
         return future;
-    }
-
-    private List<List<ValueVector>> readArrowStream(InputStream is)
-            throws IOException
-    {
-        List<List<ValueVector>> batchOfVectors = new ArrayList<>();
-        try (ArrowStreamReader reader = new ArrowStreamReader(is, bufferAllocator);
-                VectorSchemaRoot vectorSchemaRoot = reader.getVectorSchemaRoot()) {
-            while (reader.loadNextBatch()) {
-                ArrayList<ValueVector> valueVectors = new ArrayList<>();
-                for (FieldVector fieldVector : vectorSchemaRoot.getFieldVectors()) {
-                    // transfer will not copy data but transfer ownership of memory, otherwise values will be gone
-                    // once reader is gone
-                    TransferPair transferPair = fieldVector.getTransferPair(bufferAllocator);
-                    transferPair.transfer();
-                    valueVectors.add(transferPair.getTo());
-                }
-                batchOfVectors.add(valueVectors);
-                vectorSchemaRoot.clear();
-            }
-            return batchOfVectors;
-        }
     }
 }
