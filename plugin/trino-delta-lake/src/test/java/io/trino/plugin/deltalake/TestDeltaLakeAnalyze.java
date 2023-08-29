@@ -929,7 +929,7 @@ public class TestDeltaLakeAnalyze
     public void testNoStats()
             throws Exception
     {
-        String tableName = copyResourcesAndRegisterTable("no_stats");
+        String tableName = copyResourcesAndRegisterTable("no_stats", "trino410/no_stats");
         String expectedData = "VALUES (42, 'foo'), (12, 'ab'), (null, null), (15, 'cd'), (15, 'bar')";
 
         assertQuery("SELECT * FROM " + tableName, expectedData);
@@ -962,7 +962,7 @@ public class TestDeltaLakeAnalyze
     public void testNoColumnStats()
             throws Exception
     {
-        String tableName = copyResourcesAndRegisterTable("no_column_stats");
+        String tableName = copyResourcesAndRegisterTable("no_column_stats", "databricks73/no_column_stats");
         assertQuery("SELECT * FROM " + tableName, "VALUES (42, 'foo')");
 
         assertUpdate("ANALYZE " + tableName, 1);
@@ -982,7 +982,7 @@ public class TestDeltaLakeAnalyze
     public void testNoColumnStatsMixedCase()
             throws Exception
     {
-        String tableName = copyResourcesAndRegisterTable("no_column_stats_mixed_case");
+        String tableName = copyResourcesAndRegisterTable("no_column_stats_mixed_case", "databricks104/no_column_stats_mixed_case");
         String tableLocation = getTableLocation(tableName);
         assertQuery("SELECT * FROM " + tableName, "VALUES (11, 'a'), (2, 'b'), (null, null)");
 
@@ -1013,7 +1013,7 @@ public class TestDeltaLakeAnalyze
     public void testPartiallyNoStats()
             throws Exception
     {
-        String tableName = copyResourcesAndRegisterTable("no_stats");
+        String tableName = copyResourcesAndRegisterTable("no_stats", "trino410/no_stats");
         // Add additional transaction log entry with statistics
         assertUpdate("INSERT INTO " + tableName + " VALUES (1,'a'), (12,'b')", 2);
         assertQuery("SELECT * FROM " + tableName, " VALUES (42, 'foo'), (12, 'ab'), (null, null), (15, 'cd'), (15, 'bar'), (1, 'a'), (12, 'b')");
@@ -1038,7 +1038,7 @@ public class TestDeltaLakeAnalyze
     public void testNoStatsPartitionedTable()
             throws Exception
     {
-        String tableName = copyResourcesAndRegisterTable("no_stats_partitions");
+        String tableName = copyResourcesAndRegisterTable("no_stats_partitions", "trino410/no_stats_partitions");
         assertQuery("SELECT * FROM " + tableName,
                 """
                         VALUES
@@ -1067,7 +1067,7 @@ public class TestDeltaLakeAnalyze
     public void testNoStatsVariousTypes()
             throws Exception
     {
-        String tableName = copyResourcesAndRegisterTable("no_stats_various_types");
+        String tableName = copyResourcesAndRegisterTable("no_stats_various_types", "trino410/no_stats_various_types");
         assertQuery("SELECT c_boolean, c_tinyint, c_smallint, c_integer, c_bigint, c_real, c_double, c_decimal1, c_decimal2, c_date1, CAST(c_timestamp AS TIMESTAMP), c_varchar1, c_varchar2, c_varbinary FROM " + tableName,
                 """
                         VALUES
@@ -1106,7 +1106,7 @@ public class TestDeltaLakeAnalyze
     public void testNoStatsWithColumnMappingModeId()
             throws Exception
     {
-        String tableName = copyResourcesAndRegisterTable("no_stats_column_mapping_id");
+        String tableName = copyResourcesAndRegisterTable("no_stats_column_mapping_id", "databricks104/no_stats_column_mapping_id");
 
         assertQuery("SELECT * FROM " + tableName, " VALUES (42, 'foo'), (1, 'a'), (2, 'b'), (null, null)");
 
@@ -1123,12 +1123,12 @@ public class TestDeltaLakeAnalyze
         cleanExternalTable(tableName);
     }
 
-    private String copyResourcesAndRegisterTable(String resourceTable)
+    private String copyResourcesAndRegisterTable(String resourceTable, String resourcePath)
             throws IOException, URISyntaxException
     {
         Path tableLocation = Files.createTempDirectory(null);
         String tableName = resourceTable + randomNameSuffix();
-        URI resourcesLocation = getClass().getClassLoader().getResource("databricks/" + resourceTable).toURI();
+        URI resourcesLocation = getClass().getClassLoader().getResource(resourcePath).toURI();
         copyDirectoryContents(Path.of(resourcesLocation), tableLocation);
         assertUpdate(format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
         return tableName;

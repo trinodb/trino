@@ -99,7 +99,7 @@ public class TestDeltaLakeReadTimestamps
     @BeforeClass
     public void registerTables()
     {
-        String dataPath = getClass().getClassLoader().getResource("databricks/read_timestamps").toExternalForm();
+        String dataPath = getClass().getClassLoader().getResource("databricks73/read_timestamps").toExternalForm();
         getQueryRunner().execute(format("CALL system.register_table('%s', 'read_timestamps', '%s')", getSession().getSchema().orElseThrow(), dataPath));
     }
 
