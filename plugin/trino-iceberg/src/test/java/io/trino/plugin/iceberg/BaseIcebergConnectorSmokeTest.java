@@ -611,8 +611,11 @@ public abstract class BaseIcebergConnectorSmokeTest
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_metadata_tables",
-                "(id int, part varchar) WITH (partitioning = ARRAY['part'])",
-                ImmutableList.of("1, 'p1'", "2, 'p1'", "3, 'p2'"))) {
+                "(id int, part varchar) WITH (partitioning = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'p1')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'p1')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 'p2')", 1);
+
             List<Long> snapshotIds = computeActual("SELECT snapshot_id FROM \"" + table.getName() + "$snapshots\" ORDER BY committed_at DESC")
                     .getOnlyColumn()
                     .map(Long.class::cast)
