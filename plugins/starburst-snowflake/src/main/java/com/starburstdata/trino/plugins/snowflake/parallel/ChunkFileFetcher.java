@@ -37,9 +37,9 @@ public class ChunkFileFetcher
 
     public ChunkFileFetcher(StarburstResultStreamProvider streamProvider, BufferAllocator bufferAllocator, SnowflakeArrowSplit split)
     {
-        this.streamProvider = streamProvider;
-        this.bufferAllocator = bufferAllocator;
-        this.split = split;
+        this.streamProvider = requireNonNull(streamProvider, "streamProvider is null");
+        this.bufferAllocator = requireNonNull(bufferAllocator, "bufferAllocator is null");
+        this.split = requireNonNull(split, "split is null");
     }
 
     public long getReadTimeNanos()
