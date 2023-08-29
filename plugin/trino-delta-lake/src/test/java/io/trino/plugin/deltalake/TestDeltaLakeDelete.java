@@ -86,7 +86,7 @@ public class TestDeltaLakeDelete
     {
         testDeleteMultiFile(
                 "multi_file_databricks" + randomNameSuffix(),
-                "io/trino/plugin/deltalake/testing/resources/databricks");
+                "io/trino/plugin/deltalake/testing/resources/databricks73");
     }
 
     @Test
@@ -168,7 +168,7 @@ public class TestDeltaLakeDelete
         String tableName = "test_delete_all_databricks" + randomNameSuffix();
         Set<String> originalFiles = testDeleteAllAndReturnInitialDataLakeFilesSet(
                 tableName,
-                "io/trino/plugin/deltalake/testing/resources/databricks");
+                "io/trino/plugin/deltalake/testing/resources/databricks73");
 
         Set<String> expected = ImmutableSet.<String>builder()
                 .addAll(originalFiles)
