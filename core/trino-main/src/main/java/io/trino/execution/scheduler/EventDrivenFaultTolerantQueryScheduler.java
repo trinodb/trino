@@ -159,6 +159,7 @@ import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrd
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
 import static io.trino.execution.scheduler.SchedulingUtils.canStream;
+import static io.trino.execution.scheduler.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.TaskExecutionClass.SPECULATIVE;
 import static io.trino.execution.scheduler.TaskExecutionClass.STANDARD;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
@@ -899,7 +900,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 if (stageExecution == null) {
                     IsReadyForExecutionResult result = isReadyForExecutionCache.computeIfAbsent(subPlan, ignored -> isReadyForExecution(subPlan));
                     if (result.isReadyForExecution()) {
-                        createStageExecution(subPlan, fragmentId.equals(rootFragmentId), result.getSourceOutputSizeEstimates(), nextSchedulingPriority++);
+                        createStageExecution(subPlan, fragmentId.equals(rootFragmentId), result.getSourceOutputSizeEstimates(), nextSchedulingPriority++, result.isEager());
                     }
                 }
                 if (stageExecution != null && stageExecution.getState().equals(StageState.FINISHED) && !stageExecution.isExchangeClosed()) {
@@ -920,20 +921,21 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             private final boolean readyForExecution;
             private final Optional<Map<StageId, OutputDataSizeEstimate>> sourceOutputSizeEstimates;
+            private final boolean eager;
 
             @CheckReturnValue
-            public static IsReadyForExecutionResult ready(Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates)
+            public static IsReadyForExecutionResult ready(Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates, boolean eager)
             {
-                return new IsReadyForExecutionResult(true, Optional.of(sourceOutputSizeEstimates));
+                return new IsReadyForExecutionResult(true, Optional.of(sourceOutputSizeEstimates), eager);
             }
 
             @CheckReturnValue
             public static IsReadyForExecutionResult notReady()
             {
-                return new IsReadyForExecutionResult(false, Optional.empty());
+                return new IsReadyForExecutionResult(false, Optional.empty(), false);
             }
 
-            private IsReadyForExecutionResult(boolean readyForExecution, Optional<Map<StageId, OutputDataSizeEstimate>> sourceOutputSizeEstimates)
+            private IsReadyForExecutionResult(boolean readyForExecution, Optional<Map<StageId, OutputDataSizeEstimate>> sourceOutputSizeEstimates, boolean eager)
             {
                 requireNonNull(sourceOutputSizeEstimates, "sourceOutputSizeEstimates is null");
                 if (readyForExecution) {
@@ -944,6 +946,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 }
                 this.readyForExecution = readyForExecution;
                 this.sourceOutputSizeEstimates = sourceOutputSizeEstimates.map(ImmutableMap::copyOf);
+                this.eager = eager;
             }
 
             public boolean isReadyForExecution()
@@ -954,6 +957,11 @@ public class EventDrivenFaultTolerantQueryScheduler
             public Map<StageId, OutputDataSizeEstimate> getSourceOutputSizeEstimates()
             {
                 return sourceOutputSizeEstimates.orElseThrow();
+            }
+
+            public boolean isEager()
+            {
+                return eager;
             }
         }
 
@@ -1042,7 +1050,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         estimatedByProgressSourcesCount,
                         estimatedBySmallInputSourcesCount);
             }
-            return IsReadyForExecutionResult.ready(sourceOutputSizeEstimates.buildOrThrow());
+            return IsReadyForExecutionResult.ready(sourceOutputSizeEstimates.buildOrThrow(), false);
         }
 
         /**
@@ -1078,7 +1086,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
         }
 
-        private void createStageExecution(SubPlan subPlan, boolean rootFragment, Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates, int schedulingPriority)
+        private void createStageExecution(SubPlan subPlan, boolean rootFragment, Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates, int schedulingPriority, boolean eager)
         {
             Closer closer = Closer.create();
 
@@ -1162,6 +1170,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         // do not retry coordinator only tasks
                         coordinatorStage ? 1 : maxTaskExecutionAttempts,
                         schedulingPriority,
+                        eager,
                         dynamicFilterService,
                         minSourceStageProgress,
                         smallStageEstimationEnabled,
@@ -1223,18 +1232,22 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             long standardTasksWaitingForNode = getWaitingForNodeTasksCount(STANDARD);
             long speculativeTasksWaitingForNode = getWaitingForNodeTasksCount(SPECULATIVE);
+            long eagerSpeculativeTasksWaitingForNode = getWaitingForNodeTasksCount(EAGER_SPECULATIVE);
 
             while (!schedulingQueue.isEmpty()) {
                 PrioritizedScheduledTask scheduledTask;
-                if (schedulingQueue.getTaskCount(STANDARD) > 0) {
+
+                if (schedulingQueue.getTaskCount(EAGER_SPECULATIVE) > 0 && eagerSpeculativeTasksWaitingForNode < maxTasksWaitingForNode) {
+                    scheduledTask = schedulingQueue.pollOrThrow(EAGER_SPECULATIVE);
+                }
+                else if (schedulingQueue.getTaskCount(STANDARD) > 0) {
                     // schedule STANDARD tasks if available
                     if (standardTasksWaitingForNode >= maxTasksWaitingForNode) {
                         break;
                     }
                     scheduledTask = schedulingQueue.pollOrThrow(STANDARD);
                 }
-                else {
-                    verify(schedulingQueue.getTaskCount(SPECULATIVE) > 0);
+                else if (schedulingQueue.getTaskCount(SPECULATIVE) > 0) {
                     if (standardTasksWaitingForNode > 0) {
                         // do not handle any speculative tasks if there are non-speculative waiting
                         break;
@@ -1245,6 +1258,10 @@ public class EventDrivenFaultTolerantQueryScheduler
                     }
                     // we can schedule one more speculative task
                     scheduledTask = schedulingQueue.pollOrThrow(SPECULATIVE);
+                }
+                else {
+                    // cannot schedule anything more right now
+                    break;
                 }
 
                 StageExecution stageExecution = getStageExecution(scheduledTask.task().stageId());
@@ -1262,11 +1279,11 @@ public class EventDrivenFaultTolerantQueryScheduler
                 lease.getNode().addListener(() -> eventQueue.add(Event.WAKE_UP), queryExecutor);
                 preSchedulingTaskContexts.put(scheduledTask.task(), new PreSchedulingTaskContext(lease, scheduledTask.getExecutionClass()));
 
-                if (scheduledTask.getExecutionClass() == SPECULATIVE) {
-                    speculativeTasksWaitingForNode++;
-                }
-                else {
-                    standardTasksWaitingForNode++;
+                switch (scheduledTask.getExecutionClass()) {
+                    case STANDARD -> standardTasksWaitingForNode++;
+                    case SPECULATIVE -> speculativeTasksWaitingForNode++;
+                    case EAGER_SPECULATIVE -> eagerSpeculativeTasksWaitingForNode++;
+                    default -> throw new IllegalArgumentException("Unknown execution class " + scheduledTask.getExecutionClass());
                 }
             }
         }
@@ -1550,6 +1567,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final PartitionMemoryEstimator partitionMemoryEstimator;
         private final int maxTaskExecutionAttempts;
         private final int schedulingPriority;
+        private final boolean eager;
         private final DynamicFilterService dynamicFilterService;
         private final long[] outputDataSize;
 
@@ -1587,6 +1605,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 PartitionMemoryEstimator partitionMemoryEstimator,
                 int maxTaskExecutionAttempts,
                 int schedulingPriority,
+                boolean eager,
                 DynamicFilterService dynamicFilterService,
                 double minSourceStageProgress,
                 boolean smallStageEstimationEnabled,
@@ -1605,6 +1624,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
             this.maxTaskExecutionAttempts = maxTaskExecutionAttempts;
             this.schedulingPriority = schedulingPriority;
+            this.eager = eager;
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             outputDataSize = new long[sinkPartitioningScheme.getPartitionCount()];
             sinkOutputSelectorBuilder = ExchangeSourceOutputSelector.builder(ImmutableSet.of(exchange.getId()));
@@ -1705,7 +1725,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             partition.addSplits(planNodeId, splits, noMoreSplits);
             if (readyForScheduling && !partition.isTaskScheduled()) {
                 partition.setTaskScheduled(true);
-                return Optional.of(PrioritizedScheduledTask.createSpeculative(stage.getStageId(), partitionId, schedulingPriority));
+                return Optional.of(PrioritizedScheduledTask.createSpeculative(stage.getStageId(), partitionId, schedulingPriority, eager));
             }
             return Optional.empty();
         }
@@ -2596,9 +2616,9 @@ public class EventDrivenFaultTolerantQueryScheduler
             return new PrioritizedScheduledTask(new ScheduledTask(stageId, partitionId), STANDARD, priority);
         }
 
-        public static PrioritizedScheduledTask createSpeculative(StageId stageId, int partitionId, int priority)
+        public static PrioritizedScheduledTask createSpeculative(StageId stageId, int partitionId, int priority, boolean eager)
         {
-            return new PrioritizedScheduledTask(new ScheduledTask(stageId, partitionId), SPECULATIVE, priority);
+            return new PrioritizedScheduledTask(new ScheduledTask(stageId, partitionId), eager ? EAGER_SPECULATIVE : SPECULATIVE, priority);
         }
 
         public TaskExecutionClass getExecutionClass()
@@ -2632,6 +2652,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.queues = ImmutableMap.<TaskExecutionClass, IndexedPriorityQueue<ScheduledTask>>builder()
                     .put(STANDARD, new IndexedPriorityQueue<>(LOW_TO_HIGH))
                     .put(SPECULATIVE, new IndexedPriorityQueue<>(LOW_TO_HIGH))
+                    .put(EAGER_SPECULATIVE, new IndexedPriorityQueue<>(LOW_TO_HIGH))
                     .buildOrThrow();
         }
 
