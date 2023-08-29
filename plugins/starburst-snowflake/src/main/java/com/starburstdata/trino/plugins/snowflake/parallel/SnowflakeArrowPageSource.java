@@ -9,6 +9,7 @@
  */
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
+import com.google.common.collect.ImmutableList;
 import com.starburstdata.trino.plugins.snowflake.parallel.writer.BlockWriter;
 import com.starburstdata.trino.plugins.snowflake.parallel.writer.BlockWriterFactory;
 import com.starburstdata.trino.plugins.snowflake.parallel.writer.ConverterFactory;
@@ -29,7 +30,6 @@ import net.snowflake.client.jdbc.internal.apache.arrow.vector.util.TransferPair;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -200,21 +200,21 @@ public class SnowflakeArrowPageSource
     private CloseableArrowBatch decodeArrowInputStream(InputStream is)
             throws IOException
     {
-        List<List<ValueVector>> batchOfVectors = new ArrayList<>();
         try (ArrowStreamReader reader = new ArrowStreamReader(is, bufferAllocator); VectorSchemaRoot vectorSchemaRoot = reader.getVectorSchemaRoot()) {
+            ImmutableList.Builder<List<ValueVector>> batchBuilder = ImmutableList.builder();
             while (reader.loadNextBatch()) {
-                ArrayList<ValueVector> valueVectors = new ArrayList<>();
+                ImmutableList.Builder<ValueVector> vectorBuilder = ImmutableList.builderWithExpectedSize(vectorSchemaRoot.getFieldVectors().size());
                 for (FieldVector fieldVector : vectorSchemaRoot.getFieldVectors()) {
                     // transfer will not copy data but transfer ownership of memory, otherwise values will be gone
                     // once reader is gone
                     TransferPair transferPair = fieldVector.getTransferPair(bufferAllocator);
                     transferPair.transfer();
-                    valueVectors.add(transferPair.getTo());
+                    vectorBuilder.add(transferPair.getTo());
                 }
-                batchOfVectors.add(valueVectors);
+                batchBuilder.add(vectorBuilder.build());
                 vectorSchemaRoot.clear();
             }
-            return new CloseableArrowBatch(batchOfVectors);
+            return new CloseableArrowBatch(batchBuilder.build());
         }
     }
 
