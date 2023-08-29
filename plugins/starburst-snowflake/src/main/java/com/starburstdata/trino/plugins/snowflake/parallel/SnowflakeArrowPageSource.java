@@ -54,15 +54,27 @@ public class SnowflakeArrowPageSource
     {
         this.split = requireNonNull(split, "split is null");
         this.columns = requireNonNull(columns, "columns is null");
+
         this.pageBuilder = new PageBuilder(columns.stream()
                 .map(JdbcColumnHandle::getColumnType)
                 .collect(toImmutableList()));
+
         this.bufferAllocator = ROOT_ALLOCATOR.newChildAllocator(
                 "pageSourceAllocator" + new Random().nextInt(Integer.MAX_VALUE),
                 split.getUncompressedByteSize() == 0 ? 1024 : split.getUncompressedByteSize(),
                 Long.MAX_VALUE);
-        int[] decimalColumnScales = columns.stream().map(column -> column.getJdbcTypeHandle().getDecimalDigits().orElse(0)).mapToInt(Integer::intValue).toArray();
-        this.conversionContext = new StarburstDataConversionContext(split.getSnowflakeSessionParameters(), decimalColumnScales, split.getResultVersion());
+
+        int[] decimalColumnScales = columns.stream()
+                .map(column -> column.getJdbcTypeHandle().getDecimalDigits()
+                        .orElse(0))
+                .mapToInt(Integer::intValue)
+                .toArray();
+
+        this.conversionContext = new StarburstDataConversionContext(
+                split.getSnowflakeSessionParameters(),
+                decimalColumnScales,
+                split.getResultVersion());
+
         this.fetcher = new ChunkFileFetcher(requireNonNull(streamProvider, "streamProvider is null"), bufferAllocator, split);
     }
 
