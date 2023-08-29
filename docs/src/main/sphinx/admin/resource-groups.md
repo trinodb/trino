@@ -129,7 +129,7 @@ are reflected automatically for incoming queries.
   - `query_priority`: all sub-groups must also be configured with `query_priority`.
     Queued queries are selected strictly according to their priority.
 
-- `schedulingWeight` (optional): weight of this sub-group used in `weight`
+- `schedulingWeight` (optional): weight of this sub-group used in `weighted`
   and the `weighted_fair` scheduling policy. Defaults to `1`. See
   {ref}`scheduleweight-example`.
 
