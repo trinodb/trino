@@ -40,7 +40,6 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.testing.CountingMockConnector;
-import io.trino.testing.CountingMockConnector.MetadataCallsCount;
 import io.trino.type.ColorType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -68,6 +67,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertContains;
@@ -83,6 +83,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -1023,8 +1024,7 @@ public class TestTrinoDatabaseMetaData
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getSchemas(null, null),
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1));
+                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
         // Equality predicate on catalog name
         assertMetadataCalls(
@@ -1036,8 +1036,7 @@ public class TestTrinoDatabaseMetaData
                         list(COUNTING_CATALOG, "information_schema"),
                         list(COUNTING_CATALOG, "test_schema1"),
                         list(COUNTING_CATALOG, "test_schema2")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1));
+                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
         // Equality predicate on schema name
         assertMetadataCalls(
@@ -1048,8 +1047,7 @@ public class TestTrinoDatabaseMetaData
                 list(
                         list(COUNTING_CATALOG, "test_schema1"),
                         list(COUNTING_CATALOG, "test_schema2")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1));
+                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
         // LIKE predicate on schema name
         assertMetadataCalls(
@@ -1058,8 +1056,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, "test_sch_ma1"),
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
                 list(list(COUNTING_CATALOG, "test_schema1")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1));
+                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
         // Empty schema name
         assertMetadataCalls(
@@ -1068,8 +1065,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, ""),
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
                 list(),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1));
+                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
         // catalog does not exist
         assertMetadataCalls(
@@ -1078,7 +1074,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getSchemas("wrong", null),
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
                 list(),
-                new MetadataCallsCount());
+                ImmutableMultiset.of());
     }
 
     @Test
@@ -1093,9 +1089,10 @@ public class TestTrinoDatabaseMetaData
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(null, null, null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listViews")
+                        .add("ConnectorMetadata.listTables")
+                        .build());
 
         // Equality predicate on catalog name
         assertMetadataCalls(
@@ -1103,9 +1100,10 @@ public class TestTrinoDatabaseMetaData
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, null, null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listViews")
+                        .add("ConnectorMetadata.listTables")
+                        .build());
 
         // Equality predicate on schema name
         assertMetadataCalls(
@@ -1117,8 +1115,10 @@ public class TestTrinoDatabaseMetaData
                         .filter(schemaTableName -> schemaTableName.getSchemaName().equals("test_schema1"))
                         .map(schemaTableName -> list(COUNTING_CATALOG, schemaTableName.getSchemaName(), schemaTableName.getTableName(), "TABLE"))
                         .collect(toImmutableList()),
-                new MetadataCallsCount()
-                        .withListTablesCount(1));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listViews(schema=test_schema1)")
+                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .build());
 
         // LIKE predicate on schema name
         assertMetadataCalls(
@@ -1130,9 +1130,10 @@ public class TestTrinoDatabaseMetaData
                         .filter(schemaTableName -> schemaTableName.getSchemaName().equals("test_schema1"))
                         .map(schemaTableName -> list(COUNTING_CATALOG, schemaTableName.getSchemaName(), schemaTableName.getTableName(), "TABLE"))
                         .collect(toImmutableList()),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listViews")
+                        .add("ConnectorMetadata.listTables")
+                        .build());
 
         // Equality predicate on table name
         assertMetadataCalls(
@@ -1143,9 +1144,10 @@ public class TestTrinoDatabaseMetaData
                 list(
                         list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE"),
                         list(COUNTING_CATALOG, "test_schema2", "test_table1", "TABLE")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listViews")
+                        .add("ConnectorMetadata.listTables")
+                        .build());
 
         // LIKE predicate on table name
         assertMetadataCalls(
@@ -1156,9 +1158,10 @@ public class TestTrinoDatabaseMetaData
                 list(
                         list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE"),
                         list(COUNTING_CATALOG, "test_schema2", "test_table1", "TABLE")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listViews")
+                        .add("ConnectorMetadata.listTables")
+                        .build());
 
         // Equality predicate on schema name and table name
         assertMetadataCalls(
@@ -1167,8 +1170,13 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "test\\_schema1", "test\\_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
-                new MetadataCallsCount()
-                        .withGetTableHandleCount(1));
+                ImmutableMultiset.<String>builder()
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 2)
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                        .build());
 
         // LIKE predicate on schema name and table name
         assertMetadataCalls(
@@ -1177,9 +1185,10 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "test_schema1", "test_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listViews")
+                        .add("ConnectorMetadata.listTables")
+                        .build());
 
         // catalog does not exist
         assertMetadataCalls(
@@ -1188,7 +1197,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getTables("wrong", null, null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                 list(),
-                new MetadataCallsCount());
+                ImmutableMultiset.of());
 
         // empty schema name
         assertMetadataCalls(
@@ -1197,9 +1206,10 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "", null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                 list(),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listViews")
+                        .add("ConnectorMetadata.listTables")
+                        .build());
 
         // empty table name
         assertMetadataCalls(
@@ -1208,9 +1218,10 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, null, "", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                 list(),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listViews")
+                        .add("ConnectorMetadata.listTables")
+                        .build());
 
         // no table types selected
         assertMetadataCalls(
@@ -1219,7 +1230,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, null, null, new String[0]),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                 list(),
-                new MetadataCallsCount());
+                ImmutableMultiset.of());
     }
 
     @Test
@@ -1234,10 +1245,7 @@ public class TestTrinoDatabaseMetaData
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(null, null, null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2)
-                        .withGetColumnsCount(3000));
+                ImmutableMultiset.of("ConnectorMetadata.streamRelationColumns"));
 
         // Equality predicate on catalog name
         assertMetadataCalls(
@@ -1245,10 +1253,7 @@ public class TestTrinoDatabaseMetaData
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, null, null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2)
-                        .withGetColumnsCount(3000));
+                ImmutableMultiset.of("ConnectorMetadata.streamRelationColumns"));
 
         // Equality predicate on catalog name and schema name
         assertMetadataCalls(
@@ -1256,10 +1261,7 @@ public class TestTrinoDatabaseMetaData
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test\\_schema1", null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(0)
-                        .withListTablesCount(1)
-                        .withGetColumnsCount(1000));
+                ImmutableMultiset.of("ConnectorMetadata.streamRelationColumns(schema=test_schema1)"));
 
         // Equality predicate on catalog name, schema name and table name
         assertMetadataCalls(
@@ -1270,9 +1272,14 @@ public class TestTrinoDatabaseMetaData
                 IntStream.range(0, 100)
                         .mapToObj(i -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + i, "varchar"))
                         .collect(toImmutableList()),
-                new MetadataCallsCount()
-                        .withGetTableHandleCount(1)
-                        .withGetColumnsCount(1));
+                ImmutableMultiset.<String>builder()
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
+                        .build());
 
         // Equality predicate on catalog name, schema name, table name and column name
         assertMetadataCalls(
@@ -1281,9 +1288,14 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test\\_schema1", "test\\_table1", "column\\_17"),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
-                new MetadataCallsCount()
-                        .withGetTableHandleCount(1)
-                        .withGetColumnsCount(1));
+                ImmutableMultiset.<String>builder()
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
+                        .build());
 
         // Equality predicate on catalog name, LIKE predicate on schema name, table name and column name
         assertMetadataCalls(
@@ -1292,11 +1304,16 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17"),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(1)
-                        .withGetTableHandleCount(1)
-                        .withGetColumnsCount(1));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listSchemaNames")
+                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
+                        .build());
 
         // LIKE predicate on schema name and table name, but no predicate on catalog name
         assertMetadataCalls(
@@ -1307,11 +1324,16 @@ public class TestTrinoDatabaseMetaData
                 IntStream.range(0, 100)
                         .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + columnIndex, "varchar"))
                         .collect(toImmutableList()),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(1)
-                        .withGetTableHandleCount(1)
-                        .withGetColumnsCount(1));
+                ImmutableMultiset.<String>builder()
+                        .add("ConnectorMetadata.listSchemaNames")
+                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
+                        .build());
 
         // LIKE predicate on schema name, but no predicate on catalog name and table name
         assertMetadataCalls(
@@ -1324,10 +1346,10 @@ public class TestTrinoDatabaseMetaData
                                 IntStream.range(0, 100)
                                         .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table" + tableIndex, "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
-                new MetadataCallsCount()
-                        .withListSchemasCount(4)
-                        .withListTablesCount(1)
-                        .withGetColumnsCount(1000));
+                ImmutableMultiset.<String>builder()
+                        .addCopies("ConnectorMetadata.listSchemaNames", 4)
+                        .add("ConnectorMetadata.streamRelationColumns(schema=test_schema1)")
+                        .build());
 
         // LIKE predicate on table name, but no predicate on catalog name and schema name
         assertMetadataCalls(
@@ -1340,11 +1362,23 @@ public class TestTrinoDatabaseMetaData
                                 IntStream.range(0, 100)
                                         .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema" + schemaIndex, "test_table1", "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
-                new MetadataCallsCount()
-                        .withListSchemasCount(5)
-                        .withListTablesCount(2)
-                        .withGetTableHandleCount(10)
-                        .withGetColumnsCount(2));
+                ImmutableMultiset.<String>builder()
+                        .addCopies("ConnectorMetadata.listSchemaNames", 5)
+                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .add("ConnectorMetadata.listTables(schema=test_schema2)")
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 20)
+                        .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 20)
+                        .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema2, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getView(schema=test_schema2, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getTableHandle(schema=test_schema2, table=test_table1)", 5)
+                        .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
+                        .add("ConnectorMetadata.getTableMetadata(handle=test_schema2.test_table1)")
+                        .build());
 
         // Equality predicate on schema name and table name, but no predicate on catalog name
         assertMetadataCalls(
@@ -1355,9 +1389,14 @@ public class TestTrinoDatabaseMetaData
                 IntStream.range(0, 100)
                         .mapToObj(i -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + i, "varchar"))
                         .collect(toImmutableList()),
-                new MetadataCallsCount()
-                        .withGetTableHandleCount(1)
-                        .withGetColumnsCount(1));
+                ImmutableMultiset.<String>builder()
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
+                        .build());
 
         // catalog does not exist
         assertMetadataCalls(
@@ -1366,7 +1405,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns("wrong", null, null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
-                new MetadataCallsCount());
+                ImmutableMultiset.of());
 
         // schema does not exist
         assertMetadataCalls(
@@ -1375,8 +1414,13 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "wrong\\_schema1", "test\\_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
-                new MetadataCallsCount()
-                        .withGetTableHandleCount(1));
+                ImmutableMultiset.<String>builder()
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 4)
+                        .add("ConnectorMetadata.getMaterializedView(schema=wrong_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getView(schema=wrong_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.getTableHandle(schema=wrong_schema1, table=test_table1)")
+                        .build());
 
         // schema does not exist
         assertMetadataCalls(
@@ -1385,10 +1429,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "wrong_schema1", "test_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(0)
-                        .withGetColumnsCount(0));
+                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
         // empty schema name
         assertMetadataCalls(
@@ -1397,10 +1438,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "", null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(0)
-                        .withGetColumnsCount(0));
+                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
         // empty table name
         assertMetadataCalls(
@@ -1409,10 +1447,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, null, "", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(0)
-                        .withGetColumnsCount(0));
+                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
         // empty column name
         assertMetadataCalls(
@@ -1421,10 +1456,7 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, null, null, ""),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
-                new MetadataCallsCount()
-                        .withListSchemasCount(1)
-                        .withListTablesCount(2)
-                        .withGetColumnsCount(3000));
+                ImmutableMultiset.of("ConnectorMetadata.streamRelationColumns"));
     }
 
     @Test(dataProvider = "escapeLiteralParameters")
@@ -1445,9 +1477,10 @@ public class TestTrinoDatabaseMetaData
                             .filter(schemaTableName -> schemaTableName.getSchemaName().equals("test_schema1"))
                             .map(schemaTableName -> list(COUNTING_CATALOG, schemaTableName.getSchemaName(), schemaTableName.getTableName(), "TABLE"))
                             .collect(toImmutableList()),
-                    new MetadataCallsCount()
-                            .withListSchemasCount(0)
-                            .withListTablesCount(1));
+                    ImmutableMultiset.<String>builder()
+                            .add("ConnectorMetadata.listViews(schema=test_schema1)")
+                            .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                            .build());
 
             // getTables's schema and table name patterns treated as literals
             assertMetadataCalls(
@@ -1456,8 +1489,13 @@ public class TestTrinoDatabaseMetaData
                             databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "test_schema1", "test_table1", null),
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
-                    new MetadataCallsCount()
-                            .withGetTableHandleCount(1));
+                    ImmutableMultiset.<String>builder()
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
+                            .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 2)
+                            .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                            .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                            .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                            .build());
 
             // no matches in getTables call as table name pattern treated as literal
             assertMetadataCalls(
@@ -1466,8 +1504,10 @@ public class TestTrinoDatabaseMetaData
                             databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "test_schema_", null, null),
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                     list(),
-                    new MetadataCallsCount()
-                            .withListTablesCount(1));
+                    ImmutableMultiset.<String>builder()
+                            .add("ConnectorMetadata.listViews(schema=test_schema_)")
+                            .add("ConnectorMetadata.listTables(schema=test_schema_)")
+                            .build());
 
             // getColumns's schema and table name patterns treated as literals
             assertMetadataCalls(
@@ -1478,9 +1518,14 @@ public class TestTrinoDatabaseMetaData
                     IntStream.range(0, 100)
                             .mapToObj(i -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + i, "varchar"))
                             .collect(toImmutableList()),
-                    new MetadataCallsCount()
-                            .withGetTableHandleCount(1)
-                            .withGetColumnsCount(1));
+                    ImmutableMultiset.<String>builder()
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                            .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                            .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
+                            .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                            .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                            .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
+                            .build());
 
             // getColumns's schema, table and column name patterns treated as literals
             assertMetadataCalls(
@@ -1489,9 +1534,14 @@ public class TestTrinoDatabaseMetaData
                             databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17"),
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
-                    new MetadataCallsCount()
-                            .withGetTableHandleCount(1)
-                            .withGetColumnsCount(1));
+                    ImmutableMultiset.<String>builder()
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                            .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                            .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
+                            .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                            .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                            .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
+                            .build());
 
             // no matches in getColumns call as table name pattern treated as literal
             assertMetadataCalls(
@@ -1500,8 +1550,13 @@ public class TestTrinoDatabaseMetaData
                             databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test_schema1", "test_table_", null),
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                     list(),
-                    new MetadataCallsCount()
-                            .withGetTableHandleCount(1));
+                    ImmutableMultiset.<String>builder()
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table_)", 4)
+                            .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table_)")
+                            .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table_)")
+                            .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table_)")
+                            .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table_)")
+                            .build());
         }
     }
 
@@ -1617,7 +1672,7 @@ public class TestTrinoDatabaseMetaData
                 .collect(toImmutableSet());
     }
 
-    private void assertMetadataCalls(Connection connection, MetaDataCallback<? extends Collection<List<Object>>> callback, MetadataCallsCount expectedMetadataCallsCount)
+    private void assertMetadataCalls(Connection connection, MetaDataCallback<? extends Collection<List<Object>>> callback, Multiset<String> expectedMetadataCallsCount)
     {
         assertMetadataCalls(
                 connection,
@@ -1630,7 +1685,7 @@ public class TestTrinoDatabaseMetaData
             Connection connection,
             MetaDataCallback<? extends Collection<List<Object>>> callback,
             Collection<List<?>> expected,
-            MetadataCallsCount expectedMetadataCallsCount)
+            Multiset<String> expectedMetadataCallsCount)
     {
         assertMetadataCalls(
                 connection,
@@ -1644,9 +1699,9 @@ public class TestTrinoDatabaseMetaData
             Connection connection,
             MetaDataCallback<? extends Collection<List<Object>>> callback,
             Consumer<Collection<List<Object>>> resultsVerification,
-            MetadataCallsCount expectedMetadataCallsCount)
+            Multiset<String> expectedMetadataCallsCount)
     {
-        MetadataCallsCount actualMetadataCallsCount = countingMockConnector.runCounting(() -> {
+        Multiset<String> actualMetadataCallsCount = countingMockConnector.runTracing(() -> {
             try {
                 Collection<List<Object>> actual = callback.apply(connection.getMetaData());
                 resultsVerification.accept(actual);
@@ -1655,7 +1710,13 @@ public class TestTrinoDatabaseMetaData
                 throw new RuntimeException(e);
             }
         });
-        assertEquals(actualMetadataCallsCount, expectedMetadataCallsCount);
+
+        actualMetadataCallsCount = actualMetadataCallsCount.stream()
+                // Every query involves beginQuery and cleanupQuery, so ignore them.
+                .filter(method -> !"ConnectorMetadata.beginQuery".equals(method) && !"ConnectorMetadata.cleanupQuery".equals(method))
+                .collect(toImmutableMultiset());
+
+        assertMultisetsEqual(actualMetadataCallsCount, expectedMetadataCallsCount);
     }
 
     private MetaDataCallback<List<List<Object>>> readMetaData(MetaDataCallback<ResultSet> query, List<String> columns)
