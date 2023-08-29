@@ -42,7 +42,6 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
-import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -2045,7 +2044,6 @@ public abstract class BaseJdbcConnectorTest
         return new Object[][] {{BROADCAST}, {PARTITIONED}};
     }
 
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/18499", match = ".*SqlQueryManager.getFullQueryInfo.*")
     @Test(dataProvider = "fixedJoinDistributionTypes")
     public void testDynamicFiltering(JoinDistributionType joinDistributionType)
     {
@@ -2055,7 +2053,6 @@ public abstract class BaseJdbcConnectorTest
                 joinDistributionType);
     }
 
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/18499", match = ".*SqlQueryManager.getFullQueryInfo.*")
     @Test
     public void testDynamicFilteringWithAggregationGroupingColumn()
     {
@@ -2066,9 +2063,13 @@ public abstract class BaseJdbcConnectorTest
                 PARTITIONED);
     }
 
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/18499", match = ".*SqlQueryManager.getFullQueryInfo.*")
     @Test
     public void testDynamicFilteringWithAggregationAggregateColumn()
+    {
+        executeExclusively(this::testDynamicFilteringWithAggregationAggregateColumnUnsafe);
+    }
+
+    private void testDynamicFilteringWithAggregationAggregateColumnUnsafe()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
         MaterializedResultWithQueryId resultWithQueryId = getDistributedQueryRunner()
@@ -2083,7 +2084,6 @@ public abstract class BaseJdbcConnectorTest
                 isAggregationPushedDown);
     }
 
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/18499", match = ".*SqlQueryManager.getFullQueryInfo.*")
     @Test
     public void testDynamicFilteringWithAggregationGroupingSet()
     {
@@ -2094,7 +2094,6 @@ public abstract class BaseJdbcConnectorTest
                         "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
     }
 
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/18499", match = ".*SqlQueryManager.getFullQueryInfo.*")
     @Test
     public void testDynamicFilteringWithLimit()
     {
@@ -2105,9 +2104,13 @@ public abstract class BaseJdbcConnectorTest
                         "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
     }
 
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/18499", match = ".*SqlQueryManager.getFullQueryInfo.*")
     @Test
     public void testDynamicFilteringDomainCompactionThreshold()
+    {
+        executeExclusively(this::testDynamicFilteringDomainCompactionThresholdUnsafe);
+    }
+
+    private void testDynamicFilteringDomainCompactionThresholdUnsafe()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
@@ -2180,6 +2183,11 @@ public abstract class BaseJdbcConnectorTest
     }
 
     private void assertDynamicFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType, boolean expectDynamicFiltering)
+    {
+        executeExclusively(() -> assertDynamicFilteringUnsafe(sql, joinDistributionType, expectDynamicFiltering));
+    }
+
+    private void assertDynamicFilteringUnsafe(@Language("SQL") String sql, JoinDistributionType joinDistributionType, boolean expectDynamicFiltering)
     {
         MaterializedResultWithQueryId dynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
                 dynamicFiltering(joinDistributionType, true),
