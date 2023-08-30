@@ -40,6 +40,7 @@ import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
@@ -240,6 +241,20 @@ public class MemoryMetadata
                         views.entrySet().stream()
                                 .map(entry -> RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns())))
                 .collect(toImmutableMap(RelationColumnsMetadata::name, identity()));
+        return relationFilter.apply(relationsColumns.keySet()).stream()
+                .map(relationsColumns::get)
+                .iterator();
+    }
+
+    @Override
+    public synchronized Iterator<RelationCommentMetadata> streamRelationComments(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        Map<SchemaTableName, RelationCommentMetadata> relationsColumns = Streams.concat(
+                        tables.values().stream()
+                                .map(tableInfo -> RelationCommentMetadata.forRelation(tableInfo.getSchemaTableName(), tableInfo.getMetadata().getComment())),
+                        views.entrySet().stream()
+                                .map(entry -> RelationCommentMetadata.forRelation(entry.getKey(), entry.getValue().getComment())))
+                .collect(toImmutableMap(RelationCommentMetadata::name, identity()));
         return relationFilter.apply(relationsColumns.keySet()).stream()
                 .map(relationsColumns::get)
                 .iterator();
