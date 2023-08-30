@@ -473,25 +473,25 @@ public class TrinoGlueCatalog
                     Map<String, String> tableParameters = getTableParameters(table);
                     if (isTrinoMaterializedView(tableType, tableParameters)) {
                         Optional<String> comment = decodeMaterializedViewData(table.getViewOriginalText()).getComment();
-                        unfilteredResult.add(RelationCommentMetadata.forTable(name, comment));
+                        unfilteredResult.add(RelationCommentMetadata.forRelation(name, comment));
                     }
                     else if (isTrinoView(tableType, tableParameters)) {
                         Optional<String> comment = ViewReaderUtil.PrestoViewReader.decodeViewData(table.getViewOriginalText()).getComment();
-                        unfilteredResult.add(RelationCommentMetadata.forTable(name, comment));
+                        unfilteredResult.add(RelationCommentMetadata.forRelation(name, comment));
                     }
                     else if (isRedirected.test(name)) {
                         unfilteredResult.add(RelationCommentMetadata.forRedirectedTable(name));
                     }
                     else if (!isIcebergTable(tableParameters)) {
                         // This can be e.g. Hive, Delta table, a Hive view, etc. Would be returned by listTables, so do not skip it
-                        unfilteredResult.add(RelationCommentMetadata.forTable(name, Optional.empty()));
+                        unfilteredResult.add(RelationCommentMetadata.forRelation(name, Optional.empty()));
                     }
                     else {
                         String metadataLocation = tableParameters.get(METADATA_LOCATION_PROP);
                         String metadataValidForMetadata = tableParameters.get(TRINO_TABLE_METADATA_INFO_VALID_FOR);
                         if (metadataValidForMetadata != null && metadataValidForMetadata.equals(metadataLocation)) {
                             Optional<String> comment = Optional.ofNullable(tableParameters.get(TABLE_COMMENT));
-                            unfilteredResult.add(RelationCommentMetadata.forTable(name, comment));
+                            unfilteredResult.add(RelationCommentMetadata.forRelation(name, comment));
                         }
                         else {
                             unprocessed.put(name, table);
@@ -538,7 +538,7 @@ public class TrinoGlueCatalog
                 LOG.warn(e, "Failed to get metadata for table: %s", tableName);
                 return;
             }
-            resultsCollector.accept(RelationCommentMetadata.forTable(tableName, comment));
+            resultsCollector.accept(RelationCommentMetadata.forRelation(tableName, comment));
         }
     }
 
