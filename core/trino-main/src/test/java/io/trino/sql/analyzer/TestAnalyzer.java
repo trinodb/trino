@@ -3919,6 +3919,26 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testInvalidInlineFunction()
+    {
+        assertFails("WITH FUNCTION test.abc() RETURNS int RETURN 42 SELECT 123")
+                .hasErrorCode(SYNTAX_ERROR)
+                .hasMessage("line 1:6: Inline function names cannot be qualified: test.abc");
+
+        assertFails("WITH function abc() RETURNS int SECURITY DEFINER RETURN 42 SELECT 123")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:33: Security mode not supported for inline functions");
+
+        assertFails("""
+                CREATE VIEW test AS
+                WITH FUNCTION abc() RETURNS int RETURN 42
+                SELECT 123 x
+                """)
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 2:6: Views cannot contain inline functions");
+    }
+
+    @Test
     public void testInvalidDelete()
     {
         assertFails("DELETE FROM foo")

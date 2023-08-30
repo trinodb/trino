@@ -20,6 +20,7 @@ import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -240,6 +241,12 @@ class TestingSystemSecurityMetadata
     {
         checkArgument(principal.getType() == USER, "Only a user can be a view owner");
         viewOwners.put(view, Identity.ofUser(principal.getName()));
+    }
+
+    @Override
+    public Optional<Identity> getFunctionRunAsIdentity(Session session, CatalogSchemaFunctionName functionName)
+    {
+        return Optional.empty();
     }
 
     @Override

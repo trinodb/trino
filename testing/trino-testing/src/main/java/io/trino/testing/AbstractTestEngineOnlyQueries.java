@@ -77,6 +77,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -6610,6 +6611,99 @@ public abstract class AbstractTestEngineOnlyQueries
 
         MaterializedResult showCreateTableResult = computeActual("SHOW CREATE TABLE nation");
         assertEquals(showCreateTableResult.getColumnNames(), ImmutableList.of("Create Table"));
+    }
+
+    @Test
+    public void testInlineSqlFunctions()
+    {
+        assertThat(query("""
+                WITH FUNCTION abc(x integer) RETURNS integer RETURN x * 2
+                SELECT abc(21)
+                """))
+                .matches("VALUES 42");
+        assertThat(query("""
+                WITH FUNCTION abc(x integer) RETURNS integer RETURN abs(x)
+                SELECT abc(-21)
+                """))
+                .matches("VALUES 21");
+
+        assertThat(query("""
+                WITH
+                  FUNCTION abc(x integer) RETURNS integer RETURN x * 2,
+                  FUNCTION xyz(x integer) RETURNS integer RETURN abc(x) + 1
+                SELECT xyz(21)
+                """))
+                .matches("VALUES 43");
+
+        assertThat(query("""
+                WITH
+                  FUNCTION my_pow(n int, p int)
+                  RETURNS int
+                  BEGIN
+                    DECLARE r int DEFAULT n;
+                    top: LOOP
+                      IF p <= 1 THEN
+                        LEAVE top;
+                      END IF;
+                      SET r = r * n;
+                      SET p = p - 1;
+                    END LOOP;
+                    RETURN r;
+                  END
+                SELECT my_pow(2, 8)
+                """))
+                .matches("VALUES 256");
+
+        // validations for inline functions
+        assertQueryFails("WITH FUNCTION a.b() RETURNS int RETURN 42 SELECT a.b()",
+                "line 1:6: Inline function names cannot be qualified: a.b");
+
+        assertQueryFails("WITH FUNCTION x() RETURNS int SECURITY INVOKER RETURN 42 SELECT x()",
+                "line 1:31: Security mode not supported for inline functions");
+
+        assertQueryFails("WITH FUNCTION x() RETURNS bigint SECURITY DEFINER RETURN 42 SELECT x()",
+                "line 1:34: Security mode not supported for inline functions");
+
+        // Verify the current restrictions on inline functions are enforced
+
+        // inline function can mask a global function
+        assertThat(query("""
+                WITH FUNCTION abs(x integer) RETURNS integer RETURN x * 2
+                SELECT abs(-10)
+                """))
+                .matches("VALUES -20");
+        assertThat(query("""
+                WITH
+                  FUNCTION abs(x integer) RETURNS integer RETURN x * 2,
+                  FUNCTION wrap_abs(x integer) RETURNS integer RETURN abs(x)
+                SELECT wrap_abs(-10)
+                """))
+                .matches("VALUES -20");
+
+        // inline function can have the same name as a global function with a different signature
+        assertThat(query("""
+                WITH FUNCTION abs(x varchar) RETURNS varchar RETURN reverse(x)
+                SELECT abs('abc')
+                """))
+                .skippingTypesCheck()
+                .matches("VALUES 'cba'");
+
+        // inline functions must be declared before they are used
+        assertThatThrownBy(() -> query("""
+                WITH
+                  FUNCTION a(x integer) RETURNS integer RETURN b(x),
+                  FUNCTION b(x integer) RETURNS integer RETURN x * 2
+                SELECT a(10)
+                """))
+                .hasMessage("line 3:8: Function 'b' not registered");
+
+        // inline function cannot be recursive
+        // note: mutual recursion is not supported either, but it is not tested due to the forward declaration limitation above
+        assertThatThrownBy(() -> query("""
+                WITH FUNCTION a(x integer) RETURNS integer RETURN a(x)
+                SELECT a(10)
+                """))
+                .hasMessage("line 3:8: Recursive language functions are not supported: a(integer):integer");
     }
 
     private static ZonedDateTime zonedDateTime(String value)
