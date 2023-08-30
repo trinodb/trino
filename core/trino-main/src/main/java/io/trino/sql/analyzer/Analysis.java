@@ -648,6 +648,13 @@ public class Analysis
                                 columnMaskScopes.isEmpty()));
     }
 
+    public Set<ResolvedFunction> getResolvedFunctions()
+    {
+        return resolvedFunctions.values().stream()
+                .map(RoutineEntry::getFunction)
+                .collect(toImmutableSet());
+    }
+
     public ResolvedFunction getResolvedFunction(Expression node)
     {
         return resolvedFunctions.get(NodeRef.of(node)).getFunction();
@@ -678,6 +685,11 @@ public class Analysis
     {
         requireNonNull(expression, "expression is null");
         return columnReferences.containsKey(NodeRef.of(expression));
+    }
+
+    public void addType(Expression expression, Type type)
+    {
+        this.types.put(NodeRef.of(expression), type);
     }
 
     public void addTypes(Map<NodeRef<Expression>, Type> types)
