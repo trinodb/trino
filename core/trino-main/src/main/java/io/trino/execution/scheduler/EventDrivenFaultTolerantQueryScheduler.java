@@ -2312,11 +2312,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.remainingAttempts = maxTaskExecutionAttempts;
         }
 
-        public int getPartitionId()
-        {
-            return partitionId;
-        }
-
         public ExchangeSinkHandle getExchangeSinkHandle()
         {
             return exchangeSinkHandle;
