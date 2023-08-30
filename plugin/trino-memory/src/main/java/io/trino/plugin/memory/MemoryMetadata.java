@@ -444,7 +444,7 @@ public class MemoryMetadata
         tables.put(tableId, new TableInfo(tableId, info.getSchemaName(), info.getTableName(), info.getColumns(), dataFragments, info.getComment()));
     }
 
-    public List<MemoryDataFragment> getDataFragments(long tableId)
+    public synchronized List<MemoryDataFragment> getDataFragments(long tableId)
     {
         return ImmutableList.copyOf(tables.get(tableId).getDataFragments().values());
     }
