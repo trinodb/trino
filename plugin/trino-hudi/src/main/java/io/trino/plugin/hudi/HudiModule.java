@@ -35,15 +35,12 @@ import io.trino.spi.security.ConnectorIdentity;
 import javax.inject.Singleton;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HudiModule
@@ -80,23 +77,6 @@ public class HudiModule
     public ExecutorService createExecutorService()
     {
         return newCachedThreadPool(daemonThreadsNamed("hudi-split-manager-%d"));
-    }
-
-    @ForHudiPartitionLoader
-    @Singleton
-    @Provides
-    public ScheduledExecutorService createPartitionLoaderExecutorService(HudiConfig hudiConfig)
-    {
-        return newScheduledThreadPool(hudiConfig.getPartitionLoaderParallelism(), daemonThreadsNamed("hudi-partition-loader-%d"));
-
-    }
-
-    @ForHudiSplitLoader
-    @Singleton
-    @Provides
-    public ExecutorService createSplitLoaderExecutorService(HudiConfig hudiConfig)
-    {
-        return newFixedThreadPool(hudiConfig.getSplitLoaderParallelism(), daemonThreadsNamed("hudi-split-loader-%d"));
     }
 
     @Singleton

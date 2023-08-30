@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.util.concurrent.Futures;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -51,18 +52,12 @@ import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
-import static io.trino.plugin.hudi.HudiSessionProperties.getMaxPartitionBatchSize;
-import static io.trino.plugin.hudi.HudiSessionProperties.getMinPartitionBatchSize;
-import static io.trino.plugin.hudi.HudiSessionProperties.getMinimumAssignedSplitWeight;
-import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
-import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightSize;
-import static io.trino.plugin.hudi.HudiSessionProperties.isHudiMetadataEnabled;
+import static io.trino.plugin.hudi.HudiSessionProperties.*;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.stream.Collectors.toList;
 
@@ -84,8 +79,6 @@ public class HudiSplitSource
             Configuration configuration,
             Map<String, HiveColumnHandle> partitionColumnHandleMap,
             ExecutorService executor,
-            ScheduledExecutorService partitionLoaderExecutor,
-            ExecutorService splitLoaderExecutor,
             int maxSplitsPerSecond,
             int maxOutstandingSplits,
             HdfsEnvironment hdfsEnvironment)
@@ -120,11 +113,11 @@ public class HudiSplitSource
                 tableHandle,
                 hudiDirectoryLister,
                 queue,
-                splitLoaderExecutor,
+                new BoundedExecutor(executor, getSplitLoaderParallelism(session)),
                 createSplitWeightProvider(session),
                 partitionNamesQueue,
                 partitionInfoQueue,
-                partitionLoaderExecutor,
+                new BoundedExecutor(executor, getPartitionInfoLoaderParallelism(session)),
                 throwable -> {
                     trinoException.compareAndSet(null, new TrinoException(GENERIC_INTERNAL_ERROR,
                             "Failed to generator partitions info for " + table.getTableName(), throwable));

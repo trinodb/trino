@@ -47,7 +47,7 @@ public class HudiConfig
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
     private int maxOutstandingSplits = 1000;
     private int partitionLoaderParallelism = 5;
-    private int splitLoaderParallelism = 15;
+    private int splitLoaderParallelism = 5;
 
 
     public List<String> getColumnsToHide()

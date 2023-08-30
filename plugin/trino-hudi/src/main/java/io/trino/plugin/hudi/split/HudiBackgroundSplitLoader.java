@@ -30,8 +30,7 @@ import org.apache.hadoop.fs.FileStatus;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.function.Consumer;
 
@@ -44,28 +43,27 @@ public class HudiBackgroundSplitLoader
 {
     private final HudiDirectoryLister hudiDirectoryLister;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
-    private final ExecutorService splitLoaderExecutor;
+    private final Executor splitLoaderExecutor;
     private final Consumer<Throwable> splitErrorListener;
     private final Consumer<Throwable> partitionErrorListener;
     private final HudiSplitFactory hudiSplitFactory;
     private final Deque<List<String>> partitionNamesQueue;
     private final Deque<HudiPartitionInfo> partitionInfoQueue;
-    private final ScheduledExecutorService partitionInfoLoaderExecutor;
+    private final Executor partitionInfoLoaderExecutor;
     private final Deque<Boolean> partitionInfoLoaderStatusQueue;
     private final int partitionInfoLoaderNumThreads;
     private final int splitLoaderNumThreads;
-
 
     public HudiBackgroundSplitLoader(
             ConnectorSession session,
             HudiTableHandle tableHandle,
             HudiDirectoryLister hudiDirectoryLister,
             AsyncQueue<ConnectorSplit> asyncQueue,
-            ExecutorService splitLoaderExecutor,
+            Executor splitLoaderExecutor,
             HudiSplitWeightProvider hudiSplitWeightProvider,
             Deque<List<String>> partitionNamesQueue,
             Deque<HudiPartitionInfo> partitionInfoQueue,
-            ScheduledExecutorService partitionInfoLoaderExecutor,
+            Executor partitionInfoLoaderExecutor,
             Consumer<Throwable> partitionErrorListener,
             Consumer<Throwable> splitErrorListener)
     {
@@ -88,7 +86,6 @@ public class HudiBackgroundSplitLoader
     {
         List<ListenableFuture<Void>> splitFutures = new ArrayList<>();
         for (int i = 0; i < partitionInfoLoaderNumThreads; i++) {
-            partitionInfoLoaderStatusQueue.offer(true);
             HudiPartitionInfoLoader partitionInfoLoader = new HudiPartitionInfoLoader(partitionNamesQueue, hudiDirectoryLister, partitionInfoQueue, partitionInfoLoaderStatusQueue);
             hookPartitionErrorListener(Futures.submit(partitionInfoLoader, partitionInfoLoaderExecutor));
         }

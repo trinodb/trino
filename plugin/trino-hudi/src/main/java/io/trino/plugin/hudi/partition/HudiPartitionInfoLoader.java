@@ -43,6 +43,7 @@ public class HudiPartitionInfoLoader
     @Override
     public void run()
     {
+        partitionLoadStatusQueue.offer(true);
         while (!partitionNamesQueue.isEmpty()) {
             List<String> partitionNames = partitionNamesQueue.poll();
             if (partitionNames != null) {
@@ -52,12 +53,14 @@ public class HudiPartitionInfoLoader
 
                 // empty partitioned table
                 if (hudiPartitionInfoList.isEmpty()) {
+                    partitionLoadStatusQueue.poll();
                     return;
                 }
 
                 // non-partitioned table
                 if (hudiPartitionInfoList.size() == 1 && hudiPartitionInfoList.get(0).getHivePartitionName().isEmpty()) {
                     partitionInfoQueue.addAll(hudiPartitionInfoList);
+                    partitionLoadStatusQueue.poll();
                     return;
                 }
                 partitionInfoQueue.addAll(hudiPartitionInfoList);
