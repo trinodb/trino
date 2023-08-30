@@ -229,61 +229,6 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
-                                <item>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>interface io.opentelemetry.api.logs.LogRecordBuilder</new>
-                                    <justification>Upgrade to new opentelemetry version</justification>
-                                </item>
-                                <item>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>interface io.opentelemetry.api.logs.Logger</new>
-                                    <justification>Upgrade to new opentelemetry version</justification>
-                                </item>
-                                <item>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>interface io.opentelemetry.api.logs.LoggerBuilder</new>
-                                    <justification>Upgrade to new opentelemetry version</justification>
-                                </item>
-                                <item>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>interface io.opentelemetry.api.logs.LoggerProvider</new>
-                                    <justification>Upgrade to new opentelemetry version</justification>
-                                </item>
-                                <item>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>enum io.opentelemetry.api.logs.Severity</new>
-                                    <justification>Upgrade to new opentelemetry version</justification>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method long io.airlift.slice.Slice::getAddress()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method byte[] io.airlift.slice.Slice::getBase()</old>
-                                </item>
-                                <item>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method int io.trino.spi.type.Type::getFlatFixedSize()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method boolean io.trino.spi.type.Type::isFlatVariableWidth()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method int io.trino.spi.type.Type::getFlatVariableWidthSize(io.trino.spi.block.Block, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method int io.trino.spi.type.Type::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter io.trino.spi.PageIndexer io.trino.spi.PageIndexerFactory::createPageIndexer(===java.util.List&lt;? extends io.trino.spi.type.Type&gt;===)</old>
-                                    <new>parameter io.trino.spi.PageIndexer io.trino.spi.PageIndexerFactory::createPageIndexer(===java.util.List&lt;io.trino.spi.type.Type&gt;===)</new>
-                                    <parameterIndex>0</parameterIndex>
-                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
