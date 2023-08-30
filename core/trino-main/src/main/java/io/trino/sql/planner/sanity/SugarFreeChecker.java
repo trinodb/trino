@@ -57,7 +57,7 @@ public final class SugarFreeChecker
         ExpressionExtractor.forEachExpression(planNode, SugarFreeChecker::validate);
     }
 
-    private static void validate(Expression expression)
+    public static void validate(Expression expression)
     {
         VISITOR.process(expression, null);
     }

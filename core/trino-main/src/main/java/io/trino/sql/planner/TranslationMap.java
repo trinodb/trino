@@ -117,7 +117,7 @@ import static java.util.Objects.requireNonNull;
  * <li>AST expressions contain Identifiers, while IR expressions contain SymbolReferences</li>
  * <li>FunctionCalls in AST expressions are SQL function names. In IR expressions, they contain an encoded name representing a resolved function</li>
  */
-class TranslationMap
+public class TranslationMap
 {
     // all expressions are rewritten in terms of fields declared by this relation plan
     private final Scope scope;

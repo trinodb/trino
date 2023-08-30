@@ -151,7 +151,7 @@ public final class SqlToRowExpressionTranslator
         return result;
     }
 
-    private static class Visitor
+    public static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
         private final Metadata metadata;
@@ -159,7 +159,7 @@ public final class SqlToRowExpressionTranslator
         private final Map<Symbol, Integer> layout;
         private final StandardFunctionResolution standardFunctionResolution;
 
-        private Visitor(
+        protected Visitor(
                 Metadata metadata,
                 Map<NodeRef<Expression>, Type> types,
                 Map<Symbol, Integer> layout)
