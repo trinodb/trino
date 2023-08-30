@@ -70,27 +70,26 @@ public class LongDecimalWithOverflowAndLongStateSerializer
     public void deserialize(Block block, int index, LongDecimalWithOverflowAndLongState state)
     {
         if (!block.isNull(index)) {
-            Slice slice = VARBINARY.getSlice(block, index);
             long[] decimal = state.getDecimalArray();
             int offset = state.getDecimalArrayOffset();
 
-            int sliceLength = slice.length();
-            long low = slice.getLong(0);
+            int sliceLength = block.getSliceLength(index);
+            long low = block.getLong(index, 0);
             long high = 0;
             long overflow = 0;
             long count = 1;
 
             switch (sliceLength) {
                 case 4 * Long.BYTES:
-                    overflow = slice.getLong(Long.BYTES * 3);
-                    count = slice.getLong(Long.BYTES * 2);
+                    overflow = block.getLong(index, Long.BYTES * 3);
+                    count = block.getLong(index, Long.BYTES * 2);
                     // fall through
                 case 2 * Long.BYTES:
-                    high = slice.getLong(Long.BYTES);
+                    high = block.getLong(index, Long.BYTES);
                     break;
                 case 3 * Long.BYTES:
-                    overflow = slice.getLong(Long.BYTES * 2);
-                    count = slice.getLong(Long.BYTES);
+                    overflow = block.getLong(index, Long.BYTES * 2);
+                    count = block.getLong(index, Long.BYTES);
             }
 
             decimal[offset + 1] = low;
