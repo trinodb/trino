@@ -33,7 +33,7 @@ public record RelationCommentMetadata(
         checkArgument(!tableRedirected || comment.isEmpty(), "Unexpected comment for redirected table");
     }
 
-    public static RelationCommentMetadata forTable(SchemaTableName name, Optional<String> comment)
+    public static RelationCommentMetadata forRelation(SchemaTableName name, Optional<String> comment)
     {
         return new RelationCommentMetadata(name, false, comment);
     }
