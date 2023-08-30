@@ -229,6 +229,18 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.connector.RelationColumnsMetadata</old>
+                                    <justification>False positive: the class is not removed, it's just marked @Experimental</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.connector.RelationCommentMetadata</old>
+                                    <justification>False positive: the class is not removed, it's just marked @Experimental</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
