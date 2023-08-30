@@ -967,8 +967,8 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private IsReadyForExecutionResult isReadyForExecution(SubPlan subPlan)
         {
-            boolean nonSpeculativeTasksInQueue = schedulingQueue.getTaskCount(STANDARD) > 0;
-            boolean nonSpeculativeTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
+            boolean standardTasksInQueue = schedulingQueue.getTaskCount(STANDARD) > 0;
+            boolean standardTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
                     .anyMatch(task -> task.getExecutionClass() == STANDARD && !task.getNodeLease().getNode().isDone());
 
             // Do not start a speculative stage if there is non-speculative work still to be done.
@@ -976,7 +976,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             // by progress, repartition tasks will produce very uneven output for different output partitions, which
             // will result in very bad task bin-packing results; also the fact that runtime adaptive partitioning
             // happened already suggests that there is plenty work ahead.
-            boolean canScheduleSpeculative = !nonSpeculativeTasksInQueue && !nonSpeculativeTasksWaitingForNode && !runtimeAdaptivePartitioningApplied;
+            boolean canScheduleSpeculative = !standardTasksInQueue && !standardTasksWaitingForNode && !runtimeAdaptivePartitioningApplied;
             boolean speculative = false;
             int finishedSourcesCount = 0;
             int estimatedByProgressSourcesCount = 0;
