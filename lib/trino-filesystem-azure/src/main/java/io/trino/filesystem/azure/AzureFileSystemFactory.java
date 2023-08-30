@@ -14,6 +14,8 @@
 package io.trino.filesystem.azure;
 
 import com.azure.core.http.HttpClient;
+import com.azure.core.http.okhttp.OkHttpAsyncClientProvider;
+import com.azure.core.util.HttpClientOptions;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystem;
@@ -26,14 +28,12 @@ import static java.util.Objects.requireNonNull;
 public class AzureFileSystemFactory
         implements TrinoFileSystemFactory
 {
-    // All file systems share a single HTTP client
-    private final HttpClient httpClient = HttpClient.createDefault();
-
     private final AzureAuth auth;
     private final DataSize readBlockSize;
     private final DataSize writeBlockSize;
     private final int maxWriteConcurrency;
     private final DataSize maxSingleUploadSize;
+    private final HttpClient httpClient;
 
     @Inject
     public AzureFileSystemFactory(AzureAuth azureAuth, AzureFileSystemConfig config)
@@ -54,6 +54,7 @@ public class AzureFileSystemFactory
         checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
         this.maxWriteConcurrency = maxWriteConcurrency;
         this.maxSingleUploadSize = requireNonNull(maxSingleUploadSize, "maxSingleUploadSize is null");
+        this.httpClient = HttpClient.createDefault(new HttpClientOptions().setHttpClientProvider(OkHttpAsyncClientProvider.class));
     }
 
     @Override
