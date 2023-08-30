@@ -644,7 +644,8 @@ public class Analysis
                         accessControlScope,
                         tablesForView.isEmpty() &&
                                 rowFilterScopes.isEmpty() &&
-                                columnMaskScopes.isEmpty()));
+                                columnMaskScopes.isEmpty(),
+                        tablesForView));
     }
 
     public ResolvedFunction getResolvedFunction(Expression node)
@@ -1120,35 +1121,41 @@ public class Analysis
     public List<TableInfo> getReferencedTables()
     {
         return tables.entrySet().stream()
-                .filter(entry -> isInputTable(entry.getKey().getNode()))
-                .map(entry -> {
-                    NodeRef<Table> table = entry.getKey();
-
-                    QualifiedObjectName tableName = entry.getValue().getName();
-                    List<ColumnInfo> columns = tableColumnReferences.values().stream()
-                            .map(tablesToColumns -> tablesToColumns.get(tableName))
-                            .filter(Objects::nonNull)
-                            .flatMap(Collection::stream)
-                            .distinct()
-                            .map(fieldName -> new ColumnInfo(
-                                    fieldName,
-                                    Optional.ofNullable(columnMasks.getOrDefault(table, ImmutableMap.of()).get(fieldName))
-                                            .map(Expression::toString)))
-                            .collect(toImmutableList());
-
-                    TableEntry info = entry.getValue();
-                    return new TableInfo(
-                            info.getName().getCatalogName(),
-                            info.getName().getSchemaName(),
-                            info.getName().getObjectName(),
-                            info.getAuthorization(),
-                            rowFilters.getOrDefault(table, ImmutableList.of()).stream()
-                                    .map(Expression::toString)
-                                    .collect(toImmutableList()),
-                            columns,
-                            info.isDirectlyReferenced());
-                })
+                .filter(ent -> isInputTable(ent.getKey().getNode()))
+                .map(ent -> convertTableToInfo(ent.getKey(), ent.getValue()))
                 .collect(toImmutableList());
+    }
+
+    private TableInfo convertTableToInfo(NodeRef<Table> table, TableEntry info)
+    {
+        QualifiedObjectName tableName = info.getName();
+        List<ColumnInfo> columns = tableColumnReferences.values().stream()
+                .map(tablesToColumns -> tablesToColumns.get(tableName))
+                .filter(Objects::nonNull)
+                .flatMap(Collection::stream)
+                .distinct()
+                .map(fieldName -> new ColumnInfo(
+                        fieldName,
+                        Optional.ofNullable(columnMasks.getOrDefault(table, ImmutableMap.of()).get(fieldName))
+                                .map(Expression::toString)))
+                .collect(toImmutableList());
+
+        List<TableInfo> viewReferenceChain = info.getViewReferenceChain().stream()
+                .map(NodeRef::of)
+                .map(viewTable -> convertTableToInfo(viewTable, tables.get(viewTable)))
+                .collect(toImmutableList());
+
+        return new TableInfo(
+                info.getName().getCatalogName(),
+                info.getName().getSchemaName(),
+                info.getName().getObjectName(),
+                info.getAuthorization(),
+                rowFilters.getOrDefault(table, ImmutableList.of()).stream()
+                        .map(Expression::toString)
+                        .collect(toImmutableList()),
+                columns,
+                info.isDirectlyReferenced(),
+                viewReferenceChain);
     }
 
     public List<RoutineInfo> getRoutines()
@@ -1948,19 +1955,22 @@ public class Analysis
         private final String authorization;
         private final Scope accessControlScope; // synthetic scope for analysis of row filters and masks
         private final boolean directlyReferenced;
+        private final List<Table> viewReferenceChain;
 
         public TableEntry(
                 Optional<TableHandle> handle,
                 QualifiedObjectName name,
                 String authorization,
                 Scope accessControlScope,
-                boolean directlyReferenced)
+                boolean directlyReferenced,
+                Iterable<Table> viewReferenceChain)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.name = requireNonNull(name, "name is null");
             this.authorization = requireNonNull(authorization, "authorization is null");
             this.accessControlScope = requireNonNull(accessControlScope, "accessControlScope is null");
             this.directlyReferenced = directlyReferenced;
+            this.viewReferenceChain = ImmutableList.copyOf(requireNonNull(viewReferenceChain, "viewReferenceChain is null"));
         }
 
         public Optional<TableHandle> getHandle()
@@ -1976,6 +1986,11 @@ public class Analysis
         public boolean isDirectlyReferenced()
         {
             return directlyReferenced;
+        }
+
+        public List<Table> getViewReferenceChain()
+        {
+            return viewReferenceChain;
         }
 
         public String getAuthorization()

@@ -34,10 +34,19 @@ public class TableInfo
     private final List<String> filters;
     private final List<ColumnInfo> columns;
     private final boolean directlyReferenced;
+    private final List<TableInfo> viewReferenceChain;
 
     @JsonCreator
     @Unstable
-    public TableInfo(String catalog, String schema, String table, String authorization, List<String> filters, List<ColumnInfo> columns, boolean directlyReferenced)
+    public TableInfo(
+            String catalog,
+            String schema,
+            String table,
+            String authorization,
+            List<String> filters,
+            List<ColumnInfo> columns,
+            boolean directlyReferenced,
+            List<TableInfo> viewReferenceChain)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -46,6 +55,7 @@ public class TableInfo
         this.filters = List.copyOf(requireNonNull(filters, "filters is null"));
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
         this.directlyReferenced = directlyReferenced;
+        this.viewReferenceChain = List.copyOf(requireNonNull(viewReferenceChain, "viewReferenceChain is null"));
     }
 
     @JsonProperty
@@ -88,5 +98,11 @@ public class TableInfo
     public boolean isDirectlyReferenced()
     {
         return directlyReferenced;
+    }
+
+    @JsonProperty
+    public List<TableInfo> getViewReferenceChain()
+    {
+        return viewReferenceChain;
     }
 }

@@ -375,26 +375,18 @@ public class TestEventListenerBasic
         assertThat(tables).hasSize(2);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
+        assertTableInfoBasics(table, "tpch", "tiny", "nation", "user", false, 1, 0, 1);
 
         ColumnInfo column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("nationkey");
         assertThat(column.getMask()).isEmpty();
 
+        TableInfo viewInfo = table.getViewReferenceChain().get(0);
+        assertTableInfoBasics(viewInfo, "mock", "default", "test_view", "user", true, 1, 0, 0);
+        assertThat(viewInfo.getColumns().get(0).getColumn()).isEqualTo("test_column");
+
         table = tables.get(1);
-        assertThat(table.getCatalog()).isEqualTo("mock");
-        assertThat(table.getSchema()).isEqualTo("default");
-        assertThat(table.getTable()).isEqualTo("test_view");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
+        assertTableInfoBasics(table, "mock", "default", "test_view", "user", true, 1, 0, 0);
 
         column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("test_column");
@@ -412,26 +404,18 @@ public class TestEventListenerBasic
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(2);
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("alice");
-        assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
+        assertTableInfoBasics(table, "tpch", "tiny", "nation", "alice", false, 1, 0, 1);
 
         ColumnInfo column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("nationkey");
         assertThat(column.getMask()).isEmpty();
 
+        TableInfo viewInfo = table.getViewReferenceChain().get(0);
+        assertTableInfoBasics(viewInfo, "mock", "default", "test_materialized_view", "user", true, 1, 0, 0);
+        assertThat(viewInfo.getColumns().get(0).getColumn()).isEqualTo("test_column");
+
         table = tables.get(1);
-        assertThat(table.getCatalog()).isEqualTo("mock");
-        assertThat(table.getSchema()).isEqualTo("default");
-        assertThat(table.getTable()).isEqualTo("test_materialized_view");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
+        assertTableInfoBasics(table, "mock", "default", "test_materialized_view", "user", true, 1, 0, 0);
 
         column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("test_column");
@@ -460,13 +444,7 @@ public class TestEventListenerBasic
         assertThat(tables).hasSize(1);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(4);
+        assertTableInfoBasics(table, "tpch", "tiny", "nation", "user", true, 4, 0, 0);
     }
 
     @Test
@@ -491,13 +469,7 @@ public class TestEventListenerBasic
         assertThat(tables).hasSize(1);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(4);
+        assertTableInfoBasics(table, "tpch", "tiny", "nation", "user", true, 4, 0, 0);
     }
 
     @Test
@@ -512,26 +484,15 @@ public class TestEventListenerBasic
         assertThat(tables).hasSize(2);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
+        assertTableInfoBasics(table, "tpch", "tiny", "nation", "user", false, 1, 0, 0);
 
         ColumnInfo column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("name");
         assertThat(column.getMask()).isEmpty();
 
         table = tables.get(1);
-        assertThat(table.getCatalog()).isEqualTo("mock");
-        assertThat(table.getSchema()).isEqualTo("default");
-        assertThat(table.getTable()).isEqualTo("test_table_with_row_filter");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isTrue();
-        assertThat(table.getFilters()).hasSize(1);
-        assertThat(table.getColumns()).hasSize(1);
+        assertTableInfoBasics(table, "mock", "default", "test_table_with_row_filter", "user", true, 1, 1, 0);
+        assertThat(table.getFilters().get(0)).isEqualToIgnoringWhitespace("(EXISTS (SELECT 1 FROM nation WHERE (name = test_varchar)))");
 
         column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("test_varchar");
@@ -560,13 +521,7 @@ public class TestEventListenerBasic
         assertThat(tables).hasSize(2);
 
         TableInfo table = tables.get(0);
-        assertThat(table.getCatalog()).isEqualTo("tpch");
-        assertThat(table.getSchema()).isEqualTo("tiny");
-        assertThat(table.getTable()).isEqualTo("orders");
-        assertThat(table.getAuthorization()).isEqualTo("user");
-        assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
+        assertTableInfoBasics(table, "tpch", "tiny", "orders", "user", false, 1, 0, 0);
 
         ColumnInfo column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("orderkey");
@@ -1300,5 +1255,25 @@ public class TestEventListenerBasic
     private static String getQualifiedName(TableInfo tableInfo)
     {
         return tableInfo.getCatalog() + '.' + tableInfo.getSchema() + '.' + tableInfo.getTable();
+    }
+
+    private static void assertTableInfoBasics(
+            TableInfo tableInfo,
+            String catalog,
+            String schema,
+            String table,
+            String authorization,
+            boolean directlyReferenced,
+            int columnsSize,
+            int filtersSize,
+            int viewReferenceChainSize) {
+        assertThat(tableInfo.getCatalog()).isEqualTo(catalog);
+        assertThat(tableInfo.getSchema()).isEqualTo(schema);
+        assertThat(tableInfo.getTable()).isEqualTo(table);
+        assertThat(tableInfo.getAuthorization()).isEqualTo(authorization);
+        assertThat(tableInfo.isDirectlyReferenced()).isEqualTo(directlyReferenced);
+        assertThat(tableInfo.getColumns()).hasSize(columnsSize);
+        assertThat(tableInfo.getFilters()).hasSize(filtersSize);
+        assertThat(tableInfo.getViewReferenceChain()).hasSize(viewReferenceChainSize);
     }
 }
