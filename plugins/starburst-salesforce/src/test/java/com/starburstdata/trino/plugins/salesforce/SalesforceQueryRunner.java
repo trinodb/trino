@@ -34,7 +34,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.starburstdata.trino.plugins.salesforce.SalesforceConfig.SalesforceAuthenticationType.PASSWORD;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -117,7 +116,6 @@ public final class SalesforceQueryRunner
                 .setSecurityToken(requireNonNull(System.getProperty("salesforce.test.basic.auth.security-token"), "salesforce.test.basic.auth.security-token is not set"));
 
         SalesforceConfig config = new SalesforceConfig()
-                .setAuthenticationType(PASSWORD)
                 .setSandboxEnabled(true);
 
         // Query Salesforce to get all of the Id columns for the rows and insert them into a temp table
@@ -250,7 +248,6 @@ public final class SalesforceQueryRunner
         public Builder()
         {
             connectorProperties = ImmutableMap.<String, String>builder()
-                    .put("salesforce.authentication.type", "PASSWORD")
                     .put("salesforce.user", requireNonNull(System.getProperty("salesforce.test.basic.auth.user"), "salesforce.test.basic.auth.user is not set"))
                     .put("salesforce.password", requireNonNull(System.getProperty("salesforce.test.basic.auth.password"), "salesforce.test.basic.auth.password is not set"))
                     .put("salesforce.security-token", requireNonNull(System.getProperty("salesforce.test.basic.auth.security-token"), "salesforce.test.basic.auth.security-token is not set"))

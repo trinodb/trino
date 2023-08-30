@@ -14,7 +14,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.starburstdata.trino.plugins.salesforce.SalesforceConfig.SalesforceAuthenticationType.PASSWORD;
 import static com.starburstdata.trino.plugins.salesforce.SalesforceConnectionFactory.CDATA_OEM_KEY;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -54,7 +53,6 @@ public class TestSalesforcePasswordConfig
     public void testSalesforcePasswordAuthenticationProvider()
     {
         SalesforceConfig config = new SalesforceConfig();
-        config.setAuthenticationType(PASSWORD);
 
         SalesforcePasswordConfig passwordConfig = new SalesforcePasswordConfig()
                 .setUser("user")

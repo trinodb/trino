@@ -13,39 +13,16 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
-import static com.starburstdata.trino.plugins.salesforce.SalesforceConfig.SalesforceAuthenticationType.PASSWORD;
-
 public class SalesforceConfig
 {
-    public enum SalesforceAuthenticationType
-    {
-        PASSWORD,
-    }
-
-    private SalesforceAuthenticationType authenticationType = PASSWORD;
     private boolean isSandboxEnabled;
     private boolean isDriverLoggingEnabled;
     private String driverLoggingLocation = System.getProperty("java.io.tmpdir") + "/salesforce.log";
     private int driverLoggingVerbosity = 3;
     private Optional<String> extraJdbcProperties = Optional.empty();
-
-    @NotNull
-    public SalesforceAuthenticationType getAuthenticationType()
-    {
-        return authenticationType;
-    }
-
-    @Config("salesforce.authentication.type")
-    @ConfigDescription("Method of authenticating with Salesforce. Default is PASSWORD")
-    public SalesforceConfig setAuthenticationType(SalesforceAuthenticationType authenticationType)
-    {
-        this.authenticationType = authenticationType;
-        return this;
-    }
 
     public boolean isSandboxEnabled()
     {

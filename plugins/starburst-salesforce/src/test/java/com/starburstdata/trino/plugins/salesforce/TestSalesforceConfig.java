@@ -10,15 +10,13 @@
 package com.starburstdata.trino.plugins.salesforce;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.ConfigurationFactory;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.starburstdata.trino.plugins.salesforce.SalesforceConfig.SalesforceAuthenticationType.PASSWORD;
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static org.testng.Assert.assertEquals;
 
 public class TestSalesforceConfig
 {
@@ -26,7 +24,6 @@ public class TestSalesforceConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SalesforceConfig.class)
-                .setAuthenticationType(PASSWORD)
                 .setSandboxEnabled(false)
                 .setDriverLoggingEnabled(false)
                 .setDriverLoggingLocation(System.getProperty("java.io.tmpdir") + "/salesforce.log")
@@ -38,7 +35,6 @@ public class TestSalesforceConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("salesforce.authentication.type", "PASSWORD")
                 .put("salesforce.enable-sandbox", "true")
                 .put("salesforce.driver-logging.enabled", "true")
                 .put("salesforce.driver-logging.location", "/tmp/foo")
@@ -46,21 +42,13 @@ public class TestSalesforceConfig
                 .put("salesforce.extra-jdbc-properties", "foo=bar;")
                 .buildOrThrow();
 
-        SalesforceConfig actual = new ConfigurationFactory(properties).build(SalesforceConfig.class);
-
         SalesforceConfig expected = new SalesforceConfig()
-                .setAuthenticationType(PASSWORD)
                 .setSandboxEnabled(true)
                 .setDriverLoggingEnabled(true)
                 .setDriverLoggingLocation("/tmp/foo")
                 .setDriverLoggingVerbosity(5)
                 .setExtraJdbcProperties("foo=bar;");
 
-        assertEquals(expected.getAuthenticationType(), actual.getAuthenticationType());
-        assertEquals(expected.isSandboxEnabled(), actual.isSandboxEnabled());
-        assertEquals(expected.isDriverLoggingEnabled(), actual.isDriverLoggingEnabled());
-        assertEquals(expected.getDriverLoggingLocation(), actual.getDriverLoggingLocation());
-        assertEquals(expected.getDriverLoggingVerbosity(), actual.getDriverLoggingVerbosity());
-        assertEquals(expected.getExtraJdbcProperties(), actual.getExtraJdbcProperties());
+        assertFullMapping(properties, expected);
     }
 }

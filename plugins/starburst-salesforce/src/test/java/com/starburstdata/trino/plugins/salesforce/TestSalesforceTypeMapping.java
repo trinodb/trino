@@ -35,7 +35,6 @@ import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.starburstdata.trino.plugins.salesforce.SalesforceConfig.SalesforceAuthenticationType.PASSWORD;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPING;
@@ -80,7 +79,6 @@ public class TestSalesforceTypeMapping
                 .setSecurityToken(requireNonNull(System.getProperty("salesforce.test.basic.auth.security-token"), "salesforce.test.basic.auth.security-token is not set"));
 
         SalesforceConfig config = new SalesforceConfig()
-                .setAuthenticationType(PASSWORD)
                 .setSandboxEnabled(true);
 
         // Create a SalesforceConfig to get the JDBC URL that we can forward to the testing classes
