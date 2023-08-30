@@ -141,6 +141,9 @@ properties:
    * - ``hive.metastore.thrift.client.ssl.trust-certificate-password``
      - Password for the trust store.
      -
+   * - ``hive.metastore.thrift.batch-fetch.enabled``
+     - Enable fetching tables and views from all schemas in a single request.
+     - ``true``
    * - ``hive.metastore.service.principal``
      - The Kerberos principal of the Hive metastore service.
      -
