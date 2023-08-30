@@ -90,6 +90,7 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -152,6 +153,7 @@ import static io.trino.SystemSessionProperties.getTaskRetryAttemptsPerTask;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionSmallStageEstimationEnabled;
 import static io.trino.SystemSessionProperties.isFaultTolerantExecutionSmallStageRequireNoMorePartitions;
+import static io.trino.SystemSessionProperties.isFaultTolerantExecutionStageEstimationForEagerParentEnabled;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
 import static io.trino.execution.StageState.ABORTED;
 import static io.trino.execution.StageState.PLANNED;
@@ -218,6 +220,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     private final double smallStageSourceSizeMultiplier;
     private final DataSize smallSizePartitionSizeEstimate;
     private final boolean smallStageRequireNoMorePartitions;
+    private final boolean stageEstimationForEagerParentEnabled;
 
     private final StageRegistry stageRegistry;
 
@@ -274,6 +277,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         this.smallStageSourceSizeMultiplier = getFaultTolerantExecutionSmallStageSourceSizeMultiplier(queryStateMachine.getSession());
         this.smallSizePartitionSizeEstimate = getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin(queryStateMachine.getSession());
         this.smallStageRequireNoMorePartitions = isFaultTolerantExecutionSmallStageRequireNoMorePartitions(queryStateMachine.getSession());
+        this.stageEstimationForEagerParentEnabled = isFaultTolerantExecutionStageEstimationForEagerParentEnabled(queryStateMachine.getSession());
 
         stageRegistry = new StageRegistry(queryStateMachine, originalPlan);
     }
@@ -358,6 +362,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     smallStageEstimationThreshold,
                     smallStageSourceSizeMultiplier,
                     smallSizePartitionSizeEstimate,
+                    stageEstimationForEagerParentEnabled,
                     smallStageRequireNoMorePartitions);
             queryExecutor.submit(scheduler::run);
         }
@@ -544,6 +549,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final double smallStageSourceSizeMultiplier;
         private final DataSize smallSizePartitionSizeEstimate;
         private final boolean smallStageRequireNoMorePartitions;
+        private final boolean stageEstimationForEagerParentEnabled;
 
         private final BlockingQueue<Event> eventQueue = new LinkedBlockingQueue<>();
         private final List<Event> eventBuffer = new ArrayList<>(EVENT_BUFFER_CAPACITY);
@@ -600,6 +606,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 DataSize smallStageEstimationThreshold,
                 double smallStageSourceSizeMultiplier,
                 DataSize smallSizePartitionSizeEstimate,
+                boolean stageEstimationForEagerParentEnabled,
                 boolean smallStageRequireNoMorePartitions)
         {
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
@@ -636,6 +643,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.smallStageEstimationThreshold = requireNonNull(smallStageEstimationThreshold, "smallStageEstimationThreshold is null");
             this.smallStageSourceSizeMultiplier = smallStageSourceSizeMultiplier;
             this.smallSizePartitionSizeEstimate = requireNonNull(smallSizePartitionSizeEstimate, "smallSizePartitionSizeEstimate is null");
+            this.stageEstimationForEagerParentEnabled = stageEstimationForEagerParentEnabled;
             this.smallStageRequireNoMorePartitions = smallStageRequireNoMorePartitions;
 
             planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
@@ -971,16 +979,12 @@ public class EventDrivenFaultTolerantQueryScheduler
             boolean standardTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
                     .anyMatch(task -> task.getExecutionClass() == STANDARD && !task.getNodeLease().getNode().isDone());
 
-            // Do not start a speculative stage if there is non-speculative work still to be done.
-            // Do not start a speculative stage after partition count has been changed at runtime, as when we estimate
-            // by progress, repartition tasks will produce very uneven output for different output partitions, which
-            // will result in very bad task bin-packing results; also the fact that runtime adaptive partitioning
-            // happened already suggests that there is plenty work ahead.
-            boolean canScheduleSpeculative = !standardTasksInQueue && !standardTasksWaitingForNode && !runtimeAdaptivePartitioningApplied;
+            boolean eager = stageEstimationForEagerParentEnabled && shouldScheduleEagerly(subPlan);
             boolean speculative = false;
             int finishedSourcesCount = 0;
             int estimatedByProgressSourcesCount = 0;
             int estimatedBySmallInputSourcesCount = 0;
+            int estimatedForEagerParent = 0;
 
             ImmutableMap.Builder<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates = ImmutableMap.builder();
 
@@ -998,14 +1002,24 @@ public class EventDrivenFaultTolerantQueryScheduler
                         // speculative execution not supported by Exchange implementation
                         return IsReadyForExecutionResult.notReady();
                     }
-                    if (!canScheduleSpeculative) {
+                    if (runtimeAdaptivePartitioningApplied) {
+                        // Do not start a speculative stage after partition count has been changed at runtime, as when we estimate
+                        // by progress, repartition tasks will produce very uneven output for different output partitions, which
+                        // will result in very bad task bin-packing results; also the fact that runtime adaptive partitioning
+                        // happened already suggests that there is plenty work ahead.
                         return IsReadyForExecutionResult.notReady();
                     }
+
+                    if ((standardTasksInQueue || standardTasksWaitingForNode) && !eager) {
+                        // Do not start a non-eager speculative stage if there is non-speculative work still to be done.
+                        return IsReadyForExecutionResult.notReady();
+                    }
+
                     speculative = true;
                 }
                 else {
                     // source stage finished; no more checks needed
-                    OutputDataSizeEstimateResult result = sourceStageExecution.getOutputDataSize(stageExecutions::get).orElseThrow();
+                    OutputDataSizeEstimateResult result = sourceStageExecution.getOutputDataSize(stageExecutions::get, eager).orElseThrow();
                     verify(result.getStatus() == OutputDataSizeEstimateStatus.FINISHED, "expected FINISHED status but got %s", result.getStatus());
                     finishedSourcesCount++;
                     sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), result.getOutputDataSizeEstimate());
@@ -1023,7 +1037,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     return IsReadyForExecutionResult.notReady();
                 }
 
-                Optional<OutputDataSizeEstimateResult> result = sourceStageExecution.getOutputDataSize(stageExecutions::get);
+                Optional<OutputDataSizeEstimateResult> result = sourceStageExecution.getOutputDataSize(stageExecutions::get, eager);
                 if (result.isEmpty()) {
                     return IsReadyForExecutionResult.notReady();
                 }
@@ -1031,6 +1045,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 switch (result.orElseThrow().getStatus()) {
                     case ESTIMATED_BY_PROGRESS -> estimatedByProgressSourcesCount++;
                     case ESTIMATED_BY_SMALL_INPUT -> estimatedBySmallInputSourcesCount++;
+                    case ESTIMATED_FOR_EAGER_PARENT -> estimatedForEagerParent++;
                     default -> throw new IllegalStateException(format("unexpected status %s", result.orElseThrow().getStatus())); // FINISHED handled above
                 }
 
@@ -1038,19 +1053,36 @@ public class EventDrivenFaultTolerantQueryScheduler
                 someSourcesMadeProgress = someSourcesMadeProgress || sourceStageExecution.isSomeProgressMade();
             }
 
-            if (!subPlan.getChildren().isEmpty() && !someSourcesMadeProgress) {
+            if (!subPlan.getChildren().isEmpty() && !someSourcesMadeProgress && !eager) {
                 return IsReadyForExecutionResult.notReady();
             }
 
             if (speculative) {
-                log.debug("scheduling speculative %s/%s; sources: finished=%s; estimatedByProgress=%s; estimatedSmall=%s",
+                log.debug("scheduling speculative %s/%s; sources: finished=%s; estimatedByProgress=%s; estimatedSmall=%s; estimatedForEagerParent=%s",
                         queryStateMachine.getQueryId(),
                         subPlan.getFragment().getId(),
                         finishedSourcesCount,
                         estimatedByProgressSourcesCount,
-                        estimatedBySmallInputSourcesCount);
+                        estimatedBySmallInputSourcesCount,
+                        estimatedForEagerParent);
             }
-            return IsReadyForExecutionResult.ready(sourceOutputSizeEstimates.buildOrThrow(), false);
+            return IsReadyForExecutionResult.ready(sourceOutputSizeEstimates.buildOrThrow(), eager);
+        }
+
+        private boolean shouldScheduleEagerly(SubPlan subPlan)
+        {
+            return hasSmallFinalLimitNode(subPlan);
+        }
+
+        private static boolean hasSmallFinalLimitNode(SubPlan subPlan)
+        {
+            if (!subPlan.getFragment().getPartitioning().isSingleNode()) {
+                // Final LIMIT should always have SINGLE distribution
+                return false;
+            }
+            return PlanNodeSearcher.searchFrom(subPlan.getFragment().getRoot())
+                    .where(node -> node instanceof LimitNode limitNode && !limitNode.isPartial() && limitNode.getCount() < 1_000_000)
+                    .matches();
         }
 
         /**
@@ -2087,13 +2119,17 @@ public class EventDrivenFaultTolerantQueryScheduler
             return getStagePartition(partitionId).getNodeRequirements();
         }
 
-        public Optional<OutputDataSizeEstimateResult> getOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup)
+        public Optional<OutputDataSizeEstimateResult> getOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup, boolean parentEager)
         {
             if (stage.getState() == StageState.FINISHED) {
                 return Optional.of(new OutputDataSizeEstimateResult(
                         new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)), OutputDataSizeEstimateStatus.FINISHED));
             }
-            return getEstimatedOutputDataSize().or(() -> getEstimatedSmallStageOutputDataSize(stageExecutionLookup));
+            Optional<OutputDataSizeEstimateResult> result = getEstimatedOutputDataSize().or(() -> getEstimatedSmallStageOutputDataSize(stageExecutionLookup));
+            if (result.isEmpty() && parentEager) {
+                result = getEstimatedStageOutputSizeForEagerParent();
+            }
+            return result;
         }
 
         public boolean isSomeProgressMade()
@@ -2169,7 +2205,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
                     StageExecution sourceStage = stageExecutionLookup.apply(sourceStageId);
                     requireNonNull(sourceStage, "sourceStage is null");
-                    Optional<OutputDataSizeEstimateResult> sourceStageOutputDataSize = sourceStage.getOutputDataSize(stageExecutionLookup);
+                    Optional<OutputDataSizeEstimateResult> sourceStageOutputDataSize = sourceStage.getOutputDataSize(stageExecutionLookup, false);
 
                     if (sourceStageOutputDataSize.isEmpty()) {
                         // cant estimate size of one of sources; should not happen in practice
@@ -2193,6 +2229,19 @@ public class EventDrivenFaultTolerantQueryScheduler
                 estimateBuilder.add(inputSizeEstimate / outputPartitionsCount);
             }
             return Optional.of(new OutputDataSizeEstimateResult(estimateBuilder.build(), OutputDataSizeEstimateStatus.ESTIMATED_BY_SMALL_INPUT));
+        }
+
+        private Optional<OutputDataSizeEstimateResult> getEstimatedStageOutputSizeForEagerParent()
+        {
+            // use empty estimate as fallback for eager parents. It matches current logic of assessing if node should be processed eagerly or not.
+            // Currently, we use eager task exectuion only for stages with small FINAL LIMIT which implies small input from child stages (child stages will
+            // enforce small input via PARTIAL LIMIT)
+            int outputPartitionsCount = sinkPartitioningScheme.getPartitionCount();
+            ImmutableLongArray.Builder estimateBuilder = ImmutableLongArray.builder(outputPartitionsCount);
+            for (int i = 0; i < outputPartitionsCount; ++i) {
+                estimateBuilder.add(0);
+            }
+            return Optional.of(new OutputDataSizeEstimateResult(estimateBuilder.build(), OutputDataSizeEstimateStatus.ESTIMATED_FOR_EAGER_PARENT));
         }
 
         public ExchangeSourceOutputSelector getSinkOutputSelector()
@@ -2270,7 +2319,8 @@ public class EventDrivenFaultTolerantQueryScheduler
     private enum OutputDataSizeEstimateStatus {
         FINISHED,
         ESTIMATED_BY_PROGRESS,
-        ESTIMATED_BY_SMALL_INPUT
+        ESTIMATED_BY_SMALL_INPUT,
+        ESTIMATED_FOR_EAGER_PARENT
     }
 
     private static class OutputDataSizeEstimateResult

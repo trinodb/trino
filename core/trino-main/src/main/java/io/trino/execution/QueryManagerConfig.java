@@ -144,6 +144,7 @@ public class QueryManagerConfig
     private DataSize faultTolerantExecutionSmallStageEstimationThreshold = DataSize.of(20, GIGABYTE);
     private double faultTolerantExecutionSmallStageSourceSizeMultiplier = 1.2;
     private boolean faultTolerantExecutionSmallStageRequireNoMorePartitions;
+    private boolean faultTolerantExecutionStageEstimationForEagerParentEnabled = true;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -1074,6 +1075,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionSmallStageRequireNoMorePartitions(boolean faultTolerantExecutionSmallStageRequireNoMorePartitions)
     {
         this.faultTolerantExecutionSmallStageRequireNoMorePartitions = faultTolerantExecutionSmallStageRequireNoMorePartitions;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionStageEstimationForEagerParentEnabled()
+    {
+        return faultTolerantExecutionStageEstimationForEagerParentEnabled;
+    }
+
+    @Config("fault-tolerant-execution-stage-estimation-for-eager-parent-enabled")
+    @ConfigDescription("Enable aggressive stage output size estimation heuristic for children of stages to be executed eagerly")
+    public QueryManagerConfig setFaultTolerantExecutionStageEstimationForEagerParentEnabled(boolean faultTolerantExecutionStageEstimationForEagerParentEnabled)
+    {
+        this.faultTolerantExecutionStageEstimationForEagerParentEnabled = faultTolerantExecutionStageEstimationForEagerParentEnabled;
         return this;
     }
 
