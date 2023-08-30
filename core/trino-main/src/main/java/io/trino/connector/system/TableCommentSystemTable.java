@@ -97,54 +97,59 @@ public class TableCommentSystemTable
         for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
-            if (prefix.getTableName().isPresent()) {
-                QualifiedObjectName relationName = new QualifiedObjectName(catalog, prefix.getSchemaName().orElseThrow(), prefix.getTableName().get());
-                RelationComment relationComment;
-                try {
-                    relationComment = getRelationComment(session, relationName);
-                }
-                catch (RuntimeException e) {
-                    LOG.warn(e, "Failed to get comment for relation: %s", relationName);
-                    relationComment = new RelationComment(false, Optional.empty());
-                }
-                if (relationComment.found()) {
-                    SchemaTableName schemaTableName = relationName.asSchemaTableName();
-                    // Consulting accessControl first would be simpler but some AccessControl implementations may have issues when asked for a relation that does not exist.
-                    if (accessControl.filterTables(session.toSecurityContext(), catalog, ImmutableSet.of(schemaTableName)).contains(schemaTableName)) {
-                        table.addRow(catalog, schemaTableName.getSchemaName(), schemaTableName.getTableName(), relationComment.comment().orElse(null));
-                    }
+            addTableCommentForCatalog(session, table, catalog, prefix);
+        }
+
+        return table.build().cursor();
+    }
+
+    private void addTableCommentForCatalog(Session session, Builder table, String catalog, QualifiedTablePrefix prefix)
+    {
+        if (prefix.getTableName().isPresent()) {
+            QualifiedObjectName relationName = new QualifiedObjectName(catalog, prefix.getSchemaName().orElseThrow(), prefix.getTableName().get());
+            RelationComment relationComment;
+            try {
+                relationComment = getRelationComment(session, relationName);
+            }
+            catch (RuntimeException e) {
+                LOG.warn(e, "Failed to get comment for relation: %s", relationName);
+                relationComment = new RelationComment(false, Optional.empty());
+            }
+            if (relationComment.found()) {
+                SchemaTableName schemaTableName = relationName.asSchemaTableName();
+                // Consulting accessControl first would be simpler but some AccessControl implementations may have issues when asked for a relation that does not exist.
+                if (accessControl.filterTables(session.toSecurityContext(), catalog, ImmutableSet.of(schemaTableName)).contains(schemaTableName)) {
+                    table.addRow(catalog, schemaTableName.getSchemaName(), schemaTableName.getTableName(), relationComment.comment().orElse(null));
                 }
             }
-            else {
-                List<RelationCommentMetadata> relationComments = metadata.listRelationComments(
-                        session,
-                        prefix.getCatalogName(),
-                        prefix.getSchemaName(),
-                        relationNames -> accessControl.filterTables(session.toSecurityContext(), catalog, relationNames));
+        }
+        else {
+            List<RelationCommentMetadata> relationComments = metadata.listRelationComments(
+                    session,
+                    prefix.getCatalogName(),
+                    prefix.getSchemaName(),
+                    relationNames -> accessControl.filterTables(session.toSecurityContext(), catalog, relationNames));
 
-                for (RelationCommentMetadata commentMetadata : relationComments) {
-                    SchemaTableName name = commentMetadata.name();
-                    if (!commentMetadata.tableRedirected()) {
-                        table.addRow(catalog, name.getSchemaName(), name.getTableName(), commentMetadata.comment().orElse(null));
+            for (RelationCommentMetadata commentMetadata : relationComments) {
+                SchemaTableName name = commentMetadata.name();
+                if (!commentMetadata.tableRedirected()) {
+                    table.addRow(catalog, name.getSchemaName(), name.getTableName(), commentMetadata.comment().orElse(null));
+                }
+                else {
+                    try {
+                        // TODO (https://github.com/trinodb/trino/issues/18514) this should consult accessControl on redirected name. Leaving for now as-is.
+                        metadata.getRedirectionAwareTableHandle(session, new QualifiedObjectName(catalog, name.getSchemaName(), name.getTableName()))
+                                .tableHandle().ifPresent(tableHandle -> {
+                                    Optional<String> comment = metadata.getTableMetadata(session, tableHandle).getMetadata().getComment();
+                                    table.addRow(catalog, name.getSchemaName(), name.getTableName(), comment.orElse(null));
+                                });
                     }
-                    else {
-                        try {
-                            // TODO (https://github.com/trinodb/trino/issues/18514) this should consult accessControl on redirected name. Leaving for now as-is.
-                            metadata.getRedirectionAwareTableHandle(session, new QualifiedObjectName(catalog, name.getSchemaName(), name.getTableName()))
-                                    .tableHandle().ifPresent(tableHandle -> {
-                                        Optional<String> comment = metadata.getTableMetadata(session, tableHandle).getMetadata().getComment();
-                                        table.addRow(catalog, name.getSchemaName(), name.getTableName(), comment.orElse(null));
-                                    });
-                        }
-                        catch (RuntimeException e) {
-                            LOG.warn(e, "Failed to get metadata for table: %s", name);
-                        }
+                    catch (RuntimeException e) {
+                        LOG.warn(e, "Failed to get metadata for table: %s", name);
                     }
                 }
             }
         }
-
-        return table.build().cursor();
     }
 
     private RelationComment getRelationComment(Session session, QualifiedObjectName relationName)
