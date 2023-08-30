@@ -71,6 +71,10 @@ class FunctionBinder
 
     Optional<CatalogFunctionBinding> tryBindFunction(List<TypeSignatureProvider> parameterTypes, Collection<CatalogFunctionMetadata> candidates)
     {
+        if (candidates.isEmpty()) {
+            return Optional.empty();
+        }
+
         List<CatalogFunctionMetadata> exactCandidates = candidates.stream()
                 .filter(function -> function.functionMetadata().getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(toImmutableList());

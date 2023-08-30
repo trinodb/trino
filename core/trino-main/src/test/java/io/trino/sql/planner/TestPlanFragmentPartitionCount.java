@@ -64,6 +64,7 @@ public class TestPlanFragmentPartitionCount
                 localQueryRunner.getFunctionManager(),
                 localQueryRunner.getTransactionManager(),
                 localQueryRunner.getCatalogManager(),
+                localQueryRunner.getLanguageFunctionManager(),
                 new QueryManagerConfig());
     }
 
@@ -143,6 +144,7 @@ public class TestPlanFragmentPartitionCount
 
     private SubPlan fragment(Plan plan)
     {
+        localQueryRunner.getLanguageFunctionManager().registerQuery(session);
         return inTransaction(session -> planFragmenter.createSubPlans(session, plan, false, WarningCollector.NOOP));
     }
 

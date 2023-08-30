@@ -32,6 +32,7 @@ import io.trino.execution.executor.TaskHandle;
 import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.metadata.WorkerLanguageFunctionProvider;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
@@ -122,6 +123,7 @@ public class TestTaskExecutorStuckSplits
                 new EmbedVersion("testversion"),
                 new NoConnectorServicesProvider(),
                 createTestingPlanner(),
+                new WorkerLanguageFunctionProvider(),
                 new BaseTestSqlTaskManager.MockLocationFactory(),
                 taskExecutor,
                 createTestSplitMonitor(),

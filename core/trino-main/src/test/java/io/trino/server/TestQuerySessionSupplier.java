@@ -43,6 +43,7 @@ import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
+import static io.trino.metadata.LanguageFunctionManager.QUERY_LOCAL_SCHEMA;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.metadata.MetadataManager.testMetadataManagerBuilder;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -160,6 +161,7 @@ public class TestQuerySessionSupplier
         assertEquals(
                 path.getPath(),
                 ImmutableList.<CatalogSchemaName>builder()
+                        .add(new CatalogSchemaName(GlobalSystemConnector.NAME, QUERY_LOCAL_SCHEMA))
                         .add(new CatalogSchemaName(GlobalSystemConnector.NAME, BUILTIN_SCHEMA))
                         .add(new CatalogSchemaName("normal", "schema"))
                         .add(new CatalogSchemaName("who.uses.periods", "in.schema.names"))

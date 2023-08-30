@@ -16,6 +16,7 @@ package io.trino.metadata;
 import io.trino.Session;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -137,6 +138,11 @@ public interface SystemSecurityMetadata
      * Set the owner of the specified view
      */
     void setViewOwner(Session session, CatalogSchemaTableName view, TrinoPrincipal principal);
+
+    /**
+     * Get the identity to run the function as
+     */
+    Optional<Identity> getFunctionRunAsIdentity(Session session, CatalogSchemaFunctionName functionName);
 
     /**
      * A schema was created
