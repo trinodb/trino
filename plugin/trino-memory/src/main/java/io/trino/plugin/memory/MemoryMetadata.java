@@ -438,11 +438,7 @@ public class MemoryMetadata
     private void updateRowsOnHosts(long tableId, Collection<Slice> fragments)
     {
         TableInfo info = tables.get(tableId);
-        checkState(
-                info != null,
-                "Uninitialized tableId [%s.%s]",
-                info.getSchemaName(),
-                info.getTableName());
+        checkState(info != null, "Uninitialized tableId %s", tableId);
 
         Map<HostAddress, MemoryDataFragment> dataFragments = new HashMap<>(info.getDataFragments());
         for (Slice fragment : fragments) {
