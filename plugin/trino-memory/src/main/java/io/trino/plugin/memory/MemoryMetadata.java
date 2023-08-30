@@ -152,17 +152,8 @@ public class MemoryMetadata
     @GuardedBy("this")
     private boolean isSchemaEmpty(String schemaName)
     {
-        if (tables.values().stream()
-                .anyMatch(table -> table.getSchemaName().equals(schemaName))) {
-            return false;
-        }
-
-        if (views.keySet().stream()
-                .anyMatch(view -> view.getSchemaName().equals(schemaName))) {
-            return false;
-        }
-
-        return true;
+        return tables.values().stream().noneMatch(table -> table.getSchemaName().equals(schemaName)) &&
+                views.keySet().stream().noneMatch(view -> view.getSchemaName().equals(schemaName));
     }
 
     @Override
