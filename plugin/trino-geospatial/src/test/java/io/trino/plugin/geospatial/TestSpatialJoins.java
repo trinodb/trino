@@ -18,6 +18,7 @@ import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.security.PrincipalType;
+import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
@@ -29,6 +30,7 @@ import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSpatialJoins
         extends AbstractTestQueryFramework
@@ -398,5 +400,22 @@ public class TestSpatialJoins
                         "FULL JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
                         "ON ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude1, a.longitude1)) OR ST_Contains(ST_GeometryFromText(b.wkt), ST_Point(a.latitude2, a.longitude2))",
                 "VALUES ('x', 'a'), ('y', 'b'), ('y', 'c'), (NULL, 'd'), (NULL, 'empty'), ('z', NULL), (NULL, 'null'), ('null', NULL)");
+    }
+
+    @Test
+    public void testLeftJoin()
+    {
+        assertThat(new QueryAssertions(getQueryRunner()).query("""
+                WITH
+                    points(lat, lon) AS ( VALUES (0.5, 0.5), (2, 2) ),
+                    polygons(id, x) AS ( VALUES (1, ST_GeometryFromText('POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))')) )
+                SELECT id, lat, lon
+                FROM points LEFT JOIN polygons ON st_contains(x, ST_Point(lat, lon))
+                """))
+                .matches("""
+                        VALUES
+                            (1, 0.5, 0.5),
+                            (NULL, 2, 2)
+                        """);
     }
 }
