@@ -422,7 +422,7 @@ public class BinPackingNodeAllocatorService
 
         public boolean isSpeculative()
         {
-            return executionClass.get() == SPECULATIVE;
+            return executionClass.get().isSpeculative();
         }
 
         public TaskExecutionClass getExecutionClass()

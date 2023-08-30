@@ -31,4 +31,12 @@ public enum TaskExecutionClass
             case SPECULATIVE -> targetExecutionClass == SPECULATIVE || targetExecutionClass == STANDARD;
         };
     }
+
+    boolean isSpeculative()
+    {
+        return switch (this) {
+            case STANDARD -> false;
+            case SPECULATIVE -> true;
+        };
+    }
 }
