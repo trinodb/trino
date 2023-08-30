@@ -906,51 +906,51 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE,
                         "Standard split size for a single fault tolerant task (split weight aware)",
                         queryManagerConfig.getFaultTolerantExecutionStandardSplitSize(),
-                        false),
+                        true),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT,
                         "Maximal number of splits for a single fault tolerant task (count based)",
                         queryManagerConfig.getFaultTolerantExecutionMaxTaskSplitCount(),
-                        false),
+                        true),
                 dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY,
                         "Estimated amount of memory a single coordinator task will use when task level retries are used; value is used when allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionCoordinatorTaskMemory(),
-                        false),
+                        true),
                 dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY,
                         "Estimated amount of memory a single task will use when task level retries are used; value is used when allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemory(),
-                        false),
+                        true),
                 doubleProperty(
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR,
                         "Factor by which estimated task memory is increased if task execution runs out of memory; value is used allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemoryGrowthFactor(),
-                        false),
+                        true),
                 doubleProperty(
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE,
                         "What quantile of memory usage of completed tasks to look at when estimating memory usage for upcoming tasks",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemoryEstimationQuantile(),
                         value -> validateDoubleRange(value, FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE, 0.0, 1.0),
-                        false),
+                        true),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT,
                         "Maximum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
                         queryManagerConfig.getFaultTolerantExecutionMaxPartitionCount(),
                         value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
-                        false),
+                        true),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT,
                         "Minimum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
                         queryManagerConfig.getFaultTolerantExecutionMinPartitionCount(),
                         value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
-                        false),
+                        true),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE,
                         "Minimum number of partitions for distributed joins and aggregations in write queries executed with fault tolerant execution enabled",
                         queryManagerConfig.getFaultTolerantExecutionMinPartitionCountForWrite(),
                         value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
-                        false),
+                        true),
                 booleanProperty(
                         FAULT_TOLERANT_EXECUTION_RUNTIME_ADAPTIVE_PARTITIONING_ENABLED,
                         "Enables change of number of partitions at runtime when intermediate data size is large",
@@ -976,12 +976,12 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_ENABLED,
                         "Enable small stage estimation heuristic, used for more aggresive speculative stage scheduling",
                         queryManagerConfig.isFaultTolerantExecutionSmallStageEstimationEnabled(),
-                        false),
+                        true),
                 dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_THRESHOLD,
                         "Threshold until which stage is considered small",
                         queryManagerConfig.getFaultTolerantExecutionSmallStageEstimationThreshold(),
-                        false),
+                        true),
                 doubleProperty(
                         FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER,
                         "Multiplier used for heuristic estimation is stage is small; the bigger the more conservative estimation is",
@@ -993,12 +993,12 @@ public final class SystemSessionProperties
                                         format("%s must be greater than or equal to 1.0: %s", FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER, value));
                             }
                         },
-                        false),
+                        true),
                 booleanProperty(
                         FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS,
                         "Is it required for all stage partitions (tasks) to be enumerated for stage to be used in heuristic to determine if parent stage is small",
                         queryManagerConfig.isFaultTolerantExecutionSmallStageRequireNoMorePartitions(),
-                        false),
+                        true),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
