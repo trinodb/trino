@@ -46,6 +46,7 @@ import io.trino.execution.executor.timesharing.PrioritizedSplitRunner;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
+import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
@@ -136,12 +137,14 @@ public class SqlTaskManager
 
     private final CounterStat failedTasks = new CounterStat();
     private final Optional<StuckSplitTasksInterrupter> stuckSplitTasksInterrupter;
+    private final LanguageFunctionProvider languageFunctionProvider;
 
     @Inject
     public SqlTaskManager(
             VersionEmbedder versionEmbedder,
             ConnectorServicesProvider connectorServicesProvider,
             LocalExecutionPlanner planner,
+            LanguageFunctionProvider languageFunctionProvider,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
@@ -159,6 +162,7 @@ public class SqlTaskManager
         this(versionEmbedder,
                 connectorServicesProvider,
                 planner,
+                languageFunctionProvider,
                 locationFactory,
                 taskExecutor,
                 splitMonitor,
@@ -180,6 +184,7 @@ public class SqlTaskManager
             VersionEmbedder versionEmbedder,
             ConnectorServicesProvider connectorServicesProvider,
             LocalExecutionPlanner planner,
+            LanguageFunctionProvider languageFunctionProvider,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
@@ -196,6 +201,7 @@ public class SqlTaskManager
             Predicate<List<StackTraceElement>> stuckSplitStackTracePredicate)
     {
         this.connectorServicesProvider = requireNonNull(connectorServicesProvider, "connectorServicesProvider is null");
+        this.languageFunctionProvider = languageFunctionProvider;
 
         requireNonNull(nodeInfo, "nodeInfo is null");
         infoCacheTime = config.getInfoMaxAge();
@@ -230,7 +236,10 @@ public class SqlTaskManager
                         tracer,
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,
-                        sqlTask -> finishedTaskStats.merge(sqlTask.getIoStats()),
+                        sqlTask -> {
+                            languageFunctionProvider.unregisterTask(taskId);
+                            finishedTaskStats.merge(sqlTask.getIoStats());
+                        },
                         maxBufferSize,
                         maxBroadcastBufferSize,
                         requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null"),
@@ -527,6 +536,9 @@ public class SqlTaskManager
                         connectorServicesProvider.ensureCatalogsLoaded(session, activeCatalogs);
                     }
                 });
+
+        fragment.map(PlanFragment::getLanguageFunctions)
+                .ifPresent(languageFunctions -> languageFunctionProvider.registerTask(taskId, languageFunctions));
 
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, stageSpan, fragment, splitAssignments, outputBuffers, dynamicFilterDomains, speculative);

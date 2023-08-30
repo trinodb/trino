@@ -19,6 +19,7 @@ import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
@@ -61,6 +62,8 @@ public interface QueryRunner
     SessionPropertyManager getSessionPropertyManager();
 
     FunctionManager getFunctionManager();
+
+    LanguageFunctionManager getLanguageFunctionManager();
 
     SplitManager getSplitManager();
 

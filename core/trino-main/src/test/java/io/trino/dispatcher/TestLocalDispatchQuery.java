@@ -47,6 +47,7 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.operator.OperatorStats;
@@ -131,7 +132,8 @@ public class TestLocalDispatchQuery
                 metadata,
                 new FunctionManager(
                         new ConnectorCatalogServiceProvider<>("function provider", new NoConnectorServicesProvider(), ConnectorServices::getFunctionProvider),
-                        new GlobalFunctionCatalog()),
+                        new GlobalFunctionCatalog(),
+                        LanguageFunctionProvider.DISABLED),
                 new QueryMonitorConfig());
         CreateTable createTable = new CreateTable(QualifiedName.of("table"), ImmutableList.of(), FAIL, ImmutableList.of(), Optional.empty());
         QueryPreparer.PreparedQuery preparedQuery = new QueryPreparer.PreparedQuery(createTable, ImmutableList.of(), Optional.empty());

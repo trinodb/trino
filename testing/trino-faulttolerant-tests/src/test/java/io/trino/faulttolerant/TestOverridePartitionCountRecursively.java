@@ -286,6 +286,7 @@ public class TestOverridePartitionCountRecursively
                             queryRunner.getFunctionManager(),
                             queryRunner.getTransactionManager(),
                             new CoordinatorDynamicCatalogManager(new InMemoryCatalogStore(), new LazyCatalogFactory(), directExecutor()),
+                            queryRunner.getLanguageFunctionManager(),
                             new QueryManagerConfig()).createSubPlans(transactionSession, plan, false, WarningCollector.NOOP);
                 });
     }
