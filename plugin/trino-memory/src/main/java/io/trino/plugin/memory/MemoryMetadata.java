@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Streams;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
@@ -35,8 +36,10 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
@@ -62,6 +65,7 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -71,11 +75,13 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SampleType.SYSTEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 @ThreadSafe
 public class MemoryMetadata
@@ -133,7 +139,7 @@ public class MemoryMetadata
                     .filter(table -> table.getSchemaName().equals(schemaName))
                     .map(TableInfo::getSchemaTableName)
                     .collect(toImmutableSet());
-            tableNames.forEach(tableName -> dropTable(session, getTableHandle(session, tableName)));
+            tableNames.forEach(tableName -> dropTable(session, getTableHandle(session, tableName, Optional.empty(), Optional.empty())));
         }
         // DropSchemaTask has the same logic, but needs to check in connector side considering concurrent operations
         if (!isSchemaEmpty(schemaName)) {
@@ -160,11 +166,21 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        throw new UnsupportedOperationException("This method is not supported because getTableHandle with versions is implemented instead");
+    }
+
+    @Override
+    public synchronized ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
         Long id = tableIds.get(schemaTableName);
         if (id == null) {
             return null;
+        }
+
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
         }
 
         return new MemoryTableHandle(id);
@@ -219,15 +235,23 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        // This list must be materialized before returning, otherwise the iterator could throw a ConcurrentModificationException
-        // if another thread modifies the tables map before the iterator is fully consumed
-        List<TableColumnsMetadata> columnsMetadata = tables.values().stream()
-                .filter(table -> prefix.matches(table.getSchemaTableName()))
-                .map(tableInfo -> TableColumnsMetadata.forTable(tableInfo.getSchemaTableName(), tableInfo.getMetadata().getColumns()))
-                .collect(toImmutableList());
-        return columnsMetadata.iterator();
+        throw new UnsupportedOperationException("The deprecated streamTableColumns is not supported because streamRelationColumns is implemented instead");
+    }
+
+    @Override
+    public synchronized Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        Map<SchemaTableName, RelationColumnsMetadata> relationsColumns = Streams.concat(
+                        tables.values().stream()
+                                .map(tableInfo -> RelationColumnsMetadata.forTable(tableInfo.getSchemaTableName(), tableInfo.getMetadata().getColumns())),
+                        views.entrySet().stream()
+                                .map(entry -> RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns())))
+                .collect(toImmutableMap(RelationColumnsMetadata::name, identity()));
+        return relationFilter.apply(relationsColumns.keySet()).stream()
+                .map(relationsColumns::get)
+                .iterator();
     }
 
     @Override

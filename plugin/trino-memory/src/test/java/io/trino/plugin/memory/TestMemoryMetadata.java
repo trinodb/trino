@@ -94,7 +94,7 @@ public class TestMemoryMetadata
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("Table [default.test1] already exists");
 
-        ConnectorTableHandle test1TableHandle = metadata.getTableHandle(SESSION, test1Table);
+        ConnectorTableHandle test1TableHandle = metadata.getTableHandle(SESSION, test1Table, Optional.empty(), Optional.empty());
         metadata.createTable(SESSION, new ConnectorTableMetadata(test2Table, ImmutableList.of()), false);
 
         assertTrinoExceptionThrownBy(() -> metadata.renameTable(SESSION, test1TableHandle, test2Table))
@@ -110,7 +110,7 @@ public class TestMemoryMetadata
         SchemaTableName firstTableName = new SchemaTableName("default", "first_table");
         metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()), false);
 
-        MemoryTableHandle firstTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, firstTableName);
+        MemoryTableHandle firstTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, firstTableName, Optional.empty(), Optional.empty());
         long firstTableId = firstTableHandle.getId();
 
         assertTrue(metadata.beginInsert(SESSION, firstTableHandle, ImmutableList.of(), NO_RETRIES).getActiveTableIds().contains(firstTableId));
@@ -118,7 +118,7 @@ public class TestMemoryMetadata
         SchemaTableName secondTableName = new SchemaTableName("default", "second_table");
         metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()), false);
 
-        MemoryTableHandle secondTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, secondTableName);
+        MemoryTableHandle secondTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, secondTableName, Optional.empty(), Optional.empty());
         long secondTableId = secondTableHandle.getId();
 
         assertNotEquals(firstTableId, secondTableId);
@@ -287,19 +287,19 @@ public class TestMemoryMetadata
                 NO_RETRIES))
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("Schema test1 not found");
-        assertNull(metadata.getTableHandle(SESSION, table1));
+        assertNull(metadata.getTableHandle(SESSION, table1, Optional.empty(), Optional.empty()));
 
         SchemaTableName view2 = new SchemaTableName("test2", "test_schema_view2");
         assertTrinoExceptionThrownBy(() -> metadata.createView(SESSION, view2, testingViewDefinition("aaa"), false))
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("Schema test2 not found");
-        assertNull(metadata.getTableHandle(SESSION, view2));
+        assertNull(metadata.getTableHandle(SESSION, view2, Optional.empty(), Optional.empty()));
 
         SchemaTableName view3 = new SchemaTableName("test3", "test_schema_view3");
         assertTrinoExceptionThrownBy(() -> metadata.createView(SESSION, view3, testingViewDefinition("bbb"), true))
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("Schema test3 not found");
-        assertNull(metadata.getTableHandle(SESSION, view3));
+        assertNull(metadata.getTableHandle(SESSION, view3, Optional.empty(), Optional.empty()));
 
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
     }
@@ -318,19 +318,19 @@ public class TestMemoryMetadata
 
         // rename table to schema which does not exist
         SchemaTableName invalidSchemaTableName = new SchemaTableName("test_schema_not_exist", "test_table_renamed");
-        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, tableName);
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, tableName, Optional.empty(), Optional.empty());
         Throwable throwable = expectThrows(SchemaNotFoundException.class, () -> metadata.renameTable(SESSION, tableHandle, invalidSchemaTableName));
         assertEquals(throwable.getMessage(), "Schema test_schema_not_exist not found");
 
         // rename table to same schema
         SchemaTableName sameSchemaTableName = new SchemaTableName("test_schema", "test_renamed");
-        metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, tableName), sameSchemaTableName);
+        metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, tableName, Optional.empty(), Optional.empty()), sameSchemaTableName);
         assertEquals(metadata.listTables(SESSION, Optional.of("test_schema")), ImmutableList.of(sameSchemaTableName));
 
         // rename table to different schema
         metadata.createSchema(SESSION, "test_different_schema", ImmutableMap.of(), new TrinoPrincipal(USER, SESSION.getUser()));
         SchemaTableName differentSchemaTableName = new SchemaTableName("test_different_schema", "test_renamed");
-        metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, sameSchemaTableName), differentSchemaTableName);
+        metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, sameSchemaTableName, Optional.empty(), Optional.empty()), differentSchemaTableName);
         assertEquals(metadata.listTables(SESSION, Optional.of("test_schema")), ImmutableList.of());
         assertEquals(metadata.listTables(SESSION, Optional.of("test_different_schema")), ImmutableList.of(differentSchemaTableName));
     }
