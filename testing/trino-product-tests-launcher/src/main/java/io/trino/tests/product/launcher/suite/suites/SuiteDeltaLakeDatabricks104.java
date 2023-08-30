@@ -34,6 +34,8 @@ public class SuiteDeltaLakeDatabricks104
                         .withGroups("configured_features", "delta-lake-databricks")
                         .withExcludedGroups("delta-lake-exclude-104")
                         .withExcludedTests(getExcludedTests())
+                        .withThreadCount(2)
+                        .withParallel("instances")
                         .build());
     }
 }
