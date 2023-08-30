@@ -1019,16 +1019,9 @@ public class EventDrivenFaultTolerantQueryScheduler
                 }
 
                 switch (result.orElseThrow().getStatus()) {
-                    case ESTIMATED_BY_PROGRESS -> {
-                        estimatedByProgressSourcesCount++;
-                    }
-                    case ESTIMATED_BY_SMALL_INPUT -> {
-                        estimatedBySmallInputSourcesCount++;
-                    }
-                    default -> {
-                        // FINISHED handled above
-                        throw new IllegalStateException(format("unexpected status %s", result.orElseThrow().getStatus()));
-                    }
+                    case ESTIMATED_BY_PROGRESS -> estimatedByProgressSourcesCount++;
+                    case ESTIMATED_BY_SMALL_INPUT -> estimatedBySmallInputSourcesCount++;
+                    default -> throw new IllegalStateException(format("unexpected status %s", result.orElseThrow().getStatus())); // FINISHED handled above
                 }
 
                 sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), result.orElseThrow().getOutputDataSizeEstimate());
