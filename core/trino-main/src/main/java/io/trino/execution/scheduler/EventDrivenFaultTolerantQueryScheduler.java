@@ -1339,7 +1339,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             ExchangeSinkInstanceHandle sinkInstanceHandle = sinkInstanceHandleAcquiredEvent.getSinkInstanceHandle();
             StageExecution stageExecution = getStageExecution(stageId);
 
-            Optional<RemoteTask> remoteTask = stageExecution.schedule(partitionId, sinkInstanceHandle, attempt, nodeLease, context.getExecutionClass() == SPECULATIVE);
+            Optional<RemoteTask> remoteTask = stageExecution.schedule(partitionId, sinkInstanceHandle, attempt, nodeLease, context.getExecutionClass().isSpeculative());
             remoteTask.ifPresent(task -> {
                 task.addStateChangeListener(createExchangeSinkInstanceHandleUpdateRequiredListener());
                 task.addStateChangeListener(taskStatus -> {
