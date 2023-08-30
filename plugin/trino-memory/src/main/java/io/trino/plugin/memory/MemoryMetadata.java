@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.HostAddress;
@@ -83,10 +84,14 @@ public class MemoryMetadata
     public static final String SCHEMA_NAME = "default";
 
     private final NodeManager nodeManager;
+    @GuardedBy("this")
     private final List<String> schemas = new ArrayList<>();
     private final AtomicLong nextTableId = new AtomicLong();
+    @GuardedBy("this")
     private final Map<SchemaTableName, Long> tableIds = new HashMap<>();
+    @GuardedBy("this")
     private final Map<Long, TableInfo> tables = new HashMap<>();
+    @GuardedBy("this")
     private final Map<SchemaTableName, ConnectorViewDefinition> views = new HashMap<>();
 
     @Inject
@@ -138,6 +143,7 @@ public class MemoryMetadata
         verify(schemas.remove(schemaName));
     }
 
+    @GuardedBy("this")
     private boolean isSchemaEmpty(String schemaName)
     {
         if (tables.values().stream()
@@ -284,6 +290,7 @@ public class MemoryMetadata
         return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(tableIds.values()));
     }
 
+    @GuardedBy("this")
     private void checkSchemaExists(String schemaName)
     {
         if (!schemas.contains(schemaName)) {
@@ -291,6 +298,7 @@ public class MemoryMetadata
         }
     }
 
+    @GuardedBy("this")
     private void checkTableNotExists(SchemaTableName tableName)
     {
         if (tableIds.containsKey(tableName)) {
@@ -426,6 +434,7 @@ public class MemoryMetadata
         return Optional.ofNullable(views.get(viewName));
     }
 
+    @GuardedBy("this")
     private void updateRowsOnHosts(long tableId, Collection<Slice> fragments)
     {
         TableInfo info = tables.get(tableId);
