@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.GlobalFunctionCatalog;
+import io.trino.metadata.LanguageFunctionManager;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Identifier;
@@ -28,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlPath
@@ -40,6 +42,7 @@ public final class SqlPath
     public static SqlPath buildPath(String rawPath, Optional<String> defaultCatalog)
     {
         ImmutableList.Builder<CatalogSchemaName> path = ImmutableList.builder();
+        path.add(new CatalogSchemaName(GlobalSystemConnector.NAME, LanguageFunctionManager.QUERY_LOCAL_SCHEMA));
         path.add(new CatalogSchemaName(GlobalSystemConnector.NAME, GlobalFunctionCatalog.BUILTIN_SCHEMA));
         for (SqlPathElement pathElement : parsePath(rawPath)) {
             pathElement.getCatalog()
@@ -106,5 +109,17 @@ public final class SqlPath
     public String toString()
     {
         return rawPath;
+    }
+
+    public SqlPath forView(List<CatalogSchemaName> storedPath)
+    {
+        // For a view, we prepend the global function schema to the path, as the
+        // global function schema should not be in the path that is stored for the view.
+        // We do not change the raw path, as that is used for the current_path function.
+        List<CatalogSchemaName> viewPath = ImmutableList.<CatalogSchemaName>builder()
+                .add(new CatalogSchemaName(GlobalSystemConnector.NAME, BUILTIN_SCHEMA))
+                .addAll(storedPath)
+                .build();
+        return new SqlPath(viewPath, rawPath);
     }
 }

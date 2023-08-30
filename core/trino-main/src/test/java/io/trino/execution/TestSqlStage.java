@@ -245,6 +245,7 @@ public class TestSqlStage
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Optional.empty());
     }
 }

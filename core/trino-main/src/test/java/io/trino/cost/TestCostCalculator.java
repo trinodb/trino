@@ -105,6 +105,7 @@ public class TestCostCalculator
         session = testSessionBuilder().setCatalog(TEST_CATALOG_NAME).build();
 
         localQueryRunner = LocalQueryRunner.create(session);
+        localQueryRunner.getLanguageFunctionManager().registerQuery(session);
         localQueryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
 
         planFragmenter = new PlanFragmenter(
@@ -112,6 +113,7 @@ public class TestCostCalculator
                 localQueryRunner.getFunctionManager(),
                 localQueryRunner.getTransactionManager(),
                 localQueryRunner.getCatalogManager(),
+                localQueryRunner.getLanguageFunctionManager(),
                 new QueryManagerConfig());
     }
 
