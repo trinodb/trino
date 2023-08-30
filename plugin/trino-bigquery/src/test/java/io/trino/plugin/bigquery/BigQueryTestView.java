@@ -43,7 +43,8 @@ public class BigQueryTestView
     @Override
     public void close()
     {
-        relation.close();
-        sqlExecutor.execute("DROP VIEW " + viewName);
+        try (relation) {
+            sqlExecutor.execute("DROP VIEW " + viewName);
+        }
     }
 }
