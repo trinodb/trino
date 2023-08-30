@@ -91,6 +91,7 @@ public final class TestGroups
     public static final String DELTA_LAKE_EXCLUDE_104 = "delta-lake-exclude-104";
     public static final String DELTA_LAKE_EXCLUDE_113 = "delta-lake-exclude-113";
     public static final String DELTA_LAKE_EXCLUDE_122 = "delta-lake-exclude-122";
+    public static final String DELTA_LAKE_EXCLUDE_133 = "delta-lake-exclude-133";
     public static final String HUDI = "hudi";
     public static final String PARQUET = "parquet";
     public static final String IGNITE = "ignite";
