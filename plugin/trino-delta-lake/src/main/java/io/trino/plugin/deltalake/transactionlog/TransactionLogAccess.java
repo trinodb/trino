@@ -463,7 +463,7 @@ public class TransactionLogAccess
         return TransactionLogTail.loadNewTail(fileSystem, tableSnapshot.getTableLocation(), Optional.of(startVersion), Optional.of(endVersion)).getFileEntries();
     }
 
-    public static <T> String canonicalizeColumnName(String columnName)
+    public static String canonicalizeColumnName(String columnName)
     {
         return columnName.toLowerCase(Locale.ENGLISH);
     }
