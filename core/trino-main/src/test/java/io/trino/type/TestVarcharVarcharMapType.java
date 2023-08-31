@@ -21,27 +21,26 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestBigintVarcharMapType
+public class TestVarcharVarcharMapType
         extends AbstractTestType
 {
-    public TestBigintVarcharMapType()
+    public TestVarcharVarcharMapType()
     {
-        super(mapType(BIGINT, VARCHAR), Map.class, createTestBlock(mapType(BIGINT, VARCHAR)));
+        super(mapType(VARCHAR, VARCHAR), Map.class, createTestBlock(mapType(VARCHAR, VARCHAR)));
     }
 
     public static Block createTestBlock(Type mapType)
     {
         BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 2);
-        mapType.writeObject(blockBuilder, mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(1, "hi")));
-        mapType.writeObject(blockBuilder, mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(1, "2", 2, "hello")));
-        mapType.writeObject(blockBuilder, mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(1, "123456789012345", 2, "hello-world-hello-world-hello-world")));
+        mapType.writeObject(blockBuilder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("hi", "there")));
+        mapType.writeObject(blockBuilder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("one", "1", "hello", "world")));
+        mapType.writeObject(blockBuilder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("one-two-three-four-five", "123456789012345", "the quick brown fox", "hello-world-hello-world-hello-world")));
         return blockBuilder.build();
     }
 
@@ -61,16 +60,28 @@ public class TestBigintVarcharMapType
     @Test
     public void testPreviousValue()
     {
-        assertThatThrownBy(() -> type.getPreviousValue(getSampleValue()))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Type is not orderable: " + type);
+        Object sampleValue = getSampleValue();
+        if (!type.isOrderable()) {
+            assertThatThrownBy(() -> type.getPreviousValue(sampleValue))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Type is not orderable: " + type);
+            return;
+        }
+        assertThat(type.getPreviousValue(sampleValue))
+                .isEmpty();
     }
 
     @Test
     public void testNextValue()
     {
-        assertThatThrownBy(() -> type.getPreviousValue(getSampleValue()))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Type is not orderable: " + type);
+        Object sampleValue = getSampleValue();
+        if (!type.isOrderable()) {
+            assertThatThrownBy(() -> type.getNextValue(sampleValue))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Type is not orderable: " + type);
+            return;
+        }
+        assertThat(type.getNextValue(sampleValue))
+                .isEmpty();
     }
 }
