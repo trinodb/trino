@@ -271,6 +271,28 @@ public class ArrayType
         });
     }
 
+    // FLAT MEMORY LAYOUT
+    //
+    // All data of the array is stored in the variable width section. Within the variable width section,
+    // fixed data for all elements is stored first, followed by variable length data for all elements
+    // This simplifies the read implementation as we can simply step through the fixed section without
+    // knowing the variable length of each element, since each element stores the offset to its variable
+    // length data inside its fixed length data.
+    //
+    // In the current implementation, the element and null flag are stored in an interleaved flat record.
+    // This layout is not required by the format, and could be changed to a columnar if it is determined
+    // to be more efficient.
+    //
+    // Fixed:
+    //   int positionCount, int variableSizeOffset
+    // Variable:
+    //   byte element1Null, elementFixedSize element1FixedData
+    //   byte element2Null, elementFixedSize element2FixedData
+    //   ...
+    //   element1VariableSize element1VariableData
+    //   element2VariableSize element2VariableData
+    //   ...
+
     @Override
     public int getFlatFixedSize()
     {
