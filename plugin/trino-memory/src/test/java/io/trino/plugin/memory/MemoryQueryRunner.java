@@ -44,6 +44,13 @@ public final class MemoryQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        extraProperties = ImmutableMap.<String, String>builder()
+                .putAll(extraProperties)
+                .put("sql.path", CATALOG + ".functions")
+                .put("sql.default-function-catalog", CATALOG)
+                .put("sql.default-function-schema", "functions")
+                .buildOrThrow();
+
         return builder()
                 .setExtraProperties(extraProperties)
                 .setInitialTables(tables)

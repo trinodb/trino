@@ -119,6 +119,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABL
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_FEDERATED_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_FUNCTION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_OR_REPLACE_TABLE;
@@ -6475,6 +6476,114 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT * FROM " + viewName, "VALUES ('sample value', 'abc')");
 
         assertUpdate("DROP MATERIALIZED VIEW " + viewName);
+    }
+
+    @Test
+    public void testCreateFunction()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_FUNCTION));
+
+        String name = "test_" + randomNameSuffix();
+        String name2 = "test_" + randomNameSuffix();
+        String name3 = "test_" + randomNameSuffix();
+
+        assertUpdate("CREATE FUNCTION " + name + "(x integer) RETURNS bigint COMMENT 't42' RETURN x * 42");
+
+        assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+        assertQueryFails("SELECT " + name + "(2.9)", ".*Unexpected parameters.*");
+
+        assertUpdate("CREATE FUNCTION " + name + "(x double) RETURNS double COMMENT 't88' RETURN x * 8.8");
+
+        assertThat(query("SHOW FUNCTIONS"))
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row(name, "bigint", "integer", "scalar", true, "t42")
+                        .row(name, "double", "double", "scalar", true, "t88")
+                        .build());
+
+        assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+        assertQuery("SELECT " + name + "(2.9)", "SELECT 25.52");
+
+        assertQueryFails("CREATE FUNCTION " + name + "(x int) RETURNS bigint RETURN x", "line 1:1: Function already exists");
+
+        assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+        assertQuery("SELECT " + name + "(2.9)", "SELECT 25.52");
+
+        assertUpdate("CREATE OR REPLACE FUNCTION " + name + "(x bigint) RETURNS bigint RETURN x * 23");
+        assertUpdate("CREATE FUNCTION " + name2 + "(s varchar) RETURNS varchar RETURN 'Hello ' || s");
+
+        assertThat(query("SHOW FUNCTIONS"))
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row(name, "bigint", "integer", "scalar", true, "t42")
+                        .row(name, "bigint", "bigint", "scalar", true, "")
+                        .row(name, "double", "double", "scalar", true, "t88")
+                        .row(name2, "varchar", "varchar", "scalar", true, "")
+                        .build());
+
+        assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+        assertQuery("SELECT " + name + "(cast(99 as bigint))", "SELECT 2277");
+        assertQuery("SELECT " + name + "(2.9)", "SELECT 25.52");
+        assertQuery("SELECT " + name2 + "('world')", "SELECT 'Hello world'");
+
+        assertQuery("SELECT sum(" + name + "(orderkey)) FROM orders", "SELECT sum(orderkey * 23) FROM orders");
+
+        assertUpdate("CREATE FUNCTION " + name3 + "() RETURNS double NOT DETERMINISTIC RETURN random()");
+
+        assertThat(query("SHOW FUNCTIONS"))
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row(name3, "double", "", "scalar", false, "")
+                        .build());
+
+        assertThat(query("SHOW FUNCTIONS FROM " + computeScalar("SELECT current_path")))
+                .skippingTypesCheck()
+                .matches(resultBuilder(getSession())
+                        .row(name, "bigint", "integer", "scalar", true, "t42")
+                        .row(name, "bigint", "bigint", "scalar", true, "")
+                        .row(name, "double", "double", "scalar", true, "t88")
+                        .row(name2, "varchar", "varchar", "scalar", true, "")
+                        .row(name3, "double", "", "scalar", false, "")
+                        .build());
+
+        assertQueryFails("DROP FUNCTION " + name + "(varchar)", "line 1:1: Function not found");
+        assertUpdate("DROP FUNCTION " + name + "(z bigint)");
+        assertUpdate("DROP FUNCTION " + name + "(double)");
+        assertQueryFails("DROP FUNCTION " + name + "(bigint)", "line 1:1: Function not found");
+        assertUpdate("DROP FUNCTION IF EXISTS " + name + "(bigint)");
+        assertUpdate("DROP FUNCTION " + name + "(int)");
+        assertUpdate("DROP FUNCTION " + name2 + "(varchar)");
+        assertQueryFails("DROP FUNCTION " + name2 + "(varchar)", "line 1:1: Function not found");
+        assertUpdate("DROP FUNCTION " + name3 + "()");
+        assertQueryFails("DROP FUNCTION " + name3 + "()", "line 1:1: Function not found");
+
+        assertThat(query("SHOW FUNCTIONS FROM " + computeScalar("SELECT current_path")))
+                .returnsEmptyResult();
+
+        // verify stored functions cannot see inline functions
+        String myAbs = "my_abs_" + randomNameSuffix();
+        assertUpdate("CREATE FUNCTION " + myAbs + "(x integer) RETURNS integer RETURN abs(x)");
+        // test with inline function first as FunctionManager caches compiled implementations
+        assertQuery("WITH FUNCTION abs(x integer) RETURNS integer RETURN x * 2 SELECT " + myAbs + "(-33)", "SELECT 33");
+        assertQuery("SELECT " + myAbs + "(-33)", "SELECT 33");
+
+        String wrapMyAbs = "wrap_my_abs_" + randomNameSuffix();
+        assertUpdate("CREATE FUNCTION " + wrapMyAbs + "(x integer) RETURNS integer RETURN " + myAbs + "(x)");
+        // test with inline function first as FunctionManager caches compiled implementations
+        assertQuery("WITH FUNCTION " + myAbs + "(x integer) RETURNS integer RETURN x * 2 SELECT " + wrapMyAbs + "(-33)", "SELECT 33");
+        assertQuery("SELECT " + wrapMyAbs + "(-33)", "SELECT 33");
+        assertUpdate("DROP FUNCTION " + myAbs + "(integer)");
+        assertUpdate("DROP FUNCTION " + wrapMyAbs + "(integer)");
+
+        // verify mutually recursive functions are not allowed
+        String recursive1 = "recursive1_" + randomNameSuffix();
+        String recursive2 = "recursive2_" + randomNameSuffix();
+        assertUpdate("CREATE FUNCTION " + recursive1 + "(x integer) RETURNS integer RETURN x");
+        assertUpdate("CREATE FUNCTION " + recursive2 + "(x integer) RETURNS integer RETURN " + recursive1 + "(x)");
+        assertUpdate("CREATE OR REPLACE FUNCTION " + recursive1 + "(x integer) RETURNS integer RETURN " + recursive2 + "(x)");
+        assertQueryFails("SELECT " + recursive1 + "(42)", "line 3:8: Recursive language functions are not supported: " + recursive1 + "\\(integer\\):integer");
+        assertUpdate("DROP FUNCTION " + recursive1 + "(integer)");
+        assertUpdate("DROP FUNCTION " + recursive2 + "(integer)");
     }
 
     @Test

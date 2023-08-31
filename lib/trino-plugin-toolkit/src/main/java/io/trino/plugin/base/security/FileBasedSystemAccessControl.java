@@ -62,6 +62,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateCatalog;
+import static io.trino.spi.security.AccessDeniedException.denyCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -73,6 +74,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivileg
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDropCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
+import static io.trino.spi.security.AccessDeniedException.denyDropFunction;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
@@ -949,6 +951,22 @@ public class FileBasedSystemAccessControl
                             checkAnyFunctionPermission(context, routineName, CatalogFunctionAccessControlRule::canExecuteFunction);
                 })
                 .collect(toImmutableSet());
+    }
+
+    @Override
+    public void checkCanCreateFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
+    {
+        if (!checkFunctionPermission(systemSecurityContext, functionName, CatalogFunctionAccessControlRule::hasOwnership)) {
+            denyCreateFunction(functionName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanDropFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
+    {
+        if (!checkFunctionPermission(systemSecurityContext, functionName, CatalogFunctionAccessControlRule::hasOwnership)) {
+            denyDropFunction(functionName.toString());
+        }
     }
 
     @Override
