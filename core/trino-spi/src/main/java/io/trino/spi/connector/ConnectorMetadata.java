@@ -26,6 +26,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
@@ -1087,6 +1088,52 @@ public interface ConnectorMetadata
     default FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session, FunctionId functionId, BoundSignature boundSignature)
     {
         throw new IllegalArgumentException("Unknown function " + functionId);
+    }
+
+    /**
+     * List available language functions.
+     */
+    default Collection<LanguageFunction> listLanguageFunctions(ConnectorSession session, String schemaName)
+    {
+        return List.of();
+    }
+
+    /**
+     * Get all language functions with the specified name.
+     */
+    default Collection<LanguageFunction> getLanguageFunctions(ConnectorSession session, SchemaFunctionName name)
+    {
+        return List.of();
+    }
+
+    /**
+     * Check if a language function exists.
+     */
+    default boolean languageFunctionExists(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        return getLanguageFunctions(session, name).stream()
+                .anyMatch(function -> function.signatureToken().equals(signatureToken));
+    }
+
+    /**
+     * Creates a language function with the specified name and signature token.
+     * The signature token is an opaque string that uniquely identifies the function signature.
+     * Multiple functions with the same name but with different signatures may exist.
+     * The signature token is used to identify the function when dropping it.
+     *
+     * @param replace if true, replace existing function with the same name and signature token
+     */
+    default void createLanguageFunction(ConnectorSession session, SchemaFunctionName name, LanguageFunction function, boolean replace)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating functions");
+    }
+
+    /**
+     * Drops a language function with the specified name and signature token.
+     */
+    default void dropLanguageFunction(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping functions");
     }
 
     /**

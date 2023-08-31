@@ -106,4 +106,9 @@ public class CatalogFunctionAccessControlRule
     {
         return functionAccessControlRule.canGrantExecuteFunction();
     }
+
+    public boolean hasOwnership()
+    {
+        return functionAccessControlRule.hasOwnership();
+    }
 }
