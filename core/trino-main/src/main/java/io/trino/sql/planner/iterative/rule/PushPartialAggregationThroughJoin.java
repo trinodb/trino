@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.PlannerContext;
@@ -185,46 +186,49 @@ public class PushPartialAggregationThroughJoin
 
     private Optional<PlanNode> pushPartialToLeftChild(AggregationNode node, JoinNode child, Context context)
     {
-        if (isExpandingJoin(child, child.getLeft(), context)) {
-            return Optional.empty();
-        }
-        Set<Symbol> joinLeftChildSymbols = ImmutableSet.copyOf(child.getLeft().getOutputSymbols());
-        List<Symbol> groupingSet = getPushedDownGroupingSet(node, joinLeftChildSymbols, intersection(getJoinRequiredSymbols(child), joinLeftChildSymbols));
-        // only push partial aggregation down if pushed grouping set is same or less granular
-        if (!ImmutableSet.copyOf(node.getGroupingKeys()).containsAll(ImmutableSet.copyOf(groupingSet))) {
-            return Optional.empty();
-        }
-        AggregationNode pushedAggregation = replaceAggregationSource(node, child.getLeft(), groupingSet);
-        return Optional.of(pushPartialToJoin(node, child, pushedAggregation, child.getRight(), context));
+        return getPushedAggregation(node, child, child.getLeft(), context)
+                .map(pushedAggregation -> replaceJoin(node, child, pushedAggregation, child.getRight(), context));
     }
 
     private Optional<PlanNode> pushPartialToRightChild(AggregationNode node, JoinNode child, Context context)
     {
-        if (isExpandingJoin(child, child.getRight(), context)) {
-            return Optional.empty();
-        }
-        Set<Symbol> joinRightChildSymbols = ImmutableSet.copyOf(child.getRight().getOutputSymbols());
-        List<Symbol> groupingSet = getPushedDownGroupingSet(node, joinRightChildSymbols, intersection(getJoinRequiredSymbols(child), joinRightChildSymbols));
-        // only push partial aggregation down if pushed grouping set is same or less granular
-        if (!ImmutableSet.copyOf(node.getGroupingKeys()).containsAll(ImmutableSet.copyOf(groupingSet))) {
-            return Optional.empty();
-        }
-        AggregationNode pushedAggregation = replaceAggregationSource(node, child.getRight(), groupingSet);
-        return Optional.of(pushPartialToJoin(node, child, child.getLeft(), pushedAggregation, context));
+        return getPushedAggregation(node, child, child.getRight(), context)
+                .map(pushedAggregation -> replaceJoin(node, child, child.getLeft(), pushedAggregation, context));
     }
 
-    private boolean isExpandingJoin(JoinNode join, PlanNode source, Context context)
+    private Optional<AggregationNode> getPushedAggregation(AggregationNode node, JoinNode child, PlanNode joinSource, Context context)
     {
-        // Only push aggregation down if pushed aggregation consumes similar number of input rows. Otherwise,
-        // there is a possibility that aggregation above join could be more efficient in reducing total number of rows
-        double sourceRowCount = context.getStatsProvider().getStats(source).getOutputRowCount();
+        Set<Symbol> joinSourceSymbols = ImmutableSet.copyOf(joinSource.getOutputSymbols());
+        List<Symbol> groupingSet = getPushedDownGroupingSet(node, joinSourceSymbols, intersection(getJoinRequiredSymbols(child), joinSourceSymbols));
+        AggregationNode pushedAggregation = replaceAggregationSource(node, joinSource, groupingSet);
+        if (skipPartialAggregationPushdown(child, node, pushedAggregation, context)) {
+            return Optional.empty();
+        }
+        return Optional.of(pushedAggregation);
+    }
+
+    private boolean skipPartialAggregationPushdown(
+            JoinNode join,
+            AggregationNode originalAggregation,
+            AggregationNode pushedAggregation,
+            Context context)
+    {
+        // Only push aggregation down if pushed aggregation consumes similar number of input rows (e.g. join is not expanding).
+        // Otherwise, there is a possibility that aggregation above join could be more efficient in reducing total number of rows.
+        PlanNodeStatsEstimate sourceStats = context.getStatsProvider().getStats(pushedAggregation.getSource());
+        double sourceRowCount = sourceStats.getOutputRowCount();
         double joinRowCount = context.getStatsProvider().getStats(join).getOutputRowCount();
         // Pushing aggregation though filtering join could mean more work for partial aggregation. However,
         // we allow pushing partial aggregations through filtering join because:
         // 1. dynamic filtering should filter unmatched rows at source
         // 2. partial aggregation will adaptively switch off when it's not reducing input rows
         // 3. join operator is not particularly effective at filtering rows
-        return isNaN(sourceRowCount) || isNaN(joinRowCount) || joinRowCount > 1.1 * sourceRowCount;
+        if (isNaN(sourceRowCount) || isNaN(joinRowCount) || joinRowCount > 1.1 * sourceRowCount) {
+            return true;
+        }
+
+        // only push partial aggregation down if pushed grouping set is same or less granular
+        return !ImmutableSet.copyOf(originalAggregation.getGroupingKeys()).containsAll(ImmutableSet.copyOf(pushedAggregation.getGroupingKeys()));
     }
 
     private Set<Symbol> getJoinRequiredSymbols(JoinNode node)
@@ -268,7 +272,7 @@ public class PushPartialAggregationThroughJoin
                 .build();
     }
 
-    private PlanNode pushPartialToJoin(
+    private PlanNode replaceJoin(
             AggregationNode aggregation,
             JoinNode child,
             PlanNode leftChild,
