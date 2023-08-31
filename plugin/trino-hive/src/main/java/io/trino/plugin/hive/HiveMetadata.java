@@ -3944,9 +3944,19 @@ public class HiveMetadata
     @Override
     public boolean isColumnarTableScan(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(getTableMetadata(session, tableHandle).getProperties());
+        SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
 
-        return hiveStorageFormat == HiveStorageFormat.ORC || hiveStorageFormat == HiveStorageFormat.PARQUET;
+        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+
+        try {
+            HiveStorageFormat hiveStorageFormat = extractHiveStorageFormat(table);
+            return hiveStorageFormat == HiveStorageFormat.ORC || hiveStorageFormat == HiveStorageFormat.PARQUET;
+        }
+        catch (TrinoException ignored) {
+            // unknown storage format
+            return false;
+        }
     }
 
     @Override
