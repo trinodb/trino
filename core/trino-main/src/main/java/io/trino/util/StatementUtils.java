@@ -20,6 +20,7 @@ import io.trino.execution.CallTask;
 import io.trino.execution.CommentTask;
 import io.trino.execution.CommitTask;
 import io.trino.execution.CreateCatalogTask;
+import io.trino.execution.CreateFunctionTask;
 import io.trino.execution.CreateMaterializedViewTask;
 import io.trino.execution.CreateRoleTask;
 import io.trino.execution.CreateSchemaTask;
@@ -30,6 +31,7 @@ import io.trino.execution.DeallocateTask;
 import io.trino.execution.DenyTask;
 import io.trino.execution.DropCatalogTask;
 import io.trino.execution.DropColumnTask;
+import io.trino.execution.DropFunctionTask;
 import io.trino.execution.DropMaterializedViewTask;
 import io.trino.execution.DropRoleTask;
 import io.trino.execution.DropSchemaTask;
@@ -68,6 +70,7 @@ import io.trino.sql.tree.Call;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.CreateCatalog;
+import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
@@ -81,6 +84,7 @@ import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.DropFunction;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
@@ -197,6 +201,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(Commit.class, CommitTask.class))
             .add(dataDefinitionStatement(CreateMaterializedView.class, CreateMaterializedViewTask.class))
             .add(dataDefinitionStatement(CreateCatalog.class, CreateCatalogTask.class))
+            .add(dataDefinitionStatement(CreateFunction.class, CreateFunctionTask.class))
             .add(dataDefinitionStatement(CreateRole.class, CreateRoleTask.class))
             .add(dataDefinitionStatement(CreateSchema.class, CreateSchemaTask.class))
             .add(dataDefinitionStatement(CreateTable.class, CreateTableTask.class))
@@ -205,6 +210,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(Deny.class, DenyTask.class))
             .add(dataDefinitionStatement(DropCatalog.class, DropCatalogTask.class))
             .add(dataDefinitionStatement(DropColumn.class, DropColumnTask.class))
+            .add(dataDefinitionStatement(DropFunction.class, DropFunctionTask.class))
             .add(dataDefinitionStatement(DropMaterializedView.class, DropMaterializedViewTask.class))
             .add(dataDefinitionStatement(DropRole.class, DropRoleTask.class))
             .add(dataDefinitionStatement(DropSchema.class, DropSchemaTask.class))

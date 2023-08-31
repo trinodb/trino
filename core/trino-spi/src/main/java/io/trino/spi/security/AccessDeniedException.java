@@ -705,6 +705,26 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show functions of schema %s%s", schemaName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCreateFunction(String functionName)
+    {
+        denyCreateFunction(functionName, null);
+    }
+
+    public static void denyCreateFunction(String functionName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create function %s%s", functionName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDropFunction(String functionName)
+    {
+        denyDropFunction(functionName, null);
+    }
+
+    public static void denyDropFunction(String functionName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop function %s%s", functionName, formatExtraInfo(extraInfo)));
+    }
+
     private static Object formatExtraInfo(String extraInfo)
     {
         if (extraInfo == null || extraInfo.isEmpty()) {

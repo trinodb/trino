@@ -717,6 +717,24 @@ public class TracingAccessControl
     }
 
     @Override
+    public void checkCanCreateFunction(SecurityContext context, QualifiedObjectName functionName)
+    {
+        Span span = startSpan("checkCanCreateFunction");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanCreateFunction(context, functionName);
+        }
+    }
+
+    @Override
+    public void checkCanDropFunction(SecurityContext context, QualifiedObjectName functionName)
+    {
+        Span span = startSpan("checkCanDropFunction");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanDropFunction(context, functionName);
+        }
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("getRowFilters");

@@ -57,6 +57,7 @@ import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
@@ -692,6 +693,12 @@ public interface Metadata
     AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 
     FunctionDependencyDeclaration getFunctionDependencies(Session session, CatalogHandle catalogHandle, FunctionId functionId, BoundSignature boundSignature);
+
+    boolean languageFunctionExists(Session session, QualifiedObjectName name, String signatureToken);
+
+    void createLanguageFunction(Session session, QualifiedObjectName name, LanguageFunction function, boolean replace);
+
+    void dropLanguageFunction(Session session, QualifiedObjectName name, String signatureToken);
 
     /**
      * Creates the specified materialized view with the specified view definition.
