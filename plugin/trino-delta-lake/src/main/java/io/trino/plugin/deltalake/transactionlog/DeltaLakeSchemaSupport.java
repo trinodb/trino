@@ -133,7 +133,7 @@ public final class DeltaLakeSchemaSupport
     public static int getMaxColumnId(MetadataEntry metadata)
     {
         String maxColumnId = metadata.getConfiguration().get(MAX_COLUMN_ID_CONFIGURATION_KEY);
-        requireNonNull(maxColumnId, () -> MAX_COLUMN_ID_CONFIGURATION_KEY + " metadata configuration property not found");
+        requireNonNull(maxColumnId, MAX_COLUMN_ID_CONFIGURATION_KEY + " metadata configuration property not found");
         return Integer.parseInt(maxColumnId);
     }
 
