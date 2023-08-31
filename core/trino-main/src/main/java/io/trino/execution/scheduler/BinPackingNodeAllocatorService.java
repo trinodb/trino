@@ -101,6 +101,7 @@ public class BinPackingNodeAllocatorService
     private final boolean scheduleOnCoordinator;
     private final boolean memoryRequirementIncreaseOnWorkerCrashEnabled;
     private final DataSize taskRuntimeMemoryEstimationOverhead;
+    private final DataSize eagerSpeculativeTasksNodeMemoryOvercommit;
     private final Ticker ticker;
 
     private final Deque<PendingAcquire> pendingAcquires = new ConcurrentLinkedDeque<>();
@@ -120,6 +121,7 @@ public class BinPackingNodeAllocatorService
                 memoryManagerConfig.isFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(),
                 Duration.ofMillis(nodeSchedulerConfig.getAllowedNoMatchingNodePeriod().toMillis()),
                 memoryManagerConfig.getFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(),
+                memoryManagerConfig.getFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(),
                 Ticker.systemTicker());
     }
 
@@ -131,6 +133,7 @@ public class BinPackingNodeAllocatorService
             boolean memoryRequirementIncreaseOnWorkerCrashEnabled,
             Duration allowedNoMatchingNodePeriod,
             DataSize taskRuntimeMemoryEstimationOverhead,
+            DataSize eagerSpeculativeTasksNodeMemoryOvercommit,
             Ticker ticker)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -139,6 +142,7 @@ public class BinPackingNodeAllocatorService
         this.memoryRequirementIncreaseOnWorkerCrashEnabled = memoryRequirementIncreaseOnWorkerCrashEnabled;
         this.allowedNoMatchingNodePeriod = requireNonNull(allowedNoMatchingNodePeriod, "allowedNoMatchingNodePeriod is null");
         this.taskRuntimeMemoryEstimationOverhead = requireNonNull(taskRuntimeMemoryEstimationOverhead, "taskRuntimeMemoryEstimationOverhead is null");
+        this.eagerSpeculativeTasksNodeMemoryOvercommit = eagerSpeculativeTasksNodeMemoryOvercommit;
         this.ticker = requireNonNull(ticker, "ticker is null");
     }
 
@@ -229,6 +233,7 @@ public class BinPackingNodeAllocatorService
                 fulfilledAcquires,
                 scheduleOnCoordinator,
                 taskRuntimeMemoryEstimationOverhead,
+                executionClass == EAGER_SPECULATIVE ? eagerSpeculativeTasksNodeMemoryOvercommit : DataSize.ofBytes(0),
                 executionClass == STANDARD); // if we are processing non-speculative pending acquires we are ignoring speculative acquired ones
 
         while (iterator.hasNext()) {
@@ -479,6 +484,7 @@ public class BinPackingNodeAllocatorService
                 Set<BinPackingNodeLease> fulfilledAcquires,
                 boolean scheduleOnCoordinator,
                 DataSize taskRuntimeMemoryEstimationOverhead,
+                DataSize nodeMemoryOvercommit,
                 boolean ignoreAcquiredSpeculative)
         {
             this.nodesSnapshot = requireNonNull(nodesSnapshot, "nodesSnapshot is null");
@@ -486,6 +492,7 @@ public class BinPackingNodeAllocatorService
             this.allNodesSorted = nodesSnapshot.getAllNodes().stream()
                     .sorted(comparing(InternalNode::getNodeIdentifier))
                     .collect(toImmutableList());
+
             this.ignoreAcquiredSpeculative = ignoreAcquiredSpeculative;
 
             requireNonNull(nodeMemoryPoolInfos, "nodeMemoryPoolInfos is null");
@@ -533,7 +540,7 @@ public class BinPackingNodeAllocatorService
                     continue;
                 }
                 long nodeReservedMemory = preReservedMemory.getOrDefault(node.getNodeIdentifier(), 0L);
-                nodesRemainingMemory.put(node.getNodeIdentifier(), max(memoryPoolInfo.getMaxBytes() - nodeReservedMemory, 0L));
+                nodesRemainingMemory.put(node.getNodeIdentifier(), max(memoryPoolInfo.getMaxBytes() + nodeMemoryOvercommit.toBytes() - nodeReservedMemory, 0L));
             }
 
             nodesRemainingMemoryRuntimeAdjusted = new HashMap<>();
@@ -561,7 +568,7 @@ public class BinPackingNodeAllocatorService
                 // if globally reported memory usage of node is greater than computed one lets use that.
                 // it can be greater if there are tasks executed on cluster which do not have task retries enabled.
                 nodeUsedMemoryRuntimeAdjusted = max(nodeUsedMemoryRuntimeAdjusted, memoryPoolInfo.getReservedBytes());
-                nodesRemainingMemoryRuntimeAdjusted.put(node.getNodeIdentifier(), max(memoryPoolInfo.getMaxBytes() - nodeUsedMemoryRuntimeAdjusted, 0L));
+                nodesRemainingMemoryRuntimeAdjusted.put(node.getNodeIdentifier(), max(memoryPoolInfo.getMaxBytes() + nodeMemoryOvercommit.toBytes() - nodeUsedMemoryRuntimeAdjusted, 0L));
             }
         }
 
