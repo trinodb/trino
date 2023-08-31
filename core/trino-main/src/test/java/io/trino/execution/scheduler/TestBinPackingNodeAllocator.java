@@ -108,6 +108,7 @@ public class TestBinPackingNodeAllocator
                 false,
                 Duration.of(1, MINUTES),
                 taskRuntimeMemoryEstimationOverhead,
+                DataSize.of(10, GIGABYTE), // allow overcommit of 10GB for EAGER_SPECULATIVE tasks
                 ticker);
         nodeAllocatorService.start();
     }
@@ -765,11 +766,17 @@ public class TestBinPackingNodeAllocator
             nodeAllocatorService.processPendingAcquires();
             assertNotAcquired(acquireSpeculative3);
 
-            // no place for another one acquireEagerSpeculative2
-            NodeAllocator.NodeLease acquireEagerSpeculative2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(20, GIGABYTE), EAGER_SPECULATIVE);
-            assertNotAcquired(acquireEagerSpeculative2);
+            // still place for two more 10GB EAGER_SPECULATIVE tasks due to overcommit logic
+            NodeAllocator.NodeLease acquireEagerSpeculative2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(10, GIGABYTE), EAGER_SPECULATIVE);
+            assertAcquired(acquireEagerSpeculative2, NODE_1);
+            NodeAllocator.NodeLease acquireEagerSpeculative3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(10, GIGABYTE), EAGER_SPECULATIVE);
+            assertAcquired(acquireEagerSpeculative3, NODE_2);
 
-            // acquireStandard4 can be acquired despite acquireEagerSpeculative1 on NODE_2
+            // no place for another one
+            NodeAllocator.NodeLease acquireEagerSpeculative4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(10, GIGABYTE), EAGER_SPECULATIVE);
+            assertNotAcquired(acquireEagerSpeculative4);
+
+            // acquireStandard4 can be acquired despite acquireEagerSpeculative* tasks scheduled
             NodeAllocator.NodeLease acquireStandard4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
             assertAcquired(acquireStandard4, NODE_2);
         }
