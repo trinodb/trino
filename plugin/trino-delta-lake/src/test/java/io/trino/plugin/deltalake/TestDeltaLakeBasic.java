@@ -515,7 +515,7 @@ public class TestDeltaLakeBasic
     }
 
     /**
-     * @see databricks.timestamp_ntz
+     * @see databricks131.timestamp_ntz
      */
     @Test
     public void testTimestampNtz()
@@ -550,7 +550,7 @@ public class TestDeltaLakeBasic
     }
 
     /**
-     * @see databricks.timestamp_ntz_partition
+     * @see databricks131.timestamp_ntz_partition
      */
     @Test
     public void testTimestampNtzPartitioned()
@@ -592,7 +592,7 @@ public class TestDeltaLakeBasic
     }
 
     /**
-     * @see databricks.identity_columns
+     * @see databricks122.identity_columns
      */
     @Test
     public void testIdentityColumns()
