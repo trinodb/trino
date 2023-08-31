@@ -168,7 +168,7 @@ public final class ViewReaderUtil
         // https://github.com/trinodb/trino/blame/38bd0dff736024f3ae01dbbe7d1db5bd1d50c43e/presto-hive/src/main/java/com/facebook/presto/hive/HiveMetadata.java#L902.
         return tableType.equals(VIRTUAL_VIEW.name()) &&
                 "true".equals(tableParameters.get(PRESTO_VIEW_FLAG)) &&
-                tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(PRESTO_VIEW_COMMENT);
+                PRESTO_VIEW_COMMENT.equalsIgnoreCase(tableParameters.get(TABLE_COMMENT));
     }
 
     public static boolean isTrinoMaterializedView(Table table)
@@ -183,7 +183,7 @@ public final class ViewReaderUtil
         // https://github.com/trinodb/trino/blame/ff4a1e31fb9cb49f1b960abfc16ad469e7126a64/plugin/trino-iceberg/src/main/java/io/trino/plugin/iceberg/IcebergMetadata.java#L898
         return tableType.equals(VIRTUAL_VIEW.name()) &&
                 "true".equals(tableParameters.get(PRESTO_VIEW_FLAG)) &&
-                tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(ICEBERG_MATERIALIZED_VIEW_COMMENT);
+                ICEBERG_MATERIALIZED_VIEW_COMMENT.equalsIgnoreCase(tableParameters.get(TABLE_COMMENT));
     }
 
     public static String encodeViewData(ConnectorViewDefinition definition)
