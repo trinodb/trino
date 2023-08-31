@@ -345,7 +345,7 @@ public final class SystemSessionProperties
                 dataSizeProperty(
                         SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD,
                         "Minimum data processed to trigger skewed partition rebalancing in local and remote exchange",
-                        DataSize.of(50, MEGABYTE),
+                        DataSize.of(200, MEGABYTE),
                         true),
                 booleanProperty(
                         PUSH_TABLE_WRITE_THROUGH_UNION,
