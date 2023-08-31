@@ -54,6 +54,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
                 true,
                 Duration.of(1, MINUTES),
                 DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
                 Ticker.systemTicker());
         nodeAllocatorService.refreshNodePoolMemoryInfos();
         PartitionMemoryEstimator estimator = nodeAllocatorService.createPartitionMemoryEstimator();
