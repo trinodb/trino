@@ -60,6 +60,8 @@ public class DefaultQueryBuilder
     private static final String ALWAYS_TRUE = "1=1";
     private static final String ALWAYS_FALSE = "1=0";
 
+    private static final Joiner SPACE_JOINER = Joiner.on(' ');
+
     private final RemoteQueryModifier queryModifier;
 
     @Inject
@@ -131,18 +133,18 @@ public class DefaultQueryBuilder
         String leftRelationAlias = "l";
         String rightRelationAlias = "r";
 
-        String query = format(
-                "SELECT %s, %s FROM (%s) %s %s (%s) %s ON %s",
-                formatAssignments(client, leftRelationAlias, leftAssignments),
+        String query = SPACE_JOINER.join(
+                "SELECT",
+                formatAssignments(client, leftRelationAlias, leftAssignments) + ",",
                 formatAssignments(client, rightRelationAlias, rightAssignments),
-                leftSource.getQuery(),
-                leftRelationAlias,
+                "FROM",
+                "(" + leftSource.getQuery() + ")", leftRelationAlias,
                 formatJoinType(joinType),
-                rightSource.getQuery(),
-                rightRelationAlias,
-                joinConditions.stream()
-                        .map(condition -> formatJoinCondition(client, leftRelationAlias, rightRelationAlias, condition))
-                        .collect(joining(" AND ")));
+                "(" + rightSource.getQuery() + ")", rightRelationAlias,
+                "ON", joinConditions.stream()
+                .map(condition -> formatJoinCondition(client, leftRelationAlias, rightRelationAlias, condition))
+                .collect(joining(" AND ")));
+
         List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
                 .addAll(leftSource.getParameters())
                 .addAll(rightSource.getParameters())
@@ -231,13 +233,10 @@ public class DefaultQueryBuilder
 
     protected String formatJoinCondition(JdbcClient client, String leftRelationAlias, String rightRelationAlias, JdbcJoinCondition condition)
     {
-        return format(
-                "%s.%s %s %s.%s",
-                leftRelationAlias,
-                buildJoinColumn(client, condition.getLeftColumn()),
+        return SPACE_JOINER.join(
+                leftRelationAlias + "." + buildJoinColumn(client, condition.getLeftColumn()),
                 condition.getOperator().getValue(),
-                rightRelationAlias,
-                buildJoinColumn(client, condition.getRightColumn()));
+                 rightRelationAlias + "." + buildJoinColumn(client, condition.getRightColumn()));
     }
 
     protected String buildJoinColumn(JdbcClient client, JdbcColumnHandle columnHandle)
@@ -248,7 +247,7 @@ public class DefaultQueryBuilder
     protected String formatAssignments(JdbcClient client, String relationAlias, Map<JdbcColumnHandle, String> assignments)
     {
         return assignments.entrySet().stream()
-                .map(entry -> format("%s.%s AS %s", relationAlias, client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
+                .map(entry -> SPACE_JOINER.join(relationAlias + "." + client.quoted(entry.getKey().getColumnName()), "AS", client.quoted(entry.getValue())))
                 .collect(joining(", "));
     }
 
@@ -285,7 +284,7 @@ public class DefaultQueryBuilder
                 projections.add(columnAlias);
             }
             else {
-                projections.add(format("%s AS %s", expression.expression(), columnAlias));
+                projections.add(SPACE_JOINER.join(expression.expression(), "AS", columnAlias));
                 expression.parameters().forEach(accumulator);
             }
         }
@@ -345,7 +344,8 @@ public class DefaultQueryBuilder
         if (!domain.isNullAllowed()) {
             return predicate;
         }
-        return format("(%s OR %s IS NULL)", predicate, client.quoted(column.getColumnName()));
+
+        return SPACE_JOINER.join("(" + predicate, "OR", client.quoted(column.getColumnName()), "IS NULL)");
     }
 
     protected String toPredicate(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, ValueSet valueSet, Consumer<QueryParameter> accumulator)
@@ -355,7 +355,7 @@ public class DefaultQueryBuilder
         if (!valueSet.isDiscreteSet()) {
             ValueSet complement = valueSet.complement();
             if (complement.isDiscreteSet()) {
-                return format("NOT (%s)", toPredicate(client, session, connection, column, complement, accumulator));
+                return "NOT (" + toPredicate(client, session, connection, column, complement, accumulator) + ")";
             }
         }
 
@@ -411,7 +411,7 @@ public class DefaultQueryBuilder
     protected String toPredicate(JdbcClient client, ConnectorSession session, JdbcColumnHandle column, JdbcTypeHandle jdbcType, Type type, WriteFunction writeFunction, String operator, Object value, Consumer<QueryParameter> accumulator)
     {
         accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
-        return format("%s %s %s", client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
+        return SPACE_JOINER.join(client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
     }
 
     protected String getGroupBy(JdbcClient client, Optional<List<List<JdbcColumnHandle>>> groupingSets)
