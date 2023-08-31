@@ -122,6 +122,8 @@ public class RowType
     private final List<Type> fieldTypes;
     private final boolean comparable;
     private final boolean orderable;
+    private final int flatFixedSize;
+    private final boolean flatVariableWidth;
 
     private RowType(TypeSignature typeSignature, List<Field> originalFields)
     {
@@ -134,6 +136,15 @@ public class RowType
 
         this.comparable = fields.stream().allMatch(field -> field.getType().isComparable());
         this.orderable = fields.stream().allMatch(field -> field.getType().isOrderable());
+
+        // flat fixed size is one null byte for each field plus the sum of the field fixed sizes
+        int fixedSize = fieldTypes.size();
+        for (Type fieldType : fieldTypes) {
+            fixedSize += fieldType.getFlatFixedSize() + 4;
+        }
+        flatFixedSize = fixedSize;
+
+        this.flatVariableWidth = fields.stream().anyMatch(field -> field.getType().isFlatVariableWidth());
     }
 
     public static RowType from(List<Field> fields)
@@ -273,27 +284,22 @@ public class RowType
     @Override
     public int getFlatFixedSize()
     {
-        int fixedSize = 0;
-        for (Type fieldType : fieldTypes) {
-            fixedSize += fieldType.getFlatFixedSize() + 4;
-        }
-        return fixedSize + fieldTypes.size();
+        return flatFixedSize;
     }
 
     @Override
     public boolean isFlatVariableWidth()
     {
-        for (Type fieldType : fieldTypes) {
-            if (fieldType.isFlatVariableWidth()) {
-                return true;
-            }
-        }
-        return false;
+        return flatVariableWidth;
     }
 
     @Override
     public int getFlatVariableWidthSize(Block block, int position)
     {
+        if (!flatVariableWidth) {
+            return 0;
+        }
+
         Block row = getObject(block, position);
 
         int variableSize = 0;
@@ -309,6 +315,10 @@ public class RowType
     @Override
     public int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
     {
+        if (!flatVariableWidth) {
+            return 0;
+        }
+
         int totalVariableSize = 0;
         for (Type fieldType : fieldTypes) {
             if (fieldType.isFlatVariableWidth() && fixedSizeSlice[fixedSizeOffset] == 0) {
