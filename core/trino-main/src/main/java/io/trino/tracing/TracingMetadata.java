@@ -85,6 +85,7 @@ import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
@@ -1261,6 +1262,33 @@ public class TracingMetadata
                 .setAttribute(TrinoAttributes.FUNCTION, functionId.toString());
         try (var ignored = scopedSpan(span)) {
             return delegate.getFunctionDependencies(session, catalogHandle, functionId, boundSignature);
+        }
+    }
+
+    @Override
+    public boolean languageFunctionExists(Session session, QualifiedObjectName name, String signatureToken)
+    {
+        Span span = startSpan("languageFunctionExists", name);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.languageFunctionExists(session, name, signatureToken);
+        }
+    }
+
+    @Override
+    public void createLanguageFunction(Session session, QualifiedObjectName name, LanguageFunction function, boolean replace)
+    {
+        Span span = startSpan("createLanguageFunction", name);
+        try (var ignored = scopedSpan(span)) {
+            delegate.createLanguageFunction(session, name, function, replace);
+        }
+    }
+
+    @Override
+    public void dropLanguageFunction(Session session, QualifiedObjectName name, String signatureToken)
+    {
+        Span span = startSpan("dropLanguageFunction", name);
+        try (var ignored = scopedSpan(span)) {
+            delegate.dropLanguageFunction(session, name, signatureToken);
         }
     }
 

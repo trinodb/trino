@@ -573,6 +573,20 @@ public interface AccessControl
      */
     Set<SchemaFunctionName> filterFunctions(SecurityContext context, String catalogName, Set<SchemaFunctionName> functionNames);
 
+    /**
+     * Check if identity is allowed to create the specified function.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanCreateFunction(SecurityContext context, QualifiedObjectName functionName);
+
+    /**
+     * Check if identity is allowed to drop the specified function.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDropFunction(SecurityContext context, QualifiedObjectName functionName);
+
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         return ImmutableList.of();

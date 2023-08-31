@@ -72,6 +72,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
@@ -938,6 +939,55 @@ public class TracingConnectorMetadata
         Span span = startSpan("getFunctionDependencies", functionId);
         try (var ignored = scopedSpan(span)) {
             return delegate.getFunctionDependencies(session, functionId, boundSignature);
+        }
+    }
+
+    @Override
+    public Collection<LanguageFunction> listLanguageFunctions(ConnectorSession session, String schemaName)
+    {
+        Span span = startSpan("listLanguageFunctions", schemaName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.listLanguageFunctions(session, schemaName);
+        }
+    }
+
+    @Override
+    public Collection<LanguageFunction> getLanguageFunctions(ConnectorSession session, SchemaFunctionName name)
+    {
+        Span span = startSpan("getLanguageFunctions", name.getSchemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getLanguageFunctions(session, name);
+        }
+    }
+
+    @Override
+    public boolean languageFunctionExists(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        Span span = startSpan("languageFunctionExists", name.getSchemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        try (var ignored = scopedSpan(span)) {
+            return delegate.languageFunctionExists(session, name, signatureToken);
+        }
+    }
+
+    @Override
+    public void createLanguageFunction(ConnectorSession session, SchemaFunctionName name, LanguageFunction function, boolean replace)
+    {
+        Span span = startSpan("createLanguageFunction", name.getSchemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        try (var ignored = scopedSpan(span)) {
+            delegate.createLanguageFunction(session, name, function, replace);
+        }
+    }
+
+    @Override
+    public void dropLanguageFunction(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        Span span = startSpan("dropLanguageFunction", name.getSchemaName())
+                .setAttribute(TrinoAttributes.FUNCTION, name.getFunctionName());
+        try (var ignored = scopedSpan(span)) {
+            delegate.dropLanguageFunction(session, name, signatureToken);
         }
     }
 

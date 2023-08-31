@@ -26,6 +26,7 @@ import java.util.regex.Pattern;
 
 import static io.trino.plugin.base.security.FunctionAccessControlRule.FunctionPrivilege.EXECUTE;
 import static io.trino.plugin.base.security.FunctionAccessControlRule.FunctionPrivilege.GRANT_EXECUTE;
+import static io.trino.plugin.base.security.FunctionAccessControlRule.FunctionPrivilege.OWNERSHIP;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionAccessControlRule
@@ -77,6 +78,11 @@ public class FunctionAccessControlRule
         return privileges.contains(GRANT_EXECUTE);
     }
 
+    public boolean hasOwnership()
+    {
+        return privileges.contains(OWNERSHIP);
+    }
+
     Optional<AnySchemaPermissionsRule> toAnySchemaPermissionsRule()
     {
         if (privileges.isEmpty()) {
@@ -112,6 +118,6 @@ public class FunctionAccessControlRule
 
     public enum FunctionPrivilege
     {
-        EXECUTE, GRANT_EXECUTE
+        EXECUTE, GRANT_EXECUTE, OWNERSHIP
     }
 }

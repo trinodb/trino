@@ -27,7 +27,6 @@ import io.airlift.slice.Slice;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
-import io.trino.metadata.LanguageFunctionManager.LanguageFunctionLoader;
 import io.trino.metadata.LanguageFunctionManager.RunAsIdentityLoader;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.spi.ErrorCode;
@@ -93,6 +92,7 @@ import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
@@ -2314,6 +2314,7 @@ public final class MetadataManager
             ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
             ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
             functions.addAll(metadata.listFunctions(connectorSession, schema.getSchemaName()));
+            functions.addAll(languageFunctionManager.listFunctions(metadata.listLanguageFunctions(connectorSession, schema.getSchemaName())));
         });
         return functions.build();
     }
@@ -2409,8 +2410,7 @@ public final class MetadataManager
                     .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "No identity for SECURITY DEFINER function: " + functionName));
         };
 
-        LanguageFunctionLoader emptyLoader = (ignoredSession, ignoredName) -> ImmutableList.of();
-        languageFunctionManager.getFunctions(session, catalogHandle, name, emptyLoader, identityLoader).stream()
+        languageFunctionManager.getFunctions(session, catalogHandle, name, metadata::getLanguageFunctions, identityLoader).stream()
                 .map(function -> new CatalogFunctionMetadata(catalogHandle, name.getSchemaName(), function))
                 .forEach(functions::add);
 
@@ -2446,6 +2446,38 @@ public final class MetadataManager
         }
 
         return builder.build();
+    }
+
+    @Override
+    public boolean languageFunctionExists(Session session, QualifiedObjectName name, String signatureToken)
+    {
+        return getOptionalCatalogMetadata(session, name.getCatalogName())
+                .map(catalogMetadata -> {
+                    ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+                    ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
+                    return metadata.languageFunctionExists(connectorSession, name.asSchemaFunctionName(), signatureToken);
+                })
+                .orElse(false);
+    }
+
+    @Override
+    public void createLanguageFunction(Session session, QualifiedObjectName name, LanguageFunction function, boolean replace)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, name.getCatalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        metadata.createLanguageFunction(session.toConnectorSession(catalogHandle), name.asSchemaFunctionName(), function, replace);
+    }
+
+    @Override
+    public void dropLanguageFunction(Session session, QualifiedObjectName name, String signatureToken)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, name.getCatalogName());
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        metadata.dropLanguageFunction(session.toConnectorSession(catalogHandle), name.asSchemaFunctionName(), signatureToken);
     }
 
     @VisibleForTesting
