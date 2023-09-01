@@ -188,7 +188,11 @@ public class SnowflakeArrowPageSource
         for (JdbcColumnHandle column : columns) {
             ValueVector vector = vectors.stream().filter(valueVector -> column.getColumnName().equals(valueVector.getField().getName()))
                     .findAny()
-                    .orElseThrow();
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Cannot find corresponding vector for column %s. Trino columns: %s, vectors: %s".formatted(
+                                    column,
+                                    columns,
+                                    vectors.stream().map(valueVector -> valueVector.getField().getName()).toList())));
             // With this we write columns in the right order
             columnToVectorOrder.put(columns.indexOf(column), vectors.indexOf(vector));
         }
