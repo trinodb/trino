@@ -35,6 +35,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_104;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_113;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
@@ -133,6 +136,18 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoUsesCheckpointInterval()
     {
+        trinoUsesCheckpointInterval("'delta.checkpointInterval' = '5'");
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, DELTA_LAKE_EXCLUDE_113, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testTrinoUsesCheckpointIntervalWithTableFeature()
+    {
+        trinoUsesCheckpointInterval("'delta.checkpointInterval' = '5', 'delta.feature.columnMapping'='supported'");
+    }
+
+    private void trinoUsesCheckpointInterval(String deltaTableProperties)
+    {
         String tableName = "test_dl_checkpoints_compat_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
@@ -142,8 +157,8 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
                         "      USING delta" +
                         "      PARTITIONED BY (a_NuMbEr)" +
                         "      LOCATION 's3://%s/%s'" +
-                        "      TBLPROPERTIES ('delta.checkpointInterval' = '5')",
-                tableName, bucketName, tableDirectory));
+                        "      TBLPROPERTIES (%s)",
+                tableName, bucketName, tableDirectory, deltaTableProperties));
 
         try {
             // validate that we can see the checkpoint interval

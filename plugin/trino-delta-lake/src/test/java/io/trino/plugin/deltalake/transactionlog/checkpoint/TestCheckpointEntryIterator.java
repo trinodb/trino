@@ -118,7 +118,7 @@ public class TestCheckpointEntryIterator
             throws Exception
     {
         URI checkpointUri = getResource(TEST_CHECKPOINT).toURI();
-        CheckpointEntryIterator checkpointEntryIterator = createCheckpointEntryIterator(checkpointUri, ImmutableSet.of(PROTOCOL), Optional.empty());
+        CheckpointEntryIterator checkpointEntryIterator = createCheckpointEntryIterator(checkpointUri, ImmutableSet.of(PROTOCOL), Optional.empty(), Optional.empty());
         List<DeltaLakeTransactionLogEntry> entries = ImmutableList.copyOf(checkpointEntryIterator);
 
         assertThat(entries).hasSize(1);
@@ -136,7 +136,7 @@ public class TestCheckpointEntryIterator
             throws Exception
     {
         URI checkpointUri = getResource(TEST_CHECKPOINT).toURI();
-        CheckpointEntryIterator checkpointEntryIterator = createCheckpointEntryIterator(checkpointUri, ImmutableSet.of(ADD), Optional.of(readMetadataEntry(checkpointUri)));
+        CheckpointEntryIterator checkpointEntryIterator = createCheckpointEntryIterator(checkpointUri, ImmutableSet.of(ADD), Optional.of(readMetadataEntry(checkpointUri)), Optional.of(readProtocolEntry(checkpointUri)));
         List<DeltaLakeTransactionLogEntry> entries = ImmutableList.copyOf(checkpointEntryIterator);
 
         assertThat(entries).hasSize(9);
@@ -185,7 +185,8 @@ public class TestCheckpointEntryIterator
         CheckpointEntryIterator checkpointEntryIterator = createCheckpointEntryIterator(
                 checkpointUri,
                 ImmutableSet.of(METADATA, PROTOCOL, TRANSACTION, ADD, REMOVE, COMMIT),
-                Optional.of(readMetadataEntry(checkpointUri)));
+                Optional.of(readMetadataEntry(checkpointUri)),
+                Optional.of(readProtocolEntry(checkpointUri)));
         List<DeltaLakeTransactionLogEntry> entries = ImmutableList.copyOf(checkpointEntryIterator);
 
         assertThat(entries).hasSize(17);
@@ -308,11 +309,12 @@ public class TestCheckpointEntryIterator
         CheckpointEntryIterator addEntryIterator = createCheckpointEntryIterator(
                 URI.create(targetPath),
                 ImmutableSet.of(ADD),
-                Optional.of(metadataEntry));
+                Optional.of(metadataEntry),
+                Optional.of(protocolEntry));
         CheckpointEntryIterator removeEntryIterator =
-                createCheckpointEntryIterator(URI.create(targetPath), ImmutableSet.of(REMOVE), Optional.empty());
+                createCheckpointEntryIterator(URI.create(targetPath), ImmutableSet.of(REMOVE), Optional.empty(), Optional.empty());
         CheckpointEntryIterator txnEntryIterator =
-                createCheckpointEntryIterator(URI.create(targetPath), ImmutableSet.of(TRANSACTION), Optional.empty());
+                createCheckpointEntryIterator(URI.create(targetPath), ImmutableSet.of(TRANSACTION), Optional.empty(), Optional.empty());
 
         assertThat(Iterators.size(addEntryIterator)).isEqualTo(1);
         assertThat(Iterators.size(removeEntryIterator)).isEqualTo(numRemoveEntries);
@@ -326,11 +328,18 @@ public class TestCheckpointEntryIterator
     private MetadataEntry readMetadataEntry(URI checkpointUri)
             throws IOException
     {
-        CheckpointEntryIterator checkpointEntryIterator = createCheckpointEntryIterator(checkpointUri, ImmutableSet.of(METADATA), Optional.empty());
+        CheckpointEntryIterator checkpointEntryIterator = createCheckpointEntryIterator(checkpointUri, ImmutableSet.of(METADATA), Optional.empty(), Optional.empty());
         return Iterators.getOnlyElement(checkpointEntryIterator).getMetaData();
     }
 
-    private CheckpointEntryIterator createCheckpointEntryIterator(URI checkpointUri, Set<CheckpointEntryIterator.EntryType> entryTypes, Optional<MetadataEntry> metadataEntry)
+    private ProtocolEntry readProtocolEntry(URI checkpointUri)
+            throws IOException
+    {
+        CheckpointEntryIterator checkpointEntryIterator = createCheckpointEntryIterator(checkpointUri, ImmutableSet.of(PROTOCOL), Optional.empty(), Optional.empty());
+        return Iterators.getOnlyElement(checkpointEntryIterator).getProtocol();
+    }
+
+    private CheckpointEntryIterator createCheckpointEntryIterator(URI checkpointUri, Set<CheckpointEntryIterator.EntryType> entryTypes, Optional<MetadataEntry> metadataEntry, Optional<ProtocolEntry> protocolEntry)
             throws IOException
     {
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
@@ -344,6 +353,7 @@ public class TestCheckpointEntryIterator
                 TESTING_TYPE_MANAGER,
                 entryTypes,
                 metadataEntry,
+                protocolEntry,
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,

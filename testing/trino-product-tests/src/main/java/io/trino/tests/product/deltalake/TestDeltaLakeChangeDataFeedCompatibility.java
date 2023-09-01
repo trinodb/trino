@@ -30,16 +30,20 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_104;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_113;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertiesOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 
 public class TestDeltaLakeChangeDataFeedCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -90,6 +94,67 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
         finally {
             onTrino().executeQuery("DROP TABLE IF EXISTS delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, DELTA_LAKE_EXCLUDE_113, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testUpdateTableWithChangeDataFeedWriterFeature()
+    {
+        String tableName = "test_change_data_feed_writer_feature_" + randomNameSuffix();
+        onDelta().executeQuery("CREATE TABLE default." + tableName +
+                "(col1 STRING, updated_column INT)" +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                "TBLPROPERTIES ('delta.enableChangeDataFeed'=true, 'delta.minWriterVersion'=7)");
+        try {
+            assertThat(onTrino().executeQuery("SHOW CREATE TABLE delta.default." + tableName).getOnlyValue().toString()).contains("change_data_feed_enabled = true");
+
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES ('testValue1', 1), ('testValue2', 2), ('testValue3', 3)");
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET updated_column = 30 WHERE col1 = 'testValue3'");
+
+            assertThat(onDelta().executeQuery("SELECT col1, updated_column, _change_type, _commit_version FROM table_changes('default." + tableName + "', 0)"))
+                    .containsOnly(
+                            row("testValue1", 1, "insert", 1L),
+                            row("testValue2", 2, "insert", 1L),
+                            row("testValue3", 3, "insert", 1L),
+                            row("testValue3", 3, "update_preimage", 2L),
+                            row("testValue3", 30, "update_postimage", 2L));
+
+            // CDF shouldn't be generated when delta.feature.changeDataFeed exists, but delta.enableChangeDataFeed doesn't exist
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " UNSET TBLPROPERTIES ('delta.enableChangeDataFeed')");
+            assertThat(getTablePropertiesOnDelta("default", tableName))
+                    .contains(entry("delta.feature.changeDataFeed", "supported"))
+                    .doesNotContainKey("delta.enableChangeDataFeed");
+            assertThat(onTrino().executeQuery("SHOW CREATE TABLE delta.default." + tableName).getOnlyValue().toString()).doesNotContain("change_data_feed_enabled");
+
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES ('testValue4', 4)");
+            assertQueryFailure(() -> onDelta().executeQuery("SELECT * FROM table_changes('default." + tableName + "', 4)"))
+                    .hasMessageMatching("(?s)(.*Error getting change data for range \\[4 , 4] as change data was not\nrecorded for version \\[4].*)");
+
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES ('testValue5', 5)");
+            assertQueryFailure(() -> onDelta().executeQuery("SELECT * FROM table_changes('default." + tableName + "', 5)"))
+                    .hasMessageMatching("(?s)(.*Error getting change data for range \\[5 , 5] as change data was not\nrecorded for version \\[5].*)");
+
+            // CDF shouldn't be generated when delta.feature.changeDataFeed exists, but delta.enableChangeDataFeed is disabled
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " SET TBLPROPERTIES ('delta.feature.changeDataFeed'='supported', 'delta.enableChangeDataFeed'=false)");
+            assertThat(getTablePropertiesOnDelta("default", tableName))
+                    .contains(entry("delta.feature.changeDataFeed", "supported"))
+                    .contains(entry("delta.enableChangeDataFeed", "false"));
+            assertThat(onTrino().executeQuery("SHOW CREATE TABLE delta.default." + tableName).getOnlyValue().toString()).contains("change_data_feed_enabled = false");
+
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES ('testValue7', 7)");
+            assertQueryFailure(() -> onDelta().executeQuery("SELECT * FROM table_changes('default." + tableName + "', 7)"))
+                    .hasMessageMatching("(?s)(.*Error getting change data for range \\[7 , 7] as change data was not\nrecorded for version \\[7].*)");
+
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES ('testValue8', 8)");
+            assertQueryFailure(() -> onDelta().executeQuery("SELECT * FROM table_changes('default." + tableName + "', 8)"))
+                    .hasMessageMatching("(?s)(.*Error getting change data for range \\[8 , 8] as change data was not\nrecorded for version \\[8].*)");
+
+            // Enabling only delta.enableChangeDataFeed without delta.feature.changeDataFeed property is unsupported
+        }
+        finally {
+            dropDeltaTableWithRetry(tableName);
         }
     }
 

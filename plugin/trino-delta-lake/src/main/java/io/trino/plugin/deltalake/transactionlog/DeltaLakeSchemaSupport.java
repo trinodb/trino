@@ -54,13 +54,16 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
+import static com.google.common.primitives.Booleans.countTrue;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -95,6 +98,13 @@ public final class DeltaLakeSchemaSupport
             .add("timestampNtz")
             .add("deletionVectors")
             .build();
+    private static final Set<String> SUPPORTED_WRITER_FEATURES = ImmutableSet.<String>builder()
+            .add("appendOnly")
+            .add("invariants")
+            .add("checkConstraints")
+            .add("changeDataFeed")
+            .add("columnMapping")
+            .build();
 
     public enum ColumnMappingMode
     {
@@ -120,18 +130,35 @@ public final class DeltaLakeSchemaSupport
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
-    public static boolean isAppendOnly(MetadataEntry metadataEntry)
+    public static boolean isAppendOnly(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
+        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains("appendOnly")) {
+            return false;
+        }
         return parseBoolean(metadataEntry.getConfiguration().getOrDefault(APPEND_ONLY_CONFIGURATION_KEY, "false"));
     }
 
-    public static boolean isDeletionVectorEnabled(MetadataEntry metadataEntry)
+    public static boolean isDeletionVectorEnabled(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
+        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains("deletionVectors")) {
+            return false;
+        }
         return parseBoolean(metadataEntry.getConfiguration().get(DELETION_VECTORS_CONFIGURATION_KEY));
     }
 
-    public static ColumnMappingMode getColumnMappingMode(MetadataEntry metadata)
+    public static ColumnMappingMode getColumnMappingMode(MetadataEntry metadata, ProtocolEntry protocolEntry)
     {
+        if (protocolEntry.supportsReaderFeatures() || protocolEntry.supportsWriterFeatures()) {
+            boolean supportsColumnMappingReader = protocolEntry.readerFeaturesContains("columnMapping");
+            boolean supportsColumnMappingWriter = protocolEntry.writerFeaturesContains("columnMapping");
+            int columnMappingEnabled = countTrue(supportsColumnMappingReader, supportsColumnMappingWriter);
+            checkArgument(
+                    columnMappingEnabled == 0 || columnMappingEnabled == 2,
+                    "Both reader and writer features should must the same value for 'columnMapping'. reader: %s, writer: %s", supportsColumnMappingReader, supportsColumnMappingWriter);
+            if (columnMappingEnabled == 0) {
+                return ColumnMappingMode.NONE;
+            }
+        }
         String columnMappingMode = metadata.getConfiguration().getOrDefault(COLUMN_MAPPING_MODE_CONFIGURATION_KEY, "none");
         return Enums.getIfPresent(ColumnMappingMode.class, columnMappingMode.toUpperCase(ENGLISH)).or(ColumnMappingMode.UNKNOWN);
     }
@@ -143,9 +170,9 @@ public final class DeltaLakeSchemaSupport
         return Integer.parseInt(maxColumnId);
     }
 
-    public static List<DeltaLakeColumnHandle> extractPartitionColumns(MetadataEntry metadataEntry, TypeManager typeManager)
+    public static List<DeltaLakeColumnHandle> extractPartitionColumns(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, TypeManager typeManager)
     {
-        return extractPartitionColumns(extractSchema(metadataEntry, typeManager), metadataEntry.getOriginalPartitionColumns());
+        return extractPartitionColumns(extractSchema(metadataEntry, protocolEntry, typeManager), metadataEntry.getOriginalPartitionColumns());
     }
 
     public static List<DeltaLakeColumnHandle> extractPartitionColumns(List<DeltaLakeColumnMetadata> schema, List<String> originalPartitionColumns)
@@ -358,16 +385,16 @@ public final class DeltaLakeSchemaSupport
         return OBJECT_MAPPER.writeValueAsString(fileStatistics);
     }
 
-    public static List<ColumnMetadata> extractColumnMetadata(MetadataEntry metadataEntry, TypeManager typeManager)
+    public static List<ColumnMetadata> extractColumnMetadata(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, TypeManager typeManager)
     {
-        return extractSchema(metadataEntry, typeManager).stream()
+        return extractSchema(metadataEntry, protocolEntry, typeManager).stream()
                 .map(DeltaLakeColumnMetadata::getColumnMetadata)
                 .collect(toImmutableList());
     }
 
-    public static List<DeltaLakeColumnMetadata> extractSchema(MetadataEntry metadataEntry, TypeManager typeManager)
+    public static List<DeltaLakeColumnMetadata> extractSchema(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, TypeManager typeManager)
     {
-        ColumnMappingMode mappingMode = getColumnMappingMode(metadataEntry);
+        ColumnMappingMode mappingMode = getColumnMappingMode(metadataEntry, protocolEntry);
         verifySupportedColumnMapping(mappingMode);
         return Optional.ofNullable(metadataEntry.getSchemaString())
                 .map(json -> getColumnMetadata(json, typeManager, mappingMode))
@@ -452,8 +479,11 @@ public final class DeltaLakeSchemaSupport
         return getColumnProperties(metadataEntry, node -> node.get("nullable").asBoolean());
     }
 
-    public static Map<String, Boolean> getColumnIdentities(MetadataEntry metadataEntry)
+    public static Map<String, Boolean> getColumnIdentities(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
+        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains("identityColumns")) {
+            return ImmutableMap.of();
+        }
         return getColumnProperties(metadataEntry, DeltaLakeSchemaSupport::isIdentityColumn);
     }
 
@@ -463,9 +493,22 @@ public final class DeltaLakeSchemaSupport
                 .anyMatch(name -> name.startsWith("delta.identity."));
     }
 
-    public static Map<String, String> getColumnInvariants(MetadataEntry metadataEntry)
+    public static Map<String, String> getColumnInvariants(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
+        if (protocolEntry.supportsWriterFeatures()) {
+            if (!protocolEntry.writerFeaturesContains("invariants")) {
+                return ImmutableMap.of();
+            }
+            return getColumnProperties(metadataEntry, DeltaLakeSchemaSupport::getInvariantsWriterFeature);
+        }
         return getColumnProperties(metadataEntry, DeltaLakeSchemaSupport::getInvariants);
+    }
+
+    @Nullable
+    private static String getInvariantsWriterFeature(JsonNode node)
+    {
+        JsonNode invariants = node.get("metadata").get("delta.invariants");
+        return invariants == null ? null : invariants.asText();
     }
 
     @Nullable
@@ -497,17 +540,26 @@ public final class DeltaLakeSchemaSupport
         return generationExpression == null ? null : generationExpression.asText();
     }
 
-    public static Map<String, String> getCheckConstraints(MetadataEntry metadataEntry)
+    public static Map<String, String> getCheckConstraints(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
+        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains("checkConstraints")) {
+            return ImmutableMap.of();
+        }
         return metadataEntry.getConfiguration().entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith("delta.constraints."))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
-    public static boolean changeDataFeedEnabled(MetadataEntry metadataEntry)
+    public static Optional<Boolean> changeDataFeedEnabled(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
-        String enableChangeDataFeed = metadataEntry.getConfiguration().getOrDefault("delta.enableChangeDataFeed", "false");
-        return parseBoolean(enableChangeDataFeed);
+        if (protocolEntry.supportsWriterFeatures() && !protocolEntry.writerFeaturesContains("changeDataFeed")) {
+            return Optional.empty();
+        }
+        String enableChangeDataFeed = metadataEntry.getConfiguration().get(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY);
+        if (enableChangeDataFeed == null) {
+            return Optional.empty();
+        }
+        return Optional.of(parseBoolean(enableChangeDataFeed));
     }
 
     public static Map<String, Map<String, Object>> getColumnsMetadata(MetadataEntry metadataEntry)
@@ -553,6 +605,11 @@ public final class DeltaLakeSchemaSupport
     public static Set<String> unsupportedReaderFeatures(Set<String> features)
     {
         return Sets.difference(features, SUPPORTED_READER_FEATURES);
+    }
+
+    public static Set<String> unsupportedWriterFeatures(Set<String> features)
+    {
+        return Sets.difference(features, SUPPORTED_WRITER_FEATURES);
     }
 
     public static Type deserializeType(TypeManager typeManager, Object type, boolean usePhysicalName)
