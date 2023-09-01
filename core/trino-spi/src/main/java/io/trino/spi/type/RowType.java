@@ -140,7 +140,7 @@ public class RowType
         // flat fixed size is one null byte for each field plus the sum of the field fixed sizes
         int fixedSize = fieldTypes.size();
         for (Type fieldType : fieldTypes) {
-            fixedSize += fieldType.getFlatFixedSize() + 4;
+            fixedSize += fieldType.getFlatFixedSize();
         }
         flatFixedSize = fixedSize;
 
