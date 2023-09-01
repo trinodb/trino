@@ -149,6 +149,7 @@ public class TestTransactionLogAccess
                 true,
                 "location",
                 new MetadataEntry("id", "test", "description", null, "", ImmutableList.of(), ImmutableMap.of(), 0),
+                new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
                 TupleDomain.none(),
                 TupleDomain.none(),
                 Optional.empty(),
