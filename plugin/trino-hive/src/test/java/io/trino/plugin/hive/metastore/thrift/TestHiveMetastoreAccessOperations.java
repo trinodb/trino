@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.CREATE_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_DATABASES;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_PARTITIONS_BY_NAMES;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_PARTITION_NAMES_BY_FILTER;
@@ -65,6 +66,15 @@ public class TestHiveMetastoreAccessOperations
 
         queryRunner.execute("CREATE SCHEMA test_schema");
         return queryRunner;
+    }
+
+    @Test
+    public void testUse()
+    {
+        assertMetastoreInvocations("USE " + getSession().getSchema().orElseThrow(),
+                ImmutableMultiset.builder()
+                        .add(GET_ALL_DATABASES)
+                        .build());
     }
 
     @Test
@@ -200,6 +210,18 @@ public class TestHiveMetastoreAccessOperations
                 ImmutableMultiset.builder()
                         .add(GET_TABLE)
                         .add(GET_TABLE_STATISTICS)
+                        .build());
+    }
+
+    @Test
+    public void testDescribe()
+    {
+        assertUpdate("CREATE TABLE test_describe(id VARCHAR, age INT)");
+
+        assertMetastoreInvocations("DESCRIBE test_describe",
+                ImmutableMultiset.builder()
+                        .add(GET_ALL_DATABASES)
+                        .add(GET_TABLE)
                         .build());
     }
 
