@@ -136,6 +136,7 @@ public class CheckpointEntryIterator
     private final List<CheckPointFieldExtractor> extractors;
     private final boolean checkpointRowStatisticsWritingEnabled;
     private MetadataEntry metadataEntry;
+    private ProtocolEntry protocolEntry;
     private List<DeltaLakeColumnMetadata> schema; // Use DeltaLakeColumnMetadata?
     private Page page;
     private long pageIndex;
@@ -149,6 +150,7 @@ public class CheckpointEntryIterator
             TypeManager typeManager,
             Set<EntryType> fields,
             Optional<MetadataEntry> metadataEntry,
+            Optional<ProtocolEntry> protocolEntry,
             FileFormatDataSourceStats stats,
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled,
@@ -172,11 +174,13 @@ public class CheckpointEntryIterator
         if (fields.contains(ADD)) {
             checkArgument(metadataEntry.isPresent(), "Metadata entry must be provided when reading ADD entries from Checkpoint files");
             this.metadataEntry = metadataEntry.get();
-            this.schema = extractSchema(this.metadataEntry, typeManager);
+            checkArgument(protocolEntry.isPresent(), "Protocol entry must be provided when reading ADD entries from Checkpoint files");
+            this.protocolEntry = protocolEntry.get();
+            this.schema = extractSchema(this.metadataEntry, this.protocolEntry, typeManager);
         }
 
         List<HiveColumnHandle> columns = fields.stream()
-                .map(field -> buildColumnHandle(field, checkpointSchemaManager, this.metadataEntry).toHiveColumnHandle())
+                .map(field -> buildColumnHandle(field, checkpointSchemaManager, this.metadataEntry, this.protocolEntry).toHiveColumnHandle())
                 .collect(toImmutableList());
 
         TupleDomain<HiveColumnHandle> tupleDomain = columns.size() > 1 ?
@@ -205,11 +209,11 @@ public class CheckpointEntryIterator
                 .collect(toImmutableList());
     }
 
-    private DeltaLakeColumnHandle buildColumnHandle(EntryType entryType, CheckpointSchemaManager schemaManager, MetadataEntry metadataEntry)
+    private DeltaLakeColumnHandle buildColumnHandle(EntryType entryType, CheckpointSchemaManager schemaManager, MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {
         Type type = switch (entryType) {
             case TRANSACTION -> schemaManager.getTxnEntryType();
-            case ADD -> schemaManager.getAddEntryType(metadataEntry, true, true);
+            case ADD -> schemaManager.getAddEntryType(metadataEntry, protocolEntry, true, true);
             case REMOVE -> schemaManager.getRemoveEntryType();
             case METADATA -> schemaManager.getMetadataEntryType();
             case PROTOCOL -> schemaManager.getProtocolEntryType(true, true);
@@ -397,7 +401,7 @@ public class CheckpointEntryIterator
         if (block.isNull(pagePosition)) {
             return null;
         }
-        boolean deletionVectorsEnabled = isDeletionVectorEnabled(metadataEntry);
+        boolean deletionVectorsEnabled = isDeletionVectorEnabled(metadataEntry, protocolEntry);
         Block addEntryBlock = block.getObject(pagePosition, Block.class);
         log.debug("Block %s has %s fields", block, addEntryBlock.getPositionCount());
 

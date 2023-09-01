@@ -38,6 +38,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabr
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnDelta;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnTrino;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertyOnDelta;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.skipTestUnlessUnsupportedWriterVersionExists;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -73,20 +74,22 @@ public class TestDeltaLakeAlterTableCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testAddColumnUnsupportedWriterVersion()
     {
+        skipTestUnlessUnsupportedWriterVersionExists();
+
         String tableName = "test_dl_add_column_unsupported_writer_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         onDelta().executeQuery(format("" +
                         "CREATE TABLE default.%s (col int) " +
                         "USING DELTA LOCATION 's3://%s/%s'" +
-                        "TBLPROPERTIES ('delta.minWriterVersion'='7')",
+                        "TBLPROPERTIES ('delta.minWriterVersion'='8')",
                 tableName,
                 bucketName,
                 tableDirectory));
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col int"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 7 which is not supported");
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 8 which is not supported");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -186,20 +189,22 @@ public class TestDeltaLakeAlterTableCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCommentOnTableUnsupportedWriterVersion()
     {
+        skipTestUnlessUnsupportedWriterVersionExists();
+
         String tableName = "test_dl_comment_table_unsupported_writer_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         onDelta().executeQuery(format("" +
                         "CREATE TABLE default.%s (col int) " +
                         "USING DELTA LOCATION 's3://%s/%s'" +
-                        "TBLPROPERTIES ('delta.minWriterVersion'='7')",
+                        "TBLPROPERTIES ('delta.minWriterVersion'='8')",
                 tableName,
                 bucketName,
                 tableDirectory));
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test comment'"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 7 which is not supported");
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 8 which is not supported");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
@@ -232,20 +237,22 @@ public class TestDeltaLakeAlterTableCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCommentOnColumnUnsupportedWriterVersion()
     {
+        skipTestUnlessUnsupportedWriterVersionExists();
+
         String tableName = "test_dl_comment_column_unsupported_writer_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         onDelta().executeQuery(format("" +
                         "CREATE TABLE default.%s (col int) " +
                         "USING DELTA LOCATION 's3://%s/%s'" +
-                        "TBLPROPERTIES ('delta.minWriterVersion'='7')",
+                        "TBLPROPERTIES ('delta.minWriterVersion'='8')",
                 tableName,
                 bucketName,
                 tableDirectory));
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment'"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 7 which is not supported");
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 8 which is not supported");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
@@ -256,20 +263,22 @@ public class TestDeltaLakeAlterTableCompatibility
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testOptimizeUnsupportedWriterVersion()
     {
+        skipTestUnlessUnsupportedWriterVersionExists();
+
         String tableName = "test_dl_optimize_unsupported_writer_" + randomNameSuffix();
         String tableDirectory = "databricks-compatibility-test-" + tableName;
 
         onDelta().executeQuery(format("" +
                         "CREATE TABLE default.%s (col int) " +
                         "USING DELTA LOCATION 's3://%s/%s'" +
-                        "TBLPROPERTIES ('delta.minWriterVersion'='7')",
+                        "TBLPROPERTIES ('delta.minWriterVersion'='8')",
                 tableName,
                 bucketName,
                 tableDirectory));
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " EXECUTE OPTIMIZE"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 7 which is not supported");
+                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 8 which is not supported");
         }
         finally {
             dropDeltaTableWithRetry(tableName);
@@ -364,6 +373,33 @@ public class TestDeltaLakeAlterTableCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, DELTA_LAKE_EXCLUDE_113, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testTrinoPreservesTableFeature()
+    {
+        String tableName = "test_trino_preserves_table_feature_" + randomNameSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName + " (col int)" +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                "TBLPROPERTIES ('delta.checkpointInterval'=1, 'delta.feature.columnMapping'='supported')");
+        try {
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment'");
+            onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test table comment'");
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col INT");
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 1)");
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET col = 2");
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName);
+            onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " + "ON (t.col = s.col) WHEN MATCHED THEN UPDATE SET new_col = 3");
+
+            assertThat(getTablePropertyOnDelta("default", tableName, "delta.feature.columnMapping"))
+                    .isEqualTo("supported");
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTrinoAlterTablePreservesGeneratedColumn()
@@ -395,6 +431,38 @@ public class TestDeltaLakeAlterTableCompatibility
                     .containsOnly(row("a", ""), row("b", "generated: a * 2"), row("c", ""));
             assertThat(onTrino().executeQuery("SHOW COLUMNS FROM delta.default." + tableName).project(1, 3))
                     .containsOnly(row("a", ""), row("b", "generated: a * 2"), row("c", ""));
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, DELTA_LAKE_EXCLUDE_113, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testUnsupportedStatementWithUnsupportedWriterFeature()
+    {
+        String tableName = "test_dl_add_column_unsupported_writer_feature_" + randomNameSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName + "" +
+                "(a int, b int) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                "TBLPROPERTIES ('delta.feature.generatedColumns'='supported')");
+        try {
+            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col int"))
+                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
+            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN a TO renamed"))
+                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
+            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " DROP COLUMN b"))
+                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
+            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " EXECUTE OPTIMIZE"))
+                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
+            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ALTER COLUMN b SET DATA TYPE bigint"))
+                    .hasMessageContaining("This connector does not support setting column types");
+            assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test comment'"))
+                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
+            assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".a IS 'test column comment'"))
+                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
