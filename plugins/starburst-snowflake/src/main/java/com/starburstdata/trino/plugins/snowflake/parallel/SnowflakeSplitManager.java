@@ -10,8 +10,10 @@
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.BooleanWriteFunction;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -49,6 +51,8 @@ import net.snowflake.client.core.SessionUtil;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.StarburstSnowflakeStatementV1;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNodeFactory;
+import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -73,6 +77,8 @@ import static net.snowflake.client.core.ResultUtil.effectiveParamValue;
 public class SnowflakeSplitManager
         implements ConnectorSplitManager
 {
+    private static final Logger log = Logger.get(SnowflakeSplitManager.class);
+
     private final ConnectionFactory connectionFactory;
     private final SnowflakeClient snowflakeClient;
     private final RemoteQueryModifier queryModifier;
@@ -129,6 +135,10 @@ public class SnowflakeSplitManager
                     false,
                     new ExecTimeTelemetryData());
 
+            if (log.isDebugEnabled()) {
+                logFiltered(jsonResult);
+            }
+
             return new FixedSplitSource(parseChunkFiles(jsonResult));
         }
         catch (SFException | SQLException e) {
@@ -136,6 +146,40 @@ public class SnowflakeSplitManager
             throwIfInvalidWarehouse(e);
             throw new TrinoException(JDBC_ERROR, "Couldn't get Snowflake splits, %s".formatted(e.getMessage()), e);
         }
+    }
+
+    private static void logFiltered(JsonNode fullJson)
+    {
+        // log only known non-sensitive information
+        ObjectNode filteredJson = JsonNodeFactory.instance.objectNode();
+
+        ImmutableList.of(
+                        "code",
+                        "message",
+                        "success")
+                .forEach(column -> filteredJson.set(column, fullJson.path(column)));
+
+        JsonNode dataPath = fullJson.path("data");
+        ImmutableList.of(
+                        "parameters",
+                        "rowtype",
+                        "total",
+                        "returned",
+                        "queryId",
+                        "databaseProvider",
+                        "finalDatabaseName",
+                        "finalSchemaName",
+                        "finalWarehouseName",
+                        "finalRoleName",
+                        "numberOfBinds",
+                        "arrayBindSupported",
+                        "statementTypeId",
+                        "version",
+                        "sendResultTime",
+                        "queryResultFormat")
+                .forEach(column -> filteredJson.set(column, dataPath.path(column)));
+
+        log.debug(filteredJson.toPrettyString());
     }
 
     /**
