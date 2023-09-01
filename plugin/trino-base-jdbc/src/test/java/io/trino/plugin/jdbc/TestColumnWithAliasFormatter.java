@@ -28,7 +28,7 @@ import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Guice(modules = ColumnWithAliasFormatterModule.class)
-public class TestColumnWithAliasFormatterFixed
+public class TestColumnWithAliasFormatter
 {
     private static final ImmutableList<PropertyMetadata<?>> PROPERTY_METADATA = ImmutableList.of(
             integerProperty(
@@ -38,7 +38,7 @@ public class TestColumnWithAliasFormatterFixed
                     false));
 
     @Inject
-    private ColumnWithAliasFormatterFixed actor;
+    private ColumnWithAliasFormatter actor;
 
     private final TestingConnectorSession session = TestingConnectorSession.builder()
             .setPropertyMetadata(PROPERTY_METADATA)
@@ -48,30 +48,24 @@ public class TestColumnWithAliasFormatterFixed
     @Test
     public void testTooLongName()
     {
-        //given
         JdbcColumnHandle column = getDefaultColumnHandleBuilder()
                 .setColumnName("column_with_over_twenty_characters")
                 .build();
 
-        //when
-        JdbcColumnHandle result = actor.format(column, 100, session);
+        JdbcColumnHandle result = actor.format(session, column, 100);
 
-        //then
         assertThat(result.getColumnName()).isEqualTo("column_with_over_twenty__00100");
     }
 
     @Test
     public void testTooShortName()
     {
-        //given
         JdbcColumnHandle column = getDefaultColumnHandleBuilder()
                 .setColumnName("column_0")
                 .build();
 
-        //when
-        JdbcColumnHandle result = actor.format(column, 999, session);
+        JdbcColumnHandle result = actor.format(session, column, 999);
 
-        //then
         assertThat(result.getColumnName()).isEqualTo("column_0_00999");
     }
 

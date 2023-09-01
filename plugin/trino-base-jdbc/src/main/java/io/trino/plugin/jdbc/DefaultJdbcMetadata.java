@@ -123,7 +123,7 @@ public class DefaultJdbcMetadata
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.precalculateStatisticsForPushdown = precalculateStatisticsForPushdown;
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
-        this.aliasFormatter = aliasFormatter;
+        this.aliasFormatter = requireNonNull(aliasFormatter, "aliasFormatter is null");
     }
 
     @Override
@@ -455,19 +455,18 @@ public class DefaultJdbcMetadata
         if (!leftHandle.getAuthorization().equals(rightHandle.getAuthorization())) {
             return Optional.empty();
         }
-
         int nextSyntheticColumnId = max(leftHandle.getNextSyntheticColumnId(), rightHandle.getNextSyntheticColumnId());
 
         ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newLeftColumnsBuilder = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, leftHandle)) {
-            newLeftColumnsBuilder.put(column, aliasFormatter.format(column, nextSyntheticColumnId, session));
+            newLeftColumnsBuilder.put(column, aliasFormatter.format(session, column, nextSyntheticColumnId));
             nextSyntheticColumnId++;
         }
         Map<JdbcColumnHandle, JdbcColumnHandle> newLeftColumns = newLeftColumnsBuilder.buildOrThrow();
 
         ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newRightColumnsBuilder = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, rightHandle)) {
-            newRightColumnsBuilder.put(column, aliasFormatter.format(column, nextSyntheticColumnId, session));
+            newRightColumnsBuilder.put(column, aliasFormatter.format(session, column, nextSyntheticColumnId));
             nextSyntheticColumnId++;
         }
         Map<JdbcColumnHandle, JdbcColumnHandle> newRightColumns = newRightColumnsBuilder.buildOrThrow();

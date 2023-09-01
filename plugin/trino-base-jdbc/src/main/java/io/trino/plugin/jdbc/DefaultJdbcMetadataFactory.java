@@ -35,7 +35,7 @@ public class DefaultJdbcMetadataFactory
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
-        this.aliasFormatter = aliasFormatter;
+        this.aliasFormatter = requireNonNull(aliasFormatter, "aliasFormatter is null");
     }
 
     @Override

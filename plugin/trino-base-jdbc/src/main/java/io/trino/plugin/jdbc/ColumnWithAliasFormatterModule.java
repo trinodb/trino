@@ -22,6 +22,6 @@ public class ColumnWithAliasFormatterModule
     @Override
     public void configure()
     {
-        bind(ColumnWithAliasFormatter.class).to(ColumnWithAliasFormatterFixed.class).in(Singleton.class);
+        bind(ColumnWithAliasFormatter.class).in(Singleton.class);
     }
 }

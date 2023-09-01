@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.ColumnHandle;
@@ -34,6 +35,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Guice;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -54,12 +56,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
+@Guice(modules = ColumnWithAliasFormatterModule.class)
 public class TestDefaultJdbcMetadata
 {
     private TestingDatabase database;
     private DefaultJdbcMetadata metadata;
     private JdbcTableHandle tableHandle;
 
+    @Inject
     private ColumnWithAliasFormatter aliasFormatter;
 
     @BeforeMethod
