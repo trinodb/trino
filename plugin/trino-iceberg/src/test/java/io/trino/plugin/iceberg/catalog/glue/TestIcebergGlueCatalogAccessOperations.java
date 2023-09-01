@@ -147,8 +147,7 @@ public class TestIcebergGlueCatalogAccessOperations
             assertGlueMetastoreApiInvocations("CREATE TABLE test_create (id VARCHAR, age INT)",
                     ImmutableMultiset.builder()
                             .add(CREATE_TABLE)
-                            .add(GET_DATABASE)
-                            .add(GET_DATABASE)
+                            .addCopies(GET_DATABASE, 2)
                             .add(GET_TABLE)
                             .build());
         }
@@ -165,8 +164,7 @@ public class TestIcebergGlueCatalogAccessOperations
                     withStatsOnWrite(getSession(), false),
                     "CREATE TABLE test_ctas AS SELECT 1 AS age",
                     ImmutableMultiset.builder()
-                            .add(GET_DATABASE)
-                            .add(GET_DATABASE)
+                            .addCopies(GET_DATABASE, 2)
                             .add(CREATE_TABLE)
                             .add(GET_TABLE)
                             .build());
@@ -180,8 +178,7 @@ public class TestIcebergGlueCatalogAccessOperations
                     withStatsOnWrite(getSession(), true),
                     "CREATE TABLE test_ctas_with_stats AS SELECT 1 AS age",
                     ImmutableMultiset.builder()
-                            .add(GET_DATABASE)
-                            .add(GET_DATABASE)
+                            .addCopies(GET_DATABASE, 2)
                             .add(CREATE_TABLE)
                             .addCopies(GET_TABLE, 5)
                             .add(UPDATE_TABLE)
