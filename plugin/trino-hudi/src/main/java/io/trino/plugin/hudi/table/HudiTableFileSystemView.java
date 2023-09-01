@@ -222,7 +222,7 @@ public class HudiTableFileSystemView
                                         Map.entry(new HudiFileGroupId(entry.getKey(), fileId), instant)));
                     }
                     catch (IOException e) {
-                        throw new TrinoException(HUDI_BAD_DATA, "error reading commit metadata for " + instant);
+                        throw new TrinoException(HUDI_BAD_DATA, "error reading commit metadata for " + instant, e);
                     }
                 })
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
