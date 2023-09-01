@@ -24,12 +24,10 @@ import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -137,14 +135,13 @@ public class GroupIdNode
 
     public Set<Symbol> getInputSymbols()
     {
-        return ImmutableSet.<Symbol>builder()
-                .addAll(aggregationArguments)
-                .addAll(groupingSets.stream()
-                        .map(set -> set.stream()
-                                .map(groupingColumns::get).collect(Collectors.toList()))
-                        .flatMap(Collection::stream)
-                        .collect(toImmutableSet()))
-                .build();
+        Set<Symbol> distinctGroupingSetSymbols = getDistinctGroupingSetSymbols();
+        ImmutableSet.Builder<Symbol> builder = ImmutableSet.builderWithExpectedSize(aggregationArguments.size() + distinctGroupingSetSymbols.size());
+        builder.addAll(aggregationArguments);
+        for (Symbol groupingSetSymbol : distinctGroupingSetSymbols) {
+            builder.add(groupingColumns.get(groupingSetSymbol));
+        }
+        return builder.build();
     }
 
     // returns the common grouping columns in terms of output symbols
