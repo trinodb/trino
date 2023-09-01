@@ -17,20 +17,14 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import com.google.inject.Binder;
-import com.google.inject.BindingAnnotation;
-import com.google.inject.Inject;
-import com.google.inject.Module;
-import com.google.inject.TypeLiteral;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.filesystem.TrackingFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import io.trino.plugin.iceberg.IcebergConnector;
 import io.trino.plugin.iceberg.TableType;
 import io.trino.plugin.iceberg.TestingIcebergPlugin;
-import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
-import io.trino.spi.NodeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -39,20 +33,17 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
+import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
@@ -75,10 +66,6 @@ import static io.trino.plugin.iceberg.catalog.glue.TestIcebergGlueCatalogAccessO
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
@@ -116,11 +103,10 @@ public class TestIcebergGlueCatalogAccessOperations
 
         trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
 
-        AtomicReference<GlueMetastoreStats> glueStatsReference = new AtomicReference<>();
         queryRunner.installPlugin(new TestingIcebergPlugin(
                 Optional.empty(),
                 Optional.of(trackingFileSystemFactory),
-                new StealStatsModule(glueStatsReference)));
+                EMPTY_MODULE));
         queryRunner.createCatalog("iceberg", "iceberg",
                 ImmutableMap.of(
                         "iceberg.catalog.type", "glue",
@@ -128,7 +114,8 @@ public class TestIcebergGlueCatalogAccessOperations
 
         queryRunner.execute("CREATE SCHEMA " + testSchema);
 
-        glueStats = verifyNotNull(glueStatsReference.get(), "glueStatsReference not set");
+        glueStats = ((IcebergConnector) queryRunner.getCoordinator().getConnector("iceberg")).getInjector().getInstance(GlueMetastoreStats.class);
+
         return queryRunner;
     }
 
@@ -637,50 +624,6 @@ public class TestIcebergGlueCatalogAccessOperations
         return Session.builder(session)
                 .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
                 .build();
-    }
-
-    @Retention(RUNTIME)
-    @Target({FIELD, PARAMETER, METHOD})
-    @BindingAnnotation
-    public @interface GlueStatsReference {}
-
-    static class StealStatsModule
-            implements Module
-    {
-        private final AtomicReference<GlueMetastoreStats> glueStatsReference;
-
-        public StealStatsModule(AtomicReference<GlueMetastoreStats> glueStatsReference)
-        {
-            this.glueStatsReference = requireNonNull(glueStatsReference, "glueStatsReference is null");
-        }
-
-        @Override
-        public void configure(Binder binder)
-        {
-            binder.bind(new TypeLiteral<AtomicReference<GlueMetastoreStats>>() {}).annotatedWith(GlueStatsReference.class).toInstance(glueStatsReference);
-
-            // Eager singleton to make singleton immediately as a dummy object to trigger code that will extract the stats out of the catalog factory
-            binder.bind(StealStats.class).asEagerSingleton();
-        }
-    }
-
-    static class StealStats
-    {
-        @Inject
-        StealStats(
-                NodeManager nodeManager,
-                @GlueStatsReference AtomicReference<GlueMetastoreStats> glueStatsReference,
-                TrinoCatalogFactory factory)
-        {
-            if (!nodeManager.getCurrentNode().isCoordinator()) {
-                // The test covers stats on the coordinator only.
-                return;
-            }
-
-            if (!glueStatsReference.compareAndSet(null, ((TrinoGlueCatalogFactory) factory).getStats())) {
-                throw new RuntimeException("glueStatsReference already set");
-            }
-        }
     }
 
     private record FileOperation(FileType fileType, TrackingFileSystemFactory.OperationType operationType)
