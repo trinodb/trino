@@ -202,7 +202,7 @@ public class TestCheckpointWriter
         targetFile.delete(); // file must not exist when writer is called
         writer.write(entries, createOutputFile(targetPath));
 
-        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, true);
+        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
         assertEquals(readEntries.getTransactionEntries(), entries.getTransactionEntries());
         assertEquals(readEntries.getRemoveFileEntries(), entries.getRemoveFileEntries());
         assertEquals(readEntries.getMetadataEntry(), entries.getMetadataEntry());
@@ -339,7 +339,7 @@ public class TestCheckpointWriter
         targetFile.delete(); // file must not exist when writer is called
         writer.write(entries, createOutputFile(targetPath));
 
-        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, true);
+        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
         assertEquals(readEntries.getTransactionEntries(), entries.getTransactionEntries());
         assertEquals(readEntries.getRemoveFileEntries(), entries.getRemoveFileEntries());
         assertEquals(readEntries.getMetadataEntry(), entries.getMetadataEntry());
@@ -411,7 +411,7 @@ public class TestCheckpointWriter
         targetFile.delete(); // file must not exist when writer is called
         writer.write(entries, createOutputFile(targetPath));
 
-        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, false);
+        CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, false);
         AddFileEntry addFileEntry = getOnlyElement(readEntries.getAddFileEntries());
         assertThat(addFileEntry.getStats()).isPresent();
 
@@ -480,7 +480,7 @@ public class TestCheckpointWriter
         return Optional.of(comparableStats.buildOrThrow());
     }
 
-    private CheckpointEntries readCheckpoint(String checkpointPath, MetadataEntry metadataEntry, boolean rowStatisticsEnabled)
+    private CheckpointEntries readCheckpoint(String checkpointPath, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, boolean rowStatisticsEnabled)
             throws IOException
     {
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
@@ -494,6 +494,7 @@ public class TestCheckpointWriter
                 typeManager,
                 ImmutableSet.of(METADATA, PROTOCOL, TRANSACTION, ADD, REMOVE),
                 Optional.of(metadataEntry),
+                Optional.of(protocolEntry),
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 rowStatisticsEnabled,

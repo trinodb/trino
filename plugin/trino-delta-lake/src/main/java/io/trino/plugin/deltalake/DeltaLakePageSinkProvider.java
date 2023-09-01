@@ -21,6 +21,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -119,7 +120,7 @@ public class DeltaLakePageSinkProvider
     {
         DeltaLakeInsertTableHandle tableHandle = (DeltaLakeInsertTableHandle) insertTableHandle;
         MetadataEntry metadataEntry = tableHandle.getMetadataEntry();
-        DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(metadataEntry, typeManager);
+        DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(metadataEntry, tableHandle.getProtocolEntry(), typeManager);
         return new DeltaLakePageSink(
                 typeManager.getTypeOperators(),
                 tableHandle.getInputColumns(),
@@ -142,7 +143,7 @@ public class DeltaLakePageSinkProvider
         switch (executeHandle.getProcedureId()) {
             case OPTIMIZE:
                 DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.getProcedureHandle();
-                DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(optimizeHandle.getMetadataEntry(), typeManager);
+                DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(optimizeHandle.getMetadataEntry(), optimizeHandle.getProtocolEntry(), typeManager);
                 return new DeltaLakePageSink(
                         typeManager.getTypeOperators(),
                         optimizeHandle.getTableColumns(),
@@ -167,7 +168,7 @@ public class DeltaLakePageSinkProvider
         DeltaLakeMergeTableHandle merge = (DeltaLakeMergeTableHandle) mergeHandle;
         DeltaLakeInsertTableHandle tableHandle = merge.getInsertTableHandle();
         ConnectorPageSink pageSink = createPageSink(transactionHandle, session, tableHandle, pageSinkId);
-        DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(tableHandle.getMetadataEntry(), typeManager);
+        DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), typeManager);
 
         return new DeltaLakeMergeSink(
                 typeManager.getTypeOperators(),
@@ -183,7 +184,7 @@ public class DeltaLakePageSinkProvider
                 tableHandle.getInputColumns(),
                 domainCompactionThreshold,
                 () -> createCdfPageSink(merge, session),
-                changeDataFeedEnabled(tableHandle.getMetadataEntry()),
+                changeDataFeedEnabled(tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry()).orElse(false),
                 parquetSchemaMapping);
     }
 
@@ -192,8 +193,9 @@ public class DeltaLakePageSinkProvider
             ConnectorSession session)
     {
         MetadataEntry metadataEntry = mergeTableHandle.getTableHandle().getMetadataEntry();
+        ProtocolEntry protocolEntry = mergeTableHandle.getTableHandle().getProtocolEntry();
         Set<String> partitionKeys = mergeTableHandle.getTableHandle().getMetadataEntry().getOriginalPartitionColumns().stream().collect(toImmutableSet());
-        List<DeltaLakeColumnHandle> tableColumns = extractSchema(metadataEntry, typeManager).stream()
+        List<DeltaLakeColumnHandle> tableColumns = extractSchema(metadataEntry, protocolEntry, typeManager).stream()
                 .map(metadata -> new DeltaLakeColumnHandle(
                         metadata.getName(),
                         metadata.getType(),
@@ -216,7 +218,7 @@ public class DeltaLakePageSinkProvider
                 .build();
         Location tableLocation = Location.of(mergeTableHandle.getTableHandle().getLocation());
 
-        DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(metadataEntry, typeManager, true);
+        DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(metadataEntry, protocolEntry, typeManager, true);
 
         return new DeltaLakeCdfPageSink(
                 typeManager.getTypeOperators(),

@@ -76,7 +76,7 @@ public class FileBasedTableStatisticsProvider
         double numRecords = 0L;
 
         MetadataEntry metadata = tableHandle.getMetadataEntry();
-        List<DeltaLakeColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, typeManager);
+        List<DeltaLakeColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, tableHandle.getProtocolEntry(), typeManager);
         List<DeltaLakeColumnHandle> columns = columnMetadata.stream()
                 .map(columnMeta -> new DeltaLakeColumnHandle(
                         columnMeta.getName(),

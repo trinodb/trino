@@ -76,6 +76,26 @@ public class ProtocolEntry
         return writerFeatures;
     }
 
+    public boolean supportsReaderFeatures()
+    {
+        return minReaderVersion >= MIN_VERSION_SUPPORTS_READER_FEATURES;
+    }
+
+    public boolean readerFeaturesContains(String featureName)
+    {
+        return readerFeatures.map(features -> features.contains(featureName)).orElse(false);
+    }
+
+    public boolean supportsWriterFeatures()
+    {
+        return minWriterVersion >= MIN_VERSION_SUPPORTS_WRITER_FEATURES;
+    }
+
+    public boolean writerFeaturesContains(String featureName)
+    {
+        return writerFeatures.map(features -> features.contains(featureName)).orElse(false);
+    }
+
     @Override
     public boolean equals(Object o)
     {
