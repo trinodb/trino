@@ -344,11 +344,25 @@ public class TestIcebergMetastoreAccessOperations
             assertUpdate(session, "CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
         }
 
+        // Bulk retrieval
         assertMetastoreInvocations(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
                 ImmutableMultiset.builder()
                         .add(GET_ALL_TABLES_FROM_DATABASE)
                         .addCopies(GET_TABLE, tables * 2)
                         .addCopies(GET_TABLES_WITH_PARAMETER, 2)
+                        .build());
+
+        // Pointed lookup
+        assertMetastoreInvocations(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'test_select_i_s_columns0'",
+                ImmutableMultiset.builder()
+                        .add(GET_TABLE)
+                        .build());
+
+        // Pointed lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
+        assertMetastoreInvocations(session, "DESCRIBE test_select_i_s_columns0",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .add(GET_TABLE)
                         .build());
 
         for (int i = 0; i < tables; i++) {

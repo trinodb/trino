@@ -477,6 +477,7 @@ public class TestIcebergGlueCatalogAccessOperations
                         assertUpdate(session, "CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
                     }
 
+                    // Bulk retrieval
                     assertInvocations(
                             session,
                             "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
@@ -485,6 +486,29 @@ public class TestIcebergGlueCatalogAccessOperations
                                     .build(),
                             ImmutableMultiset.of());
                 }
+
+                // Pointed lookup
+                assertInvocations(
+                        session,
+                        "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'test_select_i_s_columns0'",
+                        ImmutableMultiset.<GlueMetastoreMethod>builder()
+                                .add(GET_TABLE)
+                                .build(),
+                        ImmutableMultiset.<FileOperation>builder()
+                                .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
+                                .build());
+
+                // Pointed lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
+                assertInvocations(
+                        session,
+                        "DESCRIBE test_select_i_s_columns0",
+                        ImmutableMultiset.<GlueMetastoreMethod>builder()
+                                .add(GET_DATABASE)
+                                .add(GET_TABLE)
+                                .build(),
+                        ImmutableMultiset.<FileOperation>builder()
+                                .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
+                                .build());
             }
             finally {
                 for (int i = 0; i < tablesCreated; i++) {
