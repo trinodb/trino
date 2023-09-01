@@ -548,7 +548,7 @@ public class TestDeltaLakeBasic
                             """);
 
         // TODO https://github.com/trinodb/trino/issues/15873 Support writing timestamp_ntz type when upgrading the max writer version to 7
-        assertQueryFails("INSERT INTO timestamp_ntz VALUES NULL", "Table .* requires Delta Lake writer version 7 which is not supported");
+        assertQueryFails("INSERT INTO timestamp_ntz VALUES NULL", "\\QUnsupported writer features: [timestampNtz]");
     }
 
     /**
@@ -590,7 +590,7 @@ public class TestDeltaLakeBasic
         // TODO https://github.com/trinodb/trino/issues/15873 Support writing timestamp_ntz type when upgrading the max writer version to 7
         assertQueryFails(
                 "INSERT INTO timestamp_ntz_partition VALUES (NULL, NULL)",
-                "Table .* requires Delta Lake writer version 7 which is not supported");
+                "\\QUnsupported writer features: [timestampNtz]");
     }
 
     /**

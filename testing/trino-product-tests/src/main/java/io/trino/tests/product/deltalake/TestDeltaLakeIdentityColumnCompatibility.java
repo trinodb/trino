@@ -93,14 +93,14 @@ public class TestDeltaLakeIdentityColumnCompatibility
                 "TBLPROPERTIES ('delta.feature.identityColumns'='supported')");
         try {
             assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 1)"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 7 which is not supported");
+                    .hasMessageMatching(".* Writing to tables with identity columns is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET data = 1"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 7 which is not supported");
+                    .hasMessageMatching(".* Writing to tables with identity columns is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 7 which is not supported");
+                    .hasMessageMatching(".* Writing to tables with identity columns is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
                     "ON (t.data = s.data) WHEN MATCHED THEN UPDATE SET data = 1"))
-                    .hasMessageMatching(".* Table .* requires Delta Lake writer version 7 which is not supported");
+                    .hasMessageMatching(".* Writing to tables with identity columns is not supported");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);

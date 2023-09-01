@@ -31,6 +31,7 @@ import io.trino.spi.type.TypeManager;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -43,6 +44,7 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.read
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -179,30 +181,32 @@ public class TableSnapshot
         LastCheckpoint checkpoint = lastCheckpoint.get();
         // Add entries contain statistics. When struct statistics are used the format of the Parquet file depends on the schema. It is important to use the schema at the time
         // of the Checkpoint creation, in case the schema has evolved since it was written.
-        Optional<MetadataEntry> metadataEntry = entryTypes.contains(ADD) ?
-                Optional.of(getCheckpointMetadataEntry(
-                        session,
-                        checkpointSchemaManager,
-                        typeManager,
-                        fileSystem,
-                        stats,
-                        checkpoint)) :
-                Optional.empty();
+        Optional<MetadataAndProtocolEntry> metadataAndProtocol = Optional.empty();
+        if (entryTypes.contains(ADD)) {
+            metadataAndProtocol = Optional.of(getCheckpointMetadataAndProtocolEntries(
+                    session,
+                    checkpointSchemaManager,
+                    typeManager,
+                    fileSystem,
+                    stats,
+                    checkpoint));
+        }
 
         Stream<DeltaLakeTransactionLogEntry> resultStream = Stream.empty();
         for (Location checkpointPath : getCheckpointPartPaths(checkpoint)) {
             TrinoInputFile checkpointFile = fileSystem.newInputFile(checkpointPath);
             resultStream = Stream.concat(
                     resultStream,
-                    getCheckpointTransactionLogEntries(
+                    stream(getCheckpointTransactionLogEntries(
                             session,
                             entryTypes,
-                            metadataEntry,
+                            metadataAndProtocol.map(MetadataAndProtocolEntry::metadataEntry),
+                            metadataAndProtocol.map(MetadataAndProtocolEntry::protocolEntry),
                             checkpointSchemaManager,
                             typeManager,
                             stats,
                             checkpoint,
-                            checkpointFile));
+                            checkpointFile)));
         }
         return resultStream;
     }
@@ -212,10 +216,11 @@ public class TableSnapshot
         return lastCheckpoint.map(LastCheckpoint::getVersion);
     }
 
-    private Stream<DeltaLakeTransactionLogEntry> getCheckpointTransactionLogEntries(
+    private Iterator<DeltaLakeTransactionLogEntry> getCheckpointTransactionLogEntries(
             ConnectorSession session,
             Set<CheckpointEntryIterator.EntryType> entryTypes,
             Optional<MetadataEntry> metadataEntry,
+            Optional<ProtocolEntry> protocolEntry,
             CheckpointSchemaManager checkpointSchemaManager,
             TypeManager typeManager,
             FileFormatDataSourceStats stats,
@@ -230,7 +235,7 @@ public class TableSnapshot
         catch (FileNotFoundException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("%s mentions a non-existent checkpoint file for table: %s", checkpoint, table));
         }
-        return stream(new CheckpointEntryIterator(
+        return new CheckpointEntryIterator(
                 checkpointFile,
                 session,
                 fileSize,
@@ -238,13 +243,14 @@ public class TableSnapshot
                 typeManager,
                 entryTypes,
                 metadataEntry,
+                protocolEntry,
                 stats,
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
-                domainCompactionThreshold));
+                domainCompactionThreshold);
     }
 
-    private MetadataEntry getCheckpointMetadataEntry(
+    private MetadataAndProtocolEntry getCheckpointMetadataAndProtocolEntries(
             ConnectorSession session,
             CheckpointSchemaManager checkpointSchemaManager,
             TypeManager typeManager,
@@ -253,23 +259,46 @@ public class TableSnapshot
             LastCheckpoint checkpoint)
             throws IOException
     {
+        MetadataEntry metadata = null;
+        ProtocolEntry protocol = null;
         for (Location checkpointPath : getCheckpointPartPaths(checkpoint)) {
             TrinoInputFile checkpointFile = fileSystem.newInputFile(checkpointPath);
-            Stream<DeltaLakeTransactionLogEntry> metadataEntries = getCheckpointTransactionLogEntries(
+            Iterator<DeltaLakeTransactionLogEntry> entries = getCheckpointTransactionLogEntries(
                     session,
-                    ImmutableSet.of(METADATA),
+                    ImmutableSet.of(METADATA, PROTOCOL),
+                    Optional.empty(),
                     Optional.empty(),
                     checkpointSchemaManager,
                     typeManager,
                     stats,
                     checkpoint,
                     checkpointFile);
-            Optional<DeltaLakeTransactionLogEntry> metadataEntry = metadataEntries.findFirst();
-            if (metadataEntry.isPresent()) {
-                return metadataEntry.get().getMetaData();
+            while (entries.hasNext()) {
+                DeltaLakeTransactionLogEntry entry = entries.next();
+                if (metadata == null && entry.getMetaData() != null) {
+                    metadata = entry.getMetaData();
+                }
+                if (protocol == null && entry.getProtocol() != null) {
+                    protocol = entry.getProtocol();
+                }
+                if (metadata != null && protocol != null) {
+                    break;
+                }
             }
         }
-        throw new TrinoException(DELTA_LAKE_BAD_DATA, "Checkpoint found without metadata entry: " + checkpoint);
+        if (metadata == null || protocol == null) {
+            throw new TrinoException(DELTA_LAKE_BAD_DATA, "Checkpoint found without metadata and protocol entry: " + checkpoint);
+        }
+        return new MetadataAndProtocolEntry(metadata, protocol);
+    }
+
+    private record MetadataAndProtocolEntry(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
+    {
+        private MetadataAndProtocolEntry
+        {
+            requireNonNull(metadataEntry, "metadataEntry is null");
+            requireNonNull(protocolEntry, "protocolEntry is null");
+        }
     }
 
     private List<Location> getCheckpointPartPaths(LastCheckpoint checkpoint)

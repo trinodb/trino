@@ -148,11 +148,11 @@ public class DeltaLakePageSourceProvider
                 .collect(toImmutableList());
 
         Map<String, Optional<String>> partitionKeys = split.getPartitionKeys();
-        ColumnMappingMode columnMappingMode = getColumnMappingMode(table.getMetadataEntry());
+        ColumnMappingMode columnMappingMode = getColumnMappingMode(table.getMetadataEntry(), table.getProtocolEntry());
         Optional<List<String>> partitionValues = Optional.empty();
         if (deltaLakeColumns.stream().anyMatch(column -> column.getBaseColumnName().equals(ROW_ID_COLUMN_NAME))) {
             partitionValues = Optional.of(new ArrayList<>());
-            for (DeltaLakeColumnMetadata column : extractSchema(table.getMetadataEntry(), typeManager)) {
+            for (DeltaLakeColumnMetadata column : extractSchema(table.getMetadataEntry(), table.getProtocolEntry(), typeManager)) {
                 Optional<String> value = switch (columnMappingMode) {
                     case NONE:
                         yield partitionKeys.get(column.getName());
