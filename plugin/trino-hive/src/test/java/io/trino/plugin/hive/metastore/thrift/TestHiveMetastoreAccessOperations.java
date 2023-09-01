@@ -29,7 +29,6 @@ import org.testng.annotations.Test;
 import java.io.File;
 
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.CREATE_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_DATABASES;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_PARTITIONS_BY_NAMES;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_PARTITION_NAMES_BY_FILTER;
@@ -73,7 +72,7 @@ public class TestHiveMetastoreAccessOperations
     {
         assertMetastoreInvocations("USE " + getSession().getSchema().orElseThrow(),
                 ImmutableMultiset.builder()
-                        .add(GET_ALL_DATABASES)
+                        .add(GET_DATABASE)
                         .build());
     }
 
@@ -220,7 +219,7 @@ public class TestHiveMetastoreAccessOperations
 
         assertMetastoreInvocations("DESCRIBE test_describe",
                 ImmutableMultiset.builder()
-                        .add(GET_ALL_DATABASES)
+                        .add(GET_DATABASE)
                         .add(GET_TABLE)
                         .build());
     }
