@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
@@ -199,7 +200,7 @@ public final class GlueToTrinoConverter
     public static final class GluePartitionConverter
             implements Function<com.amazonaws.services.glue.model.Partition, Partition>
     {
-        private final Function<List<com.amazonaws.services.glue.model.Column>, List<Column>> columnsConverter;
+        private final BiFunction<List<com.amazonaws.services.glue.model.Column>, Boolean, List<Column>> columnsConverter;
         private final Function<Map<String, String>, Map<String, String>> parametersConverter = parametersConverter();
         private final StorageConverter storageConverter = new StorageConverter();
         private final String databaseName;
@@ -212,10 +213,7 @@ public final class GlueToTrinoConverter
             this.databaseName = requireNonNull(table.getDatabaseName(), "databaseName is null");
             this.tableName = requireNonNull(table.getTableName(), "tableName is null");
             this.tableParameters = table.getParameters();
-            this.columnsConverter = memoizeLast(glueColumns -> convertColumns(
-                    table.getSchemaTableName(),
-                    glueColumns,
-                    HiveStorageFormat.CSV.getSerde().equals(table.getStorage().getStorageFormat().getSerde())));
+            this.columnsConverter = memoizeLast((glueColumns, isCsv) -> convertColumns(table.getSchemaTableName(), glueColumns, isCsv));
         }
 
         @Override
@@ -230,11 +228,12 @@ public final class GlueToTrinoConverter
             if (!tableName.equals(gluePartition.getTableName())) {
                 throw new IllegalArgumentException(format("Unexpected tableName, expected: %s, but found: %s", tableName, gluePartition.getTableName()));
             }
+            boolean isCsv = sd.getSerdeInfo() != null && HiveStorageFormat.CSV.getSerde().equals(sd.getSerdeInfo().getSerializationLibrary());
             Partition.Builder partitionBuilder = Partition.builder()
                     .setDatabaseName(databaseName)
                     .setTableName(tableName)
                     .setValues(gluePartition.getValues()) // No memoization benefit
-                    .setColumns(columnsConverter.apply(sd.getColumns()))
+                    .setColumns(columnsConverter.apply(sd.getColumns(), isCsv))
                     .setParameters(parametersConverter.apply(getPartitionParameters(gluePartition)));
 
             storageConverter.setStorageBuilder(sd, partitionBuilder.getStorageBuilder(), tableParameters);
