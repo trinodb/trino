@@ -187,7 +187,7 @@ public abstract class BaseSapHanaConnectorTest
     public void testCharPredicatePushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = new TestTable(server::execute, schemaName + ".test_char_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), schemaName + ".test_char_pushdown",
                 "(char_1 char(1), char_5 char(5), char_10 char(10))", ImmutableList.of("'0', '0', '0'", "'1', '12345', '1234567890'"))) {
             assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE char_1 = '0' AND char_5 = '0'"))
                     .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')")
@@ -446,6 +446,19 @@ public abstract class BaseSapHanaConnectorTest
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return server::execute;
+        return new SqlExecutor()
+        {
+            @Override
+            public void execute(String sql)
+            {
+                server.execute(sql);
+            }
+
+            @Override
+            public boolean supportsMultiRowInsert()
+            {
+                return false;
+            }
+        };
     }
 }
