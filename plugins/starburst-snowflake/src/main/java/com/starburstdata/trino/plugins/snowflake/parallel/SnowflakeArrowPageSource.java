@@ -18,6 +18,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 import net.snowflake.client.core.SFException;
 import net.snowflake.client.core.arrow.ArrowVectorConverter;
 import net.snowflake.client.jdbc.internal.apache.arrow.memory.BufferAllocator;
@@ -39,6 +40,7 @@ import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeParallelSessionProperties.getQuotedIdentifiersIgnoreCase;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -47,6 +49,7 @@ public class SnowflakeArrowPageSource
 {
     private static final RootAllocator ROOT_ALLOCATOR = new RootAllocator();
     private final BufferAllocator bufferAllocator;
+    private final boolean quotedIdentifiersIgnoreCase;
     private final PageBuilder pageBuilder;
     private final List<JdbcColumnHandle> columns;
     private final StarburstDataConversionContext conversionContext;
@@ -56,10 +59,11 @@ public class SnowflakeArrowPageSource
     private long completedBytes;
     private boolean finished;
 
-    public SnowflakeArrowPageSource(SnowflakeArrowSplit split, List<JdbcColumnHandle> columns, StarburstResultStreamProvider streamProvider)
+    public SnowflakeArrowPageSource(ConnectorSession session, SnowflakeArrowSplit split, List<JdbcColumnHandle> columns, StarburstResultStreamProvider streamProvider)
     {
         this.splitRetainedSize = requireNonNull(split, "split is null").getRetainedSizeInBytes();
         this.columns = requireNonNull(columns, "columns is null");
+        this.quotedIdentifiersIgnoreCase = getQuotedIdentifiersIgnoreCase(requireNonNull(session, "session is null"));
 
         this.pageBuilder = new PageBuilder(columns.stream()
                 .map(JdbcColumnHandle::getColumnType)
@@ -186,7 +190,12 @@ public class SnowflakeArrowPageSource
     {
         Map<Integer, Integer> columnToVectorOrder = new HashMap<>();
         for (JdbcColumnHandle column : columns) {
-            ValueVector vector = vectors.stream().filter(valueVector -> column.getColumnName().equals(valueVector.getField().getName()))
+            ValueVector vector = vectors.stream()
+                    .filter(valueVector -> {
+                        String columnName = column.getColumnName();
+                        String vectorName = valueVector.getField().getName();
+                        return quotedIdentifiersIgnoreCase ? columnName.equalsIgnoreCase(vectorName) : columnName.equals(vectorName);
+                    })
                     .findAny()
                     .orElseThrow(() -> new IllegalStateException(
                             "Cannot find corresponding vector for column %s. Trino columns: %s, vectors: %s".formatted(

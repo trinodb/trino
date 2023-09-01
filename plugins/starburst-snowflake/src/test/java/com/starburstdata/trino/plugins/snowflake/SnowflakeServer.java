@@ -13,8 +13,10 @@ import io.airlift.log.Logger;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.function.Consumer;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -74,6 +76,12 @@ public class SnowflakeServer
     public void executeOnDatabase(String database, String... sqls)
             throws SQLException
     {
+        executeOnDatabaseWithResultSetConsumer(database, (rs) -> {}, sqls);
+    }
+
+    public void executeOnDatabaseWithResultSetConsumer(String database, Consumer<ResultSet> consumer, String... sqls)
+            throws SQLException
+    {
         try (Connection conn = getConnection();
                 Statement stmt = conn.createStatement()) {
             LOG.info("Using role: %s, warehouse: %s, database: %s", ROLE, TEST_WAREHOUSE, database);
@@ -85,6 +93,7 @@ public class SnowflakeServer
                 LOG.info("Executing [%s]: %s", USER, sql);
                 stmt.execute(sql);
             }
+            consumer.accept(stmt.getResultSet());
         }
     }
 

@@ -21,6 +21,8 @@ import java.util.Properties;
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcSessionProperties.WAREHOUSE;
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcSessionProperties.getWarehouse;
 import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeParallelSessionProperties.CLIENT_RESULT_CHUNK_SIZE;
+import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeParallelSessionProperties.QUOTED_IDENTIFIERS_IGNORE_CASE;
+import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeParallelSessionProperties.getQuotedIdentifiersIgnoreCase;
 import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeParallelSessionProperties.getResultChunkSize;
 
 public class ParallelWarehouseAwareDriverConnectionFactory
@@ -44,6 +46,7 @@ public class ParallelWarehouseAwareDriverConnectionFactory
         properties.putAll(credentialPropertiesProvider.getCredentialProperties(identity));
         getWarehouse(session).ifPresent(warehouse -> properties.put(WAREHOUSE, warehouse));
         getResultChunkSize(session).ifPresent(chunkSize -> properties.put(CLIENT_RESULT_CHUNK_SIZE, chunkSize.to(DataSize.Unit.MEGABYTE)));
+        properties.put(QUOTED_IDENTIFIERS_IGNORE_CASE, Boolean.toString(getQuotedIdentifiersIgnoreCase(session)));
         return properties;
     }
 }

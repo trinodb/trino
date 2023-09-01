@@ -56,7 +56,7 @@ public class SnowflakePageSourceProvider
             List<JdbcColumnHandle> jdbcColumnHandles = columns.stream()
                     .map(JdbcColumnHandle.class::cast)
                     .collect(toImmutableList());
-            return new SnowflakeArrowPageSource(snowflakeArrowSplit, jdbcColumnHandles, streamProvider);
+            return new SnowflakeArrowPageSource(session, snowflakeArrowSplit, jdbcColumnHandles, streamProvider);
         }
         return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, table, columns));
     }

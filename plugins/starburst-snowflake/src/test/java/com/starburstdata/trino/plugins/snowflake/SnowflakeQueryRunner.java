@@ -46,6 +46,8 @@ public class SnowflakeQueryRunner
 {
     public static final String TPCH_CATALOG = "tpch";
 
+    public static final String SNOWFLAKE_CATALOG = "snowflake";
+
     public static final String TEST_SCHEMA = "test_schema_2";
 
     public static final String ALICE_USER = "alice";
@@ -191,7 +193,7 @@ public class SnowflakeQueryRunner
         private SnowflakeServer server = new SnowflakeServer();
         private Optional<String> warehouseName = Optional.of(TEST_WAREHOUSE);
         private Optional<String> databaseName = Optional.of(TEST_DATABASE);
-        private String catalogName = "snowflake";
+        private String catalogName = SNOWFLAKE_CATALOG;
         private Optional<String> schemaName = Optional.empty();
         private ImmutableMap.Builder<String, String> connectorProperties = ImmutableMap.builder();
         private ImmutableMap.Builder<String, String> extraProperties = ImmutableMap.builder();

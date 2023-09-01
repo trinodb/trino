@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.Properties;
 
 import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeParallelSessionProperties.CLIENT_RESULT_CHUNK_SIZE;
+import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeParallelSessionProperties.QUOTED_IDENTIFIERS_IGNORE_CASE;
+import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeParallelSessionProperties.getQuotedIdentifiersIgnoreCase;
 import static com.starburstdata.trino.plugins.snowflake.parallel.SnowflakeParallelSessionProperties.getResultChunkSize;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -51,6 +53,7 @@ public class ParallelWarehouseAwareDriverPoolingConnectionFactory
                 .putAll(super.getConnectionProperties(session));
         getResultChunkSize(session)
                 .ifPresent(chunkSize -> propertiesBuilder.put(CLIENT_RESULT_CHUNK_SIZE, chunkSize.to(MEGABYTE).toString()));
+        propertiesBuilder.put(QUOTED_IDENTIFIERS_IGNORE_CASE, Boolean.toString(getQuotedIdentifiersIgnoreCase(session)));
         return propertiesBuilder.buildKeepingLast();
     }
 }
