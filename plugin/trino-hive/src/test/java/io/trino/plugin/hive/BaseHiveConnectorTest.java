@@ -233,6 +233,10 @@ public abstract class BaseHiveConnectorTest
                 // This is needed for e2e scale writers test otherwise 50% threshold of
                 // bufferSize won't get exceeded for scaling to happen.
                 .addExtraProperty("task.max-local-exchange-buffer-size", "32MB")
+                // SQL functions
+                .addExtraProperty("sql.path", "hive.functions")
+                .addExtraProperty("sql.default-function-catalog", "hive")
+                .addExtraProperty("sql.default-function-schema", "functions")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .setTpchBucketedCatalogEnabled(true)
                 .build();
@@ -260,6 +264,7 @@ public abstract class BaseHiveConnectorTest
                     SUPPORTS_SET_COLUMN_TYPE,
                     SUPPORTS_TOPN_PUSHDOWN,
                     SUPPORTS_TRUNCATE -> false;
+            case SUPPORTS_CREATE_FUNCTION -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
