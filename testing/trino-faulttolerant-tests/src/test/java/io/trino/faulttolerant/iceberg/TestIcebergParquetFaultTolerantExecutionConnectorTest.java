@@ -55,14 +55,7 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
     }
 
     @Override
-    public void testStatsBasedRepartitionDataOnCtas()
-    {
-        // TODO: figure out why
-        throw new SkipException("We always get 3 partitions with FTE");
-    }
-
-    @Override
-    public void testStatsBasedRepartitionDataOnInsert()
+    public void testStatsBasedRepartitionDataOnCtasAndInsert()
     {
         // TODO: figure out why
         throw new SkipException("We always get 3 partitions with FTE");

@@ -4574,18 +4574,7 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testStatsBasedRepartitionDataOnCtas()
-    {
-        testStatsBasedRepartitionData(true);
-    }
-
-    @Test
-    public void testStatsBasedRepartitionDataOnInsert()
-    {
-        testStatsBasedRepartitionData(false);
-    }
-
-    private void testStatsBasedRepartitionData(boolean ctas)
+    public void testStatsBasedRepartitionDataOnCtasAndInsert()
     {
         String catalog = getSession().getCatalog().orElseThrow();
         try (TestTable sourceTable = new TestTable(
@@ -4605,7 +4594,7 @@ public abstract class BaseIcebergConnectorTest
             testRepartitionData(
                     getSession(),
                     sourceRelation,
-                    ctas,
+                    true,
                     "'orderstatus'",
                     3);
             // Test uses relatively small table (45K rows). When engine doesn't redistribute data for writes,
@@ -4614,7 +4603,24 @@ public abstract class BaseIcebergConnectorTest
                 testRepartitionData(
                         sessionRepartitionMany,
                         sourceRelation,
-                        ctas,
+                        true,
+                        "'orderstatus'",
+                        9);
+            });
+
+            testRepartitionData(
+                    getSession(),
+                    sourceRelation,
+                    false,
+                    "'orderstatus'",
+                    3);
+            // Test uses relatively small table (45K rows). When engine doesn't redistribute data for writes,
+            // occasionally a worker node doesn't get any data and fewer files get created.
+            assertEventually(new Duration(3, MINUTES), () -> {
+                testRepartitionData(
+                        sessionRepartitionMany,
+                        sourceRelation,
+                        false,
                         "'orderstatus'",
                         9);
             });
